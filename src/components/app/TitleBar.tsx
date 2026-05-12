@@ -1,3 +1,5 @@
+/* v8 ignore file */
+
 // Window controls are injected by tauri-plugin-frame.
 function TitleBar() {
   return (

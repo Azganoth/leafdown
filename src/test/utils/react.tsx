@@ -26,10 +26,7 @@ function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
   });
 }
 
-function renderWithUser(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, "wrapper">,
-) {
+function renderWithUser(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
   return {
     user: userEvent.setup(),
     ...render(ui, options),

@@ -27,10 +27,6 @@ export const useSettingsStore = create<SettingsStore>()(
   })),
 );
 
-export const settingsStoreTauriHandler = createTauriStore(
-  "settings",
-  useSettingsStore as never,
-  {
-    saveOnChange: true,
-  },
-);
+export const settingsStoreTauriHandler = createTauriStore("settings", useSettingsStore as never, {
+  saveOnChange: true,
+});

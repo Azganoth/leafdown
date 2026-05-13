@@ -41,6 +41,5 @@ if (typeof HTMLElement !== "undefined") {
   HTMLElement.prototype.hasPointerCapture ??= function hasPointerCapture() {
     return false;
   };
-  HTMLElement.prototype.releasePointerCapture ??=
-    function releasePointerCapture() {};
+  HTMLElement.prototype.releasePointerCapture ??= function releasePointerCapture() {};
 }

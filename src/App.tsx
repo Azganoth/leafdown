@@ -1,11 +1,7 @@
 import "@/App.css";
 import { TitleBar } from "@/components/app/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
-import {
-  settingsStoreTauriHandler,
-  useSettingsStore,
-  type SettingsStore,
-} from "@/stores/settings";
+import { settingsStoreTauriHandler, useSettingsStore, type SettingsStore } from "@/stores/settings";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
@@ -16,9 +12,7 @@ const updateTheme = async (theme: SettingsStore["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
   const isDark =
-    theme === "system"
-      ? (await getCurrentWindow().theme()) === "dark"
-      : theme === "dark";
+    theme === "system" ? (await getCurrentWindow().theme()) === "dark" : theme === "dark";
   window.document.documentElement.classList.toggle("dark", isDark);
 };
 
@@ -48,11 +42,7 @@ function App() {
       <main className="mt-8 flex-1 overflow-hidden p-4">
         <span>Hallo!</span>
         <button
-          onClick={() =>
-            useSettingsStore
-              .getState()
-              .setTheme(theme === "dark" ? "light" : "dark")
-          }
+          onClick={() => useSettingsStore.getState().setTheme(theme === "dark" ? "light" : "dark")}
         >
           Toggle theme: {theme}
         </button>

@@ -1,0 +1,40 @@
+name: Feature
+description: Implement a product or technical feature
+title: "[Feature] "
+labels: ["Feature"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What should be implemented?
+    validations:
+      required: true
+
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected behavior
+      description: What should the user or system be able to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs
+    attributes:
+      label: Related docs
+      description: Link relevant docs sections, or decisions.
+      placeholder: docs/specification.md#file-workflows
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checklist for completion.
+      placeholder: |
+        - [ ] Behavior implemented
+        - [ ] Error states handled
+        - [ ] Tests/manual checks done
+        - [ ] Docs updated if needed
+    validations:
+      required: true

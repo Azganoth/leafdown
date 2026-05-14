@@ -1,0 +1,32 @@
+name: Documentation
+description: Update project documentation
+title: "[Documentation] "
+labels: ["Documentation"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What doc change is needed?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: doc
+    attributes:
+      label: Document
+      options:
+        - docs/specification.md
+        - docs/architecture.md
+        - docs/decisions.md
+        - docs/mvp.md
+        - docs/backlog.md
+        - docs/README.md
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason

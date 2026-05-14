@@ -1,6 +1,5 @@
 name: Documentation
 description: Update project documentation
-title: "[Documentation] "
 labels: ["Documentation"]
 body:
   - type: textarea

@@ -1,6 +1,5 @@
 name: Feature
 description: Implement a product or technical feature
-title: "[Feature] "
 labels: ["Feature"]
 body:
   - type: textarea

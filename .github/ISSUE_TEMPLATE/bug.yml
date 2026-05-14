@@ -1,6 +1,5 @@
 name: Bug
 description: Track a defect in Leafdown
-title: "[Bug] "
 labels: ["Bug"]
 body:
   - type: textarea

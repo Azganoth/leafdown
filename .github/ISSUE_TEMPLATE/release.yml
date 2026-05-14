@@ -1,6 +1,5 @@
 name: Release
 description: Coordinate a Leafdown release
-title: "[Release] "
 labels: ["Release"]
 body:
   - type: input

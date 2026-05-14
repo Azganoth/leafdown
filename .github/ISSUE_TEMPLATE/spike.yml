@@ -1,6 +1,5 @@
 name: Spike
 description: Investigate an uncertain question before committing implementation
-title: "[Spike] "
 labels: ["Spike"]
 body:
   - type: textarea

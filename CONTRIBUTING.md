@@ -125,7 +125,7 @@ Pull Request requirements:
 - Update documentation when behavior, architecture, or release scope changes.
 - Document testing notes, trade-offs, or follow-up work.
 
-Verify changes locally before merging (run `pnpm check` for cross-cutting updates).
+Verify changes locally before merging (run `pnpm check` for cross-cutting updates). For manual testing of the editor and file-tree, generate the local sample workspace by running `pnpm sample` and open the `sample/` directory in the app.
 
 ## Local Hooks
 

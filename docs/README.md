@@ -28,3 +28,7 @@ Decisions use a lightweight ADR format:
 - `Decision`
 - `Rationale`
 - `Consequences`
+
+## Development Fixtures
+
+- [`../sample/`](../sample/): manual development workspace for testing Markdown rendering, file-tree scanning, local images/links, and loading edge cases. This directory is not committed; generate it locally by running `pnpm sample`.

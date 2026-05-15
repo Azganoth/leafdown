@@ -101,3 +101,15 @@ Write document to new path -> Update active document path -> Refresh folder cont
 - Relative link/image resolution, remote-image blocking, and outside-folder confirmation.
 - Raw HTML sanitization and script execution prevention.
 - Context popup layout and caret-based marker visibility.
+
+## Development Fixtures
+
+The repository keeps manual development content in [`../sample/`](../sample/).
+Open that folder in Leafdown while iterating on folder scans, editor rendering,
+local link/image handling, and loading error states.
+
+The sample folder complements automated tests with ordinary files that exercise
+documented behavior: nested supported Markdown files, ignored and non-Markdown
+entries, local and outside-folder references, a local image, mixed line endings,
+invalid UTF-8, and the oversized-file limit. Keep the fixtures aligned with the
+specification when those behaviors change.

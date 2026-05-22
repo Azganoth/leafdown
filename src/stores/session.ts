@@ -1,8 +1,30 @@
 import { create } from "zustand";
 
-export interface FolderContextState {
-  status: "available";
+export interface MarkdownFolderTree {
+  name: string;
   path: string;
+  children: MarkdownFolderTreeNode[];
+}
+
+export interface MarkdownFolderDirectoryNode {
+  kind: "directory";
+  name: string;
+  path: string;
+  children: MarkdownFolderTreeNode[];
+}
+
+export interface MarkdownFolderFileNode {
+  kind: "file";
+  name: string;
+  path: string;
+}
+
+export type MarkdownFolderTreeNode = MarkdownFolderDirectoryNode | MarkdownFolderFileNode;
+
+export interface FolderContextState {
+  status: "available" | "empty";
+  path: string;
+  tree: MarkdownFolderTree;
 }
 
 export type LineEnding = "crlf" | "lf";
@@ -31,6 +53,7 @@ export type SessionShellMode = "document" | "folder-only" | "welcome";
 
 export interface SessionStore extends SessionState {
   setFolderContext: (folderContext: FolderContextState | null) => void;
+  setFolderSession: (folderContext: FolderContextState) => void;
   setActiveDocument: (activeDocument: ActiveDocumentState | null) => void;
   setDocumentSession: (
     folderContext: FolderContextState | null,
@@ -56,6 +79,7 @@ export const useSessionStore = create<SessionStore>()((set) => ({
   ...initialSessionState,
 
   setFolderContext: (folderContext) => set({ folderContext }),
+  setFolderSession: (folderContext) => set({ activeDocument: null, folderContext }),
   setActiveDocument: (activeDocument) => set({ activeDocument }),
   setDocumentSession: (folderContext, activeDocument) => set({ folderContext, activeDocument }),
   reset: () => set(initialSessionState),

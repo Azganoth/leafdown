@@ -1,3 +1,4 @@
+import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
 import { openMarkdownFile } from "@/lib/openMarkdownFile";
 import { getSessionShellMode, useSessionStore, type SavedDocumentState } from "@/stores/session";
 import { FileText, FolderOpen } from "lucide-react";
@@ -7,6 +8,11 @@ function WelcomeState() {
   const handleOpenFile = () => {
     void openMarkdownFile().catch(() => {
       toast.error("Could not open Markdown file.");
+    });
+  };
+  const handleOpenFolder = () => {
+    void openMarkdownFolder().catch(() => {
+      toast.error("Could not open folder.");
     });
   };
 
@@ -34,6 +40,7 @@ function WelcomeState() {
           </button>
           <button
             type="button"
+            onClick={handleOpenFolder}
             className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium text-card-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <FolderOpen aria-hidden="true" className="size-4" />

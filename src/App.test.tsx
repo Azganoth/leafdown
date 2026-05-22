@@ -13,6 +13,18 @@ import { settingsStoreTauriHandler } from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
+const notesFolderTree = {
+  name: "Notes",
+  path: "C:/Notes",
+  children: [
+    {
+      kind: "file" as const,
+      name: "readme.md",
+      path: "C:/Notes/readme.md",
+    },
+  ],
+};
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -78,7 +90,9 @@ describe("App", () => {
   });
 
   it("renders a folder-only document placeholder without an active document host", () => {
-    setDefaultSession({ folderContext: { status: "available", path: "C:/Notes" } });
+    setDefaultSession({
+      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+    });
 
     render(<App />);
 
@@ -110,12 +124,17 @@ describe("App", () => {
 
   it("opens a selected Markdown file into a saved document session", async () => {
     vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
-    vi.mocked(invoke).mockResolvedValue({
+    vi.mocked(invoke).mockResolvedValueOnce({
       path: "C:/Notes/readme.md",
       parentFolderPath: "C:/Notes",
       content: "# Notes\n",
       lineEnding: "lf",
       metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: notesFolderTree,
+      isEmpty: false,
     });
 
     const { user } = renderWithUser(<App />);
@@ -123,9 +142,12 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Open file" }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("open_markdown_file", {
+      expect(invoke).toHaveBeenNthCalledWith(1, "open_markdown_file", {
         path: "C:/Notes/readme.md",
       });
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
+      path: "C:/Notes",
     });
 
     expect(open).toHaveBeenCalledWith({
@@ -146,10 +168,113 @@ describe("App", () => {
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
+  it("opens a selected folder index into a saved document session", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Notes");
+    vi.mocked(invoke).mockResolvedValue({
+      folder: {
+        path: "C:/Notes",
+        tree: notesFolderTree,
+        isEmpty: false,
+      },
+      indexDocument: {
+        path: "C:/Notes/readme.md",
+        content: "# Notes\n",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open folder" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("open_markdown_folder", {
+        path: "C:/Notes",
+      });
+    });
+
+    expect(open).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes\n",
+      },
+    });
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("opens selected folders without a root index as folder-only sessions", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Notes");
+    vi.mocked(invoke).mockResolvedValue({
+      folder: {
+        path: "C:/Notes",
+        tree: notesFolderTree,
+        isEmpty: false,
+      },
+      indexDocument: null,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open folder" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("No document open")).toBeInTheDocument();
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+      activeDocument: null,
+    });
+  });
+
+  it("tracks selected folders with no Markdown files as empty folder contexts", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Empty");
+    vi.mocked(invoke).mockResolvedValue({
+      folder: {
+        path: "C:/Empty",
+        tree: { name: "Empty", path: "C:/Empty", children: [] },
+        isEmpty: true,
+      },
+      indexDocument: null,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open folder" }));
+
+    await waitFor(() => {
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: { status: "empty", path: "C:/Empty" },
+        activeDocument: null,
+      });
+    });
+    expect(screen.getByText("No document open")).toBeInTheDocument();
+  });
+
   it("keeps the welcome session when file selection is cancelled", async () => {
     const { user } = renderWithUser(<App />);
 
     await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    expect(open).toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("keeps the welcome session when folder selection is cancelled", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open folder" }));
 
     expect(open).toHaveBeenCalled();
     expect(invoke).not.toHaveBeenCalled();
@@ -177,6 +302,25 @@ describe("App", () => {
       activeDocument: null,
     });
     expect(toast.error).toHaveBeenCalledWith("Could not open Markdown file.");
+  });
+
+  it("does not partially update the session when selected folder opening fails", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Notes");
+    vi.mocked(invoke).mockRejectedValue({ kind: "scanFailed" });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open folder" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalled();
+    });
+
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
+    expect(toast.error).toHaveBeenCalledWith("Could not open folder.");
   });
 
   it("suppresses default window drag-and-drop navigation", () => {

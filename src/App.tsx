@@ -1,4 +1,5 @@
 import "@/App.css";
+import { SessionShell } from "@/components/app/SessionShell";
 import { TitleBar } from "@/components/app/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
 import { settingsStoreTauriHandler, useSettingsStore, type SettingsStore } from "@/stores/settings";
@@ -30,6 +31,20 @@ function App() {
     initializeApp();
   }, []);
 
+  useEffect(() => {
+    const preventDropNavigation = (event: DragEvent) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener("dragover", preventDropNavigation);
+    window.addEventListener("drop", preventDropNavigation);
+
+    return () => {
+      window.removeEventListener("dragover", preventDropNavigation);
+      window.removeEventListener("drop", preventDropNavigation);
+    };
+  }, []);
+
   const theme = useSettingsStore((state) => state.theme);
 
   useEffect(() => {
@@ -37,16 +52,9 @@ function App() {
   }, [theme]);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
-      <main className="mt-8 flex-1 overflow-hidden p-4">
-        <span>Hallo!</span>
-        <button
-          onClick={() => useSettingsStore.getState().setTheme(theme === "dark" ? "light" : "dark")}
-        >
-          Toggle theme: {theme}
-        </button>
-      </main>
+      <SessionShell />
       <Toaster />
     </div>
   );

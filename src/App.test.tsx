@@ -1,35 +1,19 @@
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/components/layout/TitleBar", () => ({
-  TitleBar: () => <header>DAO Toolkit</header>,
-}));
-
-vi.mock("@/features/chargen/ChargenGenerator", () => ({
-  ChargenGenerator: () => <section>Chargen panel</section>,
-}));
-
-vi.mock("@/features/settings/Settings", () => ({
-  Settings: () => <section>Settings panel</section>,
-}));
-
-vi.mock("@/features/conflicts/Conflicts", () => ({
-  Conflicts: () => <section>Conflicts panel</section>,
-}));
-
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import App from "./App";
 import { settingsStoreTauriHandler } from "./stores/settings";
-import { render } from "./test/utils/react";
-import { setDefaultSettings } from "./test/utils/stores";
+import { render, screen } from "./test/utils/react";
+import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.documentElement.className = "";
-    setDefaultSettings();
+    resetAppStores();
   });
 
   it("starts persisted stores, initializes settings, applies the theme, and shows the window", async () => {
@@ -72,5 +56,52 @@ describe("App", () => {
     });
 
     expect(document.documentElement).not.toHaveClass("dark");
+  });
+
+  it("renders the welcome shell with MVP region hosts and empty recent lists", () => {
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Open file" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
+    expect(screen.getByText("No recent files.")).toBeInTheDocument();
+    expect(screen.getByText("No recent folders.")).toBeInTheDocument();
+    expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
+    expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+    expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
+    expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
+  });
+
+  it("renders a folder-only document placeholder without an active document host", () => {
+    setDefaultSession({ folderContext: { status: "available" } });
+
+    render(<App />);
+
+    expect(screen.getByText("No document open")).toBeInTheDocument();
+    expect(
+      screen.getByText("Select a Markdown file from the sidebar or create a new document."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+  });
+
+  it("renders the active document surface host for document sessions", () => {
+    setDefaultSession({ activeDocument: { status: "active" } });
+
+    render(<App />);
+
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    expect(screen.queryByText("No document open")).not.toBeInTheDocument();
+  });
+
+  it("suppresses default window drag-and-drop navigation", () => {
+    render(<App />);
+
+    const dragOverEvent = new Event("dragover", { cancelable: true });
+    const dropEvent = new Event("drop", { cancelable: true });
+
+    window.dispatchEvent(dragOverEvent);
+    window.dispatchEvent(dropEvent);
+
+    expect(dragOverEvent.defaultPrevented).toBe(true);
+    expect(dropEvent.defaultPrevented).toBe(true);
   });
 });

@@ -12,14 +12,14 @@ permissions:
 jobs:
   release-windows:
     name: Build Windows installers
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           run_install: false
 
@@ -31,14 +31,16 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Rust
-        run: |
-          rustup toolchain install stable --profile minimal
-          rustup toolchain install nightly --profile minimal --component rustfmt
+        run: rustup toolchain install stable --profile minimal
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+
+      # Nightly is only needed by rustfmt, so keep it out of the build cache key.
+      - name: Setup nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

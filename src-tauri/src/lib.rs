@@ -1,6 +1,8 @@
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
+mod document;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -21,6 +23,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
+        .invoke_handler(tauri::generate_handler![document::open_markdown_file])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

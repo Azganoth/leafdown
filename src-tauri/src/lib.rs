@@ -2,6 +2,7 @@ use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
 mod document;
+mod folder;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,7 +24,11 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
-        .invoke_handler(tauri::generate_handler![document::open_markdown_file])
+        .invoke_handler(tauri::generate_handler![
+            document::open_markdown_file,
+            folder::scan_markdown_folder,
+            folder::open_markdown_folder
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

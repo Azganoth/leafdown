@@ -9,7 +9,7 @@ import {
 import type { CSSProperties } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-const Toaster = ({ ...props }: ToasterProps) => {
+function Toaster(props: ToasterProps) {
   const theme = useSettingsStore((state) => state.theme);
 
   return (
@@ -34,6 +34,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       {...props}
     />
   );
-};
+}
 
 export { Toaster };

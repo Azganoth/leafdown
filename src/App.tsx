@@ -2,14 +2,14 @@ import "@/App.css";
 import { SessionShell } from "@/components/app/SessionShell";
 import { TitleBar } from "@/components/app/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
-import { settingsStoreTauriHandler, useSettingsStore, type SettingsStore } from "@/stores/settings";
+import { settingsStoreTauriHandler, useSettingsStore, type SettingsState } from "@/stores/settings";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
 
-const updateTheme = async (theme: SettingsStore["theme"]) => {
+const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
   const isDark =
@@ -28,7 +28,7 @@ function App() {
       await getCurrentWindow().show();
     };
 
-    initializeApp();
+    void initializeApp().catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -60,4 +60,4 @@ function App() {
   );
 }
 
-export default App;
+export { App };

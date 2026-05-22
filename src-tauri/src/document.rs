@@ -7,9 +7,11 @@ use std::{
 
 use serde::Serialize;
 
+pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenMarkdownFileResult {
+pub(crate) struct OpenMarkdownFileResult {
     pub path: String,
     pub parent_folder_path: String,
     pub content: String,
@@ -18,7 +20,7 @@ pub struct OpenMarkdownFileResult {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub enum LineEnding {
+pub(crate) enum LineEnding {
     #[serde(rename = "lf")]
     Lf,
     #[serde(rename = "crlf")]
@@ -27,14 +29,14 @@ pub enum LineEnding {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FileMetadataSnapshot {
+pub(crate) struct FileMetadataSnapshot {
     pub size_bytes: u64,
     pub modified_at_unix_ms: u64,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum OpenMarkdownFileError {
+pub(crate) enum OpenMarkdownFileError {
     UnsupportedFileType { path: String },
     MissingParentFolder { path: String },
     ReadFailed { path: String, message: String },
@@ -42,11 +44,15 @@ pub enum OpenMarkdownFileError {
 }
 
 #[tauri::command]
-pub fn open_markdown_file(path: String) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
+pub(crate) fn open_markdown_file(
+    path: String,
+) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     read_markdown_file(PathBuf::from(path).as_path())
 }
 
-fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
+pub(crate) fn read_markdown_file(
+    path: &Path,
+) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let serialized_path = path_to_string(path);
 
     if !is_supported_markdown_path(path) {
@@ -100,12 +106,16 @@ fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdow
     })
 }
 
-fn is_supported_markdown_path(path: &Path) -> bool {
+pub(crate) fn is_supported_markdown_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            extension.eq_ignore_ascii_case("md") || extension.eq_ignore_ascii_case("markdown")
-        })
+        .is_some_and(is_supported_markdown_extension)
+}
+
+fn is_supported_markdown_extension(extension: &str) -> bool {
+    MARKDOWN_FILE_EXTENSIONS
+        .iter()
+        .any(|supported_extension| supported_extension.eq_ignore_ascii_case(extension))
 }
 
 fn detect_line_ending(content: &str) -> Option<LineEnding> {

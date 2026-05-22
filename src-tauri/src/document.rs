@@ -46,7 +46,9 @@ pub fn open_markdown_file(path: String) -> Result<OpenMarkdownFileResult, OpenMa
     read_markdown_file(PathBuf::from(path).as_path())
 }
 
-fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
+pub(crate) fn read_markdown_file(
+    path: &Path,
+) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let serialized_path = path_to_string(path);
 
     if !is_supported_markdown_path(path) {

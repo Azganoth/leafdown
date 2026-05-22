@@ -5,7 +5,10 @@ use std::{
 
 use serde::Serialize;
 
-use crate::document::{is_supported_markdown_path, path_to_string};
+use crate::document::{
+    is_supported_markdown_path, path_to_string, read_markdown_file, OpenMarkdownFileError,
+    OpenMarkdownFileResult,
+};
 
 const DEFAULT_IGNORED_DIRECTORIES: [&str; 8] = [
     ".git",
@@ -17,6 +20,7 @@ const DEFAULT_IGNORED_DIRECTORIES: [&str; 8] = [
     "build",
     ".cache",
 ];
+const DEFAULT_INDEX_FILE_NAMES: [&str; 2] = ["readme", "index"];
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +28,13 @@ pub struct MarkdownFolderScanResult {
     pub path: String,
     pub tree: MarkdownFolderTree,
     pub is_empty: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenMarkdownFolderResult {
+    pub folder: MarkdownFolderScanResult,
+    pub index_document: Option<OpenMarkdownFileResult>,
 }
 
 #[derive(Debug, Serialize)]
@@ -57,6 +68,13 @@ pub enum ScanMarkdownFolderError {
     DirectoryEntryFailed { path: String, message: String },
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum OpenMarkdownFolderError {
+    ScanFailed { error: ScanMarkdownFolderError },
+    IndexOpenFailed { error: OpenMarkdownFileError },
+}
+
 #[derive(Clone, Copy)]
 enum ScanDepth {
     Recursive,
@@ -72,6 +90,38 @@ pub fn scan_markdown_folder(
         PathBuf::from(path).as_path(),
         ignored_directories.unwrap_or_else(default_ignored_directories),
     )
+}
+
+#[tauri::command]
+pub fn open_markdown_folder(
+    path: String,
+    index_file_names: Option<Vec<String>>,
+    ignored_directories: Option<Vec<String>>,
+) -> Result<OpenMarkdownFolderResult, OpenMarkdownFolderError> {
+    open_folder(
+        PathBuf::from(path).as_path(),
+        index_file_names.unwrap_or_else(default_index_file_names),
+        ignored_directories.unwrap_or_else(default_ignored_directories),
+    )
+}
+
+fn open_folder(
+    path: &Path,
+    index_file_names: Vec<String>,
+    ignored_directories: Vec<String>,
+) -> Result<OpenMarkdownFolderResult, OpenMarkdownFolderError> {
+    let folder = scan_folder(path, ignored_directories)
+        .map_err(|error| OpenMarkdownFolderError::ScanFailed { error })?;
+    let index_path = find_root_index_path(&folder.tree, index_file_names.as_slice());
+    let index_document = index_path
+        .map(|index_path| read_markdown_file(Path::new(index_path)))
+        .transpose()
+        .map_err(|error| OpenMarkdownFolderError::IndexOpenFailed { error })?;
+
+    Ok(OpenMarkdownFolderResult {
+        folder,
+        index_document,
+    })
 }
 
 fn scan_folder(
@@ -196,6 +246,51 @@ fn default_ignored_directories() -> Vec<String> {
         .collect()
 }
 
+fn default_index_file_names() -> Vec<String> {
+    DEFAULT_INDEX_FILE_NAMES
+        .into_iter()
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn find_root_index_path<'a>(
+    tree: &'a MarkdownFolderTree,
+    index_file_names: &[String],
+) -> Option<&'a str> {
+    for index_file_name in index_file_names {
+        for extension in ["md", "markdown"] {
+            let index_path = tree.children.iter().find_map(|child| match child {
+                MarkdownFolderTreeNode::File { name, path }
+                    if is_index_file(name, index_file_name, extension) =>
+                {
+                    Some(path.as_str())
+                }
+                MarkdownFolderTreeNode::Directory { .. } | MarkdownFolderTreeNode::File { .. } => {
+                    None
+                }
+            });
+
+            if index_path.is_some() {
+                return index_path;
+            }
+        }
+    }
+
+    None
+}
+
+fn is_index_file(file_name: &str, index_file_name: &str, extension: &str) -> bool {
+    let path = Path::new(file_name);
+
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .is_some_and(|stem| stem.eq_ignore_ascii_case(index_file_name))
+        && path
+            .extension()
+            .and_then(|candidate_extension| candidate_extension.to_str())
+            .is_some_and(|candidate_extension| candidate_extension.eq_ignore_ascii_case(extension))
+}
+
 fn file_name_to_string(path: &Path) -> String {
     path.file_name()
         .unwrap_or(path.as_os_str())
@@ -237,8 +332,8 @@ mod tests {
     };
 
     use super::{
-        default_ignored_directories, scan_folder, scan_folder_with_depth, MarkdownFolderTree,
-        MarkdownFolderTreeNode, ScanDepth,
+        default_ignored_directories, open_folder, scan_folder, scan_folder_with_depth,
+        MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
     };
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -368,6 +463,67 @@ mod tests {
 
         assert!(!tree_has_directory(&result.tree, "linked-folder"));
         assert!(!tree_has_file(&result.tree, "linked.md"));
+    }
+
+    #[test]
+    fn opens_root_indexes_in_configured_name_order() {
+        let root = TestDirectory::new("open-index-order");
+        root.write_file("readme.md");
+        let expected_index = root.write_file("INDEX.markdown");
+        root.write_file("nested/index.md");
+
+        let result = open_folder(
+            &root.path,
+            vec!["index".to_owned(), "readme".to_owned()],
+            default_ignored_directories(),
+        )
+        .expect("folder with indexes should open");
+
+        assert_eq!(
+            result
+                .index_document
+                .expect("configured index should open")
+                .path,
+            expected_index.to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn prefers_md_indexes_over_markdown_indexes() {
+        let root = TestDirectory::new("open-index-extension");
+        root.write_file("readme.markdown");
+        let expected_index = root.write_file("README.MD");
+
+        let result = open_folder(
+            &root.path,
+            vec!["readme".to_owned()],
+            default_ignored_directories(),
+        )
+        .expect("folder with same-name indexes should open");
+
+        assert_eq!(
+            result
+                .index_document
+                .expect("Markdown index should open")
+                .path,
+            expected_index.to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn opens_folder_contexts_without_root_indexes() {
+        let root = TestDirectory::new("open-folder-only");
+        root.write_file("nested/index.md");
+
+        let result = open_folder(
+            &root.path,
+            vec!["index".to_owned()],
+            default_ignored_directories(),
+        )
+        .expect("folder without a root index should open");
+
+        assert!(result.index_document.is_none());
+        assert!(!result.folder.is_empty);
     }
 
     fn tree_has_directory(tree: &MarkdownFolderTree, name: &str) -> bool {

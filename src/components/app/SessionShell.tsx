@@ -1,7 +1,12 @@
+import { openMarkdownFile } from "@/lib/openMarkdownFile";
 import { getSessionShellMode, useSessionStore } from "@/stores/session";
 import { FileText, FolderOpen } from "lucide-react";
 
 function WelcomeState() {
+  const handleOpenFile = () => {
+    void openMarkdownFile().catch(() => undefined);
+  };
+
   return (
     <section
       aria-labelledby="welcome-title"
@@ -18,6 +23,7 @@ function WelcomeState() {
         <div className="mt-8 flex flex-wrap gap-3">
           <button
             type="button"
+            onClick={handleOpenFile}
             className="inline-flex h-10 items-center gap-2 rounded-md border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             <FileText aria-hidden="true" className="size-4" />

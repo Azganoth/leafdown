@@ -1,6 +1,11 @@
 import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
 import { openMarkdownFile } from "@/lib/openMarkdownFile";
-import { getSessionShellMode, useSessionStore, type SavedDocumentState } from "@/stores/session";
+import {
+  getSessionShellMode,
+  useSessionStore,
+  type SavedDocumentState,
+  getFolderContextStatus,
+} from "@/stores/session";
 import { FileText, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
@@ -157,10 +162,12 @@ function SessionShell() {
           className="min-w-0 flex-1 overflow-auto bg-background"
         >
           {shellMode === "welcome" && <WelcomeState />}
-          {shellMode === "folder-only" && folderContext?.status === "empty" && <EmptyFolderState />}
-          {shellMode === "folder-only" && folderContext?.status === "available" && (
-            <FolderOnlyState />
-          )}
+          {shellMode === "folder-only" &&
+            folderContext &&
+            getFolderContextStatus(folderContext) === "empty" && <EmptyFolderState />}
+          {shellMode === "folder-only" &&
+            folderContext &&
+            getFolderContextStatus(folderContext) === "available" && <FolderOnlyState />}
           {activeDocument && <DocumentState document={activeDocument} />}
         </main>
       </div>

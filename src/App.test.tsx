@@ -2,16 +2,22 @@ import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setTheme } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { open } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 
 import App from "./App";
+import { useSessionStore } from "./stores/session";
 import { settingsStoreTauriHandler } from "./stores/settings";
-import { render, screen } from "./test/utils/react";
+import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(invoke).mockReset();
+    vi.mocked(open).mockResolvedValue(null);
     document.documentElement.className = "";
     resetAppStores();
   });
@@ -72,7 +78,7 @@ describe("App", () => {
   });
 
   it("renders a folder-only document placeholder without an active document host", () => {
-    setDefaultSession({ folderContext: { status: "available" } });
+    setDefaultSession({ folderContext: { status: "available", path: "C:/Notes" } });
 
     render(<App />);
 
@@ -84,12 +90,93 @@ describe("App", () => {
   });
 
   it("renders the active document surface host for document sessions", () => {
-    setDefaultSession({ activeDocument: { status: "active" } });
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
 
     render(<App />);
 
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    expect(screen.getByText("Document open")).toBeInTheDocument();
+    expect(screen.getByText("C:/Notes/readme.md")).toBeInTheDocument();
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();
+  });
+
+  it("opens a selected Markdown file into a saved document session", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
+    vi.mocked(invoke).mockResolvedValue({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      content: "# Notes\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("open_markdown_file", {
+        path: "C:/Notes/readme.md",
+      });
+    });
+
+    expect(open).toHaveBeenCalledWith({
+      directory: false,
+      filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+      multiple: false,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { status: "available", path: "C:/Notes" },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes\n",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("keeps the welcome session when file selection is cancelled", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    expect(open).toHaveBeenCalled();
+    expect(invoke).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("does not partially update the session when selected file opening fails", async () => {
+    vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
+    vi.mocked(invoke).mockRejectedValue({ kind: "readFailed" });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalled();
+    });
+
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
+    expect(toast.error).toHaveBeenCalledWith("Could not open Markdown file.");
   });
 
   it("suppresses default window drag-and-drop navigation", () => {

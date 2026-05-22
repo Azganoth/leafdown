@@ -100,7 +100,7 @@ fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdow
     })
 }
 
-fn is_supported_markdown_path(path: &Path) -> bool {
+pub(crate) fn is_supported_markdown_path(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| {
@@ -135,7 +135,7 @@ fn detect_line_ending(content: &str) -> Option<LineEnding> {
     }
 }
 
-fn path_to_string(path: &Path) -> String {
+pub(crate) fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 

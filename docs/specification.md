@@ -52,6 +52,8 @@ Primary user interface surfaces:
 - **Document surface:** contains the active hybrid Markdown editor. In a folder-only session, it displays a centered placeholder illustration/text prompting the user to select a file from the sidebar or create a new file.
 - **File tree sidebar:** shows supported Markdown files from the current folder
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
+  Non-ignored directories may appear even when they have no supported Markdown
+  files. Folder scans skip symlinked entries rather than following them.
   The sidebar is read-only for folder navigation in the MVP; file creation, renaming,
   and deletion must be managed through the OS file explorer or via document saving workflows.
 - **Context popup:** provides quick document actions from selection or

@@ -254,7 +254,9 @@ describe("App", () => {
         activeDocument: null,
       });
     });
-    expect(screen.getByText("No document open")).toBeInTheDocument();
+    expect(screen.getByText("No Markdown files found")).toBeInTheDocument();
+    expect(screen.getByText("Create a new document or open another folder.")).toBeInTheDocument();
+    expect(screen.queryByText("No document open")).not.toBeInTheDocument();
   });
 
   it("keeps the welcome session when file selection is cancelled", async () => {

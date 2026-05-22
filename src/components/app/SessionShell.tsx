@@ -88,6 +88,27 @@ function FolderOnlyState() {
   );
 }
 
+function EmptyFolderState() {
+  return (
+    <section
+      aria-labelledby="empty-folder-title"
+      className="flex min-h-full items-center justify-center px-8 py-10"
+    >
+      <div className="max-w-md text-center">
+        <span className="mx-auto flex size-14 items-center justify-center rounded-md border border-border bg-card text-muted-foreground">
+          <FolderOpen aria-hidden="true" className="size-7" />
+        </span>
+        <h2 id="empty-folder-title" className="mt-5 text-xl font-semibold">
+          No Markdown files found
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Create a new document or open another folder.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 interface DocumentStateProps {
   document: SavedDocumentState;
 }
@@ -113,6 +134,7 @@ function DocumentState({ document }: DocumentStateProps) {
 function SessionShell() {
   const shellMode = useSessionStore(getSessionShellMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
+  const folderContext = useSessionStore((state) => state.folderContext);
 
   return (
     <div className="relative mt-8 flex min-h-0 flex-1 flex-col" data-session-mode={shellMode}>
@@ -135,7 +157,10 @@ function SessionShell() {
           className="min-w-0 flex-1 overflow-auto bg-background"
         >
           {shellMode === "welcome" && <WelcomeState />}
-          {shellMode === "folder-only" && <FolderOnlyState />}
+          {shellMode === "folder-only" && folderContext?.status === "empty" && <EmptyFolderState />}
+          {shellMode === "folder-only" && folderContext?.status === "available" && (
+            <FolderOnlyState />
+          )}
           {activeDocument && <DocumentState document={activeDocument} />}
         </main>
       </div>

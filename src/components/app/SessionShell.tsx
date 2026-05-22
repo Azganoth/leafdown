@@ -1,10 +1,13 @@
 import { openMarkdownFile } from "@/lib/openMarkdownFile";
-import { getSessionShellMode, useSessionStore } from "@/stores/session";
+import { getSessionShellMode, useSessionStore, type SavedDocumentState } from "@/stores/session";
 import { FileText, FolderOpen } from "lucide-react";
+import { toast } from "sonner";
 
 function WelcomeState() {
   const handleOpenFile = () => {
-    void openMarkdownFile().catch(() => undefined);
+    void openMarkdownFile().catch(() => {
+      toast.error("Could not open Markdown file.");
+    });
   };
 
   return (
@@ -78,18 +81,31 @@ function FolderOnlyState() {
   );
 }
 
-function DocumentState() {
+interface DocumentStateProps {
+  document: SavedDocumentState;
+}
+
+function DocumentState({ document }: DocumentStateProps) {
   return (
     <section
       aria-label="Active document"
       data-testid="active-document-host"
-      className="min-h-full w-full bg-background"
-    />
+      className="flex min-h-full w-full items-center justify-center bg-background px-8 py-10"
+    >
+      <div className="max-w-xl text-center">
+        <FileText aria-hidden="true" className="mx-auto size-9 text-muted-foreground" />
+        <h2 className="mt-4 text-lg font-medium">Document open</h2>
+        <p className="mt-2 font-mono text-xs leading-5 break-all text-muted-foreground">
+          {document.path}
+        </p>
+      </div>
+    </section>
   );
 }
 
 function SessionShell() {
   const shellMode = useSessionStore(getSessionShellMode);
+  const activeDocument = useSessionStore((state) => state.activeDocument);
 
   return (
     <div className="relative mt-8 flex min-h-0 flex-1 flex-col" data-session-mode={shellMode}>
@@ -113,7 +129,7 @@ function SessionShell() {
         >
           {shellMode === "welcome" && <WelcomeState />}
           {shellMode === "folder-only" && <FolderOnlyState />}
-          {shellMode === "document" && <DocumentState />}
+          {activeDocument && <DocumentState document={activeDocument} />}
         </main>
       </div>
 

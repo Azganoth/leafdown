@@ -5,6 +5,7 @@ import { setTheme } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 
 import App from "./App";
 import { useSessionStore } from "./stores/session";
@@ -102,6 +103,8 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    expect(screen.getByText("Document open")).toBeInTheDocument();
+    expect(screen.getByText("C:/Notes/readme.md")).toBeInTheDocument();
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();
   });
 
@@ -154,6 +157,7 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("does not partially update the session when selected file opening fails", async () => {
@@ -172,6 +176,7 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
+    expect(toast.error).toHaveBeenCalledWith("Could not open Markdown file.");
   });
 
   it("suppresses default window drag-and-drop navigation", () => {

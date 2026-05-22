@@ -60,10 +60,6 @@ fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdow
             path: serialized_path.clone(),
         }
     })?;
-    let content = fs::read_to_string(path).map_err(|error| OpenMarkdownFileError::ReadFailed {
-        path: serialized_path.clone(),
-        message: error.to_string(),
-    })?;
     let metadata = fs::metadata(path).map_err(|error| OpenMarkdownFileError::MetadataFailed {
         path: serialized_path.clone(),
         message: error.to_string(),
@@ -87,6 +83,10 @@ fn read_markdown_file(path: &Path) -> Result<OpenMarkdownFileResult, OpenMarkdow
                 message: error.to_string(),
             },
         )?;
+    let content = fs::read_to_string(path).map_err(|error| OpenMarkdownFileError::ReadFailed {
+        path: serialized_path.clone(),
+        message: error.to_string(),
+    })?;
 
     Ok(OpenMarkdownFileResult {
         path: serialized_path,

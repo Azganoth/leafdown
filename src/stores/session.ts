@@ -22,10 +22,15 @@ export interface MarkdownFolderFileNode {
 export type MarkdownFolderTreeNode = MarkdownFolderDirectoryNode | MarkdownFolderFileNode;
 
 export interface FolderContextState {
-  status: "available" | "empty";
   path: string;
   tree: MarkdownFolderTree;
 }
+
+export type FolderContextStatus = "available" | "empty";
+
+// Derive folder status from the tree rather than storing it.
+export const getFolderContextStatus = (folderContext: FolderContextState): FolderContextStatus =>
+  folderContext.tree.children.length === 0 ? "empty" : "available";
 
 export type LineEnding = "crlf" | "lf";
 
@@ -43,6 +48,11 @@ export interface SavedDocumentState {
 }
 
 export type ActiveDocumentState = SavedDocumentState;
+
+export const toSavedDocument = (doc: Omit<SavedDocumentState, "status">): SavedDocumentState => ({
+  status: "saved",
+  ...doc,
+});
 
 export interface SessionState {
   folderContext: FolderContextState | null;

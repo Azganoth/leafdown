@@ -2,10 +2,12 @@ import { createTauriStore } from "@tauri-store/zustand";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
-export interface SettingsStore {
+export interface SettingsState {
   theme: "light" | "dark" | "system";
+}
 
-  setTheme: (theme: SettingsStore["theme"]) => void;
+export interface SettingsStore extends SettingsState {
+  setTheme: (theme: SettingsState["theme"]) => void;
 
   reset: () => Promise<void>;
   init: () => Promise<void>;

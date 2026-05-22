@@ -1,7 +1,7 @@
 import { useSessionStore, type SessionState } from "@/stores/session";
-import { useSettingsStore, type SettingsStore } from "@/stores/settings";
+import { useSettingsStore, type SettingsState } from "@/stores/settings";
 
-export function setDefaultSettings(settings: Partial<Pick<SettingsStore, "theme">> = {}) {
+export function setDefaultSettings(settings: Partial<SettingsState> = {}) {
   useSettingsStore.setState({
     theme: "system",
     ...settings,

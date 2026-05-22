@@ -7,7 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
-import App from "./App";
+import { App } from "./App";
 import { useSessionStore } from "./stores/session";
 import { settingsStoreTauriHandler } from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
@@ -91,7 +91,7 @@ describe("App", () => {
 
   it("renders a folder-only document placeholder without an active document host", () => {
     setDefaultSession({
-      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+      folderContext: { path: "C:/Notes", tree: notesFolderTree },
     });
 
     render(<App />);
@@ -156,7 +156,7 @@ describe("App", () => {
       multiple: false,
     });
     expect(useSessionStore.getState()).toMatchObject({
-      folderContext: { status: "available", path: "C:/Notes" },
+      folderContext: { path: "C:/Notes" },
       activeDocument: {
         status: "saved",
         path: "C:/Notes/readme.md",
@@ -199,7 +199,7 @@ describe("App", () => {
       multiple: false,
     });
     expect(useSessionStore.getState()).toMatchObject({
-      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+      folderContext: { path: "C:/Notes", tree: notesFolderTree },
       activeDocument: {
         status: "saved",
         path: "C:/Notes/readme.md",
@@ -228,7 +228,7 @@ describe("App", () => {
       expect(screen.getByText("No document open")).toBeInTheDocument();
     });
     expect(useSessionStore.getState()).toMatchObject({
-      folderContext: { status: "available", path: "C:/Notes", tree: notesFolderTree },
+      folderContext: { path: "C:/Notes", tree: notesFolderTree },
       activeDocument: null,
     });
   });
@@ -250,7 +250,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(useSessionStore.getState()).toMatchObject({
-        folderContext: { status: "empty", path: "C:/Empty" },
+        folderContext: { path: "C:/Empty" },
         activeDocument: null,
       });
     });

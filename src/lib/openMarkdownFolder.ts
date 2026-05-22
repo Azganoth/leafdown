@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import {
+  toSavedDocument,
   useSessionStore,
   type FileMetadataSnapshot,
   type FolderContextState,
@@ -28,7 +29,6 @@ interface OpenMarkdownFolderResult {
 }
 
 const toFolderContext = (folder: MarkdownFolderScanResult): FolderContextState => ({
-  status: folder.isEmpty ? "empty" : "available",
   path: folder.path,
   tree: folder.tree,
 });
@@ -59,11 +59,7 @@ export const openMarkdownFolder = async () => {
     return;
   }
 
-  useSessionStore.getState().setDocumentSession(folderContext, {
-    status: "saved",
-    path: openedFolder.indexDocument.path,
-    content: openedFolder.indexDocument.content,
-    lineEnding: openedFolder.indexDocument.lineEnding,
-    metadata: openedFolder.indexDocument.metadata,
-  });
+  useSessionStore
+    .getState()
+    .setDocumentSession(folderContext, toSavedDocument(openedFolder.indexDocument));
 };

@@ -36,7 +36,14 @@ The application maintains three primary runtime states:
 - Resolving relative links/images, handling missing-image states, and blocking remote images.
 - Applying theme variables and general app-level styling.
 
-Milkdown plugins and components are adopted when aligned with Leafdown's user experience. Crepe is excluded.
+The MVP editor integration uses Milkdown Kit directly through a Leafdown-owned
+React wrapper. Crepe and packages that introduce Crepe transitively are excluded
+from the MVP editor foundation. Milkdown plugins and components are adopted when
+aligned with Leafdown's user experience.
+
+Syntax highlighting uses bundled Shiki assets through Milkdown highlighting
+plugins. Raw Markdown HTML is preserved as text-like editor content instead of
+being rendered as browser DOM.
 
 ## Backend Responsibilities
 

@@ -12,7 +12,7 @@
     "tauri": "tauri",
     "lint": "pnpm lint:frontend && pnpm lint:backend",
     "lint:frontend": "pnpm lint:tsc && pnpm lint:oxlint",
-    "lint:backend": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+    "lint:backend": "cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "lint:tsc": "tsc -b",
     "lint:oxlint": "oxlint --deny-warnings",
     "test": "pnpm test:frontend && pnpm test:backend",

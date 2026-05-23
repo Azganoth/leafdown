@@ -1,5 +1,6 @@
 import "@milkdown/kit/prose/tables/style/tables.css";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
+import "./MilkdownEditor.css";
 
 import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 
@@ -92,13 +93,7 @@ export function MilkdownEditor({
   }, [documentKey]);
 
   return (
-    <div
-      className={cn(
-        "leafdown-editor min-h-full w-full px-8 py-10 text-foreground [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[calc(100vh-9rem)] [&_.ProseMirror]:w-full [&_.ProseMirror]:max-w-3xl [&_.ProseMirror]:outline-none",
-        className,
-      )}
-      data-testid="milkdown-editor-host"
-    >
+    <div className={cn("leafdown-editor", className)} data-testid="milkdown-editor-host">
       <div ref={rootRef} className="min-h-full w-full" />
     </div>
   );

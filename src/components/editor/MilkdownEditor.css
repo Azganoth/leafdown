@@ -1,0 +1,214 @@
+@reference "../../App.css";
+
+/* Keep editor presentation unlayered so it can override imported ProseMirror defaults. */
+.leafdown-editor {
+  @apply min-h-full w-full px-6 py-8 text-foreground;
+
+  @media (min-width: 40rem) {
+    @apply px-8 py-10;
+  }
+
+  & [data-type="html"] {
+    @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
+  }
+
+  .ProseMirror {
+    @apply mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl wrap-anywhere outline-none;
+
+    & > *:first-child {
+      @apply mt-0;
+    }
+
+    & > *:last-child {
+      @apply mb-0;
+    }
+
+    p {
+      @apply my-4 text-base leading-7;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+      @apply mt-8 mb-3 scroll-m-20 font-display font-semibold text-foreground;
+    }
+
+    h1 {
+      @apply border-b border-border pb-3 text-3xl leading-tight;
+    }
+
+    h2 {
+      @apply border-b border-border/70 pb-2 text-2xl leading-tight;
+    }
+
+    h3 {
+      @apply text-xl leading-snug;
+    }
+
+    h4 {
+      @apply text-lg leading-snug;
+    }
+
+    h5,
+    h6 {
+      @apply text-base leading-snug text-muted-foreground;
+    }
+
+    strong {
+      @apply font-semibold text-foreground;
+    }
+
+    em {
+      @apply italic;
+    }
+
+    del {
+      @apply text-muted-foreground;
+    }
+
+    a {
+      @apply text-primary underline decoration-primary/45 underline-offset-4 transition-colors;
+
+      &:hover {
+        @apply decoration-primary;
+      }
+    }
+
+    ul,
+    ol {
+      @apply my-4 pl-6 text-base leading-7;
+    }
+
+    ul {
+      @apply list-disc;
+    }
+
+    ol {
+      @apply list-decimal;
+    }
+
+    li {
+      @apply my-1 pl-1;
+
+      & > p {
+        @apply my-1;
+      }
+
+      &[data-checked] {
+        @apply relative list-none pl-7;
+
+        &::before {
+          @apply absolute top-[0.42rem] left-0 size-4 rounded-sm border border-border bg-background;
+          content: "";
+        }
+      }
+
+      &[data-checked="true"] {
+        &::before {
+          @apply border-primary bg-primary;
+        }
+
+        &::after {
+          @apply absolute top-[0.48rem] left-[0.34rem] h-2 w-1 rotate-45 border-r-2 border-b-2 border-primary-foreground;
+          content: "";
+        }
+      }
+    }
+
+    blockquote {
+      @apply my-5 border-l-4 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
+
+      & > :first-child {
+        @apply mt-0;
+      }
+
+      & > :last-child {
+        @apply mb-0;
+      }
+    }
+
+    hr {
+      @apply my-8 border-0 border-t border-border;
+    }
+
+    :not(pre) > code {
+      @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
+    }
+
+    pre {
+      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm leading-6 whitespace-pre text-foreground shadow-inner;
+      color: var(--prosemirror-highlight, var(--foreground));
+
+      &[data-language] {
+        @apply pt-8;
+
+        &::before {
+          @apply float-right -mt-6 ml-4 font-mono text-xs text-muted-foreground;
+          content: attr(data-language);
+        }
+      }
+
+      code {
+        @apply block min-w-max bg-transparent p-0 font-mono text-sm leading-6;
+      }
+    }
+
+    .tableWrapper {
+      @apply my-5 w-full overflow-x-auto rounded-md border border-border;
+
+      table {
+        @apply my-0 table w-full overflow-visible rounded-none border-0;
+      }
+    }
+
+    table {
+      @apply my-5 table w-full table-fixed border-collapse overflow-x-auto rounded-md border border-border bg-background text-sm;
+    }
+
+    th,
+    td {
+      @apply border border-border px-2 py-1.5 text-left align-top;
+
+      p {
+        @apply m-0;
+      }
+    }
+
+    th {
+      @apply bg-muted font-semibold text-foreground;
+    }
+
+    tr:nth-child(even) td {
+      @apply bg-card/35;
+    }
+
+    .selectedCell::after {
+      @apply bg-primary/20;
+    }
+
+    .column-resize-handle {
+      @apply bg-primary;
+    }
+
+    img {
+      @apply my-5 max-w-full rounded-md border border-border bg-card;
+    }
+
+    sup,
+    [data-footnote-ref] {
+      @apply text-xs text-primary;
+    }
+
+    .footnotes,
+    section[data-footnotes] {
+      @apply mt-10 border-t border-border pt-4 text-sm text-muted-foreground;
+    }
+
+    .shiki {
+      @apply bg-transparent;
+    }
+  }
+}

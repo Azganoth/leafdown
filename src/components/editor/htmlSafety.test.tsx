@@ -10,7 +10,7 @@ import { render, screen } from "@/test/utils/react";
 
 const executionFlag = "__leafdownHtmlExecuted";
 const mountedEditors: MountedMilkdownEditor[] = [];
-const appCssPath = resolve(process.cwd(), "src/App.css");
+const editorCssPath = resolve(process.cwd(), "src/components/editor/MilkdownEditor.css");
 
 const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
   const mounted = await mountMilkdownEditor(initialMarkdown, {
@@ -89,15 +89,15 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
   it("keeps raw HTML code-like styling targetable from the editor root", async () => {
     const mounted = await mountEditor("<div>Block</div>");
     const htmlNode = mounted.view.dom.querySelector('[data-type="html"]');
-    const appCss = readFileSync(appCssPath, "utf8");
+    const editorCss = readFileSync(editorCssPath, "utf8");
 
     expect(mounted.getMarkdown()).toBe("<div>Block</div>\n");
     expect(htmlNode).toBeInTheDocument();
     expect(htmlNode?.closest(".leafdown-editor")).toBe(mounted.root);
-    expect(appCss).toContain('.leafdown-editor [data-type="html"]');
-    expect(appCss).toContain("font-mono");
-    expect(appCss).toContain("bg-muted");
-    expect(appCss).toContain("text-muted-foreground");
+    expect(editorCss).toContain('& [data-type="html"] {');
+    expect(editorCss).toContain("font-mono");
+    expect(editorCss).toContain("bg-muted");
+    expect(editorCss).toContain("text-muted-foreground");
   });
 
   it("does not execute script content when the React wrapper remounts a document", async () => {

@@ -5,16 +5,36 @@ import { useEffect, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 
-import { createMilkdownEditor } from "./createMilkdownEditor";
+import { createMilkdownEditor, getMilkdownEditorMarkdown } from "./createMilkdownEditor";
+import type { MilkdownEditorBridge, MilkdownEditorInstance, MilkdownMarkdownUpdate } from "./types";
 
 export interface MilkdownEditorProps {
   documentKey: string;
   initialMarkdown: string;
   className?: string;
+  onBridgeChange?: (bridge: MilkdownEditorBridge | null) => void;
+  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
 }
 
-export function MilkdownEditor({ documentKey, initialMarkdown, className }: MilkdownEditorProps) {
+export function MilkdownEditor({
+  documentKey,
+  initialMarkdown,
+  className,
+  onBridgeChange,
+  onMarkdownUpdated,
+}: MilkdownEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<MilkdownEditorInstance | null>(null);
+  const onBridgeChangeRef = useRef(onBridgeChange);
+  const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
+
+  useEffect(() => {
+    onBridgeChangeRef.current = onBridgeChange;
+  }, [onBridgeChange]);
+
+  useEffect(() => {
+    onMarkdownUpdatedRef.current = onMarkdownUpdated;
+  }, [onMarkdownUpdated]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -24,17 +44,48 @@ export function MilkdownEditor({ documentKey, initialMarkdown, className }: Milk
     }
 
     let disposed = false;
-    const editor = createMilkdownEditor({ root, initialMarkdown });
+    let createdEditor: MilkdownEditorInstance | null = null;
+    const bridge: MilkdownEditorBridge = {
+      getMarkdown: () => {
+        const editor = editorRef.current;
 
-    void editor.create().then((createdEditor) => {
+        if (!editor) {
+          throw new Error("Milkdown editor is not available.");
+        }
+
+        return getMilkdownEditorMarkdown(editor);
+      },
+    };
+    const editor = createMilkdownEditor({
+      root,
+      initialMarkdown,
+      onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
+    });
+
+    void editor.create().then((readyEditor) => {
+      createdEditor = readyEditor;
+
       if (disposed) {
-        void createdEditor.destroy();
+        void readyEditor.destroy();
+        return;
       }
+
+      editorRef.current = readyEditor;
+      onBridgeChangeRef.current?.(bridge);
     });
 
     return () => {
       disposed = true;
-      void editor.destroy();
+
+      if (editorRef.current === createdEditor) {
+        editorRef.current = null;
+      }
+
+      onBridgeChangeRef.current?.(null);
+
+      if (createdEditor) {
+        void createdEditor.destroy();
+      }
     };
   }, [documentKey, initialMarkdown]);
 

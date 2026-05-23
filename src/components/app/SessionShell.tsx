@@ -1,11 +1,12 @@
-import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
-import { openMarkdownFile } from "@/lib/openMarkdownFile";
 import { MilkdownEditor } from "@/components/editor";
+import { ScrollArea } from "@/components/ui/ScrollArea";
+import { openMarkdownFile } from "@/lib/openMarkdownFile";
+import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
 import {
+  getFolderContextStatus,
   getSessionShellMode,
   useSessionStore,
   type SavedDocumentState,
-  getFolderContextStatus,
 } from "@/stores/session";
 import { FileText, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -121,13 +122,15 @@ interface DocumentStateProps {
 
 function DocumentState({ document }: DocumentStateProps) {
   return (
-    <section
-      aria-label="Active document"
-      data-testid="active-document-host"
-      className="min-h-full w-full bg-background"
-    >
-      <MilkdownEditor documentKey={document.path} initialMarkdown={document.content} />
-    </section>
+    <ScrollArea className="h-full w-full" data-testid="document-surface-scroll-area" type="scroll">
+      <section
+        aria-label="Active document"
+        data-testid="active-document-host"
+        className="min-h-full w-full bg-background"
+      >
+        <MilkdownEditor documentKey={document.path} initialMarkdown={document.content} />
+      </section>
+    </ScrollArea>
   );
 }
 
@@ -154,7 +157,7 @@ function SessionShell() {
         <main
           aria-label="Document surface"
           data-testid="document-surface-host"
-          className="min-w-0 flex-1 overflow-auto bg-background"
+          className="min-w-0 flex-1 bg-background"
         >
           {shellMode === "welcome" && <WelcomeState />}
           {shellMode === "folder-only" &&

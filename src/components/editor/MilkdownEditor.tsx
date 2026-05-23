@@ -1,7 +1,8 @@
-import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "@milkdown/kit/prose/tables/style/tables.css";
+import "@milkdown/kit/prose/view/style/prosemirror.css";
+import "./MilkdownEditor.css";
 
-import { useEffect, useRef } from "react";
+import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -12,7 +13,7 @@ export interface MilkdownEditorProps {
   documentKey: string;
   initialMarkdown: string;
   className?: string;
-  onBridgeChange?: (bridge: MilkdownEditorBridge | null) => void;
+  ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
 }
 
@@ -20,32 +21,18 @@ export function MilkdownEditor({
   documentKey,
   initialMarkdown,
   className,
-  onBridgeChange,
+  ref,
   onMarkdownUpdated,
 }: MilkdownEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
-  const onBridgeChangeRef = useRef(onBridgeChange);
+
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
+  onMarkdownUpdatedRef.current = onMarkdownUpdated;
 
-  useEffect(() => {
-    onBridgeChangeRef.current = onBridgeChange;
-  }, [onBridgeChange]);
-
-  useEffect(() => {
-    onMarkdownUpdatedRef.current = onMarkdownUpdated;
-  }, [onMarkdownUpdated]);
-
-  useEffect(() => {
-    const root = rootRef.current;
-
-    if (!root) {
-      return undefined;
-    }
-
-    let disposed = false;
-    let createdEditor: MilkdownEditorInstance | null = null;
-    const bridge: MilkdownEditorBridge = {
+  useImperativeHandle(
+    ref,
+    () => ({
       getMarkdown: () => {
         const editor = editorRef.current;
 
@@ -55,48 +42,58 @@ export function MilkdownEditor({
 
         return getMilkdownEditorMarkdown(editor);
       },
-    };
-    const editor = createMilkdownEditor({
-      root,
-      initialMarkdown,
-      onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
-    });
+    }),
+    [],
+  );
 
-    void editor.create().then((readyEditor) => {
-      createdEditor = readyEditor;
+  useEffect(() => {
+    const root = rootRef.current;
+
+    if (!root) {
+      return undefined;
+    }
+
+    let disposed = false;
+
+    const createEditor = async () => {
+      if (disposed) return;
+
+      const editor = await createMilkdownEditor({
+        root,
+        initialMarkdown,
+        onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
+      });
 
       if (disposed) {
-        void readyEditor.destroy();
+        void editor.destroy();
         return;
       }
 
-      editorRef.current = readyEditor;
-      onBridgeChangeRef.current?.(bridge);
-    });
+      await editor.create();
+
+      if (disposed) {
+        void editor.destroy();
+        return;
+      }
+
+      editorRef.current = editor;
+    };
+
+    void createEditor().catch(console.error);
 
     return () => {
       disposed = true;
 
-      if (editorRef.current === createdEditor) {
+      if (editorRef.current) {
+        void editorRef.current.destroy();
         editorRef.current = null;
       }
-
-      onBridgeChangeRef.current?.(null);
-
-      if (createdEditor) {
-        void createdEditor.destroy();
-      }
     };
-  }, [documentKey, initialMarkdown]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentKey]);
 
   return (
-    <div
-      className={cn(
-        "leafdown-editor min-h-full w-full px-8 py-10 text-foreground [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[calc(100vh-9rem)] [&_.ProseMirror]:w-full [&_.ProseMirror]:max-w-3xl [&_.ProseMirror]:outline-none",
-        className,
-      )}
-      data-testid="milkdown-editor-host"
-    >
+    <div className={cn("leafdown-editor", className)} data-testid="milkdown-editor-host">
       <div ref={rootRef} className="min-h-full w-full" />
     </div>
   );

@@ -46,7 +46,7 @@ describe("MilkdownEditor", () => {
 
   it("creates a Milkdown editor with the root element and initial Markdown", async () => {
     const editor = createMockEditor();
-    milkdownEditorMocks.createMilkdownEditor.mockReturnValue(editor.instance);
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
     render(<MilkdownEditor documentKey="C:/Notes/readme.md" initialMarkdown="# Notes" />);
 
@@ -63,19 +63,15 @@ describe("MilkdownEditor", () => {
 
   it("destroys the created editor on unmount", async () => {
     const editor = createMockEditor();
-    const onBridgeChange = vi.fn();
-    milkdownEditorMocks.createMilkdownEditor.mockReturnValue(editor.instance);
+    const bridgeRef = { current: null as MilkdownEditorBridge | null };
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
     const { unmount } = render(
-      <MilkdownEditor
-        documentKey="C:/Notes/readme.md"
-        initialMarkdown="# Notes"
-        onBridgeChange={onBridgeChange}
-      />,
+      <MilkdownEditor documentKey="C:/Notes/readme.md" initialMarkdown="# Notes" ref={bridgeRef} />,
     );
 
     await waitFor(() => {
-      expect(onBridgeChange).toHaveBeenCalledWith(
+      expect(bridgeRef.current).toEqual(
         expect.objectContaining({ getMarkdown: expect.any(Function) }),
       );
     });
@@ -83,13 +79,13 @@ describe("MilkdownEditor", () => {
     unmount();
 
     expect(editor.destroy).toHaveBeenCalledTimes(1);
-    expect(onBridgeChange).toHaveBeenLastCalledWith(null);
+    expect(bridgeRef.current).toBeNull();
   });
 
   it("destroys the editor if creation resolves after unmount", async () => {
     const deferred = Promise.withResolvers<MilkdownEditorInstance>();
     const editor = createMockEditor(deferred.promise);
-    milkdownEditorMocks.createMilkdownEditor.mockReturnValue(editor.instance);
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
     const { unmount } = render(
       <MilkdownEditor documentKey="C:/Notes/readme.md" initialMarkdown="# Notes" />,
@@ -115,8 +111,8 @@ describe("MilkdownEditor", () => {
     const firstEditor = createMockEditor();
     const secondEditor = createMockEditor();
     milkdownEditorMocks.createMilkdownEditor
-      .mockReturnValueOnce(firstEditor.instance)
-      .mockReturnValueOnce(secondEditor.instance);
+      .mockResolvedValueOnce(firstEditor.instance)
+      .mockResolvedValueOnce(secondEditor.instance);
 
     const { rerender } = render(
       <MilkdownEditor documentKey="C:/Notes/first.md" initialMarkdown="# First" />,
@@ -140,39 +136,35 @@ describe("MilkdownEditor", () => {
 
   it("provides a markdown bridge and clears it when the editor unmounts", async () => {
     const editor = createMockEditor();
-    const onBridgeChange = vi.fn();
-    milkdownEditorMocks.createMilkdownEditor.mockReturnValue(editor.instance);
+    const bridgeRef = { current: null as MilkdownEditorBridge | null };
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
     milkdownEditorMocks.getMilkdownEditorMarkdown.mockReturnValue("# Serialized");
 
     const { unmount } = render(
-      <MilkdownEditor
-        documentKey="C:/Notes/readme.md"
-        initialMarkdown="# Notes"
-        onBridgeChange={onBridgeChange}
-      />,
+      <MilkdownEditor documentKey="C:/Notes/readme.md" initialMarkdown="# Notes" ref={bridgeRef} />,
     );
 
     await waitFor(() => {
-      expect(onBridgeChange).toHaveBeenCalledWith(
+      expect(bridgeRef.current).toEqual(
         expect.objectContaining({ getMarkdown: expect.any(Function) }),
       );
     });
 
-    const bridge = onBridgeChange.mock.calls.find(([value]) => value)?.[0] as MilkdownEditorBridge;
+    const bridge = bridgeRef.current as MilkdownEditorBridge;
 
     expect(bridge.getMarkdown()).toBe("# Serialized");
     expect(milkdownEditorMocks.getMilkdownEditorMarkdown).toHaveBeenCalledWith(editor.instance);
 
     unmount();
 
-    expect(onBridgeChange).toHaveBeenLastCalledWith(null);
+    expect(bridgeRef.current).toBeNull();
     expect(() => bridge.getMarkdown()).toThrow("Milkdown editor is not available.");
   });
 
   it("registers the markdown update hook without firing an initial update", () => {
     const editor = createMockEditor();
     const onMarkdownUpdated = vi.fn();
-    milkdownEditorMocks.createMilkdownEditor.mockReturnValue(editor.instance);
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
     render(
       <MilkdownEditor
@@ -182,11 +174,11 @@ describe("MilkdownEditor", () => {
       />,
     );
 
-    const options = getCreateOptions();
+    expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
 
     expect(onMarkdownUpdated).not.toHaveBeenCalled();
 
-    options.onMarkdownUpdated?.({
+    getCreateOptions().onMarkdownUpdated?.({
       markdown: "# New Notes",
       previousMarkdown: "# Notes",
     });

@@ -92,7 +92,7 @@ export function MilkdownEditor({
   return (
     <div
       className={cn(
-        "min-h-full w-full px-8 py-10 text-foreground [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[calc(100vh-9rem)] [&_.ProseMirror]:w-full [&_.ProseMirror]:max-w-3xl [&_.ProseMirror]:outline-none",
+        "leafdown-editor min-h-full w-full px-8 py-10 text-foreground [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[calc(100vh-9rem)] [&_.ProseMirror]:w-full [&_.ProseMirror]:max-w-3xl [&_.ProseMirror]:outline-none",
         className,
       )}
       data-testid="milkdown-editor-host"

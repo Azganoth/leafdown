@@ -15,10 +15,16 @@ export interface MountedMilkdownEditor {
   destroy: () => Promise<void>;
 }
 
+export interface MountMilkdownEditorOptions {
+  rootClassName?: string;
+}
+
 export const mountMilkdownEditor = async (
   initialMarkdown: string,
+  options: MountMilkdownEditorOptions = {},
 ): Promise<MountedMilkdownEditor> => {
   const root = document.createElement("div");
+  root.className = options.rootClassName ?? "";
   document.body.append(root);
 
   const editor = createMilkdownEditor({ root, initialMarkdown });

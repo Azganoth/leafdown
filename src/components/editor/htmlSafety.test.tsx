@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -7,6 +10,7 @@ import { render, screen } from "@/test/utils/react";
 
 const executionFlag = "__leafdownHtmlExecuted";
 const mountedEditors: MountedMilkdownEditor[] = [];
+const appCssPath = resolve(process.cwd(), "src/App.css");
 
 const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
   const mounted = await mountMilkdownEditor(initialMarkdown, {
@@ -32,12 +36,14 @@ describe("HTML safety", () => {
   it("renders block and inline HTML as text-only Milkdown HTML atoms", async () => {
     resetExecutionFlag();
 
-    const mounted = await mountEditor(`<div onclick="window.${executionFlag} = true">Block</div>
+    const markdown = `<div onclick="window.${executionFlag} = true">Block</div>
 
-Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`);
+Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
+    const mounted = await mountEditor(markdown);
     const { dom } = mounted.view;
     const htmlNodes = Array.from(dom.querySelectorAll<HTMLElement>('[data-type="html"]'));
 
+    expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
     expect(htmlNodes.length).toBeGreaterThanOrEqual(3);
     expect(htmlNodes.map((node) => node.dataset.value)).toEqual(
       expect.arrayContaining([
@@ -56,11 +62,13 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`);
   it("does not create live script or event-handler DOM from raw HTML", async () => {
     resetExecutionFlag();
 
-    const mounted = await mountEditor(`<script>window.${executionFlag} = true</script>
+    const markdown = `<script>window.${executionFlag} = true</script>
 
-<img src=x onerror="window.${executionFlag} = true">`);
+<img src=x onerror="window.${executionFlag} = true">`;
+    const mounted = await mountEditor(markdown);
     const { dom } = mounted.view;
 
+    expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
     expect(dom).toHaveTextContent(`<script>window.${executionFlag} = true</script>`);
     expect(dom).toHaveTextContent(`<img src=x onerror="window.${executionFlag} = true">`);
     expect(dom.querySelector("script")).not.toBeInTheDocument();
@@ -81,9 +89,15 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`);
   it("keeps raw HTML code-like styling targetable from the editor root", async () => {
     const mounted = await mountEditor("<div>Block</div>");
     const htmlNode = mounted.view.dom.querySelector('[data-type="html"]');
+    const appCss = readFileSync(appCssPath, "utf8");
 
+    expect(mounted.getMarkdown()).toBe("<div>Block</div>\n");
     expect(htmlNode).toBeInTheDocument();
     expect(htmlNode?.closest(".leafdown-editor")).toBe(mounted.root);
+    expect(appCss).toContain('.leafdown-editor [data-type="html"]');
+    expect(appCss).toContain("font-mono");
+    expect(appCss).toContain("bg-muted");
+    expect(appCss).toContain("text-muted-foreground");
   });
 
   it("does not execute script content when the React wrapper remounts a document", async () => {

@@ -13,6 +13,20 @@ import { settingsStoreTauriHandler } from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
+vi.mock("@/components/editor", () => ({
+  MilkdownEditor: ({
+    documentKey,
+    initialMarkdown,
+  }: {
+    documentKey: string;
+    initialMarkdown: string;
+  }) => (
+    <div data-document-key={documentKey} data-testid="milkdown-editor-host">
+      {initialMarkdown}
+    </div>
+  ),
+}));
+
 const notesFolderTree = {
   name: "Notes",
   path: "C:/Notes",
@@ -87,6 +101,7 @@ describe("App", () => {
     expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
+    expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
   it("renders a folder-only document placeholder without an active document host", () => {
@@ -101,9 +116,10 @@ describe("App", () => {
       screen.getByText("Select a Markdown file from the sidebar or create a new document."),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
-  it("renders the active document surface host for document sessions", () => {
+  it("renders the active document editor for document sessions", () => {
     setDefaultSession({
       activeDocument: {
         status: "saved",
@@ -117,8 +133,11 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
-    expect(screen.getByText("Document open")).toBeInTheDocument();
-    expect(screen.getByText("C:/Notes/readme.md")).toBeInTheDocument();
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-document-key",
+      "C:/Notes/readme.md",
+    );
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveTextContent("# Notes");
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();
   });
 

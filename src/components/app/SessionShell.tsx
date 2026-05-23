@@ -1,5 +1,6 @@
 import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
 import { openMarkdownFile } from "@/lib/openMarkdownFile";
+import { MilkdownEditor } from "@/components/editor";
 import {
   getSessionShellMode,
   useSessionStore,
@@ -123,15 +124,9 @@ function DocumentState({ document }: DocumentStateProps) {
     <section
       aria-label="Active document"
       data-testid="active-document-host"
-      className="flex min-h-full w-full items-center justify-center bg-background px-8 py-10"
+      className="min-h-full w-full bg-background"
     >
-      <div className="max-w-xl text-center">
-        <FileText aria-hidden="true" className="mx-auto size-9 text-muted-foreground" />
-        <h2 className="mt-4 text-lg font-medium">Document open</h2>
-        <p className="mt-2 font-mono text-xs leading-5 break-all text-muted-foreground">
-          {document.path}
-        </p>
-      </div>
+      <MilkdownEditor documentKey={document.path} initialMarkdown={document.content} />
     </section>
   );
 }

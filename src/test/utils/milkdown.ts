@@ -27,7 +27,7 @@ export const mountMilkdownEditor = async (
   root.className = options.rootClassName ?? "";
   document.body.append(root);
 
-  const editor = createMilkdownEditor({ root, initialMarkdown });
+  const editor = await createMilkdownEditor({ root, initialMarkdown });
   await editor.create();
 
   return {

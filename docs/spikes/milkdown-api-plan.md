@@ -286,3 +286,35 @@ Verified locally:
 - raw HTML is represented as text-like `span[data-type="html"]` nodes, not live
   HTML;
 - Shiki highlighting works with bundled package assets and no network.
+
+## Post-Implementation Findings
+
+Date added: 2026-05-23
+
+Related issue: https://github.com/Azganoth/leafdown/issues/24
+
+Issue #24 confirmed the broad spike direction, but changed several
+implementation details:
+
+- The final implementation added direct `@shikijs/langs@4.1.0` and
+  `@shikijs/themes@4.1.0` dependencies for the MVP language/theme set. Importing
+  Shiki's singleton highlighter path caused the build to enumerate the full
+  grammar/theme registry, while direct Shiki core imports kept bundled assets
+  explicit.
+- The highlight parser should be ready before `Editor.create()` and passed to
+  Milkdown as a synchronous parser through `highlightPluginConfig`. A lazy async
+  parser can dispatch after React StrictMode destroys the first editor mount,
+  producing missing-context errors from the destroyed editor.
+- Milkdown table DOM may be a direct `table` instead of a `.tableWrapper`
+  container. Its imported table CSS is unlayered and can override Tailwind layer
+  rules, so Leafdown editor presentation overrides should remain unlayered or
+  otherwise win the cascade.
+- Product direction changed after seeing the rendered ProseMirror model:
+  Leafdown now chooses marker presentation per Markdown object. Structural block
+  editing is already handled by Milkdown/ProseMirror, so headings, blockquotes,
+  and lists use subtle caret-based markers, footnote definitions keep a
+  persistent marker, and tables, code blocks, and horizontal rules remain visual
+  objects or controls. Inline and source-oriented objects can still expose
+  editable raw Markdown syntax. See
+  `docs/decisions.md#treat-marker-presentation-as-object-specific` and
+  `docs/specification.md#marker-visibility-and-presentation`.

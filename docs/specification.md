@@ -100,7 +100,14 @@ Application state model:
 
 ### Marker Visibility State
 
-- **Caret-based:** only markers related to the caret are visible.
+- **Editable marker:** raw Markdown syntax is exposed as editable text for the
+  active object.
+- **Subtle marker:** a muted marker or affordance is shown near the active object,
+  but the marker itself is not the editing surface.
+- **Persistent marker:** a muted marker remains visible even when the caret is
+  not inside the object.
+- **Visual object:** the object remains a rendered editor object and exposes
+  focused controls or object affordances instead of raw delimiters.
 - **Selection:** making a selection that includes marked text does not reveal
   syntax markers by itself.
 
@@ -116,40 +123,52 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 ### Rendering
 
-- Markdown renders as rich text until caret focus displays relevant formatting markers in muted text.
+- Markdown renders as rich text. Marker presentation is selected per Markdown
+  object rather than applied uniformly to all syntax.
 - Prose blocks wrap to the editor viewport width; horizontal scrolling is restricted to code blocks or tables.
 - Soft wrap is visual only and never modifies saved Markdown.
 - Raw HTML tags and inline elements are sanitized and escaped, rendering them as code-like text strings rather than parsing them as DOM nodes, preventing cross-site scripting (XSS) and layout disruption.
 
-### Marker Visibility
+### Marker Visibility and Presentation
 
-- When the caret is in a block with Markdown block syntax, show that block's
-  editable marker.
-- When the caret leaves that block, hide the marker.
-- When the caret is inside or at the boundary of marked inline text, show the
-  inline markers.
-- When the caret leaves the marked inline text, hide the markers.
+- Content that shows the syntax marker decoration when the caret is inside the block:
+  Headings, Blockquotes, Lists.
+- Content that shows visual object controls or affordance: Horizontal rules, Code blocks,
+  Tables.
+- Content that shows the editable raw markdown syntax: Strong, Emphasis,
+  Strikethrough, Inline code, Links, Images, Footnote references, Autolinks, Raw HTML.
+- Content that shows the permanent syntax markers: Footnote definitions.
 
 ### Blocks
 
-- Lists and blockquotes render structurally. The caret in the block shows the
-  list, task-list, or quote marker.
-- Horizontal rules render as separators. The caret in the block shows the marker
-  used to create it.
+- Headings render structurally. When the caret is inside a heading, show a
+  subtle heading marker.
+- Lists render structurally with visual list markers.
+- Blockquotes render structurally and may show a subtle quote marker when the
+  caret is inside the block.
+- Horizontal rules render as separators. Focus or selection shows a divider
+  affordance or block actions rather than the raw marker used to create it.
 - List items and blockquotes may contain other block-level elements.
 - Ordered lists render with visual continuation.
 - Clicking a task-list checkbox toggles it checked or unchecked.
 - Tables render as editable table blocks. Basic table editing uses visual table
-  interaction.
+  interaction; pipe-delimited Markdown is not exposed in the editor surface.
 - Code blocks render as styled monospace blocks with syntax highlighting when
-  available. Focused code blocks reveal fenced Markdown syntax, including the
-  editable language identifier.
+  available. Focused code blocks edit code content directly and expose the
+  language identifier as metadata.
+- Footnote definitions render as editable definition blocks with a persistent
+  subtle definition marker.
 
 ### Inline Content
 
-- Strong, emphasis, inline code, links, and strikethrough render visually.
+- Strong, emphasis, inline code, and strikethrough render visually and expose
+  editable local markers near the caret.
 - Links are edited through raw Markdown or contextual controls. Normal click
   places the caret; `Mod+click` opens the link.
+- Autolinks render visually and expose editable raw Markdown syntax near the
+  caret.
+- Footnote references render inline and expose editable raw Markdown syntax near
+  the caret.
 - Local relative images render automatically. Clicking an image focuses it. When
   focused, show the raw image Markdown above the image for editing.
 
@@ -645,6 +664,8 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 - Remote image Markdown is preserved, but network images are blocked completely in the MVP (loading them is deferred to Post-MVP).
 - Local images that resolve outside the current folder context require
   explicit confirmation before rendering. Instead of a blocking modal, the editor displays an inline placeholder in place of the image, prompting the user to click to load/render it.
+- Selecting a rendered or placeholder image exposes the raw image Markdown for
+  editing the alt text and target path.
 
 ## Saving, Limits, And Errors
 

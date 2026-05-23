@@ -74,6 +74,26 @@
 - Source-only workflows cannot rely on a permanent second pane.
 - A raw Markdown view, if implemented, is an explicit secondary view rather than the default surface.
 
+### Treat marker presentation as object-specific
+
+**Status:** Accepted
+
+**Decision:** Leafdown chooses editable markers, subtle markers, persistent
+markers, or visual object affordances per Markdown object instead of applying
+one syntax-reveal rule to every object.
+
+**Rationale:** Milkdown already provides structural editing for many block
+objects, while inline and source-oriented objects still benefit from local raw
+Markdown editing.
+
+**Consequences:**
+
+- The specification's marker visibility and presentation rules own the
+  per-object behavior.
+- Tables, code blocks, and horizontal rules remain visual objects rather than
+  raw delimiter editing surfaces.
+- Selection alone does not change marker visibility.
+
 ### Local-first
 
 **Status:** Accepted

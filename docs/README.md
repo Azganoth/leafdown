@@ -32,3 +32,9 @@ Decisions use a lightweight ADR format:
 ## Development Fixtures
 
 - [`../sample/`](../sample/): manual development workspace for testing Markdown rendering, file-tree scanning, local images/links, and loading edge cases. This directory is not committed; generate it locally by running `pnpm sample`.
+
+## Spikes
+
+- [Milkdown API Plan](./spikes/milkdown-api-plan.md): package, import,
+  lifecycle, highlighting, HTML safety, settings, and follow-up issue guidance
+  for the Milkdown editor foundation.

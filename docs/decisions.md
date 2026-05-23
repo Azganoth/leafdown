@@ -102,6 +102,9 @@
 
 - Leverage Milkdown presets and official plugins before writing custom ProseMirror modules.
 - Evaluate default plugin behaviors before applying overrides.
+- Build the MVP editor through a Leafdown-owned React wrapper around Milkdown
+  Kit rather than depending on framework adapters that introduce unwanted editor
+  UI packages.
 
 ### Accept Milkdown GFM preset behavior
 
@@ -129,6 +132,7 @@
 - Milkdown acts as the editor foundation.
 - Leafdown owns the surrounding application shell and workflows.
 - Prebuilt Crepe UI styling is excluded.
+- Dependencies that introduce Crepe transitively are avoided.
 
 ## Technical Decisions
 

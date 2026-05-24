@@ -43,6 +43,7 @@ export interface SavedDocumentState {
   status: "saved";
   path: string;
   content: string;
+  isDirty: boolean;
   lineEnding: LineEnding | null;
   metadata: FileMetadataSnapshot;
 }
@@ -51,20 +52,27 @@ export interface UntitledDocumentState {
   status: "untitled";
   id: string;
   content: string;
+  isDirty: boolean;
   lineEnding: LineEnding;
 }
 
 export type ActiveDocumentState = SavedDocumentState | UntitledDocumentState;
 
-export const toSavedDocument = (doc: Omit<SavedDocumentState, "status">): SavedDocumentState => ({
+export const toSavedDocument = (
+  doc: Omit<SavedDocumentState, "status" | "isDirty"> &
+    Partial<Pick<SavedDocumentState, "isDirty">>,
+): SavedDocumentState => ({
   status: "saved",
+  isDirty: false,
   ...doc,
 });
 
 export const toUntitledDocument = (
-  doc: Omit<UntitledDocumentState, "status">,
+  doc: Omit<UntitledDocumentState, "status" | "isDirty"> &
+    Partial<Pick<UntitledDocumentState, "isDirty">>,
 ): UntitledDocumentState => ({
   status: "untitled",
+  isDirty: false,
   ...doc,
 });
 
@@ -83,6 +91,7 @@ export interface SessionStore extends SessionState {
   setFolderSession: (folderContext: FolderContextState) => void;
   setActiveDocument: (activeDocument: ActiveDocumentState | null) => void;
   setActiveDocumentContent: (documentKey: string, content: string) => void;
+  markActiveDocumentDirty: (documentKey: string) => void;
   setDocumentSession: (
     folderContext: FolderContextState | null,
     activeDocument: ActiveDocumentState,
@@ -121,6 +130,25 @@ export const useSessionStore = create<SessionStore>()((set) => ({
         activeDocument: {
           ...activeDocument,
           content,
+        },
+      };
+    }),
+  markActiveDocumentDirty: (documentKey) =>
+    set((state) => {
+      const { activeDocument } = state;
+
+      if (
+        !activeDocument ||
+        activeDocument.isDirty ||
+        getActiveDocumentKey(activeDocument) !== documentKey
+      ) {
+        return state;
+      }
+
+      return {
+        activeDocument: {
+          ...activeDocument,
+          isDirty: true,
         },
       };
     }),

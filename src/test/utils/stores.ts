@@ -1,4 +1,10 @@
-import { useSessionStore, type SessionState } from "@/stores/session";
+import {
+  useSessionStore,
+  type ActiveDocumentState,
+  type SavedDocumentState,
+  type SessionState,
+  type UntitledDocumentState,
+} from "@/stores/session";
 import {
   getSystemDefaultLineEnding,
   useSettingsStore,
@@ -33,11 +39,36 @@ export function setDefaultSettings(settings: Partial<SettingsState> = {}) {
   });
 }
 
-export function setDefaultSession(session: Partial<SessionState> = {}) {
+type TestSavedDocumentState = Omit<SavedDocumentState, "isDirty"> &
+  Partial<Pick<SavedDocumentState, "isDirty">>;
+type TestUntitledDocumentState = Omit<UntitledDocumentState, "isDirty"> &
+  Partial<Pick<UntitledDocumentState, "isDirty">>;
+type TestActiveDocumentState = TestSavedDocumentState | TestUntitledDocumentState;
+
+interface TestSessionState extends Omit<SessionState, "activeDocument"> {
+  activeDocument: TestActiveDocumentState | null;
+}
+
+const toTestActiveDocumentState = (
+  activeDocument: TestActiveDocumentState | null | undefined,
+): ActiveDocumentState | null => {
+  if (!activeDocument) {
+    return null;
+  }
+
+  return {
+    isDirty: false,
+    ...activeDocument,
+  } as ActiveDocumentState;
+};
+
+export function setDefaultSession(session: Partial<TestSessionState> = {}) {
+  const { activeDocument, ...sessionRest } = session;
+
   useSessionStore.setState({
     folderContext: null,
-    activeDocument: null,
-    ...session,
+    activeDocument: toTestActiveDocumentState(activeDocument),
+    ...sessionRest,
   });
 }
 

@@ -32,6 +32,7 @@ interface OpenMarkdownFolderResult {
 const toFolderContext = (folder: MarkdownFolderScanResult): FolderContextState => ({
   path: folder.path,
   tree: folder.tree,
+  isEmpty: folder.isEmpty,
 });
 
 export const scanMarkdownFolder = async (path: string) => {

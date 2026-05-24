@@ -145,7 +145,7 @@ describe("App", () => {
 
   it("renders a folder-only document placeholder without an active document host", () => {
     setDefaultSession({
-      folderContext: { path: "C:/Notes", tree: notesFolderTree },
+      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
     });
 
     render(<App />);
@@ -431,7 +431,18 @@ describe("App", () => {
     vi.mocked(invoke).mockResolvedValue({
       folder: {
         path: "C:/Empty",
-        tree: { name: "Empty", path: "C:/Empty", children: [] },
+        tree: {
+          name: "Empty",
+          path: "C:/Empty",
+          children: [
+            {
+              kind: "directory",
+              name: "nested",
+              path: "C:/Empty/nested",
+              children: [],
+            },
+          ],
+        },
         isEmpty: true,
       },
       indexDocument: null,

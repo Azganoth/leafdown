@@ -8,12 +8,14 @@ import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
 import { createLeafdownHighlightParser } from "./highlighting";
+import { createLeafdownAutoPairPlugin } from "./plugins/autoPair";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "./types";
 
 export const createMilkdownEditor = async ({
   root,
   initialMarkdown,
   onMarkdownUpdated,
+  getAutoPairBracketsAndQuotes = () => true,
 }: CreateMilkdownEditorOptions) => {
   const parser = await createLeafdownHighlightParser();
 
@@ -24,6 +26,7 @@ export const createMilkdownEditor = async ({
     .use(clipboard)
     .use(listener)
     .use(highlight)
+    .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
     .config((ctx) => {
       ctx.set(rootCtx, root);
       ctx.set(defaultValueCtx, initialMarkdown);

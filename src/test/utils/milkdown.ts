@@ -17,6 +17,7 @@ export interface MountedMilkdownEditor {
 
 export interface MountMilkdownEditorOptions {
   rootClassName?: string;
+  autoPairBracketsAndQuotes?: boolean;
 }
 
 export const mountMilkdownEditor = async (
@@ -27,7 +28,11 @@ export const mountMilkdownEditor = async (
   root.className = options.rootClassName ?? "";
   document.body.append(root);
 
-  const editor = await createMilkdownEditor({ root, initialMarkdown });
+  const editor = await createMilkdownEditor({
+    root,
+    initialMarkdown,
+    getAutoPairBracketsAndQuotes: () => options.autoPairBracketsAndQuotes ?? true,
+  });
   await editor.create();
 
   return {

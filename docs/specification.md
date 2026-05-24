@@ -259,6 +259,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.
+- Save output trims trailing blank lines and writes at most one final line
+  ending, controlled by `Insert final newline on save`.
 
 ## Settings
 

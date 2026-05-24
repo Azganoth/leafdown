@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { App } from "./App";
 import { useSessionStore } from "./stores/session";
-import { settingsStoreTauriHandler } from "./stores/settings";
+import { defaultIgnoredDirectories, settingsStoreTauriHandler } from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
@@ -46,6 +46,11 @@ const notesFolderTree = {
       path: "C:/Notes/readme.md",
     },
   ],
+};
+
+const defaultFolderScanArgs = {
+  ignoredDirectories: defaultIgnoredDirectories,
+  sortOrder: "name",
 };
 
 describe("App", () => {
@@ -188,6 +193,7 @@ describe("App", () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
       path: "C:/Notes",
+      ...defaultFolderScanArgs,
     });
 
     expect(open).toHaveBeenCalledWith({
@@ -209,6 +215,11 @@ describe("App", () => {
   });
 
   it("opens a selected folder index into a saved document session", async () => {
+    setDefaultSettings({
+      fileTreeSortOrder: "type",
+      ignoredDirectories: [".git", "vendor"],
+      indexFileNames: ["home", "readme"],
+    });
     vi.mocked(open).mockResolvedValue("C:/Notes");
     vi.mocked(invoke).mockResolvedValue({
       folder: {
@@ -231,6 +242,9 @@ describe("App", () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("open_markdown_folder", {
         path: "C:/Notes",
+        ignoredDirectories: [".git", "vendor"],
+        indexFileNames: ["home", "readme"],
+        sortOrder: "type",
       });
     });
 

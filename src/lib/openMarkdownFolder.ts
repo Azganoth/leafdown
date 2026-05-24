@@ -9,6 +9,7 @@ import {
   type LineEnding,
   type MarkdownFolderTree,
 } from "@/stores/session";
+import { useSettingsStore } from "@/stores/settings";
 
 interface MarkdownFolderScanResult {
   path: string;
@@ -34,7 +35,12 @@ const toFolderContext = (folder: MarkdownFolderScanResult): FolderContextState =
 });
 
 export const scanMarkdownFolder = async (path: string) => {
-  const folder = await invoke<MarkdownFolderScanResult>("scan_markdown_folder", { path });
+  const { fileTreeSortOrder, ignoredDirectories } = useSettingsStore.getState();
+  const folder = await invoke<MarkdownFolderScanResult>("scan_markdown_folder", {
+    path,
+    ignoredDirectories,
+    sortOrder: fileTreeSortOrder,
+  });
 
   return toFolderContext(folder);
 };
@@ -49,8 +55,12 @@ export const openMarkdownFolder = async () => {
     return;
   }
 
+  const { fileTreeSortOrder, ignoredDirectories, indexFileNames } = useSettingsStore.getState();
   const openedFolder = await invoke<OpenMarkdownFolderResult>("open_markdown_folder", {
     path: selectedPath,
+    ignoredDirectories,
+    indexFileNames,
+    sortOrder: fileTreeSortOrder,
   });
   const folderContext = toFolderContext(openedFolder.folder);
 

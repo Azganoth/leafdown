@@ -1,5 +1,5 @@
 use std::{
-    cmp::Ordering,
+    cmp::Reverse,
     fs,
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
@@ -162,9 +162,13 @@ fn path_to_string(path: &Path) -> String {
 
 fn sort_tree_nodes(nodes: &mut [MarkdownFolderTreeNode], sort_order: FileTreeSortOrder) {
     match sort_order {
-        FileTreeSortOrder::Name => nodes.sort_by_key(sort_name),
-        FileTreeSortOrder::ModifiedDate => nodes.sort_by(compare_modified_date),
-        FileTreeSortOrder::Type => nodes.sort_by(compare_type),
+        FileTreeSortOrder::Name => nodes.sort_by_cached_key(sort_name),
+        FileTreeSortOrder::ModifiedDate => {
+            nodes.sort_by_cached_key(|node| (Reverse(modified_at_unix_ms(node)), sort_name(node)))
+        }
+        FileTreeSortOrder::Type => nodes.sort_by_cached_key(|node| {
+            (node_kind_order(node), node_extension(node), sort_name(node))
+        }),
     }
 }
 
@@ -173,22 +177,6 @@ fn sort_name(node: &MarkdownFolderTreeNode) -> String {
         MarkdownFolderTreeNode::Directory { name, .. }
         | MarkdownFolderTreeNode::File { name, .. } => name.to_lowercase(),
     }
-}
-
-fn compare_modified_date(
-    left: &MarkdownFolderTreeNode,
-    right: &MarkdownFolderTreeNode,
-) -> Ordering {
-    modified_at_unix_ms(right)
-        .cmp(&modified_at_unix_ms(left))
-        .then_with(|| sort_name(left).cmp(&sort_name(right)))
-}
-
-fn compare_type(left: &MarkdownFolderTreeNode, right: &MarkdownFolderTreeNode) -> Ordering {
-    node_kind_order(left)
-        .cmp(&node_kind_order(right))
-        .then_with(|| node_extension(left).cmp(&node_extension(right)))
-        .then_with(|| sort_name(left).cmp(&sort_name(right)))
 }
 
 fn node_kind_order(node: &MarkdownFolderTreeNode) -> u8 {

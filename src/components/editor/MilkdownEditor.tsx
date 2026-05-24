@@ -2,7 +2,7 @@ import "@milkdown/kit/prose/tables/style/tables.css";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "./MilkdownEditor.css";
 
-import { type Ref, useEffect, useImperativeHandle, useRef } from "react";
+import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -32,9 +32,12 @@ export function MilkdownEditor({
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
 
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
-  onMarkdownUpdatedRef.current = onMarkdownUpdated;
   const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
-  autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
+
+  useLayoutEffect(() => {
+    onMarkdownUpdatedRef.current = onMarkdownUpdated;
+    autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
+  }, [onMarkdownUpdated, autoPairBracketsAndQuotes]);
 
   useImperativeHandle(
     ref,

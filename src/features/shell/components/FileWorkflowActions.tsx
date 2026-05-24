@@ -6,7 +6,7 @@ import {
 } from "@/lib/documentWorkflows";
 import { useSessionStore } from "@/stores/session";
 import { FilePlusIcon, SaveAllIcon, SaveIcon } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
 
 const isPrimaryModifierEvent = (event: KeyboardEvent) => event.ctrlKey || event.metaKey;
@@ -14,11 +14,11 @@ const isPrimaryModifierEvent = (event: KeyboardEvent) => event.ctrlKey || event.
 export function FileWorkflowActions() {
   const hasActiveDocument = useSessionStore((state) => Boolean(state.activeDocument));
 
-  const handleNew = () => {
+  const handleNew = useCallback(() => {
     createNewMarkdownDocument();
-  };
+  }, []);
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     void saveActiveMarkdownDocument()
       .then((saved) => {
         if (saved) {
@@ -28,9 +28,9 @@ export function FileWorkflowActions() {
       .catch(() => {
         toast.error("Could not save Markdown document.");
       });
-  };
+  }, []);
 
-  const handleSaveAs = () => {
+  const handleSaveAs = useCallback(() => {
     void saveActiveMarkdownDocumentAs()
       .then((saved) => {
         if (saved) {
@@ -40,7 +40,7 @@ export function FileWorkflowActions() {
       .catch(() => {
         toast.error("Could not save Markdown document.");
       });
-  };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -73,7 +73,7 @@ export function FileWorkflowActions() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  });
+  }, [handleNew, handleSave, handleSaveAs]);
 
   return (
     <div aria-label="File actions" className="flex items-center gap-1">

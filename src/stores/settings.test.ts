@@ -25,8 +25,8 @@ describe("settings store", () => {
   });
 
   it("updates editor behavior settings", () => {
-    useSettingsStore.getState().setAutoPairBracketsAndQuotes(false);
-    useSettingsStore.getState().setSoftWrapCodeBlocks(true);
+    useSettingsStore.getState().updateSetting("autoPairBracketsAndQuotes", false);
+    useSettingsStore.getState().updateSetting("softWrapCodeBlocks", true);
 
     expect(useSettingsStore.getState()).toMatchObject({
       autoPairBracketsAndQuotes: false,

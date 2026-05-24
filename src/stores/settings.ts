@@ -10,8 +10,7 @@ export interface SettingsState {
 
 export interface SettingsStore extends SettingsState {
   setTheme: (theme: SettingsState["theme"]) => void;
-  setAutoPairBracketsAndQuotes: (enabled: boolean) => void;
-  setSoftWrapCodeBlocks: (enabled: boolean) => void;
+  updateSetting: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void;
 
   reset: () => Promise<void>;
   init: () => Promise<void>;
@@ -27,13 +26,10 @@ export const useSettingsStore = create<SettingsStore>()(
       set((state) => {
         state.theme = theme;
       }),
-    setAutoPairBracketsAndQuotes: (enabled) =>
+    updateSetting: (key, value) =>
       set((state) => {
-        state.autoPairBracketsAndQuotes = enabled;
-      }),
-    setSoftWrapCodeBlocks: (enabled) =>
-      set((state) => {
-        state.softWrapCodeBlocks = enabled;
+        // @ts-expect-error - safe dynamic generic assignment
+        state[key] = value;
       }),
 
     reset: async () => {

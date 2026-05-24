@@ -31,6 +31,12 @@ export function createTauriCoreMock() {
 export function createTauriPathMock() {
   return {
     documentDir: vi.fn(async () => "C:/Users/Test/Documents"),
+    extname: vi.fn(async (path: string) => {
+      const fileName = path.split(/[\\/]/).at(-1) ?? "";
+      const match = /\.([^.\\/]+)$/u.exec(fileName);
+
+      return match?.[1] ?? "";
+    }),
     join: vi.fn(async (...segments: string[]) =>
       segments
         .filter(Boolean)
@@ -60,6 +66,7 @@ export function createTauriWindowMock() {
 export function createTauriDialogMock() {
   return {
     open: vi.fn(async () => null),
+    save: vi.fn(async () => null),
   };
 }
 

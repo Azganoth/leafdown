@@ -9,7 +9,11 @@ import { toast } from "sonner";
 
 import { App } from "./App";
 import { useSessionStore } from "./stores/session";
-import { defaultIgnoredDirectories, settingsStoreTauriHandler } from "./stores/settings";
+import {
+  defaultIgnoredDirectories,
+  settingsStoreTauriHandler,
+  useSettingsStore,
+} from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
@@ -118,6 +122,27 @@ describe("App", () => {
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
+  it("renders recent files and folders and clears both lists", async () => {
+    setDefaultSettings({
+      recentFiles: ["C:/Notes/readme.md"],
+      recentFolders: ["C:/Notes"],
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    expect(screen.getByRole("button", { name: "C:/Notes/readme.md" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "C:/Notes" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear recent items" }));
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: [],
+      recentFolders: [],
+    });
+    expect(screen.getByText("No recent files.")).toBeInTheDocument();
+    expect(screen.getByText("No recent folders.")).toBeInTheDocument();
+  });
+
   it("renders a folder-only document placeholder without an active document host", () => {
     setDefaultSession({
       folderContext: { path: "C:/Notes", tree: notesFolderTree },
@@ -211,7 +236,68 @@ describe("App", () => {
         metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
       },
     });
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: ["C:/Notes/readme.md"],
+      recentFolders: ["C:/Notes"],
+    });
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("opens recent Markdown files without showing the file picker", async () => {
+    setDefaultSettings({ recentFiles: ["C:/Notes/readme.md"] });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      content: "# Notes\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: notesFolderTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "C:/Notes/readme.md" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenNthCalledWith(1, "open_markdown_file", {
+        path: "C:/Notes/readme.md",
+      });
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("does not record opened files or folders when recent recording is disabled", async () => {
+    setDefaultSettings({ recordRecentItems: false });
+    vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      content: "# Notes\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: notesFolderTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    });
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: [],
+      recentFolders: [],
+    });
   });
 
   it("opens a selected folder index into a saved document session", async () => {
@@ -260,6 +346,7 @@ describe("App", () => {
         content: "# Notes\n",
       },
     });
+    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
@@ -285,6 +372,7 @@ describe("App", () => {
       folderContext: { path: "C:/Notes", tree: notesFolderTree },
       activeDocument: null,
     });
+    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
   });
 
   it("tracks selected folders with no Markdown files as empty folder contexts", async () => {

@@ -527,6 +527,7 @@ describe("App", () => {
         status: "saved",
         path: "C:/Notes/readme.md",
         content: "# Notes\n",
+        isDirty: false,
         lineEnding: "lf",
         metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
       },
@@ -639,6 +640,7 @@ describe("App", () => {
         status: "saved",
         path: "C:/Notes/readme.md",
         content: "# Notes\n",
+        isDirty: false,
       },
     });
     expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);

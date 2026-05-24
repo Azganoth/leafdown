@@ -1,11 +1,12 @@
 use std::{
     cmp::Ordering,
     fs,
+    io::ErrorKind,
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 
@@ -19,7 +20,7 @@ pub(crate) struct OpenMarkdownFileResult {
     pub metadata: FileMetadataSnapshot,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) enum LineEnding {
     #[serde(rename = "lf")]
     Lf,
@@ -27,11 +28,19 @@ pub(crate) enum LineEnding {
     Crlf,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FileMetadataSnapshot {
     pub size_bytes: u64,
     pub modified_at_unix_ms: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SaveMarkdownFileResult {
+    pub path: String,
+    pub parent_folder_path: String,
+    pub metadata: FileMetadataSnapshot,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,11 +52,52 @@ pub(crate) enum OpenMarkdownFileError {
     MetadataFailed { path: String, message: String },
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub(crate) enum SaveMarkdownFileError {
+    UnsupportedFileType {
+        path: String,
+    },
+    MissingParentFolder {
+        path: String,
+    },
+    MissingFile {
+        path: String,
+    },
+    ExternalModification {
+        path: String,
+        current_metadata: FileMetadataSnapshot,
+    },
+    WriteFailed {
+        path: String,
+        message: String,
+    },
+    MetadataFailed {
+        path: String,
+        message: String,
+    },
+}
+
 #[tauri::command]
 pub(crate) fn open_markdown_file(
     path: String,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     read_markdown_file(PathBuf::from(path).as_path())
+}
+
+#[tauri::command]
+pub(crate) fn save_markdown_file(
+    path: String,
+    content: String,
+    expected_metadata: Option<FileMetadataSnapshot>,
+    overwrite: Option<bool>,
+) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
+    write_markdown_file(
+        PathBuf::from(path).as_path(),
+        content.as_str(),
+        expected_metadata,
+        overwrite.unwrap_or(false),
+    )
 }
 
 pub(crate) fn read_markdown_file(
@@ -66,29 +116,11 @@ pub(crate) fn read_markdown_file(
             path: serialized_path.clone(),
         }
     })?;
-    let metadata = fs::metadata(path).map_err(|error| OpenMarkdownFileError::MetadataFailed {
-        path: serialized_path.clone(),
-        message: error.to_string(),
-    })?;
-    let modified_at_unix_ms = metadata
-        .modified()
-        .map_err(|error| OpenMarkdownFileError::MetadataFailed {
+    let metadata =
+        read_file_metadata(path).map_err(|error| OpenMarkdownFileError::MetadataFailed {
             path: serialized_path.clone(),
             message: error.to_string(),
-        })?
-        .duration_since(UNIX_EPOCH)
-        .map_err(|error| OpenMarkdownFileError::MetadataFailed {
-            path: serialized_path.clone(),
-            message: error.to_string(),
-        })?
-        .as_millis()
-        .try_into()
-        .map_err(
-            |error: std::num::TryFromIntError| OpenMarkdownFileError::MetadataFailed {
-                path: serialized_path.clone(),
-                message: error.to_string(),
-            },
-        )?;
+        })?;
     let content = fs::read_to_string(path).map_err(|error| OpenMarkdownFileError::ReadFailed {
         path: serialized_path.clone(),
         message: error.to_string(),
@@ -99,11 +131,77 @@ pub(crate) fn read_markdown_file(
         parent_folder_path,
         line_ending: detect_line_ending(&content),
         content,
-        metadata: FileMetadataSnapshot {
-            size_bytes: metadata.len(),
-            modified_at_unix_ms,
-        },
+        metadata,
     })
+}
+
+pub(crate) fn write_markdown_file(
+    path: &Path,
+    content: &str,
+    expected_metadata: Option<FileMetadataSnapshot>,
+    overwrite: bool,
+) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
+    let serialized_path = path_to_string(path);
+
+    if !is_supported_markdown_path(path) {
+        return Err(SaveMarkdownFileError::UnsupportedFileType {
+            path: serialized_path,
+        });
+    }
+
+    let parent_folder_path = path.parent().map(path_to_string).ok_or_else(|| {
+        SaveMarkdownFileError::MissingParentFolder {
+            path: serialized_path.clone(),
+        }
+    })?;
+
+    verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
+
+    fs::write(path, content).map_err(|error| SaveMarkdownFileError::WriteFailed {
+        path: serialized_path.clone(),
+        message: error.to_string(),
+    })?;
+
+    let metadata =
+        read_file_metadata(path).map_err(|error| SaveMarkdownFileError::MetadataFailed {
+            path: serialized_path.clone(),
+            message: error.to_string(),
+        })?;
+
+    Ok(SaveMarkdownFileResult {
+        path: serialized_path,
+        parent_folder_path,
+        metadata,
+    })
+}
+
+fn verify_file_freshness(
+    path: &Path,
+    serialized_path: &str,
+    expected_metadata: Option<FileMetadataSnapshot>,
+    overwrite: bool,
+) -> Result<(), SaveMarkdownFileError> {
+    let Some(expected_metadata) = expected_metadata else {
+        return Ok(());
+    };
+    let current_metadata = read_file_metadata(path).map_err(|error| match error {
+        FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
+            path: serialized_path.to_owned(),
+        },
+        FileMetadataReadError::Failed(message) => SaveMarkdownFileError::MetadataFailed {
+            path: serialized_path.to_owned(),
+            message,
+        },
+    })?;
+
+    if !overwrite && current_metadata != expected_metadata {
+        return Err(SaveMarkdownFileError::ExternalModification {
+            path: serialized_path.to_owned(),
+            current_metadata,
+        });
+    }
+
+    Ok(())
 }
 
 pub(crate) fn is_supported_markdown_path(path: &Path) -> bool {
@@ -145,6 +243,46 @@ fn detect_line_ending(content: &str) -> Option<LineEnding> {
     }
 }
 
+#[derive(Debug)]
+enum FileMetadataReadError {
+    MissingFile,
+    Failed(String),
+}
+
+impl std::fmt::Display for FileMetadataReadError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingFile => formatter.write_str("file is missing"),
+            Self::Failed(message) => formatter.write_str(message),
+        }
+    }
+}
+
+fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataReadError> {
+    let metadata = fs::metadata(path).map_err(|error| {
+        if error.kind() == ErrorKind::NotFound {
+            FileMetadataReadError::MissingFile
+        } else {
+            FileMetadataReadError::Failed(error.to_string())
+        }
+    })?;
+    let modified_at_unix_ms = metadata
+        .modified()
+        .map_err(|error| FileMetadataReadError::Failed(error.to_string()))?
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| FileMetadataReadError::Failed(error.to_string()))?
+        .as_millis()
+        .try_into()
+        .map_err(|error: std::num::TryFromIntError| {
+            FileMetadataReadError::Failed(error.to_string())
+        })?;
+
+    Ok(FileMetadataSnapshot {
+        size_bytes: metadata.len(),
+        modified_at_unix_ms,
+    })
+}
+
 fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -157,7 +295,10 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    use super::{detect_line_ending, read_markdown_file, LineEnding, OpenMarkdownFileError};
+    use super::{
+        detect_line_ending, read_markdown_file, write_markdown_file, LineEnding,
+        OpenMarkdownFileError, SaveMarkdownFileError,
+    };
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -228,6 +369,100 @@ mod tests {
             error,
             OpenMarkdownFileError::UnsupportedFileType { .. }
         ));
+    }
+
+    #[test]
+    fn writes_supported_markdown_files_with_metadata() {
+        let file = create_test_file("document.md", "old content");
+
+        let result = write_markdown_file(&file.path, "# Leafdown\r\n", None, false)
+            .expect("Markdown file should be written");
+
+        assert_eq!(result.path, file.path.to_string_lossy());
+        assert_eq!(result.parent_folder_path, expected_parent(&file.path));
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "# Leafdown\r\n");
+        assert_eq!(result.metadata.size_bytes, 12);
+        assert!(result.metadata.modified_at_unix_ms > 0);
+    }
+
+    #[test]
+    fn creates_supported_markdown_files() {
+        let file = create_test_file("placeholder.md", "");
+        fs::remove_file(&file.path).expect("placeholder should be removed");
+
+        let result = write_markdown_file(&file.path, "New document\n", None, false)
+            .expect("Markdown file should save");
+
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "New document\n");
+        assert_eq!(result.metadata.size_bytes, 13);
+    }
+
+    #[test]
+    fn rejects_unsupported_save_file_types() {
+        let file = create_test_file("notes.md", "");
+        let unsupported_path = file.root.join("notes.txt");
+
+        let error = write_markdown_file(&unsupported_path, "not Markdown", None, false)
+            .expect_err("text file should be rejected");
+
+        assert!(matches!(
+            error,
+            SaveMarkdownFileError::UnsupportedFileType { .. }
+        ));
+        assert!(!unsupported_path.exists());
+    }
+
+    #[test]
+    fn writes_when_expected_metadata_matches() {
+        let file = create_test_file("document.md", "old content");
+        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+
+        let result = write_markdown_file(&file.path, "updated", Some(opened.metadata), false)
+            .expect("fresh Markdown file should save");
+
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "updated");
+        assert_eq!(result.metadata.size_bytes, 7);
+    }
+
+    #[test]
+    fn rejects_missing_saved_files_when_expected_metadata_is_supplied() {
+        let file = create_test_file("document.md", "old content");
+        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        fs::remove_file(&file.path).expect("test file should be removed");
+
+        let error = write_markdown_file(&file.path, "updated", Some(opened.metadata), false)
+            .expect_err("missing saved file should not be recreated");
+
+        assert!(matches!(error, SaveMarkdownFileError::MissingFile { .. }));
+        assert!(!file.path.exists());
+    }
+
+    #[test]
+    fn rejects_external_modifications_without_overwrite() {
+        let file = create_test_file("document.md", "old content");
+        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        fs::write(&file.path, "external change").expect("test file should be changed");
+
+        let error = write_markdown_file(&file.path, "updated", Some(opened.metadata), false)
+            .expect_err("changed saved file should not be overwritten");
+
+        assert!(matches!(
+            error,
+            SaveMarkdownFileError::ExternalModification { .. }
+        ));
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "external change");
+    }
+
+    #[test]
+    fn overwrites_external_modifications_after_confirmation() {
+        let file = create_test_file("document.md", "old content");
+        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        fs::write(&file.path, "external change").expect("test file should be changed");
+
+        write_markdown_file(&file.path, "updated", Some(opened.metadata), true)
+            .expect("confirmed overwrite should save");
+
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), "updated");
     }
 
     #[test]

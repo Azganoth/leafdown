@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setTheme } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open } from "@tauri-apps/plugin-dialog";
+import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
 import { App } from "./App";
@@ -61,7 +61,9 @@ describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
+    vi.mocked(confirm).mockResolvedValue(false);
     vi.mocked(open).mockResolvedValue(null);
+    vi.mocked(save).mockResolvedValue(null);
     document.documentElement.className = "";
     resetAppStores();
   });
@@ -113,6 +115,9 @@ describe("App", () => {
 
     expect(screen.getByRole("button", { name: "Open file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save as..." })).toBeDisabled();
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
@@ -120,6 +125,30 @@ describe("App", () => {
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
+  });
+
+  it("creates an untitled document from the file actions", async () => {
+    setDefaultSettings({ defaultNewDocumentLineEnding: "lf" });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "New" }));
+
+    const activeDocument = useSessionStore.getState().activeDocument;
+
+    expect(activeDocument).toMatchObject({
+      status: "untitled",
+      content: "",
+      lineEnding: "lf",
+    });
+    expect(activeDocument).toMatchObject({
+      id: expect.stringMatching(/^untitled:/u),
+    });
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    expect(screen.getByTestId("milkdown-editor-host").getAttribute("data-document-key")).toMatch(
+      /^untitled:/u,
+    );
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("renders recent files and folders and clears both lists", async () => {
@@ -241,6 +270,104 @@ describe("App", () => {
     );
     expect(screen.getByTestId("milkdown-editor-host")).toHaveTextContent("# Notes");
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();
+  });
+
+  it("saves saved documents from the file actions", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_801_000 },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("save_markdown_file", {
+        path: "C:/Notes/readme.md",
+        content: "# Notes\n",
+        expectedMetadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+        overwrite: false,
+      });
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      content: "# Notes\n",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_801_000 },
+    });
+    expect(toast.success).toHaveBeenCalledWith("Document saved.");
+  });
+
+  it("saves untitled documents through Save As from the file actions", async () => {
+    setDefaultSettings({ defaultNewDocumentExtension: ".markdown" });
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "untitled",
+        id: "untitled:test",
+        content: "# Draft",
+        lineEnding: "lf",
+      },
+    });
+    vi.mocked(save).mockResolvedValue("C:/Notes/draft");
+    vi.mocked(invoke)
+      .mockResolvedValueOnce({
+        path: "C:/Notes/draft.markdown",
+        parentFolderPath: "C:/Notes",
+        metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_801_000 },
+      })
+      .mockResolvedValueOnce({
+        path: "C:/Notes",
+        tree: {
+          ...notesFolderTree,
+          children: [
+            ...notesFolderTree.children,
+            { kind: "file" as const, name: "draft.markdown", path: "C:/Notes/draft.markdown" },
+          ],
+        },
+        isEmpty: false,
+      });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledWith({
+        title: "Save Markdown document",
+        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        defaultPath: "C:/Notes/Untitled.markdown",
+      });
+    });
+    expect(invoke).toHaveBeenNthCalledWith(1, "save_markdown_file", {
+      path: "C:/Notes/draft.markdown",
+      content: "# Draft\n",
+      expectedMetadata: null,
+      overwrite: false,
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
+      path: "C:/Notes",
+      ...defaultFolderScanArgs,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: "C:/Notes" },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/draft.markdown",
+        content: "# Draft\n",
+      },
+    });
   });
 
   it("opens a selected Markdown file into a saved document session", async () => {

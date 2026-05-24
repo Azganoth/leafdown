@@ -147,6 +147,8 @@ mod tests {
         fs::{self, create_dir, create_dir_all},
         path::{Path, PathBuf},
         sync::atomic::{AtomicUsize, Ordering},
+        thread::sleep,
+        time::{Duration, UNIX_EPOCH},
     };
 
     use super::{
@@ -301,6 +303,26 @@ mod tests {
     }
 
     #[test]
+    fn sorts_tree_nodes_by_modified_date_when_configured() {
+        let root = TestDirectory::new("scan-modified-date-sort");
+        let older = root.write_file("older.md");
+        let older_modified_at_unix_ms = modified_at_unix_ms(&older);
+        write_file_after_timestamp(&root, "newer.md", older_modified_at_unix_ms);
+
+        let result = scan_folder(
+            &root.path,
+            ignored_directories(),
+            FileTreeSortOrder::ModifiedDate,
+        )
+        .expect("folder should scan with modified-date sorting");
+
+        assert_eq!(
+            direct_child_names(&result.tree),
+            vec!["newer.md", "older.md"]
+        );
+    }
+
+    #[test]
     fn opens_root_indexes_in_configured_name_order() {
         let root = TestDirectory::new("open-index-order");
         root.write_file("readme.md");
@@ -376,6 +398,32 @@ mod tests {
                 | MarkdownFolderTreeNode::File { name, .. } => name.as_str(),
             })
             .collect()
+    }
+
+    fn modified_at_unix_ms(path: &Path) -> u128 {
+        fs::metadata(path)
+            .and_then(|metadata| metadata.modified())
+            .expect("test file modified time should be readable")
+            .duration_since(UNIX_EPOCH)
+            .expect("test modified time should be after epoch")
+            .as_millis()
+    }
+
+    fn write_file_after_timestamp(
+        root: &TestDirectory,
+        relative_path: &str,
+        older_than_unix_ms: u128,
+    ) -> PathBuf {
+        for _ in 0..200 {
+            sleep(Duration::from_millis(10));
+            let path = root.write_file(relative_path);
+
+            if modified_at_unix_ms(&path) > older_than_unix_ms {
+                return path;
+            }
+        }
+
+        panic!("test filesystem should expose distinct modified times");
     }
 
     fn child_nodes_have_directory(children: &[MarkdownFolderTreeNode], name: &str) -> bool {

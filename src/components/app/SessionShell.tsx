@@ -1,7 +1,9 @@
 import { MilkdownEditor } from "@/components/editor";
+import { PreferencesDialog } from "@/components/app/PreferencesDialog";
+import { Button } from "@/components/ui/Button";
 import { ScrollArea } from "@/components/ui/ScrollArea";
-import { openMarkdownFile } from "@/lib/openMarkdownFile";
-import { openMarkdownFolder } from "@/lib/openMarkdownFolder";
+import { openMarkdownFile, openMarkdownFilePath } from "@/lib/openMarkdownFile";
+import { openMarkdownFolder, openMarkdownFolderPath } from "@/lib/openMarkdownFolder";
 import {
   getFolderContextStatus,
   getSessionShellMode,
@@ -9,18 +11,83 @@ import {
   type SavedDocumentState,
 } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
-import { FileText, FolderOpen } from "lucide-react";
+import { FileText, FolderOpen, XIcon, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
+interface RecentItemsSectionProps {
+  emptyMessage: string;
+  icon: LucideIcon;
+  items: string[];
+  onOpenItem: (path: string) => void;
+  title: string;
+  titleId: string;
+}
+
+function RecentItemsSection({
+  emptyMessage,
+  icon: Icon,
+  items,
+  onOpenItem,
+  title,
+  titleId,
+}: RecentItemsSectionProps) {
+  return (
+    <section aria-labelledby={titleId} className="min-w-0 border-t border-border pt-3">
+      <h3 id={titleId} className="text-sm font-medium">
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {items.map((path) => (
+            <li key={path} className="min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onOpenItem(path)}
+                title={path}
+                className="w-full justify-start px-2"
+              >
+                <Icon aria-hidden="true" className="size-4" />
+                <span className="min-w-0 truncate">{path}</span>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function WelcomeState() {
+  const recentFiles = useSettingsStore((state) => state.recentFiles);
+  const recentFolders = useSettingsStore((state) => state.recentFolders);
+  const clearRecentItems = useSettingsStore((state) => state.clearRecentItems);
+  const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
+
   const handleOpenFile = () => {
     void openMarkdownFile().catch(() => {
       toast.error("Could not open Markdown file.");
     });
   };
+
   const handleOpenFolder = () => {
     void openMarkdownFolder().catch(() => {
       toast.error("Could not open folder.");
+    });
+  };
+
+  const handleOpenRecentFile = (path: string) => {
+    void openMarkdownFilePath(path).catch(() => {
+      toast.error("Could not open recent Markdown file.");
+    });
+  };
+
+  const handleOpenRecentFolder = (path: string) => {
+    void openMarkdownFolderPath(path).catch(() => {
+      toast.error("Could not open recent folder.");
     });
   };
 
@@ -38,37 +105,45 @@ function WelcomeState() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={handleOpenFile}
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-primary bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
+          <Button type="button" onClick={handleOpenFile} size="lg">
             <FileText aria-hidden="true" className="size-4" />
             Open file
-          </button>
-          <button
-            type="button"
-            onClick={handleOpenFolder}
-            className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-medium text-card-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
+          </Button>
+          <Button type="button" onClick={handleOpenFolder} variant="outline" size="lg">
             <FolderOpen aria-hidden="true" className="size-4" />
             Open folder
-          </button>
+          </Button>
+          {hasRecentItems && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={clearRecentItems}
+              className="ml-auto"
+            >
+              <XIcon aria-hidden="true" className="size-4" />
+              Clear recent items
+            </Button>
+          )}
         </div>
 
         <div className="mt-12 grid gap-8 md:grid-cols-2">
-          <section aria-labelledby="recent-files-title" className="border-t border-border pt-3">
-            <h3 id="recent-files-title" className="text-sm font-medium">
-              Recent files
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">No recent files.</p>
-          </section>
-          <section aria-labelledby="recent-folders-title" className="border-t border-border pt-3">
-            <h3 id="recent-folders-title" className="text-sm font-medium">
-              Recent folders
-            </h3>
-            <p className="mt-2 text-sm text-muted-foreground">No recent folders.</p>
-          </section>
+          <RecentItemsSection
+            title="Recent files"
+            titleId="recent-files-title"
+            emptyMessage="No recent files."
+            icon={FileText}
+            items={recentFiles}
+            onOpenItem={handleOpenRecentFile}
+          />
+          <RecentItemsSection
+            title="Recent folders"
+            titleId="recent-folders-title"
+            emptyMessage="No recent folders."
+            icon={FolderOpen}
+            items={recentFolders}
+            onOpenItem={handleOpenRecentFolder}
+          />
         </div>
       </div>
     </section>
@@ -147,21 +222,26 @@ function SessionShell() {
   const shellMode = useSessionStore(getSessionShellMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
+  const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
 
   return (
     <div className="relative mt-8 flex min-h-0 flex-1 flex-col" data-session-mode={shellMode}>
       <div
         aria-label="Menu bar"
         data-testid="menu-bar-host"
-        className="h-9 shrink-0 border-y border-border bg-card/60"
-      />
+        className="flex h-9 shrink-0 items-center justify-end border-y border-border bg-card/60 px-2"
+      >
+        <PreferencesDialog />
+      </div>
 
       <div className="flex min-h-0 flex-1">
-        <aside
-          aria-label="File tree sidebar"
-          data-testid="file-tree-sidebar-host"
-          className="w-64 shrink-0 border-r border-border bg-card/35"
-        />
+        {sidebarVisible && (
+          <aside
+            aria-label="File tree sidebar"
+            data-testid="file-tree-sidebar-host"
+            className="w-64 shrink-0 border-r border-border bg-card/35"
+          />
+        )}
 
         <main
           aria-label="Document surface"

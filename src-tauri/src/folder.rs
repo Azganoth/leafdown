@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::document::{read_markdown_file, OpenMarkdownFileError, OpenMarkdownFileResult};
 
@@ -67,14 +67,24 @@ pub(super) enum ScanDepth {
     RootRestricted,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum FileTreeSortOrder {
+    Name,
+    ModifiedDate,
+    Type,
+}
+
 #[tauri::command]
 pub(crate) fn scan_markdown_folder(
     path: String,
     ignored_directories: Option<Vec<String>>,
+    sort_order: Option<FileTreeSortOrder>,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
     scan_folder(
         PathBuf::from(path).as_path(),
         ignored_directories.unwrap_or_else(defaults::ignored_directories),
+        sort_order.unwrap_or(FileTreeSortOrder::Name),
     )
 }
 
@@ -83,11 +93,13 @@ pub(crate) fn open_markdown_folder(
     path: String,
     index_file_names: Option<Vec<String>>,
     ignored_directories: Option<Vec<String>>,
+    sort_order: Option<FileTreeSortOrder>,
 ) -> Result<OpenMarkdownFolderResult, OpenMarkdownFolderError> {
     open_folder(
         PathBuf::from(path).as_path(),
         index_file_names.unwrap_or_else(defaults::index_file_names),
         ignored_directories.unwrap_or_else(defaults::ignored_directories),
+        sort_order.unwrap_or(FileTreeSortOrder::Name),
     )
 }
 
@@ -95,8 +107,9 @@ fn open_folder(
     path: &Path,
     index_file_names: Vec<String>,
     ignored_directories: Vec<String>,
+    sort_order: FileTreeSortOrder,
 ) -> Result<OpenMarkdownFolderResult, OpenMarkdownFolderError> {
-    let folder = scan_folder(path, ignored_directories)
+    let folder = scan_folder(path, ignored_directories, sort_order)
         .map_err(|error| OpenMarkdownFolderError::ScanFailed { error })?;
     let index_path = index::find_root_index_path(&folder.tree, index_file_names.as_slice());
     let index_document = index_path
@@ -113,8 +126,9 @@ fn open_folder(
 fn scan_folder(
     path: &Path,
     ignored_directories: Vec<String>,
+    sort_order: FileTreeSortOrder,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
-    scan::scan_folder(path, ignored_directories.as_slice())
+    scan::scan_folder(path, ignored_directories.as_slice(), sort_order)
 }
 
 #[cfg(test)]
@@ -122,8 +136,9 @@ fn scan_folder_with_depth(
     path: &Path,
     ignored_directories: &[String],
     depth: ScanDepth,
+    sort_order: FileTreeSortOrder,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
-    scan::scan_folder_with_depth(path, ignored_directories, depth)
+    scan::scan_folder_with_depth(path, ignored_directories, depth, sort_order)
 }
 
 #[cfg(test)]
@@ -132,11 +147,13 @@ mod tests {
         fs::{self, create_dir, create_dir_all},
         path::{Path, PathBuf},
         sync::atomic::{AtomicUsize, Ordering},
+        thread::sleep,
+        time::{Duration, UNIX_EPOCH},
     };
 
     use super::{
         defaults::ignored_directories, open_folder, scan_folder, scan_folder_with_depth,
-        MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
+        FileTreeSortOrder, MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
     };
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -189,8 +206,8 @@ mod tests {
         root.write_file("nested/draft.md");
         root.create_directory("empty");
 
-        let result =
-            scan_folder(&root.path, ignored_directories()).expect("Markdown folder should scan");
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("Markdown folder should scan");
 
         assert!(!result.is_empty);
         assert!(tree_has_file(&result.tree, "readme.md"));
@@ -206,7 +223,7 @@ mod tests {
         root.write_file(".cache/hidden.md");
         root.write_file("NODE_MODULES/dependency.md");
 
-        let result = scan_folder(&root.path, ignored_directories())
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
             .expect("folder with ignored directories should scan");
 
         assert!(!tree_has_file(&result.tree, "hidden.md"));
@@ -224,7 +241,7 @@ mod tests {
         root.create_directory("nested/empty");
         root.write_file("ignored.txt");
 
-        let result = scan_folder(&root.path, ignored_directories())
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
             .expect("empty Markdown folder should scan");
 
         assert!(result.is_empty);
@@ -242,6 +259,7 @@ mod tests {
             &root.path,
             ignored_directories().as_slice(),
             ScanDepth::RootRestricted,
+            FileTreeSortOrder::Name,
         )
         .expect("restricted root scan should complete");
 
@@ -261,11 +279,47 @@ mod tests {
             return;
         }
 
-        let result = scan_folder(&root.path, ignored_directories())
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
             .expect("folder with a symlink should scan");
 
         assert!(!tree_has_directory(&result.tree, "linked-folder"));
         assert!(!tree_has_file(&result.tree, "linked.md"));
+    }
+
+    #[test]
+    fn sorts_tree_nodes_by_type_when_configured() {
+        let root = TestDirectory::new("scan-type-sort");
+        root.write_file("zeta.md");
+        root.write_file("alpha.markdown");
+        root.create_directory("notes");
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Type)
+            .expect("folder should scan with type sorting");
+
+        assert_eq!(
+            direct_child_names(&result.tree),
+            vec!["notes", "alpha.markdown", "zeta.md"]
+        );
+    }
+
+    #[test]
+    fn sorts_tree_nodes_by_modified_date_when_configured() {
+        let root = TestDirectory::new("scan-modified-date-sort");
+        let older = root.write_file("older.md");
+        let older_modified_at_unix_ms = modified_at_unix_ms(&older);
+        write_file_after_timestamp(&root, "newer.md", older_modified_at_unix_ms);
+
+        let result = scan_folder(
+            &root.path,
+            ignored_directories(),
+            FileTreeSortOrder::ModifiedDate,
+        )
+        .expect("folder should scan with modified-date sorting");
+
+        assert_eq!(
+            direct_child_names(&result.tree),
+            vec!["newer.md", "older.md"]
+        );
     }
 
     #[test]
@@ -279,6 +333,7 @@ mod tests {
             &root.path,
             vec!["index".to_owned(), "readme".to_owned()],
             ignored_directories(),
+            FileTreeSortOrder::Name,
         )
         .expect("folder with indexes should open");
 
@@ -297,8 +352,13 @@ mod tests {
         root.write_file("readme.markdown");
         let expected_index = root.write_file("README.MD");
 
-        let result = open_folder(&root.path, vec!["readme".to_owned()], ignored_directories())
-            .expect("folder with same-name indexes should open");
+        let result = open_folder(
+            &root.path,
+            vec!["readme".to_owned()],
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect("folder with same-name indexes should open");
 
         assert_eq!(
             result
@@ -314,8 +374,13 @@ mod tests {
         let root = TestDirectory::new("open-folder-only");
         root.write_file("nested/index.md");
 
-        let result = open_folder(&root.path, vec!["index".to_owned()], ignored_directories())
-            .expect("folder without a root index should open");
+        let result = open_folder(
+            &root.path,
+            vec!["index".to_owned()],
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect("folder without a root index should open");
 
         assert!(result.index_document.is_none());
         assert!(!result.folder.is_empty);
@@ -323,6 +388,42 @@ mod tests {
 
     fn tree_has_directory(tree: &MarkdownFolderTree, name: &str) -> bool {
         child_nodes_have_directory(&tree.children, name)
+    }
+
+    fn direct_child_names(tree: &MarkdownFolderTree) -> Vec<&str> {
+        tree.children
+            .iter()
+            .map(|child| match child {
+                MarkdownFolderTreeNode::Directory { name, .. }
+                | MarkdownFolderTreeNode::File { name, .. } => name.as_str(),
+            })
+            .collect()
+    }
+
+    fn modified_at_unix_ms(path: &Path) -> u128 {
+        fs::metadata(path)
+            .and_then(|metadata| metadata.modified())
+            .expect("test file modified time should be readable")
+            .duration_since(UNIX_EPOCH)
+            .expect("test modified time should be after epoch")
+            .as_millis()
+    }
+
+    fn write_file_after_timestamp(
+        root: &TestDirectory,
+        relative_path: &str,
+        older_than_unix_ms: u128,
+    ) -> PathBuf {
+        for _ in 0..200 {
+            sleep(Duration::from_millis(10));
+            let path = root.write_file(relative_path);
+
+            if modified_at_unix_ms(&path) > older_than_unix_ms {
+                return path;
+            }
+        }
+
+        panic!("test filesystem should expose distinct modified times");
     }
 
     fn child_nodes_have_directory(children: &[MarkdownFolderTreeNode], name: &str) -> bool {

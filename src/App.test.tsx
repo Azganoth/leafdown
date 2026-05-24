@@ -9,7 +9,11 @@ import { toast } from "sonner";
 
 import { App } from "./App";
 import { useSessionStore } from "./stores/session";
-import { settingsStoreTauriHandler } from "./stores/settings";
+import {
+  defaultIgnoredDirectories,
+  settingsStoreTauriHandler,
+  useSettingsStore,
+} from "./stores/settings";
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
@@ -46,6 +50,11 @@ const notesFolderTree = {
       path: "C:/Notes/readme.md",
     },
   ],
+};
+
+const defaultFolderScanArgs = {
+  ignoredDirectories: defaultIgnoredDirectories,
+  sortOrder: "name",
 };
 
 describe("App", () => {
@@ -113,9 +122,30 @@ describe("App", () => {
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
+  it("renders recent files and folders and clears both lists", async () => {
+    setDefaultSettings({
+      recentFiles: ["C:/Notes/readme.md"],
+      recentFolders: ["C:/Notes"],
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    expect(screen.getByRole("button", { name: "C:/Notes/readme.md" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "C:/Notes" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear recent items" }));
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: [],
+      recentFolders: [],
+    });
+    expect(screen.getByText("No recent files.")).toBeInTheDocument();
+    expect(screen.getByText("No recent folders.")).toBeInTheDocument();
+  });
+
   it("renders a folder-only document placeholder without an active document host", () => {
     setDefaultSession({
-      folderContext: { path: "C:/Notes", tree: notesFolderTree },
+      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
     });
 
     render(<App />);
@@ -126,6 +156,57 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
+  });
+
+  it("hides the sidebar when the persisted sidebar setting is off", () => {
+    setDefaultSettings({ sidebarVisible: false });
+
+    render(<App />);
+
+    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+  });
+
+  it("exposes MVP preferences without Post-MVP settings", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Preferences" }));
+
+    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
+    expect(screen.getByText("Record recent files and folders")).toBeInTheDocument();
+    expect(screen.getByText("Sidebar visibility")).toBeInTheDocument();
+    expect(screen.getByText("Sort file tree by")).toBeInTheDocument();
+    expect(screen.getByText("Default extension for new documents")).toBeInTheDocument();
+    expect(screen.getByText("Default line ending for new documents")).toBeInTheDocument();
+    expect(screen.getByText("Insert final newline on save")).toBeInTheDocument();
+    expect(screen.getByText("Index file names for automatic folder open")).toBeInTheDocument();
+    expect(screen.getByText("Ignored directories for folder scans")).toBeInTheDocument();
+    expect(screen.getByText("Auto pair brackets and quotes")).toBeInTheDocument();
+    expect(screen.getByText("Soft wrap for code blocks")).toBeInTheDocument();
+    expect(screen.getByText("Appearance theme")).toBeInTheDocument();
+    expect(screen.queryByText("Auto save")).not.toBeInTheDocument();
+    expect(screen.queryByText("Render/editor theme")).not.toBeInTheDocument();
+    expect(screen.queryByText("Display line numbers for code blocks")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unordered list marker")).not.toBeInTheDocument();
+  });
+
+  it("updates persisted settings from preferences", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Preferences" }));
+    await user.click(screen.getByRole("switch", { name: "Sidebar visibility" }));
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
+
+    const ignoredDirectoriesInput = screen.getByLabelText("Ignored directories for folder scans");
+    await user.clear(ignoredDirectoriesInput);
+    await user.type(ignoredDirectoriesInput, ".git{enter}vendor");
+    await user.tab();
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      ignoredDirectories: [".git", "vendor"],
+      sidebarVisible: false,
+      theme: "dark",
+    });
+    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
   });
 
   it("renders the active document editor for document sessions", () => {
@@ -188,6 +269,7 @@ describe("App", () => {
     });
     expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
       path: "C:/Notes",
+      ...defaultFolderScanArgs,
     });
 
     expect(open).toHaveBeenCalledWith({
@@ -205,10 +287,76 @@ describe("App", () => {
         metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
       },
     });
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: ["C:/Notes/readme.md"],
+      recentFolders: ["C:/Notes"],
+    });
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
+  it("opens recent Markdown files without showing the file picker", async () => {
+    setDefaultSettings({ recentFiles: ["C:/Notes/readme.md"] });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      content: "# Notes\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: notesFolderTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "C:/Notes/readme.md" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenNthCalledWith(1, "open_markdown_file", {
+        path: "C:/Notes/readme.md",
+      });
+    });
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("does not record opened files or folders when recent recording is disabled", async () => {
+    setDefaultSettings({ recordRecentItems: false });
+    vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/readme.md",
+      parentFolderPath: "C:/Notes",
+      content: "# Notes\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: notesFolderTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+    });
+    expect(useSettingsStore.getState()).toMatchObject({
+      recentFiles: [],
+      recentFolders: [],
+    });
+  });
+
   it("opens a selected folder index into a saved document session", async () => {
+    setDefaultSettings({
+      fileTreeSortOrder: "type",
+      ignoredDirectories: [".git", "vendor"],
+      indexFileNames: ["home", "readme"],
+    });
     vi.mocked(open).mockResolvedValue("C:/Notes");
     vi.mocked(invoke).mockResolvedValue({
       folder: {
@@ -231,6 +379,9 @@ describe("App", () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("open_markdown_folder", {
         path: "C:/Notes",
+        ignoredDirectories: [".git", "vendor"],
+        indexFileNames: ["home", "readme"],
+        sortOrder: "type",
       });
     });
 
@@ -246,6 +397,7 @@ describe("App", () => {
         content: "# Notes\n",
       },
     });
+    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
@@ -271,6 +423,7 @@ describe("App", () => {
       folderContext: { path: "C:/Notes", tree: notesFolderTree },
       activeDocument: null,
     });
+    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
   });
 
   it("tracks selected folders with no Markdown files as empty folder contexts", async () => {
@@ -278,7 +431,18 @@ describe("App", () => {
     vi.mocked(invoke).mockResolvedValue({
       folder: {
         path: "C:/Empty",
-        tree: { name: "Empty", path: "C:/Empty", children: [] },
+        tree: {
+          name: "Empty",
+          path: "C:/Empty",
+          children: [
+            {
+              kind: "directory",
+              name: "nested",
+              path: "C:/Empty/nested",
+              children: [],
+            },
+          ],
+        },
         isEmpty: true,
       },
       indexDocument: null,

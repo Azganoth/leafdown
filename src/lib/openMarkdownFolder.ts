@@ -9,6 +9,7 @@ import {
   type LineEnding,
   type MarkdownFolderTree,
 } from "@/stores/session";
+import { useSettingsStore } from "@/stores/settings";
 
 interface MarkdownFolderScanResult {
   path: string;
@@ -31,12 +32,40 @@ interface OpenMarkdownFolderResult {
 const toFolderContext = (folder: MarkdownFolderScanResult): FolderContextState => ({
   path: folder.path,
   tree: folder.tree,
+  isEmpty: folder.isEmpty,
 });
 
 export const scanMarkdownFolder = async (path: string) => {
-  const folder = await invoke<MarkdownFolderScanResult>("scan_markdown_folder", { path });
+  const { fileTreeSortOrder, ignoredDirectories } = useSettingsStore.getState();
+  const folder = await invoke<MarkdownFolderScanResult>("scan_markdown_folder", {
+    path,
+    ignoredDirectories,
+    sortOrder: fileTreeSortOrder,
+  });
 
   return toFolderContext(folder);
+};
+
+export const openMarkdownFolderPath = async (path: string) => {
+  const { fileTreeSortOrder, ignoredDirectories, indexFileNames } = useSettingsStore.getState();
+  const openedFolder = await invoke<OpenMarkdownFolderResult>("open_markdown_folder", {
+    path,
+    ignoredDirectories,
+    indexFileNames,
+    sortOrder: fileTreeSortOrder,
+  });
+  const folderContext = toFolderContext(openedFolder.folder);
+
+  if (!openedFolder.indexDocument) {
+    useSessionStore.getState().setFolderSession(folderContext);
+    useSettingsStore.getState().recordRecentFolder(folderContext.path);
+    return;
+  }
+
+  useSessionStore
+    .getState()
+    .setDocumentSession(folderContext, toSavedDocument(openedFolder.indexDocument));
+  useSettingsStore.getState().recordRecentFolder(folderContext.path);
 };
 
 export const openMarkdownFolder = async () => {
@@ -49,17 +78,5 @@ export const openMarkdownFolder = async () => {
     return;
   }
 
-  const openedFolder = await invoke<OpenMarkdownFolderResult>("open_markdown_folder", {
-    path: selectedPath,
-  });
-  const folderContext = toFolderContext(openedFolder.folder);
-
-  if (!openedFolder.indexDocument) {
-    useSessionStore.getState().setFolderSession(folderContext);
-    return;
-  }
-
-  useSessionStore
-    .getState()
-    .setDocumentSession(folderContext, toSavedDocument(openedFolder.indexDocument));
+  await openMarkdownFolderPath(selectedPath);
 };

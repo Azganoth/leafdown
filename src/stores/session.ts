@@ -24,13 +24,13 @@ export type MarkdownFolderTreeNode = MarkdownFolderDirectoryNode | MarkdownFolde
 export interface FolderContextState {
   path: string;
   tree: MarkdownFolderTree;
+  isEmpty: boolean;
 }
 
 export type FolderContextStatus = "available" | "empty";
 
-// Derive folder status from the tree rather than storing it.
 export const getFolderContextStatus = (folderContext: FolderContextState): FolderContextStatus =>
-  folderContext.tree.children.length === 0 ? "empty" : "available";
+  folderContext.isEmpty ? "empty" : "available";
 
 export type LineEnding = "crlf" | "lf";
 

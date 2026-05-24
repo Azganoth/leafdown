@@ -15,13 +15,22 @@ import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/ut
 
 vi.mock("@/components/editor", () => ({
   MilkdownEditor: ({
+    autoPairBracketsAndQuotes,
     documentKey,
     initialMarkdown,
+    softWrapCodeBlocks,
   }: {
+    autoPairBracketsAndQuotes?: boolean;
     documentKey: string;
     initialMarkdown: string;
+    softWrapCodeBlocks?: boolean;
   }) => (
-    <div data-document-key={documentKey} data-testid="milkdown-editor-host">
+    <div
+      data-auto-pair-brackets-and-quotes={autoPairBracketsAndQuotes}
+      data-code-block-soft-wrap={softWrapCodeBlocks}
+      data-document-key={documentKey}
+      data-testid="milkdown-editor-host"
+    >
       {initialMarkdown}
     </div>
   ),
@@ -120,6 +129,10 @@ describe("App", () => {
   });
 
   it("renders the active document editor for document sessions", () => {
+    setDefaultSettings({
+      autoPairBracketsAndQuotes: false,
+      softWrapCodeBlocks: true,
+    });
     setDefaultSession({
       activeDocument: {
         status: "saved",
@@ -136,6 +149,14 @@ describe("App", () => {
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-document-key",
       "C:/Notes/readme.md",
+    );
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-auto-pair-brackets-and-quotes",
+      "false",
+    );
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-code-block-soft-wrap",
+      "true",
     );
     expect(screen.getByTestId("milkdown-editor-host")).toHaveTextContent("# Notes");
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();

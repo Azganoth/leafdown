@@ -15,6 +15,8 @@ export interface MilkdownEditorProps {
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
+  autoPairBracketsAndQuotes?: boolean;
+  softWrapCodeBlocks?: boolean;
 }
 
 export function MilkdownEditor({
@@ -23,12 +25,16 @@ export function MilkdownEditor({
   className,
   ref,
   onMarkdownUpdated,
+  autoPairBracketsAndQuotes = true,
+  softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
 
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
   onMarkdownUpdatedRef.current = onMarkdownUpdated;
+  const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
+  autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
 
   useImperativeHandle(
     ref,
@@ -62,6 +68,7 @@ export function MilkdownEditor({
         root,
         initialMarkdown,
         onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
+        getAutoPairBracketsAndQuotes: () => autoPairBracketsAndQuotesRef.current,
       });
 
       if (disposed) {
@@ -93,7 +100,11 @@ export function MilkdownEditor({
   }, [documentKey]);
 
   return (
-    <div className={cn("leafdown-editor", className)} data-testid="milkdown-editor-host">
+    <div
+      className={cn("leafdown-editor", className)}
+      data-code-block-soft-wrap={softWrapCodeBlocks}
+      data-testid="milkdown-editor-host"
+    >
       <div ref={rootRef} className="min-h-full w-full" />
     </div>
   );

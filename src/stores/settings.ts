@@ -4,10 +4,14 @@ import { immer } from "zustand/middleware/immer";
 
 export interface SettingsState {
   theme: "light" | "dark" | "system";
+  autoPairBracketsAndQuotes: boolean;
+  softWrapCodeBlocks: boolean;
 }
 
 export interface SettingsStore extends SettingsState {
   setTheme: (theme: SettingsState["theme"]) => void;
+  setAutoPairBracketsAndQuotes: (enabled: boolean) => void;
+  setSoftWrapCodeBlocks: (enabled: boolean) => void;
 
   reset: () => Promise<void>;
   init: () => Promise<void>;
@@ -16,10 +20,20 @@ export interface SettingsStore extends SettingsState {
 export const useSettingsStore = create<SettingsStore>()(
   immer((set, get, store) => ({
     theme: "system",
+    autoPairBracketsAndQuotes: true,
+    softWrapCodeBlocks: false,
 
     setTheme: (theme) =>
       set((state) => {
         state.theme = theme;
+      }),
+    setAutoPairBracketsAndQuotes: (enabled) =>
+      set((state) => {
+        state.autoPairBracketsAndQuotes = enabled;
+      }),
+    setSoftWrapCodeBlocks: (enabled) =>
+      set((state) => {
+        state.softWrapCodeBlocks = enabled;
       }),
 
     reset: async () => {

@@ -57,8 +57,55 @@ describe("MilkdownEditor", () => {
     const options = getCreateOptions();
 
     expect(screen.getByTestId("milkdown-editor-host")).toBeInTheDocument();
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-code-block-soft-wrap",
+      "false",
+    );
     expect(options.root).toBeInstanceOf(HTMLElement);
     expect(options.initialMarkdown).toBe("# Notes");
+    expect(options.getAutoPairBracketsAndQuotes?.()).toBe(true);
+  });
+
+  it("passes live editor settings without recreating the editor", async () => {
+    const editor = createMockEditor();
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
+
+    const { rerender } = render(
+      <MilkdownEditor
+        documentKey="C:/Notes/readme.md"
+        initialMarkdown="# Notes"
+        autoPairBracketsAndQuotes
+        softWrapCodeBlocks={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(editor.create).toHaveBeenCalledTimes(1);
+    });
+
+    const options = getCreateOptions();
+
+    expect(options.getAutoPairBracketsAndQuotes?.()).toBe(true);
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-code-block-soft-wrap",
+      "false",
+    );
+
+    rerender(
+      <MilkdownEditor
+        documentKey="C:/Notes/readme.md"
+        initialMarkdown="# Notes"
+        autoPairBracketsAndQuotes={false}
+        softWrapCodeBlocks
+      />,
+    );
+
+    expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
+    expect(options.getAutoPairBracketsAndQuotes?.()).toBe(false);
+    expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+      "data-code-block-soft-wrap",
+      "true",
+    );
   });
 
   it("destroys the created editor on unmount", async () => {

@@ -176,6 +176,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Lists support `Enter`, `Tab`, and `Shift+Tab` for continuation and indentation.
 - `Shift+Enter` inserts a hard line break where supported.
+- Auto-pair brackets and quotes inserts matching `()`, `[]`, `{}`, `"..."`, and
+  `'...'` pairs, wraps selected text in the active text block, and removes an
+  empty pair when `Backspace` is pressed between the delimiters. Quote
+  auto-pairing does not trigger immediately after word characters.
 - Tables support keyboard navigation between cells and basic text editing:
   - `Tab`: Moves focus to the cell to the right. If pressed in the last cell of the last row, inserts a new row below and moves focus to its first cell.
   - `Shift+Tab`: Moves focus to the cell to the left.

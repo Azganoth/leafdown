@@ -8,6 +8,7 @@ import {
   useSessionStore,
   type SavedDocumentState,
 } from "@/stores/session";
+import { useSettingsStore } from "@/stores/settings";
 import { FileText, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 
@@ -121,6 +122,9 @@ interface DocumentStateProps {
 }
 
 function DocumentState({ document }: DocumentStateProps) {
+  const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
+  const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
+
   return (
     <ScrollArea className="h-full w-full" data-testid="document-surface-scroll-area" type="scroll">
       <section
@@ -128,7 +132,12 @@ function DocumentState({ document }: DocumentStateProps) {
         data-testid="active-document-host"
         className="min-h-full w-full bg-background"
       >
-        <MilkdownEditor documentKey={document.path} initialMarkdown={document.content} />
+        <MilkdownEditor
+          documentKey={document.path}
+          initialMarkdown={document.content}
+          autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
+          softWrapCodeBlocks={softWrapCodeBlocks}
+        />
       </section>
     </ScrollArea>
   );

@@ -3,6 +3,7 @@ import { getFolderContextStatus, getSessionShellMode, useSessionStore } from "@/
 import { useSettingsStore } from "@/stores/settings";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { EmptyFolderScreen } from "./EmptyFolderScreen";
+import { FileWorkflowActions } from "./FileWorkflowActions";
 import { FolderOnlyScreen } from "./FolderOnlyScreen";
 import { DocumentScreen } from "./DocumentScreen";
 
@@ -17,8 +18,9 @@ function SessionShell() {
       <div
         aria-label="Menu bar"
         data-testid="menu-bar-host"
-        className="flex h-9 shrink-0 items-center justify-end border-y border-border bg-card/60 px-2"
+        className="flex h-9 shrink-0 items-center justify-between border-y border-border bg-card/60 px-2"
       >
+        <FileWorkflowActions />
         <PreferencesDialog />
       </div>
 

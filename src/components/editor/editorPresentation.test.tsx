@@ -59,6 +59,8 @@ const value = 1;
     expect(editorCss).toContain(".ProseMirror {");
     expect(editorCss).toMatch(/table\s*\{[^}]*overflow-x-auto/s);
     expect(editorCss).toContain("overflow-x-auto");
+    expect(editorCss).toContain('&[data-code-block-soft-wrap="true"]');
+    expect(editorCss).toContain("whitespace-pre-wrap");
     expect(editorCss).toContain(".tableWrapper {");
     expect(editorCss).toContain("&[data-checked] {");
   });
@@ -92,5 +94,17 @@ value
       mounted.view.dom.querySelector("pre[data-language='leafdown-unknown']"),
     ).toHaveTextContent("value");
     expect(mounted.getMarkdown()).toBe("```leafdown-unknown\nvalue\n```\n");
+  });
+
+  it("keeps code-block soft wrap as CSS-only presentation", async () => {
+    const mounted = await mountEditor(`\`\`\`ts
+const value = 1;
+\`\`\``);
+    const markdown = mounted.getMarkdown();
+
+    mounted.root.dataset.codeBlockSoftWrap = "true";
+
+    expect(mounted.root).toHaveAttribute("data-code-block-soft-wrap", "true");
+    expect(mounted.getMarkdown()).toBe(markdown);
   });
 });

@@ -4,6 +4,8 @@ import { useSettingsStore, type SettingsState } from "@/stores/settings";
 export function setDefaultSettings(settings: Partial<SettingsState> = {}) {
   useSettingsStore.setState({
     theme: "system",
+    autoPairBracketsAndQuotes: true,
+    softWrapCodeBlocks: false,
     ...settings,
   });
 }

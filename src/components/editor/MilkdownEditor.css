@@ -211,4 +211,16 @@
       @apply bg-transparent;
     }
   }
+
+  &[data-code-block-soft-wrap="true"] {
+    .ProseMirror {
+      pre {
+        @apply overflow-x-hidden wrap-anywhere whitespace-pre-wrap;
+
+        code {
+          @apply min-w-0 whitespace-pre-wrap;
+        }
+      }
+    }
+  }
 }

@@ -13,6 +13,7 @@ export interface CreateMilkdownEditorOptions {
   root: HTMLElement;
   initialMarkdown: string;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
+  getAutoPairBracketsAndQuotes?: () => boolean;
 }
 
 export type MilkdownEditorInstance = Editor;

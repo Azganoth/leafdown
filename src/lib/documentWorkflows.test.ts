@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
+import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -51,6 +51,8 @@ describe("document workflows", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
+    vi.mocked(confirm).mockReset();
+    vi.mocked(confirm).mockResolvedValue(false);
     vi.mocked(save).mockReset();
     vi.mocked(save).mockResolvedValue(null);
     resetActiveDocumentEditorBridge();
@@ -102,6 +104,8 @@ describe("document workflows", () => {
     expect(invoke).toHaveBeenCalledWith("save_markdown_file", {
       path: "C:/Notes/readme.md",
       content: "# Updated\r\n",
+      expectedMetadata: { sizeBytes: 11, modifiedAtUnixMs: 1 },
+      overwrite: false,
     });
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       status: "saved",
@@ -149,6 +153,8 @@ describe("document workflows", () => {
     expect(invoke).toHaveBeenNthCalledWith(1, "save_markdown_file", {
       path: "C:/Notes/draft.markdown",
       content: "Draft",
+      expectedMetadata: null,
+      overwrite: false,
     });
     expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
       path: "C:/Notes",
@@ -183,6 +189,149 @@ describe("document workflows", () => {
       status: "untitled",
       id: "untitled:test",
       content: "Draft",
+    });
+  });
+
+  it("routes missing saved files to Save As when confirmed", async () => {
+    setDefaultSession({
+      folderContext: notesFolderContext,
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Missing",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 9, modifiedAtUnixMs: 1 },
+      },
+    });
+    vi.mocked(invoke)
+      .mockRejectedValueOnce({ kind: "missingFile", path: "C:/Notes/readme.md" })
+      .mockResolvedValueOnce({
+        path: "C:/Notes/recovered.md",
+        parentFolderPath: "C:/Notes",
+        metadata: { sizeBytes: 10, modifiedAtUnixMs: 2 },
+      })
+      .mockResolvedValueOnce(updatedFolderContext);
+    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(save).mockResolvedValue("C:/Notes/recovered.md");
+
+    await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+
+    expect(confirm).toHaveBeenCalledWith(
+      "The saved Markdown file no longer exists. Save this document to a new path?",
+      {
+        title: "File missing",
+        kind: "warning",
+        okLabel: "Save as",
+        cancelLabel: "Cancel",
+      },
+    );
+    expect(save).toHaveBeenCalledWith({
+      title: "Save Markdown document",
+      filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+      defaultPath: "C:/Notes/readme.md",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "save_markdown_file", {
+      path: "C:/Notes/recovered.md",
+      content: "# Missing\n",
+      expectedMetadata: null,
+      overwrite: false,
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/recovered.md",
+    });
+  });
+
+  it("cancels Save when the saved file is missing and Save As is declined", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Missing",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 9, modifiedAtUnixMs: 1 },
+      },
+    });
+    vi.mocked(invoke).mockRejectedValueOnce({ kind: "missingFile", path: "C:/Notes/readme.md" });
+
+    await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      metadata: { sizeBytes: 9, modifiedAtUnixMs: 1 },
+    });
+  });
+
+  it("overwrites external modifications only after confirmation", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Local",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
+      },
+    });
+    vi.mocked(invoke)
+      .mockRejectedValueOnce({
+        kind: "externalModification",
+        path: "C:/Notes/readme.md",
+        currentMetadata: { sizeBytes: 10, modifiedAtUnixMs: 2 },
+      })
+      .mockResolvedValueOnce({
+        path: "C:/Notes/readme.md",
+        parentFolderPath: "C:/Notes",
+        metadata: { sizeBytes: 8, modifiedAtUnixMs: 3 },
+      });
+    vi.mocked(confirm).mockResolvedValue(true);
+
+    await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+
+    expect(confirm).toHaveBeenCalledWith(
+      "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
+      {
+        title: "File changed",
+        kind: "warning",
+        okLabel: "Overwrite anyway",
+        cancelLabel: "Cancel save",
+      },
+    );
+    expect(invoke).toHaveBeenNthCalledWith(2, "save_markdown_file", {
+      path: "C:/Notes/readme.md",
+      content: "# Local\n",
+      expectedMetadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
+      overwrite: true,
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 3 },
+    });
+  });
+
+  it("cancels Save when external modifications are not confirmed", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Local",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
+      },
+    });
+    vi.mocked(invoke).mockRejectedValueOnce({
+      kind: "externalModification",
+      path: "C:/Notes/readme.md",
+      currentMetadata: { sizeBytes: 10, modifiedAtUnixMs: 2 },
+    });
+
+    await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
+
+    expect(invoke).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
     });
   });
 });

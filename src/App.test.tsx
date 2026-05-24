@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setTheme } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
 import { App } from "./App";
@@ -61,6 +61,7 @@ describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
+    vi.mocked(confirm).mockResolvedValue(false);
     vi.mocked(open).mockResolvedValue(null);
     vi.mocked(save).mockResolvedValue(null);
     document.documentElement.className = "";
@@ -295,6 +296,8 @@ describe("App", () => {
       expect(invoke).toHaveBeenCalledWith("save_markdown_file", {
         path: "C:/Notes/readme.md",
         content: "# Notes\n",
+        expectedMetadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+        overwrite: false,
       });
     });
     expect(useSessionStore.getState().activeDocument).toMatchObject({
@@ -350,6 +353,8 @@ describe("App", () => {
     expect(invoke).toHaveBeenNthCalledWith(1, "save_markdown_file", {
       path: "C:/Notes/draft.markdown",
       content: "# Draft\n",
+      expectedMetadata: null,
+      overwrite: false,
     });
     expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
       path: "C:/Notes",

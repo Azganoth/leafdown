@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { documentDir, extname, join } from "@tauri-apps/api/path";
-import { save as showSaveDialog } from "@tauri-apps/plugin-dialog";
+import { confirm as showConfirmDialog, save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 
 import { getActiveDocumentEditorMarkdown } from "@/lib/documentEditorBridge";
 import { formatMarkdownForSave } from "@/lib/documentSerialization";
@@ -12,6 +12,7 @@ import {
   type ActiveDocumentState,
   type FileMetadataSnapshot,
   type LineEnding,
+  type SavedDocumentState,
 } from "@/stores/session";
 import { useSettingsStore, type DefaultNewDocumentExtension } from "@/stores/settings";
 import { scanMarkdownFolder } from "./openMarkdownFolder";
@@ -22,9 +23,22 @@ interface SaveMarkdownFileResult {
   metadata: FileMetadataSnapshot;
 }
 
+type SaveMarkdownFileError =
+  | { kind: "missingFile"; path: string }
+  | {
+      kind: "externalModification";
+      path: string;
+      currentMetadata: FileMetadataSnapshot;
+    };
+
 interface SerializedDocumentForSave {
   content: string;
   lineEnding: LineEnding;
+}
+
+interface WriteMarkdownDocumentOptions {
+  expectedMetadata?: FileMetadataSnapshot | null;
+  overwrite?: boolean;
 }
 
 const markdownFilters = [{ name: "Markdown", extensions: ["md", "markdown"] }];
@@ -67,19 +81,10 @@ export const saveActiveMarkdownDocument = async () => {
     return saveActiveMarkdownDocumentAs();
   }
 
-  const serializedDocument = serializeActiveDocumentForSave(activeDocument);
-  const result = await writeMarkdownDocument(activeDocument.path, serializedDocument.content);
-
-  useSessionStore.getState().setActiveDocument(
-    toSavedDocument({
-      path: result.path,
-      content: serializedDocument.content,
-      lineEnding: serializedDocument.lineEnding,
-      metadata: result.metadata,
-    }),
+  return saveSerializedDocumentToSavedPath(
+    activeDocument,
+    serializeActiveDocumentForSave(activeDocument),
   );
-
-  return true;
 };
 
 export const saveActiveMarkdownDocumentAs = async () => {
@@ -139,8 +144,102 @@ const serializeActiveDocumentForSave = (
   };
 };
 
-const writeMarkdownDocument = async (path: string, content: string) =>
-  invoke<SaveMarkdownFileResult>("save_markdown_file", { path, content });
+const saveSerializedDocumentToSavedPath = async (
+  activeDocument: SavedDocumentState,
+  serializedDocument: SerializedDocumentForSave,
+  overwrite = false,
+): Promise<boolean> => {
+  try {
+    const result = await writeMarkdownDocument(activeDocument.path, serializedDocument.content, {
+      expectedMetadata: activeDocument.metadata,
+      overwrite,
+    });
+
+    useSessionStore.getState().setActiveDocument(
+      toSavedDocument({
+        path: result.path,
+        content: serializedDocument.content,
+        lineEnding: serializedDocument.lineEnding,
+        metadata: result.metadata,
+      }),
+    );
+
+    return true;
+  } catch (error) {
+    if (isMissingFileSaveError(error)) {
+      return handleMissingSavedFile();
+    }
+
+    if (isExternalModificationSaveError(error)) {
+      return handleExternalModification(activeDocument);
+    }
+
+    throw error;
+  }
+};
+
+const handleMissingSavedFile = async () => {
+  const shouldSaveAs = await showConfirmDialog(
+    "The saved Markdown file no longer exists. Save this document to a new path?",
+    {
+      title: "File missing",
+      kind: "warning",
+      okLabel: "Save as",
+      cancelLabel: "Cancel",
+    },
+  );
+
+  return shouldSaveAs ? saveActiveMarkdownDocumentAs() : false;
+};
+
+const handleExternalModification = async (activeDocument: SavedDocumentState) => {
+  const shouldOverwrite = await showConfirmDialog(
+    "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
+    {
+      title: "File changed",
+      kind: "warning",
+      okLabel: "Overwrite anyway",
+      cancelLabel: "Cancel save",
+    },
+  );
+
+  if (!shouldOverwrite) {
+    return false;
+  }
+
+  const latestDocument = useSessionStore.getState().activeDocument;
+
+  if (latestDocument?.status !== "saved" || latestDocument.path !== activeDocument.path) {
+    return false;
+  }
+
+  return saveSerializedDocumentToSavedPath(
+    latestDocument,
+    serializeActiveDocumentForSave(latestDocument),
+    true,
+  );
+};
+
+const writeMarkdownDocument = async (
+  path: string,
+  content: string,
+  options: WriteMarkdownDocumentOptions = {},
+) =>
+  invoke<SaveMarkdownFileResult>("save_markdown_file", {
+    path,
+    content,
+    expectedMetadata: options.expectedMetadata ?? null,
+    overwrite: options.overwrite ?? false,
+  });
+
+const isSaveMarkdownFileError = (error: unknown): error is SaveMarkdownFileError =>
+  typeof error === "object" && error !== null && "kind" in error;
+
+const isMissingFileSaveError = (error: unknown) =>
+  isSaveMarkdownFileError(error) && error.kind === "missingFile";
+
+const isExternalModificationSaveError = (error: unknown) =>
+  isSaveMarkdownFileError(error) && error.kind === "externalModification";
 
 const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
   if (activeDocument.status === "saved") {

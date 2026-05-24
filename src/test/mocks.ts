@@ -65,6 +65,7 @@ export function createTauriWindowMock() {
 
 export function createTauriDialogMock() {
   return {
+    confirm: vi.fn(async () => false),
     open: vi.fn(async () => null),
     save: vi.fn(async () => null),
   };

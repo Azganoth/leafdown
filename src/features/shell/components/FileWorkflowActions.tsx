@@ -68,11 +68,17 @@ export function FileWorkflowActions() {
         event.preventDefault();
 
         if (event.shiftKey) {
-          handleSaveAs();
+          if (hasActiveDocument) {
+            handleSaveAs();
+          }
+
           return;
         }
 
-        handleSave();
+        if (!saveDisabled) {
+          handleSave();
+        }
+
         return;
       }
 
@@ -87,7 +93,7 @@ export function FileWorkflowActions() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleCloseDocument, handleNew, handleSave, handleSaveAs]);
+  }, [handleCloseDocument, handleNew, handleSave, handleSaveAs, hasActiveDocument, saveDisabled]);
 
   return (
     <div aria-label="File actions" className="flex items-center gap-1">

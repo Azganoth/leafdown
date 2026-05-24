@@ -325,6 +325,17 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save as..." })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Close document" })).toBeEnabled();
+
+    const saveShortcut = new KeyboardEvent("keydown", {
+      key: "s",
+      ctrlKey: true,
+      cancelable: true,
+    });
+
+    window.dispatchEvent(saveShortcut);
+
+    expect(saveShortcut.defaultPrevented).toBe(true);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("saves saved documents from the file actions", async () => {

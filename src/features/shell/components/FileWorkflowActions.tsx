@@ -1,21 +1,29 @@
 import { Button } from "@/components/ui/Button";
 import {
+  closeActiveMarkdownDocument,
   createNewMarkdownDocument,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "@/lib/documentWorkflows";
 import { useSessionStore } from "@/stores/session";
-import { FilePlusIcon, SaveAllIcon, SaveIcon } from "lucide-react";
+import { FilePlusIcon, SaveAllIcon, SaveIcon, XIcon } from "lucide-react";
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
 
 const isPrimaryModifierEvent = (event: KeyboardEvent) => event.ctrlKey || event.metaKey;
 
 export function FileWorkflowActions() {
-  const hasActiveDocument = useSessionStore((state) => Boolean(state.activeDocument));
+  const activeDocument = useSessionStore((state) => state.activeDocument);
+  const hasActiveDocument = Boolean(activeDocument);
+  const saveDisabled =
+    !activeDocument || (activeDocument.status === "saved" && !activeDocument.isDirty);
 
   const handleNew = useCallback(() => {
-    createNewMarkdownDocument();
+    void createNewMarkdownDocument();
+  }, []);
+
+  const handleCloseDocument = useCallback(() => {
+    void closeActiveMarkdownDocument();
   }, []);
 
   const handleSave = useCallback(() => {
@@ -65,6 +73,12 @@ export function FileWorkflowActions() {
         }
 
         handleSave();
+        return;
+      }
+
+      if (key === "w" && !event.shiftKey) {
+        event.preventDefault();
+        handleCloseDocument();
       }
     };
 
@@ -73,7 +87,7 @@ export function FileWorkflowActions() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleNew, handleSave, handleSaveAs]);
+  }, [handleCloseDocument, handleNew, handleSave, handleSaveAs]);
 
   return (
     <div aria-label="File actions" className="flex items-center gap-1">
@@ -81,13 +95,7 @@ export function FileWorkflowActions() {
         <FilePlusIcon aria-hidden="true" className="size-4" />
         New
       </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleSave}
-        disabled={!hasActiveDocument}
-      >
+      <Button type="button" variant="ghost" size="sm" onClick={handleSave} disabled={saveDisabled}>
         <SaveIcon aria-hidden="true" className="size-4" />
         Save
       </Button>
@@ -100,6 +108,16 @@ export function FileWorkflowActions() {
       >
         <SaveAllIcon aria-hidden="true" className="size-4" />
         Save as...
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={handleCloseDocument}
+        disabled={!hasActiveDocument}
+      >
+        <XIcon aria-hidden="true" className="size-4" />
+        Close document
       </Button>
     </div>
   );

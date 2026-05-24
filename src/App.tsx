@@ -2,6 +2,7 @@ import "@/App.css";
 import { SessionShell } from "@/features/shell/components/SessionShell";
 import { TitleBar } from "@/features/shell/components/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
+import { confirmActiveDocumentTransition } from "@/lib/dirtyDocumentTransitions";
 import { settingsStoreTauriHandler, useSettingsStore, type SettingsState } from "@/stores/settings";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
@@ -42,6 +43,25 @@ function App() {
     return () => {
       window.removeEventListener("dragover", preventDropNavigation);
       window.removeEventListener("drop", preventDropNavigation);
+    };
+  }, []);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    void getCurrentWindow()
+      .onCloseRequested(async (event) => {
+        if (!(await confirmActiveDocumentTransition())) {
+          event.preventDefault();
+        }
+      })
+      .then((closeUnlisten) => {
+        unlisten = closeUnlisten;
+      })
+      .catch(console.error);
+
+    return () => {
+      unlisten?.();
     };
   }, []);
 

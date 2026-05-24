@@ -22,11 +22,13 @@ vi.mock("@/features/editor", () => ({
     autoPairBracketsAndQuotes,
     documentKey,
     initialMarkdown,
+    onContentTransaction,
     softWrapCodeBlocks,
   }: {
     autoPairBracketsAndQuotes?: boolean;
     documentKey: string;
     initialMarkdown: string;
+    onContentTransaction?: () => void;
     softWrapCodeBlocks?: boolean;
   }) => (
     <div
@@ -36,6 +38,9 @@ vi.mock("@/features/editor", () => ({
       data-testid="milkdown-editor-host"
     >
       {initialMarkdown}
+      <button type="button" onClick={onContentTransaction}>
+        Mock content transaction
+      </button>
     </div>
   ),
 }));
@@ -134,11 +139,18 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "New" }));
 
+    await waitFor(() => {
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        status: "untitled",
+      });
+    });
+
     const activeDocument = useSessionStore.getState().activeDocument;
 
     expect(activeDocument).toMatchObject({
       status: "untitled",
       content: "",
+      isDirty: false,
       lineEnding: "lf",
     });
     expect(activeDocument).toMatchObject({
@@ -248,6 +260,7 @@ describe("App", () => {
         status: "saved",
         path: "C:/Notes/readme.md",
         content: "# Notes",
+        isDirty: true,
         lineEnding: "lf",
         metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
       },
@@ -272,12 +285,55 @@ describe("App", () => {
     expect(screen.queryByText("No document open")).not.toBeInTheDocument();
   });
 
+  it("marks the active document dirty when the editor reports a content transaction", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: true,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Mock content transaction" }));
+
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      isDirty: true,
+    });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("disables Save for clean saved documents", () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save as..." })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Close document" })).toBeEnabled();
+  });
+
   it("saves saved documents from the file actions", async () => {
     setDefaultSession({
       activeDocument: {
         status: "saved",
         path: "C:/Notes/readme.md",
         content: "# Notes",
+        isDirty: true,
         lineEnding: "lf",
         metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
       },
@@ -304,6 +360,7 @@ describe("App", () => {
       status: "saved",
       path: "C:/Notes/readme.md",
       content: "# Notes\n",
+      isDirty: false,
       metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_801_000 },
     });
     expect(toast.success).toHaveBeenCalledWith("Document saved.");
@@ -368,6 +425,55 @@ describe("App", () => {
         content: "# Draft\n",
       },
     });
+  });
+
+  it("closes clean documents from the file actions", async () => {
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Close document" }));
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: "C:/Notes" },
+      activeDocument: null,
+    });
+    expect(screen.getByText("No document open")).toBeInTheDocument();
+  });
+
+  it("keeps dirty documents open when close document is cancelled", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: true,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Close document" }));
+
+    expect(confirm).toHaveBeenCalled();
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      isDirty: true,
+    });
+    expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
   it("opens a selected Markdown file into a saved document session", async () => {
@@ -654,6 +760,54 @@ describe("App", () => {
       activeDocument: null,
     });
     expect(toast.error).toHaveBeenCalledWith("Could not open folder.");
+  });
+
+  it("allows clean window close requests", async () => {
+    const appWindow = getCurrentWindow();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(appWindow.onCloseRequested).toHaveBeenCalled();
+    });
+
+    const handleCloseRequested = vi.mocked(appWindow.onCloseRequested).mock.calls[0][0];
+    const event = { preventDefault: vi.fn() };
+
+    await handleCloseRequested(event as never);
+
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("prevents dirty window close requests when the prompt is cancelled", async () => {
+    const appWindow = getCurrentWindow();
+    setDefaultSession({
+      activeDocument: {
+        status: "untitled",
+        id: "untitled:test",
+        content: "Draft",
+        isDirty: true,
+        lineEnding: "lf",
+      },
+    });
+    render(<App />);
+
+    await waitFor(() => {
+      expect(appWindow.onCloseRequested).toHaveBeenCalled();
+    });
+
+    const handleCloseRequested = vi.mocked(appWindow.onCloseRequested).mock.calls[0][0];
+    const event = { preventDefault: vi.fn() };
+
+    await handleCloseRequested(event as never);
+
+    expect(confirm).toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "untitled",
+      id: "untitled:test",
+      isDirty: true,
+    });
   });
 
   it("suppresses default window drag-and-drop navigation", () => {

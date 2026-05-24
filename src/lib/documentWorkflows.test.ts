@@ -7,6 +7,7 @@ import {
   setActiveDocumentEditorBridge,
 } from "./documentEditorBridge";
 import {
+  closeActiveMarkdownDocument,
   createNewMarkdownDocument,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
@@ -59,17 +60,18 @@ describe("document workflows", () => {
     resetAppStores();
   });
 
-  it("creates an untitled document without changing the active folder context", () => {
+  it("creates an untitled document without changing the active folder context", async () => {
     setDefaultSettings({ defaultNewDocumentLineEnding: "lf" });
     setDefaultSession({ folderContext: notesFolderContext });
 
-    createNewMarkdownDocument();
+    await expect(createNewMarkdownDocument()).resolves.toBe(true);
 
     expect(useSessionStore.getState()).toMatchObject({
       folderContext: { path: "C:/Notes" },
       activeDocument: {
         status: "untitled",
         content: "",
+        isDirty: false,
         lineEnding: "lf",
       },
     });
@@ -77,6 +79,36 @@ describe("document workflows", () => {
       id: expect.stringMatching(/^untitled:/u),
     });
     expect(invoke).not.toHaveBeenCalled();
+  });
+
+  it("cancels New when the dirty document transition is declined", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "untitled",
+        id: "untitled:test",
+        content: "Draft",
+        isDirty: true,
+        lineEnding: "lf",
+      },
+    });
+
+    await expect(createNewMarkdownDocument()).resolves.toBe(false);
+
+    expect(confirm).toHaveBeenCalledWith(
+      "The active document has unsaved changes. Discard them and continue?",
+      {
+        title: "Unsaved changes",
+        kind: "warning",
+        okLabel: "Discard changes",
+        cancelLabel: "Keep editing",
+      },
+    );
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "untitled",
+      id: "untitled:test",
+      content: "Draft",
+      isDirty: true,
+    });
   });
 
   it("saves saved documents through the native backend command", async () => {
@@ -111,6 +143,7 @@ describe("document workflows", () => {
       status: "saved",
       path: "C:/Notes/readme.md",
       content: "# Updated\r\n",
+      isDirty: false,
       lineEnding: "crlf",
       metadata: { sizeBytes: 11, modifiedAtUnixMs: 2 },
     });
@@ -167,6 +200,7 @@ describe("document workflows", () => {
         status: "saved",
         path: "C:/Notes/draft.markdown",
         content: "Draft",
+        isDirty: false,
         lineEnding: "lf",
       },
     });
@@ -189,6 +223,49 @@ describe("document workflows", () => {
       status: "untitled",
       id: "untitled:test",
       content: "Draft",
+      isDirty: false,
+    });
+  });
+
+  it("closes clean active documents without prompting", async () => {
+    setDefaultSession({
+      folderContext: notesFolderContext,
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
+      },
+    });
+
+    await expect(closeActiveMarkdownDocument()).resolves.toBe(true);
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: "C:/Notes" },
+      activeDocument: null,
+    });
+  });
+
+  it("keeps dirty active documents open when close document is cancelled", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: true,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
+      },
+    });
+
+    await expect(closeActiveMarkdownDocument()).resolves.toBe(false);
+
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      isDirty: true,
     });
   });
 

@@ -8,6 +8,7 @@ import {
   type LineEnding,
 } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
+import { confirmActiveDocumentTransition } from "./dirtyDocumentTransitions";
 import { scanMarkdownFolder } from "./openMarkdownFolder";
 
 interface OpenMarkdownFileResult {
@@ -19,6 +20,10 @@ interface OpenMarkdownFileResult {
 }
 
 export const openMarkdownFilePath = async (path: string) => {
+  if (!(await confirmActiveDocumentTransition())) {
+    return false;
+  }
+
   const openedDocument = await invoke<OpenMarkdownFileResult>("open_markdown_file", {
     path,
   });
@@ -28,6 +33,8 @@ export const openMarkdownFilePath = async (path: string) => {
   useSessionStore.getState().setDocumentSession(folderContext, toSavedDocument(documentFields));
   useSettingsStore.getState().recordRecentFile(documentFields.path);
   useSettingsStore.getState().recordRecentFolder(folderContext.path);
+
+  return true;
 };
 
 export const openMarkdownFile = async () => {
@@ -38,8 +45,8 @@ export const openMarkdownFile = async () => {
   });
 
   if (!selectedPath || Array.isArray(selectedPath)) {
-    return;
+    return false;
   }
 
-  await openMarkdownFilePath(selectedPath);
+  return openMarkdownFilePath(selectedPath);
 };

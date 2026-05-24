@@ -10,6 +10,8 @@ import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
 
+const windowCloseRequestedEvent = "leafdown://window-close-requested";
+
 const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
@@ -47,20 +49,28 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let disposed = false;
     let unlisten: (() => void) | undefined;
 
-    void getCurrentWindow()
-      .onCloseRequested(async (event) => {
-        if (!(await confirmActiveDocumentTransition())) {
-          event.preventDefault();
+    void appWindow
+      .listen(windowCloseRequestedEvent, async () => {
+        if (await confirmActiveDocumentTransition()) {
+          await appWindow.destroy();
         }
       })
       .then((closeUnlisten) => {
+        if (disposed) {
+          closeUnlisten();
+          return;
+        }
+
         unlisten = closeUnlisten;
       })
       .catch(console.error);
 
     return () => {
+      disposed = true;
       unlisten?.();
     };
   }, []);

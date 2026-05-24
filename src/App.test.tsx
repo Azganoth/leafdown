@@ -762,24 +762,26 @@ describe("App", () => {
     expect(toast.error).toHaveBeenCalledWith("Could not open folder.");
   });
 
-  it("allows clean window close requests", async () => {
+  it("destroys the window after clean backend close requests", async () => {
     const appWindow = getCurrentWindow();
     render(<App />);
 
     await waitFor(() => {
-      expect(appWindow.onCloseRequested).toHaveBeenCalled();
+      expect(appWindow.listen).toHaveBeenCalledWith(
+        "leafdown://window-close-requested",
+        expect.any(Function),
+      );
     });
 
-    const handleCloseRequested = vi.mocked(appWindow.onCloseRequested).mock.calls[0][0];
-    const event = { preventDefault: vi.fn() };
+    const handleCloseRequested = vi.mocked(appWindow.listen).mock.calls[0][1];
 
-    await handleCloseRequested(event as never);
+    await handleCloseRequested({} as never);
 
-    expect(event.preventDefault).not.toHaveBeenCalled();
     expect(confirm).not.toHaveBeenCalled();
+    expect(appWindow.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it("prevents dirty window close requests when the prompt is cancelled", async () => {
+  it("keeps the window open after dirty backend close requests when the prompt is cancelled", async () => {
     const appWindow = getCurrentWindow();
     setDefaultSession({
       activeDocument: {
@@ -793,20 +795,43 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(appWindow.onCloseRequested).toHaveBeenCalled();
+      expect(appWindow.listen).toHaveBeenCalledWith(
+        "leafdown://window-close-requested",
+        expect.any(Function),
+      );
     });
 
-    const handleCloseRequested = vi.mocked(appWindow.onCloseRequested).mock.calls[0][0];
-    const event = { preventDefault: vi.fn() };
+    const handleCloseRequested = vi.mocked(appWindow.listen).mock.calls[0][1];
 
-    await handleCloseRequested(event as never);
+    await handleCloseRequested({} as never);
 
     expect(confirm).toHaveBeenCalled();
-    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(appWindow.destroy).not.toHaveBeenCalled();
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       status: "untitled",
       id: "untitled:test",
       isDirty: true,
+    });
+  });
+
+  it("unlistens backend close request events when setup resolves after unmount", async () => {
+    const appWindow = getCurrentWindow();
+    const unlisten = vi.fn();
+    let resolveListen!: (unlisten: () => void) => void;
+
+    vi.mocked(appWindow.listen).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveListen = resolve;
+      }),
+    );
+
+    const { unmount } = render(<App />);
+
+    unmount();
+    resolveListen(unlisten);
+
+    await waitFor(() => {
+      expect(unlisten).toHaveBeenCalledTimes(1);
     });
   });
 

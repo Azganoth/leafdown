@@ -55,7 +55,7 @@ export function createTauriAppMock() {
 const currentWindowMock = {
   close: vi.fn(async () => undefined),
   destroy: vi.fn(async () => undefined),
-  onCloseRequested: vi.fn(async () => vi.fn()),
+  listen: vi.fn(async () => vi.fn()),
   show: vi.fn(async () => undefined),
   theme: vi.fn(async () => "light"),
 };

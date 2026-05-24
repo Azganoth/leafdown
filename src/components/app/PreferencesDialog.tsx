@@ -22,7 +22,7 @@ import {
 } from "@/stores/settings";
 import { SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
 interface PreferenceSwitchProps {
   checked: boolean;
@@ -125,11 +125,13 @@ function PreferenceRadioGroup<Value extends string>({
 
 function ListPreferenceField({ items, label, onItemsChange }: ListPreferenceFieldProps) {
   const id = useId();
-  const [draftValue, setDraftValue] = useState(formatListValue(items));
+  const [prevItems, setPrevItems] = useState(items);
+  const [draftValue, setDraftValue] = useState(() => formatListValue(items));
 
-  useEffect(() => {
+  if (items !== prevItems) {
+    setPrevItems(items);
     setDraftValue(formatListValue(items));
-  }, [items]);
+  }
 
   return (
     <div className="grid gap-2">

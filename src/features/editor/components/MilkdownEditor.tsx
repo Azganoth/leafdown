@@ -6,8 +6,12 @@ import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } fro
 
 import { cn } from "@/lib/cn";
 
-import { createMilkdownEditor, getMilkdownEditorMarkdown } from "./createMilkdownEditor";
-import type { MilkdownEditorBridge, MilkdownEditorInstance, MilkdownMarkdownUpdate } from "./types";
+import { createMilkdownEditor, getMilkdownEditorMarkdown } from "../utils/createMilkdownEditor";
+import type {
+  MilkdownEditorBridge,
+  MilkdownEditorInstance,
+  MilkdownMarkdownUpdate,
+} from "../types";
 
 export interface MilkdownEditorProps {
   documentKey: string;

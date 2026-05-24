@@ -1,6 +1,6 @@
 import "@/App.css";
-import { SessionShell } from "@/components/app/SessionShell";
-import { TitleBar } from "@/components/app/TitleBar";
+import { SessionShell } from "@/features/shell/components/SessionShell";
+import { TitleBar } from "@/features/shell/components/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
 import { settingsStoreTauriHandler, useSettingsStore, type SettingsState } from "@/stores/settings";
 import "@fontsource-variable/inter";

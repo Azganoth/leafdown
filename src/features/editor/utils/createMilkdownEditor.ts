@@ -8,8 +8,8 @@ import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
 import { createLeafdownHighlightParser } from "./highlighting";
-import { createLeafdownAutoPairPlugin } from "./plugins/autoPair";
-import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "./types";
+import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
 
 export const createMilkdownEditor = async ({
   root,

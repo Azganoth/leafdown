@@ -4,13 +4,13 @@ import { resolve } from "node:path";
 import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { MilkdownEditor } from "@/components/editor";
+import { MilkdownEditor } from "@/features/editor";
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { render, screen } from "@/test/utils/react";
 
 const executionFlag = "__leafdownHtmlExecuted";
 const mountedEditors: MountedMilkdownEditor[] = [];
-const editorCssPath = resolve(process.cwd(), "src/components/editor/MilkdownEditor.css");
+const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
 
 const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
   const mounted = await mountMilkdownEditor(initialMarkdown, {

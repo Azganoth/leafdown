@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 
 const mountedEditors: MountedMilkdownEditor[] = [];
-const editorCssPath = resolve(process.cwd(), "src/components/editor/MilkdownEditor.css");
+const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
 
 const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
   const mounted = await mountMilkdownEditor(initialMarkdown, {

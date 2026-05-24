@@ -17,7 +17,7 @@ import {
 import { render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
-vi.mock("@/components/editor", () => ({
+vi.mock("@/features/editor", () => ({
   MilkdownEditor: ({
     autoPairBracketsAndQuotes,
     documentKey,

@@ -8,14 +8,14 @@ import type {
   CreateMilkdownEditorOptions,
   MilkdownEditorBridge,
   MilkdownEditorInstance,
-} from "./types";
+} from "../types";
 
 const milkdownEditorMocks = vi.hoisted(() => ({
   createMilkdownEditor: vi.fn(),
   getMilkdownEditorMarkdown: vi.fn(),
 }));
 
-vi.mock("./createMilkdownEditor", () => milkdownEditorMocks);
+vi.mock("../utils/createMilkdownEditor", () => milkdownEditorMocks);
 
 interface MockMilkdownEditor {
   instance: MilkdownEditorInstance;

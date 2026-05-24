@@ -1,4 +1,4 @@
-@reference "../../App.css";
+@reference "../../../App.css";
 
 /* Keep editor presentation unlayered so it can override imported ProseMirror defaults. */
 .leafdown-editor {

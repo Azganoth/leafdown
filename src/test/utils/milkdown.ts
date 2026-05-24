@@ -5,7 +5,7 @@ import {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
-} from "@/components/editor";
+} from "@/features/editor";
 
 export interface MountedMilkdownEditor {
   root: HTMLDivElement;

@@ -26,6 +26,7 @@ pub fn run() {
         .plugin(tauri_plugin_zustand::init())
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
+            document::save_markdown_file,
             folder::scan_markdown_folder,
             folder::open_markdown_folder
         ])

@@ -7,6 +7,9 @@ use crate::document::{read_markdown_file, OpenMarkdownFileError, OpenMarkdownFil
 mod defaults;
 mod index;
 mod scan;
+pub(crate) mod watch;
+
+pub(crate) use watch::FolderWatcherState;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -61,7 +64,7 @@ pub(crate) enum OpenMarkdownFolderError {
     IndexOpenFailed { error: OpenMarkdownFileError },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ScanDepth {
     Recursive,
     RootRestricted,

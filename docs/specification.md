@@ -526,6 +526,8 @@ Inactive commands are disabled rather than hidden.
 
 - `Save as`, `Close document`, and all `Edit`, `Insert`, and `Format` commands
   are disabled when no document is open.
+  - Exception: `Insert final newline on save` remains enabled because it controls
+    a global save setting rather than active editor content.
 - `Export`, `Print`, and `Outline` are disabled when no document is open.
 - `Save` is disabled when no document is open, or when the document is clean and
   already saved.
@@ -576,6 +578,7 @@ choices.
 #### Boolean State
 
 - `Insert final newline on save` reflects the global save setting.
+  It remains available without an active document.
 - `Toggle sidebar` reflects global sidebar visibility.
 - `Toggle status bar` reflects global status bar visibility.
 - `Always on top` reflects current window state.

@@ -377,6 +377,39 @@ describe("App", () => {
     expect(toast.success).toHaveBeenCalledWith("Document saved.");
   });
 
+  it("shows specific save errors from the file actions", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: true,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "writeFailed",
+      path: "C:/Notes/readme.md",
+      message: "disk is full",
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Could not write Markdown file.", {
+        description: "disk is full",
+      });
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      isDirty: true,
+    });
+  });
+
   it("saves untitled documents through Save As from the file actions", async () => {
     setDefaultSettings({ defaultNewDocumentExtension: ".markdown" });
     setDefaultSession({
@@ -739,7 +772,11 @@ describe("App", () => {
 
   it("does not partially update the session when selected file opening fails", async () => {
     vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
-    vi.mocked(invoke).mockRejectedValue({ kind: "readFailed" });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "readFailed",
+      path: "C:/Notes/readme.md",
+      message: "access failed",
+    });
 
     const { user } = renderWithUser(<App />);
 
@@ -753,12 +790,21 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
-    expect(toast.error).toHaveBeenCalledWith("Could not open Markdown file.");
+    expect(toast.error).toHaveBeenCalledWith("Could not read Markdown file.", {
+      description: "access failed",
+    });
   });
 
   it("does not partially update the session when selected folder opening fails", async () => {
     vi.mocked(open).mockResolvedValue("C:/Notes");
-    vi.mocked(invoke).mockRejectedValue({ kind: "scanFailed" });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "scanFailed",
+      error: {
+        kind: "readDirectoryFailed",
+        path: "C:/Notes",
+        message: "access failed",
+      },
+    });
 
     const { user } = renderWithUser(<App />);
 
@@ -772,7 +818,9 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
-    expect(toast.error).toHaveBeenCalledWith("Could not open folder.");
+    expect(toast.error).toHaveBeenCalledWith("Could not read folder.", {
+      description: "access failed",
+    });
   });
 
   it("destroys the window after clean backend close requests", async () => {

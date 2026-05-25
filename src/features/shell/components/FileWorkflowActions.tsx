@@ -5,6 +5,7 @@ import {
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "@/lib/documentWorkflows";
+import { getSaveMarkdownFileErrorMessage, showDocumentIoErrorToast } from "@/lib/documentIoErrors";
 import { useSessionStore } from "@/stores/session";
 import { FilePlusIcon, SaveAllIcon, SaveIcon, XIcon } from "lucide-react";
 import { useEffect, useCallback } from "react";
@@ -33,8 +34,8 @@ export function FileWorkflowActions() {
           toast.success("Document saved.");
         }
       })
-      .catch(() => {
-        toast.error("Could not save Markdown document.");
+      .catch((error: unknown) => {
+        showDocumentIoErrorToast(toast.error, getSaveMarkdownFileErrorMessage(error));
       });
   }, []);
 
@@ -45,8 +46,8 @@ export function FileWorkflowActions() {
           toast.success("Document saved.");
         }
       })
-      .catch(() => {
-        toast.error("Could not save Markdown document.");
+      .catch((error: unknown) => {
+        showDocumentIoErrorToast(toast.error, getSaveMarkdownFileErrorMessage(error));
       });
   }, []);
 

@@ -3,6 +3,7 @@ import { documentDir, extname, join } from "@tauri-apps/api/path";
 import { confirm as showConfirmDialog, save as showSaveDialog } from "@tauri-apps/plugin-dialog";
 
 import { getActiveDocumentEditorMarkdown } from "@/lib/documentEditorBridge";
+import { isSaveMarkdownFileError } from "@/lib/documentIoErrors";
 import { formatMarkdownForSave } from "@/lib/documentSerialization";
 import { confirmActiveDocumentTransition } from "@/lib/dirtyDocumentTransitions";
 import {
@@ -23,14 +24,6 @@ interface SaveMarkdownFileResult {
   parentFolderPath: string;
   metadata: FileMetadataSnapshot;
 }
-
-type SaveMarkdownFileError =
-  | { kind: "missingFile"; path: string }
-  | {
-      kind: "externalModification";
-      path: string;
-      currentMetadata: FileMetadataSnapshot;
-    };
 
 interface SerializedDocumentForSave {
   content: string;
@@ -252,9 +245,6 @@ const writeMarkdownDocument = async (
     expectedMetadata: options.expectedMetadata ?? null,
     overwrite: options.overwrite ?? false,
   });
-
-const isSaveMarkdownFileError = (error: unknown): error is SaveMarkdownFileError =>
-  typeof error === "object" && error !== null && "kind" in error;
 
 const isMissingFileSaveError = (error: unknown) =>
   isSaveMarkdownFileError(error) && error.kind === "missingFile";

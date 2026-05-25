@@ -1,0 +1,155 @@
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import { Slot } from "radix-ui";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type ComponentProps,
+  type Key,
+  type ReactNode,
+} from "react";
+
+import { cn } from "@/lib/cn";
+import { ScrollArea } from "./ScrollArea";
+
+interface VirtualListContextValue<T> {
+  getItem: (index: number) => T;
+  totalSize: number;
+  virtualItems: VirtualItem[];
+  isEmpty: boolean;
+  isScrolling: boolean;
+}
+
+const VirtualListContext = createContext<VirtualListContextValue<unknown> | null>(null);
+
+function useVirtualListContext<T>() {
+  const context = useContext(VirtualListContext);
+
+  if (!context) {
+    throw new Error("VirtualList components must be used within VirtualList");
+  }
+
+  return context as VirtualListContextValue<T>;
+}
+
+interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "viewportRef"> {
+  items: T[];
+  estimateHeight: number;
+  getItemKey?: (item: T, index: number) => Key;
+  overscan?: number;
+}
+
+function VirtualList<T>({
+  items,
+  estimateHeight,
+  getItemKey,
+  overscan = 8,
+  children,
+  ...props
+}: VirtualListProps<T>) {
+  const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
+
+  const viewportRef = useCallback((element: HTMLDivElement | null) => {
+    setViewportElement(element);
+  }, []);
+
+  // TanStack Virtual returns instance methods that React Compiler cannot memoize safely.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    estimateSize: () => estimateHeight,
+    getItemKey: (index) => getItemKey?.(items[index], index) ?? index,
+    getScrollElement: () => viewportElement,
+    overscan,
+  });
+
+  const context: VirtualListContextValue<T> = {
+    getItem: (index) => items[index],
+    totalSize: virtualizer.getTotalSize(),
+    virtualItems: virtualizer.getVirtualItems(),
+    isEmpty: items.length === 0,
+    isScrolling: virtualizer.isScrolling,
+  };
+
+  return (
+    <VirtualListContext.Provider value={context}>
+      <ScrollArea viewportRef={viewportRef} {...props}>
+        {children}
+      </ScrollArea>
+    </VirtualListContext.Provider>
+  );
+}
+
+function VirtualListContent({
+  asChild = false,
+  className,
+  style,
+  ...props
+}: ComponentProps<"ul"> & {
+  asChild?: boolean;
+}) {
+  const { isEmpty, totalSize } = useVirtualListContext();
+  const Comp = asChild ? Slot.Root : "ul";
+
+  if (isEmpty) return null;
+
+  return (
+    <Comp
+      data-slot="virtual-list-content"
+      className={cn("relative", className)}
+      style={{ ...style, height: `${totalSize}px` }}
+      {...props}
+    />
+  );
+}
+
+interface VirtualListItemsProps<T> {
+  children: (item: T, virtualRow: VirtualItem, index: number, isScrolling: boolean) => ReactNode;
+}
+
+function VirtualListItems<T>({ children }: VirtualListItemsProps<T>) {
+  const { getItem, isEmpty, isScrolling, virtualItems } = useVirtualListContext<T>();
+
+  if (isEmpty) return null;
+
+  return virtualItems.map((virtualRow) =>
+    children(getItem(virtualRow.index), virtualRow, virtualRow.index, isScrolling),
+  );
+}
+
+function VirtualListItem({
+  asChild = false,
+  className,
+  style,
+  virtualRow,
+  ...props
+}: ComponentProps<"li"> & {
+  asChild?: boolean;
+  virtualRow: VirtualItem;
+}) {
+  const Comp = asChild ? Slot.Root : "li";
+
+  return (
+    <Comp
+      data-slot="virtual-list-item"
+      className={cn("absolute top-0 left-0 w-full", className)}
+      style={{
+        ...style,
+        contain: "layout paint style",
+        transform: `translate3d(0, ${virtualRow.start}px, 0)`,
+      }}
+      {...props}
+    />
+  );
+}
+
+function VirtualListEmpty({ children }: { children: ReactNode }) {
+  const { isEmpty } = useVirtualListContext();
+
+  if (!isEmpty) return null;
+
+  return children;
+}
+
+export { VirtualList, VirtualListContent, VirtualListEmpty, VirtualListItem, VirtualListItems };

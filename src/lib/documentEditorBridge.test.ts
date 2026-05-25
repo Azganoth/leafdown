@@ -6,6 +6,7 @@ import {
   inactiveEditorCommandState,
   notifyActiveDocumentEditorCommandStateChanged,
   resetActiveDocumentEditorBridge,
+  runActiveDocumentEditorCommand,
   setActiveDocumentEditorBridge,
   subscribeActiveDocumentEditorCommandState,
 } from "./documentEditorBridge";
@@ -54,5 +55,20 @@ describe("document editor bridge", () => {
     });
 
     expect(getActiveDocumentEditorCommandState("doc:other")).toEqual(inactiveEditorCommandState);
+  });
+
+  it("runs commands only against the active editor bridge", () => {
+    const runCommand = vi.fn(() => true);
+
+    setActiveDocumentEditorBridge("doc:test", {
+      getMarkdown: () => "Hello",
+      runCommand,
+    });
+
+    expect(runActiveDocumentEditorCommand("doc:test", "edit.selectAll")).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith("edit.selectAll");
+
+    expect(runActiveDocumentEditorCommand("doc:other", "edit.selectAll")).toBe(false);
+    expect(runCommand).toHaveBeenCalledTimes(1);
   });
 });

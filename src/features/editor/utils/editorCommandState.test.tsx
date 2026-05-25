@@ -46,6 +46,7 @@ describe("editor command state", () => {
     expect(state.enabledCommands["edit.redo"]).toBe(false);
     expect(state.enabledCommands["edit.copy"]).toBe(false);
     expect(state.enabledCommands["edit.deleteWordBackward"]).toBe(true);
+    expect(state.enabledCommands["edit.deleteWordForward"]).toBe(false);
   });
 
   it("tracks editor history availability", async () => {
@@ -103,12 +104,12 @@ describe("editor command state", () => {
     const mounted = await mountEditor("Hello", { onCommandStateChanged });
 
     setSelectionAtDocumentEnd(mounted.view);
-    expect(onCommandStateChanged).not.toHaveBeenCalled();
-
-    typeText(mounted.view, "!");
     expect(onCommandStateChanged).toHaveBeenCalledTimes(1);
 
-    setTextSelection(mounted.view, 1, 6);
+    typeText(mounted.view, "!");
     expect(onCommandStateChanged).toHaveBeenCalledTimes(2);
+
+    setTextSelection(mounted.view, 1, 6);
+    expect(onCommandStateChanged).toHaveBeenCalledTimes(3);
   });
 });

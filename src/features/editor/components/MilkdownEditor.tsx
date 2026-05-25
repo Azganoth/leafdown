@@ -8,6 +8,7 @@ import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } fro
 import { cn } from "@/lib/cn";
 
 import { createMilkdownEditor, getMilkdownEditorMarkdown } from "../utils/createMilkdownEditor";
+import { runEditorCommand } from "../utils/editorCommands";
 import { getEditorCommandState } from "../utils/editorCommandState";
 import type {
   MilkdownEditorBridge,
@@ -78,6 +79,15 @@ export function MilkdownEditor({
         }
 
         return getEditorCommandState(editor.ctx.get(editorViewCtx));
+      },
+      runCommand: (commandId) => {
+        const editor = editorRef.current;
+
+        if (!editor) {
+          return false;
+        }
+
+        return runEditorCommand(editor.ctx.get(editorViewCtx), commandId);
       },
     }),
     [],

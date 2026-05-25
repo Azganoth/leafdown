@@ -10,6 +10,12 @@ interface TextWordRange {
   to: number;
 }
 
+interface TextBlockSelectionInfo {
+  offset: number;
+  start: number;
+  text: string;
+}
+
 const activeEditorCommands = [
   "edit.delete",
   "edit.paste",
@@ -31,13 +37,27 @@ const selectionEditorCommands = [
   "edit.jumpToSelection",
 ] as const satisfies AppCommandId[];
 
-const wordEditorCommands = [
-  "edit.deleteWordBackward",
-  "edit.deleteWordForward",
-  "edit.selectWord",
-] as const satisfies AppCommandId[];
-
 const isWordCharacter = (value: string) => /^[\p{L}\p{N}_]$/u.test(value);
+
+const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo | null => {
+  const { selection } = state;
+
+  if (!(selection instanceof TextSelection) || !selection.empty) {
+    return null;
+  }
+
+  const textBlock = selection.$from.parent;
+
+  if (!textBlock.isTextblock) {
+    return null;
+  }
+
+  return {
+    offset: selection.$from.parentOffset,
+    start: selection.$from.start(),
+    text: textBlock.textBetween(0, textBlock.content.size, "\n", "\n"),
+  };
+};
 
 const isInsideNode = (state: EditorState, nodeNames: Set<string>) => {
   const { selection } = state;
@@ -52,25 +72,13 @@ const isInsideNode = (state: EditorState, nodeNames: Set<string>) => {
 };
 
 export const getTextWordRangeAtSelection = (state: EditorState): TextWordRange | null => {
-  const { selection } = state;
+  const info = getTextBlockSelectionInfo(state);
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!info?.text) {
     return null;
   }
 
-  const textBlock = selection.$from.parent;
-
-  if (!textBlock.isTextblock) {
-    return null;
-  }
-
-  const text = textBlock.textBetween(0, textBlock.content.size, "\n", "\n");
-  const offset = selection.$from.parentOffset;
-
-  if (!text) {
-    return null;
-  }
-
+  const { offset, start, text } = info;
   const wordOffset =
     offset > 0 && isWordCharacter(text[offset - 1])
       ? offset - 1
@@ -93,18 +101,56 @@ export const getTextWordRangeAtSelection = (state: EditorState): TextWordRange |
     toOffset += 1;
   }
 
-  const textBlockStart = selection.$from.start();
+  return {
+    from: start + fromOffset,
+    to: start + toOffset,
+  };
+};
+
+export const getTextWordRangeBeforeSelection = (state: EditorState): TextWordRange | null => {
+  const info = getTextBlockSelectionInfo(state);
+
+  if (!info?.text || info.offset <= 0 || !isWordCharacter(info.text[info.offset - 1])) {
+    return null;
+  }
+
+  let fromOffset = info.offset;
+
+  while (fromOffset > 0 && isWordCharacter(info.text[fromOffset - 1])) {
+    fromOffset -= 1;
+  }
 
   return {
-    from: textBlockStart + fromOffset,
-    to: textBlockStart + toOffset,
+    from: info.start + fromOffset,
+    to: info.start + info.offset,
+  };
+};
+
+export const getTextWordRangeAfterSelection = (state: EditorState): TextWordRange | null => {
+  const info = getTextBlockSelectionInfo(state);
+
+  if (!info?.text || info.offset >= info.text.length || !isWordCharacter(info.text[info.offset])) {
+    return null;
+  }
+
+  let toOffset = info.offset;
+
+  while (toOffset < info.text.length && isWordCharacter(info.text[toOffset])) {
+    toOffset += 1;
+  }
+
+  return {
+    from: info.start + info.offset,
+    to: info.start + toOffset,
   };
 };
 
 export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const { state } = view;
   const hasSelection = !state.selection.empty;
-  const hasActiveWord = Boolean(getTextWordRangeAtSelection(state));
+  const hasWordAfterSelection = Boolean(getTextWordRangeAfterSelection(state));
+  const hasWordAtSelection = Boolean(getTextWordRangeAtSelection(state));
+  const hasWordBeforeSelection = Boolean(getTextWordRangeBeforeSelection(state));
   const hasTableSelection = isInsideNode(
     state,
     new Set(["table", "table_cell", "table_header", "table_row"]),
@@ -122,9 +168,9 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
     enabledCommands[commandId] = hasSelection;
   }
 
-  for (const commandId of wordEditorCommands) {
-    enabledCommands[commandId] = hasActiveWord;
-  }
+  enabledCommands["edit.deleteWordBackward"] = hasWordBeforeSelection;
+  enabledCommands["edit.deleteWordForward"] = hasWordAfterSelection;
+  enabledCommands["edit.selectWord"] = hasWordAtSelection;
 
   return {
     enabledCommands,

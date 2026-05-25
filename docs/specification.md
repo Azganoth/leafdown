@@ -556,7 +556,9 @@ Inactive commands are disabled rather than hidden.
 
 #### File And Folder State
 
-- `Open file location` requires a saved file that still exists.
+- `Open file location` requires an active saved document path. If the native
+  file reveal fails because the path is missing or inaccessible, Leafdown shows
+  an error.
 - `Reveal in sidebar` requires a folder context and an active saved file in the
   file tree.
 - `Open last closed` requires a last-closed item.

@@ -13,6 +13,7 @@ export function DocumentScreen({ document }: DocumentScreenProps) {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
+  const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
   const documentKey = getActiveDocumentKey(document);
   const setEditorBridgeRef = useCallback(
     (bridge: Parameters<typeof setActiveDocumentEditorBridge>[1]) => {
@@ -35,6 +36,7 @@ export function DocumentScreen({ document }: DocumentScreenProps) {
           autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
           softWrapCodeBlocks={softWrapCodeBlocks}
           onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
+          onContentTransaction={() => markActiveDocumentDirty(documentKey)}
         />
       </section>
     </ScrollArea>

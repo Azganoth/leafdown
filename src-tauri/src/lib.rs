@@ -1,8 +1,11 @@
+use tauri::{Emitter, WindowEvent};
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
 mod document;
 mod folder;
+
+const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,6 +27,15 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+
+                if let Err(error) = window.emit(WINDOW_CLOSE_REQUESTED_EVENT, ()) {
+                    eprintln!("failed to emit close-requested event: {error}");
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
             document::save_markdown_file,

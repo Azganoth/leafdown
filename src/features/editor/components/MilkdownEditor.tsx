@@ -19,6 +19,7 @@ export interface MilkdownEditorProps {
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
+  onContentTransaction?: () => void;
   autoPairBracketsAndQuotes?: boolean;
   softWrapCodeBlocks?: boolean;
 }
@@ -29,6 +30,7 @@ export function MilkdownEditor({
   className,
   ref,
   onMarkdownUpdated,
+  onContentTransaction,
   autoPairBracketsAndQuotes = true,
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
@@ -36,12 +38,14 @@ export function MilkdownEditor({
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
 
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
+  const onContentTransactionRef = useRef(onContentTransaction);
   const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
 
   useLayoutEffect(() => {
     onMarkdownUpdatedRef.current = onMarkdownUpdated;
+    onContentTransactionRef.current = onContentTransaction;
     autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
-  }, [onMarkdownUpdated, autoPairBracketsAndQuotes]);
+  }, [onMarkdownUpdated, onContentTransaction, autoPairBracketsAndQuotes]);
 
   useImperativeHandle(
     ref,
@@ -75,6 +79,7 @@ export function MilkdownEditor({
         root,
         initialMarkdown,
         onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
+        onContentTransaction: () => onContentTransactionRef.current?.(),
         getAutoPairBracketsAndQuotes: () => autoPairBracketsAndQuotesRef.current,
       });
 

@@ -10,6 +10,7 @@ import {
   type MarkdownFolderTree,
 } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
+import { confirmActiveDocumentTransition } from "./dirtyDocumentTransitions";
 
 interface MarkdownFolderScanResult {
   path: string;
@@ -47,6 +48,10 @@ export const scanMarkdownFolder = async (path: string) => {
 };
 
 export const openMarkdownFolderPath = async (path: string) => {
+  if (!(await confirmActiveDocumentTransition())) {
+    return false;
+  }
+
   const { fileTreeSortOrder, ignoredDirectories, indexFileNames } = useSettingsStore.getState();
   const openedFolder = await invoke<OpenMarkdownFolderResult>("open_markdown_folder", {
     path,
@@ -59,13 +64,15 @@ export const openMarkdownFolderPath = async (path: string) => {
   if (!openedFolder.indexDocument) {
     useSessionStore.getState().setFolderSession(folderContext);
     useSettingsStore.getState().recordRecentFolder(folderContext.path);
-    return;
+    return true;
   }
 
   useSessionStore
     .getState()
     .setDocumentSession(folderContext, toSavedDocument(openedFolder.indexDocument));
   useSettingsStore.getState().recordRecentFolder(folderContext.path);
+
+  return true;
 };
 
 export const openMarkdownFolder = async () => {
@@ -75,8 +82,8 @@ export const openMarkdownFolder = async () => {
   });
 
   if (!selectedPath || Array.isArray(selectedPath)) {
-    return;
+    return false;
   }
 
-  await openMarkdownFolderPath(selectedPath);
+  return openMarkdownFolderPath(selectedPath);
 };

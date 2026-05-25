@@ -4,6 +4,7 @@ import { confirm as showConfirmDialog, save as showSaveDialog } from "@tauri-app
 
 import { getActiveDocumentEditorMarkdown } from "@/lib/documentEditorBridge";
 import { formatMarkdownForSave } from "@/lib/documentSerialization";
+import { confirmActiveDocumentTransition } from "@/lib/dirtyDocumentTransitions";
 import {
   getActiveDocumentKey,
   toSavedDocument,
@@ -58,7 +59,11 @@ export const ensureDefaultMarkdownExtension = async (
   return path;
 };
 
-export const createNewMarkdownDocument = () => {
+export const createNewMarkdownDocument = async () => {
+  if (!(await confirmActiveDocumentTransition())) {
+    return false;
+  }
+
   const { defaultNewDocumentLineEnding } = useSettingsStore.getState();
 
   useSessionStore.getState().setActiveDocument(
@@ -68,6 +73,22 @@ export const createNewMarkdownDocument = () => {
       lineEnding: defaultNewDocumentLineEnding,
     }),
   );
+
+  return true;
+};
+
+export const closeActiveMarkdownDocument = async () => {
+  if (!useSessionStore.getState().activeDocument) {
+    return false;
+  }
+
+  if (!(await confirmActiveDocumentTransition())) {
+    return false;
+  }
+
+  useSessionStore.getState().setActiveDocument(null);
+
+  return true;
 };
 
 export const saveActiveMarkdownDocument = async () => {

@@ -19,11 +19,25 @@ pub(crate) const FOLDER_CHANGED_EVENT: &str = "leafdown://folder-changed";
 
 #[derive(Default)]
 pub(crate) struct FolderWatcherState {
-    active_watcher: Mutex<Option<ActiveFolderWatcher>>,
+    registry: Mutex<FolderWatcherRegistry>,
+}
+
+#[derive(Default)]
+struct FolderWatcherRegistry {
+    active_watcher: Option<ActiveFolderWatcher>,
+    scope_tracker: FolderWatcherScopeTracker,
 }
 
 struct ActiveFolderWatcher {
+    scope_generation: u64,
+    scope_id: String,
     _watcher: RecommendedWatcher,
+}
+
+#[derive(Default)]
+struct FolderWatcherScopeTracker {
+    cancelled_scope_ids: HashSet<String>,
+    latest_generation: u64,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -48,15 +62,26 @@ pub(crate) fn watch_markdown_folder(
     state: State<'_, FolderWatcherState>,
     path: String,
     ignored_directories: Option<Vec<String>>,
+    scope_id: String,
+    scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
+    if !lock_registry(&state)?
+        .scope_tracker
+        .begin_scope(scope_id.as_str(), scope_generation)
+    {
+        return Ok(());
+    }
+
     let path = PathBuf::from(path);
     let watcher = create_folder_watcher(
         &app,
         path.as_path(),
         ignored_directories.unwrap_or_else(defaults::ignored_directories),
+        scope_id,
+        scope_generation,
     )?;
 
-    *lock_active_watcher(&state)? = Some(watcher);
+    lock_registry(&state)?.install_watcher(watcher);
 
     Ok(())
 }
@@ -64,8 +89,10 @@ pub(crate) fn watch_markdown_folder(
 #[tauri::command]
 pub(crate) fn unwatch_markdown_folder(
     state: State<'_, FolderWatcherState>,
+    scope_id: String,
+    scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    *lock_active_watcher(&state)? = None;
+    lock_registry(&state)?.cancel_scope(scope_id.as_str(), scope_generation);
 
     Ok(())
 }
@@ -74,6 +101,8 @@ fn create_folder_watcher(
     app: &AppHandle,
     path: &Path,
     ignored_directories: Vec<String>,
+    scope_id: String,
+    scope_generation: u64,
 ) -> Result<ActiveFolderWatcher, WatchMarkdownFolderError> {
     let serialized_path = path_to_string(path);
     let metadata =
@@ -129,14 +158,18 @@ fn create_folder_watcher(
             message: error.to_string(),
         })?;
 
-    Ok(ActiveFolderWatcher { _watcher: watcher })
+    Ok(ActiveFolderWatcher {
+        scope_generation,
+        scope_id,
+        _watcher: watcher,
+    })
 }
 
-fn lock_active_watcher(
+fn lock_registry(
     state: &FolderWatcherState,
-) -> Result<MutexGuard<'_, Option<ActiveFolderWatcher>>, WatchMarkdownFolderError> {
+) -> Result<MutexGuard<'_, FolderWatcherRegistry>, WatchMarkdownFolderError> {
     state
-        .active_watcher
+        .registry
         .lock()
         .map_err(|error| WatchMarkdownFolderError::WatcherStateFailed {
             message: error.to_string(),
@@ -251,6 +284,48 @@ enum EventPathKind {
     Unknown,
 }
 
+impl FolderWatcherRegistry {
+    fn install_watcher(&mut self, watcher: ActiveFolderWatcher) {
+        if self
+            .scope_tracker
+            .can_install_scope(watcher.scope_id.as_str(), watcher.scope_generation)
+        {
+            self.active_watcher = Some(watcher);
+        }
+    }
+
+    fn cancel_scope(&mut self, scope_id: &str, scope_generation: u64) {
+        self.scope_tracker.cancel_scope(scope_id, scope_generation);
+
+        if self.active_watcher.as_ref().is_some_and(|watcher| {
+            watcher.scope_id == scope_id && watcher.scope_generation == scope_generation
+        }) {
+            self.active_watcher = None;
+        }
+    }
+}
+
+impl FolderWatcherScopeTracker {
+    fn begin_scope(&mut self, _scope_id: &str, scope_generation: u64) -> bool {
+        if scope_generation < self.latest_generation {
+            return false;
+        }
+
+        self.latest_generation = scope_generation;
+
+        true
+    }
+
+    fn cancel_scope(&mut self, scope_id: &str, scope_generation: u64) {
+        self.latest_generation = self.latest_generation.max(scope_generation);
+        self.cancelled_scope_ids.insert(scope_id.to_owned());
+    }
+
+    fn can_install_scope(&self, scope_id: &str, scope_generation: u64) -> bool {
+        scope_generation == self.latest_generation && !self.cancelled_scope_ids.contains(scope_id)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -264,7 +339,7 @@ mod tests {
         Event, EventKind, RecursiveMode,
     };
 
-    use super::{relevant_event_paths, watch_mode_for_depth};
+    use super::{relevant_event_paths, watch_mode_for_depth, FolderWatcherScopeTracker};
     use crate::folder::ScanDepth;
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -322,6 +397,48 @@ mod tests {
             watch_mode_for_depth(ScanDepth::RootRestricted),
             RecursiveMode::NonRecursive
         );
+    }
+
+    #[test]
+    fn allows_current_watcher_scopes_to_install() {
+        let mut tracker = FolderWatcherScopeTracker::default();
+
+        assert!(tracker.begin_scope("scope:1", 1));
+
+        assert!(tracker.can_install_scope("scope:1", 1));
+    }
+
+    #[test]
+    fn rejects_stale_watcher_scopes_after_newer_scope_begins() {
+        let mut tracker = FolderWatcherScopeTracker::default();
+
+        assert!(tracker.begin_scope("scope:1", 1));
+        assert!(tracker.begin_scope("scope:2", 2));
+
+        assert!(!tracker.can_install_scope("scope:1", 1));
+        assert!(!tracker.begin_scope("scope:1", 1));
+        assert!(tracker.can_install_scope("scope:2", 2));
+    }
+
+    #[test]
+    fn rejects_cancelled_watcher_scopes_even_when_watch_finishes_later() {
+        let mut tracker = FolderWatcherScopeTracker::default();
+
+        tracker.cancel_scope("scope:1", 1);
+
+        assert!(tracker.begin_scope("scope:1", 1));
+        assert!(!tracker.can_install_scope("scope:1", 1));
+    }
+
+    #[test]
+    fn ignores_stale_cleanup_for_newer_watcher_scopes() {
+        let mut tracker = FolderWatcherScopeTracker::default();
+
+        assert!(tracker.begin_scope("scope:1", 1));
+        assert!(tracker.begin_scope("scope:2", 2));
+        tracker.cancel_scope("scope:1", 1);
+
+        assert!(tracker.can_install_scope("scope:2", 2));
     }
 
     #[test]

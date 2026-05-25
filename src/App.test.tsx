@@ -129,6 +129,26 @@ const countScanMarkdownFolderCalls = () =>
   vi.mocked(invoke).mock.calls.filter(([commandName]) => commandName === "scan_markdown_folder")
     .length;
 
+const expectFolderWatchStarted = (path: string, ignoredDirectories: string[]) => {
+  expect(watchMarkdownFolder).toHaveBeenCalledWith(
+    path,
+    ignoredDirectories,
+    expect.stringMatching(/^folder-watch:/u),
+    expect.any(Number),
+  );
+};
+
+const latestFolderWatchScope = () => {
+  const call = vi.mocked(watchMarkdownFolder).mock.calls.at(-1);
+
+  expect(call).toBeDefined();
+
+  return {
+    generation: call?.[3] as number,
+    id: call?.[2] as string,
+  };
+};
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -869,12 +889,13 @@ describe("App", () => {
     const { unmount } = render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", [".git", "vendor"]);
+      expectFolderWatchStarted("C:/Notes", [".git", "vendor"]);
     });
+    const scope = latestFolderWatchScope();
 
     unmount();
 
-    expect(unwatchMarkdownFolder).toHaveBeenCalledTimes(1);
+    expect(unwatchMarkdownFolder).toHaveBeenCalledWith(scope.id, scope.generation);
   });
 
   it("unlistens folder watcher events when listener setup resolves after unmount", async () => {
@@ -927,8 +948,9 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", defaultIgnoredDirectories);
+      expectFolderWatchStarted("C:/Notes", defaultIgnoredDirectories);
     });
+    const notesScope = latestFolderWatchScope();
 
     await act(async () => {
       useSessionStore.getState().setFolderContext({
@@ -939,9 +961,10 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(unwatchMarkdownFolder).toHaveBeenCalledTimes(1);
-      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Archive", defaultIgnoredDirectories);
+      expect(unwatchMarkdownFolder).toHaveBeenCalledWith(notesScope.id, notesScope.generation);
+      expectFolderWatchStarted("C:/Archive", defaultIgnoredDirectories);
     });
+    expect(latestFolderWatchScope()).not.toEqual(notesScope);
   });
 
   it("refreshes the current file tree from folder watcher events", async () => {
@@ -975,7 +998,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", defaultIgnoredDirectories);
+      expectFolderWatchStarted("C:/Notes", defaultIgnoredDirectories);
     });
 
     findFolderChangedHandler()({

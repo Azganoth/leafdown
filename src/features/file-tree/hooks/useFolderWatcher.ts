@@ -19,6 +19,7 @@ interface FolderChangedEventPayload {
 const folderChangedEvent = "leafdown://folder-changed";
 const folderWatchRefreshDelayMs = 150;
 const ignoredDirectoriesSignatureSeparator = "\u0000";
+let nextFolderWatcherScopeGeneration = 0;
 
 export function useFolderWatcher() {
   const folderPath = useSessionStore((state) => state.folderContext?.path ?? null);
@@ -33,6 +34,7 @@ export function useFolderWatcher() {
 
     const appWindow = getCurrentWindow();
     const ignoredDirectories = ignoredDirectoriesFromSignature(ignoredDirectoriesSignature);
+    const folderWatcherScope = createFolderWatcherScope();
     let disposed = false;
     let refreshInFlight = false;
     let refreshQueued = false;
@@ -120,7 +122,12 @@ export function useFolderWatcher() {
       })
       .catch(console.error);
 
-    void watchMarkdownFolder(folderPath, ignoredDirectories).catch((error: unknown) => {
+    void watchMarkdownFolder(
+      folderPath,
+      ignoredDirectories,
+      folderWatcherScope.id,
+      folderWatcherScope.generation,
+    ).catch((error: unknown) => {
       if (!disposed && useSessionStore.getState().folderContext?.path === folderPath) {
         showDocumentIoErrorToast(toast.error, {
           title: "Could not watch folder.",
@@ -133,10 +140,21 @@ export function useFolderWatcher() {
       disposed = true;
       clearRefreshTimeout();
       unlisten?.();
-      void unwatchMarkdownFolder().catch(console.error);
+      void unwatchMarkdownFolder(folderWatcherScope.id, folderWatcherScope.generation).catch(
+        console.error,
+      );
     };
   }, [folderPath, ignoredDirectoriesSignature]);
 }
+
+const createFolderWatcherScope = () => {
+  nextFolderWatcherScopeGeneration += 1;
+
+  return {
+    generation: nextFolderWatcherScopeGeneration,
+    id: `folder-watch:${nextFolderWatcherScopeGeneration}`,
+  };
+};
 
 const ignoredDirectoriesFromSignature = (signature: string) =>
   signature ? signature.split(ignoredDirectoriesSignatureSeparator) : [];

@@ -324,7 +324,20 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "C:/Notes/readme.md" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "C:/Notes" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Clear recent items" }));
+    await openMenu(user, "File");
+    expect(
+      screen.queryByRole("menuitem", { name: /^Clear recent items/u }),
+    ).not.toBeInTheDocument();
+
+    await user.hover(screen.getByRole("menuitem", { name: "Open recent" }));
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getAllByText("Recent files")).toHaveLength(2);
+    expect(screen.getAllByText("Recent folders")).toHaveLength(2);
+
+    expect(menuItem("Clear recent items")).not.toHaveAttribute("data-disabled");
+
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     expect(useSettingsStore.getState()).toMatchObject({
       recentFiles: [],

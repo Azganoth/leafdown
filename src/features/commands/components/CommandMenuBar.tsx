@@ -3,6 +3,7 @@ import {
   MenubarCheckboxItem,
   MenubarContent,
   MenubarItem,
+  MenubarLabel,
   MenubarMenu,
   MenubarRadioGroup,
   MenubarRadioItem,
@@ -407,15 +408,12 @@ export function CommandMenuBar() {
               state={commandState("file.openFolder")}
             />
             <RecentItemsSubmenu
+              commandState={commandState}
               recentFiles={settings.recentFiles}
               recentFolders={settings.recentFolders}
+              onExecute={executeCommand}
               onOpenRecentFile={openRecentFile}
               onOpenRecentFolder={openRecentFolder}
-            />
-            <CommandMenuItem
-              commandId="file.clearRecentItems"
-              onExecute={executeCommand}
-              state={commandState("file.clearRecentItems")}
             />
             <MenubarSeparator />
             <CommandMenuItem
@@ -740,11 +738,13 @@ interface SubmenuProps {
 }
 
 function RecentItemsSubmenu({
+  commandState,
+  onExecute,
   onOpenRecentFile,
   onOpenRecentFolder,
   recentFiles,
   recentFolders,
-}: {
+}: SubmenuProps & {
   onOpenRecentFile: (path: string) => void;
   onOpenRecentFolder: (path: string) => void;
   recentFiles: string[];
@@ -754,6 +754,7 @@ function RecentItemsSubmenu({
     <MenubarSub>
       <MenubarSubTrigger>Open recent</MenubarSubTrigger>
       <MenubarSubContent className="min-w-64">
+        <MenubarLabel>Recent files</MenubarLabel>
         {recentFiles.length === 0 ? (
           <MenubarItem disabled>No recent files.</MenubarItem>
         ) : (
@@ -764,6 +765,7 @@ function RecentItemsSubmenu({
           ))
         )}
         <MenubarSeparator />
+        <MenubarLabel>Recent folders</MenubarLabel>
         {recentFolders.length === 0 ? (
           <MenubarItem disabled>No recent folders.</MenubarItem>
         ) : (
@@ -773,6 +775,12 @@ function RecentItemsSubmenu({
             </MenubarItem>
           ))
         )}
+        <MenubarSeparator />
+        <CommandMenuItem
+          commandId="file.clearRecentItems"
+          onExecute={onExecute}
+          state={commandState("file.clearRecentItems")}
+        />
       </MenubarSubContent>
     </MenubarSub>
   );

@@ -572,6 +572,44 @@ describe("App", () => {
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
+  it.each([
+    {
+      name: "oversized files",
+      error: {
+        kind: "oversizedFile",
+        path: "C:/Notes/large.md",
+        sizeBytes: 6 * 1024 * 1024,
+        maxSizeBytes: 5 * 1024 * 1024,
+      },
+      title: "Markdown file is too large.",
+      description: "6 MB selected. Files larger than 5 MB do not load.",
+    },
+    {
+      name: "invalid encoding",
+      error: {
+        kind: "invalidEncoding",
+        path: "C:/Notes/invalid.md",
+      },
+      title: "Invalid Markdown file encoding.",
+      description: "Leafdown opens Markdown files encoded as UTF-8.",
+    },
+  ])("shows specific open errors for $name", async ({ error, title, description }) => {
+    vi.mocked(open).mockResolvedValue("C:/Notes/problem.md");
+    vi.mocked(invoke).mockRejectedValue(error);
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(title, { description });
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
+  });
+
   it("opens recent Markdown files without showing the file picker", async () => {
     setDefaultSettings({ recentFiles: ["C:/Notes/readme.md"] });
     vi.mocked(invoke).mockResolvedValueOnce({

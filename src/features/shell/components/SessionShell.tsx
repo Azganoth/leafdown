@@ -1,4 +1,5 @@
 import { PreferencesDialog } from "@/features/preferences/components/PreferencesDialog";
+import { FileTreeSidebar, FileTreeViewActions } from "@/features/file-tree";
 import { getFolderContextStatus, getSessionShellMode, useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -20,7 +21,10 @@ function SessionShell() {
         data-testid="menu-bar-host"
         className="flex h-9 shrink-0 items-center justify-between border-y border-border bg-card/60 px-2"
       >
-        <FileWorkflowActions />
+        <div className="flex min-w-0 items-center gap-2">
+          <FileWorkflowActions />
+          <FileTreeViewActions />
+        </div>
         <PreferencesDialog />
       </div>
 
@@ -30,7 +34,9 @@ function SessionShell() {
             aria-label="File tree sidebar"
             data-testid="file-tree-sidebar-host"
             className="w-64 shrink-0 border-r border-border bg-card/35"
-          />
+          >
+            <FileTreeSidebar activeDocument={activeDocument} folderContext={folderContext} />
+          </aside>
         )}
 
         <main

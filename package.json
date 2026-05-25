@@ -37,6 +37,7 @@
     "@milkdown/plugin-highlight": "7.21.1",
     "@shikijs/langs": "4.1.0",
     "@shikijs/themes": "4.1.0",
+    "@tanstack/react-virtual": "^3.13.25",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2.5.4",

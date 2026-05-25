@@ -57,6 +57,41 @@ const notesFolderTree = {
   ],
 };
 
+const nestedNotesFolderTree = {
+  name: "Notes",
+  path: "C:/Notes",
+  children: [
+    {
+      kind: "file" as const,
+      name: "readme.md",
+      path: "C:/Notes/readme.md",
+    },
+    {
+      kind: "file" as const,
+      name: "draft.markdown",
+      path: "C:/Notes/draft.markdown",
+    },
+    {
+      kind: "directory" as const,
+      name: "docs",
+      path: "C:/Notes/docs",
+      children: [
+        {
+          kind: "file" as const,
+          name: "spec.md",
+          path: "C:/Notes/docs/spec.md",
+        },
+      ],
+    },
+    {
+      kind: "directory" as const,
+      name: "empty",
+      path: "C:/Notes/empty",
+      children: [],
+    },
+  ],
+};
+
 const defaultFolderScanArgs = {
   ignoredDirectories: defaultIgnoredDirectories,
   sortOrder: "name",
@@ -129,6 +164,10 @@ describe("App", () => {
     expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
+    expect(screen.getByText("No folder open")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sort file tree by type" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Collapse all" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Reveal active file" })).toBeDisabled();
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
@@ -186,11 +225,15 @@ describe("App", () => {
 
   it("renders a folder-only document placeholder without an active document host", () => {
     setDefaultSession({
-      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
     });
 
     render(<App />);
 
+    expect(screen.getByRole("button", { name: "readme.md" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "draft.markdown" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "docs" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
     expect(screen.getByText("No document open")).toBeInTheDocument();
     expect(
       screen.getByText("Select a Markdown file from the sidebar or create a new document."),
@@ -199,12 +242,91 @@ describe("App", () => {
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
+  it("renders nested file tree rows and selects the active saved document", async () => {
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/docs/spec.md",
+        content: "# Spec",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 6, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "spec.md" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
+    expect(screen.getByRole("button", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "empty" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "notes.txt" })).not.toBeInTheDocument();
+  });
+
+  it("shows empty folder state in the sidebar while preserving empty directories", () => {
+    setDefaultSession({
+      folderContext: {
+        path: "C:/Empty",
+        tree: {
+          name: "Empty",
+          path: "C:/Empty",
+          children: [
+            {
+              kind: "directory",
+              name: "nested",
+              path: "C:/Empty/nested",
+              children: [],
+            },
+          ],
+        },
+        isEmpty: true,
+      },
+    });
+
+    render(<App />);
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "nested" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /rename/iu })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete/iu })).not.toBeInTheDocument();
+  });
+
   it("hides the sidebar when the persisted sidebar setting is off", () => {
     setDefaultSettings({ sidebarVisible: false });
 
     render(<App />);
 
     expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+  });
+
+  it("toggles sidebar visibility from the view command and shortcut", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
+
+    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show sidebar" }));
+
+    expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+
+    const toggleSidebarShortcut = new KeyboardEvent("keydown", {
+      key: "e",
+      ctrlKey: true,
+      shiftKey: true,
+      cancelable: true,
+    });
+
+    window.dispatchEvent(toggleSidebarShortcut);
+
+    expect(toggleSidebarShortcut.defaultPrevented).toBe(true);
+    await waitFor(() => {
+      expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+    });
   });
 
   it("exposes MVP preferences without Post-MVP settings", async () => {
@@ -570,6 +692,138 @@ describe("App", () => {
       recentFolders: ["C:/Notes"],
     });
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it("opens Markdown files selected from the sidebar", async () => {
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes/draft.markdown",
+      parentFolderPath: "C:/Notes",
+      content: "# Draft\n",
+      lineEnding: "lf",
+      metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_801_000 },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: nestedNotesFolderTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "draft.markdown" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenNthCalledWith(1, "open_markdown_file", {
+        path: "C:/Notes/draft.markdown",
+      });
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "scan_markdown_folder", {
+      path: "C:/Notes",
+      ...defaultFolderScanArgs,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: "C:/Notes" },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/draft.markdown",
+        content: "# Draft\n",
+        isDirty: false,
+      },
+    });
+    expect(screen.getByRole("button", { name: "draft.markdown" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("collapses and expands all sidebar folders from view commands", async () => {
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand all" }));
+
+    expect(screen.getByRole("button", { name: "spec.md" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+
+    expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
+  });
+
+  it("sorts the file tree through view commands and refreshes the current folder", async () => {
+    const sortedTree = {
+      ...nestedNotesFolderTree,
+      children: [...nestedNotesFolderTree.children].reverse(),
+    };
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+    vi.mocked(invoke).mockResolvedValueOnce({
+      path: "C:/Notes",
+      tree: sortedTree,
+      isEmpty: false,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Sort file tree by type" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("scan_markdown_folder", {
+        path: "C:/Notes",
+        ignoredDirectories: defaultIgnoredDirectories,
+        sortOrder: "type",
+      });
+    });
+    expect(useSettingsStore.getState().fileTreeSortOrder).toBe("type");
+    expect(useSessionStore.getState().folderContext?.tree.children[0]).toMatchObject({
+      name: "empty",
+    });
+  });
+
+  it("reveals the active saved file and restores the sidebar when hidden", async () => {
+    setDefaultSettings({ sidebarVisible: false });
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/docs/spec.md",
+        content: "# Spec",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 6, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reveal active file" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "spec.md" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+    });
   });
 
   it.each([

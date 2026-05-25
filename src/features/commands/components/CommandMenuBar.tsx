@@ -297,7 +297,9 @@ export function CommandMenuBar() {
     }
 
     if (activeDocumentKey) {
-      runActiveDocumentEditorCommand(activeDocumentKey, commandId);
+      void Promise.resolve(runActiveDocumentEditorCommand(activeDocumentKey, commandId)).catch(
+        console.error,
+      );
     }
   };
 

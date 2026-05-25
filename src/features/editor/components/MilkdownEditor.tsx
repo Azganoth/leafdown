@@ -87,7 +87,7 @@ export function MilkdownEditor({
           return false;
         }
 
-        return runEditorCommand(editor.ctx.get(editorViewCtx), commandId);
+        return runEditorCommand(editor, commandId);
       },
     }),
     [],

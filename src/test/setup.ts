@@ -38,6 +38,10 @@ if (typeof PointerEvent === "undefined" && typeof MouseEvent !== "undefined") {
   globalThis.PointerEvent = MouseEvent as typeof PointerEvent;
 }
 
+if (typeof ClipboardEvent === "undefined") {
+  globalThis.ClipboardEvent = Event as typeof ClipboardEvent;
+}
+
 const createTestDomRect = (): DOMRect => ({
   bottom: 0,
   height: 0,

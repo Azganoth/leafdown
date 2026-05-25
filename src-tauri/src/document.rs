@@ -229,6 +229,9 @@ fn verify_file_freshness(
         return Ok(());
     };
     let current_metadata = read_file_metadata(path).map_err(|error| match error {
+        FileMetadataReadError::InvalidPath => SaveMarkdownFileError::InvalidPath {
+            path: serialized_path.to_owned(),
+        },
         FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
             path: serialized_path.to_owned(),
         },
@@ -295,6 +298,7 @@ fn detect_line_ending(content: &str) -> Option<LineEnding> {
 
 #[derive(Debug)]
 enum FileMetadataReadError {
+    InvalidPath,
     MissingFile,
     PermissionDenied(String),
     Failed(String),
@@ -303,6 +307,7 @@ enum FileMetadataReadError {
 impl std::fmt::Display for FileMetadataReadError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InvalidPath => formatter.write_str("invalid path"),
             Self::MissingFile => formatter.write_str("file is missing"),
             Self::PermissionDenied(message) => formatter.write_str(message),
             Self::Failed(message) => formatter.write_str(message),
@@ -311,14 +316,11 @@ impl std::fmt::Display for FileMetadataReadError {
 }
 
 fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataReadError> {
-    let metadata = fs::metadata(path).map_err(|error| {
-        if error.kind() == ErrorKind::NotFound {
-            FileMetadataReadError::MissingFile
-        } else if error.kind() == ErrorKind::PermissionDenied {
-            FileMetadataReadError::PermissionDenied(error.to_string())
-        } else {
-            FileMetadataReadError::Failed(error.to_string())
-        }
+    let metadata = fs::metadata(path).map_err(|error| match error.kind() {
+        ErrorKind::InvalidInput => FileMetadataReadError::InvalidPath,
+        ErrorKind::NotFound => FileMetadataReadError::MissingFile,
+        ErrorKind::PermissionDenied => FileMetadataReadError::PermissionDenied(error.to_string()),
+        _ => FileMetadataReadError::Failed(error.to_string()),
     })?;
     let modified_at_unix_ms = metadata
         .modified()
@@ -339,6 +341,9 @@ fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataR
 
 fn open_metadata_error(error: FileMetadataReadError, path: &str) -> OpenMarkdownFileError {
     match error {
+        FileMetadataReadError::InvalidPath => OpenMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
         FileMetadataReadError::MissingFile => OpenMarkdownFileError::MissingFile {
             path: path.to_owned(),
         },
@@ -357,6 +362,9 @@ fn open_metadata_error(error: FileMetadataReadError, path: &str) -> OpenMarkdown
 
 fn open_read_error(error: std::io::Error, path: &str) -> OpenMarkdownFileError {
     match error.kind() {
+        ErrorKind::InvalidInput => OpenMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
         ErrorKind::NotFound => OpenMarkdownFileError::MissingFile {
             path: path.to_owned(),
         },
@@ -373,6 +381,9 @@ fn open_read_error(error: std::io::Error, path: &str) -> OpenMarkdownFileError {
 
 fn save_metadata_error(error: FileMetadataReadError, path: &str) -> SaveMarkdownFileError {
     match error {
+        FileMetadataReadError::InvalidPath => SaveMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
         FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
             path: path.to_owned(),
         },
@@ -391,6 +402,9 @@ fn save_metadata_error(error: FileMetadataReadError, path: &str) -> SaveMarkdown
 
 fn save_write_error(error: std::io::Error, path: &str) -> SaveMarkdownFileError {
     match error.kind() {
+        ErrorKind::InvalidInput => SaveMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
         ErrorKind::NotFound => SaveMarkdownFileError::MissingFile {
             path: path.to_owned(),
         },
@@ -413,13 +427,15 @@ fn path_to_string(path: &Path) -> String {
 mod tests {
     use std::{
         fs::{self, create_dir},
+        io::ErrorKind,
         path::{Path, PathBuf},
         sync::atomic::{AtomicUsize, Ordering},
     };
 
     use super::{
-        detect_line_ending, read_markdown_file, write_markdown_file, LineEnding,
-        OpenMarkdownFileError, SaveMarkdownFileError, MAX_MARKDOWN_FILE_SIZE_BYTES,
+        detect_line_ending, open_metadata_error, open_read_error, read_markdown_file,
+        save_metadata_error, save_write_error, write_markdown_file, FileMetadataReadError,
+        LineEnding, OpenMarkdownFileError, SaveMarkdownFileError, MAX_MARKDOWN_FILE_SIZE_BYTES,
     };
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -538,6 +554,18 @@ mod tests {
     }
 
     #[test]
+    fn maps_invalid_path_open_errors() {
+        assert!(matches!(
+            open_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
+            OpenMarkdownFileError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            open_read_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
+            OpenMarkdownFileError::InvalidPath { .. }
+        ));
+    }
+
+    #[test]
     fn writes_supported_markdown_files_with_metadata() {
         let file = create_test_file("document.md", "old content");
 
@@ -576,6 +604,18 @@ mod tests {
             SaveMarkdownFileError::UnsupportedFileType { .. }
         ));
         assert!(!unsupported_path.exists());
+    }
+
+    #[test]
+    fn maps_invalid_path_save_errors() {
+        assert!(matches!(
+            save_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
+            SaveMarkdownFileError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            save_write_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
+            SaveMarkdownFileError::InvalidPath { .. }
+        ));
     }
 
     #[test]

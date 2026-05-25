@@ -41,6 +41,15 @@ describe("document IO errors", () => {
     ).toBe("Unsupported Markdown file type.");
     expect(
       getOpenMarkdownFileErrorMessage({
+        kind: "invalidPath",
+        path: "bad:path",
+      }),
+    ).toEqual({
+      title: "Invalid Markdown file path.",
+      description: "bad:path",
+    });
+    expect(
+      getOpenMarkdownFileErrorMessage({
         kind: "missingFile",
         path: "C:/Notes/missing.md",
       }),
@@ -105,6 +114,15 @@ describe("document IO errors", () => {
         path: "C:/Notes/readme.txt",
       }).title,
     ).toBe("Unsupported save file type.");
+    expect(
+      getSaveMarkdownFileErrorMessage({
+        kind: "invalidPath",
+        path: "bad:path",
+      }),
+    ).toEqual({
+      title: "Invalid save path.",
+      description: "bad:path",
+    });
     expect(
       getSaveMarkdownFileErrorMessage({
         kind: "permissionDenied",

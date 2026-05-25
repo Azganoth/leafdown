@@ -22,8 +22,8 @@ body:
     id: docs
     attributes:
       label: Related docs
-      description: Link relevant docs sections, or decisions.
-      placeholder: docs/specification.md#file-workflows
+      description: Link relevant docs sections, or decisions. Use `y` to generate permalinks on GitHub.
+      placeholder: "[Specification: File workflows](https://github.com/Azganoth/leafdown/blob/aacf982/docs/specification.md#file-workflows)"
 
   - type: textarea
     id: done

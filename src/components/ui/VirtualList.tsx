@@ -1,13 +1,15 @@
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import { useVirtualizer, type ScrollToOptions, type VirtualItem } from "@tanstack/react-virtual";
 import { Slot } from "radix-ui";
 import {
   createContext,
   useCallback,
   useContext,
+  useImperativeHandle,
   useState,
   type ComponentProps,
   type Key,
   type ReactNode,
+  type Ref,
 } from "react";
 
 import { cn } from "@/lib/cn";
@@ -37,14 +39,22 @@ interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "v
   items: T[];
   estimateHeight: number;
   getItemKey?: (item: T, index: number) => Key;
+  initialViewportHeight?: number;
   overscan?: number;
+  virtualListRef?: Ref<VirtualListHandle>;
+}
+
+export interface VirtualListHandle {
+  scrollToIndex: (index: number, options?: ScrollToOptions) => void;
 }
 
 function VirtualList<T>({
   items,
   estimateHeight,
   getItemKey,
+  initialViewportHeight = estimateHeight * 16,
   overscan = 8,
+  virtualListRef,
   children,
   ...props
 }: VirtualListProps<T>) {
@@ -61,13 +71,42 @@ function VirtualList<T>({
     estimateSize: () => estimateHeight,
     getItemKey: (index) => getItemKey?.(items[index], index) ?? index,
     getScrollElement: () => viewportElement,
+    initialRect: {
+      height: initialViewportHeight,
+      width: 0,
+    },
     overscan,
   });
+
+  useImperativeHandle(
+    virtualListRef,
+    () => ({
+      scrollToIndex: (index, options) => virtualizer.scrollToIndex(index, options),
+    }),
+    [virtualizer],
+  );
+
+  const measuredVirtualItems = virtualizer.getVirtualItems();
+  const virtualItems =
+    measuredVirtualItems.length > 0
+      ? measuredVirtualItems
+      : items.map((item, index) => {
+          const start = index * estimateHeight;
+
+          return {
+            end: start + estimateHeight,
+            index,
+            key: getItemKey?.(item, index) ?? index,
+            lane: 0,
+            size: estimateHeight,
+            start,
+          } satisfies VirtualItem;
+        });
 
   const context: VirtualListContextValue<T> = {
     getItem: (index) => items[index],
     totalSize: virtualizer.getTotalSize(),
-    virtualItems: virtualizer.getVirtualItems(),
+    virtualItems,
     isEmpty: items.length === 0,
     isScrolling: virtualizer.isScrolling,
   };

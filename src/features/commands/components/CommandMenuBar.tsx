@@ -49,7 +49,12 @@ import {
   getFileAncestorDirectoryPaths,
 } from "@/features/file-tree/utils/fileTreeRows";
 
-import { commandDefinitions, commandMenuLabels, shortcutCommandIds } from "../commandDefinitions";
+import {
+  commandDefinitions,
+  commandMenuLabels,
+  getCommandShortcuts,
+  shortcutCommandIds,
+} from "../commandDefinitions";
 import { getCommandState } from "../commandState";
 import type { AppCommandId, CommandShortcut, CommandStateContext } from "../types";
 import { AboutDialog } from "./AboutDialog";
@@ -329,8 +334,8 @@ export function CommandMenuBar() {
       }
 
       const shortcutCommandId = shortcutCommandIds.find((commandId) => {
-        const shortcut = commandDefinitions[commandId].shortcut;
-        return shortcut ? matchesShortcut(event, shortcut) : false;
+        const shortcuts = getCommandShortcuts(commandDefinitions[commandId]);
+        return shortcuts.some((shortcut) => matchesShortcut(event, shortcut));
       });
 
       if (!shortcutCommandId) {
@@ -688,17 +693,19 @@ interface CommandItemProps {
 
 function CommandMenuItem({ commandId, onExecute, state }: CommandItemProps) {
   const command = commandDefinitions[commandId];
+  const primaryShortcut = getCommandShortcuts(command)[0];
 
   return (
     <MenubarItem disabled={!state.enabled} onSelect={() => onExecute(commandId)}>
       {command.label}
-      {command.shortcut && <MenubarShortcut>{formatShortcut(command.shortcut)}</MenubarShortcut>}
+      {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
     </MenubarItem>
   );
 }
 
 function CommandCheckboxItem({ commandId, onExecute, state }: CommandItemProps) {
   const command = commandDefinitions[commandId];
+  const primaryShortcut = getCommandShortcuts(command)[0];
 
   return (
     <MenubarCheckboxItem
@@ -707,7 +714,7 @@ function CommandCheckboxItem({ commandId, onExecute, state }: CommandItemProps) 
       onSelect={() => onExecute(commandId)}
     >
       {command.label}
-      {command.shortcut && <MenubarShortcut>{formatShortcut(command.shortcut)}</MenubarShortcut>}
+      {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
     </MenubarCheckboxItem>
   );
 }

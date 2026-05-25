@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CommandStateContext, EditorCommandState } from "./types";
+import { commandDefinitions, getCommandShortcuts, shortcutCommandIds } from "./commandDefinitions";
 import { getCommandState } from "./commandState";
 
 const savedDocument = {
@@ -162,5 +163,13 @@ describe("command state", () => {
         editor: { ...context.editor, hasTableSelection: false },
       }),
     ).toMatchObject({ enabled: false });
+  });
+
+  it("registers alternate shortcuts for a command", () => {
+    expect(getCommandShortcuts(commandDefinitions["edit.redo"])).toEqual([
+      { key: "y", mod: true },
+      { key: "z", mod: true, shift: true },
+    ]);
+    expect(shortcutCommandIds).toContain("edit.redo");
   });
 });

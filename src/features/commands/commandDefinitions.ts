@@ -33,7 +33,14 @@ export const commandDefinitions: Record<AppCommandId, CommandDefinition> = {
     shortcut: { key: "q", mod: true },
   },
   "edit.undo": { id: "edit.undo", label: "Undo", shortcut: { key: "z", mod: true } },
-  "edit.redo": { id: "edit.redo", label: "Redo", shortcut: { key: "y", mod: true } },
+  "edit.redo": {
+    id: "edit.redo",
+    label: "Redo",
+    shortcuts: [
+      { key: "y", mod: true },
+      { key: "z", mod: true, shift: true },
+    ],
+  },
   "edit.cut": { id: "edit.cut", label: "Cut", shortcut: { key: "x", mod: true } },
   "edit.copy": { id: "edit.copy", label: "Copy", shortcut: { key: "c", mod: true } },
   "edit.copyAsPlainText": { id: "edit.copyAsPlainText", label: "Plain text" },
@@ -247,6 +254,9 @@ export const commandMenuLabels = {
   help: "Help",
 } satisfies Record<CommandMenuId, string>;
 
+export const getCommandShortcuts = ({ shortcut, shortcuts }: CommandDefinition) =>
+  shortcuts ?? (shortcut ? [shortcut] : []);
+
 export const shortcutCommandIds = Object.values(commandDefinitions)
-  .filter((command) => command.shortcut)
+  .filter((command) => getCommandShortcuts(command).length > 0)
   .map((command) => command.id);

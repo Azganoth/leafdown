@@ -114,6 +114,7 @@ export interface CommandDefinition {
   id: AppCommandId;
   label: string;
   shortcut?: CommandShortcut;
+  shortcuts?: CommandShortcut[];
 }
 
 export interface EditorCommandState {

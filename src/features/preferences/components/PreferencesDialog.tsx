@@ -24,6 +24,13 @@ import {
   PreferenceSwitch,
   type RadioOption,
 } from "./PreferenceControls";
+
+interface PreferencesDialogProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+}
+
 const appearanceThemeOptions: RadioOption<AppearanceTheme>[] = [
   { label: "System", value: "system" },
   { label: "Light", value: "light" },
@@ -46,7 +53,11 @@ const lineEndingOptions: RadioOption<LineEndingPreference>[] = [
   { label: "CRLF", value: "crlf" },
 ];
 
-function PreferencesDialog() {
+function PreferencesDialog({
+  open,
+  onOpenChange,
+  showTrigger = true,
+}: PreferencesDialogProps = {}) {
   const {
     autoPairBracketsAndQuotes,
     defaultNewDocumentExtension,
@@ -63,13 +74,15 @@ function PreferencesDialog() {
   } = useSettingsStore();
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
-          <SettingsIcon aria-hidden="true" className="size-4" />
-          Preferences
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {showTrigger && (
+        <DialogTrigger asChild>
+          <Button type="button" variant="ghost" size="sm">
+            <SettingsIcon aria-hidden="true" className="size-4" />
+            Preferences
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-3xl lg:max-w-4xl">
         <DialogHeader className="pr-10">
           <DialogTitle>Preferences</DialogTitle>

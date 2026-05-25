@@ -55,7 +55,9 @@ export function createTauriAppMock() {
 const currentWindowMock = {
   close: vi.fn(async () => undefined),
   destroy: vi.fn(async () => undefined),
+  isFullscreen: vi.fn(async () => false),
   listen: vi.fn(async () => vi.fn()),
+  setFullscreen: vi.fn(async () => undefined),
   show: vi.fn(async () => undefined),
   theme: vi.fn(async () => "light"),
 };
@@ -63,6 +65,16 @@ const currentWindowMock = {
 export function createTauriWindowMock() {
   return {
     getCurrentWindow: vi.fn(() => currentWindowMock),
+  };
+}
+
+const currentWebviewMock = {
+  setZoom: vi.fn(async () => undefined),
+};
+
+export function createTauriWebviewMock() {
+  return {
+    getCurrentWebview: vi.fn(() => currentWebviewMock),
   };
 }
 

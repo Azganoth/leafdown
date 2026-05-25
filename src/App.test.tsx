@@ -138,6 +138,31 @@ const expectFolderWatchStarted = (path: string, ignoredDirectories: string[]) =>
   );
 };
 
+const openMenu = async (user: ReturnType<typeof renderWithUser>["user"], name: string) => {
+  await user.click(screen.getByRole("menuitem", { name }));
+};
+
+const clickMenuItem = async (
+  user: ReturnType<typeof renderWithUser>["user"],
+  menuName: string,
+  itemName: string | RegExp,
+) => {
+  await openMenu(user, menuName);
+  await user.click(menuItem(itemName));
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
+const menuItem = (name: string | RegExp) => {
+  const matcher = typeof name === "string" ? new RegExp(`^${escapeRegExp(name)}`, "u") : name;
+
+  return (
+    screen.queryByRole("menuitem", { name: matcher }) ??
+    screen.queryByRole("menuitemcheckbox", { name: matcher }) ??
+    screen.getByRole("menuitemradio", { name: matcher })
+  );
+};
+
 const latestFolderWatchScope = () => {
   const call = vi.mocked(watchMarkdownFolder).mock.calls.at(-1);
 
@@ -204,14 +229,17 @@ describe("App", () => {
     expect(document.documentElement).not.toHaveClass("dark");
   });
 
-  it("renders the welcome shell with MVP region hosts and empty recent lists", () => {
-    render(<App />);
+  it("renders the welcome shell with MVP menu groups and empty recent lists", async () => {
+    const { user } = renderWithUser(<App />);
 
     expect(screen.getByRole("button", { name: "Open file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save as..." })).toBeDisabled();
+    expect(screen.getByRole("menuitem", { name: "File" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Insert" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Format" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "View" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Help" })).toBeInTheDocument();
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
@@ -219,10 +247,39 @@ describe("App", () => {
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.getByText("No folder open")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sort file tree by type" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Collapse all" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Reveal active file" })).toBeDisabled();
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
+
+    await openMenu(user, "File");
+
+    expect(menuItem(/^New/)).toBeInTheDocument();
+    expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Save as/)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Reveal in sidebar/)).toHaveAttribute("data-disabled");
+  });
+
+  it("disables folder-only view menu commands without a folder context", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await openMenu(user, "View");
+
+    expect(menuItem("Sort file tree by")).toBeInTheDocument();
+    expect(menuItem("Collapse all folders")).toHaveAttribute("data-disabled");
+    expect(menuItem("Expand all folders")).toHaveAttribute("data-disabled");
+  });
+
+  it("omits Post-MVP and development-only commands from the MVP menus", async () => {
+    const { user } = renderWithUser(<App />);
+
+    await openMenu(user, "View");
+
+    expect(screen.queryByText("Toggle status bar")).not.toBeInTheDocument();
+    expect(screen.queryByText("Toggle DevTools")).not.toBeInTheDocument();
+    expect(screen.queryByText("Always on top")).not.toBeInTheDocument();
+
+    await openMenu(user, "Edit");
+
+    expect(screen.queryByText("Find...")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete block")).not.toBeInTheDocument();
   });
 
   it("creates an untitled document from the file actions", async () => {
@@ -230,7 +287,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "New" }));
+    await clickMenuItem(user, "File", /^New/);
 
     await waitFor(() => {
       expect(useSessionStore.getState().activeDocument).toMatchObject({
@@ -360,11 +417,11 @@ describe("App", () => {
   it("toggles sidebar visibility from the view command and shortcut", async () => {
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
+    await clickMenuItem(user, "View", "Toggle sidebar");
 
     expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Show sidebar" }));
+    await clickMenuItem(user, "View", "Toggle sidebar");
 
     expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
 
@@ -386,7 +443,7 @@ describe("App", () => {
   it("exposes MVP preferences without Post-MVP settings", async () => {
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Preferences" }));
+    await clickMenuItem(user, "File", /^Preferences/);
 
     expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
     expect(screen.getByText("Record recent files and folders")).toBeInTheDocument();
@@ -409,7 +466,7 @@ describe("App", () => {
   it("updates persisted settings from preferences", async () => {
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Preferences" }));
+    await clickMenuItem(user, "File", /^Preferences/);
     await user.click(screen.getByRole("switch", { name: "Sidebar visibility" }));
     await user.click(screen.getByRole("radio", { name: "Dark" }));
 
@@ -482,10 +539,12 @@ describe("App", () => {
       path: "C:/Notes/readme.md",
       isDirty: true,
     });
-    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    await openMenu(user, "File");
+    expect(menuItem(/^Save(?! as)/u)).not.toHaveAttribute("data-disabled");
   });
 
-  it("disables Save for clean saved documents", () => {
+  it("disables Save for clean saved documents", async () => {
     setDefaultSession({
       activeDocument: {
         status: "saved",
@@ -496,11 +555,13 @@ describe("App", () => {
       },
     });
 
-    render(<App />);
+    const { user } = renderWithUser(<App />);
 
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save as..." })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Close document" })).toBeEnabled();
+    await openMenu(user, "File");
+
+    expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Save as/)).not.toHaveAttribute("data-disabled");
+    expect(menuItem(/^Close document/)).not.toHaveAttribute("data-disabled");
 
     const saveShortcut = new KeyboardEvent("keydown", {
       key: "s",
@@ -533,7 +594,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await clickMenuItem(user, "File", /^Save(?! as)/u);
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("save_markdown_file", {
@@ -572,7 +633,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await clickMenuItem(user, "File", /^Save(?! as)/u);
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Could not write Markdown file.", {
@@ -618,7 +679,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await clickMenuItem(user, "File", /^Save(?! as)/u);
 
     await waitFor(() => {
       expect(save).toHaveBeenCalledWith({
@@ -661,7 +722,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Close document" }));
+    await clickMenuItem(user, "File", /^Close document/);
 
     expect(confirm).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toMatchObject({
@@ -685,7 +746,7 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Close document" }));
+    await clickMenuItem(user, "File", /^Close document/);
 
     expect(confirm).toHaveBeenCalled();
     expect(useSessionStore.getState().activeDocument).toMatchObject({
@@ -809,11 +870,11 @@ describe("App", () => {
 
     expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Expand all" }));
+    await clickMenuItem(user, "View", "Expand all folders");
 
     expect(screen.getByRole("button", { name: "spec.md" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+    await clickMenuItem(user, "View", "Collapse all folders");
 
     expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
   });
@@ -835,7 +896,9 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Sort file tree by type" }));
+    await openMenu(user, "View");
+    await user.hover(screen.getByRole("menuitem", { name: "Sort file tree by" }));
+    await user.keyboard("{ArrowRight}{ArrowDown}{ArrowDown}{Enter}");
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("scan_markdown_folder", {
@@ -867,7 +930,7 @@ describe("App", () => {
 
     expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Reveal active file" }));
+    await clickMenuItem(user, "File", /^Reveal in sidebar/);
 
     await waitFor(() => {
       expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();

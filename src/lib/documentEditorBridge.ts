@@ -1,4 +1,5 @@
 import type { MilkdownEditorBridge } from "@/features/editor";
+import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 
 interface ActiveEditorBridgeState {
   bridge: MilkdownEditorBridge;
@@ -6,6 +7,13 @@ interface ActiveEditorBridgeState {
 }
 
 let activeEditorBridge: ActiveEditorBridgeState | null = null;
+
+export const inactiveEditorCommandState: EditorCommandState = {
+  enabledCommands: {},
+  hasActiveEditor: false,
+  hasSelection: false,
+  hasTableSelection: false,
+};
 
 export const setActiveDocumentEditorBridge = (
   documentKey: string,
@@ -28,6 +36,27 @@ export const getActiveDocumentEditorMarkdown = (documentKey: string) => {
   }
 
   return activeEditorBridge.bridge.getMarkdown();
+};
+
+export const getActiveDocumentEditorCommandState = (documentKey: string): EditorCommandState => {
+  if (activeEditorBridge?.documentKey !== documentKey) {
+    return inactiveEditorCommandState;
+  }
+
+  return (
+    activeEditorBridge.bridge.getCommandState?.() ?? {
+      ...inactiveEditorCommandState,
+      hasActiveEditor: true,
+    }
+  );
+};
+
+export const runActiveDocumentEditorCommand = (documentKey: string, commandId: AppCommandId) => {
+  if (activeEditorBridge?.documentKey !== documentKey) {
+    return false;
+  }
+
+  return activeEditorBridge.bridge.runCommand?.(commandId) ?? false;
 };
 
 export const resetActiveDocumentEditorBridge = () => {

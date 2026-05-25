@@ -91,6 +91,7 @@ export interface SessionStore extends SessionState {
   setFolderSession: (folderContext: FolderContextState) => void;
   setActiveDocument: (activeDocument: ActiveDocumentState | null) => void;
   setActiveDocumentContent: (documentKey: string, content: string) => void;
+  setActiveDocumentLineEnding: (documentKey: string, lineEnding: LineEnding) => void;
   markActiveDocumentDirty: (documentKey: string) => void;
   setDocumentSession: (
     folderContext: FolderContextState | null,
@@ -130,6 +131,21 @@ export const useSessionStore = create<SessionStore>()((set) => ({
         activeDocument: {
           ...activeDocument,
           content,
+        },
+      };
+    }),
+  setActiveDocumentLineEnding: (documentKey, lineEnding) =>
+    set((state) => {
+      const { activeDocument } = state;
+
+      if (!activeDocument || getActiveDocumentKey(activeDocument) !== documentKey) {
+        return state;
+      }
+
+      return {
+        activeDocument: {
+          ...activeDocument,
+          lineEnding,
         },
       };
     }),

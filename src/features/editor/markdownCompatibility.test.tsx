@@ -139,4 +139,26 @@ describe("Markdown compatibility", () => {
       expect(mounted.view.dom).toHaveTextContent(source.replace("\\", ""));
     },
   );
+
+  it("mounts invalid or unusual Markdown input without crashing", async () => {
+    const mounted = await mountEditor(`# Edge Input
+
+[unterminated link](
+
+![unterminated image](
+
+| A | B
+| --- |
+| one
+
+<custom broken
+
+::note{title="Unsupported"}
+
+[^missing`);
+
+    expect(mounted.view.dom).toHaveClass("ProseMirror");
+    expect(mounted.view.dom).toHaveTextContent("Edge Input");
+    expect(() => mounted.getMarkdown()).not.toThrow();
+  });
 });

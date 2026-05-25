@@ -377,6 +377,39 @@ describe("App", () => {
     expect(toast.success).toHaveBeenCalledWith("Document saved.");
   });
 
+  it("shows specific save errors from the file actions", async () => {
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: true,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "writeFailed",
+      path: "C:/Notes/readme.md",
+      message: "disk is full",
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Could not write Markdown file.", {
+        description: "disk is full",
+      });
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
+      isDirty: true,
+    });
+  });
+
   it("saves untitled documents through Save As from the file actions", async () => {
     setDefaultSettings({ defaultNewDocumentExtension: ".markdown" });
     setDefaultSession({
@@ -537,6 +570,44 @@ describe("App", () => {
       recentFolders: ["C:/Notes"],
     });
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      name: "oversized files",
+      error: {
+        kind: "oversizedFile",
+        path: "C:/Notes/large.md",
+        sizeBytes: 6 * 1024 * 1024,
+        maxSizeBytes: 5 * 1024 * 1024,
+      },
+      title: "Markdown file is too large.",
+      description: "6 MB selected. Files larger than 5 MB do not load.",
+    },
+    {
+      name: "invalid encoding",
+      error: {
+        kind: "invalidEncoding",
+        path: "C:/Notes/invalid.md",
+      },
+      title: "Invalid Markdown file encoding.",
+      description: "Leafdown opens Markdown files encoded as UTF-8.",
+    },
+  ])("shows specific open errors for $name", async ({ error, title, description }) => {
+    vi.mocked(open).mockResolvedValue("C:/Notes/problem.md");
+    vi.mocked(invoke).mockRejectedValue(error);
+
+    const { user } = renderWithUser(<App />);
+
+    await user.click(screen.getByRole("button", { name: "Open file" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(title, { description });
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      activeDocument: null,
+    });
   });
 
   it("opens recent Markdown files without showing the file picker", async () => {
@@ -739,7 +810,11 @@ describe("App", () => {
 
   it("does not partially update the session when selected file opening fails", async () => {
     vi.mocked(open).mockResolvedValue("C:/Notes/readme.md");
-    vi.mocked(invoke).mockRejectedValue({ kind: "readFailed" });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "readFailed",
+      path: "C:/Notes/readme.md",
+      message: "access failed",
+    });
 
     const { user } = renderWithUser(<App />);
 
@@ -753,12 +828,21 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
-    expect(toast.error).toHaveBeenCalledWith("Could not open Markdown file.");
+    expect(toast.error).toHaveBeenCalledWith("Could not read Markdown file.", {
+      description: "access failed",
+    });
   });
 
   it("does not partially update the session when selected folder opening fails", async () => {
     vi.mocked(open).mockResolvedValue("C:/Notes");
-    vi.mocked(invoke).mockRejectedValue({ kind: "scanFailed" });
+    vi.mocked(invoke).mockRejectedValue({
+      kind: "scanFailed",
+      error: {
+        kind: "readDirectoryFailed",
+        path: "C:/Notes",
+        message: "access failed",
+      },
+    });
 
     const { user } = renderWithUser(<App />);
 
@@ -772,7 +856,9 @@ describe("App", () => {
       folderContext: null,
       activeDocument: null,
     });
-    expect(toast.error).toHaveBeenCalledWith("Could not open folder.");
+    expect(toast.error).toHaveBeenCalledWith("Could not read folder.", {
+      description: "access failed",
+    });
   });
 
   it("destroys the window after clean backend close requests", async () => {

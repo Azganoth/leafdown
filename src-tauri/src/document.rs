@@ -9,6 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
+pub(crate) const MAX_MARKDOWN_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,10 +47,35 @@ pub(crate) struct SaveMarkdownFileResult {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum OpenMarkdownFileError {
-    UnsupportedFileType { path: String },
-    MissingParentFolder { path: String },
-    ReadFailed { path: String, message: String },
-    MetadataFailed { path: String, message: String },
+    UnsupportedFileType {
+        path: String,
+    },
+    InvalidPath {
+        path: String,
+    },
+    MissingFile {
+        path: String,
+    },
+    PermissionDenied {
+        path: String,
+        message: String,
+    },
+    OversizedFile {
+        path: String,
+        size_bytes: u64,
+        max_size_bytes: u64,
+    },
+    InvalidEncoding {
+        path: String,
+    },
+    ReadFailed {
+        path: String,
+        message: String,
+    },
+    MetadataFailed {
+        path: String,
+        message: String,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -58,11 +84,15 @@ pub(crate) enum SaveMarkdownFileError {
     UnsupportedFileType {
         path: String,
     },
-    MissingParentFolder {
+    InvalidPath {
         path: String,
     },
     MissingFile {
         path: String,
+    },
+    PermissionDenied {
+        path: String,
+        message: String,
     },
     ExternalModification {
         path: String,
@@ -111,20 +141,39 @@ pub(crate) fn read_markdown_file(
         });
     }
 
-    let parent_folder_path = path.parent().map(path_to_string).ok_or_else(|| {
-        OpenMarkdownFileError::MissingParentFolder {
+    let parent_folder_path =
+        path.parent()
+            .map(path_to_string)
+            .ok_or_else(|| OpenMarkdownFileError::InvalidPath {
+                path: serialized_path.clone(),
+            })?;
+    let metadata = read_file_metadata(path)
+        .map_err(|error| open_metadata_error(error, serialized_path.as_str()))?;
+
+    if metadata.size_bytes > MAX_MARKDOWN_FILE_SIZE_BYTES {
+        return Err(OpenMarkdownFileError::OversizedFile {
+            path: serialized_path,
+            size_bytes: metadata.size_bytes,
+            max_size_bytes: MAX_MARKDOWN_FILE_SIZE_BYTES,
+        });
+    }
+
+    let content_bytes =
+        fs::read(path).map_err(|error| open_read_error(error, serialized_path.as_str()))?;
+    let content_size_bytes = content_bytes.len().try_into().unwrap_or(u64::MAX);
+
+    if content_size_bytes > MAX_MARKDOWN_FILE_SIZE_BYTES {
+        return Err(OpenMarkdownFileError::OversizedFile {
+            path: serialized_path,
+            size_bytes: content_size_bytes,
+            max_size_bytes: MAX_MARKDOWN_FILE_SIZE_BYTES,
+        });
+    }
+
+    let content =
+        String::from_utf8(content_bytes).map_err(|_| OpenMarkdownFileError::InvalidEncoding {
             path: serialized_path.clone(),
-        }
-    })?;
-    let metadata =
-        read_file_metadata(path).map_err(|error| OpenMarkdownFileError::MetadataFailed {
-            path: serialized_path.clone(),
-            message: error.to_string(),
         })?;
-    let content = fs::read_to_string(path).map_err(|error| OpenMarkdownFileError::ReadFailed {
-        path: serialized_path.clone(),
-        message: error.to_string(),
-    })?;
 
     Ok(OpenMarkdownFileResult {
         path: serialized_path,
@@ -149,24 +198,19 @@ pub(crate) fn write_markdown_file(
         });
     }
 
-    let parent_folder_path = path.parent().map(path_to_string).ok_or_else(|| {
-        SaveMarkdownFileError::MissingParentFolder {
-            path: serialized_path.clone(),
-        }
-    })?;
+    let parent_folder_path =
+        path.parent()
+            .map(path_to_string)
+            .ok_or_else(|| SaveMarkdownFileError::InvalidPath {
+                path: serialized_path.clone(),
+            })?;
 
     verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
 
-    fs::write(path, content).map_err(|error| SaveMarkdownFileError::WriteFailed {
-        path: serialized_path.clone(),
-        message: error.to_string(),
-    })?;
+    fs::write(path, content).map_err(|error| save_write_error(error, serialized_path.as_str()))?;
 
-    let metadata =
-        read_file_metadata(path).map_err(|error| SaveMarkdownFileError::MetadataFailed {
-            path: serialized_path.clone(),
-            message: error.to_string(),
-        })?;
+    let metadata = read_file_metadata(path)
+        .map_err(|error| save_metadata_error(error, serialized_path.as_str()))?;
 
     Ok(SaveMarkdownFileResult {
         path: serialized_path,
@@ -185,9 +229,18 @@ fn verify_file_freshness(
         return Ok(());
     };
     let current_metadata = read_file_metadata(path).map_err(|error| match error {
+        FileMetadataReadError::InvalidPath => SaveMarkdownFileError::InvalidPath {
+            path: serialized_path.to_owned(),
+        },
         FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
             path: serialized_path.to_owned(),
         },
+        FileMetadataReadError::PermissionDenied(message) => {
+            SaveMarkdownFileError::PermissionDenied {
+                path: serialized_path.to_owned(),
+                message,
+            }
+        }
         FileMetadataReadError::Failed(message) => SaveMarkdownFileError::MetadataFailed {
             path: serialized_path.to_owned(),
             message,
@@ -245,26 +298,29 @@ fn detect_line_ending(content: &str) -> Option<LineEnding> {
 
 #[derive(Debug)]
 enum FileMetadataReadError {
+    InvalidPath,
     MissingFile,
+    PermissionDenied(String),
     Failed(String),
 }
 
 impl std::fmt::Display for FileMetadataReadError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::InvalidPath => formatter.write_str("invalid path"),
             Self::MissingFile => formatter.write_str("file is missing"),
+            Self::PermissionDenied(message) => formatter.write_str(message),
             Self::Failed(message) => formatter.write_str(message),
         }
     }
 }
 
 fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataReadError> {
-    let metadata = fs::metadata(path).map_err(|error| {
-        if error.kind() == ErrorKind::NotFound {
-            FileMetadataReadError::MissingFile
-        } else {
-            FileMetadataReadError::Failed(error.to_string())
-        }
+    let metadata = fs::metadata(path).map_err(|error| match error.kind() {
+        ErrorKind::InvalidInput => FileMetadataReadError::InvalidPath,
+        ErrorKind::NotFound => FileMetadataReadError::MissingFile,
+        ErrorKind::PermissionDenied => FileMetadataReadError::PermissionDenied(error.to_string()),
+        _ => FileMetadataReadError::Failed(error.to_string()),
     })?;
     let modified_at_unix_ms = metadata
         .modified()
@@ -283,6 +339,86 @@ fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataR
     })
 }
 
+fn open_metadata_error(error: FileMetadataReadError, path: &str) -> OpenMarkdownFileError {
+    match error {
+        FileMetadataReadError::InvalidPath => OpenMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
+        FileMetadataReadError::MissingFile => OpenMarkdownFileError::MissingFile {
+            path: path.to_owned(),
+        },
+        FileMetadataReadError::PermissionDenied(message) => {
+            OpenMarkdownFileError::PermissionDenied {
+                path: path.to_owned(),
+                message,
+            }
+        }
+        FileMetadataReadError::Failed(message) => OpenMarkdownFileError::MetadataFailed {
+            path: path.to_owned(),
+            message,
+        },
+    }
+}
+
+fn open_read_error(error: std::io::Error, path: &str) -> OpenMarkdownFileError {
+    match error.kind() {
+        ErrorKind::InvalidInput => OpenMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
+        ErrorKind::NotFound => OpenMarkdownFileError::MissingFile {
+            path: path.to_owned(),
+        },
+        ErrorKind::PermissionDenied => OpenMarkdownFileError::PermissionDenied {
+            path: path.to_owned(),
+            message: error.to_string(),
+        },
+        _ => OpenMarkdownFileError::ReadFailed {
+            path: path.to_owned(),
+            message: error.to_string(),
+        },
+    }
+}
+
+fn save_metadata_error(error: FileMetadataReadError, path: &str) -> SaveMarkdownFileError {
+    match error {
+        FileMetadataReadError::InvalidPath => SaveMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
+        FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
+            path: path.to_owned(),
+        },
+        FileMetadataReadError::PermissionDenied(message) => {
+            SaveMarkdownFileError::PermissionDenied {
+                path: path.to_owned(),
+                message,
+            }
+        }
+        FileMetadataReadError::Failed(message) => SaveMarkdownFileError::MetadataFailed {
+            path: path.to_owned(),
+            message,
+        },
+    }
+}
+
+fn save_write_error(error: std::io::Error, path: &str) -> SaveMarkdownFileError {
+    match error.kind() {
+        ErrorKind::InvalidInput => SaveMarkdownFileError::InvalidPath {
+            path: path.to_owned(),
+        },
+        ErrorKind::NotFound => SaveMarkdownFileError::MissingFile {
+            path: path.to_owned(),
+        },
+        ErrorKind::PermissionDenied => SaveMarkdownFileError::PermissionDenied {
+            path: path.to_owned(),
+            message: error.to_string(),
+        },
+        _ => SaveMarkdownFileError::WriteFailed {
+            path: path.to_owned(),
+            message: error.to_string(),
+        },
+    }
+}
+
 fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
@@ -291,13 +427,15 @@ fn path_to_string(path: &Path) -> String {
 mod tests {
     use std::{
         fs::{self, create_dir},
+        io::ErrorKind,
         path::{Path, PathBuf},
         sync::atomic::{AtomicUsize, Ordering},
     };
 
     use super::{
-        detect_line_ending, read_markdown_file, write_markdown_file, LineEnding,
-        OpenMarkdownFileError, SaveMarkdownFileError,
+        detect_line_ending, open_metadata_error, open_read_error, read_markdown_file,
+        save_metadata_error, save_write_error, write_markdown_file, FileMetadataReadError,
+        LineEnding, OpenMarkdownFileError, SaveMarkdownFileError, MAX_MARKDOWN_FILE_SIZE_BYTES,
     };
 
     static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
@@ -314,6 +452,10 @@ mod tests {
     }
 
     fn create_test_file(file_name: &str, content: &str) -> TestFile {
+        create_test_file_bytes(file_name, content.as_bytes())
+    }
+
+    fn create_test_file_bytes(file_name: &str, content: &[u8]) -> TestFile {
         let id = NEXT_TEST_DIR_ID.fetch_add(1, Ordering::Relaxed);
         let root = std::env::temp_dir().join(format!(
             "leafdown-open-markdown-file-{}-{id}",
@@ -360,6 +502,46 @@ mod tests {
     }
 
     #[test]
+    fn rejects_missing_markdown_files() {
+        let file = create_test_file("missing.md", "");
+        fs::remove_file(&file.path).expect("test file should be removed");
+
+        let error = read_markdown_file(&file.path).expect_err("missing file should be rejected");
+
+        assert!(matches!(error, OpenMarkdownFileError::MissingFile { .. }));
+    }
+
+    #[test]
+    fn rejects_markdown_files_larger_than_the_loading_limit() {
+        let oversized_content = vec![b'A'; (MAX_MARKDOWN_FILE_SIZE_BYTES + 1) as usize];
+        let file = create_test_file_bytes("large.md", oversized_content.as_slice());
+
+        let error = read_markdown_file(&file.path).expect_err("oversized file should be rejected");
+
+        assert!(matches!(
+            error,
+            OpenMarkdownFileError::OversizedFile {
+                size_bytes,
+                max_size_bytes,
+                ..
+            } if size_bytes == MAX_MARKDOWN_FILE_SIZE_BYTES + 1
+                && max_size_bytes == MAX_MARKDOWN_FILE_SIZE_BYTES
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_utf8_markdown_files() {
+        let file = create_test_file_bytes("invalid.md", &[0x80, 0x81, 0xfe, 0xff]);
+
+        let error = read_markdown_file(&file.path).expect_err("invalid UTF-8 should be rejected");
+
+        assert!(matches!(
+            error,
+            OpenMarkdownFileError::InvalidEncoding { .. }
+        ));
+    }
+
+    #[test]
     fn rejects_unsupported_file_types() {
         let file = create_test_file("notes.txt", "not Markdown");
 
@@ -368,6 +550,18 @@ mod tests {
         assert!(matches!(
             error,
             OpenMarkdownFileError::UnsupportedFileType { .. }
+        ));
+    }
+
+    #[test]
+    fn maps_invalid_path_open_errors() {
+        assert!(matches!(
+            open_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
+            OpenMarkdownFileError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            open_read_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
+            OpenMarkdownFileError::InvalidPath { .. }
         ));
     }
 
@@ -410,6 +604,18 @@ mod tests {
             SaveMarkdownFileError::UnsupportedFileType { .. }
         ));
         assert!(!unsupported_path.exists());
+    }
+
+    #[test]
+    fn maps_invalid_path_save_errors() {
+        assert!(matches!(
+            save_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
+            SaveMarkdownFileError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            save_write_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
+            SaveMarkdownFileError::InvalidPath { .. }
+        ));
     }
 
     #[test]

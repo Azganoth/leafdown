@@ -1,4 +1,9 @@
 import { Button } from "@/components/ui/Button";
+import {
+  getOpenMarkdownFileErrorMessage,
+  getOpenMarkdownFolderErrorMessage,
+  showDocumentIoErrorToast,
+} from "@/lib/documentIoErrors";
 import { openMarkdownFile, openMarkdownFilePath } from "@/lib/openMarkdownFile";
 import { openMarkdownFolder, openMarkdownFolderPath } from "@/lib/openMarkdownFolder";
 import { useSettingsStore } from "@/stores/settings";
@@ -13,27 +18,37 @@ export function WelcomeScreen() {
   const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
 
   const handleOpenFile = () => {
-    void openMarkdownFile().catch(() => {
-      toast.error("Could not open Markdown file.");
+    void openMarkdownFile().catch((error: unknown) => {
+      showDocumentIoErrorToast(toast.error, getOpenMarkdownFileErrorMessage(error));
     });
   };
 
   const handleOpenFolder = () => {
-    void openMarkdownFolder().catch(() => {
-      toast.error("Could not open folder.");
+    void openMarkdownFolder().catch((error: unknown) => {
+      showDocumentIoErrorToast(toast.error, getOpenMarkdownFolderErrorMessage(error));
     });
   };
 
   const handleOpenRecentFile = (path: string) => {
-    void openMarkdownFilePath(path).catch(() => {
-      toast.error("Could not open recent Markdown file.");
-    });
+    void openMarkdownFilePath(path).catch((error: unknown) =>
+      showDocumentIoErrorToast(
+        toast.error,
+        getOpenMarkdownFileErrorMessage(error, {
+          title: "Could not open recent Markdown file.",
+        }),
+      ),
+    );
   };
 
   const handleOpenRecentFolder = (path: string) => {
-    void openMarkdownFolderPath(path).catch(() => {
-      toast.error("Could not open recent folder.");
-    });
+    void openMarkdownFolderPath(path).catch((error: unknown) =>
+      showDocumentIoErrorToast(
+        toast.error,
+        getOpenMarkdownFolderErrorMessage(error, {
+          title: "Could not open recent folder.",
+        }),
+      ),
+    );
   };
 
   return (

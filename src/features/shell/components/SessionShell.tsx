@@ -1,11 +1,10 @@
-import { PreferencesDialog } from "@/features/preferences/components/PreferencesDialog";
-import { FileTreeSidebar, FileTreeViewActions } from "@/features/file-tree";
+import { CommandMenuBar } from "@/features/commands";
+import { FileTreeSidebar } from "@/features/file-tree";
 import { useFolderWatcher } from "@/features/file-tree/hooks/useFolderWatcher";
 import { getFolderContextStatus, getSessionShellMode, useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { EmptyFolderScreen } from "./EmptyFolderScreen";
-import { FileWorkflowActions } from "./FileWorkflowActions";
 import { FolderOnlyScreen } from "./FolderOnlyScreen";
 import { DocumentScreen } from "./DocumentScreen";
 
@@ -25,10 +24,8 @@ function SessionShell() {
         className="flex h-9 shrink-0 items-center justify-between border-y border-border bg-card/60 px-2"
       >
         <div className="flex min-w-0 items-center gap-2">
-          <FileWorkflowActions />
-          <FileTreeViewActions />
+          <CommandMenuBar />
         </div>
-        <PreferencesDialog />
       </div>
 
       <div className="flex min-h-0 flex-1">

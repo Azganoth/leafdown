@@ -34,7 +34,7 @@ If a requested implementation would change product direction rather than simply
 implement existing docs, discuss the direction first and update the docs as part
 of the work.
 
-## Tracking Work
+## Issues & Project Management
 
 Track actionable outcomes using single, focused issues.
 
@@ -55,7 +55,7 @@ Standard issues should include:
 
 Break down larger initiatives using sub-issues.
 
-## Labels
+### Labels
 
 Maintain a minimal, standard set of labels:
 
@@ -73,7 +73,7 @@ Maintain a minimal, standard set of labels:
 
 The first five labels categorize the type of work; the remaining labels track triage or resolution states.
 
-## Milestones
+### Milestones
 
 Milestones are reserved for concrete delivery targets, not status tracking or broad backlog categorization.
 
@@ -83,7 +83,7 @@ Current milestone convention:
 
 Subsequent milestones are created only for concrete release versions (e.g., `v0.1.0`, `v0.2.0`). For complex releases, coordinate the scope, checklist, and notes using a matching **Release** issue.
 
-## Project Fields
+### Project Fields
 
 The GitHub Project functions as the operational board. Leafdown uses a lightweight status pipeline:
 
@@ -101,7 +101,7 @@ Prioritize issues using the following urgency tiers:
 3. `P2` — Normal; standard planned work.
 4. `P3` — Low; minor improvement or optimization to defer until capacity allows.
 
-## Project Views
+### Project Views
 
 Standard views address common operational questions:
 
@@ -112,6 +112,26 @@ Standard views address common operational questions:
 | `Bug`       | Table             | Review bug work filtered by the `Bug` label.                                               |
 | `Questions` | Table             | Review items needing clarification with the `Question` label.                              |
 | `Done`      | Table             | Review completed work with `Status = Done`.                                                |
+
+## Local Setup
+
+Git hooks are configured via Husky upon running `pnpm install` to enforce basic linting and formatting. CI remains the final verification check before merge.
+
+## Git Conventions
+
+- Name task branches with the issue type followed by a short kebab-case topic, such as `feature/feature-name`, `spike/spike-name`.
+- Format commit messages according to the Conventional Commits specification without the scope part (e.g., `feat: add markdown component`, `fix: handle missing file path`).
+
+## Development Workflow
+
+1. Document the task in a GitHub issue.
+2. Assign the appropriate issue type, milestone, and project fields.
+3. Move the issue to `Ready` once the requirements are defined.
+4. Implement changes on a focused branch.
+5. Open a pull request linked to the issue.
+6. Transition the project item to `Review`.
+7. Merge the pull request after approval and verification.
+8. Verify that the linked issue is closed and transition the project item to `Done`.
 
 ## Pull Requests
 
@@ -124,6 +144,10 @@ Pull Request requirements:
 - Maintain a single, focused objective where practical.
 - Update documentation when behavior, architecture, or release scope changes.
 - Document testing notes, trade-offs, or follow-up work.
+- Use the established pull request body style:
+  - `## Summary` with concise bullets covering the main implementation and test changes.
+  - `## Related Issue` with `Closes #<issue-number>` when the PR completes an issue.
+  - `## Notes` only when scope clarifications, intentional omissions, or follow-up context are useful. Do not include status updates for tests, linting, or formatting checks, as these are automated by CI.
 
 Verify changes locally before merging. Use `pnpm check:frontend` for
 frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and
@@ -131,17 +155,32 @@ frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and
 file-tree, generate the local sample workspace by running `pnpm sample` and open
 the `sample/` directory in the app.
 
-## Local Hooks
+## Common Commands
 
-Git hooks are configured via Husky upon running `pnpm install` to enforce basic linting and formatting. CI remains the final verification check before merge.
+### Development
 
-## Development Workflow
+- Web dev server: `pnpm dev`
+- Tauri dev app: `pnpm tauri dev`
+- Generate sample workspace: `pnpm sample`
 
-1. Document the task in a GitHub issue.
-2. Assign the appropriate issue type, milestone, and project fields.
-3. Move the issue to `Ready` once the requirements are defined.
-4. Implement changes on a focused branch.
-5. Open a pull request linked to the issue.
-6. Transition the project item to `Review`.
-7. Merge the pull request after approval and verification.
-8. Verify that the linked issue is closed and transition the project item to `Done`.
+### Building
+
+- Frontend build: `pnpm build`
+- Tauri build: `pnpm tauri build`
+
+### Linting & Formatting
+
+- TypeScript check: `pnpm lint:tsc`
+- Oxlint: `pnpm lint:oxlint`
+- Rust lint: `pnpm lint:backend`
+- Format: `pnpm format`
+
+### Testing & Verification
+
+- TypeScript/Vitest tests: `pnpm test:frontend`
+- Rust tests: `pnpm test:backend`
+- All tests: `pnpm test`
+- Full check: `pnpm check`
+
+`check:cargo-fmt` and `format:backend` use `cargo +nightly fmt`; verify the
+nightly toolchain is installed before treating failures as code failures.

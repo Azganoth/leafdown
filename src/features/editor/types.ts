@@ -17,6 +17,7 @@ export interface CreateMilkdownEditorOptions {
   initialMarkdown: string;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentTransaction?: () => void;
+  onCommandStateChanged?: () => void;
   getAutoPairBracketsAndQuotes?: () => boolean;
 }
 

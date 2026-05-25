@@ -1,6 +1,9 @@
 import { MilkdownEditor } from "@/features/editor";
 import { ScrollArea } from "@/components/ui/ScrollArea";
-import { setActiveDocumentEditorBridge } from "@/lib/documentEditorBridge";
+import {
+  notifyActiveDocumentEditorCommandStateChanged,
+  setActiveDocumentEditorBridge,
+} from "@/lib/documentEditorBridge";
 import { getActiveDocumentKey, useSessionStore, type ActiveDocumentState } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import { useCallback } from "react";
@@ -37,6 +40,7 @@ export function DocumentScreen({ document }: DocumentScreenProps) {
           softWrapCodeBlocks={softWrapCodeBlocks}
           onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
           onContentTransaction={() => markActiveDocumentDirty(documentKey)}
+          onCommandStateChanged={notifyActiveDocumentEditorCommandStateChanged}
         />
       </section>
     </ScrollArea>

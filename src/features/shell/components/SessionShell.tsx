@@ -1,5 +1,6 @@
 import { PreferencesDialog } from "@/features/preferences/components/PreferencesDialog";
 import { FileTreeSidebar, FileTreeViewActions } from "@/features/file-tree";
+import { useFolderWatcher } from "@/features/file-tree/hooks/useFolderWatcher";
 import { getFolderContextStatus, getSessionShellMode, useSessionStore } from "@/stores/session";
 import { useSettingsStore } from "@/stores/settings";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -9,6 +10,8 @@ import { FolderOnlyScreen } from "./FolderOnlyScreen";
 import { DocumentScreen } from "./DocumentScreen";
 
 function SessionShell() {
+  useFolderWatcher();
+
   const shellMode = useSessionStore(getSessionShellMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);

@@ -27,13 +27,12 @@ pub(super) fn scan_folder(
         });
     }
 
-    let depth = if is_filesystem_root(path) {
-        ScanDepth::RootRestricted
-    } else {
-        ScanDepth::Recursive
-    };
-
-    scan_folder_with_depth(path, ignored_directories, depth, sort_order)
+    scan_folder_with_depth(
+        path,
+        ignored_directories,
+        scan_depth_for_path(path),
+        sort_order,
+    )
 }
 
 pub(super) fn scan_folder_with_depth(
@@ -142,11 +141,19 @@ fn file_name_to_string(path: &Path) -> String {
         .into_owned()
 }
 
+pub(super) fn scan_depth_for_path(path: &Path) -> ScanDepth {
+    if is_filesystem_root(path) {
+        ScanDepth::RootRestricted
+    } else {
+        ScanDepth::Recursive
+    }
+}
+
 fn is_filesystem_root(path: &Path) -> bool {
     path.has_root() && path.parent().is_none()
 }
 
-fn is_ignored_directory(name: &str, ignored_directories: &[String]) -> bool {
+pub(super) fn is_ignored_directory(name: &str, ignored_directories: &[String]) -> bool {
     ignored_directories.iter().any(|ignored_directory| {
         if cfg!(windows) {
             ignored_directory.eq_ignore_ascii_case(name)

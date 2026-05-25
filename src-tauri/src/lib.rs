@@ -27,6 +27,7 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
+        .manage(folder::FolderWatcherState::default())
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
@@ -40,7 +41,9 @@ pub fn run() {
             document::open_markdown_file,
             document::save_markdown_file,
             folder::scan_markdown_folder,
-            folder::open_markdown_folder
+            folder::open_markdown_folder,
+            folder::watch::watch_markdown_folder,
+            folder::watch::unwatch_markdown_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

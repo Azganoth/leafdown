@@ -1,6 +1,10 @@
 import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  unwatchMarkdownFolder,
+  watchMarkdownFolder,
+} from "@/features/file-tree/utils/folderWatcherBackend";
 import { setTheme } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -14,7 +18,7 @@ import {
   settingsStoreTauriHandler,
   useSettingsStore,
 } from "./stores/settings";
-import { render, renderWithUser, screen } from "./test/utils/react";
+import { act, render, renderWithUser, screen } from "./test/utils/react";
 import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
 vi.mock("@/features/editor", () => ({
@@ -43,6 +47,11 @@ vi.mock("@/features/editor", () => ({
       </button>
     </div>
   ),
+}));
+
+vi.mock("@/features/file-tree/utils/folderWatcherBackend", () => ({
+  unwatchMarkdownFolder: vi.fn(async () => undefined),
+  watchMarkdownFolder: vi.fn(async () => undefined),
 }));
 
 const notesFolderTree = {
@@ -96,11 +105,36 @@ const defaultFolderScanArgs = {
   ignoredDirectories: defaultIgnoredDirectories,
   sortOrder: "name",
 };
+const folderChangedEvent = "leafdown://folder-changed";
+
+interface FolderChangedTestEvent {
+  payload: {
+    folderPath: string;
+    paths: string[];
+  };
+}
+
+const findFolderChangedHandler = () => {
+  const appWindow = getCurrentWindow();
+  const listenCall = vi
+    .mocked(appWindow.listen)
+    .mock.calls.find(([eventName]) => eventName === folderChangedEvent);
+
+  expect(listenCall).toBeDefined();
+
+  return listenCall?.[1] as (event: FolderChangedTestEvent) => void;
+};
+
+const countScanMarkdownFolderCalls = () =>
+  vi.mocked(invoke).mock.calls.filter(([commandName]) => commandName === "scan_markdown_folder")
+    .length;
 
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
+    vi.mocked(watchMarkdownFolder).mockReset().mockResolvedValue(undefined);
+    vi.mocked(unwatchMarkdownFolder).mockReset().mockResolvedValue(undefined);
     vi.mocked(confirm).mockResolvedValue(false);
     vi.mocked(open).mockResolvedValue(null);
     vi.mocked(save).mockResolvedValue(null);
@@ -823,6 +857,282 @@ describe("App", () => {
         "aria-current",
         "page",
       );
+    });
+  });
+
+  it("starts native folder watching for the active folder context and stops on unmount", async () => {
+    setDefaultSettings({ ignoredDirectories: [".git", "vendor"] });
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+
+    const { unmount } = render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", [".git", "vendor"]);
+    });
+
+    unmount();
+
+    expect(unwatchMarkdownFolder).toHaveBeenCalledTimes(1);
+  });
+
+  it("unlistens folder watcher events when listener setup resolves after unmount", async () => {
+    const appWindow = getCurrentWindow();
+    const closeUnlisten = vi.fn();
+    const folderUnlisten = vi.fn();
+    let resolveFolderListen!: (unlisten: () => void) => void;
+
+    vi.mocked(appWindow.listen).mockImplementation((eventName) => {
+      if (eventName === folderChangedEvent) {
+        return new Promise((resolve) => {
+          resolveFolderListen = resolve;
+        });
+      }
+
+      return Promise.resolve(closeUnlisten);
+    });
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+
+    const { unmount } = render(<App />);
+
+    unmount();
+    resolveFolderListen(folderUnlisten);
+
+    await waitFor(() => {
+      expect(folderUnlisten).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("replaces native folder watch scopes when the folder context changes", async () => {
+    const archiveFolderTree = {
+      name: "Archive",
+      path: "C:/Archive",
+      children: [
+        {
+          kind: "file" as const,
+          name: "old.md",
+          path: "C:/Archive/old.md",
+        },
+      ],
+    };
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", defaultIgnoredDirectories);
+    });
+
+    await act(async () => {
+      useSessionStore.getState().setFolderContext({
+        path: "C:/Archive",
+        tree: archiveFolderTree,
+        isEmpty: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(unwatchMarkdownFolder).toHaveBeenCalledTimes(1);
+      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Archive", defaultIgnoredDirectories);
+    });
+  });
+
+  it("refreshes the current file tree from folder watcher events", async () => {
+    const refreshedTree = {
+      ...nestedNotesFolderTree,
+      children: [
+        ...nestedNotesFolderTree.children,
+        {
+          kind: "file" as const,
+          name: "new.md",
+          path: "C:/Notes/new.md",
+        },
+      ],
+    };
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+    vi.mocked(invoke).mockImplementation(async (commandName) => {
+      if (commandName === "scan_markdown_folder") {
+        return {
+          path: "C:/Notes",
+          tree: refreshedTree,
+          isEmpty: false,
+        };
+      }
+
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalledWith("C:/Notes", defaultIgnoredDirectories);
+    });
+
+    findFolderChangedHandler()({
+      payload: {
+        folderPath: "C:/Notes",
+        paths: ["C:/Notes/new.md"],
+      },
+    });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("scan_markdown_folder", {
+        path: "C:/Notes",
+        ...defaultFolderScanArgs,
+      });
+      expect(screen.getByRole("button", { name: "new.md" })).toBeInTheDocument();
+    });
+  });
+
+  it("debounces rapid folder watcher events into one rescan", async () => {
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+    vi.mocked(invoke).mockImplementation(async (commandName) => {
+      if (commandName === "scan_markdown_folder") {
+        return {
+          path: "C:/Notes",
+          tree: nestedNotesFolderTree,
+          isEmpty: false,
+        };
+      }
+
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalled();
+    });
+
+    const handleFolderChanged = findFolderChangedHandler();
+
+    handleFolderChanged({
+      payload: {
+        folderPath: "C:/Notes",
+        paths: ["C:/Notes/one.md"],
+      },
+    });
+    handleFolderChanged({
+      payload: {
+        folderPath: "C:/Notes",
+        paths: ["C:/Notes/two.md"],
+      },
+    });
+
+    await waitFor(() => {
+      expect(countScanMarkdownFolderCalls()).toBe(1);
+    });
+  });
+
+  it("ignores stale folder watcher events from replaced contexts", async () => {
+    const archiveFolderTree = {
+      name: "Archive",
+      path: "C:/Archive",
+      children: [
+        {
+          kind: "file" as const,
+          name: "old.md",
+          path: "C:/Archive/old.md",
+        },
+      ],
+    };
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+    });
+    vi.mocked(invoke).mockResolvedValue({
+      path: "C:/Notes",
+      tree: nestedNotesFolderTree,
+      isEmpty: false,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalled();
+    });
+
+    const staleFolderChangedHandler = findFolderChangedHandler();
+
+    await act(async () => {
+      useSessionStore.getState().setFolderContext({
+        path: "C:/Archive",
+        tree: archiveFolderTree,
+        isEmpty: false,
+      });
+    });
+
+    staleFolderChangedHandler({
+      payload: {
+        folderPath: "C:/Notes",
+        paths: ["C:/Notes/new.md"],
+      },
+    });
+
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+
+    expect(countScanMarkdownFolderCalls()).toBe(0);
+  });
+
+  it("keeps deleted active saved documents open while refreshing the sidebar", async () => {
+    const refreshedTree = {
+      ...nestedNotesFolderTree,
+      children: nestedNotesFolderTree.children.filter((node) => node.name !== "readme.md"),
+    };
+
+    setDefaultSession({
+      folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    vi.mocked(invoke).mockImplementation(async (commandName) => {
+      if (commandName === "scan_markdown_folder") {
+        return {
+          path: "C:/Notes",
+          tree: refreshedTree,
+          isEmpty: false,
+        };
+      }
+
+      return undefined;
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(watchMarkdownFolder).toHaveBeenCalled();
+    });
+
+    findFolderChangedHandler()({
+      payload: {
+        folderPath: "C:/Notes",
+        paths: ["C:/Notes/readme.md"],
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "readme.md" })).not.toBeInTheDocument();
+    });
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+      path: "C:/Notes/readme.md",
     });
   });
 

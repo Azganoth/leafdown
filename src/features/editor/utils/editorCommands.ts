@@ -22,6 +22,7 @@ import {
   getTextWordRangeAtSelection,
   getTextWordRangeBeforeSelection,
 } from "./editorCommandState";
+import { clearInlineFormatting, runInlineFormattingCommand } from "./inlineFormattingCommands";
 
 const deleteForwardCommand = chainCommands(deleteSelection, joinForward, selectNodeForward);
 
@@ -262,6 +263,11 @@ const pasteClipboard = async (editor: Editor, view: EditorView, format: Clipboar
 
 export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
   const view = editor.ctx.get(editorViewCtx);
+  const didRunInlineFormattingCommand = runInlineFormattingCommand(view, commandId);
+
+  if (didRunInlineFormattingCommand) {
+    return true;
+  }
 
   switch (commandId) {
     case "edit.undo":
@@ -326,6 +332,9 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
 
     case "edit.pasteAsRichText":
       return pasteClipboard(editor, view, "richText");
+
+    case "format.clearInline":
+      return clearInlineFormatting(view);
   }
 
   return false;

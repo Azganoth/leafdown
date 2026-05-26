@@ -27,6 +27,11 @@ const activeEditorCommands = [
   "edit.jumpToBottom",
   "edit.jumpToLineStart",
   "edit.jumpToLineEnd",
+  "insert.link",
+  "format.strong",
+  "format.emphasis",
+  "format.strikethrough",
+  "format.inlineCode",
 ] as const satisfies AppCommandId[];
 
 const selectionEditorCommands = [
@@ -35,6 +40,7 @@ const selectionEditorCommands = [
   "edit.copyAsPlainText",
   "edit.copyAsMarkdown",
   "edit.jumpToSelection",
+  "format.clearInline",
 ] as const satisfies AppCommandId[];
 
 const isWordCharacter = (value: string) => /^[\p{L}\p{N}_]$/u.test(value);

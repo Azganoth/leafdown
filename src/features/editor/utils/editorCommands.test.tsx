@@ -198,4 +198,69 @@ describe("editor commands", () => {
     expect(mounted.view.dom).toHaveTextContent("Rich text");
     expect(mounted.view.dom.querySelector("strong")).toBeInTheDocument();
   });
+
+  it("toggles inline formatting for selections and nearest words", async () => {
+    const mounted = await mountEditor("Hello world");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Hello");
+    expect(mounted.getMarkdown()).toContain("**Hello** world");
+
+    expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+
+    setTextSelection(mounted.view, 8);
+
+    expect(runEditorCommand(mounted.editor, "format.emphasis")).toBe(true);
+    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+
+    expect(runEditorCommand(mounted.editor, "format.strikethrough")).toBe(true);
+    expect(mounted.view.dom.querySelector("del")).toHaveTextContent("world");
+  });
+
+  it("uses inline code as exclusive inline formatting", async () => {
+    const mounted = await mountEditor("**Hello** world");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.inlineCode")).toBe(true);
+    expect(mounted.view.dom.querySelector("code")).toHaveTextContent("Hello");
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toContain("`Hello` world");
+  });
+
+  it("clears selected and active inline formatting", async () => {
+    const mounted = await mountEditor("**Hello** *world*");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.clearInline")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+
+    setTextSelection(mounted.view, 8);
+
+    expect(runEditorCommand(mounted.editor, "format.clearInline")).toBe(true);
+    expect(mounted.view.dom.querySelector("em")).not.toBeInTheDocument();
+  });
+
+  it("formats links semantically and inserts an empty link marker without a word", async () => {
+    const selectedLinkEditor = await mountEditor("Hello");
+
+    setTextSelection(selectedLinkEditor.view, 1, 6);
+
+    expect(runEditorCommand(selectedLinkEditor.editor, "insert.link")).toBe(true);
+    expect(selectedLinkEditor.view.dom.querySelector("a")).toHaveTextContent("Hello");
+    expect(selectedLinkEditor.getMarkdown()).toContain("[Hello]()");
+
+    const emptyLinkEditor = await mountEditor("");
+
+    setTextSelection(emptyLinkEditor.view, 1);
+
+    expect(runEditorCommand(emptyLinkEditor.editor, "insert.link")).toBe(true);
+    expect(textContent(emptyLinkEditor)).toBe("[]()");
+    expect(emptyLinkEditor.view.state.selection.from).toBe(2);
+  });
 });

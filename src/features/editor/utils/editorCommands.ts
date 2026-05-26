@@ -22,6 +22,7 @@ import {
   getTextWordRangeAtSelection,
   getTextWordRangeBeforeSelection,
 } from "./editorCommandState";
+import { runBlockFormattingCommand } from "./blockFormattingCommands";
 import { clearInlineFormatting, runInlineFormattingCommand } from "./inlineFormattingCommands";
 
 const deleteForwardCommand = chainCommands(deleteSelection, joinForward, selectNodeForward);
@@ -266,6 +267,12 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
   const didRunInlineFormattingCommand = runInlineFormattingCommand(view, commandId);
 
   if (didRunInlineFormattingCommand) {
+    return true;
+  }
+
+  const didRunBlockFormattingCommand = runBlockFormattingCommand(view, commandId);
+
+  if (didRunBlockFormattingCommand) {
     return true;
   }
 

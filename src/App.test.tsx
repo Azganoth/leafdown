@@ -12,6 +12,10 @@ import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 
 import { App } from "./App";
+import {
+  resetActiveDocumentEditorBridge,
+  setActiveDocumentEditorBridge,
+} from "./lib/documentEditorBridge";
 import { useSessionStore } from "./stores/session";
 import {
   defaultIgnoredDirectories,
@@ -184,6 +188,7 @@ describe("App", () => {
     vi.mocked(open).mockResolvedValue(null);
     vi.mocked(save).mockResolvedValue(null);
     document.documentElement.className = "";
+    resetActiveDocumentEditorBridge();
     resetAppStores();
   });
 
@@ -555,6 +560,54 @@ describe("App", () => {
 
     await openMenu(user, "File");
     expect(menuItem(/^Save(?! as)/u)).not.toHaveAttribute("data-disabled");
+  });
+
+  it("routes editor menu actions and shortcuts through the active editor bridge", async () => {
+    const runCommand = vi.fn(() => true);
+
+    setDefaultSession({
+      activeDocument: {
+        status: "saved",
+        path: "C:/Notes/readme.md",
+        content: "# Notes",
+        isDirty: false,
+        lineEnding: "lf",
+        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
+      },
+    });
+    setActiveDocumentEditorBridge("C:/Notes/readme.md", {
+      getMarkdown: () => "# Notes",
+      getCommandState: () => ({
+        enabledCommands: {
+          "edit.jumpToTop": true,
+          "edit.undo": true,
+        },
+        hasActiveEditor: true,
+        hasSelection: false,
+        hasTableSelection: false,
+      }),
+      runCommand,
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await openMenu(user, "Edit");
+    expect(menuItem("Undo")).not.toHaveAttribute("data-disabled");
+
+    await user.click(menuItem("Undo"));
+    expect(runCommand).toHaveBeenCalledWith("edit.undo");
+
+    const jumpShortcut = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: "Home",
+    });
+
+    window.dispatchEvent(jumpShortcut);
+
+    expect(jumpShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith("edit.jumpToTop");
   });
 
   it("disables Save for clean saved documents", async () => {

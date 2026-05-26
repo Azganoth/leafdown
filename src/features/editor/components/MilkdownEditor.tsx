@@ -2,11 +2,14 @@ import "@milkdown/kit/prose/tables/style/tables.css";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "./MilkdownEditor.css";
 
+import { editorViewCtx } from "@milkdown/kit/core";
 import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 
 import { createMilkdownEditor, getMilkdownEditorMarkdown } from "../utils/createMilkdownEditor";
+import { runEditorCommand } from "../utils/editorCommands";
+import { getEditorCommandState } from "../utils/editorCommandState";
 import type {
   MilkdownEditorBridge,
   MilkdownEditorInstance,
@@ -20,6 +23,7 @@ export interface MilkdownEditorProps {
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentTransaction?: () => void;
+  onCommandStateChanged?: () => void;
   autoPairBracketsAndQuotes?: boolean;
   softWrapCodeBlocks?: boolean;
 }
@@ -31,6 +35,7 @@ export function MilkdownEditor({
   ref,
   onMarkdownUpdated,
   onContentTransaction,
+  onCommandStateChanged,
   autoPairBracketsAndQuotes = true,
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
@@ -39,13 +44,15 @@ export function MilkdownEditor({
 
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
   const onContentTransactionRef = useRef(onContentTransaction);
+  const onCommandStateChangedRef = useRef(onCommandStateChanged);
   const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
 
   useLayoutEffect(() => {
     onMarkdownUpdatedRef.current = onMarkdownUpdated;
     onContentTransactionRef.current = onContentTransaction;
+    onCommandStateChangedRef.current = onCommandStateChanged;
     autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
-  }, [onMarkdownUpdated, onContentTransaction, autoPairBracketsAndQuotes]);
+  }, [onMarkdownUpdated, onContentTransaction, onCommandStateChanged, autoPairBracketsAndQuotes]);
 
   useImperativeHandle(
     ref,
@@ -58,6 +65,29 @@ export function MilkdownEditor({
         }
 
         return getMilkdownEditorMarkdown(editor);
+      },
+      getCommandState: () => {
+        const editor = editorRef.current;
+
+        if (!editor) {
+          return {
+            enabledCommands: {},
+            hasActiveEditor: false,
+            hasSelection: false,
+            hasTableSelection: false,
+          };
+        }
+
+        return getEditorCommandState(editor.ctx.get(editorViewCtx));
+      },
+      runCommand: (commandId) => {
+        const editor = editorRef.current;
+
+        if (!editor) {
+          return false;
+        }
+
+        return runEditorCommand(editor, commandId);
       },
     }),
     [],
@@ -80,6 +110,7 @@ export function MilkdownEditor({
         initialMarkdown,
         onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
         onContentTransaction: () => onContentTransactionRef.current?.(),
+        onCommandStateChanged: () => onCommandStateChangedRef.current?.(),
         getAutoPairBracketsAndQuotes: () => autoPairBracketsAndQuotesRef.current,
       });
 
@@ -96,6 +127,7 @@ export function MilkdownEditor({
       }
 
       editorRef.current = editor;
+      onCommandStateChangedRef.current?.();
     };
 
     void createEditor().catch(console.error);

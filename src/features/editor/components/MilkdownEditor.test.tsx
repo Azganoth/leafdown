@@ -235,4 +235,28 @@ describe("MilkdownEditor", () => {
       previousMarkdown: "# Notes",
     });
   });
+
+  it("registers the command-state update hook and fires it when the editor is ready", async () => {
+    const editor = createMockEditor();
+    const onCommandStateChanged = vi.fn();
+    milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
+
+    render(
+      <MilkdownEditor
+        documentKey="C:/Notes/readme.md"
+        initialMarkdown="# Notes"
+        onCommandStateChanged={onCommandStateChanged}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(editor.create).toHaveBeenCalledTimes(1);
+    });
+
+    expect(onCommandStateChanged).toHaveBeenCalledTimes(1);
+
+    getCreateOptions().onCommandStateChanged?.();
+
+    expect(onCommandStateChanged).toHaveBeenCalledTimes(2);
+  });
 });

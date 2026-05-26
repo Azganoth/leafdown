@@ -9,7 +9,7 @@ export interface MilkdownMarkdownUpdate {
 export interface MilkdownEditorBridge {
   getMarkdown: () => string;
   getCommandState?: () => EditorCommandState;
-  runCommand?: (commandId: AppCommandId) => boolean;
+  runCommand?: (commandId: AppCommandId) => boolean | Promise<boolean>;
 }
 
 export interface CreateMilkdownEditorOptions {
@@ -17,6 +17,7 @@ export interface CreateMilkdownEditorOptions {
   initialMarkdown: string;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentTransaction?: () => void;
+  onCommandStateChanged?: () => void;
   getAutoPairBracketsAndQuotes?: () => boolean;
 }
 

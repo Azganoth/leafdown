@@ -9,6 +9,7 @@ import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
 import { createLeafdownHighlightParser } from "./highlighting";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
 
@@ -17,6 +18,7 @@ export const createMilkdownEditor = async ({
   initialMarkdown,
   onMarkdownUpdated,
   onContentTransaction,
+  onCommandStateChanged,
   getAutoPairBracketsAndQuotes = () => true,
 }: CreateMilkdownEditorOptions) => {
   const parser = await createLeafdownHighlightParser();
@@ -29,6 +31,7 @@ export const createMilkdownEditor = async ({
     .use(listener)
     .use(highlight)
     .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
+    .use(createLeafdownCommandStatePlugin(() => onCommandStateChanged?.()))
     .use(createLeafdownDirtyTrackerPlugin(() => onContentTransaction?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);

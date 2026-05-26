@@ -27,8 +27,10 @@ import {
   getOpenMarkdownFolderErrorMessage,
 } from "@/lib/documentIoErrors";
 import {
+  getActiveDocumentEditorCommandStateVersion,
   getActiveDocumentEditorCommandState,
   runActiveDocumentEditorCommand,
+  subscribeActiveDocumentEditorCommandState,
 } from "@/lib/documentEditorBridge";
 import { openMarkdownFile, openMarkdownFilePath } from "@/lib/openMarkdownFile";
 import {
@@ -41,7 +43,7 @@ import { useSettingsStore, type AppearanceTheme, type FileTreeSortOrder } from "
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import { useFileTreeViewStore } from "@/features/file-tree/stores/fileTreeView";
@@ -99,6 +101,12 @@ const isSuppressedWebviewShortcut = (event: KeyboardEvent) => {
 };
 
 export function CommandMenuBar() {
+  useSyncExternalStore(
+    subscribeActiveDocumentEditorCommandState,
+    getActiveDocumentEditorCommandStateVersion,
+    getActiveDocumentEditorCommandStateVersion,
+  );
+
   const [aboutOpen, setAboutOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [pendingSortOrder, setPendingSortOrder] = useState<FileTreeSortOrder | null>(null);
@@ -289,7 +297,9 @@ export function CommandMenuBar() {
     }
 
     if (activeDocumentKey) {
-      runActiveDocumentEditorCommand(activeDocumentKey, commandId);
+      void Promise.resolve(runActiveDocumentEditorCommand(activeDocumentKey, commandId)).catch(
+        console.error,
+      );
     }
   };
 
@@ -329,6 +339,10 @@ export function CommandMenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       if (isSuppressedWebviewShortcut(event)) {
         event.preventDefault();
         return;

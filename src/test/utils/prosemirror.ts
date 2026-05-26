@@ -71,3 +71,20 @@ export const pressKey = (
 
   return { event, handled: Boolean(handled) };
 };
+
+export const dispatchKeyDown = (
+  view: EditorView,
+  key: string,
+  init: Omit<KeyboardEventInit, "key"> = {},
+) => {
+  const event = new KeyboardEvent("keydown", {
+    bubbles: true,
+    cancelable: true,
+    key,
+    ...init,
+  });
+
+  view.dom.dispatchEvent(event);
+
+  return event;
+};

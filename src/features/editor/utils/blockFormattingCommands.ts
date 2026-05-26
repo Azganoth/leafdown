@@ -407,6 +407,18 @@ export const hasListItemSelection = (state: EditorState) => getSelectedListItems
 export const hasTaskListItemSelection = (state: EditorState) =>
   getSelectedListItems(state).some(({ node }) => node.attrs.checked != null);
 
+export const canIncreaseListIndent = (state: EditorState) => {
+  const listItemType = getNodeType(state, "list_item");
+
+  return listItemType ? sinkListItem(listItemType)(state) : false;
+};
+
+export const canDecreaseListIndent = (state: EditorState) => {
+  const listItemType = getNodeType(state, "list_item");
+
+  return listItemType ? liftListItem(listItemType)(state) : false;
+};
+
 export const hasRemovableBlockFormatting = (state: EditorState) => {
   if (findAncestor(state, new Set(["blockquote"])) || findCurrentList(state)) {
     return true;

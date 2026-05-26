@@ -47,6 +47,10 @@ describe("editor command state", () => {
     expect(state.enabledCommands["edit.copy"]).toBe(false);
     expect(state.enabledCommands["edit.deleteWordBackward"]).toBe(true);
     expect(state.enabledCommands["edit.deleteWordForward"]).toBe(false);
+    expect(state.enabledCommands["format.strong"]).toBe(true);
+    expect(state.enabledCommands["format.paragraph"]).toBe(true);
+    expect(state.enabledCommands["format.clearInline"]).toBe(false);
+    expect(state.enabledCommands["format.clearBlock"]).toBe(false);
   });
 
   it("tracks editor history availability", async () => {
@@ -97,6 +101,45 @@ describe("editor command state", () => {
     expect(state.hasTableSelection).toBe(true);
     expect(state.enabledCommands["edit.selectWord"]).toBe(true);
     expect(state.enabledCommands["edit.deleteWordBackward"]).toBe(true);
+  });
+
+  it("tracks formatting-specific command availability", async () => {
+    const inlineMounted = await mountEditor("**Hello**");
+
+    setTextSelection(inlineMounted.view, 3);
+
+    expect(getEditorCommandState(inlineMounted.view).enabledCommands["format.clearInline"]).toBe(
+      true,
+    );
+
+    const headingMounted = await mountEditor("# Heading");
+
+    setSelectionAtDocumentEnd(headingMounted.view);
+
+    const headingState = getEditorCommandState(headingMounted.view);
+
+    expect(headingState.enabledCommands["format.increaseHeading"]).toBe(true);
+    expect(headingState.enabledCommands["format.decreaseHeading"]).toBe(false);
+    expect(headingState.enabledCommands["format.clearBlock"]).toBe(true);
+
+    const taskMounted = await mountEditor("- [ ] Todo");
+
+    setSelectionAtDocumentEnd(taskMounted.view);
+
+    const taskState = getEditorCommandState(taskMounted.view);
+
+    expect(taskState.enabledCommands["format.toggleTaskChecked"]).toBe(true);
+    expect(taskState.enabledCommands["format.clearBlock"]).toBe(true);
+
+    const listMounted = await mountEditor("- First\n- Second");
+    const listItems = listMounted.view.dom.querySelectorAll("li");
+
+    setTextSelection(listMounted.view, listMounted.view.posAtDOM(listItems[1], 0));
+
+    const listState = getEditorCommandState(listMounted.view);
+
+    expect(listState.enabledCommands["format.increaseListIndent"]).toBe(true);
+    expect(listState.enabledCommands["format.decreaseListIndent"]).toBe(true);
   });
 
   it("notifies when command availability changes", async () => {

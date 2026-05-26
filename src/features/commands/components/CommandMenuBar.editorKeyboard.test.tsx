@@ -78,4 +78,18 @@ describe("CommandMenuBar editor keyboard routing", () => {
     expect(copyShortcut.defaultPrevented).toBe(false);
     expect(runCommand).not.toHaveBeenCalled();
   });
+
+  it("does not reroute shortcuts already handled by the editor", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("Hello");
+
+    render(<CommandMenuBar />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const selectAllShortcut = dispatchKeyDown(mounted.view, "a", { ctrlKey: true });
+
+    expect(selectAllShortcut.defaultPrevented).toBe(true);
+    expect(mounted.view.state.selection.from).toBe(0);
+    expect(mounted.view.state.selection.to).toBe(mounted.view.state.doc.content.size);
+    expect(runCommand).not.toHaveBeenCalled();
+  });
 });

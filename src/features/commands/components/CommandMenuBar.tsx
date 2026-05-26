@@ -339,6 +339,10 @@ export function CommandMenuBar() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
       if (isSuppressedWebviewShortcut(event)) {
         event.preventDefault();
         return;

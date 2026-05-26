@@ -198,4 +198,193 @@ describe("editor commands", () => {
     expect(mounted.view.dom).toHaveTextContent("Rich text");
     expect(mounted.view.dom.querySelector("strong")).toBeInTheDocument();
   });
+
+  it("toggles inline formatting for selections and nearest words", async () => {
+    const mounted = await mountEditor("Hello world");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Hello");
+    expect(mounted.getMarkdown()).toContain("**Hello** world");
+
+    expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+
+    setTextSelection(mounted.view, 8);
+
+    expect(runEditorCommand(mounted.editor, "format.emphasis")).toBe(true);
+    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+
+    expect(runEditorCommand(mounted.editor, "format.strikethrough")).toBe(true);
+    expect(mounted.view.dom.querySelector("del")).toHaveTextContent("world");
+  });
+
+  it("uses inline code as exclusive inline formatting", async () => {
+    const mounted = await mountEditor("**Hello** world");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.inlineCode")).toBe(true);
+    expect(mounted.view.dom.querySelector("code")).toHaveTextContent("Hello");
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toContain("`Hello` world");
+  });
+
+  it("applies inline formatting across selected blocks and arms collapsed empty formatting", async () => {
+    const selectedBlocksEditor = await mountEditor("First\n\nSecond");
+
+    expect(runEditorCommand(selectedBlocksEditor.editor, "edit.selectAll")).toBe(true);
+    expect(runEditorCommand(selectedBlocksEditor.editor, "format.strong")).toBe(true);
+
+    expect(selectedBlocksEditor.view.dom.querySelectorAll("strong")).toHaveLength(2);
+    expect(selectedBlocksEditor.getMarkdown()).toContain("**First**");
+    expect(selectedBlocksEditor.getMarkdown()).toContain("**Second**");
+
+    const collapsedEditor = await mountEditor("");
+
+    setTextSelection(collapsedEditor.view, 1);
+
+    expect(runEditorCommand(collapsedEditor.editor, "format.emphasis")).toBe(true);
+
+    typeText(collapsedEditor.view, "empty");
+
+    expect(collapsedEditor.view.dom.querySelector("em")).toHaveTextContent("empty");
+    expect(collapsedEditor.getMarkdown()).toContain("*empty*");
+  });
+
+  it("clears selected and active inline formatting", async () => {
+    const mounted = await mountEditor("**Hello** *world*");
+
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(runEditorCommand(mounted.editor, "format.clearInline")).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+
+    setTextSelection(mounted.view, 8);
+
+    expect(runEditorCommand(mounted.editor, "format.clearInline")).toBe(true);
+    expect(mounted.view.dom.querySelector("em")).not.toBeInTheDocument();
+  });
+
+  it("inserts raw link markers around selections and at collapsed carets", async () => {
+    const selectedLinkEditor = await mountEditor("Hello");
+
+    setTextSelection(selectedLinkEditor.view, 1, 6);
+
+    expect(runEditorCommand(selectedLinkEditor.editor, "insert.link")).toBe(true);
+    expect(textContent(selectedLinkEditor)).toBe("[Hello]()");
+    expect(selectedLinkEditor.view.dom.querySelector("a")).not.toBeInTheDocument();
+    expect(selectedLinkEditor.view.state.selection.from).toBe(9);
+
+    const wordLinkEditor = await mountEditor("Hello");
+
+    setTextSelection(wordLinkEditor.view, 3);
+
+    expect(runEditorCommand(wordLinkEditor.editor, "insert.link")).toBe(true);
+    expect(textContent(wordLinkEditor)).toBe("He[]()llo");
+    expect(wordLinkEditor.view.state.selection.from).toBe(4);
+
+    const emptyLinkEditor = await mountEditor("");
+
+    setTextSelection(emptyLinkEditor.view, 1);
+
+    expect(runEditorCommand(emptyLinkEditor.editor, "insert.link")).toBe(true);
+    expect(textContent(emptyLinkEditor)).toBe("[]()");
+    expect(emptyLinkEditor.view.state.selection.from).toBe(2);
+  });
+
+  it("toggles paragraph, heading, blockquote, and code block formats", async () => {
+    const mounted = await mountEditor("Hello");
+
+    setTextSelection(mounted.view, 3);
+
+    expect(runEditorCommand(mounted.editor, "format.heading2")).toBe(true);
+    expect(mounted.view.dom.querySelector("h2")).toHaveTextContent("Hello");
+    expect(mounted.getMarkdown()).toContain("## Hello");
+
+    expect(runEditorCommand(mounted.editor, "format.heading2")).toBe(true);
+    expect(mounted.view.dom.querySelector("h2")).not.toBeInTheDocument();
+
+    expect(runEditorCommand(mounted.editor, "format.blockquote")).toBe(true);
+    expect(mounted.view.dom.querySelector("blockquote")).toHaveTextContent("Hello");
+
+    expect(runEditorCommand(mounted.editor, "format.clearBlock")).toBe(true);
+    expect(mounted.view.dom.querySelector("blockquote")).not.toBeInTheDocument();
+
+    expect(runEditorCommand(mounted.editor, "format.codeBlock")).toBe(true);
+    expect(mounted.view.dom.querySelector("pre code")).toHaveTextContent("Hello");
+
+    expect(runEditorCommand(mounted.editor, "format.paragraph")).toBe(true);
+    expect(mounted.view.dom.querySelector("pre code")).not.toBeInTheDocument();
+  });
+
+  it("adjusts heading levels for selected heading blocks", async () => {
+    const mounted = await mountEditor("# First\n\n### Second");
+
+    expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+    expect(runEditorCommand(mounted.editor, "format.increaseHeading")).toBe(true);
+
+    expect(mounted.getMarkdown()).toContain("## First");
+    expect(mounted.getMarkdown()).toContain("#### Second");
+
+    expect(runEditorCommand(mounted.editor, "format.decreaseHeading")).toBe(true);
+    expect(mounted.getMarkdown()).toContain("# First");
+    expect(mounted.getMarkdown()).toContain("### Second");
+  });
+
+  it("toggles list and task list formats", async () => {
+    const mounted = await mountEditor("Item");
+
+    setTextSelection(mounted.view, 2);
+
+    expect(runEditorCommand(mounted.editor, "format.unorderedList")).toBe(true);
+    expect(mounted.view.dom.querySelector("ul li")).toHaveTextContent("Item");
+
+    expect(runEditorCommand(mounted.editor, "format.taskList")).toBe(true);
+    expect(mounted.view.dom.querySelector("li[data-checked='false']")).toHaveTextContent("Item");
+    expect(mounted.getMarkdown()).toContain("* [ ] Item");
+
+    expect(runEditorCommand(mounted.editor, "format.toggleTaskChecked")).toBe(true);
+    expect(mounted.view.dom.querySelector("li[data-checked='true']")).toHaveTextContent("Item");
+    expect(mounted.getMarkdown()).toContain("* [x] Item");
+
+    expect(runEditorCommand(mounted.editor, "format.taskList")).toBe(true);
+    expect(mounted.view.dom.querySelector("li[data-checked]")).not.toBeInTheDocument();
+  });
+
+  it("indents and outdents list items through formatting commands", async () => {
+    const mounted = await mountEditor("- First\n- Second");
+    const listItems = mounted.view.dom.querySelectorAll("li");
+
+    expect(listItems).toHaveLength(2);
+
+    setTextSelection(mounted.view, mounted.view.posAtDOM(listItems[1], 0));
+
+    expect(runEditorCommand(mounted.editor, "format.increaseListIndent")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("ul ul li")).toHaveLength(1);
+
+    expect(runEditorCommand(mounted.editor, "format.decreaseListIndent")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("ul > li")).toHaveLength(2);
+  });
+
+  it("toggles rendered task checkboxes by clicking their checkbox area", async () => {
+    const mounted = await mountEditor("- [ ] Todo");
+    const taskListItem = mounted.view.dom.querySelector("li[data-checked='false']");
+
+    expect(taskListItem).toBeInTheDocument();
+
+    taskListItem?.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 1,
+        clientY: 1,
+      }),
+    );
+
+    expect(mounted.view.dom.querySelector("li[data-checked='true']")).toHaveTextContent("Todo");
+    expect(mounted.getMarkdown()).toContain("* [x] Todo");
+  });
 });

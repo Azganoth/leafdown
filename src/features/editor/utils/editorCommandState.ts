@@ -5,6 +5,14 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 
+import {
+  canDecreaseListIndent,
+  canIncreaseListIndent,
+  hasHeadingLevelChange,
+  hasRemovableBlockFormatting,
+  hasTaskListItemSelection,
+} from "./blockFormattingCommands";
+
 interface TextWordRange {
   from: number;
   to: number;
@@ -27,6 +35,23 @@ const activeEditorCommands = [
   "edit.jumpToBottom",
   "edit.jumpToLineStart",
   "edit.jumpToLineEnd",
+  "insert.link",
+  "format.strong",
+  "format.emphasis",
+  "format.strikethrough",
+  "format.inlineCode",
+  "format.paragraph",
+  "format.heading1",
+  "format.heading2",
+  "format.heading3",
+  "format.heading4",
+  "format.heading5",
+  "format.heading6",
+  "format.orderedList",
+  "format.unorderedList",
+  "format.taskList",
+  "format.blockquote",
+  "format.codeBlock",
 ] as const satisfies AppCommandId[];
 
 const selectionEditorCommands = [
@@ -36,6 +61,14 @@ const selectionEditorCommands = [
   "edit.copyAsMarkdown",
   "edit.jumpToSelection",
 ] as const satisfies AppCommandId[];
+
+const clearableInlineMarkNames = [
+  "strong",
+  "emphasis",
+  "strike_through",
+  "inlineCode",
+  "link",
+] as const;
 
 const isWordCharacter = (value: string) => /^[\p{L}\p{N}_]$/u.test(value);
 
@@ -69,6 +102,34 @@ const isInsideNode = (state: EditorState, nodeNames: Set<string>) => {
   }
 
   return false;
+};
+
+const hasClearableInlineFormatting = (state: EditorState) => {
+  const clearableMarkTypes = clearableInlineMarkNames
+    .map((markName) => state.schema.marks[markName])
+    .filter(Boolean);
+
+  if (!state.selection.empty) {
+    return clearableMarkTypes.some((markType) =>
+      state.doc.rangeHasMark(state.selection.from, state.selection.to, markType),
+    );
+  }
+
+  if ((state.storedMarks ?? []).some((mark) => clearableMarkTypes.includes(mark.type))) {
+    return true;
+  }
+
+  if (!(state.selection instanceof TextSelection)) {
+    return false;
+  }
+
+  const candidateMarks = [
+    ...state.selection.$from.marks(),
+    ...(state.selection.$from.nodeBefore?.marks ?? []),
+    ...(state.selection.$from.nodeAfter?.marks ?? []),
+  ];
+
+  return candidateMarks.some((mark) => clearableMarkTypes.includes(mark.type));
 };
 
 export const getTextWordRangeAtSelection = (state: EditorState): TextWordRange | null => {
@@ -171,6 +232,13 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   enabledCommands["edit.deleteWordBackward"] = hasWordBeforeSelection;
   enabledCommands["edit.deleteWordForward"] = hasWordAfterSelection;
   enabledCommands["edit.selectWord"] = hasWordAtSelection;
+  enabledCommands["format.clearInline"] = hasClearableInlineFormatting(state);
+  enabledCommands["format.increaseHeading"] = hasHeadingLevelChange(state, 1);
+  enabledCommands["format.decreaseHeading"] = hasHeadingLevelChange(state, -1);
+  enabledCommands["format.increaseListIndent"] = canIncreaseListIndent(state);
+  enabledCommands["format.decreaseListIndent"] = canDecreaseListIndent(state);
+  enabledCommands["format.toggleTaskChecked"] = hasTaskListItemSelection(state);
+  enabledCommands["format.clearBlock"] = hasRemovableBlockFormatting(state);
 
   return {
     enabledCommands,

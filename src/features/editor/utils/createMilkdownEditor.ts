@@ -11,6 +11,7 @@ import { createLeafdownHighlightParser } from "./highlighting";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
+import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
 
 export const createMilkdownEditor = async ({
@@ -32,6 +33,7 @@ export const createMilkdownEditor = async ({
     .use(highlight)
     .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
     .use(createLeafdownCommandStatePlugin(() => onCommandStateChanged?.()))
+    .use(createLeafdownTaskListCheckboxPlugin())
     .use(createLeafdownDirtyTrackerPlugin(() => onContentTransaction?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);

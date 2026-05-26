@@ -268,14 +268,23 @@ describe("editor commands", () => {
     expect(mounted.view.dom.querySelector("em")).not.toBeInTheDocument();
   });
 
-  it("formats links semantically and inserts an empty link marker without a word", async () => {
+  it("inserts raw link markers around selections and at collapsed carets", async () => {
     const selectedLinkEditor = await mountEditor("Hello");
 
     setTextSelection(selectedLinkEditor.view, 1, 6);
 
     expect(runEditorCommand(selectedLinkEditor.editor, "insert.link")).toBe(true);
-    expect(selectedLinkEditor.view.dom.querySelector("a")).toHaveTextContent("Hello");
-    expect(selectedLinkEditor.getMarkdown()).toContain("[Hello]()");
+    expect(textContent(selectedLinkEditor)).toBe("[Hello]()");
+    expect(selectedLinkEditor.view.dom.querySelector("a")).not.toBeInTheDocument();
+    expect(selectedLinkEditor.view.state.selection.from).toBe(9);
+
+    const wordLinkEditor = await mountEditor("Hello");
+
+    setTextSelection(wordLinkEditor.view, 3);
+
+    expect(runEditorCommand(wordLinkEditor.editor, "insert.link")).toBe(true);
+    expect(textContent(wordLinkEditor)).toBe("He[]()llo");
+    expect(wordLinkEditor.view.state.selection.from).toBe(4);
 
     const emptyLinkEditor = await mountEditor("");
 

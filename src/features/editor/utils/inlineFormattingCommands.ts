@@ -81,17 +81,35 @@ const getInlineFormatRange = (state: EditorState): TextRange | null => {
   return getTextWordRangeAtSelection(state);
 };
 
-const insertEmptyLinkMarker = (view: EditorView) => {
+const insertLinkMarker = (view: EditorView) => {
   const { selection } = view.state;
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!(selection instanceof TextSelection)) {
     return false;
   }
 
-  const position = selection.from;
-  const tr = view.state.tr.insertText("[]()", position, position);
+  if (selection.empty) {
+    const position = selection.from;
+    const tr = view.state.tr.insertText("[]()", position, position);
 
-  tr.setSelection(TextSelection.create(tr.doc, position + 1)).scrollIntoView();
+    tr.setSelection(TextSelection.create(tr.doc, position + 1)).scrollIntoView();
+
+    view.focus();
+    view.dispatch(tr);
+
+    return true;
+  }
+
+  if (!selection.$from.sameParent(selection.$to)) {
+    return false;
+  }
+
+  const selectedText = selection.content().content.textBetween(0, selection.content().content.size);
+  const marker = `[${selectedText}]()`;
+  const tr = view.state.tr.insertText(marker, selection.from, selection.to);
+
+  tr.setSelection(TextSelection.create(tr.doc, selection.from + selectedText.length + 3));
+  tr.scrollIntoView();
 
   view.focus();
   view.dispatch(tr);
@@ -113,6 +131,10 @@ export const runInlineFormattingCommand = (view: EditorView, commandId: AppComma
     return false;
   }
 
+  if (commandId === "insert.link") {
+    return insertLinkMarker(view);
+  }
+
   const markType = getMarkType(view.state, inlineFormatMarkNames[commandId]);
 
   if (!markType) {
@@ -122,9 +144,7 @@ export const runInlineFormattingCommand = (view: EditorView, commandId: AppComma
   const range = getInlineFormatRange(view.state);
 
   if (!range) {
-    return commandId === "insert.link"
-      ? insertEmptyLinkMarker(view)
-      : setStoredInlineMark(view, markType);
+    return setStoredInlineMark(view, markType);
   }
 
   const shouldRemove = rangeHasMark(view.state, range, markType);

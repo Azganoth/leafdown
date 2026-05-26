@@ -544,7 +544,8 @@ Inactive commands are disabled rather than hidden.
 - `Increase list indent` and `Decrease list indent` require a list item and a
   valid indentation change.
 - `Toggle task checked` requires a task list item.
-- `Clear inline formatting` requires a selection or active marked inline element.
+- `Clear inline formatting` requires supported inline formatting in the
+  selection or an active marked inline element.
 - `Clear block formatting` requires removable block formatting in the current or
   selected blocks.
 - `Increase heading level` and `Decrease heading level` require a heading that

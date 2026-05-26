@@ -231,6 +231,28 @@ describe("editor commands", () => {
     expect(mounted.getMarkdown()).toContain("`Hello` world");
   });
 
+  it("applies inline formatting across selected blocks and arms collapsed empty formatting", async () => {
+    const selectedBlocksEditor = await mountEditor("First\n\nSecond");
+
+    expect(runEditorCommand(selectedBlocksEditor.editor, "edit.selectAll")).toBe(true);
+    expect(runEditorCommand(selectedBlocksEditor.editor, "format.strong")).toBe(true);
+
+    expect(selectedBlocksEditor.view.dom.querySelectorAll("strong")).toHaveLength(2);
+    expect(selectedBlocksEditor.getMarkdown()).toContain("**First**");
+    expect(selectedBlocksEditor.getMarkdown()).toContain("**Second**");
+
+    const collapsedEditor = await mountEditor("");
+
+    setTextSelection(collapsedEditor.view, 1);
+
+    expect(runEditorCommand(collapsedEditor.editor, "format.emphasis")).toBe(true);
+
+    typeText(collapsedEditor.view, "empty");
+
+    expect(collapsedEditor.view.dom.querySelector("em")).toHaveTextContent("empty");
+    expect(collapsedEditor.getMarkdown()).toContain("*empty*");
+  });
+
   it("clears selected and active inline formatting", async () => {
     const mounted = await mountEditor("**Hello** *world*");
 

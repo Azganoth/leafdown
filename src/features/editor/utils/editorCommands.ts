@@ -54,6 +54,36 @@ const dispatchTextSelection = (view: EditorView, from: number, to = from) => {
   return true;
 };
 
+const deleteNextTextCharacter = (view: EditorView) => {
+  const { selection } = view.state;
+
+  if (!(selection instanceof TextSelection) || !selection.$cursor) {
+    return false;
+  }
+
+  const { $cursor } = selection;
+  const textAfterCursor = $cursor.parent.textBetween(
+    $cursor.parentOffset,
+    $cursor.parent.content.size,
+    "\n",
+    "\n",
+  );
+  const nextCharacter = Array.from(textAfterCursor)[0];
+
+  if (!nextCharacter) {
+    return false;
+  }
+
+  view.dispatch(
+    view.state.tr.delete($cursor.pos, $cursor.pos + nextCharacter.length).scrollIntoView(),
+  );
+
+  return true;
+};
+
+const deleteForward = (view: EditorView) =>
+  runProseMirrorCommand(view, deleteForwardCommand) || deleteNextTextCharacter(view);
+
 const deleteWordRange = (view: EditorView, getRange: typeof getTextWordRangeBeforeSelection) => {
   const range = getRange(view.state);
 
@@ -241,7 +271,7 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
       return runProseMirrorCommand(view, redo);
 
     case "edit.delete":
-      return runProseMirrorCommand(view, deleteForwardCommand);
+      return deleteForward(view);
 
     case "edit.deleteWordBackward":
       return deleteWordRange(view, getTextWordRangeBeforeSelection);

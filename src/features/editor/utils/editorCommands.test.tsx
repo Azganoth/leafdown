@@ -71,7 +71,12 @@ describe("editor commands", () => {
   it("deletes selections and words around the caret", async () => {
     const mounted = await mountEditor("Hello world");
 
-    setTextSelection(mounted.view, 1, 6);
+    setTextSelection(mounted.view, 3);
+
+    expect(runEditorCommand(mounted.editor, "edit.delete")).toBe(true);
+    expect(textContent(mounted)).toBe("Helo world");
+
+    setTextSelection(mounted.view, 1, 5);
 
     expect(runEditorCommand(mounted.editor, "edit.delete")).toBe(true);
     expect(textContent(mounted)).toBe(" world");

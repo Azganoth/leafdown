@@ -25,6 +25,7 @@ import {
 import { runBlockFormattingCommand } from "./blockFormattingCommands";
 import { runInsertCommand } from "./insertCommands";
 import { clearInlineFormatting, runInlineFormattingCommand } from "./inlineFormattingCommands";
+import { runTableCommand } from "./tableCommands";
 
 const deleteForwardCommand = chainCommands(deleteSelection, joinForward, selectNodeForward);
 
@@ -280,6 +281,12 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
   const didRunInsertCommand = runInsertCommand(view, commandId);
 
   if (didRunInsertCommand) {
+    return true;
+  }
+
+  const didRunTableCommand = runTableCommand(view, commandId);
+
+  if (didRunTableCommand) {
     return true;
   }
 

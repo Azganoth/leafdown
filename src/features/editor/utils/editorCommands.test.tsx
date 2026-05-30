@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { Selection } from "@milkdown/kit/prose/state";
+import { CellSelection, TableMap } from "@milkdown/kit/prose/tables";
+
 import { setSelectionAtDocumentEnd, setTextSelection, typeText } from "@/test/utils/prosemirror";
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 
@@ -24,12 +28,70 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
 const textContent = (mounted: MountedMilkdownEditor) => mounted.view.state.doc.textContent;
 const textSelectionStart = 1;
 const imageMarkerText = "![]()";
+const tableMarkdown = "| A | B |\n| - | - |\n| C | D |\n| E | F |";
 
 const createClipboardItem = (type: string, value: string): ClipboardItem =>
   ({
     types: [type],
     getType: vi.fn(async () => new Blob([value], { type })),
   }) as unknown as ClipboardItem;
+
+const getFirstTable = (mounted: MountedMilkdownEditor) => {
+  const tables: { node: ProseMirrorNode; start: number }[] = [];
+
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (node.type.name !== "table") {
+      return true;
+    }
+
+    tables.push({ node, start: pos + 1 });
+
+    return false;
+  });
+
+  const table = tables[0];
+
+  if (!table) {
+    throw new Error("Expected a table in the mounted editor.");
+  }
+
+  return table;
+};
+
+const getTableCellPos = (mounted: MountedMilkdownEditor, row: number, col: number) => {
+  const table = getFirstTable(mounted);
+
+  return table.start + TableMap.get(table.node).positionAt(row, col, table.node);
+};
+
+const setSelectionInTableCell = (mounted: MountedMilkdownEditor, row: number, col: number) => {
+  const cellPos = getTableCellPos(mounted, row, col);
+  const selection = Selection.findFrom(mounted.view.state.doc.resolve(cellPos + 1), 1, true);
+
+  if (!selection) {
+    throw new Error("Could not place selection inside table cell.");
+  }
+
+  mounted.view.dispatch(mounted.view.state.tr.setSelection(selection));
+};
+
+const setTableCellSelection = (
+  mounted: MountedMilkdownEditor,
+  anchor: { row: number; col: number },
+  head: { row: number; col: number },
+) => {
+  mounted.view.dispatch(
+    mounted.view.state.tr.setSelection(
+      new CellSelection(
+        mounted.view.state.doc.resolve(getTableCellPos(mounted, anchor.row, anchor.col)),
+        mounted.view.state.doc.resolve(getTableCellPos(mounted, head.row, head.col)),
+      ),
+    ),
+  );
+};
+
+const tableRowText = (mounted: MountedMilkdownEditor) =>
+  Array.from(mounted.view.dom.querySelectorAll("tr")).map((row) => row.textContent ?? "");
 
 describe("editor commands", () => {
   beforeEach(() => {
@@ -381,6 +443,69 @@ describe("editor commands", () => {
     expect(table).toBeInTheDocument();
     expect(table?.querySelectorAll("tr")).toHaveLength(2);
     expect(table?.querySelectorAll("th, td")).toHaveLength(4);
+  });
+
+  it("adds and deletes table rows and columns from the active cell", async () => {
+    const mounted = await mountEditor(tableMarkdown);
+
+    setSelectionInTableCell(mounted, 1, 0);
+
+    expect(runEditorCommand(mounted.editor, "format.table.addRowBelow")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
+
+    expect(runEditorCommand(mounted.editor, "format.table.addColumnAfter")).toBe(true);
+    expect(mounted.view.dom.querySelector("tr")?.querySelectorAll("th, td")).toHaveLength(3);
+
+    expect(runEditorCommand(mounted.editor, "format.table.deleteColumn")).toBe(true);
+    expect(mounted.view.dom.querySelector("tr")?.querySelectorAll("th, td")).toHaveLength(2);
+
+    expect(runEditorCommand(mounted.editor, "format.table.deleteRow")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(3);
+  });
+
+  it("moves table rows and columns when a destination exists", async () => {
+    const mounted = await mountEditor(tableMarkdown);
+
+    setSelectionInTableCell(mounted, 1, 0);
+
+    expect(runEditorCommand(mounted.editor, "format.table.moveRowDown")).toBe(true);
+    expect(tableRowText(mounted)).toEqual(["AB", "EF", "CD"]);
+
+    expect(runEditorCommand(mounted.editor, "format.table.moveRowUp")).toBe(true);
+    expect(tableRowText(mounted)).toEqual(["AB", "CD", "EF"]);
+
+    setSelectionInTableCell(mounted, 1, 0);
+
+    expect(runEditorCommand(mounted.editor, "format.table.moveColumnRight")).toBe(true);
+    expect(tableRowText(mounted)).toEqual(["BA", "DC", "FE"]);
+
+    expect(runEditorCommand(mounted.editor, "format.table.moveColumnLeft")).toBe(true);
+    expect(tableRowText(mounted)).toEqual(["AB", "CD", "EF"]);
+  });
+
+  it("uses selected table ranges for table deletion commands", async () => {
+    const rowDeletionEditor = await mountEditor("| A | B |\n| - | - |\n| C | D |");
+
+    setTableCellSelection(rowDeletionEditor, { row: 1, col: 0 }, { row: 1, col: 1 });
+
+    expect(runEditorCommand(rowDeletionEditor.editor, "format.table.deleteRow")).toBe(true);
+    expect(rowDeletionEditor.view.dom.querySelector("table")).not.toBeInTheDocument();
+
+    const columnDeletionEditor = await mountEditor(tableMarkdown);
+
+    setTableCellSelection(columnDeletionEditor, { row: 0, col: 0 }, { row: 2, col: 1 });
+
+    expect(runEditorCommand(columnDeletionEditor.editor, "format.table.deleteColumn")).toBe(true);
+    expect(columnDeletionEditor.view.dom.querySelector("table")).not.toBeInTheDocument();
+  });
+
+  it("deletes the active table", async () => {
+    const mounted = await mountEditor(tableMarkdown);
+
+    setSelectionInTableCell(mounted, 1, 0);
+
+    expect(runEditorCommand(mounted.editor, "format.table.delete")).toBe(true);
+    expect(mounted.view.dom.querySelector("table")).not.toBeInTheDocument();
   });
 
   it("toggles paragraph, heading, blockquote, and code block formats", async () => {

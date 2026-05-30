@@ -23,6 +23,7 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
 
 const textContent = (mounted: MountedMilkdownEditor) => mounted.view.state.doc.textContent;
 const textSelectionStart = 1;
+const imageMarkerText = "![]()";
 
 const createClipboardItem = (type: string, value: string): ClipboardItem =>
   ({
@@ -293,6 +294,93 @@ describe("editor commands", () => {
     expect(runEditorCommand(emptyLinkEditor.editor, "insert.link")).toBe(true);
     expect(textContent(emptyLinkEditor)).toBe("[]()");
     expect(emptyLinkEditor.view.state.selection.from).toBe(2);
+  });
+
+  it("inserts block content after the current block", async () => {
+    const mounted = await mountEditor("First\n\nSecond");
+    const firstParagraph = mounted.view.dom.querySelector("p");
+
+    expect(firstParagraph).toBeInTheDocument();
+
+    setTextSelection(mounted.view, 3);
+
+    expect(runEditorCommand(mounted.editor, "insert.heading2")).toBe(true);
+    expect(runEditorCommand(mounted.editor, "insert.blockquote")).toBe(true);
+    expect(runEditorCommand(mounted.editor, "insert.codeBlock")).toBe(true);
+    expect(runEditorCommand(mounted.editor, "insert.horizontalRule")).toBe(true);
+
+    const blocks = Array.from(mounted.view.dom.children);
+
+    expect(blocks.map((block) => block.tagName.toLowerCase())).toEqual([
+      "p",
+      "h2",
+      "blockquote",
+      "pre",
+      "hr",
+      "p",
+      "p",
+    ]);
+    expect(blocks[0]).toHaveTextContent("First");
+    expect(blocks.at(-1)).toHaveTextContent("Second");
+  });
+
+  it("inserts after the selected block range without replacing selected content", async () => {
+    const mounted = await mountEditor("First\n\nSecond");
+
+    expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+    expect(runEditorCommand(mounted.editor, "insert.paragraph")).toBe(true);
+
+    expect(mounted.view.dom.querySelectorAll("p")).toHaveLength(3);
+    expect(mounted.view.dom).toHaveTextContent("First");
+    expect(mounted.view.dom).toHaveTextContent("Second");
+  });
+
+  it("inserts image Markdown with the caret inside the target", async () => {
+    const mounted = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(runEditorCommand(mounted.editor, "insert.image")).toBe(true);
+    expect(textContent(mounted)).toBe("First![]()");
+    expect(mounted.view.state.selection.$from.parent.textContent).toBe(imageMarkerText);
+    expect(mounted.view.state.selection.$from.parentOffset).toBe(4);
+  });
+
+  it("inserts list blocks with MVP list variants", async () => {
+    const orderedListEditor = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(orderedListEditor.view);
+
+    expect(runEditorCommand(orderedListEditor.editor, "insert.orderedList")).toBe(true);
+    expect(orderedListEditor.view.dom.querySelector("ol li")).toBeInTheDocument();
+
+    const unorderedListEditor = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(unorderedListEditor.view);
+
+    expect(runEditorCommand(unorderedListEditor.editor, "insert.unorderedList")).toBe(true);
+    expect(unorderedListEditor.view.dom.querySelector("ul li")).toBeInTheDocument();
+
+    const taskListEditor = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(taskListEditor.view);
+
+    expect(runEditorCommand(taskListEditor.editor, "insert.taskList")).toBe(true);
+    expect(taskListEditor.view.dom.querySelector("li[data-checked='false']")).toBeInTheDocument();
+  });
+
+  it("inserts a default 2-by-2 table", async () => {
+    const mounted = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(runEditorCommand(mounted.editor, "insert.table")).toBe(true);
+
+    const table = mounted.view.dom.querySelector("table");
+
+    expect(table).toBeInTheDocument();
+    expect(table?.querySelectorAll("tr")).toHaveLength(2);
+    expect(table?.querySelectorAll("th, td")).toHaveLength(4);
   });
 
   it("toggles paragraph, heading, blockquote, and code block formats", async () => {

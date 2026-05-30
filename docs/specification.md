@@ -246,6 +246,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   they use the selected column range.
 - `Add row above` and `Add row below` insert one row before the first selected
   row or after the last selected row.
+- GFM tables keep the header row as a protected structural row for MVP table
+  editing. Row commands that would insert above, move, or delete the header row
+  are unavailable. `Add row below` remains available from the header row and
+  inserts the first body row.
 - `Add column before` and `Add column after` insert one column before the first
   selected column or after the last selected column.
 - `Move row up`, `Move row down`, `Move column left`, and `Move column right`

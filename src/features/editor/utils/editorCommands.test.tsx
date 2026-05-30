@@ -4,7 +4,12 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { Selection } from "@milkdown/kit/prose/state";
 import { CellSelection, TableMap } from "@milkdown/kit/prose/tables";
 
-import { setSelectionAtDocumentEnd, setTextSelection, typeText } from "@/test/utils/prosemirror";
+import {
+  setSelectionAtDocumentEnd,
+  setSelectionAtTextEnd,
+  setTextSelection,
+  typeText,
+} from "@/test/utils/prosemirror";
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 
 import { runEditorCommand } from "./editorCommands";
@@ -461,6 +466,25 @@ describe("editor commands", () => {
 
     expect(runEditorCommand(mounted.editor, "format.table.deleteRow")).toBe(true);
     expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(3);
+  });
+
+  it("keeps table header rows protected for row commands", async () => {
+    const mounted = await mountEditor(tableMarkdown);
+    const firstHeaderCell = mounted.view.dom.querySelector("th");
+
+    expect(firstHeaderCell).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, firstHeaderCell as HTMLTableCellElement);
+
+    expect(runEditorCommand(mounted.editor, "format.table.addRowAbove")).toBe(false);
+    expect(runEditorCommand(mounted.editor, "format.table.moveRowUp")).toBe(false);
+    expect(runEditorCommand(mounted.editor, "format.table.moveRowDown")).toBe(false);
+    expect(runEditorCommand(mounted.editor, "format.table.deleteRow")).toBe(false);
+    expect(tableRowText(mounted)).toEqual(["AB", "CD", "EF"]);
+
+    expect(runEditorCommand(mounted.editor, "format.table.addRowBelow")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
+    expect(tableRowText(mounted).slice(0, 2)).toEqual(["AB", ""]);
   });
 
   it("moves table rows and columns when a destination exists", async () => {

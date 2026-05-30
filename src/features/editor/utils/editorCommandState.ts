@@ -13,6 +13,9 @@ import {
   hasTaskListItemSelection,
 } from "./blockFormattingCommands";
 import {
+  canAddSelectedTableRowAbove,
+  canAddSelectedTableRowBelow,
+  canDeleteSelectedTableRows,
   canMoveSelectedTableColumns,
   canMoveSelectedTableRows,
   hasTableContext,
@@ -245,15 +248,15 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   enabledCommands["format.toggleTaskChecked"] = hasTaskListItemSelection(state);
   enabledCommands["format.clearBlock"] = hasRemovableBlockFormatting(state);
   enabledCommands["format.table.delete"] = hasTableSelection;
-  enabledCommands["format.table.addRowAbove"] = hasTableSelection;
-  enabledCommands["format.table.addRowBelow"] = hasTableSelection;
+  enabledCommands["format.table.addRowAbove"] = canAddSelectedTableRowAbove(state);
+  enabledCommands["format.table.addRowBelow"] = canAddSelectedTableRowBelow(state);
   enabledCommands["format.table.addColumnBefore"] = hasTableSelection;
   enabledCommands["format.table.addColumnAfter"] = hasTableSelection;
   enabledCommands["format.table.moveRowUp"] = canMoveSelectedTableRows(state, -1);
   enabledCommands["format.table.moveRowDown"] = canMoveSelectedTableRows(state, 1);
   enabledCommands["format.table.moveColumnLeft"] = canMoveSelectedTableColumns(state, -1);
   enabledCommands["format.table.moveColumnRight"] = canMoveSelectedTableColumns(state, 1);
-  enabledCommands["format.table.deleteRow"] = hasTableSelection;
+  enabledCommands["format.table.deleteRow"] = canDeleteSelectedTableRows(state);
   enabledCommands["format.table.deleteColumn"] = hasTableSelection;
 
   return {

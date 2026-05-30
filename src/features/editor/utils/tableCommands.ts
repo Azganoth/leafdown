@@ -120,6 +120,8 @@ const getRows = (table: ProseMirrorNode) =>
 const getCells = (row: ProseMirrorNode) =>
   Array.from({ length: row.childCount }, (_, index) => row.child(index));
 
+const selectionIncludesHeaderRow = (rect: TableRect) => rect.top === 0;
+
 const createBodyRow = (state: EditorState, table: ProseMirrorNode, width: number) => {
   const rowType = getNodeType(state, "table_row");
   const headerRow = table.firstChild;
@@ -140,7 +142,7 @@ const createBodyRow = (state: EditorState, table: ProseMirrorNode, width: number
 const addRow = (view: EditorView, placement: "above" | "below") => {
   const rect = getTableRect(view.state);
 
-  if (!rect) {
+  if (!rect || (placement === "above" && selectionIncludesHeaderRow(rect))) {
     return false;
   }
 
@@ -151,7 +153,7 @@ const addRow = (view: EditorView, placement: "above" | "below") => {
   }
 
   const rows = getRows(rect.table);
-  const insertIndex = placement === "above" ? Math.max(1, rect.top) : Math.max(1, rect.bottom);
+  const insertIndex = placement === "above" ? rect.top : Math.max(1, rect.bottom);
 
   rows.splice(insertIndex, 0, row);
 
@@ -263,13 +265,6 @@ const moveColumns = (view: EditorView, direction: TableMoveDirection) => {
     : false;
 };
 
-const promoteRowToHeader = (state: EditorState, row: ProseMirrorNode) => {
-  const rowType = getNodeType(state, "table_header_row");
-  const cellType = getNodeType(state, "table_header");
-
-  return rowType && cellType ? createRow(rowType, cellType, row, getCells(row)) : null;
-};
-
 const convertRowToBody = (state: EditorState, row: ProseMirrorNode) => {
   const rowType = getNodeType(state, "table_row");
   const cellType = getNodeType(state, "table_cell");
@@ -280,7 +275,7 @@ const convertRowToBody = (state: EditorState, row: ProseMirrorNode) => {
 const deleteRows = (view: EditorView) => {
   const rect = getTableRect(view.state);
 
-  if (!rect) {
+  if (!rect || selectionIncludesHeaderRow(rect)) {
     return false;
   }
 
@@ -291,15 +286,14 @@ const deleteRows = (view: EditorView) => {
   }
 
   const [headerSource, ...bodySources] = rows;
-  const headerRow = rect.top === 0 ? promoteRowToHeader(view.state, headerSource) : headerSource;
   const bodyRows = bodySources.map((row) => convertRowToBody(view.state, row));
 
-  if (!headerRow || bodyRows.some((row) => !row)) {
+  if (bodyRows.some((row) => !row)) {
     return false;
   }
 
   const nextTable = createTableFromRows(view.state, rect.table, [
-    headerRow,
+    headerSource,
     ...(bodyRows as ProseMirrorNode[]),
   ]);
 
@@ -350,6 +344,20 @@ const deleteColumns = (view: EditorView) => {
 };
 
 export const hasTableContext = (state: EditorState) => isInTable(state);
+
+export const canAddSelectedTableRowAbove = (state: EditorState) => {
+  const rect = getTableRect(state);
+
+  return Boolean(rect && !selectionIncludesHeaderRow(rect));
+};
+
+export const canAddSelectedTableRowBelow = (state: EditorState) => Boolean(getTableRect(state));
+
+export const canDeleteSelectedTableRows = (state: EditorState) => {
+  const rect = getTableRect(state);
+
+  return Boolean(rect && !selectionIncludesHeaderRow(rect));
+};
 
 export const canMoveSelectedTableRows = (state: EditorState, direction: TableMoveDirection) => {
   const rect = getTableRect(state);

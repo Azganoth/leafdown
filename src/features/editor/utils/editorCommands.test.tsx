@@ -364,31 +364,26 @@ describe("editor commands", () => {
   });
 
   it("inserts block content after the current block", async () => {
-    const mounted = await mountEditor("First\n\nSecond");
-    const firstParagraph = mounted.view.dom.querySelector("p");
+    const cases = [
+      { commandId: "insert.heading2", tags: ["p", "h2", "p"] },
+      { commandId: "insert.blockquote", tags: ["p", "blockquote", "p"] },
+      { commandId: "insert.codeBlock", tags: ["p", "pre", "p"] },
+      { commandId: "insert.horizontalRule", tags: ["p", "hr", "p", "p"] },
+    ] as const;
 
-    expect(firstParagraph).toBeInTheDocument();
+    for (const { commandId, tags } of cases) {
+      const mounted = await mountEditor("First\n\nSecond");
 
-    setTextSelection(mounted.view, 3);
+      setTextSelection(mounted.view, 3);
 
-    expect(runEditorCommand(mounted.editor, "insert.heading2")).toBe(true);
-    expect(runEditorCommand(mounted.editor, "insert.blockquote")).toBe(true);
-    expect(runEditorCommand(mounted.editor, "insert.codeBlock")).toBe(true);
-    expect(runEditorCommand(mounted.editor, "insert.horizontalRule")).toBe(true);
+      expect(runEditorCommand(mounted.editor, commandId)).toBe(true);
 
-    const blocks = Array.from(mounted.view.dom.children);
+      const blocks = Array.from(mounted.view.dom.children);
 
-    expect(blocks.map((block) => block.tagName.toLowerCase())).toEqual([
-      "p",
-      "h2",
-      "blockquote",
-      "pre",
-      "hr",
-      "p",
-      "p",
-    ]);
-    expect(blocks[0]).toHaveTextContent("First");
-    expect(blocks.at(-1)).toHaveTextContent("Second");
+      expect(blocks.map((block) => block.tagName.toLowerCase())).toEqual(tags);
+      expect(blocks[0]).toHaveTextContent("First");
+      expect(blocks.at(-1)).toHaveTextContent("Second");
+    }
   });
 
   it("inserts after the selected block range without replacing selected content", async () => {
@@ -400,6 +395,43 @@ describe("editor commands", () => {
     expect(mounted.view.dom.querySelectorAll("p")).toHaveLength(3);
     expect(mounted.view.dom).toHaveTextContent("First");
     expect(mounted.view.dom).toHaveTextContent("Second");
+  });
+
+  it("inserts after the nearest nested block when the schema allows it", async () => {
+    const quoteEditor = await mountEditor("> First\n>\n> Second");
+    const firstQuoteParagraph = quoteEditor.view.dom.querySelector("blockquote p");
+
+    expect(firstQuoteParagraph).toBeInTheDocument();
+
+    setSelectionAtTextEnd(quoteEditor.view, firstQuoteParagraph as HTMLParagraphElement);
+
+    expect(runEditorCommand(quoteEditor.editor, "insert.heading2")).toBe(true);
+
+    const quoteBlocks = Array.from(
+      quoteEditor.view.dom.querySelector("blockquote")?.children ?? [],
+    );
+
+    expect(quoteBlocks.map((block) => block.tagName.toLowerCase())).toEqual(["p", "h2", "p"]);
+    expect(quoteBlocks[0]).toHaveTextContent("First");
+    expect(quoteBlocks[2]).toHaveTextContent("Second");
+  });
+
+  it("keeps inserted paragraphs inside the active list item", async () => {
+    const mounted = await mountEditor("- First\n- Second");
+    const firstListItem = mounted.view.dom.querySelector("li");
+
+    expect(firstListItem).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, firstListItem as HTMLLIElement);
+
+    expect(runEditorCommand(mounted.editor, "insert.paragraph")).toBe(true);
+
+    const listItems = mounted.view.dom.querySelectorAll("li");
+
+    expect(listItems).toHaveLength(2);
+    expect(listItems[0]?.querySelectorAll("p")).toHaveLength(2);
+    expect(listItems[0]).toHaveTextContent("First");
+    expect(listItems[1]).toHaveTextContent("Second");
   });
 
   it("inserts image Markdown with the caret inside the target", async () => {

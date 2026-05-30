@@ -39,26 +39,38 @@ const headingInsertLevels: Partial<Record<InsertCommandId, number>> = {
 
 const getNodeType = (state: EditorState, nodeName: string) => state.schema.nodes[nodeName] ?? null;
 
-const getInsertionPosAfterSelection = (state: EditorState) => {
+const canInsertFragmentAt = (state: EditorState, position: number, fragment: Fragment) => {
+  const $position = state.doc.resolve(position);
+
+  return $position.parent.canReplace($position.index(), $position.index(), fragment);
+};
+
+const getInsertionPosAfterSelection = (
+  state: EditorState,
+  insertNode: ProseMirrorNode | Fragment,
+) => {
   const { doc, selection } = state;
-  let insertionPos = doc.content.size;
-  let foundBlock = false;
+  const fragment = Fragment.from(insertNode);
+  const resolvePos = selection.empty ? selection.to : Math.max(selection.from, selection.to - 1);
+  const $selectionEnd = doc.resolve(resolvePos);
 
-  doc.forEach((node, pos) => {
-    const nodeEnd = pos + node.nodeSize;
-    const selectionTouchesNode = selection.empty
-      ? selection.from >= pos && selection.from <= nodeEnd
-      : pos < selection.to && nodeEnd > selection.from;
+  for (let depth = $selectionEnd.depth; depth > 0; depth -= 1) {
+    const node = $selectionEnd.node(depth);
 
-    if (!selectionTouchesNode) {
-      return;
+    if (!node.isBlock) {
+      continue;
     }
 
-    insertionPos = nodeEnd;
-    foundBlock = true;
-  });
+    const insertionPos = $selectionEnd.after(depth);
 
-  return foundBlock ? insertionPos : doc.content.size;
+    if (canInsertFragmentAt(state, insertionPos, fragment)) {
+      return insertionPos;
+    }
+  }
+
+  const docEnd = doc.content.size;
+
+  return canInsertFragmentAt(state, docEnd, fragment) ? docEnd : null;
 };
 
 const createNode = (
@@ -188,7 +200,12 @@ export const runInsertCommand = (view: EditorView, commandId: AppCommandId) => {
     return false;
   }
 
-  const insertionPos = getInsertionPosAfterSelection(view.state);
+  const insertionPos = getInsertionPosAfterSelection(view.state, insertNode);
+
+  if (insertionPos === null) {
+    return false;
+  }
+
   const tr = view.state.tr.insert(insertionPos, insertNode);
 
   if (commandId === "insert.image") {

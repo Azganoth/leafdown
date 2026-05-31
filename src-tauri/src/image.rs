@@ -63,19 +63,25 @@ pub(crate) fn resolve_image_target(
         return ResolveMarkdownImageTargetResult::UnsupportedFormat;
     }
 
-    let resolved_path = if target_path.is_absolute() {
+    let target_is_absolute = target_path.is_absolute();
+    let resolved_path = if target_is_absolute {
         normalize_path_lexically(target_path.as_path())
     } else {
         let Some(document_parent) = document_path.and_then(Path::parent) else {
             return ResolveMarkdownImageTargetResult::UntitledRelative;
         };
 
-        normalize_path_lexically(document_parent.join(target_path).as_path())
+        normalize_path_lexically(document_parent.join(&target_path).as_path())
     };
 
     let folder_context_path = folder_context_path.or_else(|| document_path.and_then(Path::parent));
 
-    if !explicit_load && resolves_outside_folder(resolved_path.as_path(), folder_context_path) {
+    let is_absolute_target_without_context = target_is_absolute && folder_context_path.is_none();
+
+    if !explicit_load
+        && (is_absolute_target_without_context
+            || resolves_outside_folder(resolved_path.as_path(), folder_context_path))
+    {
         return ResolveMarkdownImageTargetResult::OutsideFolder;
     }
 
@@ -438,6 +444,34 @@ mod tests {
             Some(document_path.as_path()),
             Some(root.path.as_path()),
             relative_target.as_str(),
+            true,
+        );
+
+        assert_eq!(
+            blocked_result,
+            ResolveMarkdownImageTargetResult::OutsideFolder
+        );
+        assert_eq!(
+            renderable_path(allowed_result),
+            image_path.canonicalize().unwrap().to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn requires_explicit_load_for_absolute_images_without_a_folder_context() {
+        let root = TestDirectory::new("absolute-without-context");
+        let image_path = root.write_file("outside.png");
+
+        let blocked_result = resolve_image_target(
+            None,
+            None,
+            image_path.as_path().to_string_lossy().as_ref(),
+            false,
+        );
+        let allowed_result = resolve_image_target(
+            None,
+            None,
+            image_path.as_path().to_string_lossy().as_ref(),
             true,
         );
 

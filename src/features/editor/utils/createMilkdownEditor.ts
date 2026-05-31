@@ -12,6 +12,7 @@ import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
+import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
@@ -24,6 +25,7 @@ export const createMilkdownEditor = async ({
   onCommandStateChanged,
   getAutoPairBracketsAndQuotes = () => true,
   getImageContext,
+  getLinkContext,
 }: CreateMilkdownEditorOptions) => {
   const parser = await createLeafdownHighlightParser();
 
@@ -36,6 +38,7 @@ export const createMilkdownEditor = async ({
     .use(listener)
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getImageContext))
+    .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
     .use(createLeafdownCommandStatePlugin(() => onCommandStateChanged?.()))
     .use(createLeafdownTaskListCheckboxPlugin())

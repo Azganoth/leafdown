@@ -68,9 +68,13 @@ describe("MilkdownEditor", () => {
       documentPath: null,
       folderContextPath: null,
     });
+    expect(options.getLinkContext?.()).toEqual({
+      documentPath: null,
+      folderContextPath: null,
+    });
   });
 
-  it("passes live editor settings and image context without recreating the editor", async () => {
+  it("passes live editor settings and link/image context without recreating the editor", async () => {
     const editor = createMockEditor();
     milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
@@ -96,6 +100,10 @@ describe("MilkdownEditor", () => {
       documentPath: "C:/Notes/readme.md",
       folderContextPath: "C:/Notes",
     });
+    expect(options.getLinkContext?.()).toEqual({
+      documentPath: "C:/Notes/readme.md",
+      folderContextPath: "C:/Notes",
+    });
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-code-block-soft-wrap",
       "false",
@@ -115,6 +123,10 @@ describe("MilkdownEditor", () => {
     expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
     expect(options.getAutoPairBracketsAndQuotes?.()).toBe(false);
     expect(options.getImageContext?.()).toEqual({
+      documentPath: "C:/Notes/renamed.md",
+      folderContextPath: "C:/Notes",
+    });
+    expect(options.getLinkContext?.()).toEqual({
       documentPath: "C:/Notes/renamed.md",
       folderContextPath: "C:/Notes",
     });

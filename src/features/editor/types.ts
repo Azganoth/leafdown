@@ -1,6 +1,7 @@
 import type { Editor } from "@milkdown/kit/core";
 import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 import type { MarkdownImageContext } from "./plugins/imageView";
+import type { MarkdownLinkContext } from "./utils/linkActivation";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -21,6 +22,7 @@ export interface CreateMilkdownEditorOptions {
   onCommandStateChanged?: () => void;
   getAutoPairBracketsAndQuotes?: () => boolean;
   getImageContext?: () => MarkdownImageContext;
+  getLinkContext?: () => MarkdownLinkContext;
 }
 
 export type MilkdownEditorInstance = Editor;

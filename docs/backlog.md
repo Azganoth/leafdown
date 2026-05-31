@@ -29,6 +29,7 @@
 - Command menu
 - Remote image explicit load action
 - Gutter plus insertion button
+- Keyboard-selection context popup trigger
 
 ## Markdown Extensions
 

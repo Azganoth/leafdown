@@ -61,7 +61,7 @@ describe("marker presentation", () => {
     await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
   });
 
-  it("shows subtle block markers only for collapsed caret context", async () => {
+  it("shows subtle heading markers only for collapsed caret context", async () => {
     const mounted = await mountEditor("# Heading");
     const heading = mounted.view.dom.querySelector("h1");
 
@@ -115,7 +115,7 @@ describe("marker presentation", () => {
     });
   });
 
-  it("tracks collapsed-caret markers for blockquotes and list items", async () => {
+  it("does not add caret markers to blockquotes or list items", async () => {
     const mounted = await mountEditor(`> Quote
 
 3. Ordered
@@ -135,19 +135,23 @@ describe("marker presentation", () => {
 
     setSelectionAtTextEnd(mounted.view, blockquote as HTMLElement);
 
-    expect(blockquote).toHaveAttribute("data-leafdown-marker", ">");
+    expect(blockquote).not.toHaveClass("leafdown-marker-node--subtle");
+    expect(blockquote).not.toHaveAttribute("data-leafdown-marker");
 
     setSelectionAtTextEnd(mounted.view, orderedListItem as HTMLElement);
 
-    expect(orderedListItem).toHaveAttribute("data-leafdown-marker", "3.");
+    expect(orderedListItem).not.toHaveClass("leafdown-marker-node--subtle");
+    expect(orderedListItem).not.toHaveAttribute("data-leafdown-marker");
 
     setSelectionAtTextEnd(mounted.view, unorderedListItem as HTMLElement);
 
-    expect(unorderedListItem).toHaveAttribute("data-leafdown-marker", "-");
+    expect(unorderedListItem).not.toHaveClass("leafdown-marker-node--subtle");
+    expect(unorderedListItem).not.toHaveAttribute("data-leafdown-marker");
 
     setSelectionAtTextEnd(mounted.view, taskListItem as HTMLElement);
 
-    expect(taskListItem).toHaveAttribute("data-leafdown-marker", "[ ]");
+    expect(taskListItem).not.toHaveClass("leafdown-marker-node--subtle");
+    expect(taskListItem).not.toHaveAttribute("data-leafdown-marker");
   });
 
   it("exposes autolinks as editable raw Markdown source", async () => {
@@ -235,7 +239,7 @@ describe("marker presentation", () => {
     );
   });
 
-  it("keeps code blocks visual while exposing language metadata control", async () => {
+  it("keeps code blocks visual without MVP language controls", async () => {
     const mounted = await mountEditor(`\`\`\`ts
 const value = 1;
 \`\`\``);
@@ -245,20 +249,12 @@ const value = 1;
 
     setSelectionAtTextEnd(mounted.view, code as HTMLElement);
 
-    const input = mounted.view.dom.querySelector<HTMLInputElement>(".leafdown-code-language-input");
-
-    expect(input).toHaveValue("ts");
     expect(mounted.view.dom.querySelector("pre")).toHaveTextContent("const value = 1;");
-
-    fireEvent.input(input as HTMLInputElement, { target: { value: "rust" } });
-    fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("```rust\nconst value = 1;\n```\n");
-    });
+    expect(mounted.view.dom.querySelector(".leafdown-code-language-input")).not.toBeInTheDocument();
+    expect(mounted.view.dom).not.toHaveTextContent("```");
   });
 
-  it("marks tables and horizontal rules as visual objects instead of raw delimiters", async () => {
+  it("keeps tables and horizontal rules rendered without marker affordances", async () => {
     const mounted = await mountEditor(`First
 
 ---
@@ -269,6 +265,8 @@ const value = 1;
     const horizontalRule = mounted.view.dom.querySelector("hr");
 
     expect(horizontalRule).toBeInTheDocument();
+    expect(mounted.view.dom.querySelector("table")).toHaveTextContent("CD");
+    expect(mounted.view.dom).not.toHaveTextContent("---");
 
     const horizontalRulePos = (() => {
       let position: number | null = null;
@@ -295,8 +293,9 @@ const value = 1;
       ),
     );
 
-    expect(mounted.view.dom.querySelector("hr")).toHaveClass("leafdown-visual-object--active");
-    expect(mounted.view.dom).not.toHaveTextContent("---");
-    expect(mounted.view.dom.querySelector("table")).toHaveTextContent("CD");
+    expect(mounted.view.dom.querySelector("hr")).not.toHaveClass("leafdown-visual-object--active");
+    expect(mounted.view.dom.querySelector("table")).not.toHaveClass(
+      "leafdown-visual-object--active",
+    );
   });
 });

@@ -52,8 +52,6 @@ const getMarkerDecorations = (state: EditorState) => {
 
   addPersistentFootnoteDefinitionMarkers(state, decorations);
   addCaretBasedMarkers(state, decorations);
-  addVisualObjectAffordances(state, decorations);
-  addFocusedCodeBlockLanguageControl(state, decorations);
   addFocusedInlineSourceEditor(state, decorations);
   addFocusedSourceNodeEditors(state, decorations);
 
@@ -89,7 +87,7 @@ const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => 
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth);
     const pos = $from.before(depth);
-    const marker = getSubtleMarkerForNode($from, depth, node);
+    const marker = getSubtleMarkerForNode(node);
 
     if (!marker) {
       continue;
@@ -97,38 +95,6 @@ const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => 
 
     decorations.push(createSubtleMarkerDecoration(pos, node, marker));
   }
-};
-
-const addVisualObjectAffordances = (state: EditorState, decorations: Decoration[]) => {
-  const activeRanges = getActiveVisualObjectRanges(state);
-
-  for (const range of activeRanges) {
-    decorations.push(
-      Decoration.node(range.from, range.to, {
-        class: "leafdown-visual-object--active",
-      }),
-    );
-  }
-};
-
-const addFocusedCodeBlockLanguageControl = (state: EditorState, decorations: Decoration[]) => {
-  const codeBlock = getActiveCodeBlock(state);
-
-  if (!codeBlock || !isCaretSelection(state)) {
-    return;
-  }
-
-  decorations.push(
-    Decoration.widget(
-      codeBlock.pos + 1,
-      (view, getPos) => createCodeBlockLanguageControl(view, getPos, codeBlock.node),
-      {
-        key: `code-language:${codeBlock.pos}:${codeBlock.node.attrs.language ?? ""}`,
-        side: -1,
-        stopEvent: isWidgetInputEvent,
-      },
-    ),
-  );
 };
 
 const addFocusedInlineSourceEditor = (state: EditorState, decorations: Decoration[]) => {
@@ -213,170 +179,14 @@ const createSubtleMarkerDecoration = (pos: number, node: ProseMirrorNode, marker
     "data-leafdown-marker": marker,
   });
 
-const getSubtleMarkerForNode = (
-  $from: TextSelection["$from"],
-  depth: number,
-  node: ProseMirrorNode,
-) => {
+const getSubtleMarkerForNode = (node: ProseMirrorNode) => {
   switch (node.type.name) {
     case "heading":
       return `H${node.attrs.level ?? 1}`;
 
-    case "blockquote":
-      return ">";
-
-    case "list_item":
-      return getListItemMarker($from, depth, node);
-
     default:
       return null;
   }
-};
-
-const getListItemMarker = ($from: TextSelection["$from"], depth: number, node: ProseMirrorNode) => {
-  if (node.attrs.checked === true) {
-    return "[x]";
-  }
-
-  if (node.attrs.checked === false) {
-    return "[ ]";
-  }
-
-  const parent = depth > 0 ? $from.node(depth - 1) : null;
-
-  if (parent?.type.name === "ordered_list") {
-    const order = Number(parent.attrs.order ?? 1);
-    const index = $from.index(depth - 1);
-
-    return `${order + index}.`;
-  }
-
-  if (parent?.type.name === "bullet_list") {
-    return "-";
-  }
-
-  return null;
-};
-
-const getActiveVisualObjectRanges = (state: EditorState): TextRange[] => {
-  const { selection } = state;
-  const ranges: TextRange[] = [];
-
-  if (selection instanceof TextSelection && selection.empty) {
-    for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
-      const node = selection.$from.node(depth);
-
-      if (!isVisualObjectNode(node)) {
-        continue;
-      }
-
-      const from = selection.$from.before(depth);
-
-      ranges.push({ from, to: from + node.nodeSize });
-    }
-  }
-
-  state.doc.nodesBetween(selection.from, selection.to, (node, pos) => {
-    if (!isVisualObjectNode(node)) {
-      return true;
-    }
-
-    if (
-      selection.from <= pos + node.nodeSize &&
-      selection.to >= pos &&
-      !ranges.some((range) => range.from === pos)
-    ) {
-      ranges.push({ from: pos, to: pos + node.nodeSize });
-    }
-
-    return false;
-  });
-
-  return ranges;
-};
-
-const isVisualObjectNode = (node: ProseMirrorNode) =>
-  node.type.name === "code_block" || node.type.name === "table" || node.type.name === "hr";
-
-const getActiveCodeBlock = (state: EditorState): NodeWithPos | null => {
-  const { selection } = state;
-
-  if (!(selection instanceof TextSelection)) {
-    return null;
-  }
-
-  for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
-    const node = selection.$from.node(depth);
-
-    if (node.type.name !== "code_block") {
-      continue;
-    }
-
-    return {
-      node,
-      pos: selection.$from.before(depth),
-    };
-  }
-
-  return null;
-};
-
-const createCodeBlockLanguageControl = (
-  view: EditorView,
-  getPos: () => number | undefined,
-  node: ProseMirrorNode,
-) => {
-  const label = document.createElement("label");
-  const input = document.createElement("input");
-
-  label.className = "leafdown-code-language-control";
-  label.contentEditable = "false";
-  label.textContent = "Language";
-  input.className = "leafdown-code-language-input";
-  input.type = "text";
-  input.value = String(node.attrs.language ?? "");
-  input.placeholder = "plain text";
-  input.setAttribute("aria-label", "Code block language");
-  label.append(input);
-
-  const applyLanguage = () => {
-    const position = getPos();
-
-    if (typeof position !== "number") {
-      return;
-    }
-
-    const codeBlock = view.state.doc.nodeAt(position - 1);
-
-    if (codeBlock?.type.name !== "code_block") {
-      return;
-    }
-
-    view.dispatch(
-      view.state.tr
-        .setNodeMarkup(position - 1, undefined, {
-          ...codeBlock.attrs,
-          language: input.value.trim(),
-        })
-        .scrollIntoView(),
-    );
-  };
-
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      applyLanguage();
-      view.focus();
-    }
-
-    if (event.key === "Escape") {
-      event.preventDefault();
-      view.focus();
-    }
-  });
-  input.addEventListener("blur", applyLanguage);
-
-  return label;
 };
 
 const getActiveInlineSourceMarkRange = (state: EditorState): ActiveMarkRange | null => {

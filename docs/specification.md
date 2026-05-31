@@ -131,9 +131,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 ### Marker Visibility and Presentation
 
-- Content that shows the syntax marker decoration when the caret is inside the block:
-  Headings, Blockquotes, Lists.
-- Content that shows visual object controls or affordance: Horizontal rules, Code blocks,
+- Content that shows the syntax marker decoration when the caret is inside the
+  block: Headings.
+- Content that remains structurally rendered without marker-driven MVP controls
+  or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks,
   Tables.
 - Content that shows the editable raw markdown syntax: Strong, Emphasis,
   Strikethrough, Inline code, Links, Images, Footnote references, Autolinks, Raw HTML.
@@ -144,18 +145,17 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Headings render structurally. When the caret is inside a heading, show a
   subtle heading marker.
 - Lists render structurally with visual list markers.
-- Blockquotes render structurally and may show a subtle quote marker when the
-  caret is inside the block.
-- Horizontal rules render as separators. Focus or selection shows a divider
-  affordance or block actions rather than the raw marker used to create it.
+- Blockquotes render structurally.
+- Horizontal rules render as separators without exposing the raw marker used to
+  create them.
 - List items and blockquotes may contain other block-level elements.
 - Ordered lists render with visual continuation.
 - Clicking a task-list checkbox toggles it checked or unchecked.
 - Tables render as editable table blocks. Basic table editing uses visual table
   interaction; pipe-delimited Markdown is not exposed in the editor surface.
 - Code blocks render as styled monospace blocks with syntax highlighting when
-  available. Focused code blocks edit code content directly and expose the
-  language identifier as metadata.
+  available. Focused code blocks edit code content directly. Language metadata
+  controls are deferred to Post-MVP.
 - Footnote definitions render as editable definition blocks with a persistent
   subtle definition marker.
 

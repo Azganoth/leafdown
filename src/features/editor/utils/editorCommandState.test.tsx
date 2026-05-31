@@ -47,6 +47,8 @@ describe("editor command state", () => {
     expect(state.enabledCommands["edit.copy"]).toBe(false);
     expect(state.enabledCommands["edit.deleteWordBackward"]).toBe(true);
     expect(state.enabledCommands["edit.deleteWordForward"]).toBe(false);
+    expect(state.enabledCommands["insert.image"]).toBe(true);
+    expect(state.enabledCommands["insert.table"]).toBe(true);
     expect(state.enabledCommands["format.strong"]).toBe(true);
     expect(state.enabledCommands["format.paragraph"]).toBe(true);
     expect(state.enabledCommands["format.clearInline"]).toBe(false);
@@ -101,6 +103,37 @@ describe("editor command state", () => {
     expect(state.hasTableSelection).toBe(true);
     expect(state.enabledCommands["edit.selectWord"]).toBe(true);
     expect(state.enabledCommands["edit.deleteWordBackward"]).toBe(true);
+    expect(state.enabledCommands["format.table.delete"]).toBe(true);
+    expect(state.enabledCommands["format.table.addRowAbove"]).toBe(true);
+    expect(state.enabledCommands["format.table.addColumnAfter"]).toBe(true);
+    expect(state.enabledCommands["format.table.deleteRow"]).toBe(true);
+    expect(state.enabledCommands["format.table.deleteColumn"]).toBe(true);
+    expect(state.enabledCommands["format.table.moveRowUp"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveRowDown"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveColumnLeft"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveColumnRight"]).toBe(true);
+  });
+
+  it("disables row commands that would change the table header row", async () => {
+    const mounted = await mountEditor("| A | B |\n| - | - |\n| C | D |");
+    const firstHeaderCell = mounted.view.dom.querySelector("th");
+
+    expect(firstHeaderCell).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, firstHeaderCell as HTMLTableCellElement);
+
+    const state = getEditorCommandState(mounted.view);
+
+    expect(state.hasTableSelection).toBe(true);
+    expect(state.enabledCommands["format.table.addRowAbove"]).toBe(false);
+    expect(state.enabledCommands["format.table.addRowBelow"]).toBe(true);
+    expect(state.enabledCommands["format.table.addColumnAfter"]).toBe(true);
+    expect(state.enabledCommands["format.table.deleteRow"]).toBe(false);
+    expect(state.enabledCommands["format.table.deleteColumn"]).toBe(true);
+    expect(state.enabledCommands["format.table.moveRowUp"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveRowDown"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveColumnLeft"]).toBe(false);
+    expect(state.enabledCommands["format.table.moveColumnRight"]).toBe(true);
   });
 
   it("tracks formatting-specific command availability", async () => {

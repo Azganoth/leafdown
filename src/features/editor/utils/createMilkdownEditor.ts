@@ -11,6 +11,7 @@ import { createLeafdownHighlightParser } from "./highlighting";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
+import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
 
@@ -26,6 +27,7 @@ export const createMilkdownEditor = async ({
 
   return Editor.make()
     .use(commonmark)
+    .use(createLeafdownTableKeyboardPlugin())
     .use(gfm)
     .use(history)
     .use(clipboard)

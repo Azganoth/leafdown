@@ -12,6 +12,14 @@ import {
   hasRemovableBlockFormatting,
   hasTaskListItemSelection,
 } from "./blockFormattingCommands";
+import {
+  canAddSelectedTableRowAbove,
+  canAddSelectedTableRowBelow,
+  canDeleteSelectedTableRows,
+  canMoveSelectedTableColumns,
+  canMoveSelectedTableRows,
+  hasTableContext,
+} from "./tableCommands";
 
 interface TextWordRange {
   from: number;
@@ -35,7 +43,22 @@ const activeEditorCommands = [
   "edit.jumpToBottom",
   "edit.jumpToLineStart",
   "edit.jumpToLineEnd",
+  "insert.paragraph",
+  "insert.heading1",
+  "insert.heading2",
+  "insert.heading3",
+  "insert.heading4",
+  "insert.heading5",
+  "insert.heading6",
   "insert.link",
+  "insert.image",
+  "insert.orderedList",
+  "insert.unorderedList",
+  "insert.taskList",
+  "insert.blockquote",
+  "insert.codeBlock",
+  "insert.table",
+  "insert.horizontalRule",
   "format.strong",
   "format.emphasis",
   "format.strikethrough",
@@ -90,18 +113,6 @@ const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo |
     start: selection.$from.start(),
     text: textBlock.textBetween(0, textBlock.content.size, "\n", "\n"),
   };
-};
-
-const isInsideNode = (state: EditorState, nodeNames: Set<string>) => {
-  const { selection } = state;
-
-  for (let depth = selection.$from.depth; depth > 0; depth -= 1) {
-    if (nodeNames.has(selection.$from.node(depth).type.name)) {
-      return true;
-    }
-  }
-
-  return false;
 };
 
 const hasClearableInlineFormatting = (state: EditorState) => {
@@ -212,10 +223,7 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const hasWordAfterSelection = Boolean(getTextWordRangeAfterSelection(state));
   const hasWordAtSelection = Boolean(getTextWordRangeAtSelection(state));
   const hasWordBeforeSelection = Boolean(getTextWordRangeBeforeSelection(state));
-  const hasTableSelection = isInsideNode(
-    state,
-    new Set(["table", "table_cell", "table_header", "table_row"]),
-  );
+  const hasTableSelection = hasTableContext(state);
   const enabledCommands: Partial<Record<AppCommandId, boolean>> = {
     "edit.undo": undoDepth(state) > 0,
     "edit.redo": redoDepth(state) > 0,
@@ -239,6 +247,17 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   enabledCommands["format.decreaseListIndent"] = canDecreaseListIndent(state);
   enabledCommands["format.toggleTaskChecked"] = hasTaskListItemSelection(state);
   enabledCommands["format.clearBlock"] = hasRemovableBlockFormatting(state);
+  enabledCommands["format.table.delete"] = hasTableSelection;
+  enabledCommands["format.table.addRowAbove"] = canAddSelectedTableRowAbove(state);
+  enabledCommands["format.table.addRowBelow"] = canAddSelectedTableRowBelow(state);
+  enabledCommands["format.table.addColumnBefore"] = hasTableSelection;
+  enabledCommands["format.table.addColumnAfter"] = hasTableSelection;
+  enabledCommands["format.table.moveRowUp"] = canMoveSelectedTableRows(state, -1);
+  enabledCommands["format.table.moveRowDown"] = canMoveSelectedTableRows(state, 1);
+  enabledCommands["format.table.moveColumnLeft"] = canMoveSelectedTableColumns(state, -1);
+  enabledCommands["format.table.moveColumnRight"] = canMoveSelectedTableColumns(state, 1);
+  enabledCommands["format.table.deleteRow"] = canDeleteSelectedTableRows(state);
+  enabledCommands["format.table.deleteColumn"] = hasTableSelection;
 
   return {
     enabledCommands,

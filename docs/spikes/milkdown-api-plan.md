@@ -311,10 +311,10 @@ implementation details:
   otherwise win the cascade.
 - Product direction changed after seeing the rendered ProseMirror model:
   Leafdown now chooses marker presentation per Markdown object. Structural block
-  editing is already handled by Milkdown/ProseMirror, so headings, blockquotes,
-  and lists use subtle caret-based markers, footnote definitions keep a
-  persistent marker, and tables, code blocks, and horizontal rules remain visual
-  objects or controls. Inline and source-oriented objects can still expose
-  editable raw Markdown syntax. See
+  editing is already handled by Milkdown/ProseMirror, so headings use subtle
+  caret-based markers, footnote definitions keep a persistent marker, and
+  blockquotes, lists, tables, code blocks, and horizontal rules remain rendered
+  structural objects without marker-driven MVP affordances. Inline and
+  source-oriented objects can still expose editable raw Markdown syntax. See
   `docs/decisions.md#treat-marker-presentation-as-object-specific` and
   `docs/specification.md#marker-visibility-and-presentation`.

@@ -92,6 +92,10 @@ Markdown editing.
   per-object behavior.
 - Tables, code blocks, and horizontal rules remain visual objects rather than
   raw delimiter editing surfaces.
+- Blockquotes and lists rely on structural presentation rather than caret marker
+  decorations.
+- MVP visual objects do not add marker-driven borders, code-language inputs, or
+  other layout-changing affordances unless separately specified.
 - Selection alone does not change marker visibility.
 
 ### Local-first

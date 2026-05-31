@@ -3,14 +3,25 @@ import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "./MilkdownEditor.css";
 
 import { editorViewCtx } from "@milkdown/kit/core";
-import { type Ref, useEffect, useImperativeHandle, useLayoutEffect, useRef } from "react";
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { cn } from "@/lib/cn";
+import { inactiveEditorCommandState } from "@/lib/documentEditorBridge";
 
 import { createMilkdownEditor, getMilkdownEditorMarkdown } from "../utils/createMilkdownEditor";
 import { runEditorCommand } from "../utils/editorCommands";
 import { getEditorCommandState } from "../utils/editorCommandState";
+import { EditorContextPopup } from "./EditorContextPopup";
 import type {
+  EditorContextPopupRequest,
   MilkdownEditorBridge,
   MilkdownEditorInstance,
   MilkdownMarkdownUpdate,
@@ -45,19 +56,26 @@ export function MilkdownEditor({
 }: MilkdownEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
+  const [commandStateVersion, setCommandStateVersion] = useState(0);
+  const [contextPopupRequest, setContextPopupRequest] = useState<EditorContextPopupRequest | null>(
+    null,
+  );
 
   const onMarkdownUpdatedRef = useRef(onMarkdownUpdated);
   const onContentTransactionRef = useRef(onContentTransaction);
   const onCommandStateChangedRef = useRef(onCommandStateChanged);
   const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
+  const initialMarkdownRef = useRef(initialMarkdown);
   const documentPathRef = useRef(documentPath);
   const folderContextPathRef = useRef(folderContextPath);
+  const contextPopupOpenRef = useRef(false);
 
   useLayoutEffect(() => {
     onMarkdownUpdatedRef.current = onMarkdownUpdated;
     onContentTransactionRef.current = onContentTransaction;
     onCommandStateChangedRef.current = onCommandStateChanged;
     autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
+    initialMarkdownRef.current = initialMarkdown;
     documentPathRef.current = documentPath;
     folderContextPathRef.current = folderContextPath;
   }, [
@@ -65,6 +83,7 @@ export function MilkdownEditor({
     onContentTransaction,
     onCommandStateChanged,
     autoPairBracketsAndQuotes,
+    initialMarkdown,
     documentPath,
     folderContextPath,
   ]);
@@ -82,18 +101,7 @@ export function MilkdownEditor({
         return getMilkdownEditorMarkdown(editor);
       },
       getCommandState: () => {
-        const editor = editorRef.current;
-
-        if (!editor) {
-          return {
-            enabledCommands: {},
-            hasActiveEditor: false,
-            hasSelection: false,
-            hasTableSelection: false,
-          };
-        }
-
-        return getEditorCommandState(editor.ctx.get(editorViewCtx));
+        return getCurrentCommandState();
       },
       runCommand: (commandId) => {
         const editor = editorRef.current;
@@ -106,6 +114,35 @@ export function MilkdownEditor({
       },
     }),
     [],
+  );
+
+  const closeContextPopup = useCallback(() => {
+    contextPopupOpenRef.current = false;
+    setContextPopupRequest(null);
+  }, []);
+
+  const requestContextPopup = useCallback((request: EditorContextPopupRequest) => {
+    contextPopupOpenRef.current = true;
+    setContextPopupRequest(request);
+  }, []);
+
+  const notifyCommandStateChanged = useCallback(() => {
+    setCommandStateVersion((version) => version + 1);
+    onCommandStateChangedRef.current?.();
+  }, []);
+
+  const executeContextCommand = useCallback(
+    (commandId: Parameters<typeof runEditorCommand>[1]) => {
+      const editor = editorRef.current;
+
+      if (!editor) {
+        return;
+      }
+
+      closeContextPopup();
+      void Promise.resolve(runEditorCommand(editor, commandId)).catch(console.error);
+    },
+    [closeContextPopup],
   );
 
   useEffect(() => {
@@ -122,10 +159,13 @@ export function MilkdownEditor({
 
       const editor = await createMilkdownEditor({
         root,
-        initialMarkdown,
+        initialMarkdown: initialMarkdownRef.current,
         onMarkdownUpdated: (update) => onMarkdownUpdatedRef.current?.(update),
         onContentTransaction: () => onContentTransactionRef.current?.(),
-        onCommandStateChanged: () => onCommandStateChangedRef.current?.(),
+        onCommandStateChanged: notifyCommandStateChanged,
+        onContextPopupClosed: closeContextPopup,
+        onContextPopupRequested: requestContextPopup,
+        getContextPopupOpen: () => contextPopupOpenRef.current,
         getAutoPairBracketsAndQuotes: () => autoPairBracketsAndQuotesRef.current,
         getImageContext: () => ({
           documentPath: documentPathRef.current,
@@ -150,7 +190,7 @@ export function MilkdownEditor({
       }
 
       editorRef.current = editor;
-      onCommandStateChangedRef.current?.();
+      notifyCommandStateChanged();
     };
 
     void createEditor().catch(console.error);
@@ -162,9 +202,31 @@ export function MilkdownEditor({
         void editorRef.current.destroy();
         editorRef.current = null;
       }
+
+      closeContextPopup();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentKey]);
+  }, [closeContextPopup, documentKey, notifyCommandStateChanged, requestContextPopup]);
+
+  const getCurrentCommandState = () => {
+    const editor = editorRef.current;
+
+    if (!editor) {
+      return inactiveEditorCommandState;
+    }
+
+    try {
+      return getEditorCommandState(editor.ctx.get(editorViewCtx));
+    } catch {
+      return {
+        ...inactiveEditorCommandState,
+        hasActiveEditor: true,
+      };
+    }
+  };
+
+  const contextPopupCommandState = getCurrentCommandState();
+
+  void commandStateVersion;
 
   return (
     <div
@@ -173,6 +235,13 @@ export function MilkdownEditor({
       data-testid="milkdown-editor-host"
     >
       <div ref={rootRef} className="min-h-full w-full" />
+      <EditorContextPopup
+        anchor={contextPopupRequest?.anchor ?? null}
+        commandState={contextPopupCommandState}
+        onClose={closeContextPopup}
+        onExecuteCommand={executeContextCommand}
+        open={Boolean(contextPopupRequest)}
+      />
     </div>
   );
 }

@@ -156,7 +156,7 @@ fn parse_file_url(target: &str) -> Option<PathBuf> {
 
     if cfg!(windows)
         && decoded_path.len() >= 4
-        && decoded_path.as_bytes().get(0) == Some(&b'/')
+        && decoded_path.as_bytes().first() == Some(&b'/')
         && decoded_path
             .as_bytes()
             .get(1)

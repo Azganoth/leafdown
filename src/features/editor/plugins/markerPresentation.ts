@@ -468,8 +468,13 @@ const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRang
 
 const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
   const input = createSourceInput("Inline Markdown", serializeMarkSource(view.state, range));
+  let applied = false;
 
   const applySource = () => {
+    if (applied) {
+      return;
+    }
+
     const parsed = parseMarkSource(input.value, range.mark.type.name);
 
     if (!parsed) {
@@ -483,6 +488,7 @@ const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
     const textNode = view.state.schema.text(parsed.text, [mark]);
     const tr = view.state.tr.replaceWith(range.from, range.to, textNode);
 
+    applied = true;
     dispatchWithTextSelection(view, tr, range.from + parsed.text.length);
   };
 

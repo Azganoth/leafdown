@@ -67,9 +67,10 @@ describe("marker presentation", () => {
 
     fireEvent.input(input as HTMLInputElement, { target: { value: "**Updated**" } });
     fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
+    fireEvent.blur(input as HTMLInputElement);
 
     await waitFor(() => {
-      expect(mounted.getMarkdown()).toContain("**Updated** plain");
+      expect(mounted.getMarkdown()).toBe("**Updated** plain\n");
     });
   });
 

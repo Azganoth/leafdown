@@ -131,6 +131,10 @@ export function MilkdownEditor({
           documentPath: documentPathRef.current,
           folderContextPath: folderContextPathRef.current,
         }),
+        getLinkContext: () => ({
+          documentPath: documentPathRef.current,
+          folderContextPath: folderContextPathRef.current,
+        }),
       });
 
       if (disposed) {

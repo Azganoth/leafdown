@@ -42,6 +42,10 @@ export const mountMilkdownEditor = async (
       documentPath: options.documentPath ?? null,
       folderContextPath: options.folderContextPath ?? null,
     }),
+    getLinkContext: () => ({
+      documentPath: options.documentPath ?? null,
+      folderContextPath: options.folderContextPath ?? null,
+    }),
   });
   await editor.create();
 

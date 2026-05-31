@@ -1,6 +1,8 @@
 import { fireEvent, waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { setSelectionAtTextEnd, setTextSelection } from "@/test/utils/prosemirror";
@@ -15,7 +17,46 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
   return mounted;
 };
 
+const mountEditorWithImageContext = async (
+  initialMarkdown: string,
+): Promise<MountedMilkdownEditor> => {
+  const mounted = await mountMilkdownEditor(initialMarkdown, {
+    documentPath: "C:/Notes/readme.md",
+    folderContextPath: "C:/Notes",
+    rootClassName: "leafdown-editor",
+  });
+  mountedEditors.push(mounted);
+  return mounted;
+};
+
+const getNodePosition = (
+  mounted: MountedMilkdownEditor,
+  typeName: string,
+  predicate: (node: ProseMirrorNode) => boolean = () => true,
+) => {
+  let position: number | null = null;
+
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (node.type.name !== typeName || !predicate(node)) {
+      return true;
+    }
+
+    position = pos;
+    return false;
+  });
+
+  if (position === null) {
+    throw new Error(`Could not find ${typeName} node.`);
+  }
+
+  return position;
+};
+
 describe("marker presentation", () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+  });
+
   afterEach(async () => {
     await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
   });
@@ -72,6 +113,126 @@ describe("marker presentation", () => {
     await waitFor(() => {
       expect(mounted.getMarkdown()).toBe("**Updated** plain\n");
     });
+  });
+
+  it("tracks collapsed-caret markers for blockquotes and list items", async () => {
+    const mounted = await mountEditor(`> Quote
+
+3. Ordered
+
+- Bullet
+
+- [ ] Todo`);
+    const blockquote = mounted.view.dom.querySelector("blockquote");
+    const orderedListItem = mounted.view.dom.querySelector("ol li");
+    const unorderedListItem = mounted.view.dom.querySelector("ul li:not([data-checked])");
+    const taskListItem = mounted.view.dom.querySelector("li[data-checked='false']");
+
+    expect(blockquote).toBeInTheDocument();
+    expect(orderedListItem).toBeInTheDocument();
+    expect(unorderedListItem).toBeInTheDocument();
+    expect(taskListItem).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, blockquote as HTMLElement);
+
+    expect(blockquote).toHaveAttribute("data-leafdown-marker", ">");
+
+    setSelectionAtTextEnd(mounted.view, orderedListItem as HTMLElement);
+
+    expect(orderedListItem).toHaveAttribute("data-leafdown-marker", "3.");
+
+    setSelectionAtTextEnd(mounted.view, unorderedListItem as HTMLElement);
+
+    expect(unorderedListItem).toHaveAttribute("data-leafdown-marker", "-");
+
+    setSelectionAtTextEnd(mounted.view, taskListItem as HTMLElement);
+
+    expect(taskListItem).toHaveAttribute("data-leafdown-marker", "[ ]");
+  });
+
+  it("exposes autolinks as editable raw Markdown source", async () => {
+    const mounted = await mountEditor("<https://example.com>");
+    const link = mounted.view.dom.querySelector("a");
+
+    expect(link).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, link as HTMLElement);
+
+    const input = mounted.view.dom.querySelector<HTMLInputElement>(
+      ".leafdown-source-edit[aria-label='Inline Markdown']",
+    );
+
+    expect(input).toHaveValue("<https://example.com>");
+
+    fireEvent.input(input as HTMLInputElement, {
+      target: { value: "<https://leafdown.dev>" },
+    });
+    fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mounted.getMarkdown()).toBe("<https://leafdown.dev>\n");
+    });
+  });
+
+  it("exposes footnote references as editable raw Markdown source", async () => {
+    const mounted = await mountEditor("Text[^note]\n\n[^note]: Detail");
+    const footnoteReferencePos = getNodePosition(mounted, "footnote_reference");
+
+    setTextSelection(mounted.view, footnoteReferencePos);
+
+    const input = mounted.view.dom.querySelector<HTMLInputElement>(
+      ".leafdown-source-edit[aria-label='Markdown source']",
+    );
+
+    expect(input).toHaveValue("[^note]");
+
+    fireEvent.input(input as HTMLInputElement, { target: { value: "[^updated]" } });
+    fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mounted.getMarkdown()).toContain("Text[^updated]");
+    });
+  });
+
+  it("exposes raw HTML as editable raw Markdown source", async () => {
+    const mounted = await mountEditor("<span>HTML</span>");
+    const htmlPos = getNodePosition(mounted, "html", (node) =>
+      String(node.attrs.value).startsWith("<span"),
+    );
+
+    setTextSelection(mounted.view, htmlPos);
+
+    const input = mounted.view.dom.querySelector<HTMLInputElement>(
+      ".leafdown-source-edit[aria-label='Markdown source']",
+    );
+
+    expect(input).toHaveValue("<span>");
+
+    fireEvent.input(input as HTMLInputElement, { target: { value: "<mark>" } });
+    fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mounted.getMarkdown()).toContain("<mark>HTML</span>");
+    });
+  });
+
+  it("keeps image focus exposing editable raw Markdown", async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      kind: "renderable",
+      path: "C:\\Notes\\assets\\icon.png",
+    });
+
+    const mounted = await mountEditorWithImageContext("![Alt](./assets/icon.png)");
+
+    await waitFor(() => {
+      expect(mounted.view.dom.querySelector("img[alt='Alt']")).toBeInTheDocument();
+    });
+
+    fireEvent.mouseDown(mounted.view.dom.querySelector<HTMLImageElement>("img[alt='Alt']")!);
+
+    expect(mounted.view.dom.querySelector(".leafdown-image-markdown-input")).toHaveValue(
+      "![Alt](./assets/icon.png)",
+    );
   });
 
   it("keeps code blocks visual while exposing language metadata control", async () => {

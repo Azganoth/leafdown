@@ -260,3 +260,7 @@
     }
   }
 }
+
+.leafdown-context-popup {
+  @apply border border-border/70 bg-popover text-popover-foreground shadow-lg;
+}

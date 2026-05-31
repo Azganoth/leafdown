@@ -3,6 +3,18 @@ import type { AppCommandId, EditorCommandState } from "@/features/commands/types
 import type { MarkdownImageContext } from "./plugins/imageView";
 import type { MarkdownLinkContext } from "./utils/linkActivation";
 
+export type EditorContextPopupSource = "rightClick" | "selection";
+
+export interface EditorContextPopupAnchor {
+  x: number;
+  y: number;
+}
+
+export interface EditorContextPopupRequest {
+  anchor: EditorContextPopupAnchor;
+  source: EditorContextPopupSource;
+}
+
 export interface MilkdownMarkdownUpdate {
   markdown: string;
   previousMarkdown: string;
@@ -20,6 +32,9 @@ export interface CreateMilkdownEditorOptions {
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentTransaction?: () => void;
   onCommandStateChanged?: () => void;
+  onContextPopupClosed?: () => void;
+  onContextPopupRequested?: (request: EditorContextPopupRequest) => void;
+  getContextPopupOpen?: () => boolean;
   getAutoPairBracketsAndQuotes?: () => boolean;
   getImageContext?: () => MarkdownImageContext;
   getLinkContext?: () => MarkdownLinkContext;

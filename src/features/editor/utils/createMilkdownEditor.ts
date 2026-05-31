@@ -10,6 +10,7 @@ import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 import { createLeafdownHighlightParser } from "./highlighting";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
+import { createLeafdownContextPopupPlugin } from "../plugins/contextPopup";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
@@ -23,6 +24,9 @@ export const createMilkdownEditor = async ({
   onMarkdownUpdated,
   onContentTransaction,
   onCommandStateChanged,
+  onContextPopupClosed,
+  onContextPopupRequested,
+  getContextPopupOpen,
   getAutoPairBracketsAndQuotes = () => true,
   getImageContext,
   getLinkContext,
@@ -39,6 +43,13 @@ export const createMilkdownEditor = async ({
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getImageContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
+    .use(
+      createLeafdownContextPopupPlugin({
+        getContextPopupOpen,
+        onContextPopupClosed,
+        onContextPopupRequested,
+      }),
+    )
     .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
     .use(createLeafdownCommandStatePlugin(() => onCommandStateChanged?.()))
     .use(createLeafdownTaskListCheckboxPlugin())

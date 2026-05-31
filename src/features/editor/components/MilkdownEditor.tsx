@@ -19,6 +19,8 @@ import type {
 export interface MilkdownEditorProps {
   documentKey: string;
   initialMarkdown: string;
+  documentPath?: string | null;
+  folderContextPath?: string | null;
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
@@ -31,6 +33,8 @@ export interface MilkdownEditorProps {
 export function MilkdownEditor({
   documentKey,
   initialMarkdown,
+  documentPath = null,
+  folderContextPath = null,
   className,
   ref,
   onMarkdownUpdated,
@@ -46,13 +50,24 @@ export function MilkdownEditor({
   const onContentTransactionRef = useRef(onContentTransaction);
   const onCommandStateChangedRef = useRef(onCommandStateChanged);
   const autoPairBracketsAndQuotesRef = useRef(autoPairBracketsAndQuotes);
+  const documentPathRef = useRef(documentPath);
+  const folderContextPathRef = useRef(folderContextPath);
 
   useLayoutEffect(() => {
     onMarkdownUpdatedRef.current = onMarkdownUpdated;
     onContentTransactionRef.current = onContentTransaction;
     onCommandStateChangedRef.current = onCommandStateChanged;
     autoPairBracketsAndQuotesRef.current = autoPairBracketsAndQuotes;
-  }, [onMarkdownUpdated, onContentTransaction, onCommandStateChanged, autoPairBracketsAndQuotes]);
+    documentPathRef.current = documentPath;
+    folderContextPathRef.current = folderContextPath;
+  }, [
+    onMarkdownUpdated,
+    onContentTransaction,
+    onCommandStateChanged,
+    autoPairBracketsAndQuotes,
+    documentPath,
+    folderContextPath,
+  ]);
 
   useImperativeHandle(
     ref,
@@ -112,6 +127,10 @@ export function MilkdownEditor({
         onContentTransaction: () => onContentTransactionRef.current?.(),
         onCommandStateChanged: () => onCommandStateChangedRef.current?.(),
         getAutoPairBracketsAndQuotes: () => autoPairBracketsAndQuotesRef.current,
+        getImageContext: () => ({
+          documentPath: documentPathRef.current,
+          folderContextPath: folderContextPathRef.current,
+        }),
       });
 
       if (disposed) {

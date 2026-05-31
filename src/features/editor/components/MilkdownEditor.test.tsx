@@ -64,9 +64,13 @@ describe("MilkdownEditor", () => {
     expect(options.root).toBeInstanceOf(HTMLElement);
     expect(options.initialMarkdown).toBe("# Notes");
     expect(options.getAutoPairBracketsAndQuotes?.()).toBe(true);
+    expect(options.getImageContext?.()).toEqual({
+      documentPath: null,
+      folderContextPath: null,
+    });
   });
 
-  it("passes live editor settings without recreating the editor", async () => {
+  it("passes live editor settings and image context without recreating the editor", async () => {
     const editor = createMockEditor();
     milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
@@ -74,6 +78,8 @@ describe("MilkdownEditor", () => {
       <MilkdownEditor
         documentKey="C:/Notes/readme.md"
         initialMarkdown="# Notes"
+        documentPath="C:/Notes/readme.md"
+        folderContextPath="C:/Notes"
         autoPairBracketsAndQuotes
         softWrapCodeBlocks={false}
       />,
@@ -86,6 +92,10 @@ describe("MilkdownEditor", () => {
     const options = getCreateOptions();
 
     expect(options.getAutoPairBracketsAndQuotes?.()).toBe(true);
+    expect(options.getImageContext?.()).toEqual({
+      documentPath: "C:/Notes/readme.md",
+      folderContextPath: "C:/Notes",
+    });
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-code-block-soft-wrap",
       "false",
@@ -95,6 +105,8 @@ describe("MilkdownEditor", () => {
       <MilkdownEditor
         documentKey="C:/Notes/readme.md"
         initialMarkdown="# Notes"
+        documentPath="C:/Notes/renamed.md"
+        folderContextPath="C:/Notes"
         autoPairBracketsAndQuotes={false}
         softWrapCodeBlocks
       />,
@@ -102,6 +114,10 @@ describe("MilkdownEditor", () => {
 
     expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
     expect(options.getAutoPairBracketsAndQuotes?.()).toBe(false);
+    expect(options.getImageContext?.()).toEqual({
+      documentPath: "C:/Notes/renamed.md",
+      folderContextPath: "C:/Notes",
+    });
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-code-block-soft-wrap",
       "true",

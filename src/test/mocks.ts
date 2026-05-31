@@ -24,6 +24,9 @@ export function createTauriStoreMock() {
 
 export function createTauriCoreMock() {
   return {
+    convertFileSrc: vi.fn(
+      (filePath: string) => `asset://localhost/${encodeURIComponent(filePath)}`,
+    ),
     invoke: vi.fn(),
   };
 }

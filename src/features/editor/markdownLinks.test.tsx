@@ -1,4 +1,5 @@
 import { fireEvent, waitFor } from "@testing-library/react";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -37,12 +38,18 @@ describe("Markdown links", () => {
     const mounted = await mountEditor("[Guide](guide.md)");
     const link = mounted.view.dom.querySelector<HTMLAnchorElement>("a[href='guide.md']");
 
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(TextSelection.create(mounted.view.state.doc, 1)),
+    );
     fireEvent.click(link as HTMLAnchorElement);
 
     await new Promise((resolve) => window.setTimeout(resolve, 0));
 
     expect(invoke).not.toHaveBeenCalled();
     expect(openUrl).not.toHaveBeenCalled();
+    expect(mounted.view.state.selection.empty).toBe(true);
+    expect(mounted.view.state.selection.from).toBeGreaterThan(1);
+    expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
   });
 
   it("activates links on Mod+click without mutating source Markdown", async () => {

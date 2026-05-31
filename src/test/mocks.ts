@@ -5,8 +5,11 @@ export function createSonnerMock() {
     Toaster: () => null,
     toast: {
       error: vi.fn(),
+      info: vi.fn(),
       loading: vi.fn(() => "toast-id"),
+      message: vi.fn(),
       success: vi.fn(),
+      warning: vi.fn(),
     },
   };
 }
@@ -91,6 +94,8 @@ export function createTauriDialogMock() {
 
 export function createTauriOpenerMock() {
   return {
+    openPath: vi.fn(async () => undefined),
+    openUrl: vi.fn(async () => undefined),
     revealItemInDir: vi.fn(async () => undefined),
   };
 }

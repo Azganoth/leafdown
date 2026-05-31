@@ -22,6 +22,12 @@ type ImageResolutionState =
   | { status: "resolved"; resolution: MarkdownImageResolution }
   | { status: "failed"; message: string };
 
+interface RawMarkdownFocusState {
+  selectionDirection: "backward" | "forward" | "none" | null;
+  selectionEnd: number | null;
+  selectionStart: number | null;
+}
+
 const defaultImageContext: MarkdownImageContext = {
   documentPath: null,
   folderContextPath: null,
@@ -38,6 +44,7 @@ export const createLeafdownImageViewPlugin = (
       let resolutionVersion = 0;
       let resolutionState: ImageResolutionState = { status: "pending" };
       let rawMarkdownDraft: string | null = null;
+      let rawMarkdownInput: HTMLInputElement | null = null;
 
       const dom = document.createElement("span");
       dom.className = "leafdown-image-view";
@@ -110,17 +117,19 @@ export const createLeafdownImageViewPlugin = (
       };
       const render = () => {
         const attrs = getAttrs();
+        const rawMarkdownFocusState = getRawMarkdownFocusState(rawMarkdownInput);
 
         dom.dataset.imageState = getImageState(resolutionState);
         dom.classList.toggle("leafdown-image-view--selected", selected);
         dom.replaceChildren();
+        rawMarkdownInput = null;
 
         if (selected) {
-          dom.append(
-            createRawMarkdownInput(attrs, setAttrs, rawMarkdownDraft, (value) => {
-              rawMarkdownDraft = value;
-            }),
-          );
+          rawMarkdownInput = createRawMarkdownInput(attrs, setAttrs, rawMarkdownDraft, (value) => {
+            rawMarkdownDraft = value;
+          });
+          dom.append(rawMarkdownInput);
+          restoreRawMarkdownFocus(rawMarkdownInput, rawMarkdownFocusState);
         } else {
           rawMarkdownDraft = null;
         }
@@ -234,6 +243,37 @@ const createRawMarkdownInput = (
   });
 
   return input;
+};
+
+const getRawMarkdownFocusState = (input: HTMLInputElement | null): RawMarkdownFocusState | null => {
+  if (!input || document.activeElement !== input) {
+    return null;
+  }
+
+  return {
+    selectionDirection: input.selectionDirection,
+    selectionEnd: input.selectionEnd,
+    selectionStart: input.selectionStart,
+  };
+};
+
+const restoreRawMarkdownFocus = (
+  input: HTMLInputElement,
+  focusState: RawMarkdownFocusState | null,
+) => {
+  if (!focusState) {
+    return;
+  }
+
+  input.focus();
+
+  if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
+    input.setSelectionRange(
+      focusState.selectionStart,
+      focusState.selectionEnd,
+      focusState.selectionDirection ?? "none",
+    );
+  }
 };
 
 const createPlaceholder = (

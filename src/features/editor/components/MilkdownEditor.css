@@ -197,6 +197,42 @@
       @apply my-5 max-w-full rounded-md border border-border bg-card;
     }
 
+    .leafdown-image-view {
+      @apply my-5 inline-flex max-w-full flex-col gap-2 align-middle;
+    }
+
+    .leafdown-markdown-image {
+      @apply my-0 block;
+    }
+
+    .leafdown-image-markdown-input {
+      @apply w-full min-w-64 rounded-sm border border-border bg-muted px-2 py-1 font-mono text-sm text-foreground outline-none;
+
+      &:focus-visible {
+        @apply border-primary ring-2 ring-primary/25;
+      }
+    }
+
+    .leafdown-image-placeholder {
+      @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-2 text-sm text-muted-foreground;
+    }
+
+    .leafdown-image-placeholder__message {
+      @apply min-w-0 wrap-anywhere;
+    }
+
+    .leafdown-image-placeholder__action {
+      @apply shrink-0 rounded-sm border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground transition-colors;
+
+      &:hover {
+        @apply border-primary text-primary;
+      }
+
+      &:focus-visible {
+        @apply ring-2 ring-primary/30 outline-none;
+      }
+    }
+
     sup,
     [data-footnote-ref] {
       @apply text-xs text-primary;

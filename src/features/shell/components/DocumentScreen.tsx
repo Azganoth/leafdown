@@ -15,6 +15,7 @@ interface DocumentScreenProps {
 export function DocumentScreen({ document }: DocumentScreenProps) {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
+  const folderContextPath = useSessionStore((state) => state.folderContext?.path ?? null);
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
   const documentKey = getActiveDocumentKey(document);
@@ -36,6 +37,8 @@ export function DocumentScreen({ document }: DocumentScreenProps) {
           ref={setEditorBridgeRef}
           documentKey={documentKey}
           initialMarkdown={document.content}
+          documentPath={document.status === "saved" ? document.path : null}
+          folderContextPath={folderContextPath}
           autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
           softWrapCodeBlocks={softWrapCodeBlocks}
           onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}

@@ -4,6 +4,7 @@ use tauri_plugin_window_state::StateFlags;
 
 mod document;
 mod folder;
+mod image;
 
 const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
 
@@ -40,6 +41,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
             document::save_markdown_file,
+            image::resolve_markdown_image_target,
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
             folder::watch::watch_markdown_folder,

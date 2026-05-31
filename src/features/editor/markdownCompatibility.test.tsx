@@ -1,11 +1,16 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { waitFor } from "@testing-library/react";
+import { invoke } from "@tauri-apps/api/core";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 
 const mountedEditors: MountedMilkdownEditor[] = [];
 
-const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown);
+const mountEditor = async (
+  initialMarkdown: string,
+  options: Parameters<typeof mountMilkdownEditor>[1] = {},
+): Promise<MountedMilkdownEditor> => {
+  const mounted = await mountMilkdownEditor(initialMarkdown, options);
   mountedEditors.push(mounted);
   return mounted;
 };
@@ -102,7 +107,21 @@ describe("Markdown compatibility", () => {
   });
 
   it("parses and serializes the documented CommonMark and GFM fixture", async () => {
-    const mounted = await mountEditor(supportedMarkdown);
+    vi.mocked(invoke).mockImplementation(async (commandName) => {
+      if (commandName === "resolve_markdown_image_target") {
+        return {
+          kind: "renderable",
+          path: "C:/Notes/image.png",
+        };
+      }
+
+      return undefined;
+    });
+
+    const mounted = await mountEditor(supportedMarkdown, {
+      documentPath: "C:/Notes/readme.md",
+      folderContextPath: "C:/Notes",
+    });
 
     expect(mounted.getMarkdown()).toBe(supportedMarkdownExpected);
 
@@ -122,7 +141,9 @@ describe("Markdown compatibility", () => {
       "https://example.com",
     );
     expect(dom.querySelector("hr")).toBeInTheDocument();
-    expect(dom.querySelector("img[alt='Alt']")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(dom.querySelector("img[alt='Alt']")).toBeInTheDocument();
+    });
     expect(dom.querySelector("table")).toHaveTextContent("1");
     expect(dom.querySelector("li[data-checked='false']")).toHaveTextContent("todo");
     expect(dom.querySelector("li[data-checked='true']")).toHaveTextContent("done");

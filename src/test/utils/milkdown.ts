@@ -18,6 +18,8 @@ export interface MountedMilkdownEditor {
 export interface MountMilkdownEditorOptions {
   rootClassName?: string;
   autoPairBracketsAndQuotes?: boolean;
+  documentPath?: string | null;
+  folderContextPath?: string | null;
   onContentTransaction?: () => void;
   onCommandStateChanged?: () => void;
 }
@@ -36,6 +38,10 @@ export const mountMilkdownEditor = async (
     onContentTransaction: options.onContentTransaction,
     onCommandStateChanged: options.onCommandStateChanged,
     getAutoPairBracketsAndQuotes: () => options.autoPairBracketsAndQuotes ?? true,
+    getImageContext: () => ({
+      documentPath: options.documentPath ?? null,
+      folderContextPath: options.folderContextPath ?? null,
+    }),
   });
   await editor.create();
 

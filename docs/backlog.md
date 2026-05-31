@@ -10,6 +10,9 @@
 - Copy table
 - Code block language selection and line numbers
 - Link text and URL editing
+- Refined focused image Markdown editing with seamless source text, immediate
+  focus, stable image layout, and invalid syntax conversion to regular Markdown
+  text
 - Image file picker
 - Status bar
 - Render/editor theme settings for document typography, font, typography size,

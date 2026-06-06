@@ -268,6 +268,10 @@
       content: attr(data-leafdown-marker);
     }
 
+    .leafdown-inline-source-projection {
+      @apply rounded-sm bg-muted/65 px-0.5 font-mono text-[0.92em] text-foreground outline outline-1 -outline-offset-1 outline-border/35;
+    }
+
     .leafdown-source-edit {
       @apply mr-2 mb-1 inline-flex h-7 min-w-36 rounded-sm border border-border bg-muted px-2 font-mono text-xs text-foreground outline-none;
 

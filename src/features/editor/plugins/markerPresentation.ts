@@ -26,13 +26,7 @@ interface ParsedMarkSource {
   text: string;
 }
 
-const inlineSourceMarkNames = [
-  "inlineCode",
-  "link",
-  "strong",
-  "emphasis",
-  "strike_through",
-] as const;
+const inlineSourceMarkNames = ["inlineCode", "link", "strike_through"] as const;
 
 const sourceNodeNames = new Set(["footnote_reference", "html"]);
 

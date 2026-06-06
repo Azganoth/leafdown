@@ -6,6 +6,10 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 
 import {
+  canRedoInlineSourceProjection,
+  canUndoInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
+import {
   canDecreaseListIndent,
   canIncreaseListIndent,
   hasHeadingLevelChange,
@@ -225,8 +229,8 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const hasWordBeforeSelection = Boolean(getTextWordRangeBeforeSelection(state));
   const hasTableSelection = hasTableContext(state);
   const enabledCommands: Partial<Record<AppCommandId, boolean>> = {
-    "edit.undo": undoDepth(state) > 0,
-    "edit.redo": redoDepth(state) > 0,
+    "edit.undo": canUndoInlineSourceProjection(state) || undoDepth(state) > 0,
+    "edit.redo": canRedoInlineSourceProjection(state) || redoDepth(state) > 0,
   };
 
   for (const commandId of activeEditorCommands) {

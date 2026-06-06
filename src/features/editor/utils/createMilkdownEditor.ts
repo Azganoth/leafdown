@@ -1,4 +1,4 @@
-import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
+import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from "@milkdown/kit/core";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
@@ -13,6 +13,10 @@ import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownContextPopupPlugin } from "../plugins/contextPopup";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
+import {
+  createLeafdownInlineSourceProjectionPlugin,
+  finalizeInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
@@ -44,6 +48,7 @@ export const createMilkdownEditor = async ({
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getImageContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
+    .use(createLeafdownInlineSourceProjectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(
       createLeafdownContextPopupPlugin({
@@ -69,5 +74,8 @@ export const createMilkdownEditor = async ({
     });
 };
 
-export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) =>
-  editor.action(getMarkdown());
+export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
+  finalizeInlineSourceProjection(editor.ctx.get(editorViewCtx));
+
+  return editor.action(getMarkdown());
+};

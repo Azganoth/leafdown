@@ -1,6 +1,11 @@
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
+import {
+  isInlineSourceProjectionDirtyTransaction,
+  isInlineSourceProjectionHousekeepingTransaction,
+} from "./inlineSourceProjection";
+
 export const leafdownDirtyTrackerPluginKey = new PluginKey("leafdownDirtyTracker");
 
 export const createLeafdownDirtyTrackerPlugin = (onContentTransaction: () => void) =>
@@ -11,7 +16,12 @@ export const createLeafdownDirtyTrackerPlugin = (onContentTransaction: () => voi
         state: {
           init: () => null,
           apply: (transaction) => {
-            if (transaction.docChanged && transaction.getMeta("addToHistory") !== false) {
+            if (
+              transaction.docChanged &&
+              (isInlineSourceProjectionDirtyTransaction(transaction) ||
+                (transaction.getMeta("addToHistory") !== false &&
+                  !isInlineSourceProjectionHousekeepingTransaction(transaction)))
+            ) {
               onContentTransaction();
             }
 

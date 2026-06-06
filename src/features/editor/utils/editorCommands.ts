@@ -18,6 +18,10 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import type { AppCommandId } from "@/features/commands/types";
 
 import {
+  redoInlineSourceProjection,
+  undoInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
+import {
   getTextWordRangeAfterSelection,
   getTextWordRangeAtSelection,
   getTextWordRangeBeforeSelection,
@@ -292,9 +296,17 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
 
   switch (commandId) {
     case "edit.undo":
+      if (undoInlineSourceProjection(view)) {
+        return true;
+      }
+
       return runProseMirrorCommand(view, undo);
 
     case "edit.redo":
+      if (redoInlineSourceProjection(view)) {
+        return true;
+      }
+
       return runProseMirrorCommand(view, redo);
 
     case "edit.delete":

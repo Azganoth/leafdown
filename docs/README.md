@@ -38,3 +38,6 @@ Decisions use a lightweight ADR format:
 - [Milkdown API Plan](./spikes/milkdown-api-plan.md): package, import,
   lifecycle, highlighting, HTML safety, settings, and follow-up issue guidance
   for the Milkdown editor foundation.
+- [Inline Source Projection](./spikes/inline-source-projection.md): architecture
+  evaluation and follow-up issue guidance for seamless editable inline Markdown
+  markers.

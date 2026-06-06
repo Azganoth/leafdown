@@ -41,7 +41,7 @@ const mountEditor = async (
 };
 
 const findFirstMarkRange = (state: EditorState, markName: "emphasis" | "strong") => {
-  let range: MarkRange | null = null;
+  const ranges: MarkRange[] = [];
 
   state.doc.descendants((node, pos) => {
     if (!node.isText) {
@@ -54,14 +54,16 @@ const findFirstMarkRange = (state: EditorState, markName: "emphasis" | "strong")
       return true;
     }
 
-    range = {
+    ranges.push({
       from: pos,
       mark,
       to: pos + node.nodeSize,
-    };
+    });
 
     return false;
   });
+
+  const range = ranges[0];
 
   if (!range) {
     throw new Error(`Could not find ${markName} range.`);

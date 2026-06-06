@@ -250,8 +250,9 @@ describe("editor commands", () => {
       true,
     );
 
-    expect(markdownEditor.view.dom).toHaveTextContent("Bold");
-    expect(markdownEditor.view.dom.querySelector("strong")).toBeInTheDocument();
+    expect(markdownEditor.view.dom).toHaveTextContent("**Bold**");
+    expect(markdownEditor.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(markdownEditor.getMarkdown()).toBe("**Bold**\n");
   });
 
   it("pastes rich text from clipboard HTML when available", async () => {
@@ -282,7 +283,8 @@ describe("editor commands", () => {
     setTextSelection(mounted.view, 8);
 
     expect(runEditorCommand(mounted.editor, "format.emphasis")).toBe(true);
-    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+    expect(mounted.view.state.doc.textContent).toContain("*world*");
+    expect(mounted.getMarkdown()).toContain("*world*");
 
     expect(runEditorCommand(mounted.editor, "format.strikethrough")).toBe(true);
     expect(mounted.view.dom.querySelector("del")).toHaveTextContent("world");
@@ -317,7 +319,7 @@ describe("editor commands", () => {
 
     typeText(collapsedEditor.view, "empty");
 
-    expect(collapsedEditor.view.dom.querySelector("em")).toHaveTextContent("empty");
+    expect(collapsedEditor.view.state.doc.textContent).toBe("*empty*");
     expect(collapsedEditor.getMarkdown()).toContain("*empty*");
   });
 

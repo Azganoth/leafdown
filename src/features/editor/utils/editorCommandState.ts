@@ -7,6 +7,7 @@ import type { AppCommandId, EditorCommandState } from "@/features/commands/types
 
 import {
   canRedoInlineSourceProjection,
+  hasActiveInlineSourceProjection,
   canUndoInlineSourceProjection,
 } from "../plugins/inlineSourceProjection";
 import {
@@ -120,6 +121,10 @@ const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo |
 };
 
 const hasClearableInlineFormatting = (state: EditorState) => {
+  if (hasActiveInlineSourceProjection(state)) {
+    return true;
+  }
+
   const clearableMarkTypes = clearableInlineMarkNames
     .map((markName) => state.schema.marks[markName])
     .filter(Boolean);

@@ -325,6 +325,28 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe("**Bolder** and *soft*\n");
   });
 
+  it("preserves text selections that cross out of an active projection", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getTextPosition(mounted, "**Bold**");
+    const plainEnd = getTextPosition(mounted, "plain") + "plain".length;
+
+    setTextSelection(mounted.view, sourceStart + 2, plainEnd);
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.view.state.selection.empty).toBe(false);
+    expect(
+      mounted.view.state.doc.textBetween(
+        mounted.view.state.selection.from,
+        mounted.view.state.selection.to,
+        "\n",
+        "\n",
+      ),
+    ).toBe("Bold plain");
+  });
+
   it("does not emit transient projected source through markdown updates", async () => {
     const onMarkdownUpdated = vi.fn();
     const mounted = await mountEditor("**Bold** plain", vi.fn(), onMarkdownUpdated);

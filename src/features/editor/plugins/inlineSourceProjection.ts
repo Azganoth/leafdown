@@ -32,7 +32,8 @@ interface ProjectionSession extends TextRange {
 
 interface PendingProjectionCommit extends TextRange {
   replacement: ProjectionReplacement;
-  selectionPosition: number;
+  selectionAnchor: number;
+  selectionHead: number;
   suppressAt: number | null;
 }
 
@@ -771,15 +772,17 @@ const createFinalizeRestoreTransaction = (
   const parsed = parseProjectionSource(source);
   const replacement = getProjectionReplacement(parsed, source);
   const shouldSuppressProjectionAtSelection = isSelectionInsideProjection(state.selection, session);
-  const restoreSelectionPosition = getMappedFinalizeSelectionPosition(
-    state.selection.from,
+  const restoreSelection = getMappedFinalizeSelection(
+    state.selection,
     session,
     session.originalText.length,
+    parsed,
   );
-  const commitSelectionPosition = getMappedFinalizeSelectionPosition(
-    state.selection.from,
+  const commitSelection = getMappedFinalizeSelection(
+    state.selection,
     session,
     replacement.text.length,
+    parsed,
   );
   const pendingCommit =
     source === session.originalSource
@@ -787,8 +790,12 @@ const createFinalizeRestoreTransaction = (
       : {
           from: session.from,
           replacement,
-          selectionPosition: commitSelectionPosition,
-          suppressAt: shouldSuppressProjectionAtSelection ? commitSelectionPosition : null,
+          selectionAnchor: commitSelection.anchor,
+          selectionHead: commitSelection.head,
+          suppressAt:
+            shouldSuppressProjectionAtSelection && commitSelection.anchor === commitSelection.head
+              ? commitSelection.anchor
+              : null,
           to: session.from + session.originalText.length,
         };
   const transaction = replaceProjectionRange(
@@ -799,12 +806,17 @@ const createFinalizeRestoreTransaction = (
   );
 
   transaction
-    .setSelection(TextSelection.create(transaction.doc, restoreSelectionPosition))
+    .setSelection(
+      TextSelection.create(transaction.doc, restoreSelection.anchor, restoreSelection.head),
+    )
     .setStoredMarks([])
     .setMeta("addToHistory", false)
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       pendingCommit,
-      suppressAt: shouldSuppressProjectionAtSelection ? restoreSelectionPosition : null,
+      suppressAt:
+        shouldSuppressProjectionAtSelection && restoreSelection.anchor === restoreSelection.head
+          ? restoreSelection.anchor
+          : null,
       type: "finalizeRestore",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -830,7 +842,13 @@ const createFinalizeCommitTransaction = (
   );
 
   transaction
-    .setSelection(TextSelection.create(transaction.doc, pendingCommit.selectionPosition))
+    .setSelection(
+      TextSelection.create(
+        transaction.doc,
+        pendingCommit.selectionAnchor,
+        pendingCommit.selectionHead,
+      ),
+    )
     .setStoredMarks([])
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       suppressAt: pendingCommit.suppressAt,
@@ -841,10 +859,21 @@ const createFinalizeCommitTransaction = (
   return closeHistory(transaction);
 };
 
+const getMappedFinalizeSelection = (
+  selection: Selection,
+  session: ProjectionSession,
+  replacementLength: number,
+  parsed: ParsedProjectionSource,
+) => ({
+  anchor: getMappedFinalizeSelectionPosition(selection.anchor, session, replacementLength, parsed),
+  head: getMappedFinalizeSelectionPosition(selection.head, session, replacementLength, parsed),
+});
+
 const getMappedFinalizeSelectionPosition = (
   position: number,
   session: ProjectionSession,
   replacementLength: number,
+  parsed: ParsedProjectionSource,
 ) => {
   if (position <= session.from) {
     return position;
@@ -854,7 +883,25 @@ const getMappedFinalizeSelectionPosition = (
     return session.from + replacementLength + (position - session.to);
   }
 
-  return session.from + replacementLength;
+  const sourceOffset = position - session.from;
+
+  if (parsed.type === "literal") {
+    return session.from + Math.min(Math.max(sourceOffset, 0), replacementLength);
+  }
+
+  if (sourceOffset <= parsed.opening.length) {
+    return session.from;
+  }
+
+  const closingStart = session.to - session.from - parsed.closing.length;
+
+  if (sourceOffset >= closingStart) {
+    return session.from + replacementLength;
+  }
+
+  return (
+    session.from + Math.min(Math.max(sourceOffset - parsed.opening.length, 0), replacementLength)
+  );
 };
 
 const replaceProjectionSource = (

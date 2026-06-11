@@ -235,6 +235,22 @@ describe("inline source projection", () => {
     expect(mounted.view.state.doc.textContent).toBe("**Bolder** plain");
   });
 
+  it("keeps native undo from running through an active projection", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "!");
+    enterProjection(mounted, "strong");
+
+    expect(await runCommand(mounted, "edit.undo")).toBe(true);
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain!");
+
+    expect(await runCommand(mounted, "edit.redo")).toBe(true);
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain!");
+  });
+
   it("preserves native undo and redo after projection commit", async () => {
     const mounted = await mountEditor("**Bold** plain");
 

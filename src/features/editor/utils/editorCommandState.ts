@@ -233,9 +233,10 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const hasWordAtSelection = Boolean(getTextWordRangeAtSelection(state));
   const hasWordBeforeSelection = Boolean(getTextWordRangeBeforeSelection(state));
   const hasTableSelection = hasTableContext(state);
+  const hasActiveProjection = hasActiveInlineSourceProjection(state);
   const enabledCommands: Partial<Record<AppCommandId, boolean>> = {
-    "edit.undo": canUndoInlineSourceProjection(state) || undoDepth(state) > 0,
-    "edit.redo": canRedoInlineSourceProjection(state) || redoDepth(state) > 0,
+    "edit.undo": hasActiveProjection ? canUndoInlineSourceProjection(state) : undoDepth(state) > 0,
+    "edit.redo": hasActiveProjection ? canRedoInlineSourceProjection(state) : redoDepth(state) > 0,
   };
 
   for (const commandId of activeEditorCommands) {

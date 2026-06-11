@@ -142,8 +142,12 @@ export const undoInlineSourceProjection = (view: EditorView) => {
   const session = getInlineSourceProjectionState(view.state).session;
   const source = session?.undoStack.at(-1);
 
-  if (!session || source === undefined) {
+  if (!session) {
     return false;
+  }
+
+  if (source === undefined) {
+    return true;
   }
 
   const currentSource = getProjectionSource(view.state, session);
@@ -164,8 +168,12 @@ export const redoInlineSourceProjection = (view: EditorView) => {
   const session = getInlineSourceProjectionState(view.state).session;
   const source = session?.redoStack.at(-1);
 
-  if (!session || source === undefined) {
+  if (!session) {
     return false;
+  }
+
+  if (source === undefined) {
+    return true;
   }
 
   const currentSource = getProjectionSource(view.state, session);

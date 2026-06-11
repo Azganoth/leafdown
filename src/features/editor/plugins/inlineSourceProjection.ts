@@ -33,6 +33,7 @@ interface ProjectionSession extends TextRange {
 interface PendingProjectionCommit extends TextRange {
   replacement: ProjectionReplacement;
   selectionPosition: number;
+  suppressAt: number | null;
 }
 
 interface InlineSourceProjectionPluginState {
@@ -609,6 +610,7 @@ const createFinalizeRestoreTransaction = (
   const source = getProjectionSource(state, session);
   const parsed = parseProjectionSource(source);
   const replacement = getProjectionReplacement(parsed, source);
+  const shouldSuppressProjectionAtSelection = isSelectionInsideProjection(state.selection, session);
   const restoreSelectionPosition = getMappedFinalizeSelectionPosition(
     state.selection.from,
     session,
@@ -626,6 +628,7 @@ const createFinalizeRestoreTransaction = (
           from: session.from,
           replacement,
           selectionPosition: commitSelectionPosition,
+          suppressAt: shouldSuppressProjectionAtSelection ? commitSelectionPosition : null,
           to: session.from + session.originalText.length,
         };
   const transaction = replaceProjectionRange(
@@ -641,7 +644,7 @@ const createFinalizeRestoreTransaction = (
     .setMeta("addToHistory", false)
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       pendingCommit,
-      suppressAt: restoreSelectionPosition,
+      suppressAt: shouldSuppressProjectionAtSelection ? restoreSelectionPosition : null,
       type: "finalizeRestore",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -670,7 +673,7 @@ const createFinalizeCommitTransaction = (
     .setSelection(TextSelection.create(transaction.doc, pendingCommit.selectionPosition))
     .setStoredMarks([])
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
-      suppressAt: pendingCommit.selectionPosition,
+      suppressAt: pendingCommit.suppressAt,
       type: "finalizeCommit",
     } satisfies ProjectionMeta)
     .scrollIntoView();

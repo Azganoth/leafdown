@@ -194,6 +194,38 @@ describe("inline source projection", () => {
     expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
   });
 
+  it("switches directly to another inline projection when the selection moves", async () => {
+    const mounted = await mountEditor("**Bold** and *soft*");
+
+    enterProjection(mounted, "strong");
+
+    const emphasis = mounted.view.dom.querySelector("em");
+
+    expect(emphasis).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("Bold and *soft*");
+  });
+
+  it("commits the current projection before switching to another inline projection", async () => {
+    const mounted = await mountEditor("**Bold** and *soft*");
+
+    enterProjection(mounted, "strong");
+    typeText(mounted.view, "er");
+
+    const emphasis = mounted.view.dom.querySelector("em");
+
+    expect(emphasis).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("Bolder and *soft*");
+    expect(mounted.getMarkdown()).toBe("**Bolder** and *soft*\n");
+  });
+
   it("does not emit transient projected source through markdown updates", async () => {
     const onMarkdownUpdated = vi.fn();
     const mounted = await mountEditor("**Bold** plain", vi.fn(), onMarkdownUpdated);

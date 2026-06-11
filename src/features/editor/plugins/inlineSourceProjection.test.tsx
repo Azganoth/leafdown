@@ -265,6 +265,20 @@ describe("inline source projection", () => {
     expect(mounted.view.state.doc.textContent).toBe("***Bold*** plain");
   });
 
+  it("keeps marker edits local instead of merging adjacent marked runs", async () => {
+    const mounted = await mountEditor("**One** **Two**");
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getTextPosition(mounted, "**One**");
+
+    setTextSelection(mounted.view, sourceStart + "**One*".length);
+    pressKey(mounted.view, "Backspace");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("*One* **Two**\n");
+  });
+
   it("tracks real source edits as dirty without counting projection entry or commit", async () => {
     const onContentTransaction = vi.fn();
     const mounted = await mountEditor("**Bold** plain", onContentTransaction);

@@ -163,6 +163,12 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Strong, emphasis, inline code, and strikethrough render visually and expose
   editable local markers near the caret.
+- Seamless source projection for strong and emphasis is local to the active
+  inline object. Editing a projected marker can change that object's inline
+  style, but it does not automatically merge adjacent marked runs; broader
+  reshaping is done with an explicit selection or formatting command.
+- Selection may cross into or out of an active inline projection. In that case,
+  the projection finalizes and preserves the user's selection range.
 - Links are edited through raw Markdown or contextual controls. Normal click
   places the caret; `Mod+click` opens the link.
 - Autolinks render visually and expose editable raw Markdown syntax near the

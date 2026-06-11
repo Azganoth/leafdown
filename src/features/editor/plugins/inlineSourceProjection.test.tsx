@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { waitFor } from "@testing-library/react";
+
 import { runEditorCommand } from "@/features/editor/utils/editorCommands";
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import {
+  mountMilkdownEditor,
+  type MountedMilkdownEditor,
+  type MountMilkdownEditorOptions,
+} from "@/test/utils/milkdown";
 import {
   pressKey,
   setSelectionAtDocumentEnd,
@@ -17,13 +23,19 @@ const mountedEditors: MountedMilkdownEditor[] = [];
 const mountEditor = async (
   initialMarkdown: string,
   onContentTransaction = vi.fn(),
+  onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"],
 ): Promise<MountedMilkdownEditor> => {
   const mounted = await mountMilkdownEditor(initialMarkdown, {
     onContentTransaction,
+    onMarkdownUpdated,
     rootClassName: "leafdown-editor",
   });
   mountedEditors.push(mounted);
   return mounted;
+};
+
+const waitForMarkdownListenerDebounce = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
 };
 
 const enterProjection = (mounted: MountedMilkdownEditor, selector: "em" | "strong") => {
@@ -165,6 +177,30 @@ describe("inline source projection", () => {
     expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
     expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
     expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+  });
+
+  it("does not emit transient projected source through markdown updates", async () => {
+    const onMarkdownUpdated = vi.fn();
+    const mounted = await mountEditor("**Bold** plain", vi.fn(), onMarkdownUpdated);
+
+    enterProjection(mounted, "strong");
+    await waitForMarkdownListenerDebounce();
+
+    expect(onMarkdownUpdated).not.toHaveBeenCalled();
+
+    typeText(mounted.view, "er");
+    await waitForMarkdownListenerDebounce();
+
+    expect(onMarkdownUpdated).not.toHaveBeenCalled();
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    await waitFor(() => {
+      expect(onMarkdownUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({ markdown: "**Bolder** plain\n" }),
+      );
+    });
+    expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
   });
 
   it("uses projection-local undo and redo while projection is active", async () => {

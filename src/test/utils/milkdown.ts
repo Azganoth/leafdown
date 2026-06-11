@@ -6,7 +6,7 @@ import {
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
 } from "@/features/editor";
-import type { EditorContextPopupRequest } from "@/features/editor";
+import type { EditorContextPopupRequest, MilkdownMarkdownUpdate } from "@/features/editor";
 
 export interface MountedMilkdownEditor {
   root: HTMLDivElement;
@@ -23,6 +23,7 @@ export interface MountMilkdownEditorOptions {
   folderContextPath?: string | null;
   onContentTransaction?: () => void;
   onCommandStateChanged?: () => void;
+  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContextPopupClosed?: () => void;
   onContextPopupRequested?: (request: EditorContextPopupRequest) => void;
   getContextPopupOpen?: () => boolean;
@@ -41,6 +42,7 @@ export const mountMilkdownEditor = async (
     initialMarkdown,
     onContentTransaction: options.onContentTransaction,
     onCommandStateChanged: options.onCommandStateChanged,
+    onMarkdownUpdated: options.onMarkdownUpdated,
     onContextPopupClosed: options.onContextPopupClosed,
     onContextPopupRequested: options.onContextPopupRequested,
     getContextPopupOpen: options.getContextPopupOpen,

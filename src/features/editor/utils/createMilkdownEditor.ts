@@ -16,6 +16,7 @@ import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import {
   createLeafdownInlineSourceProjectionPlugin,
   finalizeInlineSourceProjection,
+  hasTransientInlineSourceProjection,
 } from "../plugins/inlineSourceProjection";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
@@ -67,7 +68,11 @@ export const createMilkdownEditor = async ({
       ctx.set(highlightPluginConfig.key, { parser });
 
       if (onMarkdownUpdated) {
-        ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, previousMarkdown) => {
+        ctx.get(listenerCtx).markdownUpdated((listenerCtx, markdown, previousMarkdown) => {
+          if (hasTransientInlineSourceProjection(listenerCtx.get(editorViewCtx).state)) {
+            return;
+          }
+
           onMarkdownUpdated({ markdown, previousMarkdown });
         });
       }

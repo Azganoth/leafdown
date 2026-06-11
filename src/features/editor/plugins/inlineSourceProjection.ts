@@ -113,6 +113,12 @@ export const finalizeInlineSourceProjection = (view: EditorView) => {
 export const hasActiveInlineSourceProjection = (state: EditorState) =>
   Boolean(getInlineSourceProjectionState(state).session);
 
+export const hasTransientInlineSourceProjection = (state: EditorState) => {
+  const projectionState = getInlineSourceProjectionState(state);
+
+  return Boolean(projectionState.session || projectionState.pendingCommit);
+};
+
 export const canUndoInlineSourceProjection = (state: EditorState) => {
   const session = getInlineSourceProjectionState(state).session;
 

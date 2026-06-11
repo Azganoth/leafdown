@@ -18,9 +18,12 @@ interface ActiveMarkRange extends TextRange {
   mark: Mark;
 }
 
+interface ActiveProjectionRange extends ActiveMarkRange {
+  marks: ProjectionMarkDescriptor[];
+}
+
 interface ProjectionSession extends TextRange {
-  markName: ProjectionMarkName;
-  originalMarkAttrs: Record<string, unknown>;
+  marks: ProjectionMarkDescriptor[];
   originalSource: string;
   originalText: string;
   redoStack: string[];
@@ -39,12 +42,16 @@ interface InlineSourceProjectionPluginState {
 }
 
 interface ProjectionReplacement {
-  attrs?: Record<string, unknown>;
-  markName?: ProjectionMarkName;
+  marks?: ProjectionMarkDescriptor[];
   text: string;
 }
 
 type ProjectionMarkName = "emphasis" | "strong";
+
+interface ProjectionMarkDescriptor {
+  attrs: Record<string, unknown>;
+  markName: ProjectionMarkName;
+}
 
 type ProjectionMeta =
   | { session: ProjectionSession; type: "enter" }
@@ -59,7 +66,7 @@ type ProjectionMeta =
   | { suppressAt: number | null; type: "finalizeCommit" };
 
 type ParsedProjectionSource =
-  | { attrs: Record<string, unknown>; markName: ProjectionMarkName; text: string; type: "mark" }
+  | { marks: ProjectionMarkDescriptor[]; text: string; type: "mark" }
   | { text: string; type: "literal" };
 
 const supportedProjectionMarkNames = ["strong", "emphasis"] as const;
@@ -351,7 +358,7 @@ const createProjectionDecorations = (state: EditorState) => {
   return DecorationSet.create(state.doc, [
     Decoration.inline(session.from, session.to, {
       class: "leafdown-inline-source-projection",
-      "data-leafdown-inline-source": session.markName,
+      "data-leafdown-inline-source": session.marks.map((mark) => mark.markName).join(" "),
     }),
   ]);
 };
@@ -540,21 +547,18 @@ const getNextCharacterRange = (
     : null;
 };
 
-const createEnterProjectionTransaction = (state: EditorState, range: ActiveMarkRange) => {
+const createEnterProjectionTransaction = (state: EditorState, range: ActiveProjectionRange) => {
   const originalText = state.doc.textBetween(range.from, range.to, "\n", "\n");
-  const markName = range.mark.type.name as ProjectionMarkName;
-  const marker = getMarkerCharacter(range.mark);
-  const sourceMarker = getSourceMarker(markName, marker);
-  const originalSource = `${sourceMarker}${originalText}${sourceMarker}`;
+  const sourceMarkers = getSourceMarkers(range.marks);
+  const originalSource = `${sourceMarkers.opening}${originalText}${sourceMarkers.closing}`;
   const selectionOffset = Math.min(
     Math.max(state.selection.from - range.from, 0),
     originalText.length,
   );
-  const selectionPosition = range.from + sourceMarker.length + selectionOffset;
+  const selectionPosition = range.from + sourceMarkers.opening.length + selectionOffset;
   const session = {
     from: range.from,
-    markName,
-    originalMarkAttrs: { ...range.mark.attrs },
+    marks: range.marks,
     originalSource,
     originalText,
     redoStack: [],
@@ -606,12 +610,7 @@ const createFinalizeRestoreTransaction = (
     state.tr,
     session.from,
     session.to,
-    getMarkedTextReplacement(
-      state,
-      session.originalText,
-      session.markName,
-      session.originalMarkAttrs,
-    ),
+    getMarkedTextReplacement(state, session.originalText, session.marks),
   );
 
   transaction
@@ -636,12 +635,11 @@ const createFinalizeCommitTransaction = (
     state.tr,
     pendingCommit.from,
     pendingCommit.to,
-    pendingCommit.replacement.markName
+    pendingCommit.replacement.marks
       ? getMarkedTextReplacement(
           state,
           pendingCommit.replacement.text,
-          pendingCommit.replacement.markName,
-          pendingCommit.replacement.attrs ?? {},
+          pendingCommit.replacement.marks,
         )
       : getLiteralTextReplacement(state, pendingCommit.replacement.text),
   );
@@ -703,10 +701,14 @@ const replaceProjectionRange = (
 const getMarkedTextReplacement = (
   state: EditorState,
   text: string,
-  markName: ProjectionMarkName,
-  attrs: Record<string, unknown>,
+  marks: ProjectionMarkDescriptor[],
 ) =>
-  text.length > 0 ? state.schema.text(text, [state.schema.marks[markName].create(attrs)]) : null;
+  text.length > 0
+    ? state.schema.text(
+        text,
+        marks.map((mark) => state.schema.marks[mark.markName].create(mark.attrs)),
+      )
+    : null;
 
 const getLiteralTextReplacement = (state: EditorState, text: string) =>
   text.length > 0 ? state.schema.text(text) : null;
@@ -717,8 +719,7 @@ const getProjectionReplacement = (
 ): ProjectionReplacement =>
   parsed.type === "mark"
     ? {
-        attrs: parsed.attrs,
-        markName: parsed.markName,
+        marks: parsed.marks,
         text: parsed.text,
       }
     : {
@@ -726,12 +727,17 @@ const getProjectionReplacement = (
       };
 
 const parseProjectionSource = (source: string): ParsedProjectionSource => {
+  const nested = parseNestedProjectionSource(source);
+
+  if (nested) {
+    return nested;
+  }
+
   const strong = /^(?<marker>\*\*|__)(?<text>.+)\k<marker>$/u.exec(source);
 
   if (strong?.groups) {
     return {
-      attrs: { marker: strong.groups.marker.startsWith("*") ? "*" : "_" },
-      markName: "strong",
+      marks: [createProjectionMarkDescriptor("strong", strong.groups.marker)],
       text: strong.groups.text,
       type: "mark",
     };
@@ -750,8 +756,7 @@ const parseProjectionSource = (source: string): ParsedProjectionSource => {
     }
 
     return {
-      attrs: { marker },
-      markName: "emphasis",
+      marks: [createProjectionMarkDescriptor("emphasis", marker)],
       text,
       type: "mark",
     };
@@ -763,7 +768,69 @@ const parseProjectionSource = (source: string): ParsedProjectionSource => {
   };
 };
 
-const getActiveProjectionMarkRange = (state: EditorState): ActiveMarkRange | null => {
+const parseNestedProjectionSource = (source: string): ParsedProjectionSource | null => {
+  for (const strongMarker of ["**", "__"] as const) {
+    for (const emphasisMarker of ["*", "_"] as const) {
+      const strongOuterText = getWrappedText(
+        source,
+        `${strongMarker}${emphasisMarker}`,
+        `${emphasisMarker}${strongMarker}`,
+      );
+
+      if (strongOuterText !== null) {
+        return {
+          marks: [
+            createProjectionMarkDescriptor("strong", strongMarker),
+            createProjectionMarkDescriptor("emphasis", emphasisMarker),
+          ],
+          text: strongOuterText,
+          type: "mark",
+        };
+      }
+
+      const emphasisOuterText = getWrappedText(
+        source,
+        `${emphasisMarker}${strongMarker}`,
+        `${strongMarker}${emphasisMarker}`,
+      );
+
+      if (emphasisOuterText !== null) {
+        return {
+          marks: [
+            createProjectionMarkDescriptor("strong", strongMarker),
+            createProjectionMarkDescriptor("emphasis", emphasisMarker),
+          ],
+          text: emphasisOuterText,
+          type: "mark",
+        };
+      }
+    }
+  }
+
+  return null;
+};
+
+const getWrappedText = (source: string, opening: string, closing: string) => {
+  if (
+    source.length <= opening.length + closing.length ||
+    !source.startsWith(opening) ||
+    !source.endsWith(closing)
+  ) {
+    return null;
+  }
+
+  return source.slice(opening.length, source.length - closing.length);
+};
+
+const createProjectionMarkDescriptor = (
+  markName: ProjectionMarkName,
+  markerSyntax: string,
+): ProjectionMarkDescriptor => ({
+  attrs: { marker: markerSyntax.startsWith("_") ? "_" : "*" },
+  markName,
+});
+
+const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange | null => {
   const { selection } = state;
 
   if (!(selection instanceof TextSelection) || !selection.empty) {
@@ -776,19 +843,23 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveMarkRange | nul
     ...(selection.$from.nodeBefore?.marks ?? []),
     ...(selection.$from.nodeAfter?.marks ?? []),
   ];
-  const activeMark =
-    supportedProjectionMarkNames
-      .map((markName) =>
-        candidateMarks.find((mark) => mark.type.name === markName && state.schema.marks[markName]),
-      )
-      .find(Boolean) ?? null;
-  const range = activeMark ? getMarkRangeAtSelection(state, activeMark) : null;
+  for (const activeMark of supportedProjectionMarkNames
+    .map((markName) =>
+      candidateMarks.find((mark) => mark.type.name === markName && state.schema.marks[markName]),
+    )
+    .filter((mark): mark is Mark => Boolean(mark))) {
+    const range = getMarkRangeAtSelection(state, activeMark);
+    const marks = range ? getProjectionMarksForRange(state, range) : null;
 
-  if (!range || !isProjectionRangeSupported(state, range)) {
-    return null;
+    if (range && marks) {
+      return {
+        ...range,
+        marks,
+      };
+    }
   }
 
-  return range;
+  return null;
 };
 
 const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
@@ -852,29 +923,66 @@ const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRang
   };
 };
 
-const isProjectionRangeSupported = (state: EditorState, range: ActiveMarkRange) => {
-  let supported = true;
+const getProjectionMarksForRange = (
+  state: EditorState,
+  range: ActiveMarkRange,
+): ProjectionMarkDescriptor[] | null => {
+  let supportedMarks: ProjectionMarkDescriptor[] | null = null;
 
   state.doc.nodesBetween(range.from, range.to, (node) => {
     if (node.isText) {
-      if (node.marks.some((mark) => mark.type !== range.mark.type)) {
-        supported = false;
+      const projectionMarks = getProjectionMarksFromTextNode(node);
+
+      if (
+        !projectionMarks.length ||
+        !projectionMarks.some((mark) => mark.markName === range.mark.type.name) ||
+        (supportedMarks && !areProjectionMarksEqual(supportedMarks, projectionMarks))
+      ) {
+        supportedMarks = null;
         return false;
       }
+
+      supportedMarks ??= projectionMarks;
 
       return true;
     }
 
     if (node.isInline) {
-      supported = false;
+      supportedMarks = null;
       return false;
     }
 
     return true;
   });
 
-  return supported;
+  return supportedMarks;
 };
+
+const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+  if (node.marks.some((mark) => !isProjectionMarkName(mark.type.name))) {
+    return [];
+  }
+
+  return supportedProjectionMarkNames.flatMap((markName) => {
+    const mark = node.marks.find((candidateMark) => candidateMark.type.name === markName);
+
+    return mark ? [{ attrs: { ...mark.attrs }, markName }] : [];
+  });
+};
+
+const isProjectionMarkName = (markName: string): markName is ProjectionMarkName =>
+  supportedProjectionMarkNames.includes(markName as ProjectionMarkName);
+
+const areProjectionMarksEqual = (
+  left: ProjectionMarkDescriptor[],
+  right: ProjectionMarkDescriptor[],
+) =>
+  left.length === right.length &&
+  left.every(
+    (leftMark, index) =>
+      leftMark.markName === right[index]?.markName &&
+      getMarkerCharacter(leftMark.attrs) === getMarkerCharacter(right[index]?.attrs ?? {}),
+  );
 
 const isCaretSelection = (state: EditorState) =>
   state.selection instanceof TextSelection && state.selection.empty;
@@ -900,7 +1008,31 @@ const mapProjectionSession = (session: ProjectionSession, transaction: Transacti
 const getProjectionSource = (state: EditorState, session: ProjectionSession) =>
   state.doc.textBetween(session.from, session.to, "\n", "\n");
 
-const getMarkerCharacter = (mark: Mark) => (String(mark.attrs.marker ?? "*") === "_" ? "_" : "*");
+const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
+  const strong = marks.find((mark) => mark.markName === "strong");
+  const emphasis = marks.find((mark) => mark.markName === "emphasis");
+
+  if (strong && emphasis) {
+    const strongMarker = getSourceMarker("strong", getMarkerCharacter(strong.attrs));
+    const emphasisMarker = getSourceMarker("emphasis", getMarkerCharacter(emphasis.attrs));
+
+    return {
+      closing: `${strongMarker}${emphasisMarker}`,
+      opening: `${emphasisMarker}${strongMarker}`,
+    };
+  }
+
+  const mark = marks[0];
+  const marker = mark ? getSourceMarker(mark.markName, getMarkerCharacter(mark.attrs)) : "";
+
+  return {
+    closing: marker,
+    opening: marker,
+  };
+};
+
+const getMarkerCharacter = (attrs: Record<string, unknown>) =>
+  String(attrs.marker ?? "*") === "_" ? "_" : "*";
 
 const getSourceMarker = (markName: ProjectionMarkName, marker: string) =>
   markName === "strong" ? marker.repeat(2) : marker;

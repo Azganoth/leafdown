@@ -124,6 +124,21 @@ describe("inline source projection", () => {
       initial: "_Soft_ plain",
       selector: "em" as const,
     },
+    {
+      expected: "***Bolder*** plain\n",
+      initial: "***Bold*** plain",
+      selector: "strong" as const,
+    },
+    {
+      expected: "___Bolder___ plain\n",
+      initial: "___Bold___ plain",
+      selector: "strong" as const,
+    },
+    {
+      expected: "_**Bolder**_ plain\n",
+      initial: "**_Bold_** plain",
+      selector: "strong" as const,
+    },
   ])("commits valid projected source for $initial", async ({ expected, initial, selector }) => {
     const mounted = await mountEditor(initial);
 

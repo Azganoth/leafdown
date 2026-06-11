@@ -49,10 +49,24 @@ interface ProjectionReplacement {
 
 type ProjectionMarkName = "emphasis" | "strong";
 type ProjectionEditKind = "delete" | "insert" | "replace";
+type ProjectionDelimiterSide = "closing" | "opening";
 
 interface ProjectionMarkDescriptor {
   attrs: Record<string, unknown>;
   markName: ProjectionMarkName;
+}
+
+interface ProjectionBoundaryDelimiters {
+  closing: string;
+  contentFrom: number;
+  contentTo: number;
+  marker: string;
+  opening: string;
+}
+
+interface ProjectionEditContext {
+  delimiterSide: ProjectionDelimiterSide | null;
+  kind: ProjectionEditKind;
 }
 
 type ProjectionMeta =
@@ -525,12 +539,10 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
   }
 
   const previousSource = getProjectionSource(view.state, session);
-  const relativeFrom = Math.max(from - session.from, 0);
-  const relativeTo = Math.max(to - session.from, relativeFrom);
-  const editedSource = `${previousSource.slice(0, relativeFrom)}${text}${previousSource.slice(relativeTo)}`;
-  const editKind = getProjectionEditKind(from, to, text);
-  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, editKind);
-  const nextRelativePosition = Math.min(relativeFrom + text.length, nextSource.length);
+  const edit = getProjectionEdit(previousSource, from - session.from, to - session.from, text);
+  const editedSource = `${previousSource.slice(0, edit.from)}${text}${previousSource.slice(edit.to)}`;
+  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, edit.context);
+  const nextRelativePosition = Math.min(edit.from + text.length, nextSource.length);
   const transaction = replaceProjectionRange(
     view.state.tr,
     session.from,
@@ -566,6 +578,94 @@ const getProjectionEditKind = (from: number, to: number, text: string): Projecti
   }
 
   return "replace";
+};
+
+const getProjectionEdit = (
+  source: string,
+  from: number,
+  to: number,
+  text: string,
+): TextRange & { context: ProjectionEditContext } => {
+  const normalizedFrom = Math.min(Math.max(from, 0), source.length);
+  const normalizedTo = Math.min(Math.max(to, normalizedFrom), source.length);
+  const kind = getProjectionEditKind(normalizedFrom, normalizedTo, text);
+  const delimiterSide = getProjectionEditedDelimiterSide(
+    source,
+    normalizedFrom,
+    normalizedTo,
+    text,
+  );
+
+  if (kind === "insert" && !isProjectionMarkerText(text)) {
+    const delimiters = getProjectionBoundaryDelimiters(source);
+    const remappedPosition = delimiters
+      ? getContentBoundaryInsertionPosition(delimiters, normalizedFrom)
+      : normalizedFrom;
+
+    return {
+      context: { delimiterSide: null, kind },
+      from: remappedPosition,
+      to: remappedPosition,
+    };
+  }
+
+  return {
+    context: { delimiterSide, kind },
+    from: normalizedFrom,
+    to: normalizedTo,
+  };
+};
+
+const getProjectionEditedDelimiterSide = (
+  source: string,
+  from: number,
+  to: number,
+  text: string,
+): ProjectionDelimiterSide | null => {
+  const delimiters = getProjectionBoundaryDelimiters(source);
+
+  if (!delimiters) {
+    return null;
+  }
+
+  if (isProjectionMarkerText(text) && from === to) {
+    if (from <= delimiters.contentFrom) {
+      return "opening";
+    }
+
+    if (from >= delimiters.contentTo) {
+      return "closing";
+    }
+
+    return null;
+  }
+
+  if (text.length === 0) {
+    if (from < delimiters.contentFrom) {
+      return "opening";
+    }
+
+    if (to > delimiters.contentTo) {
+      return "closing";
+    }
+  }
+
+  return null;
+};
+
+const getContentBoundaryInsertionPosition = (
+  delimiters: ProjectionBoundaryDelimiters,
+  position: number,
+) => {
+  if (position <= delimiters.contentFrom) {
+    return delimiters.contentFrom;
+  }
+
+  if (position >= delimiters.contentTo) {
+    return delimiters.contentTo;
+  }
+
+  return position;
 };
 
 const getDeletionRange = (
@@ -811,8 +911,8 @@ const getProjectionReplacement = (
         text: source,
       };
 
-const normalizeProjectionSourceAfterEdit = (source: string, editKind: ProjectionEditKind) =>
-  getNormalizedDelimitedProjectionSource(source, editKind) ?? source;
+const normalizeProjectionSourceAfterEdit = (source: string, context: ProjectionEditContext) =>
+  getNormalizedDelimitedProjectionSource(source, context) ?? source;
 
 const parseProjectionSource = (source: string): ParsedProjectionSource => {
   const nested = parseNestedProjectionSource(source);
@@ -852,32 +952,40 @@ const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource 
   return createDelimitedProjectionSource(opening, closing, text, opening.length);
 };
 
-const getNormalizedDelimitedProjectionSource = (source: string, editKind: ProjectionEditKind) => {
-  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/u.exec(source);
+const getNormalizedDelimitedProjectionSource = (source: string, context: ProjectionEditContext) => {
+  const delimiters = getProjectionBoundaryDelimiters(source);
 
-  if (!match?.groups) {
+  if (!delimiters || !delimiters.closing || delimiters.contentFrom >= delimiters.contentTo) {
     return null;
   }
 
-  const { opening, text, closing } = match.groups;
-  const marker = getMarkerCharacterFromSyntax(opening);
-
-  if (marker !== getMarkerCharacterFromSyntax(closing)) {
-    return null;
-  }
-
-  const markerCount =
-    editKind === "insert"
-      ? Math.max(opening.length, closing.length)
-      : Math.min(opening.length, closing.length);
+  const markerCount = getNormalizedMarkerCount(delimiters, context);
 
   if (markerCount < 1 || markerCount > 3) {
     return null;
   }
 
-  const normalizedMarker = marker.repeat(markerCount);
+  const normalizedMarker = delimiters.marker.repeat(markerCount);
+  const text = source.slice(delimiters.contentFrom, delimiters.contentTo);
 
   return `${normalizedMarker}${text}${normalizedMarker}`;
+};
+
+const getNormalizedMarkerCount = (
+  delimiters: ProjectionBoundaryDelimiters,
+  context: ProjectionEditContext,
+) => {
+  if (context.delimiterSide === "opening") {
+    return Math.min(delimiters.opening.length, 3);
+  }
+
+  if (context.delimiterSide === "closing") {
+    return Math.min(delimiters.closing.length, 3);
+  }
+
+  return context.kind === "insert"
+    ? Math.min(Math.max(delimiters.opening.length, delimiters.closing.length), 3)
+    : Math.min(delimiters.opening.length, delimiters.closing.length, 3);
 };
 
 const createDelimitedProjectionSource = (
@@ -980,8 +1088,35 @@ const getWrappedText = (source: string, opening: string, closing: string) => {
   return source.slice(opening.length, source.length - closing.length);
 };
 
+const getProjectionBoundaryDelimiters = (source: string): ProjectionBoundaryDelimiters | null => {
+  const openingMatch = /^(?<opening>\*+|_+)/u.exec(source);
+
+  if (!openingMatch?.groups) {
+    return null;
+  }
+
+  const opening = openingMatch.groups.opening;
+  const marker = getMarkerCharacterFromSyntax(opening);
+  const closingMatch = /(\*+|_+)$/u.exec(source.slice(opening.length));
+  const closing = closingMatch?.[0] ?? "";
+
+  if (closing && getMarkerCharacterFromSyntax(closing) !== marker) {
+    return null;
+  }
+
+  return {
+    closing,
+    contentFrom: opening.length,
+    contentTo: source.length - closing.length,
+    marker,
+    opening,
+  };
+};
+
 const getMarkerCharacterFromSyntax = (markerSyntax: string) =>
   markerSyntax.startsWith("_") ? "_" : "*";
+
+const isProjectionMarkerText = (text: string) => /^[*_]+$/u.test(text);
 
 const createProjectionMarkDescriptor = (
   markName: ProjectionMarkName,

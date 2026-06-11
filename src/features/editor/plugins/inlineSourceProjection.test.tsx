@@ -213,6 +213,58 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe("**Soft** plain\n");
   });
 
+  it("inserts boundary text inside the projected content instead of breaking markers", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    let sourceStart = getTextPosition(mounted, "**Bold**");
+
+    setTextSelection(mounted.view, sourceStart);
+    typeText(mounted.view, "A");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("**ABold** plain");
+
+    sourceStart = getTextPosition(mounted, "**ABold**");
+
+    setTextSelection(mounted.view, sourceStart + "**ABold*".length);
+    typeText(mounted.view, "Z");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("**ABoldZ** plain");
+  });
+
+  it("uses the edited delimiter side when completing marker runs", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getTextPosition(mounted, "**Bold**");
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.replaceWith(
+        sourceStart,
+        sourceStart + "**Bold**".length,
+        mounted.view.state.schema.text("***Bold"),
+      ),
+    );
+    setTextSelection(mounted.view, sourceStart + "***Bold".length);
+
+    typeText(mounted.view, "*");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("*Bold* plain");
+
+    typeText(mounted.view, "*");
+
+    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain");
+
+    typeText(mounted.view, "*");
+
+    expect(mounted.view.state.doc.textContent).toBe("***Bold*** plain");
+  });
+
   it("tracks real source edits as dirty without counting projection entry or commit", async () => {
     const onContentTransaction = vi.fn();
     const mounted = await mountEditor("**Bold** plain", onContentTransaction);

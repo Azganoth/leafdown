@@ -385,13 +385,44 @@ const createProjectionDecorations = (state: EditorState) => {
     return DecorationSet.empty;
   }
 
-  return DecorationSet.create(state.doc, [
+  const source = getProjectionSource(state, session);
+  const parsed = parseProjectionSource(source);
+  const decorations = [
     Decoration.inline(session.from, session.to, {
       class: "leafdown-inline-source-projection",
       "data-leafdown-inline-source": session.marks.map((mark) => mark.markName).join(" "),
     }),
-  ]);
+  ];
+
+  if (parsed.type === "mark") {
+    decorations.push(
+      Decoration.inline(session.from, session.from + parsed.opening.length, {
+        class: "leafdown-inline-source-projection__marker",
+      }),
+      Decoration.inline(session.from + parsed.opening.length, session.to - parsed.closing.length, {
+        class: getProjectionContentClassName(parsed.marks),
+      }),
+      Decoration.inline(session.to - parsed.closing.length, session.to, {
+        class: "leafdown-inline-source-projection__marker",
+      }),
+    );
+  }
+
+  return DecorationSet.create(state.doc, decorations);
 };
+
+const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
+  [
+    "leafdown-inline-source-projection__content",
+    marks.some((mark) => mark.markName === "strong")
+      ? "leafdown-inline-source-projection__content--strong"
+      : null,
+    marks.some((mark) => mark.markName === "emphasis")
+      ? "leafdown-inline-source-projection__content--emphasis"
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
 const handleProjectionTextInput = (view: EditorView, from: number, to: number, text: string) => {
   const session = getInlineSourceProjectionState(view.state).session;

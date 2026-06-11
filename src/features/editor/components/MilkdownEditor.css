@@ -269,7 +269,21 @@
     }
 
     .leafdown-inline-source-projection {
-      @apply rounded-sm bg-muted/65 px-0.5 font-mono text-[0.92em] text-foreground outline outline-1 -outline-offset-1 outline-border/35;
+      color: inherit;
+    }
+
+    .leafdown-inline-source-projection__marker {
+      @apply text-muted-foreground;
+      font-style: normal;
+      font-weight: 400;
+    }
+
+    .leafdown-inline-source-projection__content--strong {
+      @apply font-semibold text-foreground;
+    }
+
+    .leafdown-inline-source-projection__content--emphasis {
+      @apply italic;
     }
 
     .leafdown-source-edit {

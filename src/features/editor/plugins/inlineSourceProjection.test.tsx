@@ -104,6 +104,33 @@ describe("inline source projection", () => {
   });
 
   it.each([
+    { expected: "__Bold__ plain", initial: "__Bold__ plain", selector: "strong" as const },
+    { expected: "_Soft_ plain", initial: "_Soft_ plain", selector: "em" as const },
+  ])("projects underscore source markers for $initial", async ({ expected, initial, selector }) => {
+    const mounted = await mountEditor(initial);
+
+    enterProjection(mounted, selector);
+
+    expect(mounted.view.state.doc.textContent).toBe(expected);
+  });
+
+  it("styles projected markers separately from projected content", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    const markers = Array.from(
+      mounted.view.dom.querySelectorAll(".leafdown-inline-source-projection__marker"),
+    );
+    const content = mounted.view.dom.querySelector(
+      ".leafdown-inline-source-projection__content--strong",
+    );
+
+    expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
+    expect(content).toHaveTextContent("Bold");
+  });
+
+  it.each([
     {
       expected: "**Bolder** plain\n",
       initial: "**Bold** plain",

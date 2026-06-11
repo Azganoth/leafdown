@@ -31,6 +31,30 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
 };
 
 const textContent = (mounted: MountedMilkdownEditor) => mounted.view.state.doc.textContent;
+const getTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
+  let position: number | null = null;
+
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (!node.isText) {
+      return true;
+    }
+
+    const index = node.textContent.indexOf(text);
+
+    if (index === -1) {
+      return true;
+    }
+
+    position = pos + index;
+    return false;
+  });
+
+  if (position === null) {
+    throw new Error(`Could not find text: ${text}`);
+  }
+
+  return position;
+};
 const textSelectionStart = 1;
 const imageMarkerText = "![]()";
 const tableMarkdown = "| A | B |\n| - | - |\n| C | D |\n| E | F |";
@@ -267,6 +291,38 @@ describe("editor commands", () => {
     expect(mounted.view.dom).toHaveTextContent("Rich text");
     expect(mounted.view.dom.querySelector("strong")).toBeInTheDocument();
   });
+
+  it.each([
+    "edit.paste",
+    "edit.pasteAsPlainText",
+    "edit.pasteAsMarkdown",
+    "edit.pasteAsRichText",
+  ] as const)(
+    "pastes literal clipboard text inside active source projection for %s",
+    async (commandId) => {
+      const mounted = await mountEditor("**Bold** plain");
+      const strong = mounted.view.dom.querySelector("strong");
+
+      expect(strong).toBeInTheDocument();
+
+      setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+
+      const sourceStart = getTextPosition(mounted, "**Bold**");
+
+      setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+      clipboard.read.mockResolvedValue([
+        createClipboardItem("text/html", "<p><strong>Rich</strong></p>"),
+      ]);
+      clipboard.readText.mockResolvedValue("*Paste*");
+
+      await expect(runEditorCommand(mounted.editor, commandId)).resolves.toBe(true);
+
+      expect(textContent(mounted)).toBe("***Paste*** plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      expect(mounted.getMarkdown()).toBe("***Paste*** plain\n");
+    },
+  );
 
   it("toggles inline formatting for selections and nearest words", async () => {
     const mounted = await mountEditor("Hello world");

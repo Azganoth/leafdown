@@ -190,6 +190,20 @@ export const redoInlineSourceProjection = (view: EditorView) => {
   return true;
 };
 
+export const replaceInlineSourceProjectionSelection = (view: EditorView, text: string) => {
+  const session = getInlineSourceProjectionState(view.state).session;
+  const { selection } = view.state;
+
+  if (!session || !text || !isRangeInsideProjection(selection, session)) {
+    return false;
+  }
+
+  view.focus();
+  dispatchProjectionEdit(view, selection.from, selection.to, text);
+
+  return true;
+};
+
 export const isInlineSourceProjectionDirtyTransaction = (transaction: Transaction) => {
   const meta = getProjectionMeta(transaction);
 

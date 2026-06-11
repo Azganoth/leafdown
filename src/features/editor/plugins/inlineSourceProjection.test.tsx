@@ -150,7 +150,7 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe(expected);
   });
 
-  it("commits partially deleted markers as literal fallback text", async () => {
+  it("downgrades strong projection to emphasis when a strong marker is deleted", async () => {
     const mounted = await mountEditor("**Bold** plain");
 
     enterProjection(mounted, "strong");
@@ -159,11 +159,31 @@ describe("inline source projection", () => {
 
     setTextSelection(mounted.view, sourceStart + 1);
     pressKey(mounted.view, "Backspace");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("*Bold* plain");
+
     setSelectionAtDocumentEnd(mounted.view);
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
-    expect(mounted.view.state.doc.textContent).toBe("*Bold** plain");
-    expect(mounted.getMarkdown()).toBe("\\*Bold\\*\\* plain\n");
+    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
+  });
+
+  it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {
+    const mounted = await mountEditor("*Soft* plain");
+
+    enterProjection(mounted, "em");
+
+    const sourceStart = getTextPosition(mounted, "*Soft*");
+
+    setTextSelection(mounted.view, sourceStart + 1);
+    typeText(mounted.view, "*");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("**Soft** plain");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("**Soft** plain\n");
   });
 
   it("tracks real source edits as dirty without counting projection entry or commit", async () => {

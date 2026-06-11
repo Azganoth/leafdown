@@ -48,6 +48,7 @@ interface ProjectionReplacement {
 }
 
 type ProjectionMarkName = "emphasis" | "strong";
+type ProjectionEditKind = "delete" | "insert" | "replace";
 
 interface ProjectionMarkDescriptor {
   attrs: Record<string, unknown>;
@@ -67,7 +68,13 @@ type ProjectionMeta =
   | { suppressAt: number | null; type: "finalizeCommit" };
 
 type ParsedProjectionSource =
-  | { marks: ProjectionMarkDescriptor[]; text: string; type: "mark" }
+  | {
+      closing: string;
+      marks: ProjectionMarkDescriptor[];
+      opening: string;
+      text: string;
+      type: "mark";
+    }
   | { text: string; type: "literal" };
 
 const supportedProjectionMarkNames = ["strong", "emphasis"] as const;
@@ -487,9 +494,19 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
   }
 
   const previousSource = getProjectionSource(view.state, session);
-  const transaction =
-    text.length > 0 ? view.state.tr.insertText(text, from, to) : view.state.tr.delete(from, to);
-  const nextPosition = from + text.length;
+  const relativeFrom = Math.max(from - session.from, 0);
+  const relativeTo = Math.max(to - session.from, relativeFrom);
+  const editedSource = `${previousSource.slice(0, relativeFrom)}${text}${previousSource.slice(relativeTo)}`;
+  const editKind = getProjectionEditKind(from, to, text);
+  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, editKind);
+  const nextRelativePosition = Math.min(relativeFrom + text.length, nextSource.length);
+  const transaction = replaceProjectionRange(
+    view.state.tr,
+    session.from,
+    session.to,
+    getLiteralTextReplacement(view.state, nextSource),
+  );
+  const nextPosition = session.from + nextRelativePosition;
 
   transaction
     .setSelection(
@@ -506,6 +523,18 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     } satisfies ProjectionMeta);
 
   view.dispatch(transaction);
+};
+
+const getProjectionEditKind = (from: number, to: number, text: string): ProjectionEditKind => {
+  if (text.length > 0 && from === to) {
+    return "insert";
+  }
+
+  if (text.length === 0) {
+    return "delete";
+  }
+
+  return "replace";
 };
 
 const getDeletionRange = (
@@ -751,6 +780,9 @@ const getProjectionReplacement = (
         text: source,
       };
 
+const normalizeProjectionSourceAfterEdit = (source: string, editKind: ProjectionEditKind) =>
+  getNormalizedDelimitedProjectionSource(source, editKind) ?? source;
+
 const parseProjectionSource = (source: string): ParsedProjectionSource => {
   const nested = parseNestedProjectionSource(source);
 
@@ -758,39 +790,105 @@ const parseProjectionSource = (source: string): ParsedProjectionSource => {
     return nested;
   }
 
-  const strong = /^(?<marker>\*\*|__)(?<text>.+)\k<marker>$/u.exec(source);
+  const delimited = parseDelimitedProjectionSource(source);
 
-  if (strong?.groups) {
-    return {
-      marks: [createProjectionMarkDescriptor("strong", strong.groups.marker)],
-      text: strong.groups.text,
-      type: "mark",
-    };
-  }
-
-  const emphasis = /^(?<marker>\*|_)(?<text>.+)\k<marker>$/u.exec(source);
-
-  if (emphasis?.groups) {
-    const { marker, text } = emphasis.groups;
-
-    if (text.startsWith(marker) || text.endsWith(marker)) {
-      return {
-        text: source,
-        type: "literal",
-      };
-    }
-
-    return {
-      marks: [createProjectionMarkDescriptor("emphasis", marker)],
-      text,
-      type: "mark",
-    };
+  if (delimited) {
+    return delimited;
   }
 
   return {
     text: source,
     type: "literal",
   };
+};
+
+const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource | null => {
+  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/u.exec(source);
+
+  if (!match?.groups) {
+    return null;
+  }
+
+  const { opening, text, closing } = match.groups;
+
+  if (
+    opening.length !== closing.length ||
+    getMarkerCharacterFromSyntax(opening) !== getMarkerCharacterFromSyntax(closing)
+  ) {
+    return null;
+  }
+
+  return createDelimitedProjectionSource(opening, closing, text, opening.length);
+};
+
+const getNormalizedDelimitedProjectionSource = (source: string, editKind: ProjectionEditKind) => {
+  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/u.exec(source);
+
+  if (!match?.groups) {
+    return null;
+  }
+
+  const { opening, text, closing } = match.groups;
+  const marker = getMarkerCharacterFromSyntax(opening);
+
+  if (marker !== getMarkerCharacterFromSyntax(closing)) {
+    return null;
+  }
+
+  const markerCount =
+    editKind === "insert"
+      ? Math.max(opening.length, closing.length)
+      : Math.min(opening.length, closing.length);
+
+  if (markerCount < 1 || markerCount > 3) {
+    return null;
+  }
+
+  const normalizedMarker = marker.repeat(markerCount);
+
+  return `${normalizedMarker}${text}${normalizedMarker}`;
+};
+
+const createDelimitedProjectionSource = (
+  opening: string,
+  closing: string,
+  text: string,
+  markerCount: number,
+): ParsedProjectionSource | null => {
+  if (markerCount === 1) {
+    return {
+      closing,
+      marks: [createProjectionMarkDescriptor("emphasis", opening)],
+      opening,
+      text,
+      type: "mark",
+    };
+  }
+
+  if (markerCount === 2) {
+    return {
+      closing,
+      marks: [createProjectionMarkDescriptor("strong", opening)],
+      opening,
+      text,
+      type: "mark",
+    };
+  }
+
+  if (markerCount === 3) {
+    return {
+      closing,
+      marks: [
+        createProjectionMarkDescriptor("strong", opening),
+        createProjectionMarkDescriptor("emphasis", opening),
+      ],
+      opening,
+      text,
+      type: "mark",
+    };
+  }
+
+  return null;
 };
 
 const parseNestedProjectionSource = (source: string): ParsedProjectionSource | null => {
@@ -804,10 +902,12 @@ const parseNestedProjectionSource = (source: string): ParsedProjectionSource | n
 
       if (strongOuterText !== null) {
         return {
+          closing: `${emphasisMarker}${strongMarker}`,
           marks: [
             createProjectionMarkDescriptor("strong", strongMarker),
             createProjectionMarkDescriptor("emphasis", emphasisMarker),
           ],
+          opening: `${strongMarker}${emphasisMarker}`,
           text: strongOuterText,
           type: "mark",
         };
@@ -821,10 +921,12 @@ const parseNestedProjectionSource = (source: string): ParsedProjectionSource | n
 
       if (emphasisOuterText !== null) {
         return {
+          closing: `${strongMarker}${emphasisMarker}`,
           marks: [
             createProjectionMarkDescriptor("strong", strongMarker),
             createProjectionMarkDescriptor("emphasis", emphasisMarker),
           ],
+          opening: `${emphasisMarker}${strongMarker}`,
           text: emphasisOuterText,
           type: "mark",
         };
@@ -847,11 +949,14 @@ const getWrappedText = (source: string, opening: string, closing: string) => {
   return source.slice(opening.length, source.length - closing.length);
 };
 
+const getMarkerCharacterFromSyntax = (markerSyntax: string) =>
+  markerSyntax.startsWith("_") ? "_" : "*";
+
 const createProjectionMarkDescriptor = (
   markName: ProjectionMarkName,
   markerSyntax: string,
 ): ProjectionMarkDescriptor => ({
-  attrs: { marker: markerSyntax.startsWith("_") ? "_" : "*" },
+  attrs: { marker: getMarkerCharacterFromSyntax(markerSyntax) },
   markName,
 });
 

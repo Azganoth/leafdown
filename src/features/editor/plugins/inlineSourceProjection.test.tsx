@@ -213,6 +213,47 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe("**Soft** plain\n");
   });
 
+  it("reforms emphasis projection when a missing left marker is readded", async () => {
+    const mounted = await mountEditor("*Soft* plain");
+
+    enterProjection(mounted, "em");
+
+    const sourceStart = getTextPosition(mounted, "*Soft*");
+
+    setTextSelection(mounted.view, sourceStart + 1);
+    pressKey(mounted.view, "Backspace");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("Soft* plain");
+
+    typeText(mounted.view, "*");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("*Soft* plain");
+    expect(
+      mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+    ).toHaveTextContent("Soft");
+  });
+
+  it("forms projection when a left marker completes plain raw inline source", async () => {
+    const mounted = await mountEditor("Soft* plain");
+
+    const sourceStart = getTextPosition(mounted, "Soft*");
+
+    setTextSelection(mounted.view, sourceStart);
+    typeText(mounted.view, "*");
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.doc.textContent).toBe("*Soft* plain");
+    expect(
+      mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+    ).toHaveTextContent("Soft");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
+  });
+
   it("inserts boundary text inside the projected content instead of breaking markers", async () => {
     const mounted = await mountEditor("**Bold** plain");
 

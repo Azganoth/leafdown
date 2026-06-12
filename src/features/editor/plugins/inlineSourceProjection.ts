@@ -70,8 +70,14 @@ interface ProjectionEditContext {
   kind: ProjectionEditKind;
 }
 
+interface ProjectionSourceInsertionCandidate extends TextRange {
+  session: ProjectionSession;
+  source: string;
+}
+
 type ProjectionMeta =
   | { session: ProjectionSession; type: "enter" }
+  | { session: ProjectionSession; type: "enterFromUserEdit" }
   | { previousSource: string; type: "userEdit" }
   | { currentSource: string; type: "localUndo" }
   | { currentSource: string; type: "localRedo" }
@@ -283,7 +289,7 @@ const applyProjectionTransaction = (
 ): InlineSourceProjectionPluginState => {
   const meta = getProjectionMeta(transaction);
 
-  if (meta?.type === "enter") {
+  if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {
     return {
       pendingCommit: null,
       session: meta.session,
@@ -442,11 +448,52 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
 const handleProjectionTextInput = (view: EditorView, from: number, to: number, text: string) => {
   const session = getInlineSourceProjectionState(view.state).session;
 
-  if (!session || !isRangeInsideProjection({ from, to }, session)) {
+  if (!session) {
+    return handleProjectionSourceTextInput(view, from, to, text);
+  }
+
+  if (!isRangeInsideProjection({ from, to }, session)) {
     return false;
   }
 
   dispatchProjectionEdit(view, from, to, text);
+
+  return true;
+};
+
+const handleProjectionSourceTextInput = (
+  view: EditorView,
+  from: number,
+  to: number,
+  text: string,
+) => {
+  if (from !== to || !isProjectionMarkerText(text)) {
+    return false;
+  }
+
+  const candidate = getProjectionSourceInsertionCandidate(view.state, from, text);
+
+  if (!candidate) {
+    return false;
+  }
+
+  const transaction = replaceProjectionRange(
+    view.state.tr,
+    candidate.from,
+    candidate.to,
+    getLiteralTextReplacement(view.state, candidate.source),
+  );
+
+  transaction
+    .setSelection(TextSelection.create(transaction.doc, candidate.from + text.length))
+    .setStoredMarks([])
+    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+      session: candidate.session,
+      type: "enterFromUserEdit",
+    } satisfies ProjectionMeta)
+    .scrollIntoView();
+
+  view.dispatch(transaction);
 
   return true;
 };
@@ -667,6 +714,86 @@ const getContentBoundaryInsertionPosition = (
   }
 
   return position;
+};
+
+const getProjectionSourceInsertionCandidate = (
+  state: EditorState,
+  position: number,
+  markerText: string,
+): ProjectionSourceInsertionCandidate | null => {
+  if (markerText.length !== 1) {
+    return null;
+  }
+
+  const $position = state.doc.resolve(position);
+
+  if (!$position.parent.isTextblock) {
+    return null;
+  }
+
+  const textAfter = $position.parent.textBetween(
+    $position.parentOffset,
+    $position.parent.content.size,
+    "\n",
+    "\n",
+  );
+  const closingMarkerIndex = textAfter.indexOf(markerText);
+
+  if (closingMarkerIndex <= 0) {
+    return null;
+  }
+
+  const source = `${markerText}${textAfter.slice(0, closingMarkerIndex + markerText.length)}`;
+  const parsed = parseProjectionSource(source);
+
+  if (parsed.type !== "mark") {
+    return null;
+  }
+
+  const to = position + source.length - markerText.length;
+
+  if (!isPlainTextRange(state, position, to)) {
+    return null;
+  }
+
+  return {
+    from: position,
+    session: {
+      from: position,
+      marks: parsed.marks,
+      originalSource: source,
+      originalText: parsed.text,
+      redoStack: [],
+      to: position + source.length,
+      undoStack: [],
+    },
+    source,
+    to,
+  };
+};
+
+const isPlainTextRange = (state: EditorState, from: number, to: number) => {
+  let isPlain = true;
+
+  state.doc.nodesBetween(from, to, (node) => {
+    if (node.isText) {
+      if (node.marks.length > 0) {
+        isPlain = false;
+        return false;
+      }
+
+      return true;
+    }
+
+    if (node.isInline) {
+      isPlain = false;
+      return false;
+    }
+
+    return true;
+  });
+
+  return isPlain;
 };
 
 const getDeletionRange = (

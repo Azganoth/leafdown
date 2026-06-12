@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runEditorCommand } from "@/features/editor";
 import { getEditorCommandState } from "@/features/editor/utils/editorCommandState";
 import {
-  setActiveDocumentEditorBridge,
   resetActiveDocumentEditorBridge,
+  setActiveDocumentEditorBridge,
 } from "@/lib/documentEditorBridge";
+import { resetAppStores, setDefaultSession } from "@/test/fixtures/appStores";
 import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { dispatchKeyDown, setSelectionAtDocumentEnd } from "@/test/utils/prosemirror";
 import { render } from "@/test/utils/react";
-import { resetAppStores, setDefaultSession } from "@/test/utils/stores";
 import type { AppCommandId } from "../types";
 
 import { CommandMenuBar } from "./CommandMenuBar";

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useSessionStore } from "@/stores/session";
-import { resetAppStores, setDefaultSession } from "@/test/utils/stores";
+import { resetAppStores, setDefaultSession } from "@/test/fixtures/appStores";
 
 import { activateMarkdownLink } from "./linkActivation";
 

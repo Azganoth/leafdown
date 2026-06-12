@@ -75,6 +75,30 @@ const createClipboardItem = (type: string, value: string): ClipboardItem =>
     getType: vi.fn(async () => new Blob([value], { type })),
   }) as unknown as ClipboardItem;
 
+const expectClipboardTextWritten = async (text: string) => {
+  const textWriteCall = clipboard.writeText.mock.calls.at(-1);
+
+  if (textWriteCall) {
+    expect(textWriteCall[0]).toBe(text);
+    return;
+  }
+
+  const richWriteCall = clipboard.write.mock.calls.at(-1);
+
+  if (!richWriteCall) {
+    throw new Error("Expected clipboard.write or clipboard.writeText to be called.");
+  }
+
+  const [[item]] = richWriteCall;
+
+  if (!item) {
+    throw new Error("Expected clipboard.write to receive a clipboard item.");
+  }
+
+  expect(item.types).toContain("text/plain");
+  await expect(item.getType("text/plain").then((blob) => blob.text())).resolves.toBe(text);
+};
+
 const getFirstTable = (mounted: MountedMilkdownEditor) => {
   const tables: { node: ProseMirrorNode; start: number }[] = [];
 
@@ -260,7 +284,7 @@ describe("editor commands", () => {
 
     await expect(runEditorCommand(mounted.editor, "edit.cut")).resolves.toBe(true);
 
-    expect(clipboard.writeText).toHaveBeenCalledWith("Hello");
+    await expectClipboardTextWritten("Hello");
     expect(textContent(mounted)).toBe(" world");
   });
 

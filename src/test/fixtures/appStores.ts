@@ -1,3 +1,4 @@
+import { useFileTreeViewStore } from "@/features/file-tree/stores/fileTreeView";
 import {
   useSessionStore,
   type ActiveDocumentState,
@@ -5,7 +6,6 @@ import {
   type SessionState,
   type UntitledDocumentState,
 } from "@/stores/session";
-import { useFileTreeViewStore } from "@/features/file-tree/stores/fileTreeView";
 import {
   getSystemDefaultLineEnding,
   useSettingsStore,

@@ -22,8 +22,8 @@ import {
   settingsStoreTauriHandler,
   useSettingsStore,
 } from "./stores/settings";
+import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/fixtures/appStores";
 import { act, render, renderWithUser, screen } from "./test/utils/react";
-import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/utils/stores";
 
 vi.mock("@/features/editor", () => ({
   MilkdownEditor: ({

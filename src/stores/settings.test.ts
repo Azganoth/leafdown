@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { setDefaultSettings } from "@/test/utils/stores";
+import { setDefaultSettings } from "@/test/fixtures/appStores";
 import {
   RECENT_ITEM_LIMIT,
   defaultIgnoredDirectories,

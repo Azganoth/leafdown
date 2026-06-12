@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm, save } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useSessionStore, type FolderContextState } from "@/stores/session";
+import { defaultIgnoredDirectories } from "@/stores/settings";
+import { resetAppStores, setDefaultSession, setDefaultSettings } from "@/test/fixtures/appStores";
 import {
   resetActiveDocumentEditorBridge,
   setActiveDocumentEditorBridge,
@@ -12,9 +15,6 @@ import {
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "./documentWorkflows";
-import { useSessionStore, type FolderContextState } from "@/stores/session";
-import { defaultIgnoredDirectories } from "@/stores/settings";
-import { resetAppStores, setDefaultSession, setDefaultSettings } from "@/test/utils/stores";
 
 const notesFolderContext: FolderContextState = {
   path: "C:/Notes",

@@ -2,10 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useSessionStore } from "@/stores/session";
+import { resetAppStores, setDefaultSession } from "@/test/fixtures/appStores";
 import { openMarkdownFilePath } from "./openMarkdownFile";
 import { openMarkdownFolderPath } from "./openMarkdownFolder";
-import { useSessionStore } from "@/stores/session";
-import { resetAppStores, setDefaultSession } from "@/test/utils/stores";
 
 describe("open Markdown dirty transitions", () => {
   beforeEach(() => {

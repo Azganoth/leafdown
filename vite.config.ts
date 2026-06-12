@@ -26,14 +26,13 @@ export default defineConfig({
     },
   },
   test: {
-    clearMocks: true,
     environment: "node",
     restoreMocks: true,
-    setupFiles: ["./src/test/setup.ts"],
+    clearMocks: true,
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/**"],
+      include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/test/**",
         "src/**/*.test.{ts,tsx}",
@@ -49,14 +48,16 @@ export default defineConfig({
           environment: "node",
           include: ["src/**/*.test.ts"],
           name: "node",
+          setupFiles: ["./src/test/setup/common.ts"],
         },
       },
       {
         extends: true,
         test: {
-          environment: "jsdom",
+          environment: "happy-dom",
           include: ["src/**/*.test.tsx"],
           name: "dom",
+          setupFiles: ["./src/test/setup/common.ts", "./src/test/setup/dom.ts"],
         },
       },
     ],

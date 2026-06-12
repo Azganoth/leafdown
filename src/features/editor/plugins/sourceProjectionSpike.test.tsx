@@ -140,20 +140,20 @@ describe("inline source projection spike probes", () => {
     await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
   });
 
-  it("documents that current source widgets are detached from document text flow", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-    const strong = mounted.view.dom.querySelector("strong");
+  it("documents that non-projected source widgets are detached from document text flow", async () => {
+    const mounted = await mountEditor("`Code` plain");
+    const code = mounted.view.dom.querySelector("code");
 
-    expect(strong).toBeInTheDocument();
+    expect(code).toBeInTheDocument();
 
-    setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+    setSelectionAtTextEnd(mounted.view, code as HTMLElement);
 
     const input = mounted.view.dom.querySelector<HTMLInputElement>(
       ".leafdown-source-edit[aria-label='Inline Markdown']",
     );
 
-    expect(input).toHaveValue("**Bold**");
-    expect(mounted.view.state.doc.textContent).toBe("Bold plain");
+    expect(input).toHaveValue("`Code`");
+    expect(mounted.view.state.doc.textContent).toBe("Code plain");
 
     input?.focus();
     input?.setSelectionRange(0, 1);
@@ -218,24 +218,24 @@ describe("inline source projection spike probes", () => {
   });
 
   it("shows widget source editing is a separate input history rather than editor history", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-    const strong = mounted.view.dom.querySelector("strong");
+    const mounted = await mountEditor("`Code` plain");
+    const code = mounted.view.dom.querySelector("code");
 
-    setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+    setSelectionAtTextEnd(mounted.view, code as HTMLElement);
 
     const input = mounted.view.dom.querySelector<HTMLInputElement>(
       ".leafdown-source-edit[aria-label='Inline Markdown']",
     );
 
-    fireEvent.input(input as HTMLInputElement, { target: { value: "**Bolder**" } });
+    fireEvent.input(input as HTMLInputElement, { target: { value: "`Coder`" } });
 
-    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
+    expect(mounted.getMarkdown()).toBe("`Code` plain\n");
     expect(collectTextNodes(input as HTMLInputElement).map((node) => node.textContent)).toEqual([]);
 
     fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
 
     await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+      expect(mounted.getMarkdown()).toBe("`Coder` plain\n");
     });
   });
 });

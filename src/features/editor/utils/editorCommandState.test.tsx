@@ -69,6 +69,25 @@ describe("editor command state", () => {
     expect(getEditorCommandState(mounted.view).enabledCommands["edit.redo"]).toBe(true);
   });
 
+  it("uses projection-local history and native history availability while projection is active", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+    const strong = mounted.view.dom.querySelector("strong");
+
+    expect(strong).toBeInTheDocument();
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "!");
+    setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+
+    expect(getEditorCommandState(mounted.view).enabledCommands["edit.undo"]).toBe(true);
+    expect(getEditorCommandState(mounted.view).enabledCommands["edit.redo"]).toBe(false);
+
+    typeText(mounted.view, "er");
+
+    expect(getEditorCommandState(mounted.view).enabledCommands["edit.undo"]).toBe(true);
+    expect(getEditorCommandState(mounted.view).enabledCommands["edit.redo"]).toBe(false);
+  });
+
   it("tracks selection-dependent commands", async () => {
     const mounted = await mountEditor("Hello world");
 

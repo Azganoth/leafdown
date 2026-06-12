@@ -18,6 +18,12 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import type { AppCommandId } from "@/features/commands/types";
 
 import {
+  hasActiveInlineSourceProjection,
+  redoInlineSourceProjection,
+  replaceInlineSourceProjectionSelection,
+  undoInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
+import {
   getTextWordRangeAfterSelection,
   getTextWordRangeAtSelection,
   getTextWordRangeBeforeSelection,
@@ -240,7 +246,21 @@ const pasteRichText = async (view: EditorView) => {
   return pasteText(view);
 };
 
+const pasteInlineSourceProjectionText = async (view: EditorView) => {
+  const text = await readClipboardText();
+
+  if (text === null) {
+    return false;
+  }
+
+  return replaceInlineSourceProjectionSelection(view, text) || text.length === 0;
+};
+
 const pasteClipboard = async (editor: Editor, view: EditorView, format: ClipboardPasteFormat) => {
+  if (hasActiveInlineSourceProjection(view.state)) {
+    return pasteInlineSourceProjectionText(view);
+  }
+
   switch (format) {
     case "plainText":
       return pasteText(view);
@@ -292,9 +312,17 @@ export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
 
   switch (commandId) {
     case "edit.undo":
+      if (undoInlineSourceProjection(view)) {
+        return true;
+      }
+
       return runProseMirrorCommand(view, undo);
 
     case "edit.redo":
+      if (redoInlineSourceProjection(view)) {
+        return true;
+      }
+
       return runProseMirrorCommand(view, redo);
 
     case "edit.delete":

@@ -31,6 +31,40 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
 };
 
 const textContent = (mounted: MountedMilkdownEditor) => mounted.view.state.doc.textContent;
+const getTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
+  const textRanges: { end: number; from: number; start: number }[] = [];
+  let documentText = "";
+
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (!node.isText) {
+      return true;
+    }
+
+    const start = documentText.length;
+    documentText += node.textContent;
+    textRanges.push({
+      end: documentText.length,
+      from: pos,
+      start,
+    });
+
+    return true;
+  });
+
+  const index = documentText.indexOf(text);
+
+  if (index === -1) {
+    throw new Error(`Could not find text: ${text}`);
+  }
+
+  const range = textRanges.find(({ end, start }) => start <= index && index < end);
+
+  if (!range) {
+    throw new Error(`Could not resolve text position: ${text}`);
+  }
+
+  return range.from + index - range.start;
+};
 const textSelectionStart = 1;
 const imageMarkerText = "![]()";
 const tableMarkdown = "| A | B |\n| - | - |\n| C | D |\n| E | F |";
@@ -250,8 +284,9 @@ describe("editor commands", () => {
       true,
     );
 
-    expect(markdownEditor.view.dom).toHaveTextContent("Bold");
+    expect(markdownEditor.view.dom).toHaveTextContent("**Bold**");
     expect(markdownEditor.view.dom.querySelector("strong")).toBeInTheDocument();
+    expect(markdownEditor.getMarkdown()).toBe("**Bold**\n");
   });
 
   it("pastes rich text from clipboard HTML when available", async () => {
@@ -266,6 +301,38 @@ describe("editor commands", () => {
     expect(mounted.view.dom).toHaveTextContent("Rich text");
     expect(mounted.view.dom.querySelector("strong")).toBeInTheDocument();
   });
+
+  it.each([
+    "edit.paste",
+    "edit.pasteAsPlainText",
+    "edit.pasteAsMarkdown",
+    "edit.pasteAsRichText",
+  ] as const)(
+    "pastes literal clipboard text inside active source projection for %s",
+    async (commandId) => {
+      const mounted = await mountEditor("**Bold** plain");
+      const strong = mounted.view.dom.querySelector("strong");
+
+      expect(strong).toBeInTheDocument();
+
+      setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+
+      const sourceStart = getTextPosition(mounted, "**Bold**");
+
+      setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+      clipboard.read.mockResolvedValue([
+        createClipboardItem("text/html", "<p><strong>Rich</strong></p>"),
+      ]);
+      clipboard.readText.mockResolvedValue("*Paste*");
+
+      await expect(runEditorCommand(mounted.editor, commandId)).resolves.toBe(true);
+
+      expect(textContent(mounted)).toBe("***Paste*** plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      expect(mounted.getMarkdown()).toBe("***Paste*** plain\n");
+    },
+  );
 
   it("toggles inline formatting for selections and nearest words", async () => {
     const mounted = await mountEditor("Hello world");
@@ -282,7 +349,8 @@ describe("editor commands", () => {
     setTextSelection(mounted.view, 8);
 
     expect(runEditorCommand(mounted.editor, "format.emphasis")).toBe(true);
-    expect(mounted.view.dom.querySelector("em")).toHaveTextContent("world");
+    expect(mounted.view.state.doc.textContent).toContain("*world*");
+    expect(mounted.getMarkdown()).toContain("*world*");
 
     expect(runEditorCommand(mounted.editor, "format.strikethrough")).toBe(true);
     expect(mounted.view.dom.querySelector("del")).toHaveTextContent("world");
@@ -317,7 +385,7 @@ describe("editor commands", () => {
 
     typeText(collapsedEditor.view, "empty");
 
-    expect(collapsedEditor.view.dom.querySelector("em")).toHaveTextContent("empty");
+    expect(collapsedEditor.view.state.doc.textContent).toBe("*empty*");
     expect(collapsedEditor.getMarkdown()).toContain("*empty*");
   });
 

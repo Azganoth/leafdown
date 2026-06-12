@@ -5,6 +5,10 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import type { AppCommandId } from "@/features/commands/types";
 
+import {
+  finalizeInlineSourceProjection,
+  hasActiveInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
 import { getTextWordRangeAtSelection } from "./editorCommandState";
 
 type InlineFormatCommandId =
@@ -135,6 +139,10 @@ export const runInlineFormattingCommand = (view: EditorView, commandId: AppComma
     return insertLinkMarker(view);
   }
 
+  if (hasActiveInlineSourceProjection(view.state)) {
+    finalizeInlineSourceProjection(view);
+  }
+
   const markType = getMarkType(view.state, inlineFormatMarkNames[commandId]);
 
   if (!markType) {
@@ -166,6 +174,10 @@ export const runInlineFormattingCommand = (view: EditorView, commandId: AppComma
 };
 
 export const clearInlineFormatting = (view: EditorView) => {
+  if (hasActiveInlineSourceProjection(view.state)) {
+    finalizeInlineSourceProjection(view);
+  }
+
   const { selection } = view.state;
   const markTypes = getClearableMarkTypes(view.state);
 
@@ -211,6 +223,10 @@ export const clearInlineFormatting = (view: EditorView) => {
 };
 
 export const hasClearableInlineFormatting = (state: EditorState) => {
+  if (hasActiveInlineSourceProjection(state)) {
+    return true;
+  }
+
   if (!state.selection.empty) {
     return getClearableMarkTypes(state).some((markType) =>
       rangeHasMark(state, { from: state.selection.from, to: state.selection.to }, markType),

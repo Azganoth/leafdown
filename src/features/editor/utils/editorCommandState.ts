@@ -6,6 +6,12 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 
 import {
+  canDeferInlineSourceProjectionToNativeHistory,
+  canRedoInlineSourceProjection,
+  canUndoInlineSourceProjection,
+  hasActiveInlineSourceProjection,
+} from "../plugins/inlineSourceProjection";
+import {
   canDecreaseListIndent,
   canIncreaseListIndent,
   hasHeadingLevelChange,
@@ -116,6 +122,10 @@ const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo |
 };
 
 const hasClearableInlineFormatting = (state: EditorState) => {
+  if (hasActiveInlineSourceProjection(state)) {
+    return true;
+  }
+
   const clearableMarkTypes = clearableInlineMarkNames
     .map((markName) => state.schema.marks[markName])
     .filter(Boolean);
@@ -224,9 +234,17 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const hasWordAtSelection = Boolean(getTextWordRangeAtSelection(state));
   const hasWordBeforeSelection = Boolean(getTextWordRangeBeforeSelection(state));
   const hasTableSelection = hasTableContext(state);
+  const hasActiveProjection = hasActiveInlineSourceProjection(state);
+  const canDeferProjectionToNativeHistory = canDeferInlineSourceProjectionToNativeHistory(state);
   const enabledCommands: Partial<Record<AppCommandId, boolean>> = {
-    "edit.undo": undoDepth(state) > 0,
-    "edit.redo": redoDepth(state) > 0,
+    "edit.undo": hasActiveProjection
+      ? canUndoInlineSourceProjection(state) ||
+        (canDeferProjectionToNativeHistory && undoDepth(state) > 0)
+      : undoDepth(state) > 0,
+    "edit.redo": hasActiveProjection
+      ? canRedoInlineSourceProjection(state) ||
+        (canDeferProjectionToNativeHistory && redoDepth(state) > 0)
+      : redoDepth(state) > 0,
   };
 
   for (const commandId of activeEditorCommands) {

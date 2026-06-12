@@ -92,26 +92,26 @@ describe("marker presentation", () => {
     );
   });
 
-  it("exposes active inline Markdown source for editing", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-    const strong = mounted.view.dom.querySelector("strong");
+  it("keeps detached inline Markdown source editing for non-projected inline marks", async () => {
+    const mounted = await mountEditor("`Code` plain");
+    const code = mounted.view.dom.querySelector("code");
 
-    expect(strong).toBeInTheDocument();
+    expect(code).toBeInTheDocument();
 
-    setSelectionAtTextEnd(mounted.view, strong as HTMLElement);
+    setSelectionAtTextEnd(mounted.view, code as HTMLElement);
 
     const input = mounted.view.dom.querySelector<HTMLInputElement>(
       ".leafdown-source-edit[aria-label='Inline Markdown']",
     );
 
-    expect(input).toHaveValue("**Bold**");
+    expect(input).toHaveValue("`Code`");
 
-    fireEvent.input(input as HTMLInputElement, { target: { value: "**Updated**" } });
+    fireEvent.input(input as HTMLInputElement, { target: { value: "`Updated`" } });
     fireEvent.keyDown(input as HTMLInputElement, { key: "Enter" });
     fireEvent.blur(input as HTMLInputElement);
 
     await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("**Updated** plain\n");
+      expect(mounted.getMarkdown()).toBe("`Updated` plain\n");
     });
   });
 

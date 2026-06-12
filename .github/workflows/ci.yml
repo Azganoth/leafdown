@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   check-frontend:
-    name: Check Frontend
+    name: Frontend Checks
     runs-on: windows-2025-vs2026
 
     steps:
@@ -23,8 +23,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
-        with:
-          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -40,7 +38,7 @@ jobs:
         run: pnpm check:frontend
 
   check-backend:
-    name: Check Backend
+    name: Backend Checks
     runs-on: windows-2025-vs2026
     env:
       CARGO_PROFILE_DEV_DEBUG: 0
@@ -52,8 +50,6 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
-        with:
-          run_install: false
 
       - name: Setup Node
         uses: actions/setup-node@v6

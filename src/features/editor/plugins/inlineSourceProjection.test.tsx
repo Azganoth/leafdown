@@ -254,26 +254,34 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
   });
 
-  it("inserts boundary text inside the projected content instead of breaking markers", async () => {
+  it("keeps outer-boundary text outside the projected content", async () => {
     const mounted = await mountEditor("**Bold** plain");
 
     enterProjection(mounted, "strong");
 
-    let sourceStart = getTextPosition(mounted, "**Bold**");
+    const sourceStart = getTextPosition(mounted, "**Bold**");
 
     setTextSelection(mounted.view, sourceStart);
     typeText(mounted.view, "A");
 
     expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**ABold** plain");
+    expect(mounted.view.state.doc.textContent).toBe("A**Bold** plain");
 
-    sourceStart = getTextPosition(mounted, "**ABold**");
+    expect(mounted.getMarkdown()).toBe("A**Bold** plain\n");
+  });
 
-    setTextSelection(mounted.view, sourceStart + "**ABold*".length);
+  it("inserts delimiter-interior text inside the projected content", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getTextPosition(mounted, "**Bold**");
+
+    setTextSelection(mounted.view, sourceStart + 1);
     typeText(mounted.view, "Z");
 
     expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**ABoldZ** plain");
+    expect(mounted.view.state.doc.textContent).toBe("**ZBold** plain");
   });
 
   it("uses the edited delimiter side when completing marker runs", async () => {

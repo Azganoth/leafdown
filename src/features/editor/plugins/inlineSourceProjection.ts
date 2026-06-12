@@ -456,10 +456,25 @@ const handleProjectionTextInput = (view: EditorView, from: number, to: number, t
     return false;
   }
 
+  if (isOuterProjectionTextInsertion(session, from, to, text)) {
+    return false;
+  }
+
   dispatchProjectionEdit(view, from, to, text);
 
   return true;
 };
+
+const isOuterProjectionTextInsertion = (
+  session: ProjectionSession,
+  from: number,
+  to: number,
+  text: string,
+) =>
+  from === to &&
+  text.length > 0 &&
+  !isProjectionMarkerText(text) &&
+  (from === session.from || from === session.to);
 
 const handleProjectionSourceTextInput = (
   view: EditorView,

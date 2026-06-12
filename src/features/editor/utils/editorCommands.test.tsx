@@ -32,28 +32,38 @@ const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEdit
 
 const textContent = (mounted: MountedMilkdownEditor) => mounted.view.state.doc.textContent;
 const getTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
-  let position: number | null = null;
+  const textRanges: { end: number; from: number; start: number }[] = [];
+  let documentText = "";
 
   mounted.view.state.doc.descendants((node, pos) => {
     if (!node.isText) {
       return true;
     }
 
-    const index = node.textContent.indexOf(text);
+    const start = documentText.length;
+    documentText += node.textContent;
+    textRanges.push({
+      end: documentText.length,
+      from: pos,
+      start,
+    });
 
-    if (index === -1) {
-      return true;
-    }
-
-    position = pos + index;
-    return false;
+    return true;
   });
 
-  if (position === null) {
+  const index = documentText.indexOf(text);
+
+  if (index === -1) {
     throw new Error(`Could not find text: ${text}`);
   }
 
-  return position;
+  const range = textRanges.find(({ end, start }) => start <= index && index < end);
+
+  if (!range) {
+    throw new Error(`Could not resolve text position: ${text}`);
+  }
+
+  return range.from + index - range.start;
 };
 const textSelectionStart = 1;
 const imageMarkerText = "![]()";
@@ -275,7 +285,7 @@ describe("editor commands", () => {
     );
 
     expect(markdownEditor.view.dom).toHaveTextContent("**Bold**");
-    expect(markdownEditor.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(markdownEditor.view.dom.querySelector("strong")).toBeInTheDocument();
     expect(markdownEditor.getMarkdown()).toBe("**Bold**\n");
   });
 

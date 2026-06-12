@@ -167,6 +167,12 @@ export const canRedoInlineSourceProjection = (state: EditorState) => {
   return Boolean(session && session.redoStack.length > 0);
 };
 
+export const canDeferInlineSourceProjectionToNativeHistory = (state: EditorState) => {
+  const session = getInlineSourceProjectionState(state).session;
+
+  return Boolean(session && isCleanProjectionSession(state, session));
+};
+
 export const undoInlineSourceProjection = (view: EditorView) => {
   const session = getInlineSourceProjectionState(view.state).session;
   const source = session?.undoStack.at(-1);
@@ -176,6 +182,12 @@ export const undoInlineSourceProjection = (view: EditorView) => {
   }
 
   if (source === undefined) {
+    if (isCleanProjectionSession(view.state, session)) {
+      finalizeInlineSourceProjection(view);
+
+      return false;
+    }
+
     return true;
   }
 
@@ -202,6 +214,12 @@ export const redoInlineSourceProjection = (view: EditorView) => {
   }
 
   if (source === undefined) {
+    if (isCleanProjectionSession(view.state, session)) {
+      finalizeInlineSourceProjection(view);
+
+      return false;
+    }
+
     return true;
   }
 
@@ -891,7 +909,9 @@ const createEnterProjectionTransaction = (state: EditorState, range: ActiveProje
     to: range.from + originalSource.length,
     undoStack: [],
   } satisfies ProjectionSession;
-  const transaction = state.tr.replaceWith(range.from, range.to, state.schema.text(originalSource));
+  const transaction = state.tr
+    .replaceWith(range.to, range.to, state.schema.text(sourceMarkers.closing))
+    .replaceWith(range.from, range.from, state.schema.text(sourceMarkers.opening));
 
   transaction
     .setSelection(TextSelection.create(transaction.doc, selectionPosition))
@@ -926,6 +946,21 @@ const createFinalizeRestoreTransaction = (
     replacement.text.length,
     parsed,
   );
+  const suppressAt =
+    shouldSuppressProjectionAtSelection && restoreSelection.anchor === restoreSelection.head
+      ? restoreSelection.anchor
+      : null;
+
+  if (source === session.originalSource && parsed.type === "mark") {
+    return createCleanFinalizeRestoreTransaction(
+      state,
+      session,
+      parsed,
+      restoreSelection,
+      suppressAt,
+    );
+  }
+
   const pendingCommit =
     source === session.originalSource
       ? null
@@ -955,10 +990,45 @@ const createFinalizeRestoreTransaction = (
     .setMeta("addToHistory", false)
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       pendingCommit,
-      suppressAt:
-        shouldSuppressProjectionAtSelection && restoreSelection.anchor === restoreSelection.head
-          ? restoreSelection.anchor
-          : null,
+      suppressAt,
+      type: "finalizeRestore",
+    } satisfies ProjectionMeta)
+    .scrollIntoView();
+
+  return transaction;
+};
+
+const createCleanFinalizeRestoreTransaction = (
+  state: EditorState,
+  session: ProjectionSession,
+  parsed: Extract<ParsedProjectionSource, { type: "mark" }>,
+  restoreSelection: { anchor: number; head: number },
+  suppressAt: number | null,
+) => {
+  const transaction = state.tr;
+
+  transaction
+    .delete(session.to - parsed.closing.length, session.to)
+    .delete(session.from, session.from + parsed.opening.length);
+
+  const markFrom = session.from;
+  const markTo = session.from + session.originalText.length;
+
+  if (markFrom < markTo) {
+    for (const mark of session.marks) {
+      transaction.addMark(markFrom, markTo, state.schema.marks[mark.markName].create(mark.attrs));
+    }
+  }
+
+  transaction
+    .setSelection(
+      TextSelection.create(transaction.doc, restoreSelection.anchor, restoreSelection.head),
+    )
+    .setStoredMarks([])
+    .setMeta("addToHistory", false)
+    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+      pendingCommit: null,
+      suppressAt,
       type: "finalizeRestore",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -1492,6 +1562,9 @@ const mapProjectionSession = (session: ProjectionSession, transaction: Transacti
 
 const getProjectionSource = (state: EditorState, session: ProjectionSession) =>
   state.doc.textBetween(session.from, session.to, "\n", "\n");
+
+const isCleanProjectionSession = (state: EditorState, session: ProjectionSession) =>
+  getProjectionSource(state, session) === session.originalSource;
 
 const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
   const strong = marks.find((mark) => mark.markName === "strong");

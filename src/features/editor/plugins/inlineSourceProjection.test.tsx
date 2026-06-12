@@ -49,28 +49,38 @@ const enterProjection = (mounted: MountedMilkdownEditor, selector: "em" | "stron
 };
 
 const getTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
-  let position: number | null = null;
+  const textRanges: { end: number; from: number; start: number }[] = [];
+  let documentText = "";
 
   mounted.view.state.doc.descendants((node, pos) => {
     if (!node.isText) {
       return true;
     }
 
-    const index = node.textContent.indexOf(text);
+    const start = documentText.length;
+    documentText += node.textContent;
+    textRanges.push({
+      end: documentText.length,
+      from: pos,
+      start,
+    });
 
-    if (index === -1) {
-      return true;
-    }
-
-    position = pos + index;
-    return false;
+    return true;
   });
 
-  if (position === null) {
+  const index = documentText.indexOf(text);
+
+  if (index === -1) {
     throw new Error(`Could not find projected text: ${text}`);
   }
 
-  return position;
+  const range = textRanges.find(({ end, start }) => start <= index && index < end);
+
+  if (!range) {
+    throw new Error(`Could not resolve projected text position: ${text}`);
+  }
+
+  return range.from + index - range.start;
 };
 
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
@@ -328,6 +338,57 @@ describe("inline source projection", () => {
     expect(mounted.getMarkdown()).toBe("*One* **Two**\n");
   });
 
+  it("preserves native undo after committing a marker deletion", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getTextPosition(mounted, "**Bold**");
+
+    setTextSelection(mounted.view, sourceStart + 1);
+    pressKey(mounted.view, "Backspace");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
+
+    const emphasis = mounted.view.dom.querySelector("em");
+
+    expect(emphasis).toBeInTheDocument();
+
+    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
+
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    expect(await runCommand(mounted, "edit.undo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
+    expect(await runCommand(mounted, "edit.redo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
+  });
+
+  it.each([
+    { commandId: "format.strong" as const, selector: "strong" },
+    { commandId: "format.emphasis" as const, selector: "em" },
+  ])(
+    "preserves native undo after applying $commandId to a whole paragraph",
+    async ({ commandId, selector }) => {
+      const mounted = await mountEditor("Plain paragraph");
+
+      expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+      expect(runEditorCommand(mounted.editor, commandId)).toBe(true);
+
+      const formatted = mounted.view.dom.querySelector(selector);
+
+      expect(formatted).toBeInTheDocument();
+
+      setSelectionAtTextEnd(mounted.view, formatted as HTMLElement);
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("Plain paragraph\n");
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
+    },
+  );
+
   it("tracks real source edits as dirty without counting projection entry or commit", async () => {
     const onContentTransaction = vi.fn();
     const mounted = await mountEditor("**Bold** plain", onContentTransaction);
@@ -451,7 +512,7 @@ describe("inline source projection", () => {
     expect(mounted.view.state.doc.textContent).toBe("**Bolder** plain");
   });
 
-  it("keeps native undo from running through an active projection", async () => {
+  it("finalizes a clean active projection before running native undo and redo", async () => {
     const mounted = await mountEditor("**Bold** plain");
 
     setSelectionAtDocumentEnd(mounted.view);
@@ -459,12 +520,11 @@ describe("inline source projection", () => {
     enterProjection(mounted, "strong");
 
     expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain!");
+    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
 
     expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain!");
+    expect(mounted.getMarkdown()).toBe("**Bold** plain!\n");
   });
 
   it("preserves native undo and redo after projection commit", async () => {

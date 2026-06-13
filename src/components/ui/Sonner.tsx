@@ -1,4 +1,3 @@
-import { useSettingsStore } from "@/stores/settings";
 import {
   CircleCheckIcon,
   InfoIcon,
@@ -10,11 +9,8 @@ import type { CSSProperties } from "react";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
 function Toaster(props: ToasterProps) {
-  const theme = useSettingsStore((state) => state.theme);
-
   return (
     <Sonner
-      theme={theme}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

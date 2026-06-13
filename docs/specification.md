@@ -43,14 +43,14 @@ Unsupported syntax is preserved where possible and treated as text.
 
 Primary user interface surfaces:
 
-- **App shell:** wraps the custom titlebar, menu bar, file tree sidebar, document
+- **App shell:** wraps the custom titlebar, menu bar, article navigator, document
   surface, and modal layer.
 - **Welcome screen:** appears when no document or folder context is open. It offers
   open file, open folder, recent files, and recent folders.
 - **Menu bar:** provides top-level app commands grouped by File, Edit, Insert,
   Format, View, and Help.
 - **Document surface:** contains the active hybrid Markdown editor. In a folder-only session, it displays a centered placeholder illustration/text prompting the user to select a file from the sidebar or create a new file.
-- **File tree sidebar:** shows supported Markdown files from the current folder
+- **Article navigator:** shows articles (supported Markdown files) from the current folder
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
   Non-ignored directories may appear even when they have no supported Markdown
   files. Folder scans skip symlinked entries rather than following them.
@@ -279,12 +279,13 @@ Global settings persist across application launches unless specified otherwise:
 ### General
 
 - **Record recent files and folders:** On or Off. Default: On.
+  - The setting controls whether session history records opened paths; the recent lists themselves are persisted session history rather than preferences.
   - Recent files and recent folders are separate lists.
   - Recent lists are deduplicated by path, sorted by most recent first, and
     limited to 10 items each.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.
-- **File tree sort order:** Name, modified date, or type. Default: Name.
+- **Article sort order:** Name, modified date, or type. Default: Name.
 
 ### Files
 
@@ -481,7 +482,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Dark**
 - **Theme** (Post-MVP)
   - [theme items] (Post-MVP)
-- **Sort file tree by**
+- **Sort articles by**
   - **Name**
   - **Modified date**
   - **Type**
@@ -570,12 +571,12 @@ Inactive commands are disabled rather than hidden.
 - `Open file location` requires an active saved document path. If the native
   file reveal fails because the path is missing or inaccessible, Leafdown shows
   an error.
-- `Reveal in sidebar` requires a folder context and an active saved file in the
-  file tree.
+- `Reveal in sidebar` requires a folder context and an active saved article in the
+  article navigator.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Sort file tree by`, `Collapse all folders`, and `Expand all folders` require
-  a folder context and an available file tree.
+- `Sort articles by`, `Collapse all folders`, and `Expand all folders` require
+  a folder context and an available article navigator.
 
 #### Search And Updates
 
@@ -605,7 +606,7 @@ choices.
 - `Appearance` is a radio group for the global appearance theme: `System`,
   `Light`, or `Dark`.
 - `Theme` is a radio group for the global render/editor theme when implemented.
-- `Sort file tree by` is a radio group for the global file tree sort order.
+- `Sort articles by` is a radio group for the global article sort order.
 
 #### Formatting State
 
@@ -649,13 +650,13 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 - Write the document to the chosen path.
 - Update the active document path.
 - Set or refresh the folder context to the saved file's parent folder.
-- Refresh the file tree for that context when needed.
+- Refresh the article navigator for that context when needed.
 - Select the saved file in the sidebar when visible.
 
 ### Filesystem Watching
 
 - The app establishes a native filesystem watcher on the active folder context.
-- When Markdown files are created, renamed, or deleted externally, the file tree sidebar automatically updates to reflect the changes. Filesystem watching events are debounced and throttled before updating the app state to prevent performance degradation during rapid batch operations.
+- When Markdown files are created, renamed, or deleted externally, the article navigator automatically updates to reflect the changes. Filesystem watching events are debounced and throttled before updating the app state to prevent performance degradation during rapid batch operations.
 
 ## Link And Image Handling
 

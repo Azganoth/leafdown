@@ -1,9 +1,17 @@
 import "@/App.css";
-import { SessionShell } from "@/features/shell/components/SessionShell";
-import { TitleBar } from "@/features/shell/components/TitleBar";
+import { AppShell } from "@/components/layout/AppShell";
+import { TitleBar } from "@/components/layout/TitleBar";
 import { Toaster } from "@/components/ui/Sonner";
-import { confirmActiveDocumentTransition } from "@/lib/dirtyDocumentTransitions";
-import { settingsStoreTauriHandler, useSettingsStore, type SettingsState } from "@/stores/settings";
+import {
+  settingsStoreTauriHandler,
+  useSettingsStore,
+  type SettingsState,
+} from "@/features/preferences";
+import {
+  confirmActiveDocumentTransition,
+  migrateLegacyPersistedState,
+  sessionHistoryStoreTauriHandler,
+} from "@/features/session";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
@@ -23,8 +31,12 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
 function App() {
   useEffect(() => {
     const initializeApp = async () => {
-      await settingsStoreTauriHandler.start();
+      await Promise.all([
+        settingsStoreTauriHandler.start(),
+        sessionHistoryStoreTauriHandler.start(),
+      ]);
 
+      await migrateLegacyPersistedState();
       await useSettingsStore.getState().init();
       await updateTheme(useSettingsStore.getState().theme);
 
@@ -84,8 +96,8 @@ function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
-      <SessionShell />
-      <Toaster />
+      <AppShell />
+      <Toaster theme={theme} />
     </div>
   );
 }

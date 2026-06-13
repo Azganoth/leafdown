@@ -7,6 +7,7 @@ export function createTauriStoreMock() {
       save: vi.fn(),
       saveNow: vi.fn(),
       start: vi.fn(),
+      stop: vi.fn(),
     })),
   };
 }

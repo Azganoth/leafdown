@@ -28,22 +28,20 @@ import {
 } from "@/components/ui/DropdownMenu";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/Popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
-import { commandDefinitions } from "@/features/commands/commandDefinitions";
-import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
 import { cn } from "@/lib/cn";
 
-import type { EditorContextPopupAnchor } from "../types";
+import type { EditorCommandId, EditorCommandState, EditorContextPopupAnchor } from "../types";
 
 interface EditorContextPopupProps {
   anchor: EditorContextPopupAnchor | null;
   commandState: EditorCommandState;
   onClose: () => void;
-  onExecuteCommand: (commandId: AppCommandId) => void;
+  onExecuteCommand: (commandId: EditorCommandId) => void;
   open: boolean;
 }
 
 interface ContextButtonCommand {
-  commandId: AppCommandId;
+  commandId: EditorCommandId;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
@@ -68,7 +66,7 @@ const blockFormattingCommands: ContextButtonCommand[] = [
   { commandId: "format.taskList", icon: ListTodoIcon },
 ];
 
-const blockTypeCommands: AppCommandId[] = [
+const blockTypeCommands: EditorCommandId[] = [
   "format.paragraph",
   "format.heading1",
   "format.heading2",
@@ -78,7 +76,7 @@ const blockTypeCommands: AppCommandId[] = [
   "format.heading6",
 ];
 
-const insertCommands: AppCommandId[] = [
+const insertCommands: EditorCommandId[] = [
   "insert.paragraph",
   "insert.heading1",
   "insert.heading2",
@@ -95,7 +93,46 @@ const insertCommands: AppCommandId[] = [
   "insert.horizontalRule",
 ];
 
-const isCommandEnabled = (commandState: EditorCommandState, commandId: AppCommandId) =>
+const editorCommandLabels: Partial<Record<EditorCommandId, string>> = {
+  "edit.cut": "Cut",
+  "edit.copy": "Copy",
+  "edit.paste": "Paste",
+  "edit.delete": "Delete",
+  "format.strong": "Strong",
+  "format.emphasis": "Emphasis",
+  "format.inlineCode": "Inline code",
+  "format.blockquote": "Blockquote",
+  "format.orderedList": "Ordered list",
+  "format.unorderedList": "Unordered list",
+  "format.taskList": "Task list",
+  "format.paragraph": "Paragraph",
+  "format.heading1": "Heading 1",
+  "format.heading2": "Heading 2",
+  "format.heading3": "Heading 3",
+  "format.heading4": "Heading 4",
+  "format.heading5": "Heading 5",
+  "format.heading6": "Heading 6",
+  "insert.paragraph": "Paragraph",
+  "insert.heading1": "Heading 1",
+  "insert.heading2": "Heading 2",
+  "insert.heading3": "Heading 3",
+  "insert.heading4": "Heading 4",
+  "insert.heading5": "Heading 5",
+  "insert.heading6": "Heading 6",
+  "insert.link": "Link",
+  "insert.blockquote": "Blockquote",
+  "insert.orderedList": "Ordered list",
+  "insert.unorderedList": "Unordered list",
+  "insert.taskList": "Task list",
+  "insert.codeBlock": "Code block",
+  "insert.table": "Table",
+  "insert.horizontalRule": "Horizontal rule",
+};
+
+const getEditorCommandLabel = (commandId: EditorCommandId) =>
+  editorCommandLabels[commandId] ?? commandId;
+
+const isCommandEnabled = (commandState: EditorCommandState, commandId: EditorCommandId) =>
   Boolean(commandState.enabledCommands[commandId]);
 
 export function EditorContextPopup({
@@ -180,21 +217,21 @@ export function EditorContextPopup({
 interface ContextCommandRowProps {
   commands: ContextButtonCommand[];
   commandState: EditorCommandState;
-  onExecuteCommand: (commandId: AppCommandId) => void;
+  onExecuteCommand: (commandId: EditorCommandId) => void;
 }
 
 function ContextCommandRow({ commands, commandState, onExecuteCommand }: ContextCommandRowProps) {
   return (
     <div className="flex items-center gap-1" role="group">
       {commands.map(({ commandId, icon: Icon }) => {
-        const command = commandDefinitions[commandId];
+        const label = getEditorCommandLabel(commandId);
         const enabled = isCommandEnabled(commandState, commandId);
 
         return (
           <Tooltip key={commandId}>
             <TooltipTrigger asChild>
               <Button
-                aria-label={command.label}
+                aria-label={label}
                 className="size-8 rounded-sm"
                 disabled={!enabled}
                 onClick={() => onExecuteCommand(commandId)}
@@ -206,7 +243,7 @@ function ContextCommandRow({ commands, commandState, onExecuteCommand }: Context
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              {command.label}
+              {label}
             </TooltipContent>
           </Tooltip>
         );
@@ -216,11 +253,11 @@ function ContextCommandRow({ commands, commandState, onExecuteCommand }: Context
 }
 
 interface ContextCommandSubmenuProps {
-  commandIds: AppCommandId[];
+  commandIds: EditorCommandId[];
   commandState: EditorCommandState;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
-  onExecuteCommand: (commandId: AppCommandId) => void;
+  onExecuteCommand: (commandId: EditorCommandId) => void;
 }
 
 function ContextCommandSubmenu({
@@ -251,7 +288,7 @@ function ContextCommandSubmenu({
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
         {commandIds.map((commandId) => {
-          const command = commandDefinitions[commandId];
+          const label = getEditorCommandLabel(commandId);
           const enabled = isCommandEnabled(commandState, commandId);
 
           return (
@@ -269,7 +306,7 @@ function ContextCommandSubmenu({
               ) : (
                 <PilcrowIcon aria-hidden className="size-4 opacity-0" />
               )}
-              {command.label}
+              {label}
             </DropdownMenuItem>
           );
         })}

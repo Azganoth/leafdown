@@ -71,6 +71,7 @@ describe("MilkdownEditor", () => {
     expect(options.getLinkContext?.()).toEqual({
       documentPath: null,
       folderContextPath: null,
+      onOpenMarkdownPath: expect.any(Function),
     });
   });
 
@@ -103,6 +104,7 @@ describe("MilkdownEditor", () => {
     expect(options.getLinkContext?.()).toEqual({
       documentPath: "C:/Notes/readme.md",
       folderContextPath: "C:/Notes",
+      onOpenMarkdownPath: expect.any(Function),
     });
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-code-block-soft-wrap",
@@ -129,6 +131,7 @@ describe("MilkdownEditor", () => {
     expect(options.getLinkContext?.()).toEqual({
       documentPath: "C:/Notes/renamed.md",
       folderContextPath: "C:/Notes",
+      onOpenMarkdownPath: expect.any(Function),
     });
     expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
       "data-code-block-soft-wrap",

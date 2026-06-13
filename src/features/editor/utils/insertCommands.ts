@@ -7,7 +7,7 @@ import {
 } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import type { AppCommandId } from "@/features/commands/types";
+import type { EditorCommandId } from "../types";
 
 type InsertCommandId =
   | "insert.paragraph"
@@ -189,7 +189,7 @@ const setImageTargetSelection = (tr: Transaction, imageParagraphPos: number) => 
   tr.setSelection(TextSelection.create(tr.doc, imageParagraphPos + 1 + 4));
 };
 
-export const runInsertCommand = (view: EditorView, commandId: AppCommandId) => {
+export const runInsertCommand = (view: EditorView, commandId: EditorCommandId) => {
   if (!isInsertCommandId(commandId)) {
     return false;
   }
@@ -222,7 +222,7 @@ export const runInsertCommand = (view: EditorView, commandId: AppCommandId) => {
   return true;
 };
 
-const isInsertCommandId = (commandId: AppCommandId): commandId is InsertCommandId =>
+const isInsertCommandId = (commandId: EditorCommandId): commandId is InsertCommandId =>
   commandId === "insert.paragraph" ||
   commandId === "insert.heading1" ||
   commandId === "insert.heading2" ||

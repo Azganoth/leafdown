@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { waitFor } from "@testing-library/react";
 
-import { runEditorCommand } from "@/features/editor/utils/editorCommands";
+import { runEditorCommand } from "../utils/editorCommands";
 import {
   mountMilkdownEditor,
   type MountedMilkdownEditor,

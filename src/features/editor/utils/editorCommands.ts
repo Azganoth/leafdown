@@ -15,7 +15,7 @@ import {
 } from "@milkdown/kit/prose/commands";
 import { markdownToSlice } from "@milkdown/kit/utils";
 
-import type { AppCommandId } from "@/features/commands/types";
+import type { EditorCommandId } from "../types";
 
 import {
   hasActiveInlineSourceProjection,
@@ -284,7 +284,7 @@ const pasteClipboard = async (editor: Editor, view: EditorView, format: Clipboar
   }
 };
 
-export const runEditorCommand = (editor: Editor, commandId: AppCommandId) => {
+export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) => {
   const view = editor.ctx.get(editorViewCtx);
   const didRunInlineFormattingCommand = runInlineFormattingCommand(view, commandId);
 

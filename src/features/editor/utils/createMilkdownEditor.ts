@@ -7,7 +7,6 @@ import { gfm } from "@milkdown/kit/preset/gfm";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
-import { createLeafdownHighlightParser } from "./highlighting";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import { createLeafdownContextPopupPlugin } from "../plugins/contextPopup";
@@ -23,6 +22,7 @@ import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresent
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
+import { createLeafdownHighlightParser } from "./highlighting";
 
 export const createMilkdownEditor = async ({
   root,

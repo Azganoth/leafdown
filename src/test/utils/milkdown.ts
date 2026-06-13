@@ -24,6 +24,7 @@ export interface MountMilkdownEditorOptions {
   onContentTransaction?: () => void;
   onCommandStateChanged?: () => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
+  onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onContextPopupClosed?: () => void;
   onContextPopupRequested?: (request: EditorContextPopupRequest) => void;
   getContextPopupOpen?: () => boolean;
@@ -54,6 +55,7 @@ export const mountMilkdownEditor = async (
     getLinkContext: () => ({
       documentPath: options.documentPath ?? null,
       folderContextPath: options.folderContextPath ?? null,
+      onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
     }),
   });
   await editor.create();

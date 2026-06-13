@@ -14,7 +14,7 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
-import { inactiveEditorCommandState } from "@/lib/documentEditorBridge";
+import { inactiveEditorCommandState } from "../types";
 
 import { createMilkdownEditor, getMilkdownEditorMarkdown } from "../utils/createMilkdownEditor";
 import { runEditorCommand } from "../utils/editorCommands";
@@ -32,6 +32,7 @@ export interface MilkdownEditorProps {
   initialMarkdown: string;
   documentPath?: string | null;
   folderContextPath?: string | null;
+  onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
@@ -46,6 +47,7 @@ export function MilkdownEditor({
   initialMarkdown,
   documentPath = null,
   folderContextPath = null,
+  onOpenMarkdownPath = defaultOpenMarkdownPath,
   className,
   ref,
   onMarkdownUpdated,
@@ -68,6 +70,7 @@ export function MilkdownEditor({
   const initialMarkdownRef = useRef(initialMarkdown);
   const documentPathRef = useRef(documentPath);
   const folderContextPathRef = useRef(folderContextPath);
+  const onOpenMarkdownPathRef = useRef(onOpenMarkdownPath);
   const contextPopupOpenRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -78,6 +81,7 @@ export function MilkdownEditor({
     initialMarkdownRef.current = initialMarkdown;
     documentPathRef.current = documentPath;
     folderContextPathRef.current = folderContextPath;
+    onOpenMarkdownPathRef.current = onOpenMarkdownPath;
   }, [
     onMarkdownUpdated,
     onContentTransaction,
@@ -86,6 +90,7 @@ export function MilkdownEditor({
     initialMarkdown,
     documentPath,
     folderContextPath,
+    onOpenMarkdownPath,
   ]);
 
   useImperativeHandle(
@@ -174,6 +179,7 @@ export function MilkdownEditor({
         getLinkContext: () => ({
           documentPath: documentPathRef.current,
           folderContextPath: folderContextPathRef.current,
+          onOpenMarkdownPath: onOpenMarkdownPathRef.current,
         }),
       });
 
@@ -245,3 +251,5 @@ export function MilkdownEditor({
     </div>
   );
 }
+
+const defaultOpenMarkdownPath = () => false;

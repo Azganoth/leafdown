@@ -3,7 +3,7 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import type { AppCommandId, EditorCommandState } from "@/features/commands/types";
+import type { EditorCommandId, EditorCommandState } from "../types";
 
 import {
   canDeferInlineSourceProjectionToNativeHistory,
@@ -81,7 +81,7 @@ const activeEditorCommands = [
   "format.taskList",
   "format.blockquote",
   "format.codeBlock",
-] as const satisfies AppCommandId[];
+] as const satisfies EditorCommandId[];
 
 const selectionEditorCommands = [
   "edit.cut",
@@ -89,7 +89,7 @@ const selectionEditorCommands = [
   "edit.copyAsPlainText",
   "edit.copyAsMarkdown",
   "edit.jumpToSelection",
-] as const satisfies AppCommandId[];
+] as const satisfies EditorCommandId[];
 
 const clearableInlineMarkNames = [
   "strong",
@@ -236,7 +236,7 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => {
   const hasTableSelection = hasTableContext(state);
   const hasActiveProjection = hasActiveInlineSourceProjection(state);
   const canDeferProjectionToNativeHistory = canDeferInlineSourceProjectionToNativeHistory(state);
-  const enabledCommands: Partial<Record<AppCommandId, boolean>> = {
+  const enabledCommands: Partial<Record<EditorCommandId, boolean>> = {
     "edit.undo": hasActiveProjection
       ? canUndoInlineSourceProjection(state) ||
         (canDeferProjectionToNativeHistory && undoDepth(state) > 0)

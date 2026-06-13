@@ -3,7 +3,7 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import type { AppCommandId } from "@/features/commands/types";
+import type { EditorCommandId } from "../types";
 
 import {
   finalizeInlineSourceProjection,
@@ -130,7 +130,7 @@ const setStoredInlineMark = (view: EditorView, markType: MarkType) => {
   return true;
 };
 
-export const runInlineFormattingCommand = (view: EditorView, commandId: AppCommandId) => {
+export const runInlineFormattingCommand = (view: EditorView, commandId: EditorCommandId) => {
   if (!isInlineFormatCommandId(commandId)) {
     return false;
   }
@@ -242,7 +242,7 @@ export const hasClearableInlineFormatting = (state: EditorState) => {
   return Boolean(getActiveClearableMarkRange(state, clearableMarkTypes));
 };
 
-const isInlineFormatCommandId = (commandId: AppCommandId): commandId is InlineFormatCommandId =>
+const isInlineFormatCommandId = (commandId: EditorCommandId): commandId is InlineFormatCommandId =>
   commandId === "format.strong" ||
   commandId === "format.emphasis" ||
   commandId === "format.strikethrough" ||

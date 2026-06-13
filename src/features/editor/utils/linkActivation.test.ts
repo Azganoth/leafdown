@@ -4,41 +4,16 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useSessionStore } from "@/stores/session";
-import { resetAppStores, setDefaultSession } from "@/test/fixtures/appStores";
-
 import { activateMarkdownLink } from "./linkActivation";
 
-const notesFolderTree = {
-  name: "Notes",
-  path: "C:/Notes",
-  children: [
-    {
-      kind: "file" as const,
-      name: "readme.md",
-      path: "C:/Notes/readme.md",
-    },
-  ],
-};
-
-const otherFolderTree = {
-  name: "Other",
-  path: "C:/Other",
-  children: [
-    {
-      kind: "file" as const,
-      name: "target.md",
-      path: "C:/Other/target.md",
-    },
-  ],
-};
+const onOpenMarkdownPath = vi.fn(async () => true);
 
 describe("Markdown link activation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
     vi.mocked(confirm).mockResolvedValue(false);
-    resetAppStores();
+    onOpenMarkdownPath.mockResolvedValue(true);
   });
 
   it("opens external web links in the system browser", async () => {
@@ -51,6 +26,7 @@ describe("Markdown link activation", () => {
       activateMarkdownLink({
         documentPath: "C:/Notes/readme.md",
         folderContextPath: "C:/Notes",
+        onOpenMarkdownPath,
         target: "https://example.com/docs",
       }),
     ).resolves.toBe(true);
@@ -60,39 +36,17 @@ describe("Markdown link activation", () => {
     expect(openPath).not.toHaveBeenCalled();
   });
 
-  it("opens confirmed outside-folder Markdown links inside Leafdown and switches context", async () => {
-    setDefaultSession({
-      folderContext: { path: "C:/Notes", tree: notesFolderTree, isEmpty: false },
-      activeDocument: {
-        status: "saved",
-        path: "C:/Notes/readme.md",
-        content: "[Target](../Other/target.md)",
-        isDirty: false,
-        lineEnding: "lf",
-        metadata: { sizeBytes: 27, modifiedAtUnixMs: 1 },
-      },
-    });
+  it("delegates confirmed outside-folder Markdown links to the application callback", async () => {
     vi.mocked(confirm).mockResolvedValue(true);
     vi.mocked(invoke)
       .mockResolvedValueOnce({ kind: "outsideFolder" })
-      .mockResolvedValueOnce({ kind: "localMarkdown", path: "C:/Other/target.md" })
-      .mockResolvedValueOnce({
-        path: "C:/Other/target.md",
-        parentFolderPath: "C:/Other",
-        content: "# Target\n",
-        lineEnding: "lf",
-        metadata: { sizeBytes: 9, modifiedAtUnixMs: 2 },
-      })
-      .mockResolvedValueOnce({
-        path: "C:/Other",
-        tree: otherFolderTree,
-        isEmpty: false,
-      });
+      .mockResolvedValueOnce({ kind: "localMarkdown", path: "C:/Other/target.md" });
 
     await expect(
       activateMarkdownLink({
         documentPath: "C:/Notes/readme.md",
         folderContextPath: "C:/Notes",
+        onOpenMarkdownPath,
         target: "../Other/target.md",
       }),
     ).resolves.toBe(true);
@@ -110,18 +64,7 @@ describe("Markdown link activation", () => {
       target: "../Other/target.md",
       explicitOpen: true,
     });
-    expect(invoke).toHaveBeenNthCalledWith(3, "open_markdown_file", {
-      path: "C:/Other/target.md",
-    });
-    expect(useSessionStore.getState()).toMatchObject({
-      folderContext: { path: "C:/Other", tree: otherFolderTree },
-      activeDocument: {
-        status: "saved",
-        path: "C:/Other/target.md",
-        content: "# Target\n",
-        isDirty: false,
-      },
-    });
+    expect(onOpenMarkdownPath).toHaveBeenCalledWith("C:/Other/target.md");
   });
 
   it("opens outside-folder non-Markdown links after one confirmation", async () => {
@@ -134,6 +77,7 @@ describe("Markdown link activation", () => {
       activateMarkdownLink({
         documentPath: "C:/Notes/readme.md",
         folderContextPath: "C:/Notes",
+        onOpenMarkdownPath,
         target: "../Other/manual.pdf",
       }),
     ).resolves.toBe(true);
@@ -150,6 +94,7 @@ describe("Markdown link activation", () => {
       activateMarkdownLink({
         documentPath: "C:/Notes/readme.md",
         folderContextPath: "C:/Notes",
+        onOpenMarkdownPath,
         target: "manual.pdf",
       }),
     ).resolves.toBe(false);
@@ -182,6 +127,7 @@ describe("Markdown link activation", () => {
       activateMarkdownLink({
         documentPath: null,
         folderContextPath: "C:/Notes",
+        onOpenMarkdownPath,
         target: "missing.md",
       }),
     ).resolves.toBe(false);

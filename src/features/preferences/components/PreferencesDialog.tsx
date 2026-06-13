@@ -9,13 +9,13 @@ import {
 } from "@/components/ui/Dialog";
 import { ScrollArea } from "@/components/ui/ScrollArea";
 import { Separator } from "@/components/ui/Separator";
+import type { ArticleSortOrder } from "@/features/folder-context";
 import {
   useSettingsStore,
   type AppearanceTheme,
   type DefaultNewDocumentExtension,
-  type FileTreeSortOrder,
   type LineEndingPreference,
-} from "@/stores/settings";
+} from "../stores/settings";
 import { SettingsIcon } from "lucide-react";
 import {
   ListPreferenceField,
@@ -37,7 +37,7 @@ const appearanceThemeOptions: RadioOption<AppearanceTheme>[] = [
   { label: "Dark", value: "dark" },
 ];
 
-const fileTreeSortOptions: RadioOption<FileTreeSortOrder>[] = [
+const articleSortOptions: RadioOption<ArticleSortOrder>[] = [
   { label: "Name", value: "name" },
   { label: "Modified date", value: "modifiedDate" },
   { label: "Type", value: "type" },
@@ -62,7 +62,7 @@ function PreferencesDialog({
     autoPairBracketsAndQuotes,
     defaultNewDocumentExtension,
     defaultNewDocumentLineEnding,
-    fileTreeSortOrder,
+    articleSortOrder,
     ignoredDirectories,
     indexFileNames,
     insertFinalNewline,
@@ -102,10 +102,10 @@ function PreferencesDialog({
                 onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
               />
               <PreferenceRadioGroup
-                label="Sort file tree by"
-                value={fileTreeSortOrder}
-                options={fileTreeSortOptions}
-                onValueChange={(value) => updateSetting("fileTreeSortOrder", value)}
+                label="Sort articles by"
+                value={articleSortOrder}
+                options={articleSortOptions}
+                onValueChange={(value) => updateSetting("articleSortOrder", value)}
               />
             </PreferenceSection>
 

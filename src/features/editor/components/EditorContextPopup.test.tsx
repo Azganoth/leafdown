@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 
 import { render } from "@/test/utils/react";
-import type { EditorCommandState } from "@/features/commands/types";
+import type { EditorCommandState } from "../types";
 
 import { EditorContextPopup } from "./EditorContextPopup";
 

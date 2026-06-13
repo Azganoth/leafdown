@@ -11,11 +11,49 @@ Leafdown uses Tauri with a Rust backend and a React frontend. The local filesyst
 - State management: Zustand (persisted via Tauri storage)
 - Editor engine: Milkdown Kit
 
+## Frontend Organization
+
+Domain code lives in `src/features/`. Each feature exposes a root `index.ts` public API and groups
+implementation by responsibility:
+
+- `components/` and `hooks/` contain feature-owned React code.
+- `services/` and `stores/` contain workflows, integrations, and state.
+- `types/` and `utils/` contain domain contracts and focused utilities.
+- `tests/` contains behavior spanning multiple implementation modules.
+
+Single-subject tests are colocated as `*.test.ts` or `*.test.tsx`; feature-level `tests/` directories
+are reserved for broader integration behavior.
+
+Application composition lives under `src/components/` in `layout/`, `screens/`, and `dialogs/`.
+Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in
+`src/components/ui/` and `src/lib/`.
+
+The `session` feature owns the relationship between the active document and folder context, plus
+workflows spanning multiple features. Dependencies flow left to right:
+
+`application components -> commands -> session -> domain features -> shared UI/lib`
+
+Arrows define direction, not required intermediate dependencies: a layer may import any layer to its
+right. Leaf features (`document`, `editor`, `folder-context`, and `preferences`) do not import
+session, commands, or application components. Cross-feature imports use feature-root public APIs.
+When these layers or feature groups change, update the matching boundary override in `.oxlintrc.json`.
+
+Global scope does not make code shared. Domain-owned global behavior stays in its feature; only
+domain-agnostic reuse belongs in shared UI or `lib`.
+
+## Domain Vocabulary
+
+- **Folder context:** the runtime root folder used for scanning, navigation, path resolution, and watching. It creates no metadata.
+- **Article:** a supported Markdown file.
+- **Article navigator:** the presentation of articles within a folder context.
+- **Session:** the active document plus an optional folder context.
+- **Workspace:** not an application domain term; Leafdown creates neither a workspace model nor workspace metadata.
+
 ## Runtime Model
 
 The application maintains three primary runtime states:
 
-- **Current folder context:** The directory used for sidebar navigation and folder workflows.
+- **Current folder context:** The directory used for article navigation and folder workflows.
 - **Active document:** The saved or untitled Markdown document currently loaded in the editor.
 - **Active document metadata:** File metadata utilized for dirty-state and external modification checks.
 
@@ -30,7 +68,7 @@ The application maintains three primary runtime states:
 ### Leafdown Responsibilities
 
 - Rendering the React editor wrapper and application layout.
-- Managing folder context, active document state, global settings, and recent lists.
+- Managing folder context, active document state, global settings, and session history.
 - Controlling the context popup, marker visibility rules, and menu integration.
 - Orchestrating local file workflows, dirty-state checks, and external-change handling.
 - Resolving relative links/images, handling missing-image states, and blocking remote images.
@@ -51,7 +89,7 @@ The Rust backend manages:
 
 - Native file dialogs and file IO.
 - File metadata reads and existence checks.
-- Directory scanning and file tree generation.
+- Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit.
 - Mapping permission and IO errors.
@@ -64,14 +102,14 @@ The React frontend manages:
 - User interface rendering and application commands.
 - Milkdown integration and custom editor elements.
 - Application state (folder context, active document, settings).
-- Updating the sidebar file tree in response to backend file events.
+- Updating the article navigator in response to backend file events.
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Marker visibility rules, thematic styling, and error presentation.
 - Suppressing default webview context menus and standard window-level drag-and-drop navigation.
 
 ## Data Contracts
 
-- Recent lists store absolute paths, deduplicated and ordered by access time.
+- Session history stores recent absolute paths, deduplicated and ordered by access time.
 - Global settings store user preferences. The active document state tracks the current line ending, initialized from the disk file or system defaults.
 - Folder scans return a nested, Markdown-only tree structure. File metadata is tracked to identify external modifications before write operations.
 
@@ -79,7 +117,7 @@ The React frontend manages:
 
 ### Open Workflow
 
-Backend reads or scans target path -> Updates folder context, editor state, and sidebar.
+Backend reads or scans target path -> Session updates folder context, active document, and article navigator.
 
 ### Save Workflow
 
@@ -87,7 +125,7 @@ Serialize editor state to Markdown -> Verify metadata freshness via backend -> W
 
 ### Save As Workflow
 
-Write document to new path -> Update active document path -> Refresh folder context and file tree if the parent directory changed.
+Write document to new path -> Update active document path -> Refresh folder context and article navigator if the parent directory changed.
 
 ## Security
 

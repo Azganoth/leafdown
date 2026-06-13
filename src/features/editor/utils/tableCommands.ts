@@ -14,7 +14,7 @@ import {
 } from "@milkdown/kit/prose/tables";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import type { AppCommandId } from "@/features/commands/types";
+import type { EditorCommandId } from "../types";
 
 type TableCommandId =
   | "format.table.delete"
@@ -379,7 +379,7 @@ export const canMoveSelectedTableColumns = (state: EditorState, direction: Table
   return direction === -1 ? rect.left > 0 : rect.right < rect.map.width;
 };
 
-export const runTableCommand = (view: EditorView, commandId: AppCommandId) => {
+export const runTableCommand = (view: EditorView, commandId: EditorCommandId) => {
   if (!isTableCommandId(commandId)) {
     return false;
   }
@@ -420,7 +420,7 @@ export const runTableCommand = (view: EditorView, commandId: AppCommandId) => {
   }
 };
 
-const isTableCommandId = (commandId: AppCommandId): commandId is TableCommandId =>
+const isTableCommandId = (commandId: EditorCommandId): commandId is TableCommandId =>
   commandId === "format.table.delete" ||
   commandId === "format.table.addRowAbove" ||
   commandId === "format.table.addRowBelow" ||

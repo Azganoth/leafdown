@@ -9,6 +9,7 @@ export const leafdownLinkActivationPluginKey = new PluginKey("leafdownLinkActiva
 const defaultLinkContext: MarkdownLinkContext = {
   documentPath: null,
   folderContextPath: null,
+  onOpenMarkdownPath: () => false,
 };
 
 const isModClick = (event: MouseEvent) => event.ctrlKey || event.metaKey;

@@ -4,7 +4,7 @@ import { liftListItem, sinkListItem, wrapInList } from "@milkdown/kit/prose/sche
 import type { Command, EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import type { AppCommandId } from "@/features/commands/types";
+import type { EditorCommandId } from "../types";
 
 type BlockFormatCommandId =
   | "format.paragraph"
@@ -335,7 +335,7 @@ const clearBlockFormatting = (view: EditorView) => {
   return didSetParagraph || handled;
 };
 
-export const runBlockFormattingCommand = (view: EditorView, commandId: AppCommandId) => {
+export const runBlockFormattingCommand = (view: EditorView, commandId: EditorCommandId) => {
   if (!isBlockFormatCommandId(commandId)) {
     return false;
   }
@@ -429,7 +429,7 @@ export const hasRemovableBlockFormatting = (state: EditorState) => {
   );
 };
 
-const isBlockFormatCommandId = (commandId: AppCommandId): commandId is BlockFormatCommandId =>
+const isBlockFormatCommandId = (commandId: EditorCommandId): commandId is BlockFormatCommandId =>
   commandId === "format.paragraph" ||
   commandId === "format.heading1" ||
   commandId === "format.heading2" ||

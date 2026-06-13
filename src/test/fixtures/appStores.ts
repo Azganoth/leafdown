@@ -1,25 +1,27 @@
-import { useFileTreeViewStore } from "@/features/file-tree/stores/fileTreeView";
+import type {
+  ActiveDocumentState,
+  SavedDocumentState,
+  UntitledDocumentState,
+} from "@/features/document";
+import { useArticleNavigatorStore } from "@/features/folder-context";
 import {
+  useSessionHistoryStore,
   useSessionStore,
-  type ActiveDocumentState,
-  type SavedDocumentState,
+  type SessionHistoryState,
   type SessionState,
-  type UntitledDocumentState,
-} from "@/stores/session";
+} from "@/features/session";
 import {
   getSystemDefaultLineEnding,
   useSettingsStore,
   type SettingsState,
-} from "@/stores/settings";
+} from "@/features/preferences";
 
 export function setDefaultSettings(settings: Partial<SettingsState> = {}) {
   useSettingsStore.setState({
     theme: "system",
     recordRecentItems: true,
-    recentFiles: [],
-    recentFolders: [],
     sidebarVisible: true,
-    fileTreeSortOrder: "name",
+    articleSortOrder: "name",
     defaultNewDocumentExtension: ".md",
     defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
     insertFinalNewline: true,
@@ -36,7 +38,20 @@ export function setDefaultSettings(settings: Partial<SettingsState> = {}) {
     ],
     autoPairBracketsAndQuotes: true,
     softWrapCodeBlocks: false,
+    fileTreeSortOrder: null,
+    recentFiles: [],
+    recentFolders: [],
+    persistenceVersion: 0,
     ...settings,
+  });
+}
+
+export function setDefaultHistory(history: Partial<SessionHistoryState> = {}) {
+  useSessionHistoryStore.setState({
+    recentFiles: [],
+    recentFolders: [],
+    persistenceVersion: 1,
+    ...history,
   });
 }
 
@@ -75,6 +90,7 @@ export function setDefaultSession(session: Partial<TestSessionState> = {}) {
 
 export function resetAppStores() {
   setDefaultSettings();
+  setDefaultHistory();
   setDefaultSession();
-  useFileTreeViewStore.getState().reset();
+  useArticleNavigatorStore.getState().reset();
 }

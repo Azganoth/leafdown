@@ -1,7 +1,7 @@
 /**
  * Generates the `sample/` directory at the project root.
  *
- * This directory is a self-contained manual testing workspace for Leafdown.
+ * This directory is a self-contained manual testing folder for Leafdown.
  * It is gitignored — run `pnpm sample` after cloning to create it.
  *
  * Each fixture targets a specific scanning, rendering, or error-handling
@@ -33,9 +33,9 @@ const write = (relativePath: string, content: string | Buffer) => {
 
 write(
   "readme.md",
-  `# Leafdown Sample Workspace
+  `# Leafdown Sample Folder
 
-This folder is a manual testing workspace for Leafdown. Open it with
+This is a manual testing folder for Leafdown. Open it with
 **File → Open folder…** to exercise sidebar scanning, Markdown rendering,
 and edge-case error states.
 
@@ -206,7 +206,7 @@ sidebar and be fully editable.
 
 ## Checklist
 
-- [x] Scanned by the file tree
+- [x] Scanned into the article navigator
 - [x] Opened in the editor
 - [ ] Saved with modifications
 `,
@@ -214,14 +214,14 @@ sidebar and be fully editable.
 
 // ---------------------------------------------------------------------------
 // Non-Markdown file (should be filtered from sidebar)
-// Validates: file tree filters non-Markdown files.
+// Validates: the article navigator filters non-Markdown files.
 // ---------------------------------------------------------------------------
 
 write(
   "nested-directory/notes.txt",
   `This is a plain text file.
 
-It should NOT appear in Leafdown's sidebar. The file tree only displays
+It should NOT appear in Leafdown's sidebar. The article navigator only displays
 .md and .markdown files.
 `,
 );
@@ -328,4 +328,4 @@ inline confirmation placeholder instead of loading automatically:
 
 // ---------------------------------------------------------------------------
 
-console.log(`✔ Sample workspace generated at: ${SAMPLE}`);
+console.log(`✔ Sample folder generated at: ${SAMPLE}`);

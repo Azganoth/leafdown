@@ -3,9 +3,6 @@ import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
-import { getOpenMarkdownFileErrorMessage, showDocumentIoErrorToast } from "@/lib/documentIoErrors";
-import { openMarkdownFilePath } from "@/lib/openMarkdownFile";
-
 export type MarkdownLinkResolutionKind =
   | "externalWeb"
   | "localMarkdown"
@@ -64,6 +61,7 @@ type BackendMarkdownLinkTarget =
 export interface MarkdownLinkContext {
   documentPath: string | null;
   folderContextPath: string | null;
+  onOpenMarkdownPath: (path: string) => boolean | Promise<boolean>;
 }
 
 export interface ActivateMarkdownLinkOptions extends MarkdownLinkContext {
@@ -116,15 +114,6 @@ const showError = (title: string, error: unknown) => {
   toast.error(title, { description: error instanceof Error ? error.message : String(error) });
 };
 
-const openMarkdownTarget = async (path: string) => {
-  try {
-    return await openMarkdownFilePath(path);
-  } catch (error: unknown) {
-    showDocumentIoErrorToast(toast.error, getOpenMarkdownFileErrorMessage(error));
-    return false;
-  }
-};
-
 const openExternalWebTarget = async (url: string) => {
   try {
     await openUrl(url);
@@ -159,7 +148,7 @@ const activateResolvedMarkdownLink = async (
       return openExternalWebTarget(resolution.url);
 
     case "localMarkdown":
-      return openMarkdownTarget(resolution.path);
+      return options.onOpenMarkdownPath(resolution.path);
 
     case "localFile":
       return openLocalFileTarget(resolution.path, confirmationAlreadyShown);

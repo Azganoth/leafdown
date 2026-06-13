@@ -2,9 +2,9 @@ import { waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  unwatchMarkdownFolder,
-  watchMarkdownFolder,
-} from "@/features/file-tree/utils/folderWatcherBackend";
+  unwatchFolderContext,
+  watchFolderContext,
+} from "@/features/folder-context/services/folderContextWatcher";
 import { setTheme } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -14,18 +14,26 @@ import { toast } from "sonner";
 import { App } from "./App";
 import {
   resetActiveDocumentEditorBridge,
+  sessionHistoryStoreTauriHandler,
   setActiveDocumentEditorBridge,
-} from "./lib/documentEditorBridge";
-import { useSessionStore } from "./stores/session";
+  useSessionHistoryStore,
+  useSessionStore,
+} from "./features/session";
 import {
   defaultIgnoredDirectories,
   settingsStoreTauriHandler,
   useSettingsStore,
-} from "./stores/settings";
-import { resetAppStores, setDefaultSession, setDefaultSettings } from "./test/fixtures/appStores";
+} from "./features/preferences";
+import {
+  resetAppStores,
+  setDefaultHistory,
+  setDefaultSession,
+  setDefaultSettings,
+} from "./test/fixtures/appStores";
 import { act, render, renderWithUser, screen } from "./test/utils/react";
 
-vi.mock("@/features/editor", () => ({
+vi.mock("@/features/editor", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/editor")>()),
   MilkdownEditor: ({
     autoPairBracketsAndQuotes,
     documentKey,
@@ -53,9 +61,9 @@ vi.mock("@/features/editor", () => ({
   ),
 }));
 
-vi.mock("@/features/file-tree/utils/folderWatcherBackend", () => ({
-  unwatchMarkdownFolder: vi.fn(async () => undefined),
-  watchMarkdownFolder: vi.fn(async () => undefined),
+vi.mock("@/features/folder-context/services/folderContextWatcher", () => ({
+  unwatchFolderContext: vi.fn(async () => undefined),
+  watchFolderContext: vi.fn(async () => undefined),
 }));
 
 const notesFolderTree = {
@@ -134,7 +142,7 @@ const countScanMarkdownFolderCalls = () =>
     .length;
 
 const expectFolderWatchStarted = (path: string, ignoredDirectories: string[]) => {
-  expect(watchMarkdownFolder).toHaveBeenCalledWith(
+  expect(watchFolderContext).toHaveBeenCalledWith(
     path,
     ignoredDirectories,
     expect.stringMatching(/^folder-watch:/u),
@@ -168,7 +176,7 @@ const menuItem = (name: string | RegExp) => {
 };
 
 const latestFolderWatchScope = () => {
-  const call = vi.mocked(watchMarkdownFolder).mock.calls.at(-1);
+  const call = vi.mocked(watchFolderContext).mock.calls.at(-1);
 
   expect(call).toBeDefined();
 
@@ -182,8 +190,8 @@ describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
-    vi.mocked(watchMarkdownFolder).mockReset().mockResolvedValue(undefined);
-    vi.mocked(unwatchMarkdownFolder).mockReset().mockResolvedValue(undefined);
+    vi.mocked(watchFolderContext).mockReset().mockResolvedValue(undefined);
+    vi.mocked(unwatchFolderContext).mockReset().mockResolvedValue(undefined);
     vi.mocked(confirm).mockResolvedValue(false);
     vi.mocked(open).mockResolvedValue(null);
     vi.mocked(save).mockResolvedValue(null);
@@ -200,6 +208,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(settingsStoreTauriHandler.start).toHaveBeenCalled();
+      expect(sessionHistoryStoreTauriHandler.start).toHaveBeenCalled();
       expect(appWindow.show).toHaveBeenCalled();
     });
 
@@ -248,7 +257,7 @@ describe("App", () => {
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
-    expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.getByText("No folder open")).toBeInTheDocument();
@@ -267,7 +276,7 @@ describe("App", () => {
 
     await openMenu(user, "View");
 
-    expect(menuItem("Sort file tree by")).toBeInTheDocument();
+    expect(menuItem("Sort articles by")).toBeInTheDocument();
     expect(menuItem("Collapse all folders")).toHaveAttribute("data-disabled");
     expect(menuItem("Expand all folders")).toHaveAttribute("data-disabled");
   });
@@ -319,7 +328,7 @@ describe("App", () => {
   });
 
   it("renders recent files and folders and clears both lists", async () => {
-    setDefaultSettings({
+    setDefaultHistory({
       recentFiles: ["C:/Notes/readme.md"],
       recentFolders: ["C:/Notes"],
     });
@@ -344,7 +353,7 @@ describe("App", () => {
 
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
-    expect(useSettingsStore.getState()).toMatchObject({
+    expect(useSessionHistoryStore.getState()).toMatchObject({
       recentFiles: [],
       recentFolders: [],
     });
@@ -371,7 +380,7 @@ describe("App", () => {
     expect(screen.queryByTestId("milkdown-editor-host")).not.toBeInTheDocument();
   });
 
-  it("renders nested file tree rows and selects the active saved document", async () => {
+  it("renders nested article navigator rows and selects the active saved document", async () => {
     setDefaultSession({
       folderContext: { path: "C:/Notes", tree: nestedNotesFolderTree, isEmpty: false },
       activeDocument: {
@@ -429,7 +438,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
   });
 
   it("toggles sidebar visibility from the view command and shortcut", async () => {
@@ -437,11 +446,11 @@ describe("App", () => {
 
     await clickMenuItem(user, "View", "Toggle sidebar");
 
-    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
 
     await clickMenuItem(user, "View", "Toggle sidebar");
 
-    expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
 
     const toggleSidebarShortcut = new KeyboardEvent("keydown", {
       key: "e",
@@ -454,7 +463,7 @@ describe("App", () => {
 
     expect(toggleSidebarShortcut.defaultPrevented).toBe(true);
     await waitFor(() => {
-      expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
     });
   });
 
@@ -466,7 +475,7 @@ describe("App", () => {
     expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
     expect(screen.getByText("Record recent files and folders")).toBeInTheDocument();
     expect(screen.getByText("Sidebar visibility")).toBeInTheDocument();
-    expect(screen.getByText("Sort file tree by")).toBeInTheDocument();
+    expect(screen.getByText("Sort articles by")).toBeInTheDocument();
     expect(screen.getByText("Default extension for new documents")).toBeInTheDocument();
     expect(screen.getByText("Default line ending for new documents")).toBeInTheDocument();
     expect(screen.getByText("Insert final newline on save")).toBeInTheDocument();
@@ -498,7 +507,7 @@ describe("App", () => {
       sidebarVisible: false,
       theme: "dark",
     });
-    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
   });
 
   it("renders the active document editor for document sessions", () => {
@@ -868,7 +877,7 @@ describe("App", () => {
         metadata: { sizeBytes: 8, modifiedAtUnixMs: 1_773_916_800_000 },
       },
     });
-    expect(useSettingsStore.getState()).toMatchObject({
+    expect(useSessionHistoryStore.getState()).toMatchObject({
       recentFiles: ["C:/Notes/readme.md"],
       recentFolders: ["C:/Notes"],
     });
@@ -945,7 +954,7 @@ describe("App", () => {
     expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
   });
 
-  it("sorts the file tree through view commands and refreshes the current folder", async () => {
+  it("sorts articles through view commands and refreshes the current folder", async () => {
     const sortedTree = {
       ...nestedNotesFolderTree,
       children: [...nestedNotesFolderTree.children].reverse(),
@@ -963,7 +972,7 @@ describe("App", () => {
     const { user } = renderWithUser(<App />);
 
     await openMenu(user, "View");
-    await user.hover(screen.getByRole("menuitem", { name: "Sort file tree by" }));
+    await user.hover(screen.getByRole("menuitem", { name: "Sort articles by" }));
     await user.keyboard("{ArrowRight}{ArrowDown}{ArrowDown}{Enter}");
 
     await waitFor(() => {
@@ -973,7 +982,7 @@ describe("App", () => {
         sortOrder: "type",
       });
     });
-    expect(useSettingsStore.getState().fileTreeSortOrder).toBe("type");
+    expect(useSettingsStore.getState().articleSortOrder).toBe("type");
     expect(useSessionStore.getState().folderContext?.tree.children[0]).toMatchObject({
       name: "empty",
     });
@@ -994,12 +1003,12 @@ describe("App", () => {
 
     const { user } = renderWithUser(<App />);
 
-    expect(screen.queryByTestId("file-tree-sidebar-host")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
 
     await clickMenuItem(user, "File", /^Reveal in sidebar/);
 
     await waitFor(() => {
-      expect(screen.getByTestId("file-tree-sidebar-host")).toBeInTheDocument();
+      expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "spec.md" })).toHaveAttribute(
@@ -1024,7 +1033,7 @@ describe("App", () => {
 
     unmount();
 
-    expect(unwatchMarkdownFolder).toHaveBeenCalledWith(scope.id, scope.generation);
+    expect(unwatchFolderContext).toHaveBeenCalledWith(scope.id, scope.generation);
   });
 
   it("unlistens folder watcher events when listener setup resolves after unmount", async () => {
@@ -1090,13 +1099,13 @@ describe("App", () => {
     });
 
     await waitFor(() => {
-      expect(unwatchMarkdownFolder).toHaveBeenCalledWith(notesScope.id, notesScope.generation);
+      expect(unwatchFolderContext).toHaveBeenCalledWith(notesScope.id, notesScope.generation);
       expectFolderWatchStarted("C:/Archive", defaultIgnoredDirectories);
     });
     expect(latestFolderWatchScope()).not.toEqual(notesScope);
   });
 
-  it("refreshes the current file tree from folder watcher events", async () => {
+  it("refreshes the article navigator from folder watcher events", async () => {
     const refreshedTree = {
       ...nestedNotesFolderTree,
       children: [
@@ -1165,7 +1174,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalled();
+      expect(watchFolderContext).toHaveBeenCalled();
     });
 
     const handleFolderChanged = findFolderChangedHandler();
@@ -1213,7 +1222,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalled();
+      expect(watchFolderContext).toHaveBeenCalled();
     });
 
     const staleFolderChangedHandler = findFolderChangedHandler();
@@ -1269,7 +1278,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(watchMarkdownFolder).toHaveBeenCalled();
+      expect(watchFolderContext).toHaveBeenCalled();
     });
 
     findFolderChangedHandler()({
@@ -1327,7 +1336,7 @@ describe("App", () => {
   });
 
   it("opens recent Markdown files without showing the file picker", async () => {
-    setDefaultSettings({ recentFiles: ["C:/Notes/readme.md"] });
+    setDefaultHistory({ recentFiles: ["C:/Notes/readme.md"] });
     vi.mocked(invoke).mockResolvedValueOnce({
       path: "C:/Notes/readme.md",
       parentFolderPath: "C:/Notes",
@@ -1377,7 +1386,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
     });
-    expect(useSettingsStore.getState()).toMatchObject({
+    expect(useSessionHistoryStore.getState()).toMatchObject({
       recentFiles: [],
       recentFolders: [],
     });
@@ -1385,7 +1394,7 @@ describe("App", () => {
 
   it("opens a selected folder index into a saved document session", async () => {
     setDefaultSettings({
-      fileTreeSortOrder: "type",
+      articleSortOrder: "type",
       ignoredDirectories: [".git", "vendor"],
       indexFileNames: ["home", "readme"],
     });
@@ -1430,7 +1439,7 @@ describe("App", () => {
         isDirty: false,
       },
     });
-    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
+    expect(useSessionHistoryStore.getState().recentFolders).toEqual(["C:/Notes"]);
     expect(screen.getByTestId("active-document-host")).toBeInTheDocument();
   });
 
@@ -1456,7 +1465,7 @@ describe("App", () => {
       folderContext: { path: "C:/Notes", tree: notesFolderTree },
       activeDocument: null,
     });
-    expect(useSettingsStore.getState().recentFolders).toEqual(["C:/Notes"]);
+    expect(useSessionHistoryStore.getState().recentFolders).toEqual(["C:/Notes"]);
   });
 
   it("tracks selected folders with no Markdown files as empty folder contexts", async () => {

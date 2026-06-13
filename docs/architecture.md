@@ -36,7 +36,7 @@ workflows spanning multiple features. Dependencies flow left to right:
 Arrows define direction, not required intermediate dependencies: a layer may import any layer to its
 right. Leaf features (`document`, `editor`, `folder-context`, and `preferences`) do not import
 session, commands, or application components. Cross-feature imports use feature-root public APIs.
-When these layers or feature groups change, update the matching boundary override in `.oxlintrc.json`.
+When these layers or feature groups change, update the matching boundary lists in `oxlint.config.ts`.
 
 Global scope does not make code shared. Domain-owned global behavior stays in its feature; only
 domain-agnostic reuse belongs in shared UI or `lib`.

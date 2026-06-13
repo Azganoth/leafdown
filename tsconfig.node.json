@@ -11,5 +11,5 @@
 
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "scripts"]
+  "include": ["vite.config.ts", "oxfmt.config.ts", "oxlint.config.ts", "scripts"]
 }

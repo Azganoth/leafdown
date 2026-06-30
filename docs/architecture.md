@@ -17,12 +17,15 @@ Domain code lives in `src/features/`. Each feature exposes a root `index.ts` pub
 implementation by responsibility:
 
 - `components/` and `hooks/` contain feature-owned React code.
-- `services/` and `stores/` contain workflows, integrations, and state.
-- `types/` and `utils/` contain domain contracts and focused utilities.
+- `commands/`, `services/`, and `stores/` contain domain behavior, workflows, integrations, and state.
+- `utils/` contains focused code with no stronger subsystem owner.
 - `tests/` contains behavior spanning multiple implementation modules.
 
 Single-subject tests are colocated as `*.test.ts` or `*.test.tsx`; feature-level `tests/` directories
 are reserved for broader integration behavior.
+
+Types are colocated with the module that owns the concept. A `types/` directory is reserved for a
+coherent set of shared domain contracts without a clearer owner.
 
 Application composition lives under `src/components/` in `layout/`, `screens/`, and `dialogs/`.
 Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in
@@ -112,6 +115,13 @@ The React frontend manages:
 - Session history stores recent absolute paths, deduplicated and ordered by access time.
 - Global settings store user preferences. The active document state tracks the current line ending, initialized from the disk file or system defaults.
 - Folder scans return a nested, Markdown-only tree structure. File metadata is tracked to identify external modifications before write operations.
+- The Rust folder scan owns canonical article-tree ordering. The frontend sends
+  the selected article sort order with scan/open requests and preserves the
+  returned child order when flattening rows for the article navigator.
+- Changing the article sort order refreshes the active folder context with a new
+  backend scan. Frontend local re-sorting, if introduced for optimistic
+  client-only mutations, must be treated as temporary and match the backend
+  comparator until the next scan result arrives.
 
 ## Data Flow
 

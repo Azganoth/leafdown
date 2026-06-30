@@ -1,4 +1,4 @@
-import { FolderOpen } from "lucide-react";
+import { FolderOpenIcon } from "lucide-react";
 
 export function EmptyFolderScreen() {
   return (
@@ -8,7 +8,7 @@ export function EmptyFolderScreen() {
     >
       <div className="max-w-md text-center">
         <span className="mx-auto flex size-14 items-center justify-center rounded-md border border-border bg-card text-muted-foreground">
-          <FolderOpen aria-hidden="true" className="size-7" />
+          <FolderOpenIcon className="size-7" />
         </span>
         <h2 id="empty-folder-title" className="mt-5 text-xl font-semibold">
           No Markdown files found

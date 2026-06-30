@@ -1,543 +1,536 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { waitFor } from "@testing-library/react";
-
-import { runEditorCommand } from "../utils/editorCommands";
+import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
+import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import {
-  mountMilkdownEditor,
+  setupMilkdownEditorMount,
   type MountedMilkdownEditor,
   type MountMilkdownEditorOptions,
 } from "@/test/utils/milkdown";
 import {
-  pressKey,
+  getEditorDomElement,
+  getEditorTextContent,
+  getEditorTextPosition,
+  getSelectedEditorText,
+  runKeyDownHandlers,
   setSelectionAtDocumentEnd,
-  setSelectionAtTextEnd,
+  setSelectionAtElementTextEnd,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
 
+import { runEditorCommand } from "../commands";
 import { hasActiveInlineSourceProjection } from "./inlineSourceProjection";
 
-const mountedEditors: MountedMilkdownEditor[] = [];
+const mountEditor = setupMilkdownEditorMount();
+const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
 
-const mountEditor = async (
+interface MountInlineProjectionEditorOptions {
+  onContentChanged?: MountMilkdownEditorOptions["onContentChanged"];
+  onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"];
+}
+
+const mountProjectionEditor = (
   initialMarkdown: string,
-  onContentTransaction = vi.fn(),
-  onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"],
-): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown, {
-    onContentTransaction,
-    onMarkdownUpdated,
-    rootClassName: "leafdown-editor",
+  options: MountInlineProjectionEditorOptions = {},
+): Promise<MountedMilkdownEditor> =>
+  mountEditor(initialMarkdown, {
+    onContentChanged: options.onContentChanged,
+    onMarkdownUpdated: options.onMarkdownUpdated,
+    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
   });
-  mountedEditors.push(mounted);
-  return mounted;
-};
 
-const waitForMarkdownListenerDebounce = async () => {
-  await new Promise((resolve) => setTimeout(resolve, 300));
+const waitForMarkdownUpdateListener = async () => {
+  await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
 };
 
 const enterProjection = (mounted: MountedMilkdownEditor, selector: "em" | "strong") => {
-  const element = mounted.view.dom.querySelector(selector);
+  const element = getEditorDomElement(mounted, selector);
 
-  expect(element).toBeInTheDocument();
-
-  setSelectionAtTextEnd(mounted.view, element as HTMLElement);
+  setSelectionAtElementTextEnd(mounted.view, element);
 
   expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
 };
 
-const getTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
-  const textRanges: { end: number; from: number; start: number }[] = [];
-  let documentText = "";
-
-  mounted.view.state.doc.descendants((node, pos) => {
-    if (!node.isText) {
-      return true;
-    }
-
-    const start = documentText.length;
-    documentText += node.textContent;
-    textRanges.push({
-      end: documentText.length,
-      from: pos,
-      start,
-    });
-
-    return true;
-  });
-
-  const index = documentText.indexOf(text);
-
-  if (index === -1) {
-    throw new Error(`Could not find projected text: ${text}`);
-  }
-
-  const range = textRanges.find(({ end, start }) => start <= index && index < end);
-
-  if (!range) {
-    throw new Error(`Could not resolve projected text position: ${text}`);
-  }
-
-  return range.from + index - range.start;
-};
-
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
-  Promise.resolve(runEditorCommand(mounted.editor, commandId));
+  runEditorCommand(mounted.editor, commandId);
 
 describe("inline source projection", () => {
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
-  });
+  describe("entry and rendering", () => {
+    it("projects strong markers as real editable document text", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-  it("projects strong markers as real editable document text", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+      enterProjection(mounted, "strong");
 
-    enterProjection(mounted, "strong");
+      expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
 
-    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain");
-    expect(
-      mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
-    ).not.toBeInTheDocument();
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    const sourceStart = getTextPosition(mounted, "**Bold**");
+      setTextSelection(mounted.view, sourceStart);
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
 
-    setTextSelection(mounted.view, sourceStart);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      setTextSelection(mounted.view, sourceStart + 1);
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
 
-    setTextSelection(mounted.view, sourceStart + 1);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      setTextSelection(mounted.view, sourceStart + "**Bold".length);
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+    });
 
-    setTextSelection(mounted.view, sourceStart + "**Bold".length);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-  });
+    it.each([
+      { expected: "__Bold__ plain", initial: "__Bold__ plain", selector: "strong" as const },
+      { expected: "_Soft_ plain", initial: "_Soft_ plain", selector: "em" as const },
+    ])(
+      "projects underscore source markers for $initial",
+      async ({ expected, initial, selector }) => {
+        const mounted = await mountProjectionEditor(initial);
 
-  it.each([
-    { expected: "__Bold__ plain", initial: "__Bold__ plain", selector: "strong" as const },
-    { expected: "_Soft_ plain", initial: "_Soft_ plain", selector: "em" as const },
-  ])("projects underscore source markers for $initial", async ({ expected, initial, selector }) => {
-    const mounted = await mountEditor(initial);
+        enterProjection(mounted, selector);
 
-    enterProjection(mounted, selector);
-
-    expect(mounted.view.state.doc.textContent).toBe(expected);
-  });
-
-  it("styles projected markers separately from projected content", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-
-    enterProjection(mounted, "strong");
-
-    const markers = Array.from(
-      mounted.view.dom.querySelectorAll(".leafdown-inline-source-projection__marker"),
-    );
-    const content = mounted.view.dom.querySelector(
-      ".leafdown-inline-source-projection__content--strong",
+        expect(getEditorTextContent(mounted)).toBe(expected);
+      },
     );
 
-    expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
-    expect(content).toHaveTextContent("Bold");
+    it("styles projected markers separately from projected content", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const markers = Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-inline-source-projection__marker"),
+      );
+      const content = getEditorDomElement(
+        mounted,
+        ".leafdown-inline-source-projection__content--strong",
+      );
+
+      expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
+      expect(content).toHaveTextContent("Bold");
+    });
   });
 
-  it.each([
-    {
-      expected: "**Bolder** plain\n",
-      initial: "**Bold** plain",
-      selector: "strong" as const,
-    },
-    {
-      expected: "__Bolder__ plain\n",
-      initial: "__Bold__ plain",
-      selector: "strong" as const,
-    },
-    {
-      expected: "*Softer* plain\n",
-      initial: "*Soft* plain",
-      selector: "em" as const,
-    },
-    {
-      expected: "_Softer_ plain\n",
-      initial: "_Soft_ plain",
-      selector: "em" as const,
-    },
-    {
-      expected: "***Bolder*** plain\n",
-      initial: "***Bold*** plain",
-      selector: "strong" as const,
-    },
-    {
-      expected: "___Bolder___ plain\n",
-      initial: "___Bold___ plain",
-      selector: "strong" as const,
-    },
-    {
-      expected: "_**Bolder**_ plain\n",
-      initial: "**_Bold_** plain",
-      selector: "strong" as const,
-    },
-  ])("commits valid projected source for $initial", async ({ expected, initial, selector }) => {
-    const mounted = await mountEditor(initial);
+  describe("source editing", () => {
+    it.each([
+      {
+        expected: "**Bolder** plain\n",
+        initial: BOLD_PLAIN_MARKDOWN,
+        selector: "strong" as const,
+      },
+      {
+        expected: "__Bolder__ plain\n",
+        initial: "__Bold__ plain",
+        selector: "strong" as const,
+      },
+      {
+        expected: "*Softer* plain\n",
+        initial: "*Soft* plain",
+        selector: "em" as const,
+      },
+      {
+        expected: "_Softer_ plain\n",
+        initial: "_Soft_ plain",
+        selector: "em" as const,
+      },
+      {
+        expected: "***Bolder*** plain\n",
+        initial: "***Bold*** plain",
+        selector: "strong" as const,
+      },
+      {
+        expected: "___Bolder___ plain\n",
+        initial: "___Bold___ plain",
+        selector: "strong" as const,
+      },
+      {
+        expected: "_**Bolder**_ plain\n",
+        initial: "**_Bold_** plain",
+        selector: "strong" as const,
+      },
+    ])("commits valid projected source for $initial", async ({ expected, initial, selector }) => {
+      const mounted = await mountProjectionEditor(initial);
 
-    enterProjection(mounted, selector);
-    typeText(mounted.view, "er");
-    setSelectionAtDocumentEnd(mounted.view);
+      enterProjection(mounted, selector);
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
-    expect(mounted.getMarkdown()).toBe(expected);
-  });
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.getMarkdown()).toBe(expected);
+    });
 
-  it("downgrades strong projection to emphasis when a strong marker is deleted", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    it("downgrades strong projection to emphasis when a strong marker is deleted", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
 
-    const sourceStart = getTextPosition(mounted, "**Bold**");
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    setTextSelection(mounted.view, sourceStart + 1);
-    pressKey(mounted.view, "Backspace");
+      setTextSelection(mounted.view, sourceStart + 1);
+      runKeyDownHandlers(mounted.view, "Backspace");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("*Bold* plain");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("*Bold* plain");
 
-    setSelectionAtDocumentEnd(mounted.view);
+      setSelectionAtDocumentEnd(mounted.view);
 
-    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
-  });
+      expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
+    });
 
-  it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {
-    const mounted = await mountEditor("*Soft* plain");
+    it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {
+      const mounted = await mountProjectionEditor("*Soft* plain");
 
-    enterProjection(mounted, "em");
+      enterProjection(mounted, "em");
 
-    const sourceStart = getTextPosition(mounted, "*Soft*");
+      const sourceStart = getEditorTextPosition(mounted, "*Soft*");
 
-    setTextSelection(mounted.view, sourceStart + 1);
-    typeText(mounted.view, "*");
+      setTextSelection(mounted.view, sourceStart + 1);
+      typeText(mounted.view, "*");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Soft** plain");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Soft** plain");
 
-    setSelectionAtDocumentEnd(mounted.view);
+      setSelectionAtDocumentEnd(mounted.view);
 
-    expect(mounted.getMarkdown()).toBe("**Soft** plain\n");
-  });
+      expect(mounted.getMarkdown()).toBe("**Soft** plain\n");
+    });
 
-  it("reforms emphasis projection when a missing left marker is readded", async () => {
-    const mounted = await mountEditor("*Soft* plain");
+    it("reforms emphasis projection when a missing left marker is readded", async () => {
+      const mounted = await mountProjectionEditor("*Soft* plain");
 
-    enterProjection(mounted, "em");
+      enterProjection(mounted, "em");
 
-    const sourceStart = getTextPosition(mounted, "*Soft*");
+      const sourceStart = getEditorTextPosition(mounted, "*Soft*");
 
-    setTextSelection(mounted.view, sourceStart + 1);
-    pressKey(mounted.view, "Backspace");
+      setTextSelection(mounted.view, sourceStart + 1);
+      runKeyDownHandlers(mounted.view, "Backspace");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("Soft* plain");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Soft* plain");
 
-    typeText(mounted.view, "*");
+      typeText(mounted.view, "*");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("*Soft* plain");
-    expect(
-      mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
-    ).toHaveTextContent("Soft");
-  });
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("*Soft* plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+      ).toHaveTextContent("Soft");
+    });
 
-  it("forms projection when a left marker completes plain raw inline source", async () => {
-    const mounted = await mountEditor("Soft* plain");
+    it("forms projection when a left marker completes plain raw inline source", async () => {
+      const mounted = await mountProjectionEditor("Soft* plain");
 
-    const sourceStart = getTextPosition(mounted, "Soft*");
+      const sourceStart = getEditorTextPosition(mounted, "Soft*");
 
-    setTextSelection(mounted.view, sourceStart);
-    typeText(mounted.view, "*");
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, "*");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("*Soft* plain");
-    expect(
-      mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
-    ).toHaveTextContent("Soft");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("*Soft* plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+      ).toHaveTextContent("Soft");
 
-    setSelectionAtDocumentEnd(mounted.view);
+      setSelectionAtDocumentEnd(mounted.view);
 
-    expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
-  });
+      expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
+    });
 
-  it("keeps outer-boundary text outside the projected content", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    it("keeps outer-boundary text outside the projected content", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
 
-    const sourceStart = getTextPosition(mounted, "**Bold**");
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    setTextSelection(mounted.view, sourceStart);
-    typeText(mounted.view, "A");
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, "A");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("A**Bold** plain");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(`A${BOLD_PLAIN_MARKDOWN}`);
 
-    expect(mounted.getMarkdown()).toBe("A**Bold** plain\n");
-  });
+      expect(mounted.getMarkdown()).toBe(`A${BOLD_PLAIN_MARKDOWN}\n`);
+    });
 
-  it("inserts delimiter-interior text inside the projected content", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    it("inserts delimiter-interior text inside the projected content", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
 
-    const sourceStart = getTextPosition(mounted, "**Bold**");
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    setTextSelection(mounted.view, sourceStart + 1);
-    typeText(mounted.view, "Z");
+      setTextSelection(mounted.view, sourceStart + 1);
+      typeText(mounted.view, "Z");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**ZBold** plain");
-  });
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**ZBold** plain");
+    });
 
-  it("uses the edited delimiter side when completing marker runs", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    it("uses the edited delimiter side when completing marker runs", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
 
-    const sourceStart = getTextPosition(mounted, "**Bold**");
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    mounted.view.dispatch(
-      mounted.view.state.tr.replaceWith(
-        sourceStart,
+      mounted.view.dispatch(
+        mounted.view.state.tr.replaceWith(
+          sourceStart,
+          sourceStart + "**Bold**".length,
+          mounted.view.state.schema.text("***Bold"),
+        ),
+      );
+      setTextSelection(mounted.view, sourceStart + "***Bold".length);
+
+      typeText(mounted.view, "*");
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("*Bold* plain");
+
+      typeText(mounted.view, "*");
+
+      expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+
+      typeText(mounted.view, "*");
+
+      expect(getEditorTextContent(mounted)).toBe("***Bold*** plain");
+    });
+
+    it("keeps marker edits local instead of merging adjacent marked runs", async () => {
+      const mounted = await mountProjectionEditor("**One** **Two**");
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**One**");
+
+      setTextSelection(mounted.view, sourceStart + "**One*".length);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("*One* **Two**\n");
+    });
+
+    it("commits malformed projected source as literal text", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+      setTextSelection(
+        mounted.view,
+        sourceStart + "**Bold*".length,
         sourceStart + "**Bold**".length,
-        mounted.view.state.schema.text("***Bold"),
-      ),
-    );
-    setTextSelection(mounted.view, sourceStart + "***Bold".length);
+      );
+      typeText(mounted.view, "_");
 
-    typeText(mounted.view, "*");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
 
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("*Bold* plain");
+      setSelectionAtDocumentEnd(mounted.view);
 
-    typeText(mounted.view, "*");
-
-    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain");
-
-    typeText(mounted.view, "*");
-
-    expect(mounted.view.state.doc.textContent).toBe("***Bold*** plain");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+      expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
+    });
   });
 
-  it("keeps marker edits local instead of merging adjacent marked runs", async () => {
-    const mounted = await mountEditor("**One** **Two**");
+  describe("native history", () => {
+    it("preserves native undo after committing a marker deletion", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
 
-    const sourceStart = getTextPosition(mounted, "**One**");
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-    setTextSelection(mounted.view, sourceStart + "**One*".length);
-    pressKey(mounted.view, "Backspace");
-    setSelectionAtDocumentEnd(mounted.view);
+      setTextSelection(mounted.view, sourceStart + 1);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
 
-    expect(mounted.getMarkdown()).toBe("*One* **Two**\n");
-  });
+      expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
 
-  it("preserves native undo after committing a marker deletion", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+      const emphasis = getEditorDomElement(mounted, "em");
 
-    enterProjection(mounted, "strong");
-
-    const sourceStart = getTextPosition(mounted, "**Bold**");
-
-    setTextSelection(mounted.view, sourceStart + 1);
-    pressKey(mounted.view, "Backspace");
-    setSelectionAtDocumentEnd(mounted.view);
-
-    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
-
-    const emphasis = mounted.view.dom.querySelector("em");
-
-    expect(emphasis).toBeInTheDocument();
-
-    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
-
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
-    expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
-  });
-
-  it.each([
-    { commandId: "format.strong" as const, selector: "strong" },
-    { commandId: "format.emphasis" as const, selector: "em" },
-  ])(
-    "preserves native undo after applying $commandId to a whole paragraph",
-    async ({ commandId, selector }) => {
-      const mounted = await mountEditor("Plain paragraph");
-
-      expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
-      expect(runEditorCommand(mounted.editor, commandId)).toBe(true);
-
-      const formatted = mounted.view.dom.querySelector(selector);
-
-      expect(formatted).toBeInTheDocument();
-
-      setSelectionAtTextEnd(mounted.view, formatted as HTMLElement);
+      setSelectionAtElementTextEnd(mounted.view, emphasis);
 
       expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
       expect(await runCommand(mounted, "edit.undo")).toBe(true);
-      expect(mounted.getMarkdown()).toBe("Plain paragraph\n");
+      expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
       expect(await runCommand(mounted, "edit.redo")).toBe(true);
-      expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
-    },
-  );
-
-  it("tracks real source edits as dirty without counting projection entry or commit", async () => {
-    const onContentTransaction = vi.fn();
-    const mounted = await mountEditor("**Bold** plain", onContentTransaction);
-
-    enterProjection(mounted, "strong");
-
-    expect(onContentTransaction).not.toHaveBeenCalled();
-
-    typeText(mounted.view, "er");
-
-    expect(onContentTransaction).toHaveBeenCalledTimes(2);
-
-    setSelectionAtDocumentEnd(mounted.view);
-
-    expect(onContentTransaction).toHaveBeenCalledTimes(2);
-  });
-
-  it("finalizes active projected source before Markdown serialization", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-
-    enterProjection(mounted, "strong");
-    typeText(mounted.view, "er");
-
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
-  });
-
-  it("switches directly to another inline projection when the selection moves", async () => {
-    const mounted = await mountEditor("**Bold** and *soft*");
-
-    enterProjection(mounted, "strong");
-
-    const emphasis = mounted.view.dom.querySelector("em");
-
-    expect(emphasis).toBeInTheDocument();
-
-    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
-
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("Bold and *soft*");
-  });
-
-  it("commits the current projection before switching to another inline projection", async () => {
-    const mounted = await mountEditor("**Bold** and *soft*");
-
-    enterProjection(mounted, "strong");
-    typeText(mounted.view, "er");
-
-    const emphasis = mounted.view.dom.querySelector("em");
-
-    expect(emphasis).toBeInTheDocument();
-
-    setSelectionAtTextEnd(mounted.view, emphasis as HTMLElement);
-
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("Bolder and *soft*");
-    expect(mounted.getMarkdown()).toBe("**Bolder** and *soft*\n");
-  });
-
-  it("preserves text selections that cross out of an active projection", async () => {
-    const mounted = await mountEditor("**Bold** plain");
-
-    enterProjection(mounted, "strong");
-
-    const sourceStart = getTextPosition(mounted, "**Bold**");
-    const plainEnd = getTextPosition(mounted, "plain") + "plain".length;
-
-    setTextSelection(mounted.view, sourceStart + 2, plainEnd);
-
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
-    expect(mounted.view.state.selection.empty).toBe(false);
-    expect(
-      mounted.view.state.doc.textBetween(
-        mounted.view.state.selection.from,
-        mounted.view.state.selection.to,
-        "\n",
-        "\n",
-      ),
-    ).toBe("Bold plain");
-  });
-
-  it("does not emit transient projected source through markdown updates", async () => {
-    const onMarkdownUpdated = vi.fn();
-    const mounted = await mountEditor("**Bold** plain", vi.fn(), onMarkdownUpdated);
-
-    enterProjection(mounted, "strong");
-    await waitForMarkdownListenerDebounce();
-
-    expect(onMarkdownUpdated).not.toHaveBeenCalled();
-
-    typeText(mounted.view, "er");
-    await waitForMarkdownListenerDebounce();
-
-    expect(onMarkdownUpdated).not.toHaveBeenCalled();
-
-    setSelectionAtDocumentEnd(mounted.view);
-
-    await waitFor(() => {
-      expect(onMarkdownUpdated).toHaveBeenCalledWith(
-        expect.objectContaining({ markdown: "**Bolder** plain\n" }),
-      );
+      expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
     });
-    expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
+
+    it.each([
+      { commandId: "format.strong" as const, selector: "strong" },
+      { commandId: "format.emphasis" as const, selector: "em" },
+    ])(
+      "preserves native undo after applying $commandId to a whole paragraph",
+      async ({ commandId, selector }) => {
+        const mounted = await mountProjectionEditor("Plain paragraph");
+
+        expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+        expect(runEditorCommand(mounted.editor, commandId)).toBe(true);
+
+        const formatted = getEditorDomElement(mounted, selector);
+
+        setSelectionAtElementTextEnd(mounted.view, formatted);
+
+        expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+        expect(await runCommand(mounted, "edit.undo")).toBe(true);
+        expect(mounted.getMarkdown()).toBe("Plain paragraph\n");
+        expect(await runCommand(mounted, "edit.redo")).toBe(true);
+        expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
+      },
+    );
   });
 
-  it("uses projection-local undo and redo while projection is active", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+  describe("lifecycle integration", () => {
+    it("tracks real source edits as dirty without counting projection entry or commit", async () => {
+      const onContentChanged = vi.fn();
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN, { onContentChanged });
 
-    enterProjection(mounted, "strong");
-    typeText(mounted.view, "er");
+      enterProjection(mounted, "strong");
 
-    expect(mounted.view.state.doc.textContent).toBe("**Bolder** plain");
-    expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bolde** plain");
-    expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bold** plain");
-    expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bolde** plain");
-    expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(mounted.view.state.doc.textContent).toBe("**Bolder** plain");
+      expect(onContentChanged).not.toHaveBeenCalled();
+
+      typeText(mounted.view, "er");
+
+      expect(onContentChanged).toHaveBeenCalledTimes(2);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(onContentChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it("finalizes active projected source before Markdown serialization", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+    });
+
+    it("switches directly to another inline projection when the selection moves", async () => {
+      const mounted = await mountProjectionEditor("**Bold** and *soft*");
+
+      enterProjection(mounted, "strong");
+
+      const emphasis = getEditorDomElement(mounted, "em");
+
+      setSelectionAtElementTextEnd(mounted.view, emphasis);
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Bold and *soft*");
+    });
+
+    it("commits the current projection before switching to another inline projection", async () => {
+      const mounted = await mountProjectionEditor("**Bold** and *soft*");
+
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
+
+      const emphasis = getEditorDomElement(mounted, "em");
+
+      setSelectionAtElementTextEnd(mounted.view, emphasis);
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Bolder and *soft*");
+      expect(mounted.getMarkdown()).toBe("**Bolder** and *soft*\n");
+    });
+
+    it("preserves text selections that cross out of an active projection", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+      const plainEnd = getEditorTextPosition(mounted, "plain") + "plain".length;
+
+      setTextSelection(mounted.view, sourceStart + 2, plainEnd);
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.state.selection.empty).toBe(false);
+      expect(getSelectedEditorText(mounted)).toBe("Bold plain");
+    });
+
+    it("does not emit transient projected source through markdown updates", async () => {
+      const onMarkdownUpdated = vi.fn();
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN, { onMarkdownUpdated });
+
+      vi.useFakeTimers();
+
+      try {
+        enterProjection(mounted, "strong");
+        await waitForMarkdownUpdateListener();
+
+        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+
+        typeText(mounted.view, "er");
+        await waitForMarkdownUpdateListener();
+
+        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+
+        setSelectionAtDocumentEnd(mounted.view);
+        await waitForMarkdownUpdateListener();
+
+        expect(onMarkdownUpdated).toHaveBeenCalledWith(
+          expect.objectContaining({ markdown: "**Bolder** plain\n" }),
+        );
+        expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
-  it("finalizes a clean active projection before running native undo and redo", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+  describe("projection history", () => {
+    it("uses projection-local undo and redo while projection is active", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-    setSelectionAtDocumentEnd(mounted.view);
-    typeText(mounted.view, "!");
-    enterProjection(mounted, "strong");
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
 
-    expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
-    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
+      expect(getEditorTextContent(mounted)).toBe("**Bolder** plain");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Bolde** plain");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Bolde** plain");
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Bolder** plain");
+    });
 
-    expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(mounted.getMarkdown()).toBe("**Bold** plain!\n");
-  });
+    it("finalizes a clean active projection before running native undo and redo", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-  it("preserves native undo and redo after projection commit", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, "!");
+      enterProjection(mounted, "strong");
 
-    enterProjection(mounted, "strong");
-    typeText(mounted.view, "er");
-    setSelectionAtDocumentEnd(mounted.view);
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
 
-    expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
-    expect(await runCommand(mounted, "edit.undo")).toBe(true);
-    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
-    expect(await runCommand(mounted, "edit.redo")).toBe(true);
-    expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}!\n`);
+    });
+
+    it("preserves native undo and redo after projection commit", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+    });
   });
 });

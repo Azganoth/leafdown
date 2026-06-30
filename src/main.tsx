@@ -1,13 +1,26 @@
 import { enableArrayMethods, enableMapSet } from "immer";
-import React from "react";
+import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
+
 import { App } from "./App";
+import { installUnexpectedErrorHandlers, invariant } from "./lib/errors";
+import { Providers } from "./Providers";
 
 enableArrayMethods();
 enableMapSet();
+const cleanupUnexpectedErrorHandlers = installUnexpectedErrorHandlers();
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
+if (import.meta.hot) {
+  import.meta.hot.dispose(cleanupUnexpectedErrorHandlers);
+}
+
+const rootElement = document.getElementById("root");
+invariant(rootElement, "Root element is missing.");
+
+ReactDOM.createRoot(rootElement).render(
+  <StrictMode>
+    <Providers>
+      <App />
+    </Providers>
+  </StrictMode>,
 );

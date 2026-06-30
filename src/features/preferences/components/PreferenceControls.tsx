@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
+
 import { Label } from "@/components/ui/Label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/RadioGroup";
 import { Switch } from "@/components/ui/Switch";
 import { Textarea } from "@/components/ui/Textarea";
-import type { ReactNode } from "react";
-import { useId, useState } from "react";
 
 export interface PreferenceSwitchProps {
   checked: boolean;
@@ -27,6 +28,11 @@ export interface ListPreferenceFieldProps {
   items: string[];
   label: string;
   onItemsChange: (items: string[]) => void;
+}
+
+interface PreferenceSectionProps {
+  children: ReactNode;
+  title: string;
 }
 
 const formatListValue = (items: string[]) => items.join("\n");
@@ -84,13 +90,11 @@ export function PreferenceRadioGroup<Value extends string>({
 
 export function ListPreferenceField({ items, label, onItemsChange }: ListPreferenceFieldProps) {
   const id = useId();
-  const [prevItems, setPrevItems] = useState(items);
   const [draftValue, setDraftValue] = useState(() => formatListValue(items));
 
-  if (items !== prevItems) {
-    setPrevItems(items);
+  useEffect(() => {
     setDraftValue(formatListValue(items));
-  }
+  }, [items]);
 
   return (
     <div className="grid gap-2">
@@ -106,10 +110,12 @@ export function ListPreferenceField({ items, label, onItemsChange }: ListPrefere
   );
 }
 
-export function PreferenceSection({ children, title }: { children: ReactNode; title: string }) {
+export function PreferenceSection({ children, title }: PreferenceSectionProps) {
+  const titleId = useId();
+
   return (
-    <section aria-labelledby={`${title.toLowerCase()}-preferences-title`} className="grid gap-4">
-      <h3 id={`${title.toLowerCase()}-preferences-title`} className="text-sm font-semibold">
+    <section aria-labelledby={titleId} className="grid gap-4">
+      <h3 id={titleId} className="text-sm font-semibold">
         {title}
       </h3>
       <div className="grid gap-4">{children}</div>

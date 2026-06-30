@@ -1,19 +1,12 @@
-import { waitFor } from "@testing-library/react";
-import { invoke } from "@tauri-apps/api/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import { createMarkdownReferenceContext } from "@/test/factories/editor";
+import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { waitFor } from "@/test/utils/react";
+import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
-const mountedEditors: MountedMilkdownEditor[] = [];
-
-const mountEditor = async (
-  initialMarkdown: string,
-  options: Parameters<typeof mountMilkdownEditor>[1] = {},
-): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown, options);
-  mountedEditors.push(mounted);
-  return mounted;
-};
+const mountEditor = setupMilkdownEditorMount();
 
 const supportedMarkdown = `# Heading
 
@@ -35,9 +28,7 @@ const value = 1;
 
 ![Alt](image.png)
 
-| A | B |
-| - | - |
-| 1 | 2 |
+${BASIC_TABLE_MARKDOWN}
 
 - [ ] todo
 - [x] done
@@ -70,9 +61,7 @@ const value = 1;
 
 ![Alt](image.png)
 
-| A | B |
-| - | - |
-| 1 | 2 |
+${BASIC_TABLE_MARKDOWN}
 
 * [ ] todo
 
@@ -102,26 +91,13 @@ const unusualMarkdownFixtures = [
 ];
 
 describe("Markdown compatibility", () => {
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
-  });
-
   it("parses and serializes the documented CommonMark and GFM fixture", async () => {
-    vi.mocked(invoke).mockImplementation(async (commandName) => {
-      if (commandName === "resolve_markdown_image_target") {
-        return {
-          kind: "renderable",
-          path: "C:/Notes/image.png",
-        };
-      }
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "renderable",
+      path: "C:/Notes/image.png",
+    }));
 
-      return undefined;
-    });
-
-    const mounted = await mountEditor(supportedMarkdown, {
-      documentPath: "C:/Notes/readme.md",
-      folderContextPath: "C:/Notes",
-    });
+    const mounted = await mountEditor(supportedMarkdown, createMarkdownReferenceContext());
 
     expect(mounted.getMarkdown()).toBe(supportedMarkdownExpected);
 
@@ -144,7 +120,7 @@ describe("Markdown compatibility", () => {
     await waitFor(() => {
       expect(dom.querySelector("img[alt='Alt']")).toBeInTheDocument();
     });
-    expect(dom.querySelector("table")).toHaveTextContent("1");
+    expect(dom.querySelector("table")).toHaveTextContent("C");
     expect(dom.querySelector("li[data-checked='false']")).toHaveTextContent("todo");
     expect(dom.querySelector("li[data-checked='true']")).toHaveTextContent("done");
     expect(dom.querySelector("del")).toHaveTextContent("strike");

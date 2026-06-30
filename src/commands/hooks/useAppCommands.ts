@@ -1,92 +1,126 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { getActiveDocumentKey } from "@/features/document";
-import { getArticleAncestorDirectoryPaths, type ArticleSortOrder } from "@/features/folder-context";
-import { useSettingsStore } from "@/features/preferences";
-import {
-  getActiveDocumentEditorCommandState,
-  getActiveDocumentEditorCommandStateVersion,
-  subscribeActiveDocumentEditorCommandState,
-  useSessionHistoryStore,
-  useSessionStore,
-} from "@/features/session";
+import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
+import { documentEditorBridge, useSessionStore } from "@/features/session";
+import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { isPrimaryModifierEvent, normalizeKeyboardKey } from "@/lib/input";
 
-import { dispatchAppCommand, openRecentFolderContext, openRecentMarkdownFile } from "../dispatch";
-import {
-  commandDefinitions,
-  getCommandShortcuts,
-  isSuppressedWebviewShortcut,
-  matchesShortcut,
-  shortcutCommandIds,
-} from "../registry";
+import { openRecentFolderContext, openRecentMarkdownFile } from "../actions/file";
+import type { AppCommandContext } from "../context";
+import { dispatchAppCommand, type AppCommandId } from "../dispatch";
+import { COMMAND_DEFINITIONS, SHORTCUT_COMMAND_IDS, matchesShortcut } from "../metadata";
 import { getCommandState } from "../state";
-import type { AppCommandId, CommandStateContext } from "../types";
+import { useCommandUIStore } from "../stores/commandUi";
 
-export function useAppCommands() {
+const SUPPRESSED_DISABLED_SHORTCUT_COMMAND_IDS: readonly AppCommandId[] = [
+  "file.save",
+  "file.saveAs",
+  "file.closeDocument",
+];
+
+const isSuppressedWebviewShortcut = (event: KeyboardEvent) => {
+  const key = normalizeKeyboardKey(event.key);
+
+  return (
+    (isPrimaryModifierEvent(event) && key === "r") ||
+    key === "f5" ||
+    (event.altKey && (key === "arrowleft" || key === "arrowright"))
+  );
+};
+
+const shouldSuppressDisabledShortcut = (commandId: AppCommandId) =>
+  SUPPRESSED_DISABLED_SHORTCUT_COMMAND_IDS.includes(commandId);
+
+const subscribeToCommandStateChanges = (listener: () => void) => {
+  const listenerDisposable = documentEditorBridge.onDidChangeCommandState(listener);
+
+  return () => listenerDisposable.dispose();
+};
+
+export const useAppCommands = () => {
   useSyncExternalStore(
-    subscribeActiveDocumentEditorCommandState,
-    getActiveDocumentEditorCommandStateVersion,
-    getActiveDocumentEditorCommandStateVersion,
+    subscribeToCommandStateChanges,
+    documentEditorBridge.getCommandStateVersion,
+    documentEditorBridge.getCommandStateVersion,
   );
 
-  const [aboutOpen, setAboutOpen] = useState(false);
-  const [fullscreen, setFullscreen] = useState(false);
-  const [pendingSortOrder, setPendingSortOrder] = useState<ArticleSortOrder | null>(null);
-  const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
+  const fullscreen = useCommandUIStore((state) => state.fullscreen);
+  const pendingSortOrder = useCommandUIStore((state) => state.pendingSortOrder);
+  const preferencesOpen = useCommandUIStore((state) => state.preferencesOpen);
+  const zoom = useCommandUIStore((state) => state.zoom);
+  const setAboutOpen = useCommandUIStore((state) => state.setAboutOpen);
+  const setPreferencesOpen = useCommandUIStore((state) => state.setPreferencesOpen);
+  const setFullscreen = useCommandUIStore((state) => state.setFullscreen);
+
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
-  const settings = useSettingsStore();
-  const history = useSessionHistoryStore();
-  const activeFilePath = activeDocument?.status === "saved" ? activeDocument.path : null;
+  const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
+  const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
+  const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const theme = useSettingsStore((state) => state.theme);
+  const recentFiles = useRecentItemsStore((state) => state.recentFiles);
+  const recentFolders = useRecentItemsStore((state) => state.recentFolders);
   const activeDocumentKey = activeDocument ? getActiveDocumentKey(activeDocument) : null;
-  const activeArticleAncestorPaths =
-    folderContext && activeFilePath
-      ? getArticleAncestorDirectoryPaths(folderContext.tree, activeFilePath)
-      : null;
-  const editor = getActiveDocumentEditorCommandState(activeDocumentKey ?? "");
-  const stateContext: CommandStateContext = {
+  const editor = documentEditorBridge.getCommandState(activeDocumentKey ?? "");
+
+  const context: AppCommandContext = {
     activeDocument,
     editor,
     folderContext,
-    fullscreen,
-    history,
-    navigator: {
-      canRevealActiveArticle: Boolean(activeArticleAncestorPaths),
-      pendingSortOrder,
+    recentItems: {
+      recentFiles,
+      recentFolders,
     },
-    settings,
+    settings: {
+      articleSortOrder,
+      insertFinalNewline,
+      sidebarVisible,
+      theme,
+    },
+    ui: {
+      fullscreen,
+      pendingSortOrder,
+      zoom,
+    },
   };
 
   useEffect(() => {
-    void getCurrentWindow().isFullscreen().then(setFullscreen).catch(console.error);
-  }, []);
+    const checkFullscreen = async () => {
+      try {
+        setFullscreen(await getCurrentWindow().isFullscreen());
+      } catch (error) {
+        handleUnexpectedError(error, "checkFullscreen");
+      }
+    };
 
-  const commandState = (commandId: AppCommandId) => getCommandState(commandId, stateContext);
+    void checkFullscreen();
+  }, [setFullscreen]);
+
+  const commandState = (commandId: AppCommandId) => getCommandState(commandId, context);
+
   const executeCommand = (commandId: AppCommandId) => {
     if (!commandState(commandId).enabled) {
       return;
     }
 
-    dispatchAppCommand(commandId, {
-      activeArticleAncestorPaths,
-      activeDocumentKey,
-      activeFilePath,
-      folderContext,
-      fullscreen,
-      pendingSortOrder,
-      setAboutOpen,
-      setFullscreen,
-      setPendingSortOrder,
-      setPreferencesOpen,
-      setZoom,
-      zoom,
+    void dispatchAppCommand(commandId, context).catch((error) => {
+      notifyOperationFailure("Command failed.", error, {
+        source: "commands",
+        operation: commandId,
+      });
     });
   };
 
+  const commandHandlersRef = useRef({ commandState, executeCommand });
+  commandHandlersRef.current = { commandState, executeCommand };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const { commandState: getState, executeCommand: execute } = commandHandlersRef.current;
+
       if (event.defaultPrevented) {
         return;
       }
@@ -96,41 +130,43 @@ export function useAppCommands() {
         return;
       }
 
-      const shortcutCommandId = shortcutCommandIds.find((commandId) =>
-        getCommandShortcuts(commandDefinitions[commandId]).some((shortcut) =>
+      const shortcutCommandId = SHORTCUT_COMMAND_IDS.find((commandId) =>
+        COMMAND_DEFINITIONS[commandId].shortcuts?.some((shortcut) =>
           matchesShortcut(event, shortcut),
         ),
       );
 
       if (!shortcutCommandId) {
-        if (event.altKey && event.key === "F4") {
+        return;
+      }
+
+      if (!getState(shortcutCommandId).enabled) {
+        if (shouldSuppressDisabledShortcut(shortcutCommandId)) {
           event.preventDefault();
-          executeCommand("file.closeWindow");
         }
         return;
       }
 
-      if (!commandState(shortcutCommandId).enabled && !shortcutCommandId.startsWith("file.")) {
-        return;
-      }
-
       event.preventDefault();
-      executeCommand(shortcutCommandId);
+      execute(shortcutCommandId);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, []);
 
   return {
     aboutOpen,
     commandState,
     executeCommand,
-    history,
+    recentItems: {
+      recentFiles,
+      recentFolders,
+    },
     openRecentFile: openRecentMarkdownFile,
     openRecentFolder: openRecentFolderContext,
     preferencesOpen,
     setAboutOpen,
     setPreferencesOpen,
   };
-}
+};

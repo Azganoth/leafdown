@@ -1,56 +1,55 @@
-import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
-import type { EditorState } from "@milkdown/kit/prose/state";
-import { goToNextCell, isInTable, selectedRect, TableMap } from "@milkdown/kit/prose/tables";
+import type { ResolvedPos } from "@milkdown/kit/prose/model";
+import { Plugin, PluginKey, Selection, TextSelection } from "@milkdown/kit/prose/state";
+import { goToNextCell } from "@milkdown/kit/prose/tables";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
-import { runTableCommand } from "../utils/tableCommands";
+import { hasNoShortcutModifier } from "@/lib/input";
+
+import { addRowBelow } from "../commands/formatting/tables";
+import { runProseMirrorCommand } from "../utils/milkdown";
+import { isTextCaretSelection } from "../utils/selections";
+import {
+  dispatchSelectedTableCellSelection,
+  getSelectedTableRect,
+  getTablePosition,
+} from "../utils/tables";
 
 export const leafdownTableKeyboardPluginKey = new PluginKey("leafdownTableKeyboard");
 
-const isPlainKeyEvent = (event: KeyboardEvent) => !event.altKey && !event.ctrlKey && !event.metaKey;
+const moveToNextTableCell = (view: EditorView, direction: -1 | 1) =>
+  runProseMirrorCommand(view, goToNextCell(direction));
 
-const getTableRect = (state: EditorState) => (isInTable(state) ? selectedRect(state) : null);
+const getTableCellDepth = ($pos: ResolvedPos) => {
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    const tableRole = $pos.node(depth).type.spec.tableRole;
 
-const setSelectionNear = (view: EditorView, position: number) => {
-  const selection = Selection.findFrom(view.state.doc.resolve(position), 1, true);
-
-  if (!selection) {
-    return false;
+    if (tableRole === "cell" || tableRole === "header_cell") {
+      return depth;
+    }
   }
 
-  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
-
-  return true;
+  return null;
 };
 
-const setSelectionInTableCell = (view: EditorView, row: number, col: number) => {
-  const rect = getTableRect(view.state);
+const isSelectionAtEndOfTableCell = (selection: TextSelection) => {
+  const { $from } = selection;
+  const cellDepth = getTableCellDepth($from);
 
-  if (!rect) {
-    return false;
-  }
-
-  const map = TableMap.get(rect.table);
-  const boundedRow = Math.min(Math.max(row, 0), map.height - 1);
-  const boundedCol = Math.min(Math.max(col, 0), map.width - 1);
-  const cellPos = rect.tableStart + map.positionAt(boundedRow, boundedCol, rect.table);
-
-  return setSelectionNear(view, cellPos + 1);
-};
-
-const moveToNextTableCell = (view: EditorView, direction: -1 | 1) => {
-  view.focus();
-
-  return goToNextCell(direction)(view.state, view.dispatch, view);
+  return (
+    cellDepth !== null &&
+    selection.empty &&
+    selection.from === $from.end($from.depth) &&
+    $from.after($from.depth) === $from.end(cellDepth)
+  );
 };
 
 const handleTab = (view: EditorView, event: KeyboardEvent) => {
-  if (!isPlainKeyEvent(event)) {
+  if (!hasNoShortcutModifier(event)) {
     return false;
   }
 
-  const rect = getTableRect(view.state);
+  const rect = getSelectedTableRect(view.state);
 
   if (!rect) {
     return false;
@@ -65,22 +64,22 @@ const handleTab = (view: EditorView, event: KeyboardEvent) => {
   if (rect.bottom === rect.map.height && rect.right === rect.map.width) {
     const nextRow = rect.map.height;
 
-    if (!runTableCommand(view, "format.table.addRowBelow")) {
+    if (!addRowBelow(view)) {
       return false;
     }
 
-    return setSelectionInTableCell(view, nextRow, 0);
+    return dispatchSelectedTableCellSelection(view, { row: nextRow, col: 0 });
   }
 
   return moveToNextTableCell(view, 1);
 };
 
 const handleEnter = (view: EditorView, event: KeyboardEvent) => {
-  if (!isPlainKeyEvent(event) || event.shiftKey) {
+  if (!hasNoShortcutModifier(event) || event.shiftKey) {
     return false;
   }
 
-  const rect = getTableRect(view.state);
+  const rect = getSelectedTableRect(view.state);
 
   if (!rect) {
     return false;
@@ -89,26 +88,25 @@ const handleEnter = (view: EditorView, event: KeyboardEvent) => {
   event.preventDefault();
 
   if (rect.bottom === rect.map.height) {
-    const nextRow = rect.map.height;
-
-    if (!runTableCommand(view, "format.table.addRowBelow")) {
-      return false;
-    }
-
-    return setSelectionInTableCell(view, nextRow, rect.left);
+    return addRowBelow(view);
   }
 
-  return setSelectionInTableCell(view, rect.bottom, rect.left);
+  return dispatchSelectedTableCellSelection(view, { row: rect.bottom, col: rect.left });
 };
 
 const exitTableDownward = (view: EditorView) => {
-  const rect = getTableRect(view.state);
+  const rect = getSelectedTableRect(view.state);
 
-  if (!rect || rect.bottom !== rect.map.height) {
+  if (
+    !rect ||
+    rect.bottom !== rect.map.height ||
+    !isTextCaretSelection(view.state.selection) ||
+    !isSelectionAtEndOfTableCell(view.state.selection)
+  ) {
     return false;
   }
 
-  const tableEnd = tablePositionFromRect(rect) + rect.table.nodeSize;
+  const tableEnd = getTablePosition(rect) + rect.table.nodeSize;
   const selectionAfterTable = Selection.findFrom(view.state.doc.resolve(tableEnd), 1, true);
 
   if (selectionAfterTable) {
@@ -135,17 +133,21 @@ const exitTableDownward = (view: EditorView) => {
   return true;
 };
 
-const tablePositionFromRect = (rect: ReturnType<typeof selectedRect>) => rect.tableStart - 1;
-
 const handleArrowDown = (view: EditorView, event: KeyboardEvent) => {
-  if (!isPlainKeyEvent(event) || event.shiftKey) {
+  if (!hasNoShortcutModifier(event) || event.shiftKey) {
     return false;
   }
 
-  const rect = getTableRect(view.state);
+  const rect = getSelectedTableRect(view.state);
 
-  if (!rect || rect.bottom !== rect.map.height) {
+  if (!rect || rect.bottom !== rect.map.height || !isTextCaretSelection(view.state.selection)) {
     return false;
+  }
+
+  if (!isSelectionAtEndOfTableCell(view.state.selection)) {
+    event.preventDefault();
+
+    return true;
   }
 
   event.preventDefault();

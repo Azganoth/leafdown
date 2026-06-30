@@ -1,4 +1,7 @@
-import type { ArticleTree, ArticleTreeNode } from "../types";
+import { isSamePath, PathSet } from "@/lib/path";
+import { findTreeNodeAncestors, flattenTree } from "@/lib/tree";
+
+import type { ArticleTree, ArticleTreeNode } from "../services/folderContext";
 
 interface ArticleNavigatorRowBase {
   depth: number;
@@ -19,7 +22,7 @@ export interface ArticleNavigatorArticleRow extends ArticleNavigatorRowBase {
 
 export type ArticleNavigatorRow = ArticleNavigatorArticleRow | ArticleNavigatorDirectoryRow;
 
-export interface BuildArticleNavigatorRowsOptions {
+interface BuildArticleNavigatorRowsOptions {
   activeArticlePath: string | null;
   expandedDirectoryPaths: string[];
   tree: ArticleTree;
@@ -30,116 +33,49 @@ export const buildArticleNavigatorRows = ({
   expandedDirectoryPaths,
   tree,
 }: BuildArticleNavigatorRowsOptions): ArticleNavigatorRow[] => {
-  const expandedDirectoryPathSet = new Set(expandedDirectoryPaths);
-  const rows: ArticleNavigatorRow[] = [];
+  const expandedDirectoryPathSet = new PathSet(expandedDirectoryPaths);
 
-  appendVisibleRows({
-    activeArticlePath,
-    depth: 0,
-    expandedDirectoryPathSet,
-    nodes: tree.children,
-    rows,
-  });
-
-  return rows;
+  return flattenTree({
+    getChildren: getArticleTreeNodeChildren,
+    roots: tree.children,
+    shouldTraverseChildren: ({ node }) =>
+      node.kind === "directory" && expandedDirectoryPathSet.has(node.path),
+  }).map(
+    ({ depth, node }): ArticleNavigatorRow =>
+      node.kind === "file"
+        ? {
+            kind: "file",
+            depth,
+            isActive: activeArticlePath ? isSamePath(node.path, activeArticlePath) : false,
+            name: node.name,
+            path: node.path,
+          }
+        : {
+            kind: "directory",
+            depth,
+            hasChildren: node.children.length > 0,
+            isExpanded: expandedDirectoryPathSet.has(node.path),
+            name: node.name,
+            path: node.path,
+          },
+  );
 };
 
-export const getArticleDirectoryPaths = (tree: ArticleTree) => {
-  const paths: string[] = [];
-
-  appendDirectoryPaths(tree.children, paths);
-
-  return paths;
-};
+export const getArticleDirectoryPaths = (tree: ArticleTree) =>
+  flattenTree({
+    getChildren: getArticleTreeNodeChildren,
+    roots: tree.children,
+  }).flatMap(({ node }) => (node.kind === "directory" ? [node.path] : []));
 
 export const getArticleAncestorDirectoryPaths = (
   tree: ArticleTree,
   filePath: string,
-): string[] | null => findFileAncestorDirectoryPaths(tree.children, filePath, []);
+): string[] | null =>
+  findTreeNodeAncestors({
+    getChildren: getArticleTreeNodeChildren,
+    matches: (node) => node.kind === "file" && isSamePath(node.path, filePath),
+    roots: tree.children,
+  })?.flatMap((node) => (node.kind === "directory" ? [node.path] : [])) ?? null;
 
-export const treeHasArticlePath = (tree: ArticleTree, filePath: string) =>
-  getArticleAncestorDirectoryPaths(tree, filePath) !== null;
-
-interface AppendVisibleRowsOptions {
-  activeArticlePath: string | null;
-  depth: number;
-  expandedDirectoryPathSet: Set<string>;
-  nodes: ArticleTreeNode[];
-  rows: ArticleNavigatorRow[];
-}
-
-const appendVisibleRows = ({
-  activeArticlePath,
-  depth,
-  expandedDirectoryPathSet,
-  nodes,
-  rows,
-}: AppendVisibleRowsOptions) => {
-  for (const node of nodes) {
-    if (node.kind === "file") {
-      rows.push({
-        kind: "file",
-        depth,
-        isActive: node.path === activeArticlePath,
-        name: node.name,
-        path: node.path,
-      });
-      continue;
-    }
-
-    const isExpanded = expandedDirectoryPathSet.has(node.path);
-
-    rows.push({
-      kind: "directory",
-      depth,
-      hasChildren: node.children.length > 0,
-      isExpanded,
-      name: node.name,
-      path: node.path,
-    });
-
-    if (isExpanded) {
-      appendVisibleRows({
-        activeArticlePath,
-        depth: depth + 1,
-        expandedDirectoryPathSet,
-        nodes: node.children,
-        rows,
-      });
-    }
-  }
-};
-
-const appendDirectoryPaths = (nodes: ArticleTreeNode[], paths: string[]) => {
-  for (const node of nodes) {
-    if (node.kind === "directory") {
-      paths.push(node.path);
-      appendDirectoryPaths(node.children, paths);
-    }
-  }
-};
-
-const findFileAncestorDirectoryPaths = (
-  nodes: ArticleTreeNode[],
-  filePath: string,
-  ancestorDirectoryPaths: string[],
-): string[] | null => {
-  for (const node of nodes) {
-    if (node.kind === "file" && node.path === filePath) {
-      return ancestorDirectoryPaths;
-    }
-
-    if (node.kind === "directory") {
-      const foundAncestorDirectoryPaths = findFileAncestorDirectoryPaths(node.children, filePath, [
-        ...ancestorDirectoryPaths,
-        node.path,
-      ]);
-
-      if (foundAncestorDirectoryPaths) {
-        return foundAncestorDirectoryPaths;
-      }
-    }
-  }
-
-  return null;
-};
+const getArticleTreeNodeChildren = (node: ArticleTreeNode) =>
+  node.kind === "directory" ? node.children : [];

@@ -2,7 +2,6 @@ import { useVirtualizer, type ScrollToOptions, type VirtualItem } from "@tanstac
 import { Slot } from "radix-ui";
 import {
   createContext,
-  useCallback,
   useContext,
   useImperativeHandle,
   useState,
@@ -13,6 +12,8 @@ import {
 } from "react";
 
 import { cn } from "@/lib/cn";
+import { invariant } from "@/lib/errors";
+
 import { ScrollArea } from "./ScrollArea";
 
 interface VirtualListContextValue<T> {
@@ -25,15 +26,12 @@ interface VirtualListContextValue<T> {
 
 const VirtualListContext = createContext<VirtualListContextValue<unknown> | null>(null);
 
-function useVirtualListContext<T>() {
+const useVirtualListContext = <T,>() => {
   const context = useContext(VirtualListContext);
-
-  if (!context) {
-    throw new Error("VirtualList components must be used within VirtualList");
-  }
+  invariant(context, "VirtualList components must be used within VirtualList");
 
   return context as VirtualListContextValue<T>;
-}
+};
 
 interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "viewportRef"> {
   items: T[];
@@ -59,10 +57,6 @@ function VirtualList<T>({
   ...props
 }: VirtualListProps<T>) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
-
-  const viewportRef = useCallback((element: HTMLDivElement | null) => {
-    setViewportElement(element);
-  }, []);
 
   // TanStack Virtual returns instance methods that React Compiler cannot memoize safely.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -113,7 +107,7 @@ function VirtualList<T>({
 
   return (
     <VirtualListContext.Provider value={context}>
-      <ScrollArea viewportRef={viewportRef} {...props}>
+      <ScrollArea viewportRef={setViewportElement} {...props}>
         {children}
       </ScrollArea>
     </VirtualListContext.Provider>

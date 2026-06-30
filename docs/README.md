@@ -6,12 +6,15 @@
   behavior, workflows, and common rules.
 - [Architecture](./architecture.md): stack, responsibilities, data contracts,
   data flow, security, and test focus.
+- [Engineering Patterns](./patterns.md): recurring implementation patterns,
+  when to use them, and the mistakes they prevent.
 - [Decisions](./decisions.md): accepted product and technical decisions.
 - [MVP](./mvp.md): MVP release goal, scope rule, acceptance criteria, and
   execution reference.
 - [Backlog](./backlog.md): Post-MVP candidates and deferred ideas.
 
-If documents overlap or appear to conflict, prefer them in this order: Decisions, Specification, Architecture, MVP, Backlog.
+If documents overlap or appear to conflict, prefer them in this order:
+Decisions, Specification, Architecture, Engineering Patterns, MVP, Backlog.
 
 ## Conventions
 

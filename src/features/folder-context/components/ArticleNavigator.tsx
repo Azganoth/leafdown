@@ -1,15 +1,3 @@
-import { Button } from "@/components/ui/Button";
-import { Separator } from "@/components/ui/Separator";
-import {
-  VirtualList,
-  VirtualListContent,
-  VirtualListEmpty,
-  VirtualListItem,
-  VirtualListItems,
-  type VirtualListHandle,
-} from "@/components/ui/VirtualList";
-import { cn } from "@/lib/cn";
-import type { FolderContextState } from "../types";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -18,7 +6,21 @@ import {
   FolderOpenIcon,
   FolderTreeIcon,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
+
+import { Button } from "@/components/ui/Button";
+import { Separator } from "@/components/ui/Separator";
+import {
+  VirtualList,
+  VirtualListContent,
+  VirtualListItem,
+  VirtualListItems,
+  type VirtualListHandle,
+} from "@/components/ui/VirtualList";
+import { cn } from "@/lib/cn";
+import { isSamePath } from "@/lib/path";
+
+import type { FolderContextState } from "../services/folderContext";
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import {
   buildArticleNavigatorRows,
@@ -28,14 +30,14 @@ import {
   type ArticleNavigatorRow,
 } from "../utils/articleNavigatorRows";
 
+const PATH_SIGNATURE_SEPARATOR = "\u0000";
+const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
+
 interface ArticleNavigatorProps {
   activeArticlePath: string | null;
   folderContext: FolderContextState | null;
   onOpenArticle: (path: string) => void;
 }
-
-const articleNavigatorRowHeight = 30;
-const pathSignatureSeparator = "\u0000";
 
 export function ArticleNavigator({
   activeArticlePath,
@@ -53,7 +55,7 @@ export function ArticleNavigator({
       ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
       : null;
   const activeFileAncestorDirectoryPathSignature =
-    activeFileAncestorDirectoryPaths?.join(pathSignatureSeparator) ?? "";
+    activeFileAncestorDirectoryPaths?.join(PATH_SIGNATURE_SEPARATOR) ?? "";
   const rows = folderContext
     ? buildArticleNavigatorRows({
         activeArticlePath,
@@ -61,8 +63,10 @@ export function ArticleNavigator({
         tree: folderContext.tree,
       })
     : [];
+  const hasRows = rows.length > 0;
   const revealRowIndex = rows.findIndex(
-    (row) => row.kind === "file" && row.path === revealArticlePath,
+    (row) =>
+      row.kind === "file" && revealArticlePath !== null && isSamePath(row.path, revealArticlePath),
   );
 
   useEffect(() => {
@@ -70,7 +74,7 @@ export function ArticleNavigator({
       return;
     }
 
-    expandDirectories(activeFileAncestorDirectoryPathSignature.split(pathSignatureSeparator));
+    expandDirectories(activeFileAncestorDirectoryPathSignature.split(PATH_SIGNATURE_SEPARATOR));
   }, [activeFileAncestorDirectoryPathSignature, expandDirectories]);
 
   useEffect(() => {
@@ -82,7 +86,7 @@ export function ArticleNavigator({
   }, [revealRequestId, revealRowIndex]);
 
   const handleOpenArticle = (path: string) => {
-    if (path === activeArticlePath) {
+    if (activeArticlePath && isSamePath(path, activeArticlePath)) {
       return;
     }
 
@@ -93,7 +97,7 @@ export function ArticleNavigator({
     <div className="flex h-full min-h-0 flex-col">
       <header className="shrink-0 px-3 py-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <FolderTreeIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+          <FolderTreeIcon className="size-4 text-muted-foreground" />
           <span>Articles</span>
         </div>
         <p className="mt-1 truncate text-xs text-muted-foreground" title={folderContext?.path}>
@@ -110,33 +114,19 @@ export function ArticleNavigator({
               No supported Markdown files found.
             </p>
           )}
-          <VirtualList
-            className="min-h-0 flex-1"
-            estimateHeight={articleNavigatorRowHeight}
-            getItemKey={(row) => row.path}
-            items={rows}
-            virtualListRef={virtualListRef}
-          >
-            <VirtualListEmpty>
-              <p className="px-3 py-3 text-xs leading-5 text-muted-foreground">
-                No visible folder entries.
-              </p>
-            </VirtualListEmpty>
-            <VirtualListContent aria-label="Article navigator" className="mx-1" role="list">
-              <VirtualListItems<ArticleNavigatorRow>>
-                {(row, virtualRow) => (
-                  <VirtualListItem key={row.path} virtualRow={virtualRow}>
-                    {row.kind === "directory" && (
-                      <DirectoryRow row={row} onToggleDirectory={toggleDirectory} />
-                    )}
-                    {row.kind === "file" && (
-                      <ArticleRow row={row} onOpenArticle={handleOpenArticle} />
-                    )}
-                  </VirtualListItem>
-                )}
-              </VirtualListItems>
-            </VirtualListContent>
-          </VirtualList>
+          {hasRows && (
+            <ArticleNavigatorRows
+              onOpenArticle={handleOpenArticle}
+              onToggleDirectory={toggleDirectory}
+              rows={rows}
+              virtualListRef={virtualListRef}
+            />
+          )}
+          {!folderContext.isEmpty && !hasRows && (
+            <p className="px-3 py-3 text-xs leading-5 text-muted-foreground">
+              No visible folder entries.
+            </p>
+          )}
         </>
       )}
     </div>
@@ -146,7 +136,7 @@ export function ArticleNavigator({
 function NoFolderContext() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-      <FolderOpenIcon aria-hidden="true" className="size-8 text-muted-foreground" />
+      <FolderOpenIcon className="size-8 text-muted-foreground" />
       <p className="mt-3 text-sm font-medium">No folder open</p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
         Open a Markdown file or folder to browse nearby documents.
@@ -155,12 +145,49 @@ function NoFolderContext() {
   );
 }
 
-interface DirectoryRowProps {
+interface ArticleNavigatorRowsProps {
+  onOpenArticle: (path: string) => void;
   onToggleDirectory: (path: string) => void;
-  row: ArticleNavigatorDirectoryRow;
+  rows: ArticleNavigatorRow[];
+  virtualListRef: Ref<VirtualListHandle>;
 }
 
-function DirectoryRow({ onToggleDirectory, row }: DirectoryRowProps) {
+function ArticleNavigatorRows({
+  onOpenArticle,
+  onToggleDirectory,
+  rows,
+  virtualListRef,
+}: ArticleNavigatorRowsProps) {
+  return (
+    <VirtualList
+      className="min-h-0 flex-1"
+      estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
+      getItemKey={(row) => row.path}
+      items={rows}
+      virtualListRef={virtualListRef}
+    >
+      <VirtualListContent aria-label="Article navigator" className="mx-1" role="list">
+        <VirtualListItems<ArticleNavigatorRow>>
+          {(row, virtualRow) => (
+            <VirtualListItem key={row.path} virtualRow={virtualRow}>
+              {row.kind === "directory" && (
+                <DirectoryRow row={row} onToggleDirectory={onToggleDirectory} />
+              )}
+              {row.kind === "file" && <ArticleRow row={row} onOpenArticle={onOpenArticle} />}
+            </VirtualListItem>
+          )}
+        </VirtualListItems>
+      </VirtualListContent>
+    </VirtualList>
+  );
+}
+
+interface DirectoryRowProps {
+  row: ArticleNavigatorDirectoryRow;
+  onToggleDirectory: (path: string) => void;
+}
+
+function DirectoryRow({ row, onToggleDirectory }: DirectoryRowProps) {
   const Icon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
 
   return (
@@ -175,22 +202,22 @@ function DirectoryRow({ onToggleDirectory, row }: DirectoryRowProps) {
       variant="ghost"
     >
       {row.hasChildren ? (
-        <Icon aria-hidden="true" className="size-3 text-muted-foreground" />
+        <Icon className="size-3 text-muted-foreground" />
       ) : (
         <span className="size-3 shrink-0" />
       )}
-      <FolderIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+      <FolderIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
     </Button>
   );
 }
 
 interface ArticleRowProps {
-  onOpenArticle: (path: string) => void;
   row: ArticleNavigatorArticleRow;
+  onOpenArticle: (path: string) => void;
 }
 
-function ArticleRow({ onOpenArticle, row }: ArticleRowProps) {
+function ArticleRow({ row, onOpenArticle }: ArticleRowProps) {
   return (
     <Button
       aria-current={row.isActive ? "page" : undefined}
@@ -205,7 +232,7 @@ function ArticleRow({ onOpenArticle, row }: ArticleRowProps) {
       type="button"
       variant="ghost"
     >
-      <FileTextIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+      <FileTextIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
     </Button>
   );

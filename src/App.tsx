@@ -1,24 +1,22 @@
 import "@/App.css";
-import { AppShell } from "@/components/layout/AppShell";
-import { TitleBar } from "@/components/layout/TitleBar";
-import { Toaster } from "@/components/ui/Sonner";
-import {
-  settingsStoreTauriHandler,
-  useSettingsStore,
-  type SettingsState,
-} from "@/features/preferences";
-import {
-  confirmActiveDocumentTransition,
-  migrateLegacyPersistedState,
-  sessionHistoryStoreTauriHandler,
-} from "@/features/session";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
 
-const windowCloseRequestedEvent = "leafdown://window-close-requested";
+import { Shell } from "@/components/layout/Shell";
+import { UnexpectedErrorBoundary } from "@/components/layout/UnexpectedErrorBoundary";
+import { Toaster } from "@/components/ui/Sonner";
+import {
+  recentItemsStoreTauriHandler,
+  settingsStoreTauriHandler,
+  useSettingsStore,
+  type SettingsState,
+} from "@/features/preferences";
+import { confirmDiscardActiveDocumentChanges } from "@/features/session";
+import { handleUnexpectedError } from "@/lib/errors";
+import { DisposableStore } from "@/lib/lifecycle";
 
 const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
@@ -28,22 +26,17 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
   window.document.documentElement.classList.toggle("dark", isDark);
 };
 
-function App() {
+export function App() {
   useEffect(() => {
     const initializeApp = async () => {
-      await Promise.all([
-        settingsStoreTauriHandler.start(),
-        sessionHistoryStoreTauriHandler.start(),
-      ]);
+      await Promise.all([settingsStoreTauriHandler.start(), recentItemsStoreTauriHandler.start()]);
 
-      await migrateLegacyPersistedState();
-      await useSettingsStore.getState().init();
       await updateTheme(useSettingsStore.getState().theme);
 
       await getCurrentWindow().show();
     };
 
-    void initializeApp().catch(console.error);
+    void initializeApp().catch((error) => handleUnexpectedError(error, "initializeApp"));
   }, []);
 
   useEffect(() => {
@@ -62,44 +55,43 @@ function App() {
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
-    let disposed = false;
-    let unlisten: (() => void) | undefined;
+    const listenerDisposables = new DisposableStore();
 
-    void appWindow
-      .listen(windowCloseRequestedEvent, async () => {
-        if (await confirmActiveDocumentTransition()) {
-          await appWindow.destroy();
-        }
-      })
-      .then((closeUnlisten) => {
-        if (disposed) {
-          closeUnlisten();
-          return;
-        }
+    const setupCloseListener = async () => {
+      try {
+        const closeUnlisten = await appWindow.listen(
+          "leafdown://window-close-requested",
+          async () => {
+            if (await confirmDiscardActiveDocumentChanges()) {
+              await appWindow.destroy();
+            }
+          },
+        );
+        listenerDisposables.add(closeUnlisten);
+      } catch (error) {
+        handleUnexpectedError(error, "setupCloseListener");
+      }
+    };
 
-        unlisten = closeUnlisten;
-      })
-      .catch(console.error);
+    void setupCloseListener();
 
     return () => {
-      disposed = true;
-      unlisten?.();
+      listenerDisposables.dispose();
     };
   }, []);
 
   const theme = useSettingsStore((state) => state.theme);
 
   useEffect(() => {
-    void updateTheme(theme);
+    void updateTheme(theme).catch((error) => handleUnexpectedError(error, "updateTheme"));
   }, [theme]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <TitleBar />
-      <AppShell />
+      <UnexpectedErrorBoundary>
+        <Shell />
+      </UnexpectedErrorBoundary>
       <Toaster theme={theme} />
     </div>
   );
 }
-
-export { App };

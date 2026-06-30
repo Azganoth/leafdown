@@ -6,41 +6,43 @@ import {
   screen,
   type RenderHookOptions,
   type RenderOptions,
+  waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach } from "vitest";
+
+import { TooltipProvider } from "@/components/ui/Tooltip";
 
 afterEach(() => {
   cleanup();
 });
 
 function Providers({ children }: { children: ReactNode }) {
-  return <>{children}</>;
+  return <TooltipProvider>{children}</TooltipProvider>;
 }
 
-function render(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
-  return renderWithTestingLibrary(ui, {
+const render = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) =>
+  renderWithTestingLibrary(ui, {
     wrapper: Providers,
     ...options,
   });
-}
 
-function renderWithUser(ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) {
-  return {
-    user: userEvent.setup(),
-    ...render(ui, options),
-  };
-}
+const renderWithUser = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) => ({
+  user: userEvent.setup(),
+  ...render(ui, options),
+});
 
-function renderHook<Result, Props>(
+const setupUser = (options?: Parameters<typeof userEvent.setup>[0]) => userEvent.setup(options);
+
+const renderHook = <Result, Props>(
   render: (initialProps: Props) => Result,
   options?: Omit<RenderHookOptions<Props>, "wrapper">,
-) {
-  return renderHookWithTestingLibrary(render, {
+) =>
+  renderHookWithTestingLibrary(render, {
     wrapper: Providers,
     ...options,
   });
-}
 
-export { act, render, renderHook, renderWithUser, screen };
+export { act, render, renderHook, renderWithUser, screen, setupUser, waitFor, within };

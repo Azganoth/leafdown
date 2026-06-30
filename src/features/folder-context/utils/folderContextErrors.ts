@@ -1,41 +1,102 @@
-import {
-  getOpenMarkdownFileErrorMessage,
-  type DocumentIoErrorMessage,
-  type OpenMarkdownFileError,
-} from "@/features/document";
+import { getOpenMarkdownFileErrorMessage } from "@/features/document";
+import type { MessageData } from "@/lib/messages";
+import { isTaggedPayload } from "@/lib/taggedPayload";
 
-type ScanFolderContextError =
-  | { kind: "metadataFailed"; path: string; message: string }
-  | { kind: "notDirectory"; path: string }
-  | { kind: "readDirectoryFailed"; path: string; message: string }
-  | { kind: "directoryEntryFailed"; path: string; message: string };
+import type {
+  OpenMarkdownFolderError,
+  ScanMarkdownFolderError,
+  WatchMarkdownFolderError,
+} from "../services/folderContextApi";
 
-type OpenFolderContextError =
-  | { kind: "scanFailed"; error: ScanFolderContextError }
-  | { kind: "indexOpenFailed"; error: OpenMarkdownFileError };
+export type ScanFolderContextError = ScanMarkdownFolderError;
+export type OpenFolderContextError = OpenMarkdownFolderError;
+export type WatchFolderContextError = WatchMarkdownFolderError;
 
-const fallbackOpenFolderError: DocumentIoErrorMessage = {
+const SCAN_FOLDER_CONTEXT_ERROR_KINDS = [
+  "invalidPath",
+  "missingFolder",
+  "permissionDenied",
+  "metadataFailed",
+  "notDirectory",
+  "readDirectoryFailed",
+  "directoryEntryFailed",
+] as const satisfies readonly ScanFolderContextError["kind"][];
+
+const FALLBACK_SCAN_FOLDER_ERROR: MessageData = {
+  title: "Could not scan folder.",
+};
+
+export const getScanFolderContextErrorMessage = (
+  error: unknown,
+  fallback: MessageData = FALLBACK_SCAN_FOLDER_ERROR,
+): MessageData => {
+  if (!isScanFolderContextError(error)) {
+    return fallback;
+  }
+
+  switch (error.kind) {
+    case "invalidPath":
+      return {
+        title: "Invalid folder path.",
+        description: error.path,
+      };
+    case "missingFolder":
+      return {
+        title: "Folder not found.",
+        description: error.path,
+      };
+    case "permissionDenied":
+      return {
+        title: "Permission denied accessing folder.",
+        description: error.message ?? error.path,
+      };
+    case "metadataFailed":
+      return {
+        title: "Could not inspect folder.",
+        description: error.message ?? error.path,
+      };
+    case "notDirectory":
+      return {
+        title: "Folder path is not a directory.",
+        description: error.path,
+      };
+    case "readDirectoryFailed":
+      return {
+        title: "Could not read folder.",
+        description: error.message ?? error.path,
+      };
+    case "directoryEntryFailed":
+      return {
+        title: "Could not scan folder entry.",
+        description: error.message ?? error.path,
+      };
+  }
+};
+
+export const isScanFolderContextError = (error: unknown): error is ScanFolderContextError =>
+  isTaggedPayload(error, SCAN_FOLDER_CONTEXT_ERROR_KINDS);
+
+const OPEN_FOLDER_CONTEXT_ERROR_KINDS = [
+  "scanFailed",
+  "indexOpenFailed",
+] as const satisfies readonly OpenFolderContextError["kind"][];
+
+const FALLBACK_OPEN_FOLDER_ERROR: MessageData = {
   title: "Could not open folder.",
 };
 
 export const getOpenFolderContextErrorMessage = (
   error: unknown,
-  fallback = fallbackOpenFolderError,
-): DocumentIoErrorMessage => {
+  fallback: MessageData = FALLBACK_OPEN_FOLDER_ERROR,
+): MessageData => {
   if (!isOpenFolderContextError(error)) {
     return fallback;
   }
 
   switch (error.kind) {
     case "scanFailed":
-      return isScanFolderContextError(error.error)
-        ? getScanFolderContextErrorMessage(error.error)
-        : fallback;
+      return getScanFolderContextErrorMessage(error.error, fallback);
     case "indexOpenFailed": {
-      if (!isOpenMarkdownFileError(error.error)) {
-        return fallback;
-      }
-
       const indexError = getOpenMarkdownFileErrorMessage(error.error);
 
       return {
@@ -46,49 +107,69 @@ export const getOpenFolderContextErrorMessage = (
   }
 };
 
-const getScanFolderContextErrorMessage = (
-  error: ScanFolderContextError,
-): DocumentIoErrorMessage => {
+export const isOpenFolderContextError = (error: unknown): error is OpenFolderContextError =>
+  isTaggedPayload(error, OPEN_FOLDER_CONTEXT_ERROR_KINDS);
+
+const WATCH_FOLDER_CONTEXT_ERROR_KINDS = [
+  "invalidPath",
+  "missingFolder",
+  "permissionDenied",
+  "metadataFailed",
+  "notDirectory",
+  "watchFailed",
+  "watcherStateFailed",
+] as const satisfies readonly WatchFolderContextError["kind"][];
+
+const FALLBACK_WATCH_FOLDER_ERROR: MessageData = {
+  title: "Could not watch folder.",
+};
+
+export const getWatchFolderContextErrorMessage = (
+  error: unknown,
+  fallback: MessageData = FALLBACK_WATCH_FOLDER_ERROR,
+): MessageData => {
+  if (!isWatchFolderContextError(error)) {
+    return fallback;
+  }
+
   switch (error.kind) {
+    case "invalidPath":
+      return {
+        title: "Invalid folder path.",
+        description: error.path,
+      };
+    case "missingFolder":
+      return {
+        title: "Folder not found.",
+        description: error.path,
+      };
+    case "permissionDenied":
+      return {
+        title: "Permission denied watching folder.",
+        description: error.message ?? error.path,
+      };
     case "metadataFailed":
-      return { title: "Could not inspect folder.", description: error.message || error.path };
+      return {
+        title: "Could not inspect folder.",
+        description: error.message ?? error.path,
+      };
     case "notDirectory":
-      return { title: "Folder path is not a directory.", description: error.path };
-    case "readDirectoryFailed":
-      return { title: "Could not read folder.", description: error.message || error.path };
-    case "directoryEntryFailed":
-      return { title: "Could not scan folder entry.", description: error.message || error.path };
+      return {
+        title: "Folder path is not a directory.",
+        description: error.path,
+      };
+    case "watchFailed":
+      return {
+        title: "Could not watch folder.",
+        description: error.message ?? error.path,
+      };
+    case "watcherStateFailed":
+      return {
+        title: "Could not watch folder.",
+        description: error.message,
+      };
   }
 };
 
-const isOpenMarkdownFileError = (error: unknown): error is OpenMarkdownFileError =>
-  isTaggedObject(error) && openMarkdownFileErrorKinds.has(error.kind);
-
-const isOpenFolderContextError = (error: unknown): error is OpenFolderContextError =>
-  isTaggedObject(error) && openFolderContextErrorKinds.has(error.kind);
-
-const isScanFolderContextError = (error: unknown): error is ScanFolderContextError =>
-  isTaggedObject(error) && scanFolderContextErrorKinds.has(error.kind);
-
-const openMarkdownFileErrorKinds = new Set([
-  "unsupportedFileType",
-  "invalidPath",
-  "missingFile",
-  "permissionDenied",
-  "oversizedFile",
-  "invalidEncoding",
-  "readFailed",
-  "metadataFailed",
-]);
-
-const scanFolderContextErrorKinds = new Set([
-  "metadataFailed",
-  "notDirectory",
-  "readDirectoryFailed",
-  "directoryEntryFailed",
-]);
-
-const openFolderContextErrorKinds = new Set(["scanFailed", "indexOpenFailed"]);
-
-const isTaggedObject = (error: unknown): error is { kind: string } =>
-  typeof error === "object" && error !== null && "kind" in error && typeof error.kind === "string";
+export const isWatchFolderContextError = (error: unknown): error is WatchFolderContextError =>
+  isTaggedPayload(error, WATCH_FOLDER_CONTEXT_ERROR_KINDS);

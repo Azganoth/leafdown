@@ -1,4 +1,7 @@
-import type { LineEnding } from "../types";
+import type { LineEnding } from "./documentState";
+
+const TRAILING_LINE_ENDINGS_PATTERN = /(?:\r\n|\r|\n)+$/u;
+const LINE_ENDING_PATTERN = /\r\n|\r|\n/gu;
 
 export const formatMarkdownForSave = (
   markdown: string,
@@ -6,7 +9,9 @@ export const formatMarkdownForSave = (
   insertFinalNewline: boolean,
 ) => {
   const newline = lineEnding === "crlf" ? "\r\n" : "\n";
-  const body = markdown.replace(/(?:\r\n|\r|\n)+$/u, "").replace(/\r\n|\r|\n/gu, newline);
+  const body = markdown
+    .replace(TRAILING_LINE_ENDINGS_PATTERN, "")
+    .replace(LINE_ENDING_PATTERN, newline);
 
   if (!body) {
     return "";

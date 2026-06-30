@@ -1,22 +1,27 @@
-import { invoke } from "@tauri-apps/api/core";
+import { unwatchMarkdownFolder, watchMarkdownFolder } from "./folderContextApi";
 
-export const watchFolderContext = async (
+export {
+  FOLDER_CONTEXT_CHANGED_EVENT,
+  FOLDER_CONTEXT_WATCH_ERROR_EVENT,
+  type FolderContextChangedEventPayload,
+  type FolderContextWatchErrorEventPayload,
+} from "./folderContextApi";
+
+export const watchFolderContext = (
   path: string,
   ignoredDirectories: string[],
   scopeId: string,
   scopeGeneration: number,
-) => {
-  await invoke("watch_markdown_folder", {
+) =>
+  watchMarkdownFolder({
     path,
     ignoredDirectories,
     scopeId,
     scopeGeneration,
   });
-};
 
-export const unwatchFolderContext = async (scopeId: string, scopeGeneration: number) => {
-  await invoke("unwatch_markdown_folder", {
+export const unwatchFolderContext = (scopeId: string, scopeGeneration: number) =>
+  unwatchMarkdownFolder({
     scopeId,
     scopeGeneration,
   });
-};

@@ -3,9 +3,14 @@ import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { hasNoShortcutModifier } from "@/lib/input";
+
+import { isTextCaretSelection } from "../utils/selections";
+import { getTextBetween } from "../utils/textRanges";
+
 export const leafdownAutoPairPluginKey = new PluginKey("leafdownAutoPair");
 
-const leafdownAutoPairs = new Map([
+const AUTO_PAIRS = new Map([
   ["(", ")"],
   ["[", "]"],
   ["{", "}"],
@@ -13,14 +18,14 @@ const leafdownAutoPairs = new Map([
   ["'", "'"],
 ]);
 
-const leafdownClosingDelimiters = new Set(leafdownAutoPairs.values());
+const CLOSING_DELIMITERS = new Set(AUTO_PAIRS.values());
 
 const getCharacter = (state: EditorState, from: number, to: number) => {
   if (from < 0 || to > state.doc.content.size || from >= to) {
     return "";
   }
 
-  return state.doc.textBetween(from, to, "\n", "\n");
+  return getTextBetween(state.doc, from, to);
 };
 
 const isWordCharacter = (value: string) => /^[\p{L}0-9]$/u.test(value);
@@ -49,7 +54,7 @@ const canHandleTextInput = (view: EditorView) => {
 };
 
 const skipClosingDelimiter = (view: EditorView, from: number, to: number, text: string) => {
-  if (from !== to || !leafdownClosingDelimiters.has(text)) {
+  if (from !== to || !CLOSING_DELIMITERS.has(text)) {
     return false;
   }
 
@@ -80,8 +85,8 @@ const insertPair = (
     return true;
   }
 
-  const transaction = view.state.tr.insertText(opening, from, from);
-  transaction.insertText(closing, to + opening.length, to + opening.length);
+  const transaction = view.state.tr.insertText(opening, from);
+  transaction.insertText(closing, to + opening.length);
   transaction.setSelection(
     TextSelection.create(transaction.doc, from + opening.length, to + opening.length),
   );
@@ -93,7 +98,7 @@ const insertPair = (
 const deleteEmptyPair = (view: EditorView) => {
   const selection = view.state.selection;
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!isTextCaretSelection(selection)) {
     return false;
   }
 
@@ -101,7 +106,7 @@ const deleteEmptyPair = (view: EditorView) => {
   const previousCharacter = getCharacter(view.state, from - 1, from);
   const nextCharacter = getCharacter(view.state, from, from + 1);
 
-  if (leafdownAutoPairs.get(previousCharacter) !== nextCharacter) {
+  if (AUTO_PAIRS.get(previousCharacter) !== nextCharacter) {
     return false;
   }
 
@@ -111,20 +116,14 @@ const deleteEmptyPair = (view: EditorView) => {
   return true;
 };
 
-export const createLeafdownAutoPairPlugin = (getEnabled: () => boolean) =>
+export const createLeafdownAutoPairPlugin = (isEnabled: () => boolean) =>
   $prose(
     () =>
       new Plugin({
         key: leafdownAutoPairPluginKey,
         props: {
           handleKeyDown: (view, event) => {
-            if (
-              !getEnabled() ||
-              event.key !== "Backspace" ||
-              event.altKey ||
-              event.ctrlKey ||
-              event.metaKey
-            ) {
+            if (!isEnabled() || event.key !== "Backspace" || !hasNoShortcutModifier(event)) {
               return false;
             }
 
@@ -136,7 +135,7 @@ export const createLeafdownAutoPairPlugin = (getEnabled: () => boolean) =>
             return true;
           },
           handleTextInput: (view, from, to, text) => {
-            if (!getEnabled() || text.length !== 1 || !canHandleTextInput(view)) {
+            if (!isEnabled() || text.length !== 1 || !canHandleTextInput(view)) {
               return false;
             }
 
@@ -144,7 +143,7 @@ export const createLeafdownAutoPairPlugin = (getEnabled: () => boolean) =>
               return true;
             }
 
-            const closing = leafdownAutoPairs.get(text);
+            const closing = AUTO_PAIRS.get(text);
 
             if (!closing) {
               return false;

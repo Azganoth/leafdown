@@ -3,13 +3,21 @@ use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
 mod document;
+mod file_utils;
 mod folder;
 mod image;
 mod link;
+mod path_utils;
+#[cfg(test)]
+mod test_utils;
 
 const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
+const TITLEBAR_HEIGHT: u32 = 32;
+const TITLEBAR_BUTTON_WIDTH: u32 = 52;
+const TITLEBAR_BUTTON_HOVER_BACKGROUND: &str = "color-mix(in srgb, currentColor 12%, transparent)";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+// Public because src/main.rs is a separate binary crate that enters through the library crate.
 pub fn run() {
     tauri::Builder::default()
         .plugin(
@@ -22,10 +30,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(
             FramePluginBuilder::new()
-                .titlebar_height(32)
-                .button_width(52)
+                .titlebar_height(TITLEBAR_HEIGHT)
+                .button_width(TITLEBAR_BUTTON_WIDTH)
                 .auto_titlebar(true)
-                .button_hover_bg("color-mix(in srgb, currentColor 12%, transparent)")
+                .button_hover_bg(TITLEBAR_BUTTON_HOVER_BACKGROUND)
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
@@ -46,8 +54,8 @@ pub fn run() {
             link::resolve_markdown_link_target,
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
-            folder::watch::watch_markdown_folder,
-            folder::watch::unwatch_markdown_folder
+            folder::watch_markdown_folder,
+            folder::unwatch_markdown_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

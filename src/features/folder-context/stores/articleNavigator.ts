@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { isSamePath, PathSet } from "@/lib/path";
+
 export interface ArticleNavigatorState {
   expandedDirectoryPaths: string[];
   revealArticlePath: string | null;
@@ -15,18 +17,34 @@ export interface ArticleNavigatorStore extends ArticleNavigatorState {
   toggleDirectory: (path: string) => void;
 }
 
-const initialArticleNavigatorState: ArticleNavigatorState = {
+const INITIAL_ARTICLE_NAVIGATOR_STATE: ArticleNavigatorState = {
   expandedDirectoryPaths: [],
   revealArticlePath: null,
   revealRequestId: 0,
 };
 
-const addUniquePaths = (currentPaths: string[], paths: string[]) => [
-  ...new Set([...currentPaths, ...paths]),
-];
+const addUniquePaths = (currentPaths: string[], paths: string[]) => {
+  const nextPaths = [...currentPaths];
+  const pathSet = new PathSet(currentPaths);
+
+  for (const path of paths) {
+    if (!pathSet.has(path)) {
+      pathSet.add(path);
+      nextPaths.push(path);
+    }
+  }
+
+  return nextPaths;
+};
+
+const hasPath = (paths: string[], path: string) =>
+  paths.some((currentPath) => isSamePath(currentPath, path));
+
+const removePath = (paths: string[], path: string) =>
+  paths.filter((currentPath) => !isSamePath(currentPath, path));
 
 export const useArticleNavigatorStore = create<ArticleNavigatorStore>()((set) => ({
-  ...initialArticleNavigatorState,
+  ...INITIAL_ARTICLE_NAVIGATOR_STATE,
 
   collapseAll: () => set({ expandedDirectoryPaths: [] }),
   expandDirectories: (paths) =>
@@ -39,25 +57,27 @@ export const useArticleNavigatorStore = create<ArticleNavigatorStore>()((set) =>
       revealArticlePath: articlePath,
       revealRequestId: state.revealRequestId + 1,
     })),
-  reset: () => set(initialArticleNavigatorState),
+  reset: () => set(INITIAL_ARTICLE_NAVIGATOR_STATE),
   setDirectoryExpanded: (path, expanded) =>
     set((state) => {
-      const nextExpandedDirectoryPaths = state.expandedDirectoryPaths.filter(
-        (expandedPath) => expandedPath !== path,
-      );
+      const isExpanded = hasPath(state.expandedDirectoryPaths, path);
 
-      if (expanded) {
-        nextExpandedDirectoryPaths.push(path);
+      if (expanded === isExpanded) {
+        return state;
       }
 
-      return {
-        expandedDirectoryPaths: nextExpandedDirectoryPaths,
-      };
+      const expandedDirectoryPaths = removePath(state.expandedDirectoryPaths, path);
+
+      if (expanded) {
+        expandedDirectoryPaths.push(path);
+      }
+
+      return { expandedDirectoryPaths };
     }),
   toggleDirectory: (path) =>
     set((state) => ({
-      expandedDirectoryPaths: state.expandedDirectoryPaths.includes(path)
-        ? state.expandedDirectoryPaths.filter((expandedPath) => expandedPath !== path)
+      expandedDirectoryPaths: hasPath(state.expandedDirectoryPaths, path)
+        ? removePath(state.expandedDirectoryPaths, path)
         : [...state.expandedDirectoryPaths, path],
     })),
 }));

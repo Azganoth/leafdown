@@ -1,51 +1,48 @@
-import { fireEvent, waitFor } from "@testing-library/react";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import { invoke } from "@tauri-apps/api/core";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import {
+  EDITOR_TEST_ROOT_CLASS_NAME,
+  createMarkdownReferenceContext,
+} from "@/test/factories/editor";
+import { dispatchClick } from "@/test/utils/events";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
+import { waitFor, within } from "@/test/utils/react";
+import {
+  countTauriApiCalls,
+  getLastTauriApiArgs,
+  mockTauriApiCommand,
+} from "@/test/utils/tauriApi";
 
-const mountedEditors: MountedMilkdownEditor[] = [];
+const mountEditor = setupMilkdownEditorMount();
 
-const mountEditor = async (
+const mountLinkEditor = (
   initialMarkdown: string,
   documentPath: string | null = "C:/Notes/readme.md",
 ) => {
-  const mounted = await mountMilkdownEditor(initialMarkdown, {
-    documentPath,
-    folderContextPath: "C:/Notes",
-    rootClassName: "leafdown-editor",
+  const markdownReferenceContext = createMarkdownReferenceContext({ documentPath });
+
+  return mountEditor(initialMarkdown, {
+    ...markdownReferenceContext,
+    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
   });
-  mountedEditors.push(mounted);
-  return mounted;
 };
 
 describe("Markdown links", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(invoke).mockReset();
-    vi.mocked(confirm).mockResolvedValue(false);
-  });
-
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
-  });
-
-  it("leaves normal link clicks to the editor caret behavior", async () => {
-    const mounted = await mountEditor("[Guide](guide.md)");
-    const link = mounted.view.dom.querySelector<HTMLAnchorElement>("a[href='guide.md']");
+  it("places the caret for normal link clicks without activating links", async () => {
+    const mounted = await mountLinkEditor("[Guide](guide.md)");
+    const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
 
     mounted.view.dispatch(
       mounted.view.state.tr.setSelection(TextSelection.create(mounted.view.state.doc, 1)),
     );
-    fireEvent.click(link as HTMLAnchorElement);
+    const event = dispatchClick(link);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-
-    expect(invoke).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(true);
+    expect(countTauriApiCalls("resolveMarkdownLinkTarget")).toBe(0);
     expect(openUrl).not.toHaveBeenCalled();
     expect(mounted.view.state.selection.empty).toBe(true);
     expect(mounted.view.state.selection.from).toBeGreaterThan(1);
@@ -53,39 +50,73 @@ describe("Markdown links", () => {
   });
 
   it("activates links on Mod+click without mutating source Markdown", async () => {
-    vi.mocked(invoke).mockResolvedValue({
-      kind: "externalWeb",
-      url: "https://example.com/docs",
-    });
-    const mounted = await mountEditor("[Docs](https://example.com/docs)");
-    const link = mounted.view.dom.querySelector<HTMLAnchorElement>(
-      "a[href='https://example.com/docs']",
-    );
+    await withWindowsUserAgent(async () => {
+      mockTauriApiCommand("resolveMarkdownLinkTarget", () => ({
+        kind: "externalWeb",
+        url: "https://example.com/docs",
+      }));
+      const mounted = await mountLinkEditor("[Docs](https://example.com/docs)");
+      const link = within(mounted.view.dom).getByRole("link", { name: "Docs" });
 
-    fireEvent.click(link as HTMLAnchorElement, { ctrlKey: true });
+      const event = dispatchClick(link, { ctrl: true });
 
-    await waitFor(() => {
-      expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
+      await waitFor(() => {
+        expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
+      });
+      expect(event.defaultPrevented).toBe(true);
+      expect(getLastTauriApiArgs("resolveMarkdownLinkTarget")).toEqual({
+        ...createMarkdownReferenceContext(),
+        target: "https://example.com/docs",
+        explicitOpen: false,
+      });
+      expect(mounted.getMarkdown()).toBe("[Docs](https://example.com/docs)\n");
     });
-    expect(invoke).toHaveBeenCalledWith("resolve_markdown_link_target", {
-      documentPath: "C:/Notes/readme.md",
-      folderContextPath: "C:/Notes",
-      target: "https://example.com/docs",
-      explicitOpen: false,
+  });
+
+  it("uses Meta-click as the primary modifier on macOS", async () => {
+    await withMacUserAgent(async () => {
+      mockTauriApiCommand("resolveMarkdownLinkTarget", () => ({
+        kind: "externalWeb",
+        url: "https://example.com/docs",
+      }));
+      const mounted = await mountLinkEditor("[Docs](https://example.com/docs)");
+      const link = within(mounted.view.dom).getByRole("link", { name: "Docs" });
+
+      const event = dispatchClick(link, { meta: true });
+
+      await waitFor(() => {
+        expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
+      });
+      expect(event.defaultPrevented).toBe(true);
     });
-    expect(mounted.getMarkdown()).toBe("[Docs](https://example.com/docs)\n");
   });
 
   it("shows a non-disruptive message for relative links from untitled documents", async () => {
-    vi.mocked(invoke).mockResolvedValue({ kind: "untitledRelative" });
-    const mounted = await mountEditor("[Guide](guide.md)", null);
-    const link = mounted.view.dom.querySelector<HTMLAnchorElement>("a[href='guide.md']");
+    await withWindowsUserAgent(async () => {
+      mockTauriApiCommand("resolveMarkdownLinkTarget", () => ({ kind: "untitledRelative" }));
+      const mounted = await mountLinkEditor("[Guide](guide.md)", null);
+      const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
 
-    fireEvent.click(link as HTMLAnchorElement, { metaKey: true });
+      dispatchClick(link, { ctrl: true });
 
-    await waitFor(() => {
-      expect(toast.warning).toHaveBeenCalledWith("Save the document to resolve this link.");
+      await waitFor(() => {
+        expect(toast.warning).toHaveBeenCalledWith("Save the document to resolve this link.");
+      });
+      expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
     });
-    expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
+  });
+
+  it("does not activate links for non-primary modifier clicks", async () => {
+    await withWindowsUserAgent(async () => {
+      const mounted = await mountLinkEditor("[Guide](guide.md)");
+      const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
+
+      const event = dispatchClick(link, { meta: true });
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(countTauriApiCalls("resolveMarkdownLinkTarget")).toBe(0);
+      expect(openUrl).not.toHaveBeenCalled();
+      expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
+    });
   });
 });

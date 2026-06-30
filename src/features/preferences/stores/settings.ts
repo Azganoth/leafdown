@@ -1,15 +1,18 @@
-import { createTauriStore } from "@tauri-store/zustand";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
+import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
+import { createPersistedTauriStore, type PersistedTauriStoreKey } from "@/lib/persistedTauriStore";
+import { isWindowsPlatform } from "@/lib/platform";
 
 export type AppearanceTheme = "light" | "dark" | "system";
-export type DefaultNewDocumentExtension = ".md" | ".markdown";
-export type LineEndingPreference = "crlf" | "lf";
 
-export const defaultIndexFileNames = ["readme", "index"];
-export const defaultIgnoredDirectories = [
+export const SETTINGS_VERSION = 1;
+
+// NOTE: src-tauri/src/folder/defaults.rs
+export const DEFAULT_INDEX_FILE_NAMES = ["readme", "index"] as const;
+export const DEFAULT_IGNORED_DIRECTORIES = [
   ".git",
   ".hg",
   ".svn",
@@ -18,15 +21,15 @@ export const defaultIgnoredDirectories = [
   "dist",
   "build",
   ".cache",
-];
+] as const;
 
 export interface SettingsState {
   theme: AppearanceTheme;
   recordRecentItems: boolean;
   sidebarVisible: boolean;
   articleSortOrder: ArticleSortOrder;
-  defaultNewDocumentExtension: DefaultNewDocumentExtension;
-  defaultNewDocumentLineEnding: LineEndingPreference;
+  defaultNewDocumentExtension: MarkdownFileExtension;
+  defaultNewDocumentLineEnding: LineEnding;
   insertFinalNewline: boolean;
   indexFileNames: string[];
   ignoredDirectories: string[];
@@ -34,22 +37,16 @@ export interface SettingsState {
   softWrapCodeBlocks: boolean;
 }
 
-interface LegacySettingsState {
-  fileTreeSortOrder: ArticleSortOrder | null;
-  recentFiles: string[];
-  recentFolders: string[];
-  persistenceVersion: number;
+export interface SettingsPersistedState extends SettingsState {
+  version: number;
 }
 
-export interface SettingsStore extends SettingsState, LegacySettingsState {
-  setTheme: (theme: AppearanceTheme) => void;
+export interface SettingsStore extends SettingsPersistedState {
   updateSetting: <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => void;
-  completeLegacyMigration: () => void;
-  reset: () => Promise<void>;
-  init: () => Promise<void>;
+  reset: () => void;
 }
 
-const settingsStateKeys = [
+const SETTINGS_PERSISTED_KEYS = [
   "theme",
   "recordRecentItems",
   "sidebarVisible",
@@ -61,77 +58,48 @@ const settingsStateKeys = [
   "ignoredDirectories",
   "autoPairBracketsAndQuotes",
   "softWrapCodeBlocks",
-  "fileTreeSortOrder",
-  "recentFiles",
-  "recentFolders",
-  "persistenceVersion",
-] satisfies (keyof SettingsStore)[];
+] satisfies PersistedTauriStoreKey<SettingsPersistedState>[];
 
-const isWindows = () => {
-  if (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")) {
-    return true;
-  }
+export const createDefaultSettingsState = (): SettingsState => ({
+  theme: "system",
+  recordRecentItems: true,
+  sidebarVisible: true,
+  articleSortOrder: "name",
+  defaultNewDocumentExtension: ".md",
+  defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
+  insertFinalNewline: true,
+  indexFileNames: [...DEFAULT_INDEX_FILE_NAMES],
+  ignoredDirectories: [...DEFAULT_IGNORED_DIRECTORIES],
+  autoPairBracketsAndQuotes: true,
+  softWrapCodeBlocks: false,
+});
 
-  if (typeof process !== "undefined") {
-    return process.platform === "win32";
-  }
-
-  return false;
-};
-
-export const getSystemDefaultLineEnding = (): LineEndingPreference => (isWindows() ? "crlf" : "lf");
+export const getSystemDefaultLineEnding = (): LineEnding => (isWindowsPlatform() ? "crlf" : "lf");
 
 export const useSettingsStore = create<SettingsStore>()(
-  immer((set, get, store) => ({
-    theme: "system",
-    recordRecentItems: true,
-    sidebarVisible: true,
-    articleSortOrder: "name",
-    defaultNewDocumentExtension: ".md",
-    defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
-    insertFinalNewline: true,
-    indexFileNames: [...defaultIndexFileNames],
-    ignoredDirectories: [...defaultIgnoredDirectories],
-    autoPairBracketsAndQuotes: true,
-    softWrapCodeBlocks: false,
-    fileTreeSortOrder: null,
-    recentFiles: [],
-    recentFolders: [],
-    persistenceVersion: 0,
+  immer((set) => ({
+    ...createDefaultSettingsState(),
+    version: SETTINGS_VERSION,
 
-    setTheme: (theme) =>
-      set((state) => {
-        state.theme = theme;
-      }),
     updateSetting: (key, value) =>
       set((state) => {
-        Object.assign(state, { [key]: value });
-      }),
-    completeLegacyMigration: () =>
-      set((state) => {
-        if (state.persistenceVersion >= 1) {
-          return;
-        }
-
-        if (state.fileTreeSortOrder) {
-          state.articleSortOrder = state.fileTreeSortOrder;
-        }
-
-        state.fileTreeSortOrder = null;
-        state.recentFiles = [];
-        state.recentFolders = [];
-        state.persistenceVersion = 1;
+        (state as SettingsState)[key] = value;
       }),
 
-    reset: async () => {
-      set(() => store.getInitialState());
+    reset: () => {
+      set(() => ({
+        ...createDefaultSettingsState(),
+        version: SETTINGS_VERSION,
+      }));
     },
-    init: async () => {},
   })),
 );
 
-export const settingsStoreTauriHandler = createTauriStore("settings", useSettingsStore as never, {
-  filterKeys: [...settingsStateKeys],
-  filterKeysStrategy: "pick",
-  saveOnChange: true,
-});
+export const settingsStoreTauriHandler = createPersistedTauriStore<SettingsPersistedState>(
+  "settings",
+  useSettingsStore,
+  {
+    keys: SETTINGS_PERSISTED_KEYS,
+    version: SETTINGS_VERSION,
+  },
+);

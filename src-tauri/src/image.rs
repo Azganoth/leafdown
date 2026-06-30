@@ -1,10 +1,15 @@
 use std::{
     fs,
     io::ErrorKind,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
 };
 
 use serde::Serialize;
+
+use crate::path_utils::{
+    canonicalize_or_original, has_uri_scheme, parse_file_url_path, path_to_string,
+    resolve_markdown_reference_path, MarkdownReferencePathResolution,
+};
 
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
 
@@ -30,18 +35,24 @@ enum ParsedImageTarget {
 }
 
 #[tauri::command]
-pub(crate) fn resolve_markdown_image_target(
+pub(crate) async fn resolve_markdown_image_target(
     document_path: Option<String>,
     folder_context_path: Option<String>,
     target: String,
     explicit_load: Option<bool>,
 ) -> ResolveMarkdownImageTargetResult {
-    resolve_image_target(
-        document_path.as_deref().map(Path::new),
-        folder_context_path.as_deref().map(Path::new),
-        target.as_str(),
-        explicit_load.unwrap_or(false),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        resolve_image_target(
+            document_path.as_deref().map(Path::new),
+            folder_context_path.as_deref().map(Path::new),
+            target.as_str(),
+            explicit_load.unwrap_or(false),
+        )
+    })
+    .await
+    .unwrap_or_else(|error| ResolveMarkdownImageTargetResult::MetadataFailed {
+        message: error.to_string(),
+    })
 }
 
 pub(crate) fn resolve_image_target(
@@ -50,57 +61,63 @@ pub(crate) fn resolve_image_target(
     target: &str,
     explicit_load: bool,
 ) -> ResolveMarkdownImageTargetResult {
-    let parsed_target = parse_image_target(target);
-    let target_path = match parsed_target {
-        ParsedImageTarget::Local(path) => path,
-        ParsedImageTarget::Remote => return ResolveMarkdownImageTargetResult::RemoteBlocked,
-        ParsedImageTarget::Unsupported => {
-            return ResolveMarkdownImageTargetResult::UnsupportedTarget;
-        }
-    };
+    match parse_image_target(target) {
+        ParsedImageTarget::Local(target_path) => resolve_local_image_target(
+            document_path,
+            folder_context_path,
+            target_path.as_path(),
+            explicit_load,
+        ),
+        ParsedImageTarget::Remote => ResolveMarkdownImageTargetResult::RemoteBlocked,
+        ParsedImageTarget::Unsupported => ResolveMarkdownImageTargetResult::UnsupportedTarget,
+    }
+}
 
-    if !is_supported_image_path(target_path.as_path()) {
+fn resolve_local_image_target(
+    document_path: Option<&Path>,
+    folder_context_path: Option<&Path>,
+    target_path: &Path,
+    explicit_load: bool,
+) -> ResolveMarkdownImageTargetResult {
+    if !is_supported_image_path(target_path) {
         return ResolveMarkdownImageTargetResult::UnsupportedFormat;
     }
 
-    let target_is_absolute = target_path.is_absolute();
-    let resolved_path = if target_is_absolute {
-        normalize_path_lexically(target_path.as_path())
-    } else {
-        let Some(document_parent) = document_path.and_then(Path::parent) else {
+    let resolved_path = match resolve_markdown_reference_path(
+        document_path,
+        folder_context_path,
+        target_path,
+        explicit_load,
+    ) {
+        MarkdownReferencePathResolution::Resolved(path) => path,
+        MarkdownReferencePathResolution::UntitledRelative => {
             return ResolveMarkdownImageTargetResult::UntitledRelative;
-        };
-
-        normalize_path_lexically(document_parent.join(&target_path).as_path())
+        }
+        MarkdownReferencePathResolution::OutsideFolder => {
+            return ResolveMarkdownImageTargetResult::OutsideFolder;
+        }
     };
 
-    let folder_context_path = folder_context_path.or_else(|| document_path.and_then(Path::parent));
+    resolve_existing_image_target(resolved_path.as_path())
+}
 
-    let is_absolute_target_without_context = target_is_absolute && folder_context_path.is_none();
-
-    if !explicit_load
-        && (is_absolute_target_without_context
-            || resolves_outside_folder(resolved_path.as_path(), folder_context_path))
-    {
-        return ResolveMarkdownImageTargetResult::OutsideFolder;
-    }
-
-    match fs::metadata(resolved_path.as_path()) {
+fn resolve_existing_image_target(resolved_path: &Path) -> ResolveMarkdownImageTargetResult {
+    match fs::metadata(resolved_path) {
         Ok(metadata) => {
             if !metadata.is_file() {
                 return ResolveMarkdownImageTargetResult::Missing {
-                    path: path_to_string(resolved_path.as_path()),
+                    path: path_to_string(resolved_path),
                 };
             }
 
             ResolveMarkdownImageTargetResult::Renderable {
-                path: canonicalize_or_original(resolved_path.as_path()),
+                path: canonicalize_or_original(resolved_path),
             }
         }
         Err(error) => match error.kind() {
             ErrorKind::InvalidInput => ResolveMarkdownImageTargetResult::InvalidPath,
             ErrorKind::NotFound => ResolveMarkdownImageTargetResult::Missing {
-                path: path_to_string(resolved_path.as_path()),
+                path: path_to_string(resolved_path),
             },
             ErrorKind::PermissionDenied => ResolveMarkdownImageTargetResult::PermissionDenied {
                 message: error.to_string(),
@@ -139,7 +156,7 @@ fn parse_image_target(target: &str) -> ParsedImageTarget {
     }
 
     if lower_target.starts_with("file://") {
-        return parse_file_url(trimmed_target)
+        return parse_file_url_path(trimmed_target)
             .map(ParsedImageTarget::Local)
             .unwrap_or(ParsedImageTarget::Unsupported);
     }
@@ -149,82 +166,6 @@ fn parse_image_target(target: &str) -> ParsedImageTarget {
     }
 
     ParsedImageTarget::Local(path_target.to_path_buf())
-}
-
-fn parse_file_url(target: &str) -> Option<PathBuf> {
-    let path = target.strip_prefix("file://")?;
-
-    if !path.starts_with('/') {
-        return None;
-    }
-
-    let mut decoded_path = percent_decode_path(path);
-
-    if cfg!(windows)
-        && decoded_path.len() >= 4
-        && decoded_path.as_bytes().first() == Some(&b'/')
-        && decoded_path
-            .as_bytes()
-            .get(1)
-            .is_some_and(u8::is_ascii_alphabetic)
-        && decoded_path.as_bytes().get(2) == Some(&b':')
-        && decoded_path.as_bytes().get(3) == Some(&b'/')
-    {
-        decoded_path.remove(0);
-    }
-
-    Some(PathBuf::from(decoded_path))
-}
-
-fn percent_decode_path(path: &str) -> String {
-    let mut bytes = Vec::with_capacity(path.len());
-    let path_bytes = path.as_bytes();
-    let mut index = 0;
-
-    while index < path_bytes.len() {
-        if path_bytes[index] == b'%' {
-            if let (Some(first), Some(second)) =
-                (path_bytes.get(index + 1), path_bytes.get(index + 2))
-            {
-                if let (Some(high), Some(low)) = (hex_digit(*first), hex_digit(*second)) {
-                    bytes.push((high << 4) | low);
-                    index += 3;
-                    continue;
-                }
-            }
-        }
-
-        bytes.push(path_bytes[index]);
-        index += 1;
-    }
-
-    String::from_utf8_lossy(bytes.as_slice()).into_owned()
-}
-
-fn hex_digit(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
-}
-
-fn has_uri_scheme(target: &str) -> bool {
-    let Some(separator_index) = target.find(':') else {
-        return false;
-    };
-
-    let scheme = &target[..separator_index];
-
-    !scheme.is_empty()
-        && scheme
-            .chars()
-            .next()
-            .is_some_and(|character| character.is_ascii_alphabetic())
-        && scheme.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')
-        })
 }
 
 fn is_supported_image_path(path: &Path) -> bool {
@@ -239,110 +180,10 @@ fn is_supported_image_extension(extension: &str) -> bool {
         .any(|supported_extension| supported_extension.eq_ignore_ascii_case(extension))
 }
 
-fn resolves_outside_folder(path: &Path, folder_context_path: Option<&Path>) -> bool {
-    let Some(folder_context_path) = folder_context_path else {
-        return false;
-    };
-    let image_exists = path.exists();
-    let folder_path = if image_exists {
-        canonicalize_or_normalize(folder_context_path)
-    } else {
-        normalize_path_lexically(folder_context_path)
-    };
-    let image_path = if image_exists {
-        canonicalize_or_normalize(path)
-    } else {
-        normalize_path_lexically(path)
-    };
-
-    !image_path.starts_with(folder_path)
-}
-
-fn canonicalize_or_normalize(path: &Path) -> PathBuf {
-    fs::canonicalize(path).unwrap_or_else(|_| normalize_path_lexically(path))
-}
-
-fn canonicalize_or_original(path: &Path) -> String {
-    fs::canonicalize(path)
-        .map(|path| path_to_string(path.as_path()))
-        .unwrap_or_else(|_| path_to_string(path))
-}
-
-fn normalize_path_lexically(path: &Path) -> PathBuf {
-    let mut normalized = PathBuf::new();
-
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if !normalized.pop() {
-                    normalized.push(component.as_os_str());
-                }
-            }
-            Component::Normal(part) => normalized.push(part),
-            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
-            Component::RootDir => normalized.push(component.as_os_str()),
-        }
-    }
-
-    normalized
-}
-
-fn path_to_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
 #[cfg(test)]
 mod tests {
-    use std::{
-        fs::{self, create_dir_all},
-        path::{Path, PathBuf},
-        sync::atomic::{AtomicUsize, Ordering},
-    };
-
     use super::{resolve_image_target, ResolveMarkdownImageTargetResult};
-
-    static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
-
-    struct TestDirectory {
-        path: PathBuf,
-    }
-
-    impl TestDirectory {
-        fn new(name: &str) -> Self {
-            let id = NEXT_TEST_DIR_ID.fetch_add(1, Ordering::Relaxed);
-            let path = std::env::temp_dir().join(format!(
-                "leafdown-markdown-image-{name}-{}-{id}",
-                std::process::id()
-            ));
-
-            create_dir_all(&path).expect("test directory should be created");
-
-            Self { path }
-        }
-
-        fn write_file(&self, relative_path: &str) -> PathBuf {
-            let path = self.path.join(relative_path);
-
-            if let Some(parent) = path.parent() {
-                create_dir_all(parent).expect("test file parent should be created");
-            }
-
-            fs::write(&path, [0_u8]).expect("test file should be written");
-
-            path
-        }
-
-        fn document_path(&self) -> PathBuf {
-            self.write_file("docs/readme.md")
-        }
-    }
-
-    impl Drop for TestDirectory {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
+    use crate::test_utils::{pathdiff, TestDirectory};
 
     fn renderable_path(result: ResolveMarkdownImageTargetResult) -> String {
         match result {
@@ -361,7 +202,7 @@ mod tests {
     #[test]
     fn resolves_supported_relative_images_from_the_document_path() {
         let root = TestDirectory::new("relative");
-        let document_path = root.document_path();
+        let document_path = root.markdown_document_path();
         let image_path = root.write_file("docs/assets/icon.png");
 
         let result = resolve_image_target(
@@ -380,7 +221,7 @@ mod tests {
     #[test]
     fn treats_supported_image_extensions_case_insensitively() {
         let root = TestDirectory::new("extension-case");
-        let document_path = root.document_path();
+        let document_path = root.markdown_document_path();
         let image_path = root.write_file("docs/assets/banner.WEBP");
 
         let result = resolve_image_target(
@@ -399,7 +240,7 @@ mod tests {
     #[test]
     fn reports_missing_local_images_without_rewriting_the_target() {
         let root = TestDirectory::new("missing");
-        let document_path = root.document_path();
+        let document_path = root.markdown_document_path();
         let expected_path = root
             .path
             .join("docs")
@@ -430,7 +271,7 @@ mod tests {
     fn requires_explicit_load_for_images_outside_the_folder_context() {
         let root = TestDirectory::new("outside-root");
         let outside = TestDirectory::new("outside-target");
-        let document_path = root.document_path();
+        let document_path = root.markdown_document_path();
         let image_path = outside.write_file("outside.png");
         let relative_target = pathdiff(image_path.as_path(), document_path.parent().unwrap());
 
@@ -504,7 +345,7 @@ mod tests {
     #[test]
     fn rejects_unsupported_or_unsafe_targets() {
         let root = TestDirectory::new("unsupported-target");
-        let document_path = root.document_path();
+        let document_path = root.markdown_document_path();
 
         assert_eq!(
             resolve_image_target(
@@ -524,26 +365,5 @@ mod tests {
             ),
             ResolveMarkdownImageTargetResult::UnsupportedFormat
         );
-    }
-
-    fn pathdiff(path: &Path, base: &Path) -> String {
-        let path_components = path.components().collect::<Vec<_>>();
-        let base_components = base.components().collect::<Vec<_>>();
-        let common_count = path_components
-            .iter()
-            .zip(base_components.iter())
-            .take_while(|(path_component, base_component)| path_component == base_component)
-            .count();
-        let mut diff = PathBuf::new();
-
-        for _ in common_count..base_components.len() {
-            diff.push("..");
-        }
-
-        for component in &path_components[common_count..] {
-            diff.push(component.as_os_str());
-        }
-
-        diff.to_string_lossy().into_owned()
     }
 }

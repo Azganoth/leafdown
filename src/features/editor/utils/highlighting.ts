@@ -9,7 +9,9 @@ import githubDark from "@shikijs/themes/github-dark";
 import { createHighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
-const shikiTheme = "github-dark";
+import { AsyncLazy } from "@/lib/async";
+
+const SHIKI_THEME = "github-dark";
 
 const SUPPORTED_LANGUAGES = [
   "markdown",
@@ -22,9 +24,9 @@ const SUPPORTED_LANGUAGES = [
 
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-const supportedLanguages = new Set<string>(SUPPORTED_LANGUAGES);
+const SUPPORTED_LANGUAGES_SET = new Set<string>(SUPPORTED_LANGUAGES);
 
-const languageAliases = new Map<string, SupportedLanguage>([
+const LANGUAGE_ALIASES = new Map<string, SupportedLanguage>([
   ["md", "markdown"],
   ["ts", "typescript"],
   ["js", "javascript"],
@@ -36,20 +38,18 @@ const languageAliases = new Map<string, SupportedLanguage>([
   ["shellscript", "bash"],
 ]);
 
-let parserPromise: Promise<Parser> | null = null;
-
 const normalizeLanguage = (language?: string): SupportedLanguage | undefined => {
   const normalized = language?.trim().toLowerCase();
   if (!normalized) {
     return undefined;
   }
 
-  const alias = languageAliases.get(normalized);
+  const alias = LANGUAGE_ALIASES.get(normalized);
   if (alias) {
     return alias;
   }
 
-  if (supportedLanguages.has(normalized)) {
+  if (SUPPORTED_LANGUAGES_SET.has(normalized)) {
     return normalized as SupportedLanguage;
   }
 
@@ -62,7 +62,7 @@ const loadParser = async (): Promise<Parser> => {
     langs: [markdown, typescript, javascript, json, rust, bash],
     engine: createJavaScriptRegexEngine(),
   });
-  const parser = createParser(highlighter, { theme: shikiTheme });
+  const parser = createParser(highlighter, { theme: SHIKI_THEME });
 
   return (options) =>
     parser({
@@ -71,11 +71,6 @@ const loadParser = async (): Promise<Parser> => {
     });
 };
 
-export const createLeafdownHighlightParser = (): Promise<Parser> => {
-  parserPromise ??= loadParser().catch((error: unknown) => {
-    parserPromise = null;
-    throw error;
-  });
+const highlightParser = new AsyncLazy(loadParser, { retryOnFailure: true });
 
-  return parserPromise;
-};
+export const createLeafdownHighlightParser = () => highlightParser.value;

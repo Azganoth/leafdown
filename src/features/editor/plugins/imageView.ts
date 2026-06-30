@@ -1,26 +1,35 @@
 import { imageSchema } from "@milkdown/kit/preset/commonmark";
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import type { NodeViewConstructor } from "@milkdown/kit/prose/view";
+import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 
-import { resolveMarkdownImage, type MarkdownImageResolution } from "../utils/imageResolution";
+import { CancellationTokenSource, isCancellationError } from "@/lib/cancellation";
+import { getErrorDescription, handleUnexpectedError } from "@/lib/errors";
+import { MutableDisposable } from "@/lib/lifecycle";
+import { isSameNullablePath } from "@/lib/path";
 
-export interface MarkdownImageContext {
-  documentPath: string | null;
-  folderContextPath: string | null;
-}
-
-interface ImageAttrs {
-  alt: string;
-  src: string;
-  title: string;
-}
+import {
+  parseImageMarkdown,
+  serializeImageMarkdown,
+  type ImageMarkdownAttrs,
+} from "../utils/imageMarkdown";
+import {
+  resolveMarkdownImage,
+  type MarkdownImageResolution,
+  type ResolveMarkdownImageOptions,
+} from "../utils/imageResolution";
+import {
+  EMPTY_MARKDOWN_REFERENCE_CONTEXT,
+  type MarkdownReferenceContext,
+} from "../utils/markdownReferences";
 
 type ImageResolutionState =
   | { status: "pending" }
   | { status: "resolved"; resolution: MarkdownImageResolution }
   | { status: "failed"; message: string };
+
+type ImageResolutionInput = ResolveMarkdownImageOptions & { explicitLoad: boolean };
 
 interface RawMarkdownFocusState {
   selectionDirection: "backward" | "forward" | "none" | null;
@@ -28,184 +37,254 @@ interface RawMarkdownFocusState {
   selectionStart: number | null;
 }
 
-const defaultImageContext: MarkdownImageContext = {
-  documentPath: null,
-  folderContextPath: null,
-};
-
 export const createLeafdownImageViewPlugin = (
-  getImageContext: () => MarkdownImageContext = () => defaultImageContext,
+  getMarkdownReferenceContext: () => MarkdownReferenceContext = () =>
+    EMPTY_MARKDOWN_REFERENCE_CONTEXT,
 ) =>
-  $view(imageSchema.node, (): NodeViewConstructor => {
-    return (initialNode, view, getPos) => {
-      let currentNode = initialNode;
-      let selected = false;
-      let explicitLoad = false;
-      let resolutionVersion = 0;
-      let resolutionState: ImageResolutionState = { status: "pending" };
-      let rawMarkdownDraft: string | null = null;
-      let rawMarkdownInput: HTMLInputElement | null = null;
+  $view(
+    imageSchema.node,
+    () => (initialNode, view, getPos) =>
+      new LeafdownImageNodeView(initialNode, view, getPos, getMarkdownReferenceContext),
+  );
 
-      const dom = document.createElement("span");
-      dom.className = "leafdown-image-view";
-      dom.dataset.imageState = "pending";
+class LeafdownImageNodeView implements NodeView {
+  readonly dom = document.createElement("span");
 
-      const getAttrs = () => imageAttrsFromNode(currentNode);
-      const selectNode = () => {
-        const position = getPos();
+  private node: ProseMirrorNode;
+  private isSelected = false;
+  private explicitLoadRequested = false;
+  private readonly currentResolutionCancellation = new MutableDisposable<CancellationTokenSource>();
+  private currentResolutionInput: ImageResolutionInput | null = null;
+  private resolutionState: ImageResolutionState = { status: "pending" };
+  private rawMarkdownDraft: string | null = null;
+  private rawMarkdownInputElement: HTMLInputElement | null = null;
 
-        if (typeof position !== "number") {
-          return;
-        }
+  constructor(
+    initialNode: ProseMirrorNode,
+    private readonly view: EditorView,
+    private readonly getPos: () => number | undefined,
+    private readonly getMarkdownReferenceContext: () => MarkdownReferenceContext,
+  ) {
+    this.node = initialNode;
+    this.dom.className = "leafdown-image-view";
+    this.dom.dataset.imageState = "pending";
+    this.dom.addEventListener("mousedown", this.handleMouseDown);
+    this.requestImageResolution();
+  }
 
-        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, position)));
-        view.focus();
-      };
-      const setAttrs = (attrs: Partial<ImageAttrs>) => {
-        const position = getPos();
+  update(updatedNode: ProseMirrorNode) {
+    if (updatedNode.type !== this.node.type) {
+      return false;
+    }
 
-        if (typeof position !== "number" || !view.editable) {
-          return;
-        }
+    const previousAttrs = this.getImageAttrs();
+    const nextAttrs = imageAttrsFromNode(updatedNode);
 
-        const nextAttrs = {
-          ...getAttrs(),
-          ...attrs,
-        };
+    this.node = updatedNode;
 
-        if (attrs.src !== undefined && attrs.src !== getAttrs().src) {
-          explicitLoad = false;
-        }
+    if (nextAttrs.src !== previousAttrs.src) {
+      this.explicitLoadRequested = false;
+    }
 
-        const tr = view.state.tr.setNodeMarkup(position, undefined, nextAttrs);
+    this.requestImageResolution();
+    return true;
+  }
 
-        view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, position)).scrollIntoView());
-      };
-      const requestResolution = () => {
-        const version = ++resolutionVersion;
-        const attrs = getAttrs();
-        const context = getImageContext();
+  stopEvent(event: Event) {
+    return event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement;
+  }
 
-        resolutionState = { status: "pending" };
-        render();
+  ignoreMutation() {
+    return true;
+  }
 
-        resolveMarkdownImage({
-          documentPath: context.documentPath,
-          folderContextPath: context.folderContextPath,
-          target: attrs.src,
-          explicitLoad,
-        })
-          .then((resolution) => {
-            if (version !== resolutionVersion) {
-              return;
-            }
+  selectNode() {
+    this.isSelected = true;
+    this.render();
+  }
 
-            resolutionState = { status: "resolved", resolution };
-            render();
-          })
-          .catch((error: unknown) => {
-            if (version !== resolutionVersion) {
-              return;
-            }
+  deselectNode() {
+    this.isSelected = false;
+    this.rawMarkdownDraft = null;
+    this.render();
+  }
 
-            resolutionState = {
-              status: "failed",
-              message: error instanceof Error ? error.message : "Image could not be resolved",
-            };
-            render();
-          });
-      };
-      const render = () => {
-        const attrs = getAttrs();
-        const rawMarkdownFocusState = getRawMarkdownFocusState(rawMarkdownInput);
+  destroy() {
+    this.cancelCurrentResolution();
+    this.dom.removeEventListener("mousedown", this.handleMouseDown);
+    this.dom.remove();
+  }
 
-        dom.dataset.imageState = getImageState(resolutionState);
-        dom.classList.toggle("leafdown-image-view--selected", selected);
-        dom.replaceChildren();
-        rawMarkdownInput = null;
+  private readonly handleMouseDown = (event: MouseEvent) => {
+    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement) {
+      return;
+    }
 
-        if (selected) {
-          rawMarkdownInput = createRawMarkdownInput(attrs, setAttrs, rawMarkdownDraft, (value) => {
-            rawMarkdownDraft = value;
-          });
-          dom.append(rawMarkdownInput);
-          restoreRawMarkdownFocus(rawMarkdownInput, rawMarkdownFocusState);
-        } else {
-          rawMarkdownDraft = null;
-        }
+    event.preventDefault();
+    this.selectImageNode();
+  };
 
-        if (
-          resolutionState.status === "resolved" &&
-          resolutionState.resolution.kind === "renderable"
-        ) {
-          dom.append(createImageElement(attrs, resolutionState.resolution.assetUrl));
-          return;
-        }
+  private getImageAttrs() {
+    return imageAttrsFromNode(this.node);
+  }
 
-        dom.append(
-          createPlaceholder(resolutionState, attrs.src, () => {
-            explicitLoad = true;
-            requestResolution();
-          }),
-        );
-      };
+  private selectImageNode() {
+    const position = this.getPos();
 
-      dom.addEventListener("mousedown", (event) => {
-        if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement) {
-          return;
-        }
+    if (typeof position !== "number") {
+      return;
+    }
 
-        event.preventDefault();
-        selectNode();
-      });
+    this.view.dispatch(
+      this.view.state.tr.setSelection(NodeSelection.create(this.view.state.doc, position)),
+    );
+    this.view.focus();
+  }
 
-      requestResolution();
+  private readonly updateImageAttrs = (attrs: Partial<ImageMarkdownAttrs>) => {
+    const position = this.getPos();
 
-      return {
-        dom,
-        update: (updatedNode) => {
-          if (updatedNode.type !== currentNode.type) {
-            return false;
-          }
+    if (typeof position !== "number" || !this.view.editable) {
+      return;
+    }
 
-          const previousSrc = getAttrs().src;
-
-          currentNode = updatedNode;
-
-          if (getAttrs().src !== previousSrc) {
-            explicitLoad = false;
-          }
-
-          requestResolution();
-          return true;
-        },
-        stopEvent: (event) =>
-          event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement,
-        ignoreMutation: () => true,
-        selectNode: () => {
-          selected = true;
-          render();
-        },
-        deselectNode: () => {
-          selected = false;
-          rawMarkdownDraft = null;
-          render();
-        },
-        destroy: () => {
-          resolutionVersion += 1;
-          dom.remove();
-        },
-      };
+    const currentAttrs = this.getImageAttrs();
+    const nextAttrs = {
+      ...currentAttrs,
+      ...attrs,
     };
-  });
 
-const imageAttrsFromNode = (node: ProseMirrorNode): ImageAttrs => ({
+    if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
+      this.explicitLoadRequested = false;
+    }
+
+    const tr = this.view.state.tr.setNodeMarkup(position, undefined, nextAttrs);
+
+    this.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, position)).scrollIntoView());
+  };
+
+  private createResolutionInput(): ImageResolutionInput {
+    const attrs = this.getImageAttrs();
+    const context = this.getMarkdownReferenceContext();
+
+    return {
+      documentPath: context.documentPath,
+      explicitLoad: this.explicitLoadRequested,
+      folderContextPath: context.folderContextPath,
+      target: attrs.src,
+    };
+  }
+
+  private requestImageResolution() {
+    const input = this.createResolutionInput();
+
+    if (
+      this.currentResolutionInput &&
+      isSameImageResolutionInput(this.currentResolutionInput, input)
+    ) {
+      this.render();
+      return;
+    }
+
+    void this.resolveImageResolution(input);
+  }
+
+  private async resolveImageResolution(input: ImageResolutionInput) {
+    const nextResolutionCancellation = new CancellationTokenSource();
+
+    this.cancelCurrentResolution();
+    this.currentResolutionCancellation.value = nextResolutionCancellation;
+    this.currentResolutionInput = input;
+    this.resolutionState = { status: "pending" };
+    this.render();
+
+    try {
+      const resolution = await resolveMarkdownImage(input, nextResolutionCancellation.token);
+      if (this.currentResolutionCancellation.value !== nextResolutionCancellation) {
+        return;
+      }
+
+      this.resolutionState = { status: "resolved", resolution };
+      this.render();
+    } catch (error) {
+      if (
+        isCancellationError(error) ||
+        this.currentResolutionCancellation.value !== nextResolutionCancellation
+      ) {
+        return;
+      }
+
+      this.resolutionState = {
+        status: "failed",
+        message: getErrorDescription(error) ?? "Image could not be resolved",
+      };
+      handleUnexpectedError(error, "resolveMarkdownImage");
+      this.currentResolutionInput = null;
+      this.render();
+    }
+  }
+
+  private cancelCurrentResolution() {
+    this.currentResolutionCancellation.clear();
+  }
+
+  private render() {
+    const attrs = this.getImageAttrs();
+    const rawMarkdownFocusState = getRawMarkdownFocusState(this.rawMarkdownInputElement);
+
+    this.dom.dataset.imageState = getImageStateValue(this.resolutionState);
+    this.dom.classList.toggle("leafdown-image-view--selected", this.isSelected);
+    this.dom.replaceChildren();
+    this.rawMarkdownInputElement = null;
+
+    if (this.isSelected) {
+      this.rawMarkdownInputElement = createRawMarkdownInput(
+        attrs,
+        this.updateImageAttrs,
+        this.rawMarkdownDraft,
+        (value) => {
+          this.rawMarkdownDraft = value;
+        },
+      );
+      this.dom.append(this.rawMarkdownInputElement);
+      restoreRawMarkdownFocus(this.rawMarkdownInputElement, rawMarkdownFocusState);
+    } else {
+      this.rawMarkdownDraft = null;
+    }
+
+    if (
+      this.resolutionState.status === "resolved" &&
+      this.resolutionState.resolution.kind === "renderable"
+    ) {
+      this.dom.append(createImageElement(attrs, this.resolutionState.resolution.assetUrl));
+      return;
+    }
+
+    this.dom.append(
+      createImagePlaceholder(this.resolutionState, attrs.src, () => {
+        this.explicitLoadRequested = true;
+        this.requestImageResolution();
+      }),
+    );
+  }
+}
+
+const imageAttrsFromNode = (node: ProseMirrorNode): ImageMarkdownAttrs => ({
   alt: String(node.attrs.alt ?? ""),
   src: String(node.attrs.src ?? ""),
   title: String(node.attrs.title ?? ""),
 });
 
-const createImageElement = (attrs: ImageAttrs, assetUrl: string) => {
+const isSameImageResolutionInput = (
+  currentInput: ImageResolutionInput,
+  nextInput: ImageResolutionInput,
+) =>
+  isSameNullablePath(currentInput.documentPath, nextInput.documentPath) &&
+  currentInput.explicitLoad === nextInput.explicitLoad &&
+  isSameNullablePath(currentInput.folderContextPath, nextInput.folderContextPath) &&
+  currentInput.target === nextInput.target;
+
+const createImageElement = (attrs: ImageMarkdownAttrs, assetUrl: string) => {
   const image = document.createElement("img");
 
   image.className = "leafdown-markdown-image";
@@ -220,10 +299,10 @@ const createImageElement = (attrs: ImageAttrs, assetUrl: string) => {
 };
 
 const createRawMarkdownInput = (
-  attrs: ImageAttrs,
-  setAttrs: (attrs: Partial<ImageAttrs>) => void,
+  attrs: ImageMarkdownAttrs,
+  updateAttrs: (attrs: Partial<ImageMarkdownAttrs>) => void,
   draft: string | null,
-  setDraft: (value: string) => void,
+  updateDraft: (value: string) => void,
 ) => {
   const input = document.createElement("input");
 
@@ -233,12 +312,12 @@ const createRawMarkdownInput = (
   input.value = draft ?? serializeImageMarkdown(attrs);
 
   input.addEventListener("input", () => {
-    setDraft(input.value);
+    updateDraft(input.value);
 
     const parsed = parseImageMarkdown(input.value);
 
     if (parsed) {
-      setAttrs(parsed);
+      updateAttrs(parsed);
     }
   });
 
@@ -276,10 +355,10 @@ const restoreRawMarkdownFocus = (
   }
 };
 
-const createPlaceholder = (
+const createImagePlaceholder = (
   resolutionState: ImageResolutionState,
   target: string,
-  onLoadOutsideImage: () => void,
+  requestExplicitLoad: () => void,
 ) => {
   const placeholder = document.createElement("span");
   const message = document.createElement("span");
@@ -303,20 +382,15 @@ const createPlaceholder = (
     button.className = "leafdown-image-placeholder__action";
     button.type = "button";
     button.textContent = "Load image";
-    button.addEventListener("click", onLoadOutsideImage);
+    button.addEventListener("click", requestExplicitLoad);
     placeholder.append(button);
   }
 
   return placeholder;
 };
 
-const getImageState = (resolutionState: ImageResolutionState) => {
-  if (resolutionState.status !== "resolved") {
-    return resolutionState.status;
-  }
-
-  return resolutionState.resolution.kind;
-};
+const getImageStateValue = (resolutionState: ImageResolutionState) =>
+  resolutionState.status === "resolved" ? resolutionState.resolution.kind : resolutionState.status;
 
 const getPlaceholderText = (resolutionState: ImageResolutionState, target: string) => {
   if (resolutionState.status === "pending") {
@@ -350,33 +424,12 @@ const getPlaceholderText = (resolutionState: ImageResolutionState, target: strin
       return "Invalid image path.";
 
     case "permissionDenied":
-      return "Image access denied.";
+      return resolutionState.resolution.message || "Image access denied.";
 
     case "metadataFailed":
-      return "Image metadata unavailable.";
+      return resolutionState.resolution.message || "Image metadata unavailable.";
 
     case "renderable":
       return "";
   }
-};
-
-const serializeImageMarkdown = ({ alt, src, title }: ImageAttrs) =>
-  title ? `![${alt}](${src} "${title.replaceAll('"', '\\"')}")` : `![${alt}](${src})`;
-
-const parseImageMarkdown = (value: string): ImageAttrs | null => {
-  const match = /^!\[(?<alt>.*)\]\((?<body>.*)\)$/u.exec(value.trim());
-  const groups = match?.groups;
-
-  if (!groups) {
-    return null;
-  }
-
-  const body = groups.body.trim();
-  const titleMatch = /^(?<src>.*)\s+"(?<title>[^"]*)"\s*$/u.exec(body);
-
-  return {
-    alt: groups.alt,
-    src: titleMatch?.groups?.src.trim() ?? body,
-    title: titleMatch?.groups?.title ?? "",
-  };
 };

@@ -7,9 +7,13 @@ import { gfm } from "@milkdown/kit/preset/gfm";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
+import type { EditorCommandState } from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
-import { createLeafdownContextPopupPlugin } from "../plugins/contextPopup";
+import {
+  createLeafdownContextPopupPlugin,
+  type LeafdownContextPopupPluginOptions,
+} from "../plugins/contextPopup";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import {
@@ -21,23 +25,50 @@ import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
-import type { CreateMilkdownEditorOptions, MilkdownEditorInstance } from "../types";
 import { createLeafdownHighlightParser } from "./highlighting";
+import type { MarkdownLinkContext } from "./linkActivation";
+import {
+  EMPTY_MARKDOWN_REFERENCE_CONTEXT,
+  type MarkdownReferenceContext,
+} from "./markdownReferences";
+
+export interface MilkdownMarkdownUpdate {
+  markdown: string;
+  previousMarkdown: string;
+}
+
+export interface CreateMilkdownEditorOptions {
+  root: HTMLElement;
+  initialMarkdown: string;
+  contextPopup?: LeafdownContextPopupPluginOptions;
+  getMarkdownReferenceContext?: () => MarkdownReferenceContext;
+  isAutoPairEnabled?: () => boolean;
+  onCommandStateChanged?: (state: EditorCommandState) => void;
+  onContentChanged?: () => void;
+  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
+  onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
+}
+
+export type MilkdownEditorInstance = Editor;
+
+const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
 
 export const createMilkdownEditor = async ({
   root,
   initialMarkdown,
-  onMarkdownUpdated,
-  onContentTransaction,
+  contextPopup,
+  getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
+  isAutoPairEnabled = () => true,
   onCommandStateChanged,
-  onContextPopupClosed,
-  onContextPopupRequested,
-  getContextPopupOpen,
-  getAutoPairBracketsAndQuotes = () => true,
-  getImageContext,
-  getLinkContext,
+  onContentChanged,
+  onMarkdownUpdated,
+  onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
 }: CreateMilkdownEditorOptions) => {
   const parser = await createLeafdownHighlightParser();
+  const getLinkContext = (): MarkdownLinkContext => ({
+    ...getMarkdownReferenceContext(),
+    onOpenMarkdownPath,
+  });
 
   return Editor.make()
     .use(commonmark)
@@ -47,21 +78,15 @@ export const createMilkdownEditor = async ({
     .use(clipboard)
     .use(listener)
     .use(highlight)
-    .use(createLeafdownImageViewPlugin(getImageContext))
+    .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownInlineSourceProjectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
-    .use(
-      createLeafdownContextPopupPlugin({
-        getContextPopupOpen,
-        onContextPopupClosed,
-        onContextPopupRequested,
-      }),
-    )
-    .use(createLeafdownAutoPairPlugin(getAutoPairBracketsAndQuotes))
-    .use(createLeafdownCommandStatePlugin(() => onCommandStateChanged?.()))
+    .use(createLeafdownContextPopupPlugin(contextPopup))
+    .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
+    .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
     .use(createLeafdownTaskListCheckboxPlugin())
-    .use(createLeafdownDirtyTrackerPlugin(() => onContentTransaction?.()))
+    .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);
       ctx.set(defaultValueCtx, initialMarkdown);

@@ -1,8 +1,9 @@
 use std::{
     collections::HashSet,
     fs,
+    io::{self, ErrorKind},
     path::{Component, Path, PathBuf},
-    sync::{Mutex, MutexGuard},
+    sync::Mutex,
 };
 
 use notify::{
@@ -13,17 +14,18 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use super::{defaults, scan, ScanDepth};
-use crate::document::is_supported_markdown_path;
+use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
 
 pub(crate) const FOLDER_CHANGED_EVENT: &str = "leafdown://folder-changed";
+pub(crate) const FOLDER_WATCH_ERROR_EVENT: &str = "leafdown://folder-watch-error";
 
 #[derive(Default)]
 pub(crate) struct FolderWatcherState {
-    registry: Mutex<FolderWatcherRegistry>,
+    manager: Mutex<FolderWatcherManager>,
 }
 
 #[derive(Default)]
-struct FolderWatcherRegistry {
+struct FolderWatcherManager {
     active_watcher: Option<ActiveFolderWatcher>,
     scope_tracker: FolderWatcherScopeTracker,
 }
@@ -36,28 +38,42 @@ struct ActiveFolderWatcher {
 
 #[derive(Default)]
 struct FolderWatcherScopeTracker {
-    cancelled_scope_ids: HashSet<String>,
+    cancelled_scope: Option<CancelledFolderWatcherScope>,
     latest_generation: u64,
+}
+
+struct CancelledFolderWatcherScope {
+    scope_generation: u64,
+    scope_id: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MarkdownFolderChangedEvent {
-    pub folder_path: String,
-    pub paths: Vec<String>,
+    pub(crate) folder_path: String,
+    pub(crate) paths: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum WatchMarkdownFolderError {
+    InvalidPath { path: String },
+    MissingFolder { path: String },
+    PermissionDenied { path: String, message: String },
     MetadataFailed { path: String, message: String },
     NotDirectory { path: String },
     WatchFailed { path: String, message: String },
     WatcherStateFailed { message: String },
 }
 
-#[tauri::command]
-pub(crate) fn watch_markdown_folder(
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MarkdownFolderWatchErrorEvent {
+    pub(crate) folder_path: String,
+    pub(crate) error: WatchMarkdownFolderError,
+}
+
+pub(super) fn watch_markdown_folder(
     app: AppHandle,
     state: State<'_, FolderWatcherState>,
     path: String,
@@ -65,10 +81,9 @@ pub(crate) fn watch_markdown_folder(
     scope_id: String,
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    if !lock_registry(&state)?
-        .scope_tracker
-        .begin_scope(scope_id.as_str(), scope_generation)
-    {
+    if !with_watcher_manager(&state, |manager| {
+        manager.begin_start(scope_id.as_str(), scope_generation)
+    })? {
         return Ok(());
     }
 
@@ -81,18 +96,19 @@ pub(crate) fn watch_markdown_folder(
         scope_generation,
     )?;
 
-    lock_registry(&state)?.install_watcher(watcher);
+    with_watcher_manager(&state, |manager| manager.finish_start(watcher))?;
 
     Ok(())
 }
 
-#[tauri::command]
-pub(crate) fn unwatch_markdown_folder(
+pub(super) fn unwatch_markdown_folder(
     state: State<'_, FolderWatcherState>,
     scope_id: String,
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    lock_registry(&state)?.cancel_scope(scope_id.as_str(), scope_generation);
+    with_watcher_manager(&state, |manager| {
+        manager.stop_scope(scope_id.as_str(), scope_generation);
+    })?;
 
     Ok(())
 }
@@ -105,11 +121,7 @@ fn create_folder_watcher(
     scope_generation: u64,
 ) -> Result<ActiveFolderWatcher, WatchMarkdownFolderError> {
     let serialized_path = path_to_string(path);
-    let metadata =
-        fs::metadata(path).map_err(|error| WatchMarkdownFolderError::MetadataFailed {
-            path: serialized_path.clone(),
-            message: error.to_string(),
-        })?;
+    let metadata = fs::metadata(path).map_err(|error| watch_folder_metadata_error(error, path))?;
 
     if !metadata.is_dir() {
         return Err(WatchMarkdownFolderError::NotDirectory {
@@ -121,35 +133,46 @@ fn create_folder_watcher(
     let folder_path_for_events = folder_path.clone();
     let folder_path_for_payload = path_to_string(folder_path.as_path());
     let app = app.clone();
-    let mut watcher = notify::recommended_watcher(move |result| match result {
-        Ok(event) => {
-            let paths = relevant_event_paths(
-                &event,
-                folder_path_for_events.as_path(),
-                ignored_directories.as_slice(),
-            );
+    let mut watcher =
+        notify::recommended_watcher(move |result: notify::Result<Event>| match result {
+            Ok(event) => {
+                let paths = relevant_event_paths(
+                    &event,
+                    folder_path_for_events.as_path(),
+                    ignored_directories.as_slice(),
+                );
 
-            if paths.is_empty() {
-                return;
+                if paths.is_empty() {
+                    return;
+                }
+
+                let payload = MarkdownFolderChangedEvent {
+                    folder_path: folder_path_for_payload.clone(),
+                    paths,
+                };
+
+                if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
+                    eprintln!("failed to emit folder-changed event: {error}");
+                }
             }
+            Err(error) => {
+                let payload = MarkdownFolderWatchErrorEvent {
+                    folder_path: folder_path_for_payload.clone(),
+                    error: WatchMarkdownFolderError::WatchFailed {
+                        path: folder_path_for_payload.clone(),
+                        message: error.to_string(),
+                    },
+                };
 
-            let payload = MarkdownFolderChangedEvent {
-                folder_path: folder_path_for_payload.clone(),
-                paths,
-            };
-
-            if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
-                eprintln!("failed to emit folder-changed event: {error}");
+                if let Err(error) = app.emit(FOLDER_WATCH_ERROR_EVENT, payload) {
+                    eprintln!("failed to emit folder-watch-error event: {error}");
+                }
             }
-        }
-        Err(error) => {
-            eprintln!("folder watcher failed: {error}");
-        }
-    })
-    .map_err(|error| WatchMarkdownFolderError::WatchFailed {
-        path: serialized_path.clone(),
-        message: error.to_string(),
-    })?;
+        })
+        .map_err(|error| WatchMarkdownFolderError::WatchFailed {
+            path: serialized_path.clone(),
+            message: error.to_string(),
+        })?;
 
     watcher
         .watch(path, watch_mode_for_path(path))
@@ -165,15 +188,36 @@ fn create_folder_watcher(
     })
 }
 
-fn lock_registry(
-    state: &FolderWatcherState,
-) -> Result<MutexGuard<'_, FolderWatcherRegistry>, WatchMarkdownFolderError> {
-    state
-        .registry
-        .lock()
-        .map_err(|error| WatchMarkdownFolderError::WatcherStateFailed {
+fn watch_folder_metadata_error(error: io::Error, path: &Path) -> WatchMarkdownFolderError {
+    let path = path_to_string(path);
+
+    match error.kind() {
+        ErrorKind::InvalidInput => WatchMarkdownFolderError::InvalidPath { path },
+        ErrorKind::NotFound => WatchMarkdownFolderError::MissingFolder { path },
+        ErrorKind::PermissionDenied => WatchMarkdownFolderError::PermissionDenied {
+            path,
             message: error.to_string(),
-        })
+        },
+        _ => WatchMarkdownFolderError::MetadataFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
+fn with_watcher_manager<T>(
+    state: &FolderWatcherState,
+    operation: impl FnOnce(&mut FolderWatcherManager) -> T,
+) -> Result<T, WatchMarkdownFolderError> {
+    let mut manager =
+        state
+            .manager
+            .lock()
+            .map_err(|error| WatchMarkdownFolderError::WatcherStateFailed {
+                message: error.to_string(),
+            })?;
+
+    Ok(operation(&mut manager))
 }
 
 fn watch_mode_for_path(path: &Path) -> RecursiveMode {
@@ -273,10 +317,6 @@ fn path_contains_ignored_directory(
     })
 }
 
-fn path_to_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EventPathKind {
     Directory,
@@ -284,8 +324,18 @@ enum EventPathKind {
     Unknown,
 }
 
-impl FolderWatcherRegistry {
-    fn install_watcher(&mut self, watcher: ActiveFolderWatcher) {
+impl FolderWatcherManager {
+    fn begin_start(&mut self, scope_id: &str, scope_generation: u64) -> bool {
+        if !self.scope_tracker.begin_scope(scope_id, scope_generation) {
+            return false;
+        }
+
+        self.stop_active_watcher();
+
+        true
+    }
+
+    fn finish_start(&mut self, watcher: ActiveFolderWatcher) {
         if self
             .scope_tracker
             .can_install_scope(watcher.scope_id.as_str(), watcher.scope_generation)
@@ -294,14 +344,31 @@ impl FolderWatcherRegistry {
         }
     }
 
-    fn cancel_scope(&mut self, scope_id: &str, scope_generation: u64) {
+    fn stop_scope(&mut self, scope_id: &str, scope_generation: u64) {
         self.scope_tracker.cancel_scope(scope_id, scope_generation);
 
         if self.active_watcher.as_ref().is_some_and(|watcher| {
             watcher.scope_id == scope_id && watcher.scope_generation == scope_generation
         }) {
-            self.active_watcher = None;
+            self.stop_active_watcher();
         }
+    }
+
+    fn stop_active_watcher(&mut self) {
+        self.active_watcher = None;
+    }
+
+    #[cfg(test)]
+    fn active_scope(&self) -> Option<(&str, u64)> {
+        self.active_watcher
+            .as_ref()
+            .map(|watcher| (watcher.scope_id.as_str(), watcher.scope_generation))
+    }
+}
+
+impl Drop for FolderWatcherManager {
+    fn drop(&mut self) {
+        self.stop_active_watcher();
     }
 }
 
@@ -311,27 +378,40 @@ impl FolderWatcherScopeTracker {
             return false;
         }
 
+        if scope_generation > self.latest_generation {
+            self.cancelled_scope = None;
+        }
+
         self.latest_generation = scope_generation;
 
         true
     }
 
     fn cancel_scope(&mut self, scope_id: &str, scope_generation: u64) {
-        self.latest_generation = self.latest_generation.max(scope_generation);
-        self.cancelled_scope_ids.insert(scope_id.to_owned());
+        if scope_generation < self.latest_generation {
+            return;
+        }
+
+        self.latest_generation = scope_generation;
+        self.cancelled_scope = Some(CancelledFolderWatcherScope {
+            scope_generation,
+            scope_id: scope_id.to_owned(),
+        });
     }
 
     fn can_install_scope(&self, scope_id: &str, scope_generation: u64) -> bool {
-        scope_generation == self.latest_generation && !self.cancelled_scope_ids.contains(scope_id)
+        scope_generation == self.latest_generation
+            && !self.cancelled_scope.as_ref().is_some_and(|cancelled| {
+                cancelled.scope_generation == scope_generation && cancelled.scope_id == scope_id
+            })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::{
-        fs::{self, create_dir},
-        path::{Path, PathBuf},
-        sync::atomic::{AtomicUsize, Ordering},
+        io::{self, ErrorKind},
+        path::Path,
     };
 
     use notify::{
@@ -339,53 +419,12 @@ mod tests {
         Event, EventKind, RecursiveMode,
     };
 
-    use super::{relevant_event_paths, watch_mode_for_depth, FolderWatcherScopeTracker};
-    use crate::folder::ScanDepth;
-
-    static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
-
-    struct TestDirectory {
-        path: PathBuf,
-    }
-
-    impl Drop for TestDirectory {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    impl TestDirectory {
-        fn new(name: &str) -> Self {
-            let id = NEXT_TEST_DIR_ID.fetch_add(1, Ordering::Relaxed);
-            let path =
-                std::env::temp_dir().join(format!("leafdown-{name}-{}-{id}", std::process::id()));
-
-            create_dir(&path).expect("test directory should be created");
-
-            Self { path }
-        }
-
-        fn create_directory(&self, relative_path: &str) -> PathBuf {
-            let path = self.path.join(relative_path);
-            fs::create_dir_all(&path).expect("test directory should be created");
-            path
-        }
-
-        fn write_file(&self, relative_path: &str) -> PathBuf {
-            let path = self.path.join(relative_path);
-
-            if let Some(parent) = path.parent() {
-                fs::create_dir_all(parent).expect("test file parent should be created");
-            }
-
-            fs::write(&path, "# Test\n").expect("test file should be written");
-            path
-        }
-
-        fn path(&self, relative_path: &str) -> PathBuf {
-            self.path.join(relative_path)
-        }
-    }
+    use super::{
+        relevant_event_paths, watch_folder_metadata_error, watch_mode_for_depth,
+        ActiveFolderWatcher, FolderWatcherManager, FolderWatcherScopeTracker,
+        WatchMarkdownFolderError,
+    };
+    use crate::{folder::ScanDepth, test_utils::TestDirectory};
 
     #[test]
     fn maps_scan_depth_to_matching_watch_mode() {
@@ -439,6 +478,53 @@ mod tests {
         tracker.cancel_scope("scope:1", 1);
 
         assert!(tracker.can_install_scope("scope:2", 2));
+    }
+
+    #[test]
+    fn manager_stops_active_watcher_when_new_scope_begins() {
+        let mut manager = FolderWatcherManager::default();
+
+        assert!(manager.begin_start("scope:1", 1));
+        manager.finish_start(test_watcher("scope:1", 1));
+        assert_eq!(manager.active_scope(), Some(("scope:1", 1)));
+
+        assert!(manager.begin_start("scope:2", 2));
+
+        assert_eq!(manager.active_scope(), None);
+    }
+
+    #[test]
+    fn manager_rejects_stale_watchers_that_finish_late() {
+        let mut manager = FolderWatcherManager::default();
+
+        assert!(manager.begin_start("scope:1", 1));
+        assert!(manager.begin_start("scope:2", 2));
+        manager.finish_start(test_watcher("scope:1", 1));
+
+        assert_eq!(manager.active_scope(), None);
+    }
+
+    #[test]
+    fn manager_rejects_watchers_for_scopes_cancelled_before_install() {
+        let mut manager = FolderWatcherManager::default();
+
+        assert!(manager.begin_start("scope:1", 1));
+        manager.stop_scope("scope:1", 1);
+        manager.finish_start(test_watcher("scope:1", 1));
+
+        assert_eq!(manager.active_scope(), None);
+    }
+
+    #[test]
+    fn manager_stops_matching_active_watcher_on_cancel() {
+        let mut manager = FolderWatcherManager::default();
+
+        assert!(manager.begin_start("scope:1", 1));
+        manager.finish_start(test_watcher("scope:1", 1));
+
+        manager.stop_scope("scope:1", 1);
+
+        assert_eq!(manager.active_scope(), None);
     }
 
     #[test]
@@ -545,7 +631,37 @@ mod tests {
         assert!(paths.is_empty());
     }
 
+    #[test]
+    fn classifies_watch_folder_metadata_errors() {
+        let path = Path::new("bad:path");
+
+        assert!(matches!(
+            watch_folder_metadata_error(io::Error::from(ErrorKind::InvalidInput), path),
+            WatchMarkdownFolderError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            watch_folder_metadata_error(io::Error::from(ErrorKind::NotFound), path),
+            WatchMarkdownFolderError::MissingFolder { .. }
+        ));
+        assert!(matches!(
+            watch_folder_metadata_error(io::Error::from(ErrorKind::PermissionDenied), path),
+            WatchMarkdownFolderError::PermissionDenied { .. }
+        ));
+        assert!(matches!(
+            watch_folder_metadata_error(io::Error::from(ErrorKind::Other), path),
+            WatchMarkdownFolderError::MetadataFailed { .. }
+        ));
+    }
+
     fn event(kind: EventKind, path: &Path) -> Event {
         Event::new(kind).add_path(path.to_path_buf())
+    }
+
+    fn test_watcher(scope_id: &str, scope_generation: u64) -> ActiveFolderWatcher {
+        ActiveFolderWatcher {
+            scope_generation,
+            scope_id: scope_id.to_owned(),
+            _watcher: notify::recommended_watcher(|_| {}).unwrap(),
+        }
     }
 }

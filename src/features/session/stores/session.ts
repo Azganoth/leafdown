@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import {
-  getActiveDocumentKey,
+  matchesActiveDocumentKey,
   type ActiveDocumentState,
   type LineEnding,
 } from "@/features/document";
@@ -12,75 +12,78 @@ export interface SessionState {
   activeDocument: ActiveDocumentState | null;
 }
 
-export type AppShellMode = "document" | "folder-only" | "welcome";
+export type SessionMode = "document" | "folder-only" | "welcome";
 
 export interface SessionStore extends SessionState {
   setFolderContext: (folderContext: FolderContextState | null) => void;
-  setFolderSession: (folderContext: FolderContextState) => void;
+  setFolderOnlySession: (folderContext: FolderContextState) => void;
   setActiveDocument: (activeDocument: ActiveDocumentState | null) => void;
   setActiveDocumentContent: (documentKey: string, content: string) => void;
   setActiveDocumentLineEnding: (documentKey: string, lineEnding: LineEnding) => void;
   markActiveDocumentDirty: (documentKey: string) => void;
-  setDocumentSession: (
+  setActiveDocumentSession: (
     folderContext: FolderContextState | null,
     activeDocument: ActiveDocumentState,
   ) => void;
   reset: () => void;
 }
 
-const initialSessionState: SessionState = {
+const INITIAL_SESSION_STATE: SessionState = {
   folderContext: null,
   activeDocument: null,
 };
 
-export const getAppShellMode = (state: SessionState): AppShellMode => {
-  if (state.activeDocument) {
-    return "document";
-  }
-
-  return state.folderContext ? "folder-only" : "welcome";
-};
+export const getSessionMode = (state: SessionState): SessionMode =>
+  state.activeDocument ? "document" : state.folderContext ? "folder-only" : "welcome";
 
 export const useSessionStore = create<SessionStore>()((set) => ({
-  ...initialSessionState,
+  ...INITIAL_SESSION_STATE,
 
   setFolderContext: (folderContext) => set({ folderContext }),
-  setFolderSession: (folderContext) => set({ activeDocument: null, folderContext }),
+  setFolderOnlySession: (folderContext) => set({ activeDocument: null, folderContext }),
   setActiveDocument: (activeDocument) => set({ activeDocument }),
   setActiveDocumentContent: (documentKey, content) =>
-    set((state) => {
-      const { activeDocument } = state;
-
-      if (!activeDocument || getActiveDocumentKey(activeDocument) !== documentKey) {
-        return state;
-      }
-
-      return { activeDocument: { ...activeDocument, content } };
-    }),
+    set((state) =>
+      updateActiveDocumentByKey(state, documentKey, (activeDocument) => ({
+        ...activeDocument,
+        content,
+      })),
+    ),
   setActiveDocumentLineEnding: (documentKey, lineEnding) =>
-    set((state) => {
-      const { activeDocument } = state;
-
-      if (!activeDocument || getActiveDocumentKey(activeDocument) !== documentKey) {
-        return state;
-      }
-
-      return { activeDocument: { ...activeDocument, lineEnding } };
-    }),
+    set((state) =>
+      updateActiveDocumentByKey(state, documentKey, (activeDocument) =>
+        activeDocument.lineEnding === lineEnding
+          ? activeDocument
+          : {
+              ...activeDocument,
+              isDirty: true,
+              lineEnding,
+            },
+      ),
+    ),
   markActiveDocumentDirty: (documentKey) =>
-    set((state) => {
-      const { activeDocument } = state;
-
-      if (
-        !activeDocument ||
-        activeDocument.isDirty ||
-        getActiveDocumentKey(activeDocument) !== documentKey
-      ) {
-        return state;
-      }
-
-      return { activeDocument: { ...activeDocument, isDirty: true } };
-    }),
-  setDocumentSession: (folderContext, activeDocument) => set({ folderContext, activeDocument }),
-  reset: () => set(initialSessionState),
+    set((state) =>
+      updateActiveDocumentByKey(state, documentKey, (activeDocument) =>
+        activeDocument.isDirty ? activeDocument : { ...activeDocument, isDirty: true },
+      ),
+    ),
+  setActiveDocumentSession: (folderContext, activeDocument) =>
+    set({ folderContext, activeDocument }),
+  reset: () => set(INITIAL_SESSION_STATE),
 }));
+
+const updateActiveDocumentByKey = (
+  state: SessionStore,
+  documentKey: string,
+  update: (activeDocument: ActiveDocumentState) => ActiveDocumentState,
+) => {
+  const { activeDocument } = state;
+
+  if (!activeDocument || !matchesActiveDocumentKey(activeDocument, documentKey)) {
+    return state;
+  }
+
+  const nextActiveDocument = update(activeDocument);
+
+  return nextActiveDocument === activeDocument ? state : { activeDocument: nextActiveDocument };
+};

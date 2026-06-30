@@ -1,42 +1,36 @@
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
-import { getEditorCommandState } from "../utils/editorCommandState";
+import { EDITOR_COMMAND_IDS, getEditorCommandState, type EditorCommandState } from "../commands";
 
 export const leafdownCommandStatePluginKey = new PluginKey("leafdownCommandState");
 
-const createCommandStateSignature = (state: ReturnType<typeof getEditorCommandState>) =>
-  JSON.stringify({
-    enabledCommands: state.enabledCommands,
-    hasSelection: state.hasSelection,
-    hasTableSelection: state.hasTableSelection,
-  });
+const commandStatesEqual = (left: EditorCommandState, right: EditorCommandState) =>
+  left.status === right.status &&
+  EDITOR_COMMAND_IDS.every(
+    (commandId) => left.enabledCommands[commandId] === right.enabledCommands[commandId],
+  );
 
-export const createLeafdownCommandStatePlugin = (onCommandStateChanged: () => void) =>
+export const createLeafdownCommandStatePlugin = (
+  onCommandStateChanged: (state: EditorCommandState) => void,
+) =>
   $prose(
     () =>
       new Plugin({
         key: leafdownCommandStatePluginKey,
         view: (view) => {
-          let commandStateSignature = createCommandStateSignature(getEditorCommandState(view));
+          let commandState = getEditorCommandState(view);
 
           return {
-            update: (nextView, previousState) => {
-              if (
-                nextView.state.doc === previousState.doc &&
-                nextView.state.selection.eq(previousState.selection)
-              ) {
+            update: (nextView) => {
+              const nextCommandState = getEditorCommandState(nextView);
+
+              if (commandStatesEqual(commandState, nextCommandState)) {
                 return;
               }
 
-              const nextSignature = createCommandStateSignature(getEditorCommandState(nextView));
-
-              if (nextSignature === commandStateSignature) {
-                return;
-              }
-
-              commandStateSignature = nextSignature;
-              onCommandStateChanged();
+              commandState = nextCommandState;
+              onCommandStateChanged(nextCommandState);
             },
           };
         },

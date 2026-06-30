@@ -1,4 +1,4 @@
-import { FileText } from "lucide-react";
+import { FileTextIcon } from "lucide-react";
 
 export function FolderOnlyScreen() {
   return (
@@ -8,7 +8,7 @@ export function FolderOnlyScreen() {
     >
       <div className="max-w-md text-center">
         <span className="mx-auto flex size-14 items-center justify-center rounded-md border border-border bg-card text-muted-foreground">
-          <FileText aria-hidden="true" className="size-7" />
+          <FileTextIcon className="size-7" />
         </span>
         <h2 id="folder-only-title" className="mt-5 text-xl font-semibold">
           No document open

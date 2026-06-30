@@ -1,66 +1,16 @@
-import { invoke } from "@tauri-apps/api/core";
 import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
 
-export type MarkdownLinkResolutionKind =
-  | "externalWeb"
-  | "localMarkdown"
-  | "localFile"
-  | "missing"
-  | "untitledRelative"
-  | "outsideFolder"
-  | "unsupportedTarget"
-  | "invalidPath"
-  | "permissionDenied"
-  | "metadataFailed";
+import { notifyOperationFailure } from "@/lib/errors";
+import { notifyWarning } from "@/lib/toast";
 
-interface ExternalWebMarkdownLinkTarget {
-  kind: "externalWeb";
-  url: string;
-}
+import {
+  resolveMarkdownLinkTarget,
+  type ResolveMarkdownLinkTargetResult,
+} from "../services/markdownLinkApi";
+import type { MarkdownReferenceContext } from "./markdownReferences";
 
-interface LocalMarkdownLinkTarget {
-  kind: "localMarkdown";
-  path: string;
-}
-
-interface LocalFileLinkTarget {
-  kind: "localFile";
-  path: string;
-}
-
-interface MissingMarkdownLinkTarget {
-  kind: "missing";
-  path: string;
-}
-
-interface MarkdownLinkTargetMessage {
-  kind: "permissionDenied" | "metadataFailed";
-  message: string;
-}
-
-type BackendMarkdownLinkTarget =
-  | ExternalWebMarkdownLinkTarget
-  | LocalMarkdownLinkTarget
-  | LocalFileLinkTarget
-  | MissingMarkdownLinkTarget
-  | MarkdownLinkTargetMessage
-  | {
-      kind: Exclude<
-        MarkdownLinkResolutionKind,
-        | "externalWeb"
-        | "localMarkdown"
-        | "localFile"
-        | "missing"
-        | "permissionDenied"
-        | "metadataFailed"
-      >;
-    };
-
-export interface MarkdownLinkContext {
-  documentPath: string | null;
-  folderContextPath: string | null;
+export interface MarkdownLinkContext extends MarkdownReferenceContext {
   onOpenMarkdownPath: (path: string) => boolean | Promise<boolean>;
 }
 
@@ -78,7 +28,7 @@ const resolveMarkdownLink = ({
   folderContextPath,
   target,
 }: ResolveMarkdownLinkOptions) =>
-  invoke<BackendMarkdownLinkTarget>("resolve_markdown_link_target", {
+  resolveMarkdownLinkTarget({
     documentPath,
     folderContextPath,
     target,
@@ -101,48 +51,38 @@ const confirmLocalFileLink = (path: string) =>
     cancelLabel: "Cancel",
   });
 
-const showWarning = (title: string, description?: string) => {
-  if (description) {
-    toast.warning(title, { description });
-    return;
-  }
-
-  toast.warning(title);
-};
-
-const showError = (title: string, error: unknown) => {
-  toast.error(title, { description: error instanceof Error ? error.message : String(error) });
-};
-
 const openExternalWebTarget = async (url: string) => {
   try {
     await openUrl(url);
     return true;
-  } catch (error: unknown) {
-    showError("Could not open web link.", error);
+  } catch (error) {
+    notifyOperationFailure("Could not open web link.", error, "openExternalWebTarget");
     return false;
   }
 };
 
-const openLocalFileTarget = async (path: string, confirmationAlreadyShown: boolean) => {
-  if (!confirmationAlreadyShown && !(await confirmLocalFileLink(path))) {
-    return false;
-  }
-
+const openLocalFilePath = async (path: string) => {
   try {
     await openPath(path);
     return true;
-  } catch (error: unknown) {
-    showError("Could not open local link.", error);
+  } catch (error) {
+    notifyOperationFailure("Could not open local link.", error, "openLocalFilePath");
     return false;
   }
+};
+
+const openLocalFileTarget = async (path: string) => {
+  if (!(await confirmLocalFileLink(path))) {
+    return false;
+  }
+
+  return openLocalFilePath(path);
 };
 
 const activateResolvedMarkdownLink = async (
   options: ActivateMarkdownLinkOptions,
-  resolution: BackendMarkdownLinkTarget,
-  confirmationAlreadyShown: boolean,
-): Promise<boolean> => {
+  resolution: ResolveMarkdownLinkTargetResult,
+) => {
   switch (resolution.kind) {
     case "externalWeb":
       return openExternalWebTarget(resolution.url);
@@ -151,54 +91,67 @@ const activateResolvedMarkdownLink = async (
       return options.onOpenMarkdownPath(resolution.path);
 
     case "localFile":
-      return openLocalFileTarget(resolution.path, confirmationAlreadyShown);
+      return openLocalFileTarget(resolution.path);
 
-    case "outsideFolder": {
-      if (confirmationAlreadyShown || !(await confirmOutsideFolderLink(options.target))) {
-        return false;
-      }
-
-      const confirmedResolution = await resolveMarkdownLink({
-        ...options,
-        explicitOpen: true,
-      });
-
-      return activateResolvedMarkdownLink(options, confirmedResolution, true);
-    }
+    case "outsideFolder":
+      return activateOutsideFolderMarkdownLink(options);
 
     case "missing":
-      showWarning("Link target not found.", resolution.path);
+      notifyWarning("Link target not found.", resolution.path);
       return false;
 
     case "untitledRelative":
-      showWarning("Save the document to resolve this link.");
+      notifyWarning("Save the document to resolve this link.");
       return false;
 
     case "unsupportedTarget":
-      showWarning("Unsupported link target.", options.target);
+      notifyWarning("Unsupported link target.", options.target);
       return false;
 
     case "invalidPath":
-      showWarning("Invalid link path.", options.target);
+      notifyWarning("Invalid link path.", options.target);
       return false;
 
     case "permissionDenied":
-      showWarning("Link access denied.", resolution.message);
+      notifyWarning("Link access denied.", resolution.message);
       return false;
 
     case "metadataFailed":
-      showWarning("Link target metadata unavailable.", resolution.message);
+      notifyWarning("Link target metadata unavailable.", resolution.message);
       return false;
   }
+};
+
+const activateOutsideFolderMarkdownLink = async (
+  options: ActivateMarkdownLinkOptions,
+): Promise<boolean> => {
+  if (!(await confirmOutsideFolderLink(options.target))) {
+    return false;
+  }
+
+  const resolution = await resolveMarkdownLink({
+    ...options,
+    explicitOpen: true,
+  });
+
+  if (resolution.kind === "outsideFolder") {
+    return false;
+  }
+
+  if (resolution.kind === "localFile") {
+    return openLocalFilePath(resolution.path);
+  }
+
+  return activateResolvedMarkdownLink(options, resolution);
 };
 
 export const activateMarkdownLink = async (options: ActivateMarkdownLinkOptions) => {
   try {
     const resolution = await resolveMarkdownLink(options);
 
-    return activateResolvedMarkdownLink(options, resolution, false);
-  } catch (error: unknown) {
-    showError("Could not resolve link.", error);
+    return activateResolvedMarkdownLink(options, resolution);
+  } catch (error) {
+    notifyOperationFailure("Could not resolve link.", error, "activateMarkdownLink");
     return false;
   }
 };

@@ -1,37 +1,44 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io::{self, ErrorKind},
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, State};
 
-use crate::document::{read_markdown_file, OpenMarkdownFileError, OpenMarkdownFileResult};
+use crate::{
+    document::{read_markdown_file, OpenMarkdownFileError, OpenMarkdownFileResult},
+    path_utils::path_to_string,
+};
 
 mod defaults;
 mod index;
 mod scan;
-pub(crate) mod watch;
+mod watch;
 
-pub(crate) use watch::FolderWatcherState;
+pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MarkdownFolderScanResult {
-    pub path: String,
-    pub tree: MarkdownFolderTree,
-    pub is_empty: bool,
+    pub(crate) path: String,
+    pub(crate) tree: MarkdownFolderTree,
+    pub(crate) is_empty: bool,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct OpenMarkdownFolderResult {
-    pub folder: MarkdownFolderScanResult,
-    pub index_document: Option<OpenMarkdownFileResult>,
+    pub(crate) folder: MarkdownFolderScanResult,
+    pub(crate) index_document: Option<OpenMarkdownFileResult>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct MarkdownFolderTree {
-    pub name: String,
-    pub path: String,
-    pub children: Vec<MarkdownFolderTreeNode>,
+    pub(crate) name: String,
+    pub(crate) path: String,
+    pub(crate) children: Vec<MarkdownFolderTreeNode>,
 }
 
 #[derive(Debug, Serialize)]
@@ -51,6 +58,9 @@ pub(crate) enum MarkdownFolderTreeNode {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum ScanMarkdownFolderError {
+    InvalidPath { path: String },
+    MissingFolder { path: String },
+    PermissionDenied { path: String, message: String },
     MetadataFailed { path: String, message: String },
     NotDirectory { path: String },
     ReadDirectoryFailed { path: String, message: String },
@@ -79,31 +89,86 @@ pub(crate) enum FileTreeSortOrder {
 }
 
 #[tauri::command]
-pub(crate) fn scan_markdown_folder(
+pub(crate) async fn scan_markdown_folder(
     path: String,
     ignored_directories: Option<Vec<String>>,
     sort_order: Option<FileTreeSortOrder>,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
-    scan_folder(
-        PathBuf::from(path).as_path(),
-        ignored_directories.unwrap_or_else(defaults::ignored_directories),
-        sort_order.unwrap_or(FileTreeSortOrder::Name),
-    )
+    let path = PathBuf::from(path);
+    let error_path = path_to_string(path.as_path());
+    let ignored_directories = ignored_directories.unwrap_or_else(defaults::ignored_directories);
+    let sort_order = sort_order.unwrap_or(FileTreeSortOrder::Name);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        scan_folder(path.as_path(), ignored_directories, sort_order)
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(ScanMarkdownFolderError::ReadDirectoryFailed {
+            path: error_path,
+            message: error.to_string(),
+        })
+    })
 }
 
 #[tauri::command]
-pub(crate) fn open_markdown_folder(
+pub(crate) async fn open_markdown_folder(
     path: String,
     index_file_names: Option<Vec<String>>,
     ignored_directories: Option<Vec<String>>,
     sort_order: Option<FileTreeSortOrder>,
 ) -> Result<OpenMarkdownFolderResult, OpenMarkdownFolderError> {
-    open_folder(
-        PathBuf::from(path).as_path(),
-        index_file_names.unwrap_or_else(defaults::index_file_names),
-        ignored_directories.unwrap_or_else(defaults::ignored_directories),
-        sort_order.unwrap_or(FileTreeSortOrder::Name),
+    let path = PathBuf::from(path);
+    let error_path = path_to_string(path.as_path());
+    let index_file_names = index_file_names.unwrap_or_else(defaults::index_file_names);
+    let ignored_directories = ignored_directories.unwrap_or_else(defaults::ignored_directories);
+    let sort_order = sort_order.unwrap_or(FileTreeSortOrder::Name);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        open_folder(
+            path.as_path(),
+            index_file_names,
+            ignored_directories,
+            sort_order,
+        )
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(OpenMarkdownFolderError::ScanFailed {
+            error: ScanMarkdownFolderError::ReadDirectoryFailed {
+                path: error_path,
+                message: error.to_string(),
+            },
+        })
+    })
+}
+
+#[tauri::command]
+pub(crate) fn watch_markdown_folder(
+    app: AppHandle,
+    state: State<'_, FolderWatcherState>,
+    path: String,
+    ignored_directories: Option<Vec<String>>,
+    scope_id: String,
+    scope_generation: u64,
+) -> Result<(), WatchMarkdownFolderError> {
+    watch::watch_markdown_folder(
+        app,
+        state,
+        path,
+        ignored_directories,
+        scope_id,
+        scope_generation,
     )
+}
+
+#[tauri::command]
+pub(crate) fn unwatch_markdown_folder(
+    state: State<'_, FolderWatcherState>,
+    scope_id: String,
+    scope_generation: u64,
+) -> Result<(), WatchMarkdownFolderError> {
+    watch::unwatch_markdown_folder(state, scope_id, scope_generation)
 }
 
 fn open_folder(
@@ -134,6 +199,40 @@ fn scan_folder(
     scan::scan_folder(path, ignored_directories.as_slice(), sort_order)
 }
 
+fn scan_folder_metadata_error(error: io::Error, path: &Path) -> ScanMarkdownFolderError {
+    let path = path_to_string(path);
+
+    match error.kind() {
+        ErrorKind::InvalidInput => ScanMarkdownFolderError::InvalidPath { path },
+        ErrorKind::NotFound => ScanMarkdownFolderError::MissingFolder { path },
+        ErrorKind::PermissionDenied => ScanMarkdownFolderError::PermissionDenied {
+            path,
+            message: error.to_string(),
+        },
+        _ => ScanMarkdownFolderError::MetadataFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
+fn scan_folder_read_error(error: io::Error, path: &Path) -> ScanMarkdownFolderError {
+    let path = path_to_string(path);
+
+    match error.kind() {
+        ErrorKind::InvalidInput => ScanMarkdownFolderError::InvalidPath { path },
+        ErrorKind::NotFound => ScanMarkdownFolderError::MissingFolder { path },
+        ErrorKind::PermissionDenied => ScanMarkdownFolderError::PermissionDenied {
+            path,
+            message: error.to_string(),
+        },
+        _ => ScanMarkdownFolderError::ReadDirectoryFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
 #[cfg(test)]
 fn scan_folder_with_depth(
     path: &Path,
@@ -147,58 +246,18 @@ fn scan_folder_with_depth(
 #[cfg(test)]
 mod tests {
     use std::{
-        fs::{self, create_dir, create_dir_all},
+        fs,
+        io::{self, ErrorKind},
         path::{Path, PathBuf},
-        sync::atomic::{AtomicUsize, Ordering},
-        thread::sleep,
         time::{Duration, UNIX_EPOCH},
     };
 
     use super::{
-        defaults::ignored_directories, open_folder, scan_folder, scan_folder_with_depth,
-        FileTreeSortOrder, MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
+        defaults::ignored_directories, open_folder, scan_folder, scan_folder_metadata_error,
+        scan_folder_read_error, scan_folder_with_depth, FileTreeSortOrder, MarkdownFolderTree,
+        MarkdownFolderTreeNode, ScanDepth, ScanMarkdownFolderError,
     };
-
-    static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
-
-    struct TestDirectory {
-        path: PathBuf,
-    }
-
-    impl Drop for TestDirectory {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.path);
-        }
-    }
-
-    impl TestDirectory {
-        fn new(name: &str) -> Self {
-            let id = NEXT_TEST_DIR_ID.fetch_add(1, Ordering::Relaxed);
-            let path =
-                std::env::temp_dir().join(format!("leafdown-{name}-{}-{id}", std::process::id()));
-
-            create_dir(&path).expect("test directory should be created");
-
-            Self { path }
-        }
-
-        fn create_directory(&self, relative_path: &str) -> PathBuf {
-            let path = self.path.join(relative_path);
-            create_dir_all(&path).expect("nested test directory should be created");
-            path
-        }
-
-        fn write_file(&self, relative_path: &str) -> PathBuf {
-            let path = self.path.join(relative_path);
-
-            if let Some(parent) = path.parent() {
-                create_dir_all(parent).expect("test file parent should be created");
-            }
-
-            fs::write(&path, "# Test\n").expect("test file should be written");
-            path
-        }
-    }
+    use crate::test_utils::TestDirectory;
 
     #[test]
     fn scans_markdown_files_and_keeps_non_ignored_directories() {
@@ -308,9 +367,8 @@ mod tests {
     #[test]
     fn sorts_tree_nodes_by_modified_date_when_configured() {
         let root = TestDirectory::new("scan-modified-date-sort");
-        let older = root.write_file("older.md");
-        let older_modified_at_unix_ms = modified_at_unix_ms(&older);
-        write_file_after_timestamp(&root, "newer.md", older_modified_at_unix_ms);
+        write_file_with_modified_time(&root, "older.md", 1_700_000_000_000);
+        write_file_with_modified_time(&root, "newer.md", 1_700_000_001_000);
 
         let result = scan_folder(
             &root.path,
@@ -389,6 +447,87 @@ mod tests {
         assert!(!result.folder.is_empty);
     }
 
+    #[test]
+    fn reports_missing_scan_folder_paths() {
+        let root = TestDirectory::new("missing-scan-folder");
+        let missing_path = root.path("missing");
+
+        let error = scan_folder(
+            missing_path.as_path(),
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect_err("missing folder should fail");
+
+        assert!(matches!(
+            error,
+            ScanMarkdownFolderError::MissingFolder { path }
+                if path == missing_path.to_string_lossy()
+        ));
+    }
+
+    #[test]
+    fn reports_non_directory_scan_paths() {
+        let root = TestDirectory::new("scan-file-path");
+        let file_path = root.write_file("readme.md");
+
+        let error = scan_folder(
+            file_path.as_path(),
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect_err("file path should fail as a folder context");
+
+        assert!(matches!(
+            error,
+            ScanMarkdownFolderError::NotDirectory { path } if path == file_path.to_string_lossy()
+        ));
+    }
+
+    #[test]
+    fn classifies_scan_folder_metadata_errors() {
+        let path = Path::new("bad:path");
+
+        assert!(matches!(
+            scan_folder_metadata_error(io::Error::from(ErrorKind::InvalidInput), path),
+            ScanMarkdownFolderError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            scan_folder_metadata_error(io::Error::from(ErrorKind::NotFound), path),
+            ScanMarkdownFolderError::MissingFolder { .. }
+        ));
+        assert!(matches!(
+            scan_folder_metadata_error(io::Error::from(ErrorKind::PermissionDenied), path),
+            ScanMarkdownFolderError::PermissionDenied { .. }
+        ));
+        assert!(matches!(
+            scan_folder_metadata_error(io::Error::from(ErrorKind::Other), path),
+            ScanMarkdownFolderError::MetadataFailed { .. }
+        ));
+    }
+
+    #[test]
+    fn classifies_scan_folder_read_errors() {
+        let path = Path::new("bad:path");
+
+        assert!(matches!(
+            scan_folder_read_error(io::Error::from(ErrorKind::InvalidInput), path),
+            ScanMarkdownFolderError::InvalidPath { .. }
+        ));
+        assert!(matches!(
+            scan_folder_read_error(io::Error::from(ErrorKind::NotFound), path),
+            ScanMarkdownFolderError::MissingFolder { .. }
+        ));
+        assert!(matches!(
+            scan_folder_read_error(io::Error::from(ErrorKind::PermissionDenied), path),
+            ScanMarkdownFolderError::PermissionDenied { .. }
+        ));
+        assert!(matches!(
+            scan_folder_read_error(io::Error::from(ErrorKind::Other), path),
+            ScanMarkdownFolderError::ReadDirectoryFailed { .. }
+        ));
+    }
+
     fn tree_has_directory(tree: &MarkdownFolderTree, name: &str) -> bool {
         child_nodes_have_directory(&tree.children, name)
     }
@@ -403,30 +542,21 @@ mod tests {
             .collect()
     }
 
-    fn modified_at_unix_ms(path: &Path) -> u128 {
-        fs::metadata(path)
-            .and_then(|metadata| metadata.modified())
-            .expect("test file modified time should be readable")
-            .duration_since(UNIX_EPOCH)
-            .expect("test modified time should be after epoch")
-            .as_millis()
-    }
-
-    fn write_file_after_timestamp(
+    fn write_file_with_modified_time(
         root: &TestDirectory,
         relative_path: &str,
-        older_than_unix_ms: u128,
+        modified_at_unix_ms: u64,
     ) -> PathBuf {
-        for _ in 0..200 {
-            sleep(Duration::from_millis(10));
-            let path = root.write_file(relative_path);
+        let path = root.write_file(relative_path);
+        let modified_at = UNIX_EPOCH + Duration::from_millis(modified_at_unix_ms);
 
-            if modified_at_unix_ms(&path) > older_than_unix_ms {
-                return path;
-            }
-        }
+        fs::File::options()
+            .write(true)
+            .open(&path)
+            .and_then(|file| file.set_modified(modified_at))
+            .expect("test file modified time should be set");
 
-        panic!("test filesystem should expose distinct modified times");
+        path
     }
 
     fn child_nodes_have_directory(children: &[MarkdownFolderTreeNode], name: &str) -> bool {

@@ -2,17 +2,17 @@ import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { hasPointerCoordinates, isPrimaryModifierEvent } from "@/lib/input";
+
 import { activateMarkdownLink, type MarkdownLinkContext } from "../utils/linkActivation";
+import { EMPTY_MARKDOWN_REFERENCE_CONTEXT } from "../utils/markdownReferences";
 
 export const leafdownLinkActivationPluginKey = new PluginKey("leafdownLinkActivation");
 
-const defaultLinkContext: MarkdownLinkContext = {
-  documentPath: null,
-  folderContextPath: null,
+const DEFAULT_LINK_CONTEXT: MarkdownLinkContext = {
+  ...EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   onOpenMarkdownPath: () => false,
 };
-
-const isModClick = (event: MouseEvent) => event.ctrlKey || event.metaKey;
 
 interface ClickedLink {
   element: HTMLAnchorElement;
@@ -24,7 +24,7 @@ interface LinkTextRange {
   start: number;
 }
 
-const isTextNode = (node: Node): node is Text => node.nodeType === 3;
+const isTextNode = (node: Node): node is Text => node.nodeType === Node.TEXT_NODE;
 
 const findFirstTextNode = (node: Node): Text | null => {
   if (isTextNode(node) && node.data.length > 0) {
@@ -70,7 +70,11 @@ const getLinkTextRange = (view: EditorView, link: HTMLAnchorElement): LinkTextRa
     const start = view.posAtDOM(firstTextNode, 0);
     const end = view.posAtDOM(lastTextNode, lastTextNode.data.length);
 
-    return start <= end ? { end, start } : null;
+    if (start > end) {
+      return null;
+    }
+
+    return { end, start };
   } catch {
     return null;
   }
@@ -78,8 +82,7 @@ const getLinkTextRange = (view: EditorView, link: HTMLAnchorElement): LinkTextRa
 
 const getClickedLinkPosition = (view: EditorView, event: MouseEvent, link: HTMLAnchorElement) => {
   const range = getLinkTextRange(view, link);
-  const hasPointerCoordinates = event.clientX !== 0 || event.clientY !== 0;
-  const positionAtClick = hasPointerCoordinates
+  const positionAtClick = hasPointerCoordinates(event)
     ? view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
     : null;
 
@@ -120,11 +123,15 @@ const getClickedLink = (view: EditorView, event: MouseEvent): ClickedLink | null
 
   const target = link.getAttribute("href")?.trim();
 
-  return target ? { element: link, target } : null;
+  if (!target) {
+    return null;
+  }
+
+  return { element: link, target };
 };
 
 export const createLeafdownLinkActivationPlugin = (
-  getLinkContext: () => MarkdownLinkContext = () => defaultLinkContext,
+  getLinkContext: () => MarkdownLinkContext = () => DEFAULT_LINK_CONTEXT,
 ) =>
   $prose(
     () =>
@@ -141,7 +148,7 @@ export const createLeafdownLinkActivationPlugin = (
 
               event.preventDefault();
 
-              if (!isModClick(event)) {
+              if (!isPrimaryModifierEvent(event)) {
                 placeCaretInLink(view, event, link.element);
                 return true;
               }

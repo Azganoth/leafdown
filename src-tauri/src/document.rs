@@ -8,17 +8,22 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::{
+    file_utils::{read_utf8_file_with_size_limit, ReadUtf8FileError},
+    path_utils::path_to_string,
+};
+
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 pub(crate) const MAX_MARKDOWN_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct OpenMarkdownFileResult {
-    pub path: String,
-    pub parent_folder_path: String,
-    pub content: String,
-    pub line_ending: Option<LineEnding>,
-    pub metadata: FileMetadataSnapshot,
+    pub(crate) path: String,
+    pub(crate) parent_folder_path: String,
+    pub(crate) content: String,
+    pub(crate) line_ending: Option<LineEnding>,
+    pub(crate) metadata: FileMetadataSnapshot,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -32,16 +37,16 @@ pub(crate) enum LineEnding {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct FileMetadataSnapshot {
-    pub size_bytes: u64,
-    pub modified_at_unix_ms: u64,
+    pub(crate) size_bytes: u64,
+    pub(crate) modified_at_unix_ms: u64,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SaveMarkdownFileResult {
-    pub path: String,
-    pub parent_folder_path: String,
-    pub metadata: FileMetadataSnapshot,
+    pub(crate) path: String,
+    pub(crate) parent_folder_path: String,
+    pub(crate) metadata: FileMetadataSnapshot,
 }
 
 #[derive(Debug, Serialize)]
@@ -109,25 +114,47 @@ pub(crate) enum SaveMarkdownFileError {
 }
 
 #[tauri::command]
-pub(crate) fn open_markdown_file(
+pub(crate) async fn open_markdown_file(
     path: String,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
-    read_markdown_file(PathBuf::from(path).as_path())
+    let path = PathBuf::from(path);
+    let error_path = path_to_string(path.as_path());
+
+    tauri::async_runtime::spawn_blocking(move || read_markdown_file(path.as_path()))
+        .await
+        .unwrap_or_else(|error| {
+            Err(OpenMarkdownFileError::ReadFailed {
+                path: error_path,
+                message: error.to_string(),
+            })
+        })
 }
 
 #[tauri::command]
-pub(crate) fn save_markdown_file(
+pub(crate) async fn save_markdown_file(
     path: String,
     content: String,
     expected_metadata: Option<FileMetadataSnapshot>,
     overwrite: Option<bool>,
 ) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
-    write_markdown_file(
-        PathBuf::from(path).as_path(),
-        content.as_str(),
-        expected_metadata,
-        overwrite.unwrap_or(false),
-    )
+    let path = PathBuf::from(path);
+    let error_path = path_to_string(path.as_path());
+
+    tauri::async_runtime::spawn_blocking(move || {
+        write_markdown_file(
+            path.as_path(),
+            content.as_str(),
+            expected_metadata,
+            overwrite.unwrap_or(false),
+        )
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(SaveMarkdownFileError::WriteFailed {
+            path: error_path,
+            message: error.to_string(),
+        })
+    })
 }
 
 pub(crate) fn read_markdown_file(
@@ -158,22 +185,7 @@ pub(crate) fn read_markdown_file(
         });
     }
 
-    let content_bytes =
-        fs::read(path).map_err(|error| open_read_error(error, serialized_path.as_str()))?;
-    let content_size_bytes = content_bytes.len().try_into().unwrap_or(u64::MAX);
-
-    if content_size_bytes > MAX_MARKDOWN_FILE_SIZE_BYTES {
-        return Err(OpenMarkdownFileError::OversizedFile {
-            path: serialized_path,
-            size_bytes: content_size_bytes,
-            max_size_bytes: MAX_MARKDOWN_FILE_SIZE_BYTES,
-        });
-    }
-
-    let content =
-        String::from_utf8(content_bytes).map_err(|_| OpenMarkdownFileError::InvalidEncoding {
-            path: serialized_path.clone(),
-        })?;
+    let content = read_markdown_file_content(path, serialized_path.as_str())?;
 
     Ok(OpenMarkdownFileResult {
         path: serialized_path,
@@ -228,24 +240,8 @@ fn verify_file_freshness(
     let Some(expected_metadata) = expected_metadata else {
         return Ok(());
     };
-    let current_metadata = read_file_metadata(path).map_err(|error| match error {
-        FileMetadataReadError::InvalidPath => SaveMarkdownFileError::InvalidPath {
-            path: serialized_path.to_owned(),
-        },
-        FileMetadataReadError::MissingFile => SaveMarkdownFileError::MissingFile {
-            path: serialized_path.to_owned(),
-        },
-        FileMetadataReadError::PermissionDenied(message) => {
-            SaveMarkdownFileError::PermissionDenied {
-                path: serialized_path.to_owned(),
-                message,
-            }
-        }
-        FileMetadataReadError::Failed(message) => SaveMarkdownFileError::MetadataFailed {
-            path: serialized_path.to_owned(),
-            message,
-        },
-    })?;
+    let current_metadata =
+        read_file_metadata(path).map_err(|error| save_metadata_error(error, serialized_path))?;
 
     if !overwrite && current_metadata != expected_metadata {
         return Err(SaveMarkdownFileError::ExternalModification {
@@ -267,6 +263,28 @@ fn is_supported_markdown_extension(extension: &str) -> bool {
     MARKDOWN_FILE_EXTENSIONS
         .iter()
         .any(|supported_extension| supported_extension.eq_ignore_ascii_case(extension))
+}
+
+fn read_markdown_file_content(
+    path: &Path,
+    serialized_path: &str,
+) -> Result<String, OpenMarkdownFileError> {
+    read_utf8_file_with_size_limit(path, MAX_MARKDOWN_FILE_SIZE_BYTES).map_err(
+        |error| match error {
+            ReadUtf8FileError::ReadFailed(error) => open_read_error(error, serialized_path),
+            ReadUtf8FileError::Oversized {
+                size_bytes,
+                max_size_bytes,
+            } => OpenMarkdownFileError::OversizedFile {
+                path: serialized_path.to_owned(),
+                size_bytes,
+                max_size_bytes,
+            },
+            ReadUtf8FileError::InvalidEncoding => OpenMarkdownFileError::InvalidEncoding {
+                path: serialized_path.to_owned(),
+            },
+        },
+    )
 }
 
 fn detect_line_ending(content: &str) -> Option<LineEnding> {
@@ -419,17 +437,12 @@ fn save_write_error(error: std::io::Error, path: &str) -> SaveMarkdownFileError 
     }
 }
 
-fn path_to_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
 #[cfg(test)]
 mod tests {
     use std::{
-        fs::{self, create_dir},
+        fs,
         io::ErrorKind,
         path::{Path, PathBuf},
-        sync::atomic::{AtomicUsize, Ordering},
     };
 
     use super::{
@@ -437,18 +450,11 @@ mod tests {
         save_metadata_error, save_write_error, write_markdown_file, FileMetadataReadError,
         LineEnding, OpenMarkdownFileError, SaveMarkdownFileError, MAX_MARKDOWN_FILE_SIZE_BYTES,
     };
-
-    static NEXT_TEST_DIR_ID: AtomicUsize = AtomicUsize::new(0);
+    use crate::test_utils::TestDirectory;
 
     struct TestFile {
-        root: PathBuf,
+        root: TestDirectory,
         path: PathBuf,
-    }
-
-    impl Drop for TestFile {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.root);
-        }
     }
 
     fn create_test_file(file_name: &str, content: &str) -> TestFile {
@@ -456,15 +462,8 @@ mod tests {
     }
 
     fn create_test_file_bytes(file_name: &str, content: &[u8]) -> TestFile {
-        let id = NEXT_TEST_DIR_ID.fetch_add(1, Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!(
-            "leafdown-open-markdown-file-{}-{id}",
-            std::process::id()
-        ));
-        let path = root.join(file_name);
-
-        create_dir(&root).expect("test directory should be created");
-        fs::write(&path, content).expect("test file should be written");
+        let root = TestDirectory::new("open-markdown-file");
+        let path = root.write_file_with_content(file_name, content);
 
         TestFile { root, path }
     }
@@ -594,7 +593,7 @@ mod tests {
     #[test]
     fn rejects_unsupported_save_file_types() {
         let file = create_test_file("notes.md", "");
-        let unsupported_path = file.root.join("notes.txt");
+        let unsupported_path = file.root.path.join("notes.txt");
 
         let error = write_markdown_file(&unsupported_path, "not Markdown", None, false)
             .expect_err("text file should be rejected");

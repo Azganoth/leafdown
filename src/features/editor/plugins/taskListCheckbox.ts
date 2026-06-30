@@ -1,9 +1,9 @@
 import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
-import { toggleTaskCheckedAt } from "../utils/blockFormattingCommands";
+import { toggleTaskCheckedAt } from "../utils/taskLists";
 
-const taskCheckboxHitAreaWidth = 24;
+const TASK_CHECKBOX_HIT_AREA_WIDTH_PX = 24;
 
 export const createLeafdownTaskListCheckboxPlugin = () =>
   $prose(
@@ -49,7 +49,7 @@ const getClickedTaskListItem = (event: MouseEvent) => {
 
   const rect = taskListItem.getBoundingClientRect();
 
-  return event.clientX <= rect.left + taskCheckboxHitAreaWidth ? taskListItem : null;
+  return event.clientX <= rect.left + TASK_CHECKBOX_HIT_AREA_WIDTH_PX ? taskListItem : null;
 };
 
 const getTaskListItemPos = (view: Parameters<typeof toggleTaskCheckedAt>[0], element: Element) => {

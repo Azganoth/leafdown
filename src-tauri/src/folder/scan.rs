@@ -6,20 +6,18 @@ use std::{
 };
 
 use super::{
-    FileTreeSortOrder, MarkdownFolderScanResult, MarkdownFolderTree, MarkdownFolderTreeNode,
-    ScanDepth, ScanMarkdownFolderError,
+    scan_folder_metadata_error, scan_folder_read_error, FileTreeSortOrder,
+    MarkdownFolderScanResult, MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
+    ScanMarkdownFolderError,
 };
-use crate::document::is_supported_markdown_path;
+use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
 
 pub(super) fn scan_folder(
     path: &Path,
     ignored_directories: &[String],
     sort_order: FileTreeSortOrder,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
-    let metadata = fs::metadata(path).map_err(|error| ScanMarkdownFolderError::MetadataFailed {
-        path: path_to_string(path),
-        message: error.to_string(),
-    })?;
+    let metadata = fs::metadata(path).map_err(|error| scan_folder_metadata_error(error, path))?;
 
     if !metadata.is_dir() {
         return Err(ScanMarkdownFolderError::NotDirectory {
@@ -62,11 +60,7 @@ fn scan_directory(
         return Ok((directory_tree(path, Vec::new()), false));
     }
 
-    let entries =
-        fs::read_dir(path).map_err(|error| ScanMarkdownFolderError::ReadDirectoryFailed {
-            path: path_to_string(path),
-            message: error.to_string(),
-        })?;
+    let entries = fs::read_dir(path).map_err(|error| scan_folder_read_error(error, path))?;
     let mut children = Vec::new();
     let mut has_markdown_files = false;
 
@@ -161,10 +155,6 @@ pub(super) fn is_ignored_directory(name: &str, ignored_directories: &[String]) -
             ignored_directory == name
         }
     })
-}
-
-fn path_to_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
 }
 
 fn sort_tree_nodes(nodes: &mut [MarkdownFolderTreeNode], sort_order: FileTreeSortOrder) {

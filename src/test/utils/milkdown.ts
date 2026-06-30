@@ -1,12 +1,18 @@
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { afterEach } from "vitest";
 
+import type {
+  EditorCommandState,
+  MarkdownReferenceContext,
+  MilkdownMarkdownUpdate,
+} from "@/features/editor";
 import {
+  type ContextPopupAnchor,
   createMilkdownEditor,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
 } from "@/features/editor";
-import type { EditorContextPopupRequest, MilkdownMarkdownUpdate } from "@/features/editor";
 
 export interface MountedMilkdownEditor {
   root: HTMLDivElement;
@@ -16,17 +22,15 @@ export interface MountedMilkdownEditor {
   destroy: () => Promise<void>;
 }
 
-export interface MountMilkdownEditorOptions {
+export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceContext> {
   rootClassName?: string;
   autoPairBracketsAndQuotes?: boolean;
-  documentPath?: string | null;
-  folderContextPath?: string | null;
-  onContentTransaction?: () => void;
-  onCommandStateChanged?: () => void;
+  onContentChanged?: () => void;
+  onCommandStateChanged?: (state: EditorCommandState) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onContextPopupClosed?: () => void;
-  onContextPopupRequested?: (request: EditorContextPopupRequest) => void;
+  onContextPopupRequested?: (anchor: ContextPopupAnchor) => void;
   getContextPopupOpen?: () => boolean;
 }
 
@@ -41,22 +45,20 @@ export const mountMilkdownEditor = async (
   const editor = await createMilkdownEditor({
     root,
     initialMarkdown,
-    onContentTransaction: options.onContentTransaction,
+    contextPopup: {
+      isOpen: options.getContextPopupOpen,
+      onClose: options.onContextPopupClosed,
+      onRequest: options.onContextPopupRequested,
+    },
+    getMarkdownReferenceContext: () => ({
+      documentPath: options.documentPath ?? null,
+      folderContextPath: options.folderContextPath ?? null,
+    }),
+    isAutoPairEnabled: () => options.autoPairBracketsAndQuotes ?? true,
+    onContentChanged: options.onContentChanged,
     onCommandStateChanged: options.onCommandStateChanged,
     onMarkdownUpdated: options.onMarkdownUpdated,
-    onContextPopupClosed: options.onContextPopupClosed,
-    onContextPopupRequested: options.onContextPopupRequested,
-    getContextPopupOpen: options.getContextPopupOpen,
-    getAutoPairBracketsAndQuotes: () => options.autoPairBracketsAndQuotes ?? true,
-    getImageContext: () => ({
-      documentPath: options.documentPath ?? null,
-      folderContextPath: options.folderContextPath ?? null,
-    }),
-    getLinkContext: () => ({
-      documentPath: options.documentPath ?? null,
-      folderContextPath: options.folderContextPath ?? null,
-      onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
-    }),
+    onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
   });
   await editor.create();
 
@@ -66,8 +68,25 @@ export const mountMilkdownEditor = async (
     view: editor.ctx.get(editorViewCtx),
     getMarkdown: () => getMilkdownEditorMarkdown(editor),
     destroy: async () => {
-      await editor.destroy();
-      root.remove();
+      try {
+        await editor.destroy();
+      } finally {
+        root.remove();
+      }
     },
+  };
+};
+
+export const setupMilkdownEditorMount = () => {
+  const mountedEditors: MountedMilkdownEditor[] = [];
+
+  afterEach(async () => {
+    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
+  });
+
+  return async (initialMarkdown: string, options: MountMilkdownEditorOptions = {}) => {
+    const mounted = await mountMilkdownEditor(initialMarkdown, options);
+    mountedEditors.push(mounted);
+    return mounted;
   };
 };

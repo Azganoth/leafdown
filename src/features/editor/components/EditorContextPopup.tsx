@@ -5,19 +5,25 @@ import {
   Code2Icon,
   CopyIcon,
   Heading1Icon,
+  Heading2Icon,
+  Heading3Icon,
+  Heading4Icon,
+  Heading5Icon,
+  Heading6Icon,
   ItalicIcon,
   Link2Icon,
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
+  MinusIcon,
   PilcrowIcon,
-  PlusIcon,
   ScissorsIcon,
+  TableIcon,
   TextQuoteIcon,
   Trash2Icon,
-  TypeIcon,
+  type LucideIcon,
 } from "lucide-react";
-import { type ComponentType, type SVGProps, useEffect } from "react";
+import { useEffect } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -27,141 +33,109 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/Popover";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 
-import type { EditorCommandId, EditorCommandState, EditorContextPopupAnchor } from "../types";
-
-interface EditorContextPopupProps {
-  anchor: EditorContextPopupAnchor | null;
-  commandState: EditorCommandState;
-  onClose: () => void;
-  onExecuteCommand: (commandId: EditorCommandId) => void;
-  open: boolean;
-}
+import type { EditorCommandId, EditorCommandState } from "../commands";
+import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
+import type { ContextPopupAnchor } from "../plugins/contextPopup";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
+  icon: LucideIcon;
 }
 
-const quickActionCommands: ContextButtonCommand[] = [
+interface ContextSubmenuCommand {
+  commandId: EditorCommandId;
+  icon?: LucideIcon;
+}
+
+const QUICK_ACTION_COMMANDS = [
   { commandId: "edit.cut", icon: ScissorsIcon },
   { commandId: "edit.copy", icon: CopyIcon },
   { commandId: "edit.paste", icon: ClipboardPasteIcon },
   { commandId: "edit.delete", icon: Trash2Icon },
-];
+] satisfies readonly ContextButtonCommand[];
 
-const inlineActionCommands: ContextButtonCommand[] = [
+const INLINE_ACTION_COMMANDS = [
   { commandId: "format.strong", icon: BoldIcon },
   { commandId: "format.emphasis", icon: ItalicIcon },
   { commandId: "format.inlineCode", icon: Code2Icon },
   { commandId: "insert.link", icon: Link2Icon },
-];
+] satisfies readonly ContextButtonCommand[];
 
-const blockFormattingCommands: ContextButtonCommand[] = [
+const BLOCK_FORMATTING_COMMANDS = [
   { commandId: "format.blockquote", icon: TextQuoteIcon },
   { commandId: "format.orderedList", icon: ListOrderedIcon },
   { commandId: "format.unorderedList", icon: ListIcon },
   { commandId: "format.taskList", icon: ListTodoIcon },
-];
+] satisfies readonly ContextButtonCommand[];
 
-const blockTypeCommands: EditorCommandId[] = [
-  "format.paragraph",
-  "format.heading1",
-  "format.heading2",
-  "format.heading3",
-  "format.heading4",
-  "format.heading5",
-  "format.heading6",
-];
+const BLOCK_TYPE_COMMANDS = [
+  { commandId: "format.paragraph", icon: PilcrowIcon },
+  { commandId: "format.heading1", icon: Heading1Icon },
+  { commandId: "format.heading2", icon: Heading2Icon },
+  { commandId: "format.heading3", icon: Heading3Icon },
+  { commandId: "format.heading4", icon: Heading4Icon },
+  { commandId: "format.heading5", icon: Heading5Icon },
+  { commandId: "format.heading6", icon: Heading6Icon },
+] satisfies readonly ContextSubmenuCommand[];
 
-const insertCommands: EditorCommandId[] = [
-  "insert.paragraph",
-  "insert.heading1",
-  "insert.heading2",
-  "insert.heading3",
-  "insert.heading4",
-  "insert.heading5",
-  "insert.heading6",
-  "insert.blockquote",
-  "insert.orderedList",
-  "insert.unorderedList",
-  "insert.taskList",
-  "insert.codeBlock",
-  "insert.table",
-  "insert.horizontalRule",
-];
+const INSERT_COMMANDS = [
+  { commandId: "insert.paragraph", icon: PilcrowIcon },
+  { commandId: "insert.heading1", icon: Heading1Icon },
+  { commandId: "insert.heading2", icon: Heading2Icon },
+  { commandId: "insert.heading3", icon: Heading3Icon },
+  { commandId: "insert.heading4", icon: Heading4Icon },
+  { commandId: "insert.heading5", icon: Heading5Icon },
+  { commandId: "insert.heading6", icon: Heading6Icon },
+  { commandId: "insert.blockquote", icon: TextQuoteIcon },
+  { commandId: "insert.orderedList", icon: ListOrderedIcon },
+  { commandId: "insert.unorderedList", icon: ListIcon },
+  { commandId: "insert.taskList", icon: ListTodoIcon },
+  { commandId: "insert.codeBlock", icon: Code2Icon },
+  { commandId: "insert.table", icon: TableIcon },
+  { commandId: "insert.horizontalRule", icon: MinusIcon },
+] satisfies readonly ContextSubmenuCommand[];
 
-const editorCommandLabels: Partial<Record<EditorCommandId, string>> = {
-  "edit.cut": "Cut",
-  "edit.copy": "Copy",
-  "edit.paste": "Paste",
-  "edit.delete": "Delete",
-  "format.strong": "Strong",
-  "format.emphasis": "Emphasis",
-  "format.inlineCode": "Inline code",
-  "format.blockquote": "Blockquote",
-  "format.orderedList": "Ordered list",
-  "format.unorderedList": "Unordered list",
-  "format.taskList": "Task list",
-  "format.paragraph": "Paragraph",
-  "format.heading1": "Heading 1",
-  "format.heading2": "Heading 2",
-  "format.heading3": "Heading 3",
-  "format.heading4": "Heading 4",
-  "format.heading5": "Heading 5",
-  "format.heading6": "Heading 6",
-  "insert.paragraph": "Paragraph",
-  "insert.heading1": "Heading 1",
-  "insert.heading2": "Heading 2",
-  "insert.heading3": "Heading 3",
-  "insert.heading4": "Heading 4",
-  "insert.heading5": "Heading 5",
-  "insert.heading6": "Heading 6",
-  "insert.link": "Link",
-  "insert.blockquote": "Blockquote",
-  "insert.orderedList": "Ordered list",
-  "insert.unorderedList": "Unordered list",
-  "insert.taskList": "Task list",
-  "insert.codeBlock": "Code block",
-  "insert.table": "Table",
-  "insert.horizontalRule": "Horizontal rule",
-};
+const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorCommandState) =>
+  commandState.status === "ready" && commandState.enabledCommands[commandId];
 
-const getEditorCommandLabel = (commandId: EditorCommandId) =>
-  editorCommandLabels[commandId] ?? commandId;
-
-const isCommandEnabled = (commandState: EditorCommandState, commandId: EditorCommandId) =>
-  Boolean(commandState.enabledCommands[commandId]);
+interface EditorContextPopupProps {
+  anchor: ContextPopupAnchor | null;
+  commandState: EditorCommandState;
+  onClose: () => void;
+  onExecute: (commandId: EditorCommandId) => void;
+}
 
 export function EditorContextPopup({
   anchor,
   commandState,
   onClose,
-  onExecuteCommand,
-  open,
+  onExecute,
 }: EditorContextPopupProps) {
+  const isOpen = anchor !== null;
+  const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
+
   useEffect(() => {
-    if (!open) {
+    if (!isOpen) {
       return undefined;
     }
 
-    const closeOnScroll = () => onClose();
+    const handleScroll = () => onClose();
 
-    document.addEventListener("scroll", closeOnScroll, true);
-
+    document.addEventListener("scroll", handleScroll, true);
     return () => {
-      document.removeEventListener("scroll", closeOnScroll, true);
+      document.removeEventListener("scroll", handleScroll, true);
     };
-  }, [onClose, open]);
+  }, [onClose, isOpen]);
 
   if (!anchor) {
     return null;
   }
 
   return (
-    <Popover open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
+    <Popover open={isOpen} onOpenChange={(nextIsOpen) => !nextIsOpen && onClose()}>
       <PopoverAnchor asChild>
         <span
           aria-hidden
@@ -178,36 +152,32 @@ export function EditorContextPopup({
         side="bottom"
         sideOffset={8}
       >
-        <TooltipProvider>
-          <ContextCommandRow
-            commands={quickActionCommands}
-            commandState={commandState}
-            onExecuteCommand={onExecuteCommand}
-          />
-          <ContextCommandRow
-            commands={inlineActionCommands}
-            commandState={commandState}
-            onExecuteCommand={onExecuteCommand}
-          />
-          <ContextCommandRow
-            commands={blockFormattingCommands}
-            commandState={commandState}
-            onExecuteCommand={onExecuteCommand}
-          />
-        </TooltipProvider>
-        <ContextCommandSubmenu
-          commandIds={blockTypeCommands}
-          commandState={commandState}
-          icon={TypeIcon}
-          label="Block type"
-          onExecuteCommand={onExecuteCommand}
+        <ContextCommandRow
+          commands={QUICK_ACTION_COMMANDS}
+          onExecute={onExecute}
+          canExecute={canExecute}
+        />
+        <ContextCommandRow
+          commands={INLINE_ACTION_COMMANDS}
+          onExecute={onExecute}
+          canExecute={canExecute}
+        />
+        <ContextCommandRow
+          commands={BLOCK_FORMATTING_COMMANDS}
+          onExecute={onExecute}
+          canExecute={canExecute}
         />
         <ContextCommandSubmenu
-          commandIds={insertCommands}
-          commandState={commandState}
-          icon={PlusIcon}
+          label="Block type"
+          commands={BLOCK_TYPE_COMMANDS}
+          onExecute={onExecute}
+          canExecute={canExecute}
+        />
+        <ContextCommandSubmenu
+          commands={INSERT_COMMANDS}
           label="Insert"
-          onExecuteCommand={onExecuteCommand}
+          onExecute={onExecute}
+          canExecute={canExecute}
         />
       </PopoverContent>
     </Popover>
@@ -215,17 +185,17 @@ export function EditorContextPopup({
 }
 
 interface ContextCommandRowProps {
-  commands: ContextButtonCommand[];
-  commandState: EditorCommandState;
-  onExecuteCommand: (commandId: EditorCommandId) => void;
+  commands: readonly ContextButtonCommand[];
+  onExecute: (commandId: EditorCommandId) => void;
+  canExecute: (commandId: EditorCommandId) => boolean;
 }
 
-function ContextCommandRow({ commands, commandState, onExecuteCommand }: ContextCommandRowProps) {
+function ContextCommandRow({ commands, onExecute, canExecute }: ContextCommandRowProps) {
   return (
     <div className="flex items-center gap-1" role="group">
       {commands.map(({ commandId, icon: Icon }) => {
-        const label = getEditorCommandLabel(commandId);
-        const enabled = isCommandEnabled(commandState, commandId);
+        const label = EDITOR_COMMAND_LABELS[commandId];
+        const enabled = canExecute(commandId);
 
         return (
           <Tooltip key={commandId}>
@@ -234,12 +204,12 @@ function ContextCommandRow({ commands, commandState, onExecuteCommand }: Context
                 aria-label={label}
                 className="size-8 rounded-sm"
                 disabled={!enabled}
-                onClick={() => onExecuteCommand(commandId)}
+                onClick={() => onExecute(commandId)}
                 size="icon"
                 type="button"
                 variant="ghost"
               >
-                <Icon aria-hidden className="size-5" />
+                <Icon className="size-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
@@ -253,19 +223,17 @@ function ContextCommandRow({ commands, commandState, onExecuteCommand }: Context
 }
 
 interface ContextCommandSubmenuProps {
-  commandIds: EditorCommandId[];
-  commandState: EditorCommandState;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
-  onExecuteCommand: (commandId: EditorCommandId) => void;
+  commands: readonly ContextSubmenuCommand[];
+  onExecute: (commandId: EditorCommandId) => void;
+  canExecute: (commandId: EditorCommandId) => boolean;
 }
 
 function ContextCommandSubmenu({
-  commandIds,
-  commandState,
-  icon: Icon,
   label,
-  onExecuteCommand,
+  commands,
+  onExecute,
+  canExecute,
 }: ContextCommandSubmenuProps) {
   return (
     <DropdownMenu>
@@ -275,9 +243,8 @@ function ContextCommandSubmenu({
           type="button"
           variant="ghost"
         >
-          <Icon aria-hidden className="size-4" />
           <span className="min-w-24 flex-1 text-left">{label}</span>
-          <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground" />
+          <ChevronRightIcon className="size-4 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -287,9 +254,9 @@ function ContextCommandSubmenu({
         sideOffset={8}
         onCloseAutoFocus={(event) => event.preventDefault()}
       >
-        {commandIds.map((commandId) => {
-          const label = getEditorCommandLabel(commandId);
-          const enabled = isCommandEnabled(commandState, commandId);
+        {commands.map(({ commandId, icon: CommandIcon }) => {
+          const label = EDITOR_COMMAND_LABELS[commandId];
+          const enabled = canExecute(commandId);
 
           return (
             <DropdownMenuItem
@@ -298,13 +265,13 @@ function ContextCommandSubmenu({
               key={commandId}
               onSelect={(event) => {
                 event.preventDefault();
-                onExecuteCommand(commandId);
+                onExecute(commandId);
               }}
             >
-              {commandId === "format.heading1" || commandId === "insert.heading1" ? (
-                <Heading1Icon aria-hidden className="size-4" />
+              {CommandIcon ? (
+                <CommandIcon className="size-4" />
               ) : (
-                <PilcrowIcon aria-hidden className="size-4 opacity-0" />
+                <PilcrowIcon className="size-4 opacity-0" />
               )}
               {label}
             </DropdownMenuItem>

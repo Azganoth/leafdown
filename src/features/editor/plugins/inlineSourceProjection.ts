@@ -1,22 +1,49 @@
 import { closeHistory } from "@milkdown/kit/prose/history";
-import type { Mark, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
+import type { Node as ProseMirrorNode, Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
+
+import { isRedoKey, isUndoKey } from "@/lib/input";
+import { isNonNullish } from "@/lib/predicates";
+
+import {
+  areProjectionMarksEqual,
+  createProjectionMarkDescriptor,
+  getProjectionDelimiterBounds,
+  getProjectionReplacement,
+  getSourceMarkers,
+  isProjectionMarkerText,
+  isProjectionMarkName,
+  normalizeProjectionSourceAfterEdit,
+  parseProjectionSource,
+  SUPPORTED_PROJECTION_MARK_NAMES,
+  type ParsedProjectionSource,
+  type ProjectionDelimiterBounds,
+  type ProjectionDelimiterSide,
+  type ProjectionEditContext,
+  type ProjectionEditKind,
+  type ProjectionMarkDescriptor,
+  type ProjectionReplacement,
+} from "../utils/inlineSourceSyntax";
+import {
+  getCandidateMarksAtSelection,
+  getMarkRangeAtSelection,
+  type ActiveMarkRange,
+} from "../utils/marks";
+import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
+import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
+
+const EMPTY_PROJECTION_STATE: InlineSourceProjectionPluginState = {
+  pendingCommit: null,
+  session: null,
+  suppressAt: null,
+};
 
 export const leafdownInlineSourceProjectionPluginKey =
   new PluginKey<InlineSourceProjectionPluginState>("leafdownInlineSourceProjection");
-
-interface TextRange {
-  from: number;
-  to: number;
-}
-
-interface ActiveMarkRange extends TextRange {
-  mark: Mark;
-}
 
 interface ActiveProjectionRange extends ActiveMarkRange {
   marks: ProjectionMarkDescriptor[];
@@ -43,68 +70,33 @@ interface InlineSourceProjectionPluginState {
   suppressAt: number | null;
 }
 
-interface ProjectionReplacement {
-  marks?: ProjectionMarkDescriptor[];
-  text: string;
-}
-
-type ProjectionMarkName = "emphasis" | "strong";
-type ProjectionEditKind = "delete" | "insert" | "replace";
-type ProjectionDelimiterSide = "closing" | "opening";
-
-interface ProjectionMarkDescriptor {
-  attrs: Record<string, unknown>;
-  markName: ProjectionMarkName;
-}
-
-interface ProjectionBoundaryDelimiters {
-  closing: string;
-  contentFrom: number;
-  contentTo: number;
-  marker: string;
-  opening: string;
-}
-
-interface ProjectionEditContext {
-  delimiterSide: ProjectionDelimiterSide | null;
-  kind: ProjectionEditKind;
-}
+type ProjectionHistoryDirection = "redo" | "undo";
 
 interface ProjectionSourceInsertionCandidate extends TextRange {
-  session: ProjectionSession;
+  marks: ProjectionMarkDescriptor[];
+  originalText: string;
   source: string;
 }
 
+interface ProjectionSessionInput {
+  from: number;
+  marks: ProjectionMarkDescriptor[];
+  originalSource: string;
+  originalText: string;
+}
+
 type ProjectionMeta =
-  | { session: ProjectionSession; type: "enter" }
-  | { session: ProjectionSession; type: "enterFromUserEdit" }
-  | { previousSource: string; type: "userEdit" }
-  | { currentSource: string; type: "localUndo" }
-  | { currentSource: string; type: "localRedo" }
+  | { type: "enter"; session: ProjectionSession }
+  | { type: "enterFromUserEdit"; session: ProjectionSession }
+  | { type: "userEdit"; previousSource: string }
+  | { type: "localUndo"; currentSource: string }
+  | { type: "localRedo"; currentSource: string }
   | {
+      type: "restoreBeforeCommit";
       pendingCommit: PendingProjectionCommit | null;
       suppressAt: number | null;
-      type: "finalizeRestore";
     }
-  | { suppressAt: number | null; type: "finalizeCommit" };
-
-type ParsedProjectionSource =
-  | {
-      closing: string;
-      marks: ProjectionMarkDescriptor[];
-      opening: string;
-      text: string;
-      type: "mark";
-    }
-  | { text: string; type: "literal" };
-
-const supportedProjectionMarkNames = ["strong", "emphasis"] as const;
-
-const emptyProjectionState: InlineSourceProjectionPluginState = {
-  pendingCommit: null,
-  session: null,
-  suppressAt: null,
-};
+  | { type: "commitAfterRestore"; suppressAt: number | null };
 
 export const createLeafdownInlineSourceProjectionPlugin = () =>
   $prose(
@@ -121,9 +113,9 @@ export const createLeafdownInlineSourceProjectionPlugin = () =>
             handleProjectionTextInput(view, from, to, text),
         },
         state: {
-          init: () => emptyProjectionState,
-          apply: (transaction, pluginState, oldState, newState) =>
-            applyProjectionTransaction(transaction, pluginState, oldState, newState),
+          init: () => EMPTY_PROJECTION_STATE,
+          apply: (transaction, pluginState, _oldState, newState) =>
+            applyProjectionTransaction(transaction, pluginState, newState),
         },
       }),
   );
@@ -135,7 +127,7 @@ export const finalizeInlineSourceProjection = (view: EditorView) => {
     return false;
   }
 
-  const transaction = createFinalizeRestoreTransaction(view.state, projectionState.session);
+  const transaction = createFinalizeProjectionTransaction(view.state, projectionState.session);
 
   if (!transaction) {
     return false;
@@ -147,39 +139,46 @@ export const finalizeInlineSourceProjection = (view: EditorView) => {
 };
 
 export const hasActiveInlineSourceProjection = (state: EditorState) =>
-  Boolean(getInlineSourceProjectionState(state).session);
+  getInlineSourceProjectionState(state).session !== null;
 
 export const hasTransientInlineSourceProjection = (state: EditorState) => {
   const projectionState = getInlineSourceProjectionState(state);
 
-  return Boolean(projectionState.session || projectionState.pendingCommit);
+  return projectionState.session !== null || projectionState.pendingCommit !== null;
 };
 
 export const canUndoInlineSourceProjection = (state: EditorState) => {
-  const session = getInlineSourceProjectionState(state).session;
+  const { session } = getInlineSourceProjectionState(state);
 
-  return Boolean(session && session.undoStack.length > 0);
+  return session !== null && session.undoStack.length > 0;
 };
 
 export const canRedoInlineSourceProjection = (state: EditorState) => {
-  const session = getInlineSourceProjectionState(state).session;
+  const { session } = getInlineSourceProjectionState(state);
 
-  return Boolean(session && session.redoStack.length > 0);
+  return session !== null && session.redoStack.length > 0;
 };
 
 export const canDeferInlineSourceProjectionToNativeHistory = (state: EditorState) => {
-  const session = getInlineSourceProjectionState(state).session;
+  const { session } = getInlineSourceProjectionState(state);
 
-  return Boolean(session && isCleanProjectionSession(state, session));
+  return session !== null && isCleanProjectionSession(state, session);
 };
 
-export const undoInlineSourceProjection = (view: EditorView) => {
-  const session = getInlineSourceProjectionState(view.state).session;
-  const source = session?.undoStack.at(-1);
+export const undoInlineSourceProjection = (view: EditorView) =>
+  runProjectionLocalHistory(view, "undo");
+
+export const redoInlineSourceProjection = (view: EditorView) =>
+  runProjectionLocalHistory(view, "redo");
+
+const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistoryDirection) => {
+  const { session } = getInlineSourceProjectionState(view.state);
 
   if (!session) {
     return false;
   }
+
+  const source = direction === "undo" ? session.undoStack.at(-1) : session.redoStack.at(-1);
 
   if (source === undefined) {
     if (isCleanProjectionSession(view.state, session)) {
@@ -193,10 +192,11 @@ export const undoInlineSourceProjection = (view: EditorView) => {
 
   const currentSource = getProjectionSource(view.state, session);
   const transaction = replaceProjectionSource(view.state, session, source);
+  const metaType = direction === "undo" ? "localUndo" : "localRedo";
 
   transaction.setMeta("addToHistory", false).setMeta(leafdownInlineSourceProjectionPluginKey, {
     currentSource,
-    type: "localUndo",
+    type: metaType,
   } satisfies ProjectionMeta);
 
   view.focus();
@@ -205,44 +205,16 @@ export const undoInlineSourceProjection = (view: EditorView) => {
   return true;
 };
 
-export const redoInlineSourceProjection = (view: EditorView) => {
-  const session = getInlineSourceProjectionState(view.state).session;
-  const source = session?.redoStack.at(-1);
-
-  if (!session) {
-    return false;
-  }
-
-  if (source === undefined) {
-    if (isCleanProjectionSession(view.state, session)) {
-      finalizeInlineSourceProjection(view);
-
-      return false;
-    }
-
-    return true;
-  }
-
-  const currentSource = getProjectionSource(view.state, session);
-  const transaction = replaceProjectionSource(view.state, session, source);
-
-  transaction.setMeta("addToHistory", false).setMeta(leafdownInlineSourceProjectionPluginKey, {
-    currentSource,
-    type: "localRedo",
-  } satisfies ProjectionMeta);
-
-  view.focus();
-  view.dispatch(transaction);
-
-  return true;
-};
-
-export const replaceInlineSourceProjectionSelection = (view: EditorView, text: string) => {
+export const pasteIntoInlineSourceProjection = (view: EditorView, text: string) => {
   const session = getInlineSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || !text || !isRangeInsideProjection(selection, session)) {
+  if (!session || !isRangeInsideProjection(selection, session)) {
     return false;
+  }
+
+  if (text.length === 0) {
+    return true;
   }
 
   view.focus();
@@ -261,12 +233,14 @@ export const isInlineSourceProjectionHousekeepingTransaction = (transaction: Tra
   const meta = getProjectionMeta(transaction);
 
   return (
-    meta?.type === "enter" || meta?.type === "finalizeRestore" || meta?.type === "finalizeCommit"
+    meta?.type === "enter" ||
+    meta?.type === "restoreBeforeCommit" ||
+    meta?.type === "commitAfterRestore"
   );
 };
 
 const getInlineSourceProjectionState = (state: EditorState) =>
-  leafdownInlineSourceProjectionPluginKey.getState(state) ?? emptyProjectionState;
+  leafdownInlineSourceProjectionPluginKey.getState(state) ?? EMPTY_PROJECTION_STATE;
 
 const getProjectionMeta = (transaction: Transaction) =>
   transaction.getMeta(leafdownInlineSourceProjectionPluginKey) as ProjectionMeta | undefined;
@@ -275,15 +249,15 @@ const appendProjectionTransaction = (state: EditorState) => {
   const projectionState = getInlineSourceProjectionState(state);
 
   if (projectionState.pendingCommit) {
-    return createFinalizeCommitTransaction(state, projectionState.pendingCommit);
+    return createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
   }
 
   if (projectionState.session) {
-    if (isSelectionInsideProjection(state.selection, projectionState.session)) {
+    if (isRangeInsideProjection(state.selection, projectionState.session)) {
       return null;
     }
 
-    return createFinalizeRestoreTransaction(state, projectionState.session);
+    return createFinalizeProjectionTransaction(state, projectionState.session);
   }
 
   if (!isCaretSelection(state)) {
@@ -296,13 +270,16 @@ const appendProjectionTransaction = (state: EditorState) => {
 
   const activeMarkRange = getActiveProjectionMarkRange(state);
 
-  return activeMarkRange ? createEnterProjectionTransaction(state, activeMarkRange) : null;
+  if (!activeMarkRange) {
+    return null;
+  }
+
+  return createEnterProjectionTransaction(state, activeMarkRange);
 };
 
 const applyProjectionTransaction = (
   transaction: Transaction,
   pluginState: InlineSourceProjectionPluginState,
-  oldState: EditorState,
   newState: EditorState,
 ): InlineSourceProjectionPluginState => {
   const meta = getProjectionMeta(transaction);
@@ -315,7 +292,7 @@ const applyProjectionTransaction = (
     };
   }
 
-  if (meta?.type === "finalizeRestore") {
+  if (meta?.type === "restoreBeforeCommit") {
     return {
       pendingCommit: meta.pendingCommit,
       session: null,
@@ -323,7 +300,7 @@ const applyProjectionTransaction = (
     };
   }
 
-  if (meta?.type === "finalizeCommit") {
+  if (meta?.type === "commitAfterRestore") {
     return {
       pendingCommit: null,
       session: null,
@@ -331,17 +308,16 @@ const applyProjectionTransaction = (
     };
   }
 
-  const session = pluginState.session
-    ? mapProjectionSession(pluginState.session, transaction)
-    : null;
   const suppressAt = getMappedSuppressPosition(pluginState.suppressAt, transaction);
 
-  if (!session) {
+  if (!pluginState.session) {
     return {
       ...pluginState,
       suppressAt,
     };
   }
+
+  const session = mapProjectionSession(pluginState.session, transaction);
 
   if (meta?.type === "userEdit") {
     const nextSource = getProjectionSource(newState, session);
@@ -384,15 +360,13 @@ const applyProjectionTransaction = (
     };
   }
 
-  if (transaction.docChanged && !isSelectionInsideProjection(newState.selection, session)) {
+  if (transaction.docChanged && !isRangeInsideProjection(newState.selection, session)) {
     return {
       pendingCommit: null,
       session: null,
       suppressAt,
     };
   }
-
-  void oldState;
 
   return {
     ...pluginState,
@@ -453,14 +427,12 @@ const createProjectionDecorations = (state: EditorState) => {
 const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
   [
     "leafdown-inline-source-projection__content",
-    marks.some((mark) => mark.markName === "strong")
-      ? "leafdown-inline-source-projection__content--strong"
-      : null,
-    marks.some((mark) => mark.markName === "emphasis")
-      ? "leafdown-inline-source-projection__content--emphasis"
-      : null,
+    marks.some((mark) => mark.markName === "strong") &&
+      "leafdown-inline-source-projection__content--strong",
+    marks.some((mark) => mark.markName === "emphasis") &&
+      "leafdown-inline-source-projection__content--emphasis",
   ]
-    .filter(Boolean)
+    .filter(isNonNullish)
     .join(" ");
 
 const handleProjectionTextInput = (view: EditorView, from: number, to: number, text: string) => {
@@ -521,7 +493,12 @@ const handleProjectionSourceTextInput = (
     .setSelection(TextSelection.create(transaction.doc, candidate.from + text.length))
     .setStoredMarks([])
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
-      session: candidate.session,
+      session: createProjectionSession({
+        from: candidate.from,
+        marks: candidate.marks,
+        originalSource: candidate.source,
+        originalText: candidate.originalText,
+      }),
       type: "enterFromUserEdit",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -531,7 +508,79 @@ const handleProjectionSourceTextInput = (
   return true;
 };
 
-const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: unknown) => {
+const getProjectionSourceInsertionCandidate = (
+  state: EditorState,
+  position: number,
+  markerText: string,
+): ProjectionSourceInsertionCandidate | null => {
+  if (markerText.length !== 1) {
+    return null;
+  }
+
+  const $position = state.doc.resolve(position);
+
+  if (!$position.parent.isTextblock) {
+    return null;
+  }
+
+  const textAfter = getTextBetween(
+    $position.parent,
+    $position.parentOffset,
+    $position.parent.content.size,
+  );
+  const closingMarkerIndex = textAfter.indexOf(markerText);
+
+  if (closingMarkerIndex <= 0) {
+    return null;
+  }
+
+  const source = `${markerText}${textAfter.slice(0, closingMarkerIndex + markerText.length)}`;
+  const parsed = parseProjectionSource(source);
+
+  if (parsed.type !== "mark") {
+    return null;
+  }
+
+  const to = position + source.length - markerText.length;
+
+  if (!isPlainTextRange(state, position, to)) {
+    return null;
+  }
+
+  return {
+    from: position,
+    marks: parsed.marks,
+    originalText: parsed.text,
+    source,
+    to,
+  };
+};
+
+const isPlainTextRange = (state: EditorState, from: number, to: number) => {
+  let isPlain = true;
+
+  state.doc.nodesBetween(from, to, (node) => {
+    if (node.isText) {
+      if (node.marks.length > 0) {
+        isPlain = false;
+        return false;
+      }
+
+      return true;
+    }
+
+    if (node.isInline) {
+      isPlain = false;
+      return false;
+    }
+
+    return true;
+  });
+
+  return isPlain;
+};
+
+const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: Slice) => {
   const session = getInlineSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
@@ -539,7 +588,9 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: u
     return false;
   }
 
-  const text = event.clipboardData?.getData("text/plain") ?? getTextFromClipboardSlice(slice) ?? "";
+  const text =
+    event.clipboardData?.getData("text/plain") ??
+    getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER);
 
   if (!text) {
     return false;
@@ -550,17 +601,6 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: u
 
   return true;
 };
-
-const getTextFromClipboardSlice = (slice: unknown) =>
-  typeof slice === "object" &&
-  slice !== null &&
-  "content" in slice &&
-  typeof slice.content === "object" &&
-  slice.content !== null &&
-  "textBetween" in slice.content &&
-  typeof slice.content.textBetween === "function"
-    ? String(slice.content.textBetween(0, Number.MAX_SAFE_INTEGER, "\n", "\n"))
-    : null;
 
 const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   const session = getInlineSourceProjectionState(view.state).session;
@@ -678,9 +718,9 @@ const getProjectionEdit = (
   );
 
   if (kind === "insert" && !isProjectionMarkerText(text)) {
-    const delimiters = getProjectionBoundaryDelimiters(source);
-    const remappedPosition = delimiters
-      ? getContentBoundaryInsertionPosition(delimiters, normalizedFrom)
+    const bounds = getProjectionDelimiterBounds(source);
+    const remappedPosition = bounds
+      ? getContentBoundaryInsertionPosition(bounds, normalizedFrom)
       : normalizedFrom;
 
     return {
@@ -703,18 +743,18 @@ const getProjectionEditedDelimiterSide = (
   to: number,
   text: string,
 ): ProjectionDelimiterSide | null => {
-  const delimiters = getProjectionBoundaryDelimiters(source);
+  const bounds = getProjectionDelimiterBounds(source);
 
-  if (!delimiters) {
+  if (!bounds) {
     return null;
   }
 
   if (isProjectionMarkerText(text) && from === to) {
-    if (from <= delimiters.contentFrom) {
+    if (from <= bounds.contentFrom) {
       return "opening";
     }
 
-    if (from >= delimiters.contentTo) {
+    if (from >= bounds.contentTo) {
       return "closing";
     }
 
@@ -722,11 +762,11 @@ const getProjectionEditedDelimiterSide = (
   }
 
   if (text.length === 0) {
-    if (from < delimiters.contentFrom) {
+    if (from < bounds.contentFrom) {
       return "opening";
     }
 
-    if (to > delimiters.contentTo) {
+    if (to > bounds.contentTo) {
       return "closing";
     }
   }
@@ -735,99 +775,34 @@ const getProjectionEditedDelimiterSide = (
 };
 
 const getContentBoundaryInsertionPosition = (
-  delimiters: ProjectionBoundaryDelimiters,
+  bounds: ProjectionDelimiterBounds,
   position: number,
 ) => {
-  if (position <= delimiters.contentFrom) {
-    return delimiters.contentFrom;
+  if (position <= bounds.contentFrom) {
+    return bounds.contentFrom;
   }
 
-  if (position >= delimiters.contentTo) {
-    return delimiters.contentTo;
+  if (position >= bounds.contentTo) {
+    return bounds.contentTo;
   }
 
   return position;
 };
 
-const getProjectionSourceInsertionCandidate = (
-  state: EditorState,
-  position: number,
-  markerText: string,
-): ProjectionSourceInsertionCandidate | null => {
-  if (markerText.length !== 1) {
-    return null;
-  }
-
-  const $position = state.doc.resolve(position);
-
-  if (!$position.parent.isTextblock) {
-    return null;
-  }
-
-  const textAfter = $position.parent.textBetween(
-    $position.parentOffset,
-    $position.parent.content.size,
-    "\n",
-    "\n",
-  );
-  const closingMarkerIndex = textAfter.indexOf(markerText);
-
-  if (closingMarkerIndex <= 0) {
-    return null;
-  }
-
-  const source = `${markerText}${textAfter.slice(0, closingMarkerIndex + markerText.length)}`;
-  const parsed = parseProjectionSource(source);
-
-  if (parsed.type !== "mark") {
-    return null;
-  }
-
-  const to = position + source.length - markerText.length;
-
-  if (!isPlainTextRange(state, position, to)) {
-    return null;
-  }
-
-  return {
-    from: position,
-    session: {
-      from: position,
-      marks: parsed.marks,
-      originalSource: source,
-      originalText: parsed.text,
-      redoStack: [],
-      to: position + source.length,
-      undoStack: [],
-    },
-    source,
-    to,
-  };
-};
-
-const isPlainTextRange = (state: EditorState, from: number, to: number) => {
-  let isPlain = true;
-
-  state.doc.nodesBetween(from, to, (node) => {
-    if (node.isText) {
-      if (node.marks.length > 0) {
-        isPlain = false;
-        return false;
-      }
-
-      return true;
-    }
-
-    if (node.isInline) {
-      isPlain = false;
-      return false;
-    }
-
-    return true;
-  });
-
-  return isPlain;
-};
+const createProjectionSession = ({
+  from,
+  marks,
+  originalSource,
+  originalText,
+}: ProjectionSessionInput): ProjectionSession => ({
+  from,
+  marks,
+  originalSource,
+  originalText,
+  redoStack: [],
+  to: from + originalSource.length,
+  undoStack: [],
+});
 
 const getDeletionRange = (
   state: EditorState,
@@ -860,15 +835,17 @@ const getPreviousCharacterRange = (
     return null;
   }
 
-  const textBefore = state.doc.textBetween(session.from, position, "\n", "\n");
+  const textBefore = getTextBetween(state.doc, session.from, position);
   const character = Array.from(textBefore).at(-1);
 
-  return character
-    ? {
-        from: position - character.length,
-        to: position,
-      }
-    : null;
+  if (!character) {
+    return null;
+  }
+
+  return {
+    from: position - character.length,
+    to: position,
+  };
 };
 
 const getNextCharacterRange = (
@@ -880,19 +857,21 @@ const getNextCharacterRange = (
     return null;
   }
 
-  const textAfter = state.doc.textBetween(position, session.to, "\n", "\n");
+  const textAfter = getTextBetween(state.doc, position, session.to);
   const character = Array.from(textAfter)[0];
 
-  return character
-    ? {
-        from: position,
-        to: position + character.length,
-      }
-    : null;
+  if (!character) {
+    return null;
+  }
+
+  return {
+    from: position,
+    to: position + character.length,
+  };
 };
 
 const createEnterProjectionTransaction = (state: EditorState, range: ActiveProjectionRange) => {
-  const originalText = state.doc.textBetween(range.from, range.to, "\n", "\n");
+  const originalText = getRangeText(state.doc, range);
   const sourceMarkers = getSourceMarkers(range.marks);
   const originalSource = `${sourceMarkers.opening}${originalText}${sourceMarkers.closing}`;
   const selectionOffset = Math.min(
@@ -900,15 +879,12 @@ const createEnterProjectionTransaction = (state: EditorState, range: ActiveProje
     originalText.length,
   );
   const selectionPosition = range.from + sourceMarkers.opening.length + selectionOffset;
-  const session = {
+  const session = createProjectionSession({
     from: range.from,
     marks: range.marks,
     originalSource,
     originalText,
-    redoStack: [],
-    to: range.from + originalSource.length,
-    undoStack: [],
-  } satisfies ProjectionSession;
+  });
   const transaction = state.tr
     .replaceWith(range.to, range.to, state.schema.text(sourceMarkers.closing))
     .replaceWith(range.from, range.from, state.schema.text(sourceMarkers.opening));
@@ -926,14 +902,14 @@ const createEnterProjectionTransaction = (state: EditorState, range: ActiveProje
   return transaction;
 };
 
-const createFinalizeRestoreTransaction = (
+const createFinalizeProjectionTransaction = (
   state: EditorState,
   session: ProjectionSession,
 ): Transaction | null => {
   const source = getProjectionSource(state, session);
   const parsed = parseProjectionSource(source);
-  const replacement = getProjectionReplacement(parsed, source);
-  const shouldSuppressProjectionAtSelection = isSelectionInsideProjection(state.selection, session);
+  const replacement = getProjectionReplacement(parsed);
+  const shouldSuppressProjectionAtSelection = isRangeInsideProjection(state.selection, session);
   const restoreSelection = getMappedFinalizeSelection(
     state.selection,
     session,
@@ -952,7 +928,7 @@ const createFinalizeRestoreTransaction = (
       : null;
 
   if (source === session.originalSource && parsed.type === "mark") {
-    return createCleanFinalizeRestoreTransaction(
+    return createCleanFinalizeProjectionTransaction(
       state,
       session,
       parsed,
@@ -961,6 +937,39 @@ const createFinalizeRestoreTransaction = (
     );
   }
 
+  return createRestoreBeforeCommitTransaction({
+    commitSelection,
+    replacement,
+    restoreSelection,
+    session,
+    shouldSuppressProjectionAtSelection,
+    source,
+    state,
+    suppressAt,
+  });
+};
+
+interface RestoreBeforeCommitTransactionInput {
+  commitSelection: { anchor: number; head: number };
+  replacement: ProjectionReplacement;
+  restoreSelection: { anchor: number; head: number };
+  session: ProjectionSession;
+  shouldSuppressProjectionAtSelection: boolean;
+  source: string;
+  state: EditorState;
+  suppressAt: number | null;
+}
+
+const createRestoreBeforeCommitTransaction = ({
+  commitSelection,
+  replacement,
+  restoreSelection,
+  session,
+  shouldSuppressProjectionAtSelection,
+  source,
+  state,
+  suppressAt,
+}: RestoreBeforeCommitTransactionInput) => {
   const pendingCommit =
     source === session.originalSource
       ? null
@@ -991,14 +1000,14 @@ const createFinalizeRestoreTransaction = (
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       pendingCommit,
       suppressAt,
-      type: "finalizeRestore",
+      type: "restoreBeforeCommit",
     } satisfies ProjectionMeta)
     .scrollIntoView();
 
   return transaction;
 };
 
-const createCleanFinalizeRestoreTransaction = (
+const createCleanFinalizeProjectionTransaction = (
   state: EditorState,
   session: ProjectionSession,
   parsed: Extract<ParsedProjectionSource, { type: "mark" }>,
@@ -1029,28 +1038,30 @@ const createCleanFinalizeRestoreTransaction = (
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       pendingCommit: null,
       suppressAt,
-      type: "finalizeRestore",
+      type: "restoreBeforeCommit",
     } satisfies ProjectionMeta)
     .scrollIntoView();
 
   return transaction;
 };
 
-const createFinalizeCommitTransaction = (
+const createCommitAfterRestoreTransaction = (
   state: EditorState,
   pendingCommit: PendingProjectionCommit,
 ) => {
-  const transaction = replaceProjectionRange(
-    state.tr,
-    pendingCommit.from,
-    pendingCommit.to,
-    pendingCommit.replacement.marks
+  const replacement =
+    pendingCommit.replacement.type === "marked"
       ? getMarkedTextReplacement(
           state,
           pendingCommit.replacement.text,
           pendingCommit.replacement.marks,
         )
-      : getLiteralTextReplacement(state, pendingCommit.replacement.text),
+      : getLiteralTextReplacement(state, pendingCommit.replacement.text);
+  const transaction = replaceProjectionRange(
+    state.tr,
+    pendingCommit.from,
+    pendingCommit.to,
+    replacement,
   );
 
   transaction
@@ -1064,7 +1075,7 @@ const createFinalizeCommitTransaction = (
     .setStoredMarks([])
     .setMeta(leafdownInlineSourceProjectionPluginKey, {
       suppressAt: pendingCommit.suppressAt,
-      type: "finalizeCommit",
+      type: "commitAfterRestore",
     } satisfies ProjectionMeta)
     .scrollIntoView();
 
@@ -1140,273 +1151,66 @@ const replaceProjectionRange = (
   from: number,
   to: number,
   replacement: ProseMirrorNode | null,
-) => (replacement ? transaction.replaceWith(from, to, replacement) : transaction.delete(from, to));
+) => {
+  if (!replacement) {
+    return transaction.delete(from, to);
+  }
+
+  return transaction.replaceWith(from, to, replacement);
+};
 
 const getMarkedTextReplacement = (
   state: EditorState,
   text: string,
   marks: ProjectionMarkDescriptor[],
-) =>
-  text.length > 0
-    ? state.schema.text(
-        text,
-        marks.map((mark) => state.schema.marks[mark.markName].create(mark.attrs)),
-      )
-    : null;
-
-const getLiteralTextReplacement = (state: EditorState, text: string) =>
-  text.length > 0 ? state.schema.text(text) : null;
-
-const getProjectionReplacement = (
-  parsed: ParsedProjectionSource,
-  source: string,
-): ProjectionReplacement =>
-  parsed.type === "mark"
-    ? {
-        marks: parsed.marks,
-        text: parsed.text,
-      }
-    : {
-        text: source,
-      };
-
-const normalizeProjectionSourceAfterEdit = (source: string, context: ProjectionEditContext) =>
-  getNormalizedDelimitedProjectionSource(source, context) ?? source;
-
-const parseProjectionSource = (source: string): ParsedProjectionSource => {
-  const nested = parseNestedProjectionSource(source);
-
-  if (nested) {
-    return nested;
-  }
-
-  const delimited = parseDelimitedProjectionSource(source);
-
-  if (delimited) {
-    return delimited;
-  }
-
-  return {
-    text: source,
-    type: "literal",
-  };
-};
-
-const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource | null => {
-  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/u.exec(source);
-
-  if (!match?.groups) {
-    return null;
-  }
-
-  const { opening, text, closing } = match.groups;
-
-  if (
-    opening.length !== closing.length ||
-    getMarkerCharacterFromSyntax(opening) !== getMarkerCharacterFromSyntax(closing)
-  ) {
-    return null;
-  }
-
-  return createDelimitedProjectionSource(opening, closing, text, opening.length);
-};
-
-const getNormalizedDelimitedProjectionSource = (source: string, context: ProjectionEditContext) => {
-  const delimiters = getProjectionBoundaryDelimiters(source);
-
-  if (!delimiters || !delimiters.closing || delimiters.contentFrom >= delimiters.contentTo) {
-    return null;
-  }
-
-  const markerCount = getNormalizedMarkerCount(delimiters, context);
-
-  if (markerCount < 1 || markerCount > 3) {
-    return null;
-  }
-
-  const normalizedMarker = delimiters.marker.repeat(markerCount);
-  const text = source.slice(delimiters.contentFrom, delimiters.contentTo);
-
-  return `${normalizedMarker}${text}${normalizedMarker}`;
-};
-
-const getNormalizedMarkerCount = (
-  delimiters: ProjectionBoundaryDelimiters,
-  context: ProjectionEditContext,
 ) => {
-  if (context.delimiterSide === "opening") {
-    return Math.min(delimiters.opening.length, 3);
-  }
-
-  if (context.delimiterSide === "closing") {
-    return Math.min(delimiters.closing.length, 3);
-  }
-
-  return context.kind === "insert"
-    ? Math.min(Math.max(delimiters.opening.length, delimiters.closing.length), 3)
-    : Math.min(delimiters.opening.length, delimiters.closing.length, 3);
-};
-
-const createDelimitedProjectionSource = (
-  opening: string,
-  closing: string,
-  text: string,
-  markerCount: number,
-): ParsedProjectionSource | null => {
-  if (markerCount === 1) {
-    return {
-      closing,
-      marks: [createProjectionMarkDescriptor("emphasis", opening)],
-      opening,
-      text,
-      type: "mark",
-    };
-  }
-
-  if (markerCount === 2) {
-    return {
-      closing,
-      marks: [createProjectionMarkDescriptor("strong", opening)],
-      opening,
-      text,
-      type: "mark",
-    };
-  }
-
-  if (markerCount === 3) {
-    return {
-      closing,
-      marks: [
-        createProjectionMarkDescriptor("strong", opening),
-        createProjectionMarkDescriptor("emphasis", opening),
-      ],
-      opening,
-      text,
-      type: "mark",
-    };
-  }
-
-  return null;
-};
-
-const parseNestedProjectionSource = (source: string): ParsedProjectionSource | null => {
-  for (const strongMarker of ["**", "__"] as const) {
-    for (const emphasisMarker of ["*", "_"] as const) {
-      const strongOuterText = getWrappedText(
-        source,
-        `${strongMarker}${emphasisMarker}`,
-        `${emphasisMarker}${strongMarker}`,
-      );
-
-      if (strongOuterText !== null) {
-        return {
-          closing: `${emphasisMarker}${strongMarker}`,
-          marks: [
-            createProjectionMarkDescriptor("strong", strongMarker),
-            createProjectionMarkDescriptor("emphasis", emphasisMarker),
-          ],
-          opening: `${strongMarker}${emphasisMarker}`,
-          text: strongOuterText,
-          type: "mark",
-        };
-      }
-
-      const emphasisOuterText = getWrappedText(
-        source,
-        `${emphasisMarker}${strongMarker}`,
-        `${strongMarker}${emphasisMarker}`,
-      );
-
-      if (emphasisOuterText !== null) {
-        return {
-          closing: `${strongMarker}${emphasisMarker}`,
-          marks: [
-            createProjectionMarkDescriptor("strong", strongMarker),
-            createProjectionMarkDescriptor("emphasis", emphasisMarker),
-          ],
-          opening: `${emphasisMarker}${strongMarker}`,
-          text: emphasisOuterText,
-          type: "mark",
-        };
-      }
-    }
-  }
-
-  return null;
-};
-
-const getWrappedText = (source: string, opening: string, closing: string) => {
-  if (
-    source.length <= opening.length + closing.length ||
-    !source.startsWith(opening) ||
-    !source.endsWith(closing)
-  ) {
+  if (text.length === 0) {
     return null;
   }
 
-  return source.slice(opening.length, source.length - closing.length);
+  return state.schema.text(
+    text,
+    marks.map((mark) => state.schema.marks[mark.markName].create(mark.attrs)),
+  );
 };
 
-const getProjectionBoundaryDelimiters = (source: string): ProjectionBoundaryDelimiters | null => {
-  const openingMatch = /^(?<opening>\*+|_+)/u.exec(source);
-
-  if (!openingMatch?.groups) {
+const getLiteralTextReplacement = (state: EditorState, text: string) => {
+  if (text.length === 0) {
     return null;
   }
 
-  const opening = openingMatch.groups.opening;
-  const marker = getMarkerCharacterFromSyntax(opening);
-  const closingMatch = /(\*+|_+)$/u.exec(source.slice(opening.length));
-  const closing = closingMatch?.[0] ?? "";
-
-  if (closing && getMarkerCharacterFromSyntax(closing) !== marker) {
-    return null;
-  }
-
-  return {
-    closing,
-    contentFrom: opening.length,
-    contentTo: source.length - closing.length,
-    marker,
-    opening,
-  };
+  return state.schema.text(text);
 };
-
-const getMarkerCharacterFromSyntax = (markerSyntax: string) =>
-  markerSyntax.startsWith("_") ? "_" : "*";
-
-const isProjectionMarkerText = (text: string) => /^[*_]+$/u.test(text);
-
-const createProjectionMarkDescriptor = (
-  markName: ProjectionMarkName,
-  markerSyntax: string,
-): ProjectionMarkDescriptor => ({
-  attrs: { marker: getMarkerCharacterFromSyntax(markerSyntax) },
-  markName,
-});
 
 const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange | null => {
   const { selection } = state;
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!isTextCaretSelection(selection)) {
     return null;
   }
 
-  const candidateMarks = [
-    ...(state.storedMarks ?? []),
-    ...selection.$from.marks(),
-    ...(selection.$from.nodeBefore?.marks ?? []),
-    ...(selection.$from.nodeAfter?.marks ?? []),
-  ];
-  for (const activeMark of supportedProjectionMarkNames
-    .map((markName) =>
-      candidateMarks.find((mark) => mark.type.name === markName && state.schema.marks[markName]),
-    )
-    .filter((mark): mark is Mark => Boolean(mark))) {
-    const range = getMarkRangeAtSelection(state, activeMark);
-    const marks = range ? getProjectionMarksForRange(state, range) : null;
+  const candidateMarks = getCandidateMarksAtSelection(state);
 
-    if (range && marks) {
+  for (const markName of SUPPORTED_PROJECTION_MARK_NAMES) {
+    const markType = state.schema.marks[markName];
+    if (!markType) {
+      continue;
+    }
+
+    const activeMark = candidateMarks.find((mark) => mark.type === markType) ?? null;
+
+    if (!activeMark) {
+      continue;
+    }
+
+    const range = getMarkRangeAtSelection(state, activeMark);
+    if (!range) {
+      continue;
+    }
+
+    const marks = getProjectionMarksForRange(state, range);
+
+    if (marks) {
       return {
         ...range,
         marks,
@@ -1415,67 +1219,6 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
   }
 
   return null;
-};
-
-const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
-  const { selection } = state;
-
-  if (!(selection instanceof TextSelection)) {
-    return null;
-  }
-
-  const { $from } = selection;
-  const parent = $from.parent;
-  const cursorOffset = $from.parentOffset;
-  const markedRanges: TextRange[] = [];
-
-  parent.forEach((node, offset) => {
-    if (!mark.isInSet(node.marks)) {
-      return;
-    }
-
-    markedRanges.push({
-      from: offset,
-      to: offset + node.nodeSize,
-    });
-  });
-
-  const activeRange = markedRanges.find(
-    (range) => range.from <= cursorOffset && cursorOffset <= range.to,
-  );
-
-  if (!activeRange) {
-    return null;
-  }
-
-  let from = activeRange.from;
-  let to = activeRange.to;
-
-  for (let index = markedRanges.indexOf(activeRange) - 1; index >= 0; index -= 1) {
-    const range = markedRanges[index];
-
-    if (range.to !== from) {
-      break;
-    }
-
-    from = range.from;
-  }
-
-  for (let index = markedRanges.indexOf(activeRange) + 1; index < markedRanges.length; index += 1) {
-    const range = markedRanges[index];
-
-    if (range.from !== to) {
-      break;
-    }
-
-    to = range.to;
-  }
-
-  return {
-    from: $from.start() + from,
-    mark,
-    to: $from.start() + to,
-  };
 };
 
 const getProjectionMarksForRange = (
@@ -1518,32 +1261,16 @@ const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDe
     return [];
   }
 
-  return supportedProjectionMarkNames.flatMap((markName) => {
+  return SUPPORTED_PROJECTION_MARK_NAMES.flatMap((markName) => {
     const mark = node.marks.find((candidateMark) => candidateMark.type.name === markName);
 
-    return mark ? [{ attrs: { ...mark.attrs }, markName }] : [];
+    if (!mark) {
+      return [];
+    }
+
+    return [createProjectionMarkDescriptor(markName, mark.attrs)];
   });
 };
-
-const isProjectionMarkName = (markName: string): markName is ProjectionMarkName =>
-  supportedProjectionMarkNames.includes(markName as ProjectionMarkName);
-
-const areProjectionMarksEqual = (
-  left: ProjectionMarkDescriptor[],
-  right: ProjectionMarkDescriptor[],
-) =>
-  left.length === right.length &&
-  left.every(
-    (leftMark, index) =>
-      leftMark.markName === right[index]?.markName &&
-      getMarkerCharacter(leftMark.attrs) === getMarkerCharacter(right[index]?.attrs ?? {}),
-  );
-
-const isCaretSelection = (state: EditorState) =>
-  state.selection instanceof TextSelection && state.selection.empty;
-
-const isSelectionInsideProjection = (selection: Selection, session: ProjectionSession) =>
-  isRangeInsideProjection(selection, session);
 
 const isRangeInsideProjection = (range: TextRange, session: ProjectionSession) =>
   session.from <= range.from && range.to <= session.to;
@@ -1561,43 +1288,7 @@ const mapProjectionSession = (session: ProjectionSession, transaction: Transacti
 };
 
 const getProjectionSource = (state: EditorState, session: ProjectionSession) =>
-  state.doc.textBetween(session.from, session.to, "\n", "\n");
+  getRangeText(state.doc, session);
 
 const isCleanProjectionSession = (state: EditorState, session: ProjectionSession) =>
   getProjectionSource(state, session) === session.originalSource;
-
-const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
-  const strong = marks.find((mark) => mark.markName === "strong");
-  const emphasis = marks.find((mark) => mark.markName === "emphasis");
-
-  if (strong && emphasis) {
-    const strongMarker = getSourceMarker("strong", getMarkerCharacter(strong.attrs));
-    const emphasisMarker = getSourceMarker("emphasis", getMarkerCharacter(emphasis.attrs));
-
-    return {
-      closing: `${strongMarker}${emphasisMarker}`,
-      opening: `${emphasisMarker}${strongMarker}`,
-    };
-  }
-
-  const mark = marks[0];
-  const marker = mark ? getSourceMarker(mark.markName, getMarkerCharacter(mark.attrs)) : "";
-
-  return {
-    closing: marker,
-    opening: marker,
-  };
-};
-
-const getMarkerCharacter = (attrs: Record<string, unknown>) =>
-  String(attrs.marker ?? "*") === "_" ? "_" : "*";
-
-const getSourceMarker = (markName: ProjectionMarkName, marker: string) =>
-  markName === "strong" ? marker.repeat(2) : marker;
-
-const isUndoKey = (event: KeyboardEvent) =>
-  (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey;
-
-const isRedoKey = (event: KeyboardEvent) =>
-  (event.ctrlKey || event.metaKey) &&
-  (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey));

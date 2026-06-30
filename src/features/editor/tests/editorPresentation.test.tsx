@@ -1,29 +1,23 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
 
-import { waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { getEditorDomElement } from "@/test/utils/prosemirror";
+import { waitFor } from "@/test/utils/react";
 
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
-
-const mountedEditors: MountedMilkdownEditor[] = [];
+const mountEditor = setupMilkdownEditorMount();
 const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
 
-const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown, {
-    rootClassName: "leafdown-editor",
+const mountStyledEditor = (initialMarkdown: string) =>
+  mountEditor(initialMarkdown, {
+    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
   });
-  mountedEditors.push(mounted);
-  return mounted;
-};
 
 describe("Editor presentation", () => {
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
-  });
-
   it("renders supported editor blocks with styleable ProseMirror structure", async () => {
-    const mounted = await mountEditor(`# Heading
+    const mounted = await mountStyledEditor(`# Heading
 
 Paragraph with \`inline code\`.
 
@@ -44,7 +38,7 @@ const value = 1;
     const { dom } = mounted.view;
     const editorCss = readFileSync(editorCssPath, "utf8");
 
-    expect(mounted.root).toHaveClass("leafdown-editor");
+    expect(mounted.root).toHaveClass(EDITOR_TEST_ROOT_CLASS_NAME);
     expect(dom.querySelector("h1")).toHaveTextContent("Heading");
     expect(dom.querySelector("p")).toHaveTextContent("Paragraph");
     expect(dom.querySelector("blockquote")).toHaveTextContent("Quote");
@@ -65,28 +59,41 @@ const value = 1;
     expect(editorCss).toContain("&[data-checked] {");
   });
 
+  it("keeps raw HTML code-like styling targetable from the editor root", async () => {
+    const mounted = await mountStyledEditor("<div>Block</div>");
+    const htmlNode = getEditorDomElement(mounted, '[data-type="html"]');
+    const editorCss = readFileSync(editorCssPath, "utf8");
+
+    expect(mounted.getMarkdown()).toBe("<div>Block</div>\n");
+    expect(htmlNode.closest(".leafdown-editor")).toBe(mounted.root);
+    expect(editorCss).toContain('& [data-type="html"] {');
+    expect(editorCss).toContain("font-mono");
+    expect(editorCss).toContain("bg-muted");
+    expect(editorCss).toContain("text-muted-foreground");
+  });
+
   it("adds bundled Shiki decorations to supported code block languages", async () => {
-    const mounted = await mountEditor(`\`\`\`ts
+    const mounted = await mountStyledEditor(`\`\`\`ts
 const value: number = 1;
 \`\`\``);
 
     await waitFor(
       () => {
-        expect(mounted.view.dom.querySelector(".shiki")).toBeInTheDocument();
+        expect(getEditorDomElement(mounted, ".shiki")).toBeInTheDocument();
       },
       { timeout: 10_000 },
     );
 
-    const shikiToken = mounted.view.dom.querySelector<HTMLElement>(".shiki");
+    const shikiToken = getEditorDomElement<HTMLElement>(mounted, ".shiki");
 
     expect(mounted.view.dom.querySelector("pre[data-language='ts']")).toHaveTextContent(
       "const value",
     );
-    expect(shikiToken?.getAttribute("style")).toContain("color");
+    expect(shikiToken.getAttribute("style")).toContain("color");
   });
 
   it("keeps unknown code block languages editable without requiring remote assets", async () => {
-    const mounted = await mountEditor(`\`\`\`leafdown-unknown
+    const mounted = await mountStyledEditor(`\`\`\`leafdown-unknown
 value
 \`\`\``);
 
@@ -97,7 +104,7 @@ value
   });
 
   it("keeps code-block soft wrap as CSS-only presentation", async () => {
-    const mounted = await mountEditor(`\`\`\`ts
+    const mounted = await mountStyledEditor(`\`\`\`ts
 const value = 1;
 \`\`\``);
     const markdown = mounted.getMarkdown();

@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 
 import { createSonnerMock } from "../mocks/sonner";
 import {
@@ -11,6 +11,7 @@ import {
   createTauriWebviewMock,
   createTauriWindowMock,
 } from "../mocks/tauri";
+import { resetTauriMocks } from "../utils/tauri";
 
 vi.mock("@tauri-store/zustand", () => createTauriStoreMock());
 vi.mock("@tauri-apps/api/app", () => createTauriAppMock());
@@ -21,3 +22,10 @@ vi.mock("@tauri-apps/api/window", () => createTauriWindowMock());
 vi.mock("@tauri-apps/plugin-dialog", () => createTauriDialogMock());
 vi.mock("@tauri-apps/plugin-opener", () => createTauriOpenerMock());
 vi.mock("sonner", () => createSonnerMock());
+
+beforeEach(async () => {
+  const { resetAppStores } = await import("../utils/appStores");
+
+  resetTauriMocks();
+  resetAppStores();
+});

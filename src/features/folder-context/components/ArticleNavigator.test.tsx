@@ -1,18 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderWithUser, screen } from "@/test/utils/react";
+import { createEmptyFolderContext, createFolderContext } from "@/test/factories/folderContext";
+import { render, renderWithUser, screen } from "@/test/utils/react";
+
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ArticleNavigator } from "./ArticleNavigator";
 
-const folderContext = {
-  path: "C:/Notes",
-  isEmpty: false,
-  tree: {
-    name: "Notes",
-    path: "C:/Notes",
-    children: [{ kind: "file" as const, name: "readme.md", path: "C:/Notes/readme.md" }],
-  },
-};
+const folderContext = createFolderContext();
+
+const emptyFolderContext = createEmptyFolderContext();
 
 describe("ArticleNavigator", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
@@ -30,5 +26,33 @@ describe("ArticleNavigator", () => {
     await user.click(screen.getByRole("button", { name: "readme.md" }));
 
     expect(onOpenArticle).toHaveBeenCalledWith("C:/Notes/readme.md");
+  });
+
+  it("does not reopen the active article by path identity", async () => {
+    const onOpenArticle = vi.fn();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={"c:\\notes\\readme.md"}
+        folderContext={folderContext}
+        onOpenArticle={onOpenArticle}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "readme.md" }));
+
+    expect(onOpenArticle).not.toHaveBeenCalled();
+  });
+
+  it("shows one empty folder context message", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={emptyFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(screen.queryByText("No visible folder entries.")).not.toBeInTheDocument();
   });
 });

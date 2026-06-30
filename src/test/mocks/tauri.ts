@@ -1,49 +1,31 @@
 import { vi } from "vitest";
 
-export function createTauriStoreMock() {
-  return {
-    createTauriStore: vi.fn(() => ({
-      load: vi.fn(),
-      save: vi.fn(),
-      saveNow: vi.fn(),
-      start: vi.fn(),
-      stop: vi.fn(),
-    })),
-  };
-}
+import { getMockPathExtension, joinMockPathSegments } from "../utils/path";
 
-export function createTauriCoreMock() {
-  return {
-    convertFileSrc: vi.fn(
-      (filePath: string) => `asset://localhost/${encodeURIComponent(filePath)}`,
-    ),
-    invoke: vi.fn(),
-  };
-}
+export const createTauriStoreMock = () => ({
+  createTauriStore: vi.fn(() => ({
+    load: vi.fn(),
+    save: vi.fn(),
+    saveNow: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+  })),
+});
 
-export function createTauriPathMock() {
-  return {
-    documentDir: vi.fn(async () => "C:/Users/Test/Documents"),
-    extname: vi.fn(async (path: string) => {
-      const fileName = path.split(/[\\/]/).at(-1) ?? "";
-      const match = /\.([^.\\/]+)$/u.exec(fileName);
+export const createTauriCoreMock = () => ({
+  convertFileSrc: vi.fn((filePath: string) => `asset://localhost/${encodeURIComponent(filePath)}`),
+  invoke: vi.fn(),
+});
 
-      return match?.[1] ?? "";
-    }),
-    join: vi.fn(async (...segments: string[]) =>
-      segments
-        .filter(Boolean)
-        .join("/")
-        .replace(/[\\/]+/g, "/"),
-    ),
-  };
-}
+export const createTauriPathMock = () => ({
+  documentDir: vi.fn(async () => "C:/Users/Test/Documents"),
+  extname: vi.fn(async (path: string) => getMockPathExtension(path)),
+  join: vi.fn(async (...segments: string[]) => joinMockPathSegments(...segments)),
+});
 
-export function createTauriAppMock() {
-  return {
-    setTheme: vi.fn(async () => undefined),
-  };
-}
+export const createTauriAppMock = () => ({
+  setTheme: vi.fn(async () => undefined),
+});
 
 const currentWindowMock = {
   close: vi.fn(async () => undefined),
@@ -55,34 +37,26 @@ const currentWindowMock = {
   theme: vi.fn(async () => "light"),
 };
 
-export function createTauriWindowMock() {
-  return {
-    getCurrentWindow: vi.fn(() => currentWindowMock),
-  };
-}
+export const createTauriWindowMock = () => ({
+  getCurrentWindow: vi.fn(() => currentWindowMock),
+});
 
 const currentWebviewMock = {
   setZoom: vi.fn(async () => undefined),
 };
 
-export function createTauriWebviewMock() {
-  return {
-    getCurrentWebview: vi.fn(() => currentWebviewMock),
-  };
-}
+export const createTauriWebviewMock = () => ({
+  getCurrentWebview: vi.fn(() => currentWebviewMock),
+});
 
-export function createTauriDialogMock() {
-  return {
-    confirm: vi.fn(async () => false),
-    open: vi.fn(async () => null),
-    save: vi.fn(async () => null),
-  };
-}
+export const createTauriDialogMock = () => ({
+  confirm: vi.fn(async () => false),
+  open: vi.fn(async () => null),
+  save: vi.fn(async () => null),
+});
 
-export function createTauriOpenerMock() {
-  return {
-    openPath: vi.fn(async () => undefined),
-    openUrl: vi.fn(async () => undefined),
-    revealItemInDir: vi.fn(async () => undefined),
-  };
-}
+export const createTauriOpenerMock = () => ({
+  openPath: vi.fn(async () => undefined),
+  openUrl: vi.fn(async () => undefined),
+  revealItemInDir: vi.fn(async () => undefined),
+});

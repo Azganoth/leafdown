@@ -1,13 +1,22 @@
 export { PreferencesDialog } from "./components/PreferencesDialog";
 export {
-  defaultIgnoredDirectories,
-  defaultIndexFileNames,
+  RECENT_ITEM_LIMIT,
+  RECENT_ITEMS_VERSION,
+  recentItemsStoreTauriHandler,
+  useRecentItemsStore,
+  type RecentItemsState,
+  type RecentItemsStore,
+} from "./stores/recentItems";
+export {
+  createDefaultSettingsState,
+  DEFAULT_IGNORED_DIRECTORIES,
+  DEFAULT_INDEX_FILE_NAMES,
   getSystemDefaultLineEnding,
+  SETTINGS_VERSION,
   settingsStoreTauriHandler,
   useSettingsStore,
   type AppearanceTheme,
-  type DefaultNewDocumentExtension,
-  type LineEndingPreference,
+  type SettingsPersistedState,
   type SettingsState,
   type SettingsStore,
 } from "./stores/settings";

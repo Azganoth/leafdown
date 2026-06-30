@@ -1,27 +1,44 @@
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type {
-  ArticleTree,
-  FolderContextScanOptions,
-  FolderContextState,
-  FolderIndexDocument,
-  OpenedFolderContext,
-  OpenFolderContextOptions,
-} from "../types";
+import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
-interface FolderContextScanResult {
+import {
+  openMarkdownFolder,
+  scanMarkdownFolder,
+  type ArticleSortOrder,
+  type ArticleTree,
+  type FolderIndexDocument,
+  type ScanMarkdownFolderResult,
+} from "./folderContextApi";
+
+export interface FolderContextState {
   path: string;
   tree: ArticleTree;
   isEmpty: boolean;
 }
 
-interface OpenFolderContextResult {
-  folder: FolderContextScanResult;
+export interface FolderContextScanOptions {
+  ignoredDirectories: string[];
+  sortOrder: ArticleSortOrder;
+}
+
+export interface OpenFolderContextOptions extends FolderContextScanOptions {
+  indexFileNames: string[];
+}
+
+export interface OpenedFolderContext {
+  folderContext: FolderContextState;
   indexDocument: FolderIndexDocument | null;
 }
 
-const toFolderContext = (folder: FolderContextScanResult): FolderContextState => ({
+export type {
+  ArticleSortOrder,
+  ArticleTree,
+  ArticleTreeNode,
+  FolderIndexDocument,
+} from "./folderContextApi";
+
+const toFolderContext = (folder: ScanMarkdownFolderResult): FolderContextState => ({
   path: folder.path,
   tree: folder.tree,
   isEmpty: folder.isEmpty,
@@ -33,18 +50,25 @@ export const selectFolderContextPath = async () => {
     multiple: false,
   });
 
-  return selectedPath && !Array.isArray(selectedPath) ? selectedPath : null;
+  if (!selectedPath || Array.isArray(selectedPath)) {
+    return null;
+  }
+
+  return selectedPath;
 };
 
 export const scanFolderContext = async (
   path: string,
   { ignoredDirectories, sortOrder }: FolderContextScanOptions,
+  cancellationToken: CancellationToken = CancellationToken.None,
 ) => {
-  const folder = await invoke<FolderContextScanResult>("scan_markdown_folder", {
-    path,
-    ignoredDirectories,
-    sortOrder,
-  });
+  const folder = await raceWithCancellation(cancellationToken, () =>
+    scanMarkdownFolder({
+      path,
+      ignoredDirectories,
+      sortOrder,
+    }),
+  );
 
   return toFolderContext(folder);
 };
@@ -52,13 +76,16 @@ export const scanFolderContext = async (
 export const openFolderContext = async (
   path: string,
   { ignoredDirectories, indexFileNames, sortOrder }: OpenFolderContextOptions,
+  cancellationToken: CancellationToken = CancellationToken.None,
 ): Promise<OpenedFolderContext> => {
-  const result = await invoke<OpenFolderContextResult>("open_markdown_folder", {
-    path,
-    ignoredDirectories,
-    indexFileNames,
-    sortOrder,
-  });
+  const result = await raceWithCancellation(cancellationToken, () =>
+    openMarkdownFolder({
+      path,
+      ignoredDirectories,
+      indexFileNames,
+      sortOrder,
+    }),
+  );
 
   return {
     folderContext: toFolderContext(result.folder),

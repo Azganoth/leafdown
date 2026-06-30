@@ -3,8 +3,10 @@ import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
 
 import {
   ensureMarkdownExtension,
+  formatMarkdownForSave,
   getActiveDocumentKey,
   isSaveMarkdownFileError,
+  matchesActiveDocumentKey,
   saveMarkdownDocument,
   selectMarkdownSavePath,
   toSavedDocument,
@@ -15,21 +17,24 @@ import {
 } from "@/features/document";
 import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
+import { SequentialTaskQueue } from "@/lib/async";
+
 import { useSessionStore } from "../stores/session";
-import { confirmActiveDocumentTransition } from "./dirtyDocumentTransitions";
-import { getActiveDocumentEditorMarkdown } from "./documentEditorBridge";
-import { formatMarkdownForSave } from "@/features/document";
+import { documentEditorBridge } from "./documentEditorBridge";
+import { getSessionFolderScanOptions } from "./folderContextWorkflows";
+import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
 
 interface SerializedDocumentForSave {
   content: string;
   lineEnding: LineEnding;
 }
 
-const untitledBaseName = "Untitled";
+const UNTITLED_BASE_NAME = "Untitled";
+const saveTaskQueue = new SequentialTaskQueue();
 let nextUntitledId = 1;
 
 export const createNewMarkdownDocument = async () => {
-  if (!(await confirmActiveDocumentTransition())) {
+  if (!(await confirmDiscardActiveDocumentChanges())) {
     return false;
   }
 
@@ -51,7 +56,7 @@ export const closeActiveMarkdownDocument = async () => {
     return false;
   }
 
-  if (!(await confirmActiveDocumentTransition())) {
+  if (!(await confirmDiscardActiveDocumentChanges())) {
     return false;
   }
 
@@ -60,7 +65,12 @@ export const closeActiveMarkdownDocument = async () => {
   return true;
 };
 
-export const saveActiveMarkdownDocument = async () => {
+export const saveActiveMarkdownDocument = () => saveTaskQueue.run(saveActiveMarkdownDocumentNow);
+
+export const saveActiveMarkdownDocumentAs = () =>
+  saveTaskQueue.run(saveActiveMarkdownDocumentAsNow);
+
+const saveActiveMarkdownDocumentNow = async () => {
   const activeDocument = useSessionStore.getState().activeDocument;
 
   if (!activeDocument) {
@@ -68,22 +78,23 @@ export const saveActiveMarkdownDocument = async () => {
   }
 
   if (activeDocument.status === "untitled") {
-    return saveActiveMarkdownDocumentAs();
+    return saveActiveMarkdownDocumentAsNow();
   }
 
-  return saveSerializedDocumentToSavedPath(
+  return saveExistingMarkdownDocument(
     activeDocument,
     serializeActiveDocumentForSave(activeDocument),
   );
 };
 
-export const saveActiveMarkdownDocumentAs = async () => {
+const saveActiveMarkdownDocumentAsNow = async () => {
   const activeDocument = useSessionStore.getState().activeDocument;
 
   if (!activeDocument) {
     return false;
   }
 
+  const documentKey = getActiveDocumentKey(activeDocument);
   const defaultPath = await getSaveAsDefaultPath(activeDocument);
   const selectedPath = await selectMarkdownSavePath(defaultPath);
 
@@ -93,7 +104,7 @@ export const saveActiveMarkdownDocumentAs = async () => {
 
   const { defaultNewDocumentExtension } = useSettingsStore.getState();
   const path = await ensureMarkdownExtension(selectedPath, defaultNewDocumentExtension);
-  const latestDocument = useSessionStore.getState().activeDocument;
+  const latestDocument = getActiveDocumentByKey(documentKey);
 
   if (!latestDocument) {
     return false;
@@ -101,9 +112,16 @@ export const saveActiveMarkdownDocumentAs = async () => {
 
   const serializedDocument = serializeActiveDocumentForSave(latestDocument);
   const result = await saveMarkdownDocument(path, serializedDocument.content);
-  const folderContext = await scanFolderContext(result.parentFolderPath, getFolderScanOptions());
+  const folderContext = await scanFolderContext(
+    result.parentFolderPath,
+    getSessionFolderScanOptions(),
+  );
 
-  useSessionStore.getState().setDocumentSession(
+  if (!getActiveDocumentByKey(documentKey)) {
+    return false;
+  }
+
+  useSessionStore.getState().setActiveDocumentSession(
     folderContext,
     toSavedDocument({
       path: result.path,
@@ -122,7 +140,7 @@ const serializeActiveDocumentForSave = (
   const { defaultNewDocumentLineEnding, insertFinalNewline } = useSettingsStore.getState();
   const lineEnding = activeDocument.lineEnding ?? defaultNewDocumentLineEnding;
   const documentKey = getActiveDocumentKey(activeDocument);
-  const markdown = getActiveDocumentEditorMarkdown(documentKey) ?? activeDocument.content;
+  const markdown = documentEditorBridge.getMarkdown(documentKey) ?? activeDocument.content;
 
   return {
     content: formatMarkdownForSave(markdown, lineEnding, insertFinalNewline),
@@ -130,7 +148,7 @@ const serializeActiveDocumentForSave = (
   };
 };
 
-const saveSerializedDocumentToSavedPath = async (
+const saveExistingMarkdownDocument = async (
   activeDocument: SavedDocumentState,
   serializedDocument: SerializedDocumentForSave,
   overwrite = false,
@@ -140,6 +158,10 @@ const saveSerializedDocumentToSavedPath = async (
       expectedMetadata: activeDocument.metadata,
       overwrite,
     });
+
+    if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument))) {
+      return false;
+    }
 
     useSessionStore.getState().setActiveDocument(
       toSavedDocument({
@@ -153,7 +175,7 @@ const saveSerializedDocumentToSavedPath = async (
     return true;
   } catch (error) {
     if (isMissingFileSaveError(error)) {
-      return handleMissingSavedFile();
+      return handleMissingSavedFile(getActiveDocumentKey(activeDocument));
     }
 
     if (isExternalModificationSaveError(error)) {
@@ -164,7 +186,7 @@ const saveSerializedDocumentToSavedPath = async (
   }
 };
 
-const handleMissingSavedFile = async () => {
+const handleMissingSavedFile = async (documentKey: string) => {
   const shouldSaveAs = await showConfirmDialog(
     "The saved Markdown file no longer exists. Save this document to a new path?",
     {
@@ -175,7 +197,15 @@ const handleMissingSavedFile = async () => {
     },
   );
 
-  return shouldSaveAs ? saveActiveMarkdownDocumentAs() : false;
+  if (!getActiveDocumentByKey(documentKey)) {
+    return false;
+  }
+
+  if (!shouldSaveAs) {
+    return false;
+  }
+
+  return saveActiveMarkdownDocumentAsNow();
 };
 
 const handleExternalModification = async (activeDocument: SavedDocumentState) => {
@@ -195,11 +225,14 @@ const handleExternalModification = async (activeDocument: SavedDocumentState) =>
 
   const latestDocument = useSessionStore.getState().activeDocument;
 
-  if (latestDocument?.status !== "saved" || latestDocument.path !== activeDocument.path) {
+  if (
+    latestDocument?.status !== "saved" ||
+    !matchesActiveDocumentKey(latestDocument, activeDocument.path)
+  ) {
     return false;
   }
 
-  return saveSerializedDocumentToSavedPath(
+  return saveExistingMarkdownDocument(
     latestDocument,
     serializeActiveDocumentForSave(latestDocument),
     true,
@@ -212,19 +245,23 @@ const isMissingFileSaveError = (error: unknown) =>
 const isExternalModificationSaveError = (error: unknown) =>
   isSaveMarkdownFileError(error) && error.kind === "externalModification";
 
+const getActiveDocumentByKey = (documentKey: string) => {
+  const activeDocument = useSessionStore.getState().activeDocument;
+
+  if (!activeDocument || !matchesActiveDocumentKey(activeDocument, documentKey)) {
+    return null;
+  }
+
+  return activeDocument;
+};
+
 const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
   if (activeDocument.status === "saved") {
     return activeDocument.path;
   }
 
-  const fileName = `${untitledBaseName}${useSettingsStore.getState().defaultNewDocumentExtension}`;
+  const fileName = `${UNTITLED_BASE_NAME}${useSettingsStore.getState().defaultNewDocumentExtension}`;
   const folderPath = useSessionStore.getState().folderContext?.path ?? (await documentDir());
 
   return join(folderPath, fileName);
-};
-
-const getFolderScanOptions = () => {
-  const { articleSortOrder, ignoredDirectories } = useSettingsStore.getState();
-
-  return { ignoredDirectories, sortOrder: articleSortOrder };
 };

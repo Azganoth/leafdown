@@ -2,19 +2,22 @@ import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
-import type { EditorContextPopupAnchor, EditorContextPopupRequest } from "../types";
+import { hasPointerCoordinates } from "@/lib/input";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
-export interface LeafdownContextPopupPluginOptions {
-  getContextPopupOpen?: () => boolean;
-  onContextPopupClosed?: () => void;
-  onContextPopupRequested?: (request: EditorContextPopupRequest) => void;
+export interface ContextPopupAnchor {
+  x: number;
+  y: number;
 }
 
-const hasPointerCoordinates = (event: MouseEvent) => event.clientX !== 0 || event.clientY !== 0;
+export interface LeafdownContextPopupPluginOptions {
+  isOpen?: () => boolean;
+  onClose?: () => void;
+  onRequest?: (anchor: ContextPopupAnchor) => void;
+}
 
-const getSelectionAnchor = (view: EditorView): EditorContextPopupAnchor | null => {
+const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
   const { selection } = view.state;
 
   if (selection.empty) {
@@ -36,7 +39,7 @@ const getSelectionAnchor = (view: EditorView): EditorContextPopupAnchor | null =
 
 const requestSelectionPopup = (
   view: EditorView,
-  onContextPopupRequested: LeafdownContextPopupPluginOptions["onContextPopupRequested"],
+  onRequest: LeafdownContextPopupPluginOptions["onRequest"],
 ) => {
   const anchor = getSelectionAnchor(view);
 
@@ -44,29 +47,44 @@ const requestSelectionPopup = (
     return false;
   }
 
-  onContextPopupRequested?.({
-    anchor,
-    source: "selection",
-  });
+  onRequest?.(anchor);
 
   return true;
 };
 
-const closePopup = ({
-  getContextPopupOpen,
-  onContextPopupClosed,
-}: LeafdownContextPopupPluginOptions) => {
-  if (!getContextPopupOpen?.()) {
+const closePopup = ({ isOpen, onClose }: LeafdownContextPopupPluginOptions) => {
+  if (!isOpen?.()) {
     return false;
   }
 
-  onContextPopupClosed?.();
+  onClose?.();
 
   return true;
 };
 
+const syncPopupToSelection = (
+  view: EditorView,
+  previousState: EditorView["state"],
+  options: LeafdownContextPopupPluginOptions,
+) => {
+  if (!options.isOpen?.()) {
+    return;
+  }
+
+  const selectionChanged = !view.state.selection.eq(previousState.selection);
+  const documentChanged = view.state.doc !== previousState.doc;
+
+  if (!selectionChanged && !documentChanged) {
+    return;
+  }
+
+  if (!requestSelectionPopup(view, options.onRequest)) {
+    options.onClose?.();
+  }
+};
+
 const isEditablePopupTarget = (event: MouseEvent) =>
-  event.target instanceof HTMLElement && Boolean(event.target.closest("input, textarea, select"));
+  event.target instanceof HTMLElement && event.target.closest("input, textarea, select") !== null;
 
 const setCaretAtPointer = (view: EditorView, event: MouseEvent) => {
   if (!hasPointerCoordinates(event)) {
@@ -99,6 +117,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
     () =>
       new Plugin({
         key: leafdownContextPopupPluginKey,
+        view: () => ({
+          update: (view, previousState) => {
+            syncPopupToSelection(view, previousState, options);
+          },
+        }),
         props: {
           handleDOMEvents: {
             contextmenu: (view, event) => {
@@ -109,12 +132,9 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               event.preventDefault();
               setCaretAtPointer(view, event);
               view.focus();
-              options.onContextPopupRequested?.({
-                anchor: {
-                  x: event.clientX,
-                  y: event.clientY,
-                },
-                source: "rightClick",
+              options.onRequest?.({
+                x: event.clientX,
+                y: event.clientY,
               });
 
               return true;
@@ -129,8 +149,8 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
                   return;
                 }
 
-                if (!requestSelectionPopup(view, options.onContextPopupRequested)) {
-                  options.onContextPopupClosed?.();
+                if (!requestSelectionPopup(view, options.onRequest)) {
+                  options.onClose?.();
                 }
               });
 

@@ -1,30 +1,32 @@
 export {
   ensureMarkdownExtension,
+  MARKDOWN_FILE_EXTENSIONS,
   openMarkdownDocument,
   saveMarkdownDocument,
   selectMarkdownFilePath,
   selectMarkdownSavePath,
+  type MarkdownFileExtension,
+  type OpenedMarkdownDocument,
+  type SavedMarkdownDocument,
+  type WriteMarkdownDocumentOptions,
 } from "./services/markdownDocument";
 export {
+  getOpenMarkdownFileErrorMessage,
+  getSaveMarkdownFileErrorMessage,
+  isOpenMarkdownFileError,
+  isSaveMarkdownFileError,
+  type OpenMarkdownFileError,
+  type SaveMarkdownFileError,
+} from "./utils/documentErrors";
+export { formatMarkdownForSave } from "./utils/documentSerialization";
+export {
   getActiveDocumentKey,
+  matchesActiveDocumentKey,
   toSavedDocument,
   toUntitledDocument,
   type ActiveDocumentState,
   type FileMetadataSnapshot,
   type LineEnding,
-  type OpenedMarkdownDocument,
   type SavedDocumentState,
-  type SavedMarkdownDocument,
   type UntitledDocumentState,
-  type WriteMarkdownDocumentOptions,
-} from "./types";
-export {
-  getOpenMarkdownFileErrorMessage,
-  getSaveMarkdownFileErrorMessage,
-  isSaveMarkdownFileError,
-  showDocumentIoErrorToast,
-  type DocumentIoErrorMessage,
-  type OpenMarkdownFileError,
-  type SaveMarkdownFileError,
-} from "./utils/documentIoErrors";
-export { formatMarkdownForSave } from "./utils/documentSerialization";
+} from "./utils/documentState";

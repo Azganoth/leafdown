@@ -1,67 +1,78 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useArticleNavigatorStore } from "@/features/folder-context";
-import { useSettingsStore } from "@/features/preferences";
-import { useSessionHistoryStore, useSessionStore } from "@/features/session";
-import {
-  resetAppStores,
-  setDefaultHistory,
-  setDefaultSession,
-  setDefaultSettings,
-} from "@/test/fixtures/appStores";
-import { dispatchAppCommand, type AppCommandDispatchContext } from "./dispatch";
+import { documentEditorBridge } from "@/features/session";
+import { createAppCommandContext } from "@/test/factories/commands";
+import { createSavedDocument } from "@/test/factories/document";
+import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 
-const createContext = (
-  overrides: Partial<AppCommandDispatchContext> = {},
-): AppCommandDispatchContext => ({
-  activeArticleAncestorPaths: null,
-  activeDocumentKey: null,
-  activeFilePath: null,
-  folderContext: null,
-  fullscreen: false,
-  pendingSortOrder: null,
-  setAboutOpen: () => {},
-  setFullscreen: () => {},
-  setPendingSortOrder: () => {},
-  setPreferencesOpen: () => {},
-  setZoom: () => {},
-  zoom: 1,
-  ...overrides,
+import { APPLICATION_COMMANDS } from "./application";
+import { APP_COMMAND_IDS, dispatchAppCommand } from "./dispatch";
+
+vi.mock("@/features/session", async (importOriginal) => {
+  const session = await importOriginal<typeof import("@/features/session")>();
+
+  return {
+    ...session,
+    documentEditorBridge: {
+      ...session.documentEditorBridge,
+      runCommand: vi.fn(),
+    },
+  };
 });
 
 describe("app command dispatch", () => {
-  beforeEach(() => resetAppStores());
-
-  it("routes history and preference commands to their owning stores", () => {
-    setDefaultHistory({ recentFiles: ["C:/Notes/readme.md"] });
-    setDefaultSettings({ sidebarVisible: true });
-
-    dispatchAppCommand("file.clearRecentItems", createContext());
-    dispatchAppCommand("view.toggleSidebar", createContext());
-
-    expect(useSessionHistoryStore.getState().recentFiles).toEqual([]);
-    expect(useSettingsStore.getState().sidebarVisible).toBe(false);
+  beforeEach(() => {
+    vi.mocked(documentEditorBridge.runCommand).mockReset();
   });
 
-  it("routes document state and navigator commands to their feature APIs", () => {
-    setDefaultSession({
-      activeDocument: {
-        status: "saved",
-        path: "C:/Notes/readme.md",
-        content: "# Notes",
-        lineEnding: "lf",
-        metadata: { sizeBytes: 7, modifiedAtUnixMs: 1 },
-      },
-    });
-    useArticleNavigatorStore.setState({ expandedDirectoryPaths: ["C:/Notes/docs"] });
+  it("routes editor commands to the active document editor bridge", async () => {
+    vi.mocked(documentEditorBridge.runCommand).mockReturnValue(true);
 
-    dispatchAppCommand(
-      "edit.lineEnding.crlf",
-      createContext({ activeDocumentKey: "C:/Notes/readme.md" }),
+    const dispatched = await dispatchAppCommand(
+      "edit.undo",
+      createAppCommandContext({ activeDocument: createSavedDocument() }),
     );
-    dispatchAppCommand("view.collapseAllFolders", createContext());
 
-    expect(useSessionStore.getState().activeDocument?.lineEnding).toBe("crlf");
-    expect(useArticleNavigatorStore.getState().expandedDirectoryPaths).toEqual([]);
+    expect(dispatched).toBe(true);
+    expect(documentEditorBridge.runCommand).toHaveBeenCalledWith(
+      TEST_MARKDOWN_FILE_PATH,
+      "edit.undo",
+    );
+  });
+
+  it("returns the editor bridge result for editor commands", async () => {
+    vi.mocked(documentEditorBridge.runCommand).mockReturnValue(false);
+
+    expect(
+      await dispatchAppCommand(
+        "edit.undo",
+        createAppCommandContext({ activeDocument: createSavedDocument() }),
+      ),
+    ).toBe(false);
+  });
+
+  it("ignores editor commands when there is no active document", async () => {
+    const dispatched = await dispatchAppCommand("edit.undo", createAppCommandContext());
+
+    expect(dispatched).toBe(false);
+    expect(documentEditorBridge.runCommand).not.toHaveBeenCalled();
+  });
+
+  it("runs application commands", async () => {
+    const originalRun = APPLICATION_COMMANDS["help.about"].run;
+    const run = vi.fn();
+
+    APPLICATION_COMMANDS["help.about"].run = run;
+
+    try {
+      expect(await dispatchAppCommand("help.about", createAppCommandContext())).toBe(true);
+      expect(run).toHaveBeenCalledOnce();
+    } finally {
+      APPLICATION_COMMANDS["help.about"].run = originalRun;
+    }
+  });
+
+  it("registers each app command ID once", () => {
+    expect(new Set(APP_COMMAND_IDS).size).toBe(APP_COMMAND_IDS.length);
   });
 });

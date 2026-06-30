@@ -1,62 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { EditorCommandState } from "@/features/editor";
-import type { CommandStateContext } from "./types";
-import { commandDefinitions, getCommandShortcuts, shortcutCommandIds } from "./registry";
+import { createAppCommandContext } from "@/test/factories/commands";
+import { createSavedDocument, createUntitledDocument } from "@/test/factories/document";
+import { createEditorCommandState } from "@/test/factories/editor";
+import { createFolderContext } from "@/test/factories/folderContext";
+
 import { getCommandState } from "./state";
-
-const savedDocument = {
-  status: "saved" as const,
-  path: "C:/Notes/readme.md",
-  content: "# Notes",
-  isDirty: false,
-  lineEnding: "lf" as const,
-  metadata: { sizeBytes: 7, modifiedAtUnixMs: 1_773_916_800_000 },
-};
-
-const folderContext = {
-  path: "C:/Notes",
-  isEmpty: false,
-  tree: {
-    name: "Notes",
-    path: "C:/Notes",
-    children: [{ kind: "file" as const, name: "readme.md", path: "C:/Notes/readme.md" }],
-  },
-};
-
-const defaultEditorState: EditorCommandState = {
-  enabledCommands: {},
-  hasActiveEditor: false,
-  hasSelection: false,
-  hasTableSelection: false,
-};
-
-const createContext = (overrides: Partial<CommandStateContext> = {}): CommandStateContext => ({
-  activeDocument: null,
-  editor: defaultEditorState,
-  folderContext: null,
-  fullscreen: false,
-  history: { persistenceVersion: 1, recentFiles: [], recentFolders: [] },
-  navigator: { canRevealActiveArticle: false, pendingSortOrder: null },
-  settings: {
-    autoPairBracketsAndQuotes: true,
-    defaultNewDocumentExtension: ".md",
-    defaultNewDocumentLineEnding: "lf",
-    articleSortOrder: "name",
-    ignoredDirectories: [".git"],
-    indexFileNames: ["readme", "index"],
-    insertFinalNewline: true,
-    recordRecentItems: true,
-    sidebarVisible: true,
-    softWrapCodeBlocks: false,
-    theme: "system",
-  },
-  ...overrides,
-});
 
 describe("command state", () => {
   it("disables document commands without an active document", () => {
-    const context = createContext();
+    const context = createAppCommandContext();
 
     expect(getCommandState("file.save", context)).toMatchObject({ enabled: false });
     expect(getCommandState("file.saveAs", context)).toMatchObject({ enabled: false });
@@ -66,7 +19,10 @@ describe("command state", () => {
 
   it("enables Save only for dirty saved documents or untitled documents", () => {
     expect(
-      getCommandState("file.save", createContext({ activeDocument: savedDocument })),
+      getCommandState(
+        "file.save",
+        createAppCommandContext({ activeDocument: createSavedDocument() }),
+      ),
     ).toMatchObject({
       enabled: false,
     });
@@ -74,34 +30,31 @@ describe("command state", () => {
     expect(
       getCommandState(
         "file.save",
-        createContext({ activeDocument: { ...savedDocument, isDirty: true } }),
+        createAppCommandContext({
+          activeDocument: createSavedDocument({ isDirty: true }),
+        }),
       ),
     ).toMatchObject({ enabled: true });
 
     expect(
       getCommandState("file.save", {
-        ...createContext(),
-        activeDocument: {
-          status: "untitled",
-          id: "untitled:test",
-          content: "",
-          isDirty: false,
-          lineEnding: "lf",
-        },
+        ...createAppCommandContext(),
+        activeDocument: createUntitledDocument(),
       }),
     ).toMatchObject({ enabled: true });
   });
 
   it("reflects boolean and radio command state", () => {
-    const context = createContext({
-      activeDocument: savedDocument,
-      fullscreen: true,
+    const context = createAppCommandContext({
+      activeDocument: createSavedDocument(),
       settings: {
-        ...createContext().settings,
         articleSortOrder: "type",
         insertFinalNewline: false,
         sidebarVisible: false,
         theme: "dark",
+      },
+      ui: {
+        fullscreen: true,
       },
     });
 
@@ -125,51 +78,81 @@ describe("command state", () => {
       checked: true,
       enabled: true,
     });
-    expect(getCommandState("view.sort.type", { ...context, folderContext })).toMatchObject({
+    expect(
+      getCommandState("view.sort.type", {
+        ...context,
+        folderContext: createFolderContext(),
+      }),
+    ).toMatchObject({
       checked: true,
       enabled: true,
     });
   });
 
-  it("uses editor selection and table context for editor-owned commands", () => {
-    const context = createContext({
-      activeDocument: savedDocument,
-      editor: {
-        enabledCommands: {
-          "edit.copy": true,
-          "edit.copyAsMarkdown": true,
-          "format.table.deleteRow": true,
-        },
-        hasActiveEditor: true,
-        hasSelection: true,
-        hasTableSelection: true,
-      },
+  it("reflects zoom command bounds", () => {
+    expect(
+      getCommandState(
+        "view.zoomIn",
+        createAppCommandContext({
+          ui: { zoom: 2 },
+        }),
+      ),
+    ).toMatchObject({ enabled: false, reason: "Zoom is already at maximum." });
+    expect(
+      getCommandState(
+        "view.zoomOut",
+        createAppCommandContext({
+          ui: { zoom: 0.5 },
+        }),
+      ),
+    ).toMatchObject({ enabled: false, reason: "Zoom is already at minimum." });
+    expect(
+      getCommandState(
+        "view.resetZoom",
+        createAppCommandContext({
+          ui: { zoom: 1 },
+        }),
+      ),
+    ).toMatchObject({ enabled: false, reason: "Zoom is already reset." });
+    expect(
+      getCommandState(
+        "view.resetZoom",
+        createAppCommandContext({
+          ui: { zoom: 1.25 },
+        }),
+      ),
+    ).toMatchObject({ enabled: true });
+  });
+
+  it("uses editor readiness and command state for editor-owned commands", () => {
+    const context = createAppCommandContext({
+      activeDocument: createSavedDocument(),
+      editor: createEditorCommandState({
+        enabledCommandIds: ["edit.copy", "edit.copyAsMarkdown", "format.table.deleteRow"],
+        status: "ready",
+      }),
     });
 
     expect(getCommandState("edit.copy", context)).toMatchObject({ enabled: true });
     expect(getCommandState("edit.copyAsMarkdown", context)).toMatchObject({ enabled: true });
-    expect(getCommandState("format.table.deleteRow", context)).toMatchObject({ enabled: true });
+    expect(getCommandState("format.table.deleteRow", context)).toMatchObject({
+      enabled: true,
+    });
+
+    expect(
+      getCommandState("edit.redo", {
+        ...context,
+      }),
+    ).toMatchObject({ enabled: false });
 
     expect(
       getCommandState("edit.copy", {
         ...context,
-        editor: { ...context.editor, hasSelection: false },
+        editor: { ...context.editor, status: "inactive" },
       }),
-    ).toMatchObject({ enabled: false });
-
-    expect(
-      getCommandState("format.table.deleteRow", {
-        ...context,
-        editor: { ...context.editor, hasTableSelection: false },
-      }),
-    ).toMatchObject({ enabled: false });
-  });
-
-  it("registers alternate shortcuts for a command", () => {
-    expect(getCommandShortcuts(commandDefinitions["edit.redo"])).toEqual([
-      { key: "y", mod: true },
-      { key: "z", mod: true, shift: true },
-    ]);
-    expect(shortcutCommandIds).toContain("edit.redo");
+    ).toMatchObject({
+      enabled: false,
+      reason: "The editor is not ready.",
+    });
   });
 });

@@ -1,75 +1,89 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { inactiveEditorCommandState } from "@/features/editor";
-
+import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor";
 import {
-  getActiveDocumentEditorCommandState,
-  getActiveDocumentEditorCommandStateVersion,
-  notifyActiveDocumentEditorCommandStateChanged,
-  resetActiveDocumentEditorBridge,
-  runActiveDocumentEditorCommand,
-  setActiveDocumentEditorBridge,
-  subscribeActiveDocumentEditorCommandState,
-} from "./documentEditorBridge";
+  createActiveEditorCommandState,
+  createMilkdownEditorBridge,
+} from "@/test/factories/editor";
+
+import { documentEditorBridge } from "./documentEditorBridge";
 
 describe("document editor bridge", () => {
   afterEach(() => {
-    resetActiveDocumentEditorBridge();
+    documentEditorBridge.clear();
   });
 
-  it("notifies subscribers when the active editor bridge changes", () => {
+  it("fires command state change events when the active editor bridge changes", () => {
     const listener = vi.fn();
-    const unsubscribe = subscribeActiveDocumentEditorCommandState(listener);
-    const initialVersion = getActiveDocumentEditorCommandStateVersion();
+    const listenerDisposable = documentEditorBridge.onDidChangeCommandState(listener);
+    const initialVersion = documentEditorBridge.getCommandStateVersion();
 
-    setActiveDocumentEditorBridge("doc:test", {
-      getMarkdown: () => "Hello",
-      getCommandState: () => ({
-        enabledCommands: { "edit.selectAll": true },
-        hasActiveEditor: true,
-        hasSelection: false,
-        hasTableSelection: false,
+    documentEditorBridge.set(
+      "doc:test",
+      createMilkdownEditorBridge({
+        getCommandState: () =>
+          createActiveEditorCommandState({
+            enabledCommandIds: ["edit.selectAll"],
+          }),
       }),
-    });
+    );
 
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(getActiveDocumentEditorCommandStateVersion()).toBeGreaterThan(initialVersion);
-    expect(getActiveDocumentEditorCommandState("doc:test").enabledCommands["edit.selectAll"]).toBe(
+    expect(documentEditorBridge.getCommandStateVersion()).toBeGreaterThan(initialVersion);
+    expect(documentEditorBridge.getCommandState("doc:test").enabledCommands["edit.selectAll"]).toBe(
       true,
     );
 
-    unsubscribe();
-    notifyActiveDocumentEditorCommandStateChanged();
+    listenerDisposable.dispose();
+    documentEditorBridge.fireCommandStateChanged();
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("returns inactive command state for stale document keys", () => {
-    setActiveDocumentEditorBridge("doc:test", {
-      getMarkdown: () => "Hello",
-      getCommandState: () => ({
-        enabledCommands: { "edit.selectAll": true },
-        hasActiveEditor: true,
-        hasSelection: false,
-        hasTableSelection: false,
+    documentEditorBridge.set(
+      "doc:test",
+      createMilkdownEditorBridge({
+        getCommandState: () =>
+          createActiveEditorCommandState({
+            enabledCommandIds: ["edit.selectAll"],
+          }),
       }),
-    });
+    );
 
-    expect(getActiveDocumentEditorCommandState("doc:other")).toEqual(inactiveEditorCommandState);
+    expect(documentEditorBridge.getCommandState("doc:other")).toEqual(
+      INACTIVE_EDITOR_COMMAND_STATE,
+    );
   });
 
   it("runs commands only against the active editor bridge", () => {
     const runCommand = vi.fn(() => true);
 
-    setActiveDocumentEditorBridge("doc:test", {
-      getMarkdown: () => "Hello",
-      runCommand,
-    });
+    documentEditorBridge.set(
+      "doc:test",
+      createMilkdownEditorBridge({
+        runCommand,
+      }),
+    );
 
-    expect(runActiveDocumentEditorCommand("doc:test", "edit.selectAll")).toBe(true);
+    expect(documentEditorBridge.runCommand("doc:test", "edit.selectAll")).toBe(true);
     expect(runCommand).toHaveBeenCalledWith("edit.selectAll");
 
-    expect(runActiveDocumentEditorCommand("doc:other", "edit.selectAll")).toBe(false);
+    expect(documentEditorBridge.runCommand("doc:other", "edit.selectAll")).toBe(false);
     expect(runCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifies a stable listener snapshot", () => {
+    const secondListener = vi.fn();
+    const secondListenerDisposable = documentEditorBridge.onDidChangeCommandState(secondListener);
+    const firstListener = vi.fn(() => secondListenerDisposable.dispose());
+    const firstListenerDisposable = documentEditorBridge.onDidChangeCommandState(firstListener);
+
+    documentEditorBridge.fireCommandStateChanged();
+
+    firstListenerDisposable.dispose();
+
+    expect(firstListener).toHaveBeenCalledTimes(1);
+    expect(secondListener).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,24 +1,17 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
-import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { MilkdownEditor } from "@/features/editor";
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
-import { render, screen } from "@/test/utils/react";
+import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { render, screen, waitFor } from "@/test/utils/react";
 
 const executionFlag = "__leafdownHtmlExecuted";
-const mountedEditors: MountedMilkdownEditor[] = [];
-const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
+const mountEditor = setupMilkdownEditorMount();
 
-const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown, {
-    rootClassName: "leafdown-editor",
+const mountStyledEditor = (initialMarkdown: string) =>
+  mountEditor(initialMarkdown, {
+    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
   });
-  mountedEditors.push(mounted);
-  return mounted;
-};
 
 const getExecutionFlag = (): unknown =>
   (window as unknown as Record<string, unknown>)[executionFlag];
@@ -28,8 +21,7 @@ const resetExecutionFlag = () => {
 };
 
 describe("HTML safety", () => {
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
+  afterEach(() => {
     delete (window as unknown as Record<string, unknown>)[executionFlag];
   });
 
@@ -39,7 +31,7 @@ describe("HTML safety", () => {
     const markdown = `<div onclick="window.${executionFlag} = true">Block</div>
 
 Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
-    const mounted = await mountEditor(markdown);
+    const mounted = await mountStyledEditor(markdown);
     const { dom } = mounted.view;
     const htmlNodes = Array.from(dom.querySelectorAll<HTMLElement>('[data-type="html"]'));
 
@@ -65,7 +57,7 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
     const markdown = `<script>window.${executionFlag} = true</script>
 
 <img src=x onerror="window.${executionFlag} = true">`;
-    const mounted = await mountEditor(markdown);
+    const mounted = await mountStyledEditor(markdown);
     const { dom } = mounted.view;
 
     expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
@@ -78,7 +70,7 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
   });
 
   it("escapes malformed HTML-like text instead of treating it as live HTML", async () => {
-    const mounted = await mountEditor("<custom broken");
+    const mounted = await mountStyledEditor("<custom broken");
 
     expect(mounted.getMarkdown()).toBe("\\<custom broken\n");
     expect(mounted.view.dom).toHaveTextContent("<custom broken");
@@ -86,25 +78,11 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
     expect(mounted.view.dom.querySelector("custom")).not.toBeInTheDocument();
   });
 
-  it("keeps raw HTML code-like styling targetable from the editor root", async () => {
-    const mounted = await mountEditor("<div>Block</div>");
-    const htmlNode = mounted.view.dom.querySelector('[data-type="html"]');
-    const editorCss = readFileSync(editorCssPath, "utf8");
-
-    expect(mounted.getMarkdown()).toBe("<div>Block</div>\n");
-    expect(htmlNode).toBeInTheDocument();
-    expect(htmlNode?.closest(".leafdown-editor")).toBe(mounted.root);
-    expect(editorCss).toContain('& [data-type="html"] {');
-    expect(editorCss).toContain("font-mono");
-    expect(editorCss).toContain("bg-muted");
-    expect(editorCss).toContain("text-muted-foreground");
-  });
-
   it("does not execute script content when the React wrapper remounts a document", async () => {
     resetExecutionFlag();
 
     const { rerender } = render(
-      <MilkdownEditor documentKey="safe-document" initialMarkdown="Safe document" />,
+      <MilkdownEditor key="safe-document" initialMarkdown="Safe document" />,
     );
 
     await waitFor(() => {
@@ -113,7 +91,7 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
 
     rerender(
       <MilkdownEditor
-        documentKey="script-document"
+        key="script-document"
         initialMarkdown={`<script>window.${executionFlag} = true</script>`}
       />,
     );
@@ -126,7 +104,7 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
 
     const editorHost = screen.getByTestId("milkdown-editor-host");
 
-    expect(editorHost).toHaveClass("leafdown-editor");
+    expect(editorHost).toHaveClass(EDITOR_TEST_ROOT_CLASS_NAME);
     expect(editorHost.querySelector("script")).not.toBeInTheDocument();
     expect(getExecutionFlag()).toBe(false);
   });

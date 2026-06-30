@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { setDefaultSettings } from "@/test/fixtures/appStores";
+import { setDefaultSettings } from "@/test/utils/appStores";
+
 import {
-  defaultIgnoredDirectories,
-  defaultIndexFileNames,
+  DEFAULT_IGNORED_DIRECTORIES,
+  DEFAULT_INDEX_FILE_NAMES,
   getSystemDefaultLineEnding,
+  SETTINGS_VERSION,
   useSettingsStore,
 } from "./settings";
 
 describe("settings store", () => {
   beforeEach(() => setDefaultSettings());
 
-  it("resets persisted settings to documented defaults", async () => {
+  it("resets persisted settings to documented defaults", () => {
     setDefaultSettings({
       theme: "dark",
       recordRecentItems: false,
@@ -26,7 +28,7 @@ describe("settings store", () => {
       softWrapCodeBlocks: true,
     });
 
-    await useSettingsStore.getState().reset();
+    useSettingsStore.getState().reset();
 
     expect(useSettingsStore.getState()).toMatchObject({
       theme: "system",
@@ -36,16 +38,18 @@ describe("settings store", () => {
       defaultNewDocumentExtension: ".md",
       defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
       insertFinalNewline: true,
-      indexFileNames: defaultIndexFileNames,
-      ignoredDirectories: defaultIgnoredDirectories,
+      indexFileNames: DEFAULT_INDEX_FILE_NAMES,
+      ignoredDirectories: DEFAULT_IGNORED_DIRECTORIES,
       autoPairBracketsAndQuotes: true,
       softWrapCodeBlocks: false,
+      version: SETTINGS_VERSION,
     });
   });
 
   it("updates persisted settings", () => {
     const settings = useSettingsStore.getState();
 
+    settings.updateSetting("theme", "dark");
     settings.updateSetting("recordRecentItems", false);
     settings.updateSetting("sidebarVisible", false);
     settings.updateSetting("articleSortOrder", "type");
@@ -58,6 +62,7 @@ describe("settings store", () => {
     settings.updateSetting("softWrapCodeBlocks", true);
 
     expect(useSettingsStore.getState()).toMatchObject({
+      theme: "dark",
       recordRecentItems: false,
       sidebarVisible: false,
       articleSortOrder: "type",
@@ -71,23 +76,11 @@ describe("settings store", () => {
     });
   });
 
-  it("migrates the legacy file-tree sort setting once", () => {
-    useSettingsStore.setState({
-      articleSortOrder: "name",
-      fileTreeSortOrder: "modifiedDate",
-      persistenceVersion: 0,
-      recentFiles: ["C:/Notes/readme.md"],
-      recentFolders: ["C:/Notes"],
-    });
+  it("resets settings to the current persistence version", () => {
+    useSettingsStore.setState({ version: 0 });
 
-    useSettingsStore.getState().completeLegacyMigration();
+    useSettingsStore.getState().reset();
 
-    expect(useSettingsStore.getState()).toMatchObject({
-      articleSortOrder: "modifiedDate",
-      fileTreeSortOrder: null,
-      persistenceVersion: 1,
-      recentFiles: [],
-      recentFolders: [],
-    });
+    expect(useSettingsStore.getState().version).toBe(SETTINGS_VERSION);
   });
 });

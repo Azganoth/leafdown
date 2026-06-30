@@ -1,20 +1,21 @@
-import type { Mark, MarkType, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
+import type { Mark, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
-import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
+import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { isNonNullish } from "@/lib/predicates";
+
+import {
+  getCandidateMarksAtSelection,
+  getMarkRangeAtSelection,
+  type ActiveMarkRange,
+} from "../utils/marks";
+import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
+import { getRangeText } from "../utils/textRanges";
+
 export const leafdownMarkerPresentationPluginKey = new PluginKey("leafdownMarkerPresentation");
-
-interface TextRange {
-  from: number;
-  to: number;
-}
-
-interface ActiveMarkRange extends TextRange {
-  mark: Mark;
-}
 
 interface NodeWithPos {
   node: ProseMirrorNode;
@@ -26,9 +27,8 @@ interface ParsedMarkSource {
   text: string;
 }
 
-const inlineSourceMarkNames = ["inlineCode", "link", "strike_through"] as const;
-
-const sourceNodeNames = new Set(["footnote_reference", "html"]);
+const INLINE_SOURCE_MARK_NAMES = ["inlineCode", "link", "strike_through"] as const;
+const SOURCE_NODE_NAMES = new Set(["footnote_reference", "html"]);
 
 export const createLeafdownMarkerPresentationPlugin = () =>
   $prose(
@@ -59,10 +59,11 @@ const addPersistentFootnoteDefinitionMarkers = (state: EditorState, decorations:
     }
 
     decorations.push(
-      createMarkerWidget(pos + 1, serializeFootnoteDefinitionMarker(node), {
-        key: `footnote-definition:${pos}`,
-        persistent: true,
-      }),
+      createPersistentMarkerWidget(
+        pos + 1,
+        serializeFootnoteDefinitionMarker(node),
+        `footnote-definition:${pos}`,
+      ),
     );
 
     return false;
@@ -72,7 +73,7 @@ const addPersistentFootnoteDefinitionMarkers = (state: EditorState, decorations:
 const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => {
   const { selection } = state;
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!isTextCaretSelection(selection)) {
     return;
   }
 
@@ -139,22 +140,13 @@ const addFocusedSourceNodeEditors = (state: EditorState, decorations: Decoration
   );
 };
 
-const isCaretSelection = (state: EditorState) =>
-  state.selection instanceof TextSelection && state.selection.empty;
-
-const createMarkerWidget = (
-  pos: number,
-  marker: string,
-  { key, persistent }: { key: string; persistent: boolean },
-) =>
+const createPersistentMarkerWidget = (pos: number, marker: string, key: string) =>
   Decoration.widget(
     pos,
     () => {
       const element = document.createElement("span");
 
-      element.className = persistent
-        ? "leafdown-marker-widget leafdown-marker-widget--persistent"
-        : "leafdown-marker-widget leafdown-marker-widget--subtle";
+      element.className = "leafdown-marker-widget leafdown-marker-widget--persistent";
       element.contentEditable = "false";
       element.textContent = marker;
 
@@ -186,88 +178,24 @@ const getSubtleMarkerForNode = (node: ProseMirrorNode) => {
 const getActiveInlineSourceMarkRange = (state: EditorState): ActiveMarkRange | null => {
   const { selection } = state;
 
-  if (!(selection instanceof TextSelection) || !selection.empty) {
+  if (!isTextCaretSelection(selection)) {
     return null;
   }
 
-  const markTypes = inlineSourceMarkNames
-    .map((markName) => state.schema.marks[markName])
-    .filter((markType): markType is MarkType => Boolean(markType));
-  const candidateMarks = [
-    ...(state.storedMarks ?? []),
-    ...selection.$from.marks(),
-    ...(selection.$from.nodeBefore?.marks ?? []),
-    ...(selection.$from.nodeAfter?.marks ?? []),
-  ];
-  const activeMark =
-    inlineSourceMarkNames
-      .map((markName) =>
-        candidateMarks.find((mark) => mark.type.name === markName && markTypes.includes(mark.type)),
-      )
-      .find(Boolean) ?? null;
-
-  return activeMark ? getMarkRangeAtSelection(state, activeMark) : null;
-};
-
-const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
-  const { selection } = state;
-
-  if (!(selection instanceof TextSelection)) {
-    return null;
-  }
-
-  const { $from } = selection;
-  const parent = $from.parent;
-  const cursorOffset = $from.parentOffset;
-  const markedRanges: TextRange[] = [];
-
-  parent.forEach((node, offset) => {
-    if (!mark.isInSet(node.marks)) {
-      return;
-    }
-
-    markedRanges.push({
-      from: offset,
-      to: offset + node.nodeSize,
-    });
-  });
-
-  const activeRange = markedRanges.find(
-    (range) => range.from <= cursorOffset && cursorOffset <= range.to,
+  const markTypes = INLINE_SOURCE_MARK_NAMES.map((markName) => state.schema.marks[markName]).filter(
+    isNonNullish,
   );
+  const candidateMarks = getCandidateMarksAtSelection(state);
+  const activeMark =
+    INLINE_SOURCE_MARK_NAMES.map((markName) =>
+      candidateMarks.find((mark) => mark.type.name === markName && markTypes.includes(mark.type)),
+    ).find(Boolean) ?? null;
 
-  if (!activeRange) {
+  if (!activeMark) {
     return null;
   }
 
-  let from = activeRange.from;
-  let to = activeRange.to;
-
-  for (let index = markedRanges.indexOf(activeRange) - 1; index >= 0; index -= 1) {
-    const range = markedRanges[index];
-
-    if (range.to !== from) {
-      break;
-    }
-
-    from = range.from;
-  }
-
-  for (let index = markedRanges.indexOf(activeRange) + 1; index < markedRanges.length; index += 1) {
-    const range = markedRanges[index];
-
-    if (range.from !== to) {
-      break;
-    }
-
-    to = range.to;
-  }
-
-  return {
-    from: $from.start() + from,
-    mark,
-    to: $from.start() + to,
-  };
+  return getMarkRangeAtSelection(state, activeMark);
 };
 
 const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
@@ -289,7 +217,10 @@ const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
       ...range.mark.attrs,
       ...parsed.attrs,
     });
-    const textNode = view.state.schema.text(parsed.text, [mark]);
+    const textNode = view.state.schema.text(
+      parsed.text,
+      mark.addToSet(getPreservedInlineSourceMarks(view.state, range)),
+    );
     const tr = view.state.tr.replaceWith(range.from, range.to, textNode);
 
     applied = true;
@@ -301,16 +232,28 @@ const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
   return input;
 };
 
+const getPreservedInlineSourceMarks = (state: EditorState, range: ActiveMarkRange) => {
+  let commonMarks: Mark[] | null = null;
+
+  state.doc.nodesBetween(range.from, range.to, (node) => {
+    if (!node.isText) {
+      return true;
+    }
+
+    const nodeMarks = node.marks.filter((mark) => mark.type !== range.mark.type);
+    commonMarks =
+      commonMarks === null ? nodeMarks : commonMarks.filter((mark) => mark.isInSet(nodeMarks));
+
+    return true;
+  });
+
+  return commonMarks ?? [];
+};
+
 const serializeMarkSource = (state: EditorState, range: ActiveMarkRange) => {
-  const text = state.doc.textBetween(range.from, range.to, "\n", "\n");
+  const text = getRangeText(state.doc, range);
 
   switch (range.mark.type.name) {
-    case "strong":
-      return `**${text}**`;
-
-    case "emphasis":
-      return `*${text}*`;
-
     case "strike_through":
       return `~~${text}~~`;
 
@@ -329,21 +272,11 @@ const serializeLinkSource = (text: string, mark: Mark) => {
   const href = String(mark.attrs.href ?? "");
   const title = mark.attrs.title ? ` "${String(mark.attrs.title).replaceAll('"', '\\"')}"` : "";
 
-  if (text === href && href) {
-    return `<${href}>`;
-  }
-
-  return `[${text}](${href}${title})`;
+  return text === href && href ? `<${href}>` : `[${text}](${href}${title})`;
 };
 
 const parseMarkSource = (source: string, markName: string): ParsedMarkSource | null => {
   switch (markName) {
-    case "strong":
-      return parseWrappedSource(source, /^\*\*(?<text>.+)\*\*$/u);
-
-    case "emphasis":
-      return parseWrappedSource(source, /^\*(?<text>.+)\*$/u);
-
     case "strike_through":
       return parseWrappedSource(source, /^~~(?<text>.+)~~$/u);
 
@@ -362,7 +295,11 @@ const parseWrappedSource = (source: string, pattern: RegExp): ParsedMarkSource |
   const match = pattern.exec(source.trim());
   const text = match?.groups?.text;
 
-  return text ? { text } : null;
+  if (!text) {
+    return null;
+  }
+
+  return { text };
 };
 
 const parseLinkSource = (source: string): ParsedMarkSource | null => {
@@ -404,7 +341,7 @@ const getActiveSourceNode = (state: EditorState): NodeWithPos | null => {
   let activeNode: NodeWithPos | null = null;
 
   state.doc.nodesBetween(Math.max(0, selection.from - 1), selection.to + 1, (node, pos) => {
-    if (!sourceNodeNames.has(node.type.name)) {
+    if (!SOURCE_NODE_NAMES.has(node.type.name)) {
       return true;
     }
 
@@ -467,7 +404,11 @@ const parseSourceNode = (source: string, nodeName: string): Record<string, unkno
   if (nodeName === "footnote_reference") {
     const label = /^\[\^(?<label>[^\]]+)\]$/u.exec(source.trim())?.groups?.label;
 
-    return label ? { label } : null;
+    if (!label) {
+      return null;
+    }
+
+    return { label };
   }
 
   if (nodeName === "html") {

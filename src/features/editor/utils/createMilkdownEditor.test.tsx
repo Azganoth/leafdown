@@ -1,20 +1,10 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { mountMilkdownEditor, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 
-const mountedEditors: MountedMilkdownEditor[] = [];
-
-const mountEditor = async (initialMarkdown: string): Promise<MountedMilkdownEditor> => {
-  const mounted = await mountMilkdownEditor(initialMarkdown);
-  mountedEditors.push(mounted);
-  return mounted;
-};
+const mountEditor = setupMilkdownEditorMount();
 
 describe("createMilkdownEditor", () => {
-  afterEach(async () => {
-    await Promise.all(mountedEditors.splice(0).map((mounted) => mounted.destroy()));
-  });
-
   it("mounts and serializes through the Leafdown Milkdown factory", async () => {
     const mounted = await mountEditor("# Notes\n\nParagraph");
 

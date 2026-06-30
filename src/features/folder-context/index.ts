@@ -3,20 +3,33 @@ export {
   openFolderContext,
   scanFolderContext,
   selectFolderContextPath,
-} from "./services/folderContext";
-export { unwatchFolderContext, watchFolderContext } from "./services/folderContextWatcher";
-export { useArticleNavigatorStore } from "./stores/articleNavigator";
-export {
-  getFolderContextStatus,
   type ArticleSortOrder,
   type ArticleTree,
   type ArticleTreeNode,
   type FolderContextState,
   type OpenedFolderContext,
-} from "./types";
+} from "./services/folderContext";
 export {
-  buildArticleNavigatorRows,
+  FOLDER_CONTEXT_CHANGED_EVENT,
+  FOLDER_CONTEXT_WATCH_ERROR_EVENT,
+  unwatchFolderContext,
+  watchFolderContext,
+  type FolderContextChangedEventPayload,
+  type FolderContextWatchErrorEventPayload,
+} from "./services/folderContextWatcher";
+export { useArticleNavigatorStore } from "./stores/articleNavigator";
+export {
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
 } from "./utils/articleNavigatorRows";
-export { getOpenFolderContextErrorMessage } from "./utils/folderContextErrors";
+export {
+  getOpenFolderContextErrorMessage,
+  getScanFolderContextErrorMessage,
+  getWatchFolderContextErrorMessage,
+  isOpenFolderContextError,
+  isScanFolderContextError,
+  isWatchFolderContextError,
+  type OpenFolderContextError,
+  type ScanFolderContextError,
+  type WatchFolderContextError,
+} from "./utils/folderContextErrors";

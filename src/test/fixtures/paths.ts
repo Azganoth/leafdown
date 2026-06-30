@@ -1,0 +1,4 @@
+export const TEST_NOTES_FOLDER_PATH = "C:/Notes";
+export const TEST_MARKDOWN_FILE_PATH = `${TEST_NOTES_FOLDER_PATH}/readme.md`;
+export const TEST_NESTED_DIRECTORY_PATH = `${TEST_NOTES_FOLDER_PATH}/docs`;
+export const TEST_NESTED_MARKDOWN_FILE_PATH = `${TEST_NESTED_DIRECTORY_PATH}/readme.md`;

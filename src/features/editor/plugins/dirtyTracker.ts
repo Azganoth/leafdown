@@ -1,3 +1,4 @@
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
@@ -6,27 +7,56 @@ import {
   isInlineSourceProjectionHousekeepingTransaction,
 } from "./inlineSourceProjection";
 
-export const leafdownDirtyTrackerPluginKey = new PluginKey("leafdownDirtyTracker");
+interface DirtyTrackerPluginState {
+  trackedChangeCount: number;
+}
 
-export const createLeafdownDirtyTrackerPlugin = (onContentTransaction: () => void) =>
+export const leafdownDirtyTrackerPluginKey = new PluginKey<DirtyTrackerPluginState>(
+  "leafdownDirtyTracker",
+);
+
+const INITIAL_DIRTY_TRACKER_STATE: DirtyTrackerPluginState = {
+  trackedChangeCount: 0,
+};
+
+const getDirtyTrackerState = (state: EditorState) =>
+  leafdownDirtyTrackerPluginKey.getState(state) ?? INITIAL_DIRTY_TRACKER_STATE;
+
+const shouldTrackDirtyTransaction = (transaction: Transaction) =>
+  transaction.docChanged &&
+  (isInlineSourceProjectionDirtyTransaction(transaction) ||
+    (transaction.getMeta("addToHistory") !== false &&
+      !isInlineSourceProjectionHousekeepingTransaction(transaction)));
+
+export const createLeafdownDirtyTrackerPlugin = (onContentChanged: () => void) =>
   $prose(
     () =>
-      new Plugin({
+      new Plugin<DirtyTrackerPluginState>({
         key: leafdownDirtyTrackerPluginKey,
         state: {
-          init: () => null,
-          apply: (transaction) => {
-            if (
-              transaction.docChanged &&
-              (isInlineSourceProjectionDirtyTransaction(transaction) ||
-                (transaction.getMeta("addToHistory") !== false &&
-                  !isInlineSourceProjectionHousekeepingTransaction(transaction)))
-            ) {
-              onContentTransaction();
-            }
+          init: () => INITIAL_DIRTY_TRACKER_STATE,
+          apply: (transaction, pluginState) =>
+            shouldTrackDirtyTransaction(transaction)
+              ? { trackedChangeCount: pluginState.trackedChangeCount + 1 }
+              : pluginState,
+        },
+        view: (view) => {
+          let trackedChangeCount = getDirtyTrackerState(view.state).trackedChangeCount;
 
-            return null;
-          },
+          return {
+            update: (nextView) => {
+              const nextTrackedChangeCount = getDirtyTrackerState(
+                nextView.state,
+              ).trackedChangeCount;
+
+              if (nextTrackedChangeCount === trackedChangeCount) {
+                return;
+              }
+
+              trackedChangeCount = nextTrackedChangeCount;
+              onContentChanged();
+            },
+          };
         },
       }),
   );

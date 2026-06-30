@@ -1,17 +1,10 @@
+export type { ApplicationCommandId } from "./application";
+export type { AppCommandContext } from "./context";
+export type { AppCommandId } from "./dispatch";
 export { useAppCommands } from "./hooks/useAppCommands";
-export {
-  commandDefinitions,
-  commandMenuLabels,
-  formatShortcut,
-  getCommandShortcuts,
-} from "./registry";
-export { getCommandState, inactiveEditorCommandState } from "./state";
-export type {
-  AppCommandId,
-  ApplicationCommandId,
-  CommandDefinition,
-  CommandMenuId,
-  CommandShortcut,
-  CommandStateContext,
-  ResolvedCommandState,
-} from "./types";
+export { COMMAND_DEFINITIONS, COMMAND_MENU_LABELS, formatShortcut } from "./metadata";
+export type { CommandDefinition, CommandMenuId, CommandShortcut } from "./metadata";
+export { getCommandState } from "./state";
+export type { CommandState } from "./statePrimitives";
+export { useCommandUIStore } from "./stores/commandUi";
+export type { CommandUIState } from "./stores/commandUi";

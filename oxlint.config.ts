@@ -23,6 +23,7 @@ export default defineConfig({
     "react/rules-of-hooks": "error",
     "no-var": "error",
     "prefer-const": "error",
+    "react/react-compiler": "error",
   },
   overrides: [
     {

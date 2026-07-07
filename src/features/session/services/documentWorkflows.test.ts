@@ -15,7 +15,12 @@ import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { createArticleTree, createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
-import { mockTauriApi, mockTauriApiCommand, tauriApiCommand } from "@/test/utils/tauriApi";
+import {
+  countTauriApiCalls,
+  mockTauriApi,
+  mockTauriApiCommand,
+  tauriApiCommand,
+} from "@/test/utils/tauriApi";
 
 import { documentEditorBridge } from "./documentEditorBridge";
 import {
@@ -27,6 +32,8 @@ import {
 
 const DRAFT_MARKDOWN_PATH = "C:/Notes/draft.markdown";
 const DRAFT_MD_PATH = "C:/Notes/draft.md";
+const OUTSIDE_DRAFT_MD_PATH = "C:/Other/draft.md";
+const OUTSIDE_FOLDER_PATH = "C:/Other";
 const NEXT_UNTITLED_DOCUMENT_ID = "untitled:next";
 const RECOVERED_MARKDOWN_PATH = "C:/Notes/recovered.md";
 
@@ -269,6 +276,74 @@ describe("document workflows", () => {
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         status: "untitled",
         id: NEXT_UNTITLED_DOCUMENT_ID,
+      });
+    });
+
+    it("keeps the active folder context when Save As writes outside it", async () => {
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        activeDocument: createUntitledDocument(),
+      });
+      vi.mocked(save).mockResolvedValue(OUTSIDE_DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () =>
+          createSavedMarkdownDocumentResult({
+            path: OUTSIDE_DRAFT_MD_PATH,
+            parentFolderPath: OUTSIDE_FOLDER_PATH,
+          }),
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: { path: "C:/Notes" },
+        activeDocument: {
+          status: "saved",
+          path: OUTSIDE_DRAFT_MD_PATH,
+          content: "Draft\n",
+          isDirty: false,
+        },
+      });
+    });
+
+    it("bootstraps the folder context when Save As writes without an active context", async () => {
+      const outsideFolderContext = createFolderContext({
+        path: OUTSIDE_FOLDER_PATH,
+        tree: createArticleTree({
+          name: "Other",
+          path: OUTSIDE_FOLDER_PATH,
+          children: [{ kind: "file", name: "draft.md", path: OUTSIDE_DRAFT_MD_PATH }],
+        }),
+      });
+      setDefaultSession({
+        activeDocument: createUntitledDocument(),
+      });
+      vi.mocked(save).mockResolvedValue(OUTSIDE_DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () =>
+          createSavedMarkdownDocumentResult({
+            path: OUTSIDE_DRAFT_MD_PATH,
+            parentFolderPath: OUTSIDE_FOLDER_PATH,
+          }),
+        scanMarkdownFolder: () => outsideFolderContext,
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(invoke).toHaveBeenCalledWith(tauriApiCommand("scanMarkdownFolder"), {
+        path: OUTSIDE_FOLDER_PATH,
+        ignoredDirectories: DEFAULT_IGNORED_DIRECTORIES,
+        sortOrder: "name",
+      });
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: { path: OUTSIDE_FOLDER_PATH },
+        activeDocument: {
+          status: "saved",
+          path: OUTSIDE_DRAFT_MD_PATH,
+          content: "Draft\n",
+          isDirty: false,
+        },
       });
     });
 

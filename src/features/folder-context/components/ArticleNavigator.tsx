@@ -5,6 +5,7 @@ import {
   FolderIcon,
   FolderOpenIcon,
   FolderTreeIcon,
+  InfoIcon,
 } from "lucide-react";
 import { useEffect, useRef, type Ref } from "react";
 
@@ -18,7 +19,7 @@ import {
   type VirtualListHandle,
 } from "@/components/ui/VirtualList";
 import { cn } from "@/lib/cn";
-import { isSamePath } from "@/lib/path";
+import { isSameOrParentPath, isSamePath } from "@/lib/path";
 
 import type { FolderContextState } from "../services/folderContext";
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
@@ -56,6 +57,10 @@ export function ArticleNavigator({
       : null;
   const activeFileAncestorDirectoryPathSignature =
     activeFileAncestorDirectoryPaths?.join(PATH_SIGNATURE_SEPARATOR) ?? "";
+  const activeDocumentIsDetached =
+    folderContext && activeArticlePath
+      ? !isSameOrParentPath(folderContext.path, activeArticlePath)
+      : false;
   const rows = folderContext
     ? buildArticleNavigatorRows({
         activeArticlePath,
@@ -109,6 +114,7 @@ export function ArticleNavigator({
       {!folderContext && <NoFolderContext />}
       {folderContext && (
         <>
+          {activeDocumentIsDetached && <DetachedDocumentNotice />}
           {folderContext.isEmpty && (
             <p className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
               No supported Markdown files found.
@@ -129,6 +135,17 @@ export function ArticleNavigator({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function DetachedDocumentNotice() {
+  return (
+    <div className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
+      <div className="flex gap-2 rounded-md border border-border bg-card/65 px-2 py-1.5">
+        <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
+        <span>Current document is outside this folder context.</span>
+      </div>
     </div>
   );
 }

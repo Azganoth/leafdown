@@ -35,14 +35,6 @@ const resolveMarkdownLink = ({
     explicitOpen,
   });
 
-const confirmOutsideFolderLink = (target: string) =>
-  showConfirmDialog(`This link points outside the current folder:\n\n${target}\n\nOpen it?`, {
-    title: "Open outside folder?",
-    kind: "warning",
-    okLabel: "Open link",
-    cancelLabel: "Cancel",
-  });
-
 const confirmLocalFileLink = (path: string) =>
   showConfirmDialog(`Open this local file with the system default app?\n\n${path}`, {
     title: "Open local file?",
@@ -94,7 +86,7 @@ const activateResolvedMarkdownLink = async (
       return openLocalFileTarget(resolution.path);
 
     case "outsideFolder":
-      return activateOutsideFolderMarkdownLink(options);
+      return activateOutsideFolderLink(options);
 
     case "missing":
       notifyWarning("Link target not found.", resolution.path);
@@ -122,13 +114,9 @@ const activateResolvedMarkdownLink = async (
   }
 };
 
-const activateOutsideFolderMarkdownLink = async (
+const activateOutsideFolderLink = async (
   options: ActivateMarkdownLinkOptions,
 ): Promise<boolean> => {
-  if (!(await confirmOutsideFolderLink(options.target))) {
-    return false;
-  }
-
   const resolution = await resolveMarkdownLink({
     ...options,
     explicitOpen: true,
@@ -136,10 +124,6 @@ const activateOutsideFolderMarkdownLink = async (
 
   if (resolution.kind === "outsideFolder") {
     return false;
-  }
-
-  if (resolution.kind === "localFile") {
-    return openLocalFilePath(resolution.path);
   }
 
   return activateResolvedMarkdownLink(options, resolution);

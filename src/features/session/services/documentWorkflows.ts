@@ -18,6 +18,7 @@ import {
 import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import { SequentialTaskQueue } from "@/lib/async";
+import { isSameOrParentPath } from "@/lib/path";
 
 import { useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
@@ -112,24 +113,29 @@ const saveActiveMarkdownDocumentAsNow = async () => {
 
   const serializedDocument = serializeActiveDocumentForSave(latestDocument);
   const result = await saveMarkdownDocument(path, serializedDocument.content);
-  const folderContext = await scanFolderContext(
+  const existingFolderContext = useSessionStore.getState().folderContext;
+  const nextFolderContext = await getFolderContextAfterSaveAs(
+    result.path,
     result.parentFolderPath,
-    getSessionFolderScanOptions(),
+    existingFolderContext,
   );
 
   if (!getActiveDocumentByKey(documentKey)) {
     return false;
   }
 
-  useSessionStore.getState().setActiveDocumentSession(
-    folderContext,
-    toSavedDocument({
-      path: result.path,
-      content: serializedDocument.content,
-      lineEnding: serializedDocument.lineEnding,
-      metadata: result.metadata,
-    }),
-  );
+  const savedDocument = toSavedDocument({
+    path: result.path,
+    content: serializedDocument.content,
+    lineEnding: serializedDocument.lineEnding,
+    metadata: result.metadata,
+  });
+
+  if (nextFolderContext) {
+    useSessionStore.getState().setActiveDocumentSession(nextFolderContext, savedDocument);
+  } else {
+    useSessionStore.getState().setActiveDocument(savedDocument);
+  }
 
   return true;
 };
@@ -264,4 +270,20 @@ const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
   const folderPath = useSessionStore.getState().folderContext?.path ?? (await documentDir());
 
   return join(folderPath, fileName);
+};
+
+const getFolderContextAfterSaveAs = async (
+  savedFilePath: string,
+  savedParentFolderPath: string,
+  existingFolderContext: ReturnType<typeof useSessionStore.getState>["folderContext"],
+) => {
+  if (!existingFolderContext) {
+    return scanFolderContext(savedParentFolderPath, getSessionFolderScanOptions());
+  }
+
+  if (isSameOrParentPath(existingFolderContext.path, savedFilePath)) {
+    return scanFolderContext(existingFolderContext.path, getSessionFolderScanOptions());
+  }
+
+  return null;
 };

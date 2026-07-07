@@ -49,14 +49,23 @@
 
 **Status:** Accepted
 
-**Decision:** Opening a folder uses it as the current folder context. Opening a file uses its parent folder as the current folder context.
+**Decision:** Opening a folder uses it as the current folder context. Opening a
+file uses its parent folder as the current folder context only when no folder
+context is active. Once a folder context exists, it remains pinned until changed
+by an explicit folder action.
 
-**Rationale:** Simplifies folder awareness by avoiding separate single-file and workspace modes.
+**Rationale:** Keeps folder-aware workflows available while preventing the
+article navigator from unexpectedly collapsing to nested or unrelated document
+parent folders.
 
 **Consequences:**
 
-- The sidebar matches the current folder context.
-- Opening a single file scans its parent folder context.
+- The sidebar matches the pinned folder context, not necessarily the active
+  document's parent folder.
+- Opening a single file scans its parent folder context only as a bootstrap path
+  when no folder context is active.
+- Opening Markdown documents outside the current folder context does not switch
+  or prompt for a folder-context change.
 - Untitled documents associate with the active folder context before saving.
 
 ### Use one hybrid document surface

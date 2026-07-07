@@ -14,7 +14,12 @@ import {
 import { createEmptyFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession } from "@/test/utils/appStores";
-import { mockTauriApi, mockTauriApiCommand, tauriApiCommand } from "@/test/utils/tauriApi";
+import {
+  countTauriApiCalls,
+  mockTauriApi,
+  mockTauriApiCommand,
+  tauriApiCommand,
+} from "@/test/utils/tauriApi";
 
 import { openFolderContextAtPath, openMarkdownFileAtPath } from "./openSession";
 
@@ -67,6 +72,29 @@ describe("open session workflows", () => {
     expect(useRecentItemsStore.getState()).toMatchObject({
       recentFiles: [OTHER_MARKDOWN_PATH],
       recentFolders: [TEST_NOTES_FOLDER_PATH],
+    });
+  });
+
+  it("preserves an active folder context when opening Markdown files", async () => {
+    const pinnedFolderContext = createEmptyFolderContext({ path: OTHER_FOLDER_PATH });
+    setDefaultSession({ folderContext: pinnedFolderContext });
+    mockTauriApi({
+      openMarkdownFile: () => openedOtherMarkdownFile,
+    });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
+
+    expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: OTHER_FOLDER_PATH },
+      activeDocument: createSavedDocument({
+        path: OTHER_MARKDOWN_PATH,
+        content: "# Other",
+      }),
+    });
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: [OTHER_MARKDOWN_PATH],
+      recentFolders: [],
     });
   });
 

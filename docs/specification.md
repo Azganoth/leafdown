@@ -7,8 +7,10 @@ Leafdown is a local-first Markdown editor for files and folders, designed as a f
 - Markdown files remain the source of truth.
 - Normal files and folders are first-class; Leafdown does not require a vault,
   workspace, import process, database, or app metadata inside opened folders.
-- Leafdown is always folder-aware: opening a file uses its parent folder as the
-  current folder context.
+- Leafdown is folder-aware without treating the active file's parent as the
+  navigation root after every document change. Opening a file creates a folder
+  context from its parent only when no folder context is active; otherwise the
+  current folder context remains pinned until an explicit folder action changes it.
 - The document surface is one hybrid WYSIWYG Markdown editor.
 - Leafdown does not use a permanent source/preview split or separate read/edit
   modes.
@@ -54,6 +56,9 @@ Primary user interface surfaces:
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
   Non-ignored directories may appear even when they have no supported Markdown
   files. Folder scans skip symlinked entries rather than following them.
+  When the active saved document is outside the current folder context, the
+  article navigator keeps showing the current folder context and displays a
+  compact detached-document message instead of selecting an article.
   The sidebar is read-only for folder navigation in the MVP; file creation, renaming,
   and deletion must be managed through the OS file explorer or via document saving workflows.
 - **Context popup:** provides quick document actions from selection or
@@ -621,11 +626,16 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 - Opening a file may be initiated from Open, recent files, or sidebar selection.
 - Read the selected Markdown file.
-- Set the current folder context to the file's parent folder.
-- Scan the folder for supported Markdown files, skipping ignored directories.
+- If no folder context is active, set the current folder context to the file's
+  parent folder and scan that folder for supported Markdown files, skipping
+  ignored directories.
+- If a folder context is already active, keep it unchanged.
 - Open the selected file in the document surface.
-- Select the opened file in the sidebar.
-- Add the file and folder to recents when `Record recent files and folders` is enabled.
+- Select the opened file in the sidebar only when it exists in the current
+  article navigator.
+- Add the file to recents when `Record recent files and folders` is enabled.
+  Add the file's parent folder to recent folders only when the file open
+  bootstraps a folder context.
 
 ### Open Folder
 
@@ -649,9 +659,14 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 - Write the document to the chosen path.
 - Update the active document path.
-- Set or refresh the folder context to the saved file's parent folder.
-- Refresh the article navigator for that context when needed.
-- Select the saved file in the sidebar when visible.
+- If no folder context is active, set the current folder context to the saved
+  file's parent folder.
+- If the saved file is inside the current folder context, refresh the article
+  navigator for the current folder context.
+- If the saved file is outside the current folder context, keep the current
+  folder context unchanged.
+- Select the saved file in the sidebar only when it exists in the current
+  article navigator.
 
 ### Filesystem Watching
 
@@ -667,14 +682,14 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 ### Links
 
 - Markdown targets open inside Leafdown.
-- Local file links (absolute or relative) that resolve outside the current folder context require explicit
-  confirmation before opening. Upon successful confirmation and opening of a supported Markdown target, the current
-  folder context switches to the target file's parent folder.
+- Local Markdown links that resolve outside the current folder context open
+  inside Leafdown without switching the current folder context.
 - Local non-Markdown targets ask for confirmation, then open with the system
   default behavior, without switching the current folder context.
 - External web links open in the system browser.
 - Broken link targets show a non-disruptive message.
-- A single link activation shows at most one confirmation for the same target.
+- A single link activation shows at most one confirmation for the same
+  non-Markdown target.
 
 ### Images
 

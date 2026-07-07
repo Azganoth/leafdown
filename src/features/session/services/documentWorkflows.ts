@@ -34,6 +34,10 @@ const UNTITLED_BASE_NAME = "Untitled";
 const saveTaskQueue = new SequentialTaskQueue();
 let nextUntitledId = 1;
 
+export const resetDocumentWorkflowIdsForTests = () => {
+  nextUntitledId = 1;
+};
+
 export const createNewMarkdownDocument = async () => {
   if (!(await confirmDiscardActiveDocumentChanges())) {
     return false;

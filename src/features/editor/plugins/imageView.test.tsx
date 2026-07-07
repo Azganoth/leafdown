@@ -51,8 +51,8 @@ describe("Markdown images", () => {
       expect(convertFileSrc).toHaveBeenCalledWith("C:/Notes/assets/icon special.png");
       expect(getLastTauriApiArgs("resolveMarkdownImageTarget")).toEqual({
         ...createMarkdownReferenceContext(),
+        allowOutsideFolder: false,
         target: "./assets/icon.png",
-        explicitLoad: false,
       });
       expect(mounted.getMarkdown()).toBe("![Sample Icon](./assets/icon.png)\n");
     });
@@ -145,8 +145,8 @@ describe("Markdown images", () => {
 
       expect(getLastTauriApiArgs("resolveMarkdownImageTarget")).toEqual({
         ...createMarkdownReferenceContext(),
+        allowOutsideFolder: true,
         target: "../outside.png",
-        explicitLoad: true,
       });
       expect(mounted.getMarkdown()).toBe("![Outside](../outside.png)\n");
     });

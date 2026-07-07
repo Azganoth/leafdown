@@ -17,18 +17,18 @@ describe("markdownLinkApi", () => {
 
     await expect(
       resolveMarkdownLinkTarget({
+        allowOutsideFolder: false,
         documentPath: "C:/Notes/index.md",
         folderContextPath: "C:/Notes",
         target: "./linked.md",
-        explicitOpen: false,
       }),
     ).resolves.toBe(result);
 
     expect(invoke).toHaveBeenCalledWith(RESOLVE_MARKDOWN_LINK_TARGET_COMMAND, {
+      allowOutsideFolder: false,
       documentPath: "C:/Notes/index.md",
       folderContextPath: "C:/Notes",
       target: "./linked.md",
-      explicitOpen: false,
     });
   });
 });

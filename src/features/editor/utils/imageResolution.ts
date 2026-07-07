@@ -13,8 +13,8 @@ export type MarkdownImageResolution =
   | { kind: "renderable"; path: string; assetUrl: string };
 
 export interface ResolveMarkdownImageOptions extends MarkdownReferenceContext {
+  allowOutsideFolder?: boolean;
   target: string;
-  explicitLoad?: boolean;
 }
 
 const MAX_CONCURRENT_IMAGE_RESOLUTIONS = 4;
@@ -22,17 +22,22 @@ const MAX_CONCURRENT_IMAGE_RESOLUTIONS = 4;
 const imageResolutionTaskLimiter = new TaskLimiter(MAX_CONCURRENT_IMAGE_RESOLUTIONS);
 
 export const resolveMarkdownImage = async (
-  { documentPath, folderContextPath, target, explicitLoad = false }: ResolveMarkdownImageOptions,
+  {
+    allowOutsideFolder = false,
+    documentPath,
+    folderContextPath,
+    target,
+  }: ResolveMarkdownImageOptions,
   cancellationToken: CancellationToken = CancellationToken.None,
 ): Promise<MarkdownImageResolution> => {
   const result = await imageResolutionTaskLimiter.run(
     () =>
       raceWithCancellation(cancellationToken, () =>
         resolveMarkdownImageTarget({
+          allowOutsideFolder,
           documentPath,
           folderContextPath,
           target,
-          explicitLoad,
         }),
       ),
     cancellationToken,

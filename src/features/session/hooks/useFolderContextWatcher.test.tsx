@@ -15,7 +15,11 @@ import { getWindowListenHandler } from "@/test/utils/tauri";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
 import { useSessionStore } from "../stores/session";
-import { FOLDER_WATCH_REFRESH_DELAY_MS, useFolderContextWatcher } from "./useFolderContextWatcher";
+import {
+  FOLDER_WATCH_REFRESH_DELAY_MS,
+  resetFolderWatcherScopeGenerationForTests,
+  useFolderContextWatcher,
+} from "./useFolderContextWatcher";
 
 const notesFolderContext = createFolderContext();
 const notesFolderTree = notesFolderContext.tree;
@@ -73,6 +77,7 @@ const advanceFolderRefreshTimer = async () => {
 describe("useFolderContextWatcher", () => {
   beforeEach(() => {
     vi.mocked(toast.error).mockReset();
+    resetFolderWatcherScopeGenerationForTests();
     mockTauriApi({
       watchMarkdownFolder: () => undefined,
       unwatchMarkdownFolder: () => undefined,

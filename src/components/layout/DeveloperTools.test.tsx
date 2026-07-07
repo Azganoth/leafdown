@@ -1,9 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { DeveloperTools } from "./DeveloperTools";
 
@@ -53,13 +53,13 @@ describe("DeveloperTools", () => {
   });
 
   it("opens native webview DevTools through the backend command", async () => {
-    vi.mocked(invoke).mockResolvedValue(undefined);
+    mockTauriApiCommand("openWebviewDevtools", () => undefined);
     const { user } = renderDeveloperTools();
 
     await showDeveloperTools(user);
     await user.click(screen.getByRole("button", { name: /Open DevTools/u }));
 
-    expect(invoke).toHaveBeenCalledWith("open_webview_devtools");
+    expect(countTauriApiCalls("openWebviewDevtools")).toBe(1);
   });
 
   it("routes command failures through the command failure presentation", async () => {

@@ -1,16 +1,12 @@
-use std::{
-    fs,
-    io::ErrorKind,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::{
     document::is_supported_markdown_path,
     path_utils::{
-        canonicalize_or_original, has_uri_scheme, parse_file_url_path, path_to_string,
-        resolve_markdown_reference_path, MarkdownReferencePathResolution,
+        has_uri_scheme, parse_file_url_path, resolve_existing_path,
+        resolve_markdown_reference_path, ExistingPathResolution, MarkdownReferencePathResolution,
     },
 };
 
@@ -40,14 +36,14 @@ pub(crate) async fn resolve_markdown_link_target(
     document_path: Option<String>,
     folder_context_path: Option<String>,
     target: String,
-    explicit_open: Option<bool>,
+    allow_outside_folder: Option<bool>,
 ) -> ResolveMarkdownLinkTargetResult {
     tauri::async_runtime::spawn_blocking(move || {
         resolve_link_target(
             document_path.as_deref().map(Path::new),
             folder_context_path.as_deref().map(Path::new),
             target.as_str(),
-            explicit_open.unwrap_or(false),
+            allow_outside_folder.unwrap_or(false),
         )
     })
     .await
@@ -60,7 +56,7 @@ pub(crate) fn resolve_link_target(
     document_path: Option<&Path>,
     folder_context_path: Option<&Path>,
     target: &str,
-    explicit_open: bool,
+    allow_outside_folder: bool,
 ) -> ResolveMarkdownLinkTargetResult {
     match parse_link_target(target) {
         ParsedLinkTarget::ExternalWeb(url) => ResolveMarkdownLinkTargetResult::ExternalWeb { url },
@@ -68,7 +64,7 @@ pub(crate) fn resolve_link_target(
             document_path,
             folder_context_path,
             target_path.as_path(),
-            explicit_open,
+            allow_outside_folder,
         ),
         ParsedLinkTarget::Unsupported => ResolveMarkdownLinkTargetResult::UnsupportedTarget,
     }
@@ -78,13 +74,13 @@ fn resolve_local_link_target(
     document_path: Option<&Path>,
     folder_context_path: Option<&Path>,
     target_path: &Path,
-    explicit_open: bool,
+    allow_outside_folder: bool,
 ) -> ResolveMarkdownLinkTargetResult {
     let resolved_path = match resolve_markdown_reference_path(
         document_path,
         folder_context_path,
         target_path,
-        explicit_open,
+        allow_outside_folder,
     ) {
         MarkdownReferencePathResolution::Resolved(path) => path,
         MarkdownReferencePathResolution::UntitledRelative => {
@@ -99,28 +95,24 @@ fn resolve_local_link_target(
 }
 
 fn resolve_existing_link_target(resolved_path: &Path) -> ResolveMarkdownLinkTargetResult {
-    match fs::metadata(resolved_path) {
-        Ok(metadata) => {
-            let path = canonicalize_or_original(resolved_path);
-
-            if metadata.is_file() && is_supported_markdown_path(resolved_path) {
+    match resolve_existing_path(resolved_path) {
+        ExistingPathResolution::Found { is_file, path } => {
+            if is_file && is_supported_markdown_path(resolved_path) {
                 ResolveMarkdownLinkTargetResult::LocalMarkdown { path }
             } else {
                 ResolveMarkdownLinkTargetResult::LocalFile { path }
             }
         }
-        Err(error) => match error.kind() {
-            ErrorKind::InvalidInput => ResolveMarkdownLinkTargetResult::InvalidPath,
-            ErrorKind::NotFound => ResolveMarkdownLinkTargetResult::Missing {
-                path: path_to_string(resolved_path),
-            },
-            ErrorKind::PermissionDenied => ResolveMarkdownLinkTargetResult::PermissionDenied {
-                message: error.to_string(),
-            },
-            _ => ResolveMarkdownLinkTargetResult::MetadataFailed {
-                message: error.to_string(),
-            },
-        },
+        ExistingPathResolution::InvalidPath => ResolveMarkdownLinkTargetResult::InvalidPath,
+        ExistingPathResolution::Missing { path } => {
+            ResolveMarkdownLinkTargetResult::Missing { path }
+        }
+        ExistingPathResolution::PermissionDenied { message } => {
+            ResolveMarkdownLinkTargetResult::PermissionDenied { message }
+        }
+        ExistingPathResolution::MetadataFailed { message } => {
+            ResolveMarkdownLinkTargetResult::MetadataFailed { message }
+        }
     }
 }
 
@@ -311,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn requires_explicit_open_for_links_outside_the_folder_context() {
+    fn requires_outside_folder_permission_for_links_outside_the_folder_context() {
         let root = TestDirectory::new("outside-root");
         let outside = TestDirectory::new("outside-target");
         let document_path = root.markdown_document_path();
@@ -342,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn requires_explicit_open_for_absolute_links_without_a_folder_context() {
+    fn requires_outside_folder_permission_for_absolute_links_without_a_folder_context() {
         let root = TestDirectory::new("absolute-without-context");
         let target_path = root.write_file("notes.pdf");
 

@@ -1,3 +1,4 @@
+import { OPEN_WEBVIEW_DEVTOOLS_COMMAND } from "@/commands/actions/help";
 import {
   OPEN_MARKDOWN_FILE_COMMAND,
   SAVE_MARKDOWN_FILE_COMMAND,
@@ -45,6 +46,7 @@ interface TauriApiCommandArgs {
   unwatchMarkdownFolder: UnwatchMarkdownFolderArgs;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
+  openWebviewDevtools: undefined;
 }
 
 interface TauriApiCommandResults {
@@ -56,6 +58,7 @@ interface TauriApiCommandResults {
   unwatchMarkdownFolder: void;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
+  openWebviewDevtools: void;
 }
 
 type TauriApiCommandName = keyof TauriApiCommandArgs;
@@ -77,6 +80,7 @@ const TAURI_API_COMMANDS = {
   unwatchMarkdownFolder: UNWATCH_MARKDOWN_FOLDER_COMMAND,
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;
 
 export const mockTauriApi = (handlers: TauriApiCommandHandlers) => {

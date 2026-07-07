@@ -26,7 +26,6 @@ serde_json = "1.0"
 tauri-plugin-frame = "1.1"
 tauri-plugin-zustand = "1.2"
 tauri-plugin-dialog = "2.7"
-anyhow = "1.0"
 notify = "9.0.0-rc.4"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]

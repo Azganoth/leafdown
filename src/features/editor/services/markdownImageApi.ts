@@ -3,10 +3,10 @@ import { invoke } from "@tauri-apps/api/core";
 export const RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND = "resolve_markdown_image_target";
 
 export interface ResolveMarkdownImageTargetArgs {
+  allowOutsideFolder: boolean;
   documentPath: string | null;
   folderContextPath: string | null;
   target: string;
-  explicitLoad: boolean;
 }
 
 /* NOTE: src-tauri/src/image.rs (ResolveMarkdownImageTargetResult). */
@@ -23,14 +23,14 @@ export type ResolveMarkdownImageTargetResult =
   | { kind: "metadataFailed"; message: string };
 
 export const resolveMarkdownImageTarget = ({
+  allowOutsideFolder,
   documentPath,
-  explicitLoad,
   folderContextPath,
   target,
 }: ResolveMarkdownImageTargetArgs) =>
   invoke<ResolveMarkdownImageTargetResult>(RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND, {
+    allowOutsideFolder,
     documentPath,
     folderContextPath,
     target,
-    explicitLoad,
   });

@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     fs,
     io::{self, ErrorKind},
     path::{Component, Path, PathBuf},
@@ -241,7 +240,6 @@ fn relevant_event_paths(
     }
 
     let mut paths = Vec::new();
-    let mut seen_paths = HashSet::new();
 
     for path in &event.paths {
         if !event_path_is_relevant(path, folder_path, ignored_directories, &event.kind) {
@@ -250,7 +248,7 @@ fn relevant_event_paths(
 
         let serialized_path = path_to_string(path);
 
-        if seen_paths.insert(serialized_path.clone()) {
+        if !paths.contains(&serialized_path) {
             paths.push(serialized_path);
         }
     }
@@ -600,6 +598,27 @@ mod tests {
         assert_eq!(
             paths,
             vec![from_path.to_string_lossy(), to_path.to_string_lossy()]
+        );
+    }
+
+    #[test]
+    fn deduplicates_relevant_event_paths_in_event_order() {
+        let root = TestDirectory::new("watch-duplicate-paths");
+        let first_path = root.path("first.md");
+        let second_path = root.path("second.md");
+
+        let paths = relevant_event_paths(
+            &Event::new(EventKind::Remove(RemoveKind::File))
+                .add_path(first_path.clone())
+                .add_path(first_path.clone())
+                .add_path(second_path.clone()),
+            root.path.as_path(),
+            &[],
+        );
+
+        assert_eq!(
+            paths,
+            vec![first_path.to_string_lossy(), second_path.to_string_lossy()]
         );
     }
 

@@ -16,7 +16,7 @@ import {
 } from "@/features/preferences";
 import { confirmDiscardActiveDocumentChanges } from "@/features/session";
 import { handleUnexpectedError } from "@/lib/errors";
-import { DisposableStore } from "@/lib/lifecycle";
+import { useTauriEvent } from "@/lib/tauriEvent";
 
 const DeveloperTools = import.meta.env.DEV
   ? lazy(async () => {
@@ -34,6 +34,8 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
   window.document.documentElement.classList.toggle("dark", isDark);
 };
 
+const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
+
 export function App() {
   const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
 
@@ -49,6 +51,18 @@ export function App() {
     void initializeApp().catch((error) => handleUnexpectedError(error, "initializeApp"));
   }, []);
 
+  useTauriEvent<void>(
+    WINDOW_CLOSE_REQUESTED_EVENT,
+    async () => {
+      const appWindow = getCurrentWindow();
+
+      if (await confirmDiscardActiveDocumentChanges()) {
+        await appWindow.destroy();
+      }
+    },
+    "windowCloseRequested",
+  );
+
   useEffect(() => {
     const preventDropNavigation = (event: DragEvent) => {
       event.preventDefault();
@@ -60,33 +74,6 @@ export function App() {
     return () => {
       window.removeEventListener("dragover", preventDropNavigation);
       window.removeEventListener("drop", preventDropNavigation);
-    };
-  }, []);
-
-  useEffect(() => {
-    const appWindow = getCurrentWindow();
-    const listenerDisposables = new DisposableStore();
-
-    const setupCloseListener = async () => {
-      try {
-        const closeUnlisten = await appWindow.listen(
-          "leafdown://window-close-requested",
-          async () => {
-            if (await confirmDiscardActiveDocumentChanges()) {
-              await appWindow.destroy();
-            }
-          },
-        );
-        listenerDisposables.add(closeUnlisten);
-      } catch (error) {
-        handleUnexpectedError(error, "setupCloseListener");
-      }
-    };
-
-    void setupCloseListener();
-
-    return () => {
-      listenerDisposables.dispose();
     };
   }, []);
 

@@ -17,18 +17,18 @@ describe("markdownImageApi", () => {
 
     await expect(
       resolveMarkdownImageTarget({
+        allowOutsideFolder: false,
         documentPath: "C:/Notes/index.md",
         folderContextPath: "C:/Notes",
         target: "./image.png",
-        explicitLoad: false,
       }),
     ).resolves.toBe(result);
 
     expect(invoke).toHaveBeenCalledWith(RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND, {
+      allowOutsideFolder: false,
       documentPath: "C:/Notes/index.md",
       folderContextPath: "C:/Notes",
       target: "./image.png",
-      explicitLoad: false,
     });
   });
 });

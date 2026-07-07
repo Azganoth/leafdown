@@ -66,8 +66,8 @@ describe("Markdown links", () => {
       expect(event.defaultPrevented).toBe(true);
       expect(getLastTauriApiArgs("resolveMarkdownLinkTarget")).toEqual({
         ...createMarkdownReferenceContext(),
+        allowOutsideFolder: false,
         target: "https://example.com/docs",
-        explicitOpen: false,
       });
       expect(mounted.getMarkdown()).toBe("[Docs](https://example.com/docs)\n");
     });

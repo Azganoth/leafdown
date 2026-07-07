@@ -1,4 +1,4 @@
-import { useCommandUIStore, type CommandUIState } from "@/commands";
+import { useCommandUIStore, type CommandUIState } from "@/commands/stores/commandUi";
 import type {
   ActiveDocumentState,
   SavedDocumentState,

@@ -52,13 +52,13 @@ describe("Markdown link activation", () => {
     expect(confirm).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("resolveMarkdownLinkTarget"), {
       ...createMarkdownReferenceContext(),
+      allowOutsideFolder: false,
       target: "../Other/target.md",
-      explicitOpen: false,
     });
     expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("resolveMarkdownLinkTarget"), {
       ...createMarkdownReferenceContext(),
+      allowOutsideFolder: true,
       target: "../Other/target.md",
-      explicitOpen: true,
     });
     expect(onOpenMarkdownPath).toHaveBeenCalledWith("C:/Other/target.md");
   });

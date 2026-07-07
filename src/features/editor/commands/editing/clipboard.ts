@@ -4,6 +4,8 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { markdownToSlice } from "@milkdown/kit/utils";
 
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+
 import {
   hasActiveInlineSourceProjection,
   pasteIntoInlineSourceProjection,
@@ -61,8 +63,8 @@ const readClipboardHtml = async () => {
   const items = await clipboard.read();
 
   for (const item of items) {
-    if (item.types.includes("text/html")) {
-      return (await item.getType("text/html")).text();
+    if (item.types.includes(TEXT_HTML_MIME_TYPE)) {
+      return (await item.getType(TEXT_HTML_MIME_TYPE)).text();
     }
   }
 
@@ -79,8 +81,8 @@ const writeClipboardPayload = async (payload: ClipboardPayload) => {
   if (payload.html && clipboard.write && typeof ClipboardItem !== "undefined") {
     await clipboard.write([
       new ClipboardItem({
-        "text/html": new Blob([payload.html], { type: "text/html" }),
-        "text/plain": new Blob([payload.text], { type: "text/plain" }),
+        [TEXT_HTML_MIME_TYPE]: new Blob([payload.html], { type: TEXT_HTML_MIME_TYPE }),
+        [TEXT_PLAIN_MIME_TYPE]: new Blob([payload.text], { type: TEXT_PLAIN_MIME_TYPE }),
       }),
     ]);
 

@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, expect, vi } from "vitest";
 
+import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+
 const createClipboardItem = (type: string, value: string): ClipboardItem =>
   ({
     types: [type],
@@ -57,8 +59,10 @@ export const setupClipboardMock = () => {
         throw new Error("Expected clipboard.write to receive a clipboard item.");
       }
 
-      expect(item.types).toContain("text/plain");
-      await expect(item.getType("text/plain").then((blob) => blob.text())).resolves.toBe(text);
+      expect(item.types).toContain(TEXT_PLAIN_MIME_TYPE);
+      await expect(item.getType(TEXT_PLAIN_MIME_TYPE).then((blob) => blob.text())).resolves.toBe(
+        text,
+      );
     },
   };
 };

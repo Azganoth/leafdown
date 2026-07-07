@@ -1,5 +1,6 @@
 use std::{
     fs,
+    io::ErrorKind,
     path::{Component, Path, PathBuf},
 };
 
@@ -14,6 +15,14 @@ pub(crate) enum MarkdownReferencePathResolution {
     OutsideFolder,
 }
 
+pub(crate) enum ExistingPathResolution {
+    Found { is_file: bool, path: String },
+    InvalidPath,
+    Missing { path: String },
+    PermissionDenied { message: String },
+    MetadataFailed { message: String },
+}
+
 pub(crate) fn parse_file_url_path(target: &str) -> Option<PathBuf> {
     let path = target.strip_prefix("file://")?;
 
@@ -21,7 +30,7 @@ pub(crate) fn parse_file_url_path(target: &str) -> Option<PathBuf> {
         return None;
     }
 
-    let mut decoded_path = percent_decode_path(path);
+    let mut decoded_path = percent_decode_path(path)?;
 
     if cfg!(windows)
         && decoded_path.len() >= 4
@@ -111,6 +120,27 @@ pub(crate) fn canonicalize_or_original(path: &Path) -> String {
         .unwrap_or_else(|_| path_to_string(path))
 }
 
+pub(crate) fn resolve_existing_path(path: &Path) -> ExistingPathResolution {
+    match fs::metadata(path) {
+        Ok(metadata) => ExistingPathResolution::Found {
+            is_file: metadata.is_file(),
+            path: canonicalize_or_original(path),
+        },
+        Err(error) => match error.kind() {
+            ErrorKind::InvalidInput => ExistingPathResolution::InvalidPath,
+            ErrorKind::NotFound => ExistingPathResolution::Missing {
+                path: path_to_string(path),
+            },
+            ErrorKind::PermissionDenied => ExistingPathResolution::PermissionDenied {
+                message: error.to_string(),
+            },
+            _ => ExistingPathResolution::MetadataFailed {
+                message: error.to_string(),
+            },
+        },
+    }
+}
+
 pub(crate) fn normalize_path_lexically(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
 
@@ -135,7 +165,7 @@ fn canonicalize_or_normalize(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| normalize_path_lexically(path))
 }
 
-fn percent_decode_path(path: &str) -> String {
+fn percent_decode_path(path: &str) -> Option<String> {
     let mut bytes = Vec::with_capacity(path.len());
     let path_bytes = path.as_bytes();
     let mut index = 0;
@@ -157,7 +187,7 @@ fn percent_decode_path(path: &str) -> String {
         index += 1;
     }
 
-    String::from_utf8_lossy(bytes.as_slice()).into_owned()
+    String::from_utf8(bytes).ok()
 }
 
 fn hex_digit(byte: u8) -> Option<u8> {
@@ -198,6 +228,11 @@ mod tests {
     #[test]
     fn rejects_file_urls_without_absolute_paths() {
         assert!(parse_file_url_path("file://relative/readme.md").is_none());
+    }
+
+    #[test]
+    fn rejects_file_urls_with_invalid_utf8_percent_escapes() {
+        assert!(parse_file_url_path("file:///tmp/%FF.md").is_none());
     }
 
     #[test]

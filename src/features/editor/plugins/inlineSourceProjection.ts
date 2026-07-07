@@ -7,6 +7,7 @@ import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
 import { isRedoKey, isUndoKey } from "@/lib/input";
+import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { isNonNullish } from "@/lib/predicates";
 
 import {
@@ -589,7 +590,7 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: S
   }
 
   const text =
-    event.clipboardData?.getData("text/plain") ??
+    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ??
     getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER);
 
   if (!text) {

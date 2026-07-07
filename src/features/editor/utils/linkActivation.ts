@@ -19,20 +19,20 @@ export interface ActivateMarkdownLinkOptions extends MarkdownLinkContext {
 }
 
 interface ResolveMarkdownLinkOptions extends ActivateMarkdownLinkOptions {
-  explicitOpen?: boolean;
+  allowOutsideFolder?: boolean;
 }
 
 const resolveMarkdownLink = ({
+  allowOutsideFolder = false,
   documentPath,
-  explicitOpen = false,
   folderContextPath,
   target,
 }: ResolveMarkdownLinkOptions) =>
   resolveMarkdownLinkTarget({
+    allowOutsideFolder,
     documentPath,
     folderContextPath,
     target,
-    explicitOpen,
   });
 
 const confirmLocalFileLink = (path: string) =>
@@ -119,7 +119,7 @@ const activateOutsideFolderLink = async (
 ): Promise<boolean> => {
   const resolution = await resolveMarkdownLink({
     ...options,
-    explicitOpen: true,
+    allowOutsideFolder: true,
   });
 
   if (resolution.kind === "outsideFolder") {

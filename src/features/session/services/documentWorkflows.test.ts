@@ -26,6 +26,7 @@ import { documentEditorBridge } from "./documentEditorBridge";
 import {
   closeActiveMarkdownDocument,
   createNewMarkdownDocument,
+  resetDocumentWorkflowIdsForTests,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "./documentWorkflows";
@@ -52,6 +53,7 @@ const createNextUntitledDocument = () =>
 describe("document workflows", () => {
   beforeEach(() => {
     documentEditorBridge.clear();
+    resetDocumentWorkflowIdsForTests();
   });
 
   describe("new document", () => {

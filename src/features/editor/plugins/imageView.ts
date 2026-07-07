@@ -29,7 +29,7 @@ type ImageResolutionState =
   | { status: "resolved"; resolution: MarkdownImageResolution }
   | { status: "failed"; message: string };
 
-type ImageResolutionInput = ResolveMarkdownImageOptions & { explicitLoad: boolean };
+type ImageResolutionInput = ResolveMarkdownImageOptions & { allowOutsideFolder: boolean };
 
 interface RawMarkdownFocusState {
   selectionDirection: "backward" | "forward" | "none" | null;
@@ -52,7 +52,7 @@ class LeafdownImageNodeView implements NodeView {
 
   private node: ProseMirrorNode;
   private isSelected = false;
-  private explicitLoadRequested = false;
+  private allowOutsideFolder = false;
   private readonly currentResolutionCancellation = new MutableDisposable<CancellationTokenSource>();
   private currentResolutionInput: ImageResolutionInput | null = null;
   private resolutionState: ImageResolutionState = { status: "pending" };
@@ -83,7 +83,7 @@ class LeafdownImageNodeView implements NodeView {
     this.node = updatedNode;
 
     if (nextAttrs.src !== previousAttrs.src) {
-      this.explicitLoadRequested = false;
+      this.allowOutsideFolder = false;
     }
 
     this.requestImageResolution();
@@ -155,7 +155,7 @@ class LeafdownImageNodeView implements NodeView {
     };
 
     if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
-      this.explicitLoadRequested = false;
+      this.allowOutsideFolder = false;
     }
 
     const tr = this.view.state.tr.setNodeMarkup(position, undefined, nextAttrs);
@@ -169,7 +169,7 @@ class LeafdownImageNodeView implements NodeView {
 
     return {
       documentPath: context.documentPath,
-      explicitLoad: this.explicitLoadRequested,
+      allowOutsideFolder: this.allowOutsideFolder,
       folderContextPath: context.folderContextPath,
       target: attrs.src,
     };
@@ -262,7 +262,7 @@ class LeafdownImageNodeView implements NodeView {
 
     this.dom.append(
       createImagePlaceholder(this.resolutionState, attrs.src, () => {
-        this.explicitLoadRequested = true;
+        this.allowOutsideFolder = true;
         this.requestImageResolution();
       }),
     );
@@ -280,7 +280,7 @@ const isSameImageResolutionInput = (
   nextInput: ImageResolutionInput,
 ) =>
   isSameNullablePath(currentInput.documentPath, nextInput.documentPath) &&
-  currentInput.explicitLoad === nextInput.explicitLoad &&
+  currentInput.allowOutsideFolder === nextInput.allowOutsideFolder &&
   isSameNullablePath(currentInput.folderContextPath, nextInput.folderContextPath) &&
   currentInput.target === nextInput.target;
 
@@ -358,7 +358,7 @@ const restoreRawMarkdownFocus = (
 const createImagePlaceholder = (
   resolutionState: ImageResolutionState,
   target: string,
-  requestExplicitLoad: () => void,
+  allowOutsideFolderAccess: () => void,
 ) => {
   const placeholder = document.createElement("span");
   const message = document.createElement("span");
@@ -382,7 +382,7 @@ const createImagePlaceholder = (
     button.className = "leafdown-image-placeholder__action";
     button.type = "button";
     button.textContent = "Load image";
-    button.addEventListener("click", requestExplicitLoad);
+    button.addEventListener("click", allowOutsideFolderAccess);
     placeholder.append(button);
   }
 

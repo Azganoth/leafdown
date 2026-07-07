@@ -1,22 +1,25 @@
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
+
+import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
 import { openAbout, openDevTools } from "./help";
 
 describe("help actions", () => {
   it("opens webview DevTools through the backend command", async () => {
-    vi.mocked(invoke).mockResolvedValue(undefined);
+    mockTauriApiCommand("openWebviewDevtools", () => undefined);
 
     await openDevTools();
 
-    expect(invoke).toHaveBeenCalledWith("open_webview_devtools");
+    expect(countTauriApiCalls("openWebviewDevtools")).toBe(1);
   });
 
   it("reports DevTools opening failures", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    vi.mocked(invoke).mockRejectedValue(new Error("DevTools unavailable"));
+    mockTauriApiCommand("openWebviewDevtools", () => {
+      throw new Error("DevTools unavailable");
+    });
 
     await openDevTools();
 

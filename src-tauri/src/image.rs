@@ -1,14 +1,10 @@
-use std::{
-    fs,
-    io::ErrorKind,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
 use crate::path_utils::{
-    canonicalize_or_original, has_uri_scheme, parse_file_url_path, path_to_string,
-    resolve_markdown_reference_path, MarkdownReferencePathResolution,
+    has_uri_scheme, parse_file_url_path, resolve_existing_path, resolve_markdown_reference_path,
+    ExistingPathResolution, MarkdownReferencePathResolution,
 };
 
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
@@ -39,14 +35,14 @@ pub(crate) async fn resolve_markdown_image_target(
     document_path: Option<String>,
     folder_context_path: Option<String>,
     target: String,
-    explicit_load: Option<bool>,
+    allow_outside_folder: Option<bool>,
 ) -> ResolveMarkdownImageTargetResult {
     tauri::async_runtime::spawn_blocking(move || {
         resolve_image_target(
             document_path.as_deref().map(Path::new),
             folder_context_path.as_deref().map(Path::new),
             target.as_str(),
-            explicit_load.unwrap_or(false),
+            allow_outside_folder.unwrap_or(false),
         )
     })
     .await
@@ -59,14 +55,14 @@ pub(crate) fn resolve_image_target(
     document_path: Option<&Path>,
     folder_context_path: Option<&Path>,
     target: &str,
-    explicit_load: bool,
+    allow_outside_folder: bool,
 ) -> ResolveMarkdownImageTargetResult {
     match parse_image_target(target) {
         ParsedImageTarget::Local(target_path) => resolve_local_image_target(
             document_path,
             folder_context_path,
             target_path.as_path(),
-            explicit_load,
+            allow_outside_folder,
         ),
         ParsedImageTarget::Remote => ResolveMarkdownImageTargetResult::RemoteBlocked,
         ParsedImageTarget::Unsupported => ResolveMarkdownImageTargetResult::UnsupportedTarget,
@@ -77,7 +73,7 @@ fn resolve_local_image_target(
     document_path: Option<&Path>,
     folder_context_path: Option<&Path>,
     target_path: &Path,
-    explicit_load: bool,
+    allow_outside_folder: bool,
 ) -> ResolveMarkdownImageTargetResult {
     if !is_supported_image_path(target_path) {
         return ResolveMarkdownImageTargetResult::UnsupportedFormat;
@@ -87,7 +83,7 @@ fn resolve_local_image_target(
         document_path,
         folder_context_path,
         target_path,
-        explicit_load,
+        allow_outside_folder,
     ) {
         MarkdownReferencePathResolution::Resolved(path) => path,
         MarkdownReferencePathResolution::UntitledRelative => {
@@ -102,30 +98,25 @@ fn resolve_local_image_target(
 }
 
 fn resolve_existing_image_target(resolved_path: &Path) -> ResolveMarkdownImageTargetResult {
-    match fs::metadata(resolved_path) {
-        Ok(metadata) => {
-            if !metadata.is_file() {
-                return ResolveMarkdownImageTargetResult::Missing {
-                    path: path_to_string(resolved_path),
-                };
-            }
-
-            ResolveMarkdownImageTargetResult::Renderable {
-                path: canonicalize_or_original(resolved_path),
+    match resolve_existing_path(resolved_path) {
+        ExistingPathResolution::Found { is_file: false, .. } => {
+            ResolveMarkdownImageTargetResult::Missing {
+                path: resolved_path.to_string_lossy().into_owned(),
             }
         }
-        Err(error) => match error.kind() {
-            ErrorKind::InvalidInput => ResolveMarkdownImageTargetResult::InvalidPath,
-            ErrorKind::NotFound => ResolveMarkdownImageTargetResult::Missing {
-                path: path_to_string(resolved_path),
-            },
-            ErrorKind::PermissionDenied => ResolveMarkdownImageTargetResult::PermissionDenied {
-                message: error.to_string(),
-            },
-            _ => ResolveMarkdownImageTargetResult::MetadataFailed {
-                message: error.to_string(),
-            },
-        },
+        ExistingPathResolution::Found { path, .. } => {
+            ResolveMarkdownImageTargetResult::Renderable { path }
+        }
+        ExistingPathResolution::InvalidPath => ResolveMarkdownImageTargetResult::InvalidPath,
+        ExistingPathResolution::Missing { path } => {
+            ResolveMarkdownImageTargetResult::Missing { path }
+        }
+        ExistingPathResolution::PermissionDenied { message } => {
+            ResolveMarkdownImageTargetResult::PermissionDenied { message }
+        }
+        ExistingPathResolution::MetadataFailed { message } => {
+            ResolveMarkdownImageTargetResult::MetadataFailed { message }
+        }
     }
 }
 
@@ -268,7 +259,7 @@ mod tests {
     }
 
     #[test]
-    fn requires_explicit_load_for_images_outside_the_folder_context() {
+    fn requires_outside_folder_permission_for_images_outside_the_folder_context() {
         let root = TestDirectory::new("outside-root");
         let outside = TestDirectory::new("outside-target");
         let document_path = root.markdown_document_path();
@@ -299,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    fn requires_explicit_load_for_absolute_images_without_a_folder_context() {
+    fn requires_outside_folder_permission_for_absolute_images_without_a_folder_context() {
         let root = TestDirectory::new("absolute-without-context");
         let image_path = root.write_file("outside.png");
 

@@ -12,11 +12,11 @@ export {
 export {
   FOLDER_CONTEXT_CHANGED_EVENT,
   FOLDER_CONTEXT_WATCH_ERROR_EVENT,
-  unwatchFolderContext,
-  watchFolderContext,
+  unwatchMarkdownFolder,
+  watchMarkdownFolder,
   type FolderContextChangedEventPayload,
   type FolderContextWatchErrorEventPayload,
-} from "./services/folderContextWatcher";
+} from "./services/folderContextApi";
 export { useArticleNavigatorStore } from "./stores/articleNavigator";
 export {
   getArticleAncestorDirectoryPaths,

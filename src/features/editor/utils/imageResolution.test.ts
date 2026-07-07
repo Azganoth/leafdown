@@ -33,8 +33,8 @@ describe("imageResolution", () => {
     });
     expect(getLastTauriApiArgs("resolveMarkdownImageTarget")).toEqual({
       ...createMarkdownReferenceContext(),
+      allowOutsideFolder: false,
       target: "./assets/icon special.png",
-      explicitLoad: false,
     });
   });
 

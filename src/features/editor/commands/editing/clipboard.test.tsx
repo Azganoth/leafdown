@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
 import { setupClipboardMock } from "@/test/mocks/clipboard";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
@@ -69,7 +70,7 @@ describe("editor clipboard commands", () => {
     const mounted = await mountEditor("");
 
     clipboard.read.mockResolvedValue([
-      createClipboardItem("text/html", "<p><strong>Rich</strong> text</p>"),
+      createClipboardItem(TEXT_HTML_MIME_TYPE, "<p><strong>Rich</strong> text</p>"),
     ]);
 
     await expect(paste(mounted.editor, "richText")).resolves.toBe(true);
@@ -90,7 +91,7 @@ describe("editor clipboard commands", () => {
 
       setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
       clipboard.read.mockResolvedValue([
-        createClipboardItem("text/html", "<p><strong>Rich</strong></p>"),
+        createClipboardItem(TEXT_HTML_MIME_TYPE, "<p><strong>Rich</strong></p>"),
       ]);
       clipboard.readText.mockResolvedValue("*Paste*");
 

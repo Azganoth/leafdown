@@ -11,8 +11,8 @@ import {
   isScanFolderContextError,
   isWatchFolderContextError,
   scanFolderContext,
-  unwatchFolderContext,
-  watchFolderContext,
+  unwatchMarkdownFolder,
+  watchMarkdownFolder,
 } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import { DebouncedTaskRunner } from "@/lib/async";
@@ -29,6 +29,10 @@ const IGNORED_DIRECTORIES_SIGNATURE_SEPARATOR = "\u0000";
 let nextFolderWatcherScopeGeneration = 0;
 
 type FolderContextWatchListener = "folderChanged" | "watchError";
+
+export const resetFolderWatcherScopeGenerationForTests = () => {
+  nextFolderWatcherScopeGeneration = 0;
+};
 
 export const useFolderContextWatcher = () => {
   const folderPath = useSessionStore((state) => state.folderContext?.path ?? null);
@@ -103,9 +107,10 @@ class FolderContextWatchSession {
     this.isDisposed = true;
     this.refreshRunner.dispose();
     this.listenerDisposables.dispose();
-    void unwatchFolderContext(this.nativeWatchScope.id, this.nativeWatchScope.generation).catch(
-      (error) => handleUnexpectedError(error, "unwatchFolderContext"),
-    );
+    void unwatchMarkdownFolder({
+      scopeId: this.nativeWatchScope.id,
+      scopeGeneration: this.nativeWatchScope.generation,
+    }).catch((error) => handleUnexpectedError(error, "unwatchMarkdownFolder"));
   }
 
   private isActiveFolderContext() {
@@ -205,12 +210,12 @@ class FolderContextWatchSession {
       return;
     }
 
-    await watchFolderContext(
-      this.folderPath,
-      this.ignoredDirectories,
-      this.nativeWatchScope.id,
-      this.nativeWatchScope.generation,
-    );
+    await watchMarkdownFolder({
+      path: this.folderPath,
+      ignoredDirectories: this.ignoredDirectories,
+      scopeId: this.nativeWatchScope.id,
+      scopeGeneration: this.nativeWatchScope.generation,
+    });
   }
 
   private reportStartFailure(error: unknown) {

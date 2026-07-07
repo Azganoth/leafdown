@@ -127,7 +127,8 @@ The React frontend manages:
 
 ### Open Workflow
 
-Backend reads or scans target path -> Session updates folder context, active document, and article navigator.
+Backend reads target document -> Session updates active document -> Session
+bootstraps folder context only when none exists.
 
 ### Save Workflow
 
@@ -135,7 +136,10 @@ Serialize editor state to Markdown -> Verify metadata freshness via backend -> W
 
 ### Save As Workflow
 
-Write document to new path -> Update active document path -> Refresh folder context and article navigator if the parent directory changed.
+Write document to new path -> Update active document path -> Bootstrap folder
+context when none exists, refresh the current folder context when the saved file
+is inside it, or leave the pinned folder context unchanged when the saved file is
+outside it.
 
 ## Security
 
@@ -143,7 +147,8 @@ Write document to new path -> Update active document path -> Refresh folder cont
 - Do not parse or render raw HTML; escape it or preserve it as plain text.
 - Block automatic loading of remote images.
 - Open external links in the default system browser.
-- Require confirmation before opening local file links that resolve outside the folder context.
+- Require confirmation before handing local non-Markdown links to the system
+  default app.
 - Bundle Shiki themes and grammars to avoid runtime network dependencies.
 
 ## Test Focus

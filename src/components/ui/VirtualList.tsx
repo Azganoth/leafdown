@@ -46,6 +46,7 @@ export interface VirtualListHandle {
   scrollToIndex: (index: number, options?: ScrollToOptions) => void;
 }
 
+// oxlint-disable-next-line react/react-compiler
 function VirtualList<T>({
   items,
   estimateHeight,
@@ -58,8 +59,6 @@ function VirtualList<T>({
 }: VirtualListProps<T>) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
 
-  // TanStack Virtual returns instance methods that React Compiler cannot memoize safely.
-  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: items.length,
     estimateSize: () => estimateHeight,

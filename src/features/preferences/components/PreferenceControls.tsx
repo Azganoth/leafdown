@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
 import { Label } from "@/components/ui/Label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/RadioGroup";
@@ -90,11 +90,13 @@ export function PreferenceRadioGroup<Value extends string>({
 
 export function ListPreferenceField({ items, label, onItemsChange }: ListPreferenceFieldProps) {
   const id = useId();
+  const [prevItems, setPrevItems] = useState(items);
   const [draftValue, setDraftValue] = useState(() => formatListValue(items));
 
-  useEffect(() => {
+  if (items !== prevItems) {
+    setPrevItems(items);
     setDraftValue(formatListValue(items));
-  }, [items]);
+  }
 
   return (
     <div className="grid gap-2">

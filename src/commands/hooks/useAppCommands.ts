@@ -1,5 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 
 import { getActiveDocumentKey } from "@/features/document";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
@@ -115,7 +115,9 @@ export const useAppCommands = () => {
   };
 
   const commandHandlersRef = useRef({ commandState, executeCommand });
-  commandHandlersRef.current = { commandState, executeCommand };
+  useLayoutEffect(() => {
+    commandHandlersRef.current = { commandState, executeCommand };
+  });
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

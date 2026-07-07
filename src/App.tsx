@@ -3,7 +3,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { Shell } from "@/components/layout/Shell";
 import { UnexpectedErrorBoundary } from "@/components/layout/UnexpectedErrorBoundary";
@@ -18,6 +18,14 @@ import { confirmDiscardActiveDocumentChanges } from "@/features/session";
 import { handleUnexpectedError } from "@/lib/errors";
 import { DisposableStore } from "@/lib/lifecycle";
 
+const DeveloperTools = import.meta.env.DEV
+  ? lazy(async () => {
+      const module = await import("@/components/layout/DeveloperTools");
+
+      return { default: module.DeveloperTools };
+    })
+  : null;
+
 const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
@@ -27,6 +35,8 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
 };
 
 export function App() {
+  const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
+
   useEffect(() => {
     const initializeApp = async () => {
       await Promise.all([settingsStoreTauriHandler.start(), recentItemsStoreTauriHandler.start()]);
@@ -90,8 +100,22 @@ export function App() {
     <div className="flex h-screen flex-col overflow-hidden">
       <UnexpectedErrorBoundary>
         <Shell />
+        {simulatedRenderFailureId > 0 && <DeveloperRenderFailure key={simulatedRenderFailureId} />}
       </UnexpectedErrorBoundary>
+      {DeveloperTools && (
+        <Suspense fallback={null}>
+          <DeveloperTools
+            onSimulateRenderFailure={() =>
+              setSimulatedRenderFailureId((failureId) => failureId + 1)
+            }
+          />
+        </Suspense>
+      )}
       <Toaster theme={theme} />
     </div>
   );
+}
+
+function DeveloperRenderFailure(): never {
+  throw new Error("Developer tools simulated document surface render failure.");
 }

@@ -117,6 +117,15 @@ describe("CommandMenuBar", () => {
     expect(screen.queryByText("Delete block")).not.toBeInTheDocument();
   });
 
+  it("renders support debugging commands in the Help menu", async () => {
+    const { onExecute, user } = renderCommandMenuBar();
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(menuItem("Open DevTools"));
+
+    expect(onExecute).toHaveBeenCalledWith("help.openDevTools");
+  });
+
   it("renders empty recent menus", async () => {
     const { user } = renderCommandMenuBar();
 

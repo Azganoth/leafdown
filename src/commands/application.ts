@@ -51,6 +51,7 @@ export const APPLICATION_COMMANDS = {
   "view.collapseAllFolders": appCommand(view.collapseAllFolders, view.getCollapseAllFoldersState),
   "view.expandAllFolders": appCommand(view.expandAllFolders, view.getExpandAllFoldersState),
 
+  "help.openDevTools": appCommand(help.openDevTools),
   "help.about": appCommand(help.openAbout),
 } satisfies Record<string, AppCommand>;
 

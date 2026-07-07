@@ -2,6 +2,7 @@ use tauri::{Emitter, WindowEvent};
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
+mod debug;
 mod document;
 mod file_utils;
 mod folder;
@@ -50,6 +51,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
             document::save_markdown_file,
+            debug::open_webview_devtools,
             image::resolve_markdown_image_target,
             link::resolve_markdown_link_target,
             folder::scan_markdown_folder,

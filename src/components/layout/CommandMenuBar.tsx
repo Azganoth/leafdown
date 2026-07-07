@@ -169,6 +169,8 @@ export function CommandMenuBar({
         <MenubarMenu>
           <MenubarTrigger>{COMMAND_MENU_LABELS.help}</MenubarTrigger>
           <MenubarContent>
+            <CommandItems commandIds={["help.openDevTools"]} />
+            <MenubarSeparator />
             <CommandItems commandIds={["help.about"]} />
           </MenubarContent>
         </MenubarMenu>

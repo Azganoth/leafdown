@@ -38,8 +38,7 @@ describe("Markdown link activation", () => {
     expect(openPath).not.toHaveBeenCalled();
   });
 
-  it("delegates confirmed outside-folder Markdown links to the application callback", async () => {
-    vi.mocked(confirm).mockResolvedValue(true);
+  it("delegates outside-folder Markdown links to the application callback without confirmation", async () => {
     const resolveMarkdownLinkTarget = vi
       .fn()
       .mockResolvedValueOnce({ kind: "outsideFolder" })
@@ -50,7 +49,7 @@ describe("Markdown link activation", () => {
       activateMarkdownLink(createMarkdownLinkOptions({ target: "../Other/target.md" })),
     ).resolves.toBe(true);
 
-    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).not.toHaveBeenCalled();
     expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("resolveMarkdownLinkTarget"), {
       ...createMarkdownReferenceContext(),
       target: "../Other/target.md",
@@ -64,7 +63,7 @@ describe("Markdown link activation", () => {
     expect(onOpenMarkdownPath).toHaveBeenCalledWith("C:/Other/target.md");
   });
 
-  it("opens outside-folder non-Markdown links after one confirmation", async () => {
+  it("asks before opening outside-folder non-Markdown links with the system default app", async () => {
     vi.mocked(confirm).mockResolvedValue(true);
     const resolveMarkdownLinkTarget = vi
       .fn()
@@ -77,6 +76,15 @@ describe("Markdown link activation", () => {
     ).resolves.toBe(true);
 
     expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledWith(
+      "Open this local file with the system default app?\n\nC:/Other/manual.pdf",
+      {
+        title: "Open local file?",
+        kind: "warning",
+        okLabel: "Open file",
+        cancelLabel: "Cancel",
+      },
+    );
     expect(openPath).toHaveBeenCalledWith("C:/Other/manual.pdf");
   });
 

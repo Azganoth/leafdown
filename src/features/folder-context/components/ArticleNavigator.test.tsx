@@ -43,6 +43,34 @@ describe("ArticleNavigator", () => {
     expect(onOpenArticle).not.toHaveBeenCalled();
   });
 
+  it("shows when the active document is outside the current folder context", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath="C:/Other/readme.md"
+        folderContext={folderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("Current document is outside this folder context."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show the detached-document message for articles inside the folder context", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath="C:/Notes/drafts/readme.md"
+        folderContext={folderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText("Current document is outside this folder context."),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows one empty folder context message", () => {
     render(
       <ArticleNavigator

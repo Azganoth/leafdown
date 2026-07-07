@@ -33,6 +33,19 @@ export const openMarkdownFileAtPath = (path: string) =>
     const initialDocumentKey = getActiveDocumentKeySnapshot();
     const openedDocument = await openMarkdownDocument(path, cancellationToken);
     const { parentFolderPath, ...documentFields } = openedDocument;
+    const existingFolderContext = useSessionStore.getState().folderContext;
+
+    if (existingFolderContext) {
+      if (!activeDocumentMatchesSnapshot(initialDocumentKey)) {
+        return false;
+      }
+
+      useSessionStore.getState().setActiveDocument(toSavedDocument(documentFields));
+      recordRecentFile(documentFields.path);
+
+      return true;
+    }
+
     const folderContext = await scanFolderContext(
       parentFolderPath,
       getSessionFolderScanOptions(),
@@ -140,9 +153,8 @@ const recordRecentFileSession = (filePath: string, folderPath: string) => {
     return;
   }
 
-  const recentItems = useRecentItemsStore.getState();
-  recentItems.recordRecentFile(filePath);
-  recentItems.recordRecentFolder(folderPath);
+  recordRecentFile(filePath);
+  recordRecentFolder(folderPath);
 };
 
 const recordRecentFolderSession = (folderPath: string) => {
@@ -150,5 +162,17 @@ const recordRecentFolderSession = (folderPath: string) => {
     return;
   }
 
+  recordRecentFolder(folderPath);
+};
+
+const recordRecentFile = (filePath: string) => {
+  if (!useSettingsStore.getState().recordRecentItems) {
+    return;
+  }
+
+  useRecentItemsStore.getState().recordRecentFile(filePath);
+};
+
+const recordRecentFolder = (folderPath: string) => {
   useRecentItemsStore.getState().recordRecentFolder(folderPath);
 };

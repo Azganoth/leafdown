@@ -2,6 +2,8 @@ use tauri::{Emitter, WindowEvent};
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
+#[cfg(test)]
+mod command_contract_tests;
 mod debug;
 mod document;
 mod file_utils;

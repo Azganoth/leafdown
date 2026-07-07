@@ -164,7 +164,9 @@ Open that folder in Leafdown while iterating on folder scans, editor rendering,
 local link/image handling, and loading error states.
 
 The sample folder complements automated tests with ordinary files that exercise
-documented behavior: nested supported Markdown files, ignored and non-Markdown
-entries, local and outside-folder references, a local image, mixed line endings,
-invalid UTF-8, and the oversized-file limit. Keep the fixtures aligned with the
-specification when those behaviors change.
+documented behavior: nested supported Markdown files, article sort order,
+ignored and non-Markdown entries, local, missing, remote, and outside-folder
+references, local images with special-character paths, empty documents, mixed
+line endings, invalid UTF-8, malformed Markdown, unsupported syntax
+preservation, and the oversized-file limit. Keep the fixtures aligned with the
+specification and backlog when those behaviors change.

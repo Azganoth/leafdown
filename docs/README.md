@@ -34,7 +34,7 @@ Decisions use a lightweight ADR format:
 
 ## Development Fixtures
 
-- [`../sample/`](../sample/): manual development fixture folder for testing Markdown rendering, article scanning, local images/links, and loading edge cases. This directory is not committed; generate it locally by running `pnpm sample`.
+- [`../sample/`](../sample/): generated manual development fixture folder for testing Markdown rendering, article scanning and sort order, local images/links, loading edge cases, and future syntax preservation. This directory is not committed; regenerate it locally by running `pnpm sample`.
 
 ## Spikes
 

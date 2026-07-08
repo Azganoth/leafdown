@@ -1,8 +1,12 @@
 export { DiagnosticsDialog } from "./components/DiagnosticsDialog";
 export {
+  formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
+  writeDiagnosticInfo,
+  writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,
+  type DiagnosticEventPayload,
 } from "./services/diagnosticLog";
 export {
   GET_DIAGNOSTICS_RUNTIME_COMMAND,

@@ -1,16 +1,27 @@
-import { error as writeLogError } from "@tauri-apps/plugin-log";
-import { describe, expect, it, vi } from "vitest";
+import {
+  error as writeLogError,
+  info as writeLogInfo,
+  warn as writeLogWarn,
+} from "@tauri-apps/plugin-log";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleUnexpectedError } from "@/lib/errors";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import {
+  formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
+  writeDiagnosticInfo,
+  writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,
 } from "./diagnosticLog";
 
 describe("diagnostic log bridge", () => {
+  beforeEach(() => {
+    mockTauriApiCommand("getDiagnosticsRuntime", () => ({ runId: "run-test" }));
+  });
+
   it("formats unexpected frontend errors as one-line diagnostics", () => {
     const logMessage = formatUnexpectedErrorDiagnostic(
       {
@@ -51,18 +62,56 @@ describe("diagnostic log bridge", () => {
     expect(writeLogError).toHaveBeenCalledWith(
       expect.stringContaining('"event":"frontendUnexpectedError"'),
     );
+    expect(writeLogError).toHaveBeenCalledWith(expect.stringContaining('"runId":"run-test"'));
+  });
+
+  it("formats structured diagnostic events as one-line payloads", () => {
+    const message = formatDiagnosticEvent(
+      {
+        event: "operationFailed",
+        feature: "document",
+        nested: {
+          omitted: undefined,
+          value: "kept",
+        },
+      },
+      { runId: "run-test" },
+    );
+    const payload = JSON.parse(message) as {
+      event: string;
+      feature: string;
+      nested: { omitted?: string; value: string };
+      runId: string;
+    };
+
+    expect(message).not.toContain("\n");
+    expect(payload).toEqual({
+      event: "operationFailed",
+      feature: "document",
+      nested: { value: "kept" },
+      runId: "run-test",
+    });
+  });
+
+  it("writes structured diagnostics at info and warn levels", async () => {
+    await writeDiagnosticInfo({ event: "appClosing" });
+    await writeDiagnosticWarn({ event: "operationFailed", feature: "document" });
+
+    expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"appClosing"'));
+    expect(writeLogWarn).toHaveBeenCalledWith(expect.stringContaining('"event":"operationFailed"'));
   });
 
   it("registers unexpected error diagnostics with the shared error helper", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mockTauriApiCommand("getDiagnosticsRuntime", () => ({ runId: "run-test" }));
     const cleanup = installUnexpectedErrorDiagnostics();
     await Promise.resolve();
 
     handleUnexpectedError(new Error("installed diagnostic"), "diagnostics.install");
     cleanup();
 
-    expect(writeLogError).toHaveBeenCalledWith(expect.stringContaining('"runId":"run-test"'));
+    await expect
+      .poll(() => vi.mocked(writeLogError).mock.calls.at(-1)?.[0] ?? "")
+      .toContain('"runId":"run-test"');
     expect(consoleError).toHaveBeenCalledOnce();
   });
 });

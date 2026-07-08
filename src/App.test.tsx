@@ -1,6 +1,7 @@
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { info as writeLogInfo } from "@tauri-apps/plugin-log";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -81,7 +82,15 @@ describe("App", () => {
     await handleCloseRequested({ payload: undefined });
 
     expect(confirm).not.toHaveBeenCalled();
-    expect(appWindow.destroy).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+        event: "appClosing",
+        feature: "app",
+        operation: "windowCloseRequested",
+        reason: "windowCloseRequested",
+      });
+    });
+    await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());
   });
 
   it("keeps the native window open when dirty document close is cancelled", async () => {

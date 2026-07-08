@@ -96,6 +96,7 @@ The Rust backend manages:
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit.
 - Mapping permission and IO errors.
+- Writing bounded local diagnostic logs and reporting the app log directory.
 - Persisting configuration settings and application data.
 
 ## Frontend Responsibilities
@@ -108,6 +109,8 @@ The React frontend manages:
 - Updating the article navigator in response to backend file events.
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Marker visibility rules, thematic styling, and error presentation.
+- Mirroring shared unexpected-error reports into diagnostics and exposing Help
+  actions for opening logs or copying a diagnostics summary.
 - Suppressing default webview context menus and standard window-level drag-and-drop navigation.
 
 ## Data Contracts

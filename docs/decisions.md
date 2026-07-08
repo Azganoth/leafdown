@@ -126,7 +126,8 @@ Markdown editing.
 **Status:** Accepted
 
 **Decision:** Leafdown intentionally exposes webview DevTools to users for local
-debugging and support.
+debugging and support, and writes bounded diagnostic logs to an app-owned local
+logs directory.
 
 **Rationale:** Leafdown is a local-first desktop app. When a user encounters a
 rendering, editor, filesystem, or platform-specific problem, local inspection is
@@ -136,9 +137,21 @@ requiring a special debug build.
 **Consequences:**
 
 - The Help menu includes an `Open DevTools` action in user builds.
+- The Help menu includes actions to open the local logs folder and copy a concise
+  diagnostics summary.
 - DevTools availability is a support feature, not a telemetry mechanism.
 - Leafdown does not upload console output, logs, document contents, or diagnostic
   data automatically.
+- Diagnostic logs may include operation labels, error messages, stack traces, and
+  local file paths needed to debug filesystem workflows.
+- Diagnostic logs must not include Markdown document contents.
+- Diagnostic logs live in Tauri's app log directory:
+  `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
+  `~/Library/Logs/com.azganoth.leafdown` on macOS, and
+  `$XDG_DATA_HOME/com.azganoth.leafdown/logs` or
+  `~/.local/share/com.azganoth.leafdown/logs` on Linux.
+- Local log storage is bounded by a 1 MiB active log file and five retained log
+  files.
 - Documentation and release hardening must treat DevTools as intentionally
   available rather than development-only.
 

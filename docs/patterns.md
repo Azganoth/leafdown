@@ -387,6 +387,8 @@ Use:
   that failed but do not have a feature-owned error contract.
 - `handleUnexpectedError(error, context)` for internal failures that should be
   logged but do not need immediate user feedback.
+- The diagnostics feature's unexpected-error reporter, installed once at
+  startup, to mirror shared unexpected-error logs into the local Tauri log file.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.
 - `UnexpectedErrorBoundary` around the main application surface for React render
@@ -397,6 +399,8 @@ Avoid:
 
 - Passing domain error payloads to `notifyOperationFailure`.
 - Logging cancellation errors.
+- Writing Markdown document contents to diagnostic logs or copied summaries.
+- Uploading diagnostic logs automatically.
 - Calling `console.error` outside the shared unexpected-error helper.
 - Creating a global `AppError` hierarchy for feature-specific domain errors.
 - Showing a toast for every unexpected internal failure.
@@ -409,7 +413,10 @@ Expected domain failures need precise user-facing recovery text. Unexpected
 failures need consistent logging and enough context to debug. Keeping those paths
 separate prevents generic "something failed" helpers from swallowing useful
 domain information. Unexpected logs are lightly deduped to keep repeated global
-events or render-loop failures from flooding the console.
+events or render-loop failures from flooding the console and local log file.
+Diagnostic entries may include operation labels, error messages, stack traces,
+React component stacks, and local file paths when those paths are part of the
+failed workflow.
 
 Example:
 

@@ -1,6 +1,6 @@
-import type { DiagnosticsSummary } from "./diagnosticsApi";
+import { formatFileSize } from "@/lib/formatFileSize";
 
-const BYTES_PER_MEBIBYTE = 1_048_576;
+import type { DiagnosticsSummary } from "./diagnosticsApi";
 
 export const formatDiagnosticsSummary = (summary: DiagnosticsSummary, generatedAt = new Date()) =>
   [
@@ -11,15 +11,6 @@ export const formatDiagnosticsSummary = (summary: DiagnosticsSummary, generatedA
     `System: ${summary.operatingSystem} ${summary.architecture}`,
     `Logs directory: ${summary.logDirectoryPath}`,
     `Current log file: ${summary.logFilePath}`,
-    `Log retention: current log plus ${summary.logFileCount} retained files, ${formatLogSize(summary.logMaxFileSizeBytes)} each`,
+    `Log retention: current log plus ${summary.logFileCount} retained files, ${formatFileSize(summary.logMaxFileSizeBytes)} each`,
     "Privacy: logs stay on this device and are not uploaded automatically.",
-    "Note: diagnostics may include local file paths and user content captured inside error messages or stack traces.",
   ].join("\n");
-
-const formatLogSize = (bytes: number) => {
-  if (bytes > 0 && bytes % BYTES_PER_MEBIBYTE === 0) {
-    return `${bytes / BYTES_PER_MEBIBYTE} MiB`;
-  }
-
-  return `${bytes} bytes`;
-};

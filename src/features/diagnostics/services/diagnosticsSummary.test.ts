@@ -28,9 +28,7 @@ describe("diagnostics summary", () => {
     expect(summary).toContain("App: Leafdown 0.1.0");
     expect(summary).toContain("System: windows x86_64");
     expect(summary).toContain(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath);
-    expect(summary).toContain("Log retention: current log plus 5 retained files, 1 MiB each");
+    expect(summary).toContain("Log retention: current log plus 5 retained files, 1 MB each");
     expect(summary).toContain("logs stay on this device");
-    expect(summary).toContain("may include local file paths");
-    expect(summary).toContain("user content captured inside error messages or stack traces");
   });
 });

@@ -3,9 +3,13 @@ use std::{fs, path::Path};
 use serde::Serialize;
 use tauri::{plugin::TauriPlugin, AppHandle, Manager, Runtime};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::path_utils::path_to_string;
 
+const BACKEND_LOG_TARGET: &str = "backend";
+const FRONTEND_LOG_TARGET: &str = "frontend";
+const FALLBACK_LOG_TIMESTAMP: &str = "unknown-time";
 pub(crate) const DIAGNOSTIC_LOG_FILE_NAME: &str = "leafdown";
 pub(crate) const DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES: u64 = 1_048_576;
 pub(crate) const DIAGNOSTIC_LOG_FILE_COUNT: usize = 5;
@@ -39,6 +43,15 @@ pub(crate) fn build_log_plugin<R: Runtime>() -> TauriPlugin<R> {
             file_name: Some(DIAGNOSTIC_LOG_FILE_NAME.to_owned()),
         }))
         .target(Target::new(TargetKind::Stdout))
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{}][{}][{}] {}",
+                current_log_timestamp(),
+                normalize_log_target(record.target()),
+                record.level(),
+                message
+            ));
+        })
         .level(log::LevelFilter::Info)
         .max_file_size(DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES.into())
         .rotation_strategy(RotationStrategy::KeepSome(DIAGNOSTIC_LOG_FILE_COUNT))
@@ -95,6 +108,23 @@ fn create_diagnostics_summary(
     }
 }
 
+fn current_log_timestamp() -> String {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| FALLBACK_LOG_TIMESTAMP.to_owned())
+}
+
+fn normalize_log_target(target: &str) -> String {
+    if target == "webview" || target.starts_with("webview:") {
+        return FRONTEND_LOG_TARGET.to_owned();
+    }
+
+    target
+        .strip_prefix(env!("CARGO_CRATE_NAME"))
+        .map(|suffix| format!("{BACKEND_LOG_TARGET}{suffix}"))
+        .unwrap_or_else(|| target.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -102,8 +132,8 @@ mod tests {
     use serde_json::Value;
 
     use super::{
-        create_diagnostics_summary, DIAGNOSTIC_LOG_FILE_COUNT, DIAGNOSTIC_LOG_FILE_NAME,
-        DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
+        create_diagnostics_summary, normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT,
+        DIAGNOSTIC_LOG_FILE_NAME, DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
     };
 
     #[test]
@@ -132,6 +162,26 @@ mod tests {
             Some(DIAGNOSTIC_LOG_FILE_COUNT as u64)
         );
         assert!(json_string(&value, "logFilePath").ends_with("leafdown.log"));
+    }
+
+    #[test]
+    fn diagnostic_log_targets_hide_generated_webview_call_sites() {
+        assert_eq!(
+            normalize_log_target(
+                "webview:writeUnexpectedErrorDiagnostic@http://localhost:1420/src/features/diagnostics/services/diagnosticLog.ts:11:8",
+            ),
+            "frontend"
+        );
+        assert_eq!(normalize_log_target("webview"), "frontend");
+    }
+
+    #[test]
+    fn diagnostic_log_targets_keep_backend_module_context() {
+        assert_eq!(normalize_log_target("leafdown_lib"), "backend");
+        assert_eq!(
+            normalize_log_target("leafdown_lib::folder::watch"),
+            "backend::folder::watch"
+        );
     }
 
     fn json_string<'a>(value: &'a Value, key: &str) -> &'a str {

@@ -390,6 +390,9 @@ Use:
 - The diagnostics feature's unexpected-error reporter, installed once at
   startup, to mirror shared unexpected-error logs into the local Tauri log file
   as one-line structured payloads with diagnostic run identifiers when available.
+- Feature-owned diagnostic events for expected operation failures, folder watcher
+  lifecycle/error transitions, clean shutdown, and slow operation timings when
+  those events help support without adding active Markdown document text.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.
 - `UnexpectedErrorBoundary` around the main application surface for React render
@@ -417,7 +420,8 @@ separate prevents generic "something failed" helpers from swallowing useful
 domain information. Unexpected logs are lightly deduped to keep repeated global
 events or render-loop failures from flooding the console and local log file.
 Diagnostic log lines use UTC timestamps, stable frontend/backend targets, and
-one-line structured payloads for lifecycle and unexpected-error events.
+one-line structured payloads for unexpected errors, expected operation warnings,
+lifecycle events, and slow operation timings.
 Diagnostic entries may include operation labels, diagnostic run identifiers,
 error messages, stack traces, React component stacks, and local file paths when
 those paths are part of the failed workflow. Captured browser, editor, or library

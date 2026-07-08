@@ -142,8 +142,9 @@ requiring a special debug build.
 - DevTools availability is a support feature, not a telemetry mechanism.
 - Leafdown does not upload console output, logs, document contents, or diagnostic
   data automatically.
-- Diagnostic logs may include operation labels, error messages, stack traces, and
-  local file paths needed to debug filesystem workflows.
+- Diagnostic logs may include operation labels, error kinds, lifecycle events,
+  timing metadata, error messages, stack traces, and local file paths needed to
+  debug filesystem workflows.
 - Leafdown must not explicitly add Markdown document text to diagnostic logs or
   copied summaries.
 - Captured browser, editor, or library error messages and stack traces may still

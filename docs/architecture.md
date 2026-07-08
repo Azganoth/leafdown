@@ -109,8 +109,8 @@ The React frontend manages:
 - Updating the article navigator in response to backend file events.
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Marker visibility rules, thematic styling, and error presentation.
-- Mirroring shared unexpected-error reports into diagnostics and exposing the
-  Help diagnostics dialog.
+- Mirroring shared unexpected-error reports and feature-owned operational
+  diagnostics into local logs, and exposing the Help diagnostics dialog.
 - Suppressing default webview context menus and standard window-level drag-and-drop navigation.
 
 ## Data Contracts

@@ -121,8 +121,7 @@ describe("CommandMenuBar", () => {
     const { onExecute, user } = renderCommandMenuBar();
 
     await user.click(screen.getByRole("menuitem", { name: "Help" }));
-    expect(menuItem("Open logs folder")).toBeInTheDocument();
-    expect(menuItem("Copy diagnostics summary")).toBeInTheDocument();
+    expect(menuItem("Diagnostics...")).toBeInTheDocument();
 
     await user.click(menuItem("Open DevTools"));
 

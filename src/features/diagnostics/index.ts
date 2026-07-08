@@ -1,3 +1,4 @@
+export { DiagnosticsDialog } from "./components/DiagnosticsDialog";
 export {
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,

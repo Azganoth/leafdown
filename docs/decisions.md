@@ -137,8 +137,8 @@ requiring a special debug build.
 **Consequences:**
 
 - The Help menu includes an `Open DevTools` action in user builds.
-- The Help menu includes actions to open the local logs folder and copy a concise
-  diagnostics summary.
+- The Help menu includes a `Diagnostics...` dialog with actions to open the local
+  logs folder and copy a concise diagnostics summary.
 - DevTools availability is a support feature, not a telemetry mechanism.
 - Leafdown does not upload console output, logs, document contents, or diagnostic
   data automatically.

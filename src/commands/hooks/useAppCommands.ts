@@ -47,11 +47,13 @@ export const useAppCommands = () => {
   );
 
   const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
+  const diagnosticsOpen = useCommandUIStore((state) => state.diagnosticsOpen);
   const fullscreen = useCommandUIStore((state) => state.fullscreen);
   const pendingSortOrder = useCommandUIStore((state) => state.pendingSortOrder);
   const preferencesOpen = useCommandUIStore((state) => state.preferencesOpen);
   const zoom = useCommandUIStore((state) => state.zoom);
   const setAboutOpen = useCommandUIStore((state) => state.setAboutOpen);
+  const setDiagnosticsOpen = useCommandUIStore((state) => state.setDiagnosticsOpen);
   const setPreferencesOpen = useCommandUIStore((state) => state.setPreferencesOpen);
   const setFullscreen = useCommandUIStore((state) => state.setFullscreen);
 
@@ -160,6 +162,7 @@ export const useAppCommands = () => {
   return {
     aboutOpen,
     commandState,
+    diagnosticsOpen,
     executeCommand,
     recentItems: {
       recentFiles,
@@ -169,6 +172,7 @@ export const useAppCommands = () => {
     openRecentFolder: openRecentFolderContext,
     preferencesOpen,
     setAboutOpen,
+    setDiagnosticsOpen,
     setPreferencesOpen,
   };
 };

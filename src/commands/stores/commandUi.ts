@@ -4,11 +4,13 @@ import type { ArticleSortOrder } from "@/features/folder-context";
 
 export interface CommandUIState {
   aboutOpen: boolean;
+  diagnosticsOpen: boolean;
   preferencesOpen: boolean;
   fullscreen: boolean;
   zoom: number;
   pendingSortOrder: ArticleSortOrder | null;
   setAboutOpen: (open: boolean) => void;
+  setDiagnosticsOpen: (open: boolean) => void;
   setPreferencesOpen: (open: boolean) => void;
   setFullscreen: (fullscreen: boolean) => void;
   setZoom: (zoom: number) => void;
@@ -17,11 +19,13 @@ export interface CommandUIState {
 
 export const useCommandUIStore = create<CommandUIState>()((set) => ({
   aboutOpen: false,
+  diagnosticsOpen: false,
   preferencesOpen: false,
   fullscreen: false,
   zoom: 1,
   pendingSortOrder: null,
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
+  setDiagnosticsOpen: (diagnosticsOpen) => set({ diagnosticsOpen }),
   setPreferencesOpen: (preferencesOpen) => set({ preferencesOpen }),
   setFullscreen: (fullscreen) => set({ fullscreen }),
   setZoom: (zoom) => set({ zoom }),

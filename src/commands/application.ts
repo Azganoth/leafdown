@@ -52,6 +52,8 @@ export const APPLICATION_COMMANDS = {
   "view.expandAllFolders": appCommand(view.expandAllFolders, view.getExpandAllFoldersState),
 
   "help.openDevTools": appCommand(help.openDevTools),
+  "help.openLogsFolder": appCommand(help.openLogsFolder),
+  "help.copyDiagnosticsSummary": appCommand(help.copyDiagnosticsSummary),
   "help.about": appCommand(help.openAbout),
 } satisfies Record<string, AppCommand>;
 

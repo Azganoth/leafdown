@@ -55,6 +55,14 @@ export const createTauriDialogMock = () => ({
   save: vi.fn(async () => null),
 });
 
+export const createTauriLogMock = () => ({
+  debug: vi.fn(async () => undefined),
+  error: vi.fn(async () => undefined),
+  info: vi.fn(async () => undefined),
+  trace: vi.fn(async () => undefined),
+  warn: vi.fn(async () => undefined),
+});
+
 export const createTauriOpenerMock = () => ({
   openPath: vi.fn(async () => undefined),
   openUrl: vi.fn(async () => undefined),

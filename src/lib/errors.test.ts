@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CancellationError } from "./cancellation";
 import {
+  addUnexpectedErrorReporter,
   handleUnexpectedError,
   installUnexpectedErrorHandlers,
   invariant,
@@ -50,6 +51,49 @@ describe("error helpers", () => {
     expect(consoleError).toHaveBeenCalledWith("Unexpected error (react: render).", error, {
       componentStack: "StackComponent",
     });
+  });
+
+  it("reports unexpected errors to registered diagnostics reporters", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const reporter = vi.fn();
+    const cleanup = addUnexpectedErrorReporter(reporter);
+    const error = new Error("reported diagnostic");
+
+    handleUnexpectedError(error, {
+      componentStack: "DiagnosticComponent",
+      source: "test",
+      operation: "report",
+    });
+    cleanup();
+
+    expect(reporter).toHaveBeenCalledWith({
+      componentStack: "DiagnosticComponent",
+      contextLabel: "test: report",
+      errorMessage: "reported diagnostic",
+      errorName: "Error",
+      errorStack: error.stack,
+      message: "Unexpected error (test: report).",
+    });
+    expect(consoleError).toHaveBeenCalledWith("Unexpected error (test: report).", error, {
+      componentStack: "DiagnosticComponent",
+    });
+  });
+
+  it("does not let diagnostics reporter failures recurse through error handling", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cleanupAsyncReporter = addUnexpectedErrorReporter(() =>
+      Promise.reject(new Error("report failed")),
+    );
+    const cleanupSyncReporter = addUnexpectedErrorReporter(() => {
+      throw new Error("report failed");
+    });
+
+    handleUnexpectedError(new Error("reporter rejection"), "reporter-test");
+    await Promise.resolve();
+    cleanupAsyncReporter();
+    cleanupSyncReporter();
+
+    expect(consoleError).toHaveBeenCalledOnce();
   });
 
   it("dedupes repeated unexpected errors within a short window", () => {

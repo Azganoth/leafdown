@@ -9,6 +9,16 @@ export interface UnexpectedErrorContext {
 }
 
 type UnexpectedErrorContextInput = UnexpectedErrorContext | string;
+export interface UnexpectedErrorLogEntry {
+  componentStack?: string;
+  contextLabel?: string;
+  errorMessage: string;
+  errorName: string;
+  errorStack?: string;
+  message: string;
+}
+
+export type UnexpectedErrorReporter = (entry: UnexpectedErrorLogEntry) => Promise<void> | void;
 
 const isMessageLike = (value: unknown): value is { message: string } =>
   typeof value === "object" &&
@@ -18,6 +28,7 @@ const isMessageLike = (value: unknown): value is { message: string } =>
 
 const UNEXPECTED_ERROR_DEDUPE_WINDOW_MS = 1000;
 const installedUnexpectedErrorHandlers = new WeakMap<EventTarget, () => void>();
+const unexpectedErrorReporters = new Set<UnexpectedErrorReporter>();
 let lastUnexpectedErrorLog: { loggedAt: number; key: string } | null = null;
 
 export class UnknownThrownError extends Error {
@@ -36,6 +47,14 @@ export const getErrorDescription = (error: unknown) => {
   return message || undefined;
 };
 
+export const addUnexpectedErrorReporter = (reporter: UnexpectedErrorReporter) => {
+  unexpectedErrorReporters.add(reporter);
+
+  return () => {
+    unexpectedErrorReporters.delete(reporter);
+  };
+};
+
 export const handleUnexpectedError = (error: unknown, context?: UnexpectedErrorContextInput) => {
   if (isCancellationError(error)) {
     return;
@@ -48,13 +67,15 @@ export const handleUnexpectedError = (error: unknown, context?: UnexpectedErrorC
   }
 
   const details = getUnexpectedErrorLogDetails(context);
+  const message = getUnexpectedErrorLogMessage(context);
 
   if (details) {
-    console.error(getUnexpectedErrorLogMessage(context), normalizedError, details);
-    return;
+    console.error(message, normalizedError, details);
+  } else {
+    console.error(message, normalizedError);
   }
 
-  console.error(getUnexpectedErrorLogMessage(context), normalizedError);
+  reportUnexpectedError(normalizedError, context, message);
 };
 
 export const notifyOperationFailure = (
@@ -158,6 +179,33 @@ const getUnexpectedErrorLogDetails = (context?: UnexpectedErrorContextInput) => 
   const componentStack = getUnexpectedErrorComponentStack(context);
 
   return componentStack ? { componentStack } : undefined;
+};
+
+const reportUnexpectedError = (
+  error: Error,
+  context: UnexpectedErrorContextInput | undefined,
+  message: string,
+) => {
+  if (unexpectedErrorReporters.size === 0) {
+    return;
+  }
+
+  const entry: UnexpectedErrorLogEntry = {
+    componentStack: getUnexpectedErrorComponentStack(context),
+    contextLabel: getUnexpectedErrorContextLabel(context),
+    errorMessage: error.message,
+    errorName: error.name,
+    errorStack: error.stack,
+    message,
+  };
+
+  for (const reporter of unexpectedErrorReporters) {
+    try {
+      void Promise.resolve(reporter(entry)).catch(() => undefined);
+    } catch {
+      // Reporter failures must not recurse through the unexpected-error path.
+    }
+  }
 };
 
 const getUnexpectedErrorComponentStack = (context?: UnexpectedErrorContextInput) => {

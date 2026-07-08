@@ -1,4 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -65,6 +66,20 @@ describe("folder context service", () => {
       ignoredDirectories: [".git"],
       sortOrder: "type",
     });
+    await expect
+      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
+      .toContain('"warningKind":"scanWarnings"');
+    expect(getLastWarnPayload()).toMatchObject({
+      event: "operationWarning",
+      feature: "folder-context",
+      operation: "scanFolderContext",
+      path: TEST_NOTES_FOLDER_PATH,
+      warningCount: 1,
+      warningKind: "scanWarnings",
+      warningKinds: {
+        readDirectoryFailed: 1,
+      },
+    });
   });
 
   it("opens folder contexts and keeps the optional index document", async () => {
@@ -114,6 +129,84 @@ describe("folder context service", () => {
     });
   });
 
+  it("logs expected folder scan failures", async () => {
+    mockTauriApi({
+      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
+      scanMarkdownFolder: () =>
+        Promise.reject({
+          kind: "readDirectoryFailed",
+          message: "access denied",
+          path: TEST_NOTES_FOLDER_PATH,
+        }),
+    });
+
+    await expect(
+      scanFolderContext(TEST_NOTES_FOLDER_PATH, {
+        ignoredDirectories: [],
+        sortOrder: "name",
+      }),
+    ).rejects.toMatchObject({
+      kind: "readDirectoryFailed",
+    });
+
+    await expect
+      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
+      .toContain('"operation":"scanFolderContext"');
+    expect(getLastWarnPayload()).toMatchObject({
+      errorKind: "readDirectoryFailed",
+      event: "operationFailed",
+      feature: "folder-context",
+      operation: "scanFolderContext",
+      path: TEST_NOTES_FOLDER_PATH,
+    });
+  });
+
+  it("logs index document failures while preserving the opened folder context", async () => {
+    const result = {
+      folder: {
+        path: TEST_NOTES_FOLDER_PATH,
+        tree: createArticleTree(),
+        isEmpty: false,
+        warnings: [],
+      },
+      indexDocument: null,
+      indexError: {
+        kind: "missingFile",
+        path: TEST_MARKDOWN_FILE_PATH,
+      },
+    } satisfies OpenMarkdownFolderResult;
+    mockTauriApi({
+      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
+      openMarkdownFolder: () => result,
+    });
+
+    await expect(
+      openFolderContext(TEST_NOTES_FOLDER_PATH, {
+        ignoredDirectories: [],
+        indexFileNames: ["README.md"],
+        sortOrder: "name",
+      }),
+    ).resolves.toMatchObject({
+      indexDocument: null,
+      indexError: {
+        kind: "missingFile",
+        path: TEST_MARKDOWN_FILE_PATH,
+      },
+    });
+
+    await expect
+      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
+      .toContain('"warningKind":"indexDocumentOpenFailed"');
+    expect(getLastWarnPayload()).toMatchObject({
+      errorKind: "missingFile",
+      event: "operationWarning",
+      feature: "folder-context",
+      operation: "openFolderContext",
+      path: TEST_MARKDOWN_FILE_PATH,
+      warningKind: "indexDocumentOpenFailed",
+    });
+  });
+
   it("does not call the backend when a scan is already cancelled", async () => {
     mockTauriApi({
       scanMarkdownFolder: () => {
@@ -156,3 +249,6 @@ describe("folder context service", () => {
     expect(countTauriApiCalls("openMarkdownFolder")).toBe(1);
   });
 });
+
+const getLastWarnPayload = () =>
+  JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}") as Record<string, unknown>;

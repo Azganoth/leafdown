@@ -121,6 +121,27 @@ Markdown editing.
 - Configuration and recent lists persist locally.
 - Network access is not required for standard operations.
 
+### User-accessible debugging
+
+**Status:** Accepted
+
+**Decision:** Leafdown intentionally exposes webview DevTools to users for local
+debugging and support.
+
+**Rationale:** Leafdown is a local-first desktop app. When a user encounters a
+rendering, editor, filesystem, or platform-specific problem, local inspection is
+the fastest way to collect useful debugging context without adding telemetry or
+requiring a special debug build.
+
+**Consequences:**
+
+- The Help menu includes an `Open DevTools` action in user builds.
+- DevTools availability is a support feature, not a telemetry mechanism.
+- Leafdown does not upload console output, logs, document contents, or diagnostic
+  data automatically.
+- Documentation and release hardening must treat DevTools as intentionally
+  available rather than development-only.
+
 ## Editor Decisions
 
 ### Use Milkdown Kit

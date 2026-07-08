@@ -493,7 +493,6 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Type**
 - **Collapse all folders**
 - **Expand all folders**
-- **Toggle DevTools** (`F12`, `Mod+Shift+I`, Development-only)
 
 #### Help Menu
 
@@ -508,6 +507,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Changelog** (Post-MVP)
 - **Check for updates** (Post-MVP)
 - **Support / Donate** (Post-MVP)
+- **Open DevTools**
 - **About**
 
 ### Context Popup
@@ -602,7 +602,6 @@ choices.
 - `Toggle status bar` reflects global status bar visibility.
 - `Always on top` reflects current window state.
 - `Full screen` reflects current window state.
-- `Toggle DevTools` reflects DevTools visibility in development builds.
 
 #### Radio State
 

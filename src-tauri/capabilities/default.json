@@ -8,6 +8,7 @@
     "core:app:allow-set-app-theme",
     "opener:default",
     "dialog:default",
+    "log:default",
 
     "core:window:allow-show",
     "core:window:allow-hide",

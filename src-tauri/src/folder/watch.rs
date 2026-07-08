@@ -151,20 +151,27 @@ fn create_folder_watcher(
                 };
 
                 if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
-                    eprintln!("failed to emit folder-changed event: {error}");
+                    log::error!("failed to emit folder-changed event: {error}");
                 }
             }
             Err(error) => {
+                let message = error.to_string();
+                log::warn!(
+                    "folder watcher error for {}: {}",
+                    folder_path_for_payload,
+                    message
+                );
+
                 let payload = MarkdownFolderWatchErrorEvent {
                     folder_path: folder_path_for_payload.clone(),
                     error: WatchMarkdownFolderError::WatchFailed {
                         path: folder_path_for_payload.clone(),
-                        message: error.to_string(),
+                        message,
                     },
                 };
 
                 if let Err(error) = app.emit(FOLDER_WATCH_ERROR_EVENT, payload) {
-                    eprintln!("failed to emit folder-watch-error event: {error}");
+                    log::error!("failed to emit folder-watch-error event: {error}");
                 }
             }
         })

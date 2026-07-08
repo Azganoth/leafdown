@@ -5,6 +5,7 @@ use tauri_plugin_window_state::StateFlags;
 #[cfg(test)]
 mod command_contract_tests;
 mod debug;
+mod diagnostics;
 mod document;
 mod file_utils;
 mod folder;
@@ -23,6 +24,7 @@ const TITLEBAR_BUTTON_HOVER_BACKGROUND: &str = "color-mix(in srgb, currentColor 
 // Public because src/main.rs is a separate binary crate that enters through the library crate.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(diagnostics::build_log_plugin())
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 // Prevent auto showing the window
@@ -41,12 +43,22 @@ pub fn run() {
         )
         .plugin(tauri_plugin_zustand::init())
         .manage(folder::FolderWatcherState::default())
+        .setup(|app| {
+            log::info!(
+                "Leafdown started. version={}, os={}, arch={}",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
+
+            Ok(())
+        })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
 
                 if let Err(error) = window.emit(WINDOW_CLOSE_REQUESTED_EVENT, ()) {
-                    eprintln!("failed to emit close-requested event: {error}");
+                    log::error!("failed to emit close-requested event: {error}");
                 }
             }
         })
@@ -54,6 +66,7 @@ pub fn run() {
             document::open_markdown_file,
             document::save_markdown_file,
             debug::open_webview_devtools,
+            diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
             link::resolve_markdown_link_target,
             folder::scan_markdown_folder,
@@ -62,5 +75,8 @@ pub fn run() {
             folder::unwatch_markdown_folder
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|error| {
+            log::error!("error while running tauri application: {error}");
+            panic!("error while running tauri application: {error}");
+        });
 }

@@ -6,5 +6,6 @@ export const formatDiagnosticsSummary = (summary: DiagnosticsSummary, generatedA
     `Generated: ${generatedAt.toISOString()}`,
     `App: ${summary.appName} ${summary.appVersion}`,
     `Identifier: ${summary.appIdentifier}`,
+    `Run: ${summary.runId}`,
     `System: ${summary.operatingSystem} ${summary.architecture}`,
   ].join("\n");

@@ -1,4 +1,4 @@
-use tauri::{Emitter, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
@@ -42,13 +42,21 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
+        .manage(diagnostics::DiagnosticsRuntime::new())
         .manage(folder::FolderWatcherState::default())
         .setup(|app| {
+            let package_info = app.package_info();
+            let app_version = package_info.version.to_string();
+            let runtime = app.state::<diagnostics::DiagnosticsRuntime>();
+
             log::info!(
-                "Leafdown started. version={}, os={}, arch={}",
-                app.package_info().version,
-                std::env::consts::OS,
-                std::env::consts::ARCH
+                "{}",
+                diagnostics::format_app_started_diagnostic(
+                    package_info.name.as_str(),
+                    app_version.as_str(),
+                    app.config().identifier.as_str(),
+                    runtime.run_id(),
+                )
             );
 
             Ok(())
@@ -67,6 +75,7 @@ pub fn run() {
             document::save_markdown_file,
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
+            diagnostics::get_diagnostics_runtime,
             image::resolve_markdown_image_target,
             link::resolve_markdown_link_target,
             folder::scan_markdown_folder,

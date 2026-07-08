@@ -21,6 +21,7 @@ const TEST_DIAGNOSTICS_SUMMARY = {
   logFilePath: "C:/Users/Test/AppData/Local/com.azganoth.leafdown/logs/leafdown.log",
   logMaxFileSizeBytes: 1_048_576,
   operatingSystem: "windows",
+  runId: "run-test",
 } satisfies DiagnosticsSummary;
 
 const { clipboard } = setupClipboardMock();
@@ -45,6 +46,7 @@ describe("DiagnosticsDialog", () => {
     });
 
     expect(diagnosticsSummaryInput().value).toContain("App: Leafdown 0.1.0");
+    expect(diagnosticsSummaryInput().value).toContain("Run: run-test");
     expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath)).toBeInTheDocument();
     expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logFilePath)).toBeInTheDocument();
     expect(screen.getByText("Current log plus 5 retained files, 1 MB each")).toBeInTheDocument();
@@ -73,6 +75,7 @@ describe("DiagnosticsDialog", () => {
 
     expect(copiedText).toContain("Leafdown diagnostics");
     expect(copiedText).toContain("App: Leafdown 0.1.0");
+    expect(copiedText).toContain("Run: run-test");
     expect(toast.success).toHaveBeenCalledWith("Diagnostics summary copied.");
   });
 

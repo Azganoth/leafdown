@@ -1,18 +1,25 @@
 use std::{fs, path::Path};
 
 use serde::Serialize;
-use tauri::{plugin::TauriPlugin, AppHandle, Manager, Runtime};
+use tauri::{plugin::TauriPlugin, AppHandle, Manager, Runtime, State};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::path_utils::path_to_string;
 
 const BACKEND_LOG_TARGET: &str = "backend";
+const BACKEND_CRATE_LOG_TARGET: &str = env!("CARGO_CRATE_NAME");
+const APP_STARTED_DIAGNOSTIC_EVENT: &str = "appStarted";
 const FRONTEND_LOG_TARGET: &str = "frontend";
 const FALLBACK_LOG_TIMESTAMP: &str = "unknown-time";
 pub(crate) const DIAGNOSTIC_LOG_FILE_NAME: &str = "leafdown";
 pub(crate) const DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES: u64 = 1_048_576;
 pub(crate) const DIAGNOSTIC_LOG_FILE_COUNT: usize = 5;
+
+#[derive(Debug)]
+pub(crate) struct DiagnosticsRuntime {
+    run_id: String,
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,6 +34,25 @@ pub(crate) struct DiagnosticsSummary {
     log_file_name: &'static str,
     log_max_file_size_bytes: u64,
     log_file_count: usize,
+    run_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DiagnosticsRuntimeSummary {
+    run_id: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppStartedDiagnosticPayload<'a> {
+    app_identifier: &'a str,
+    app_name: &'a str,
+    app_version: &'a str,
+    architecture: &'static str,
+    event: &'static str,
+    operating_system: &'static str,
+    run_id: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,9 +84,22 @@ pub(crate) fn build_log_plugin<R: Runtime>() -> TauriPlugin<R> {
         .build()
 }
 
+impl DiagnosticsRuntime {
+    pub(crate) fn new() -> Self {
+        Self {
+            run_id: create_diagnostics_run_id(),
+        }
+    }
+
+    pub(crate) fn run_id(&self) -> &str {
+        self.run_id.as_str()
+    }
+}
+
 #[tauri::command]
 pub(crate) fn get_diagnostics_summary(
     app: AppHandle,
+    runtime: State<'_, DiagnosticsRuntime>,
 ) -> Result<DiagnosticsSummary, DiagnosticsError> {
     let log_directory_path =
         app.path()
@@ -81,7 +120,38 @@ pub(crate) fn get_diagnostics_summary(
         app.package_info().version.to_string(),
         app.config().identifier.clone(),
         log_directory_path.as_path(),
+        runtime.run_id(),
     ))
+}
+
+#[tauri::command]
+pub(crate) fn get_diagnostics_runtime(
+    runtime: State<'_, DiagnosticsRuntime>,
+) -> DiagnosticsRuntimeSummary {
+    DiagnosticsRuntimeSummary {
+        run_id: runtime.run_id().to_owned(),
+    }
+}
+
+pub(crate) fn format_app_started_diagnostic(
+    app_name: &str,
+    app_version: &str,
+    app_identifier: &str,
+    run_id: &str,
+) -> String {
+    let payload = AppStartedDiagnosticPayload {
+        app_identifier,
+        app_name,
+        app_version,
+        architecture: std::env::consts::ARCH,
+        event: APP_STARTED_DIAGNOSTIC_EVENT,
+        operating_system: std::env::consts::OS,
+        run_id,
+    };
+
+    serde_json::to_string(&payload).unwrap_or_else(|_| {
+        format!("{{\"event\":\"{APP_STARTED_DIAGNOSTIC_EVENT}\",\"runId\":\"{run_id}\"}}")
+    })
 }
 
 fn create_diagnostics_summary(
@@ -89,6 +159,7 @@ fn create_diagnostics_summary(
     app_version: String,
     app_identifier: String,
     log_directory_path: &Path,
+    run_id: &str,
 ) -> DiagnosticsSummary {
     let log_file_path = log_directory_path
         .join(DIAGNOSTIC_LOG_FILE_NAME)
@@ -105,7 +176,16 @@ fn create_diagnostics_summary(
         log_file_name: DIAGNOSTIC_LOG_FILE_NAME,
         log_max_file_size_bytes: DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
         log_file_count: DIAGNOSTIC_LOG_FILE_COUNT,
+        run_id: run_id.to_owned(),
     }
+}
+
+fn create_diagnostics_run_id() -> String {
+    format!(
+        "{}-{}",
+        OffsetDateTime::now_utc().unix_timestamp_nanos(),
+        std::process::id()
+    )
 }
 
 fn current_log_timestamp() -> String {
@@ -119,9 +199,14 @@ fn normalize_log_target(target: &str) -> String {
         return FRONTEND_LOG_TARGET.to_owned();
     }
 
+    if target == BACKEND_CRATE_LOG_TARGET {
+        return BACKEND_LOG_TARGET.to_owned();
+    }
+
     target
-        .strip_prefix(env!("CARGO_CRATE_NAME"))
-        .map(|suffix| format!("{BACKEND_LOG_TARGET}{suffix}"))
+        .strip_prefix(BACKEND_CRATE_LOG_TARGET)
+        .and_then(|suffix| suffix.strip_prefix("::"))
+        .map(|module_path| format!("{BACKEND_LOG_TARGET}::{module_path}"))
         .unwrap_or_else(|| target.to_owned())
 }
 
@@ -132,8 +217,9 @@ mod tests {
     use serde_json::Value;
 
     use super::{
-        create_diagnostics_summary, normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT,
-        DIAGNOSTIC_LOG_FILE_NAME, DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
+        create_diagnostics_run_id, create_diagnostics_summary, format_app_started_diagnostic,
+        normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT, DIAGNOSTIC_LOG_FILE_NAME,
+        DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
     };
 
     #[test]
@@ -143,6 +229,7 @@ mod tests {
             "0.1.0".to_owned(),
             "com.azganoth.leafdown".to_owned(),
             Path::new("/tmp/leafdown/logs"),
+            "run-test",
         );
         let value = serde_json::to_value(summary).expect("summary should serialize");
 
@@ -161,7 +248,30 @@ mod tests {
             value["logFileCount"].as_u64(),
             Some(DIAGNOSTIC_LOG_FILE_COUNT as u64)
         );
+        assert_eq!(json_string(&value, "runId"), "run-test");
         assert!(json_string(&value, "logFilePath").ends_with("leafdown.log"));
+    }
+
+    #[test]
+    fn app_started_diagnostic_serializes_as_structured_payload() {
+        let diagnostic =
+            format_app_started_diagnostic("Leafdown", "0.1.0", "com.azganoth.leafdown", "run-test");
+        let value: Value =
+            serde_json::from_str(diagnostic.as_str()).expect("startup diagnostic should be JSON");
+
+        assert_eq!(json_string(&value, "event"), "appStarted");
+        assert_eq!(json_string(&value, "appName"), "Leafdown");
+        assert_eq!(json_string(&value, "appVersion"), "0.1.0");
+        assert_eq!(
+            json_string(&value, "appIdentifier"),
+            "com.azganoth.leafdown"
+        );
+        assert_eq!(json_string(&value, "runId"), "run-test");
+    }
+
+    #[test]
+    fn diagnostics_run_ids_are_non_empty() {
+        assert!(!create_diagnostics_run_id().is_empty());
     }
 
     #[test]

@@ -388,7 +388,8 @@ Use:
 - `handleUnexpectedError(error, context)` for internal failures that should be
   logged but do not need immediate user feedback.
 - The diagnostics feature's unexpected-error reporter, installed once at
-  startup, to mirror shared unexpected-error logs into the local Tauri log file.
+  startup, to mirror shared unexpected-error logs into the local Tauri log file
+  as one-line structured payloads with diagnostic run identifiers when available.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.
 - `UnexpectedErrorBoundary` around the main application surface for React render
@@ -415,11 +416,14 @@ failures need consistent logging and enough context to debug. Keeping those path
 separate prevents generic "something failed" helpers from swallowing useful
 domain information. Unexpected logs are lightly deduped to keep repeated global
 events or render-loop failures from flooding the console and local log file.
-Diagnostic entries may include operation labels, error messages, stack traces,
-React component stacks, and local file paths when those paths are part of the
-failed workflow. Captured browser, editor, or library error messages and stack
-traces may include user content if the thrown error includes it; application code
-should not add active document text as diagnostic context.
+Diagnostic log lines use UTC timestamps, stable frontend/backend targets, and
+one-line structured payloads for lifecycle and unexpected-error events.
+Diagnostic entries may include operation labels, diagnostic run identifiers,
+error messages, stack traces, React component stacks, and local file paths when
+those paths are part of the failed workflow. Captured browser, editor, or library
+error messages and stack traces may include user content if the thrown error
+includes it; application code should not add active document text as diagnostic
+context.
 
 Example:
 

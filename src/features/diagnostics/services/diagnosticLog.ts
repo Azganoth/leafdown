@@ -6,7 +6,13 @@ import {
   type UnexpectedErrorReporter,
 } from "@/lib/errors";
 
+import { getDiagnosticsRuntime } from "./diagnosticsApi";
+
 const MAX_DIAGNOSTIC_FIELD_LENGTH = 12_000;
+
+interface UnexpectedErrorDiagnosticOptions {
+  runId?: string;
+}
 
 interface UnexpectedErrorDiagnosticPayload {
   componentStack?: string;
@@ -18,25 +24,40 @@ interface UnexpectedErrorDiagnosticPayload {
   };
   event: "frontendUnexpectedError";
   message: string;
+  runId?: string;
 }
 
 export const installUnexpectedErrorDiagnostics = () => {
+  let runId: string | undefined;
+
+  void getDiagnosticsRuntime()
+    .then((runtime) => {
+      runId = runtime.runId;
+    })
+    .catch(() => undefined);
+
   const reporter: UnexpectedErrorReporter = (entry) => {
-    void writeUnexpectedErrorDiagnostic(entry);
+    void writeUnexpectedErrorDiagnostic(entry, { runId });
   };
 
   return addUnexpectedErrorReporter(reporter);
 };
 
-export const writeUnexpectedErrorDiagnostic = async (entry: UnexpectedErrorLogEntry) => {
-  await writeLogError(formatUnexpectedErrorDiagnostic(entry));
+export const writeUnexpectedErrorDiagnostic = async (
+  entry: UnexpectedErrorLogEntry,
+  options: UnexpectedErrorDiagnosticOptions = {},
+) => {
+  await writeLogError(formatUnexpectedErrorDiagnostic(entry, options));
 };
 
-export const formatUnexpectedErrorDiagnostic = (entry: UnexpectedErrorLogEntry) =>
-  `[frontend] ${JSON.stringify(createUnexpectedErrorDiagnosticPayload(entry))}`;
+export const formatUnexpectedErrorDiagnostic = (
+  entry: UnexpectedErrorLogEntry,
+  options: UnexpectedErrorDiagnosticOptions = {},
+) => JSON.stringify(createUnexpectedErrorDiagnosticPayload(entry, options));
 
 const createUnexpectedErrorDiagnosticPayload = (
   entry: UnexpectedErrorLogEntry,
+  options: UnexpectedErrorDiagnosticOptions,
 ): UnexpectedErrorDiagnosticPayload => ({
   componentStack: truncateDiagnosticField(entry.componentStack),
   context: truncateDiagnosticField(entry.contextLabel),
@@ -47,6 +68,7 @@ const createUnexpectedErrorDiagnosticPayload = (
   },
   event: "frontendUnexpectedError",
   message: truncateDiagnosticField(entry.message) ?? "Unexpected error.",
+  runId: truncateDiagnosticField(options.runId),
 });
 
 const truncateDiagnosticField = (value: string | undefined) => {

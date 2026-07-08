@@ -14,6 +14,7 @@ const TEST_DIAGNOSTICS_SUMMARY = {
   logFilePath: "C:/Users/Test/AppData/Local/com.azganoth.leafdown/logs/leafdown.log",
   logMaxFileSizeBytes: 1_048_576,
   operatingSystem: "windows",
+  runId: "run-test",
 } satisfies DiagnosticsSummary;
 
 describe("diagnostics summary", () => {
@@ -27,6 +28,7 @@ describe("diagnostics summary", () => {
     expect(summary).toContain("Generated: 2026-07-08T12:00:00.000Z");
     expect(summary).toContain("App: Leafdown 0.1.0");
     expect(summary).toContain("Identifier: com.azganoth.leafdown");
+    expect(summary).toContain("Run: run-test");
     expect(summary).toContain("System: windows x86_64");
   });
 });

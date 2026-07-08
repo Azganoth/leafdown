@@ -1,5 +1,6 @@
 import {
   getActiveDocumentKey,
+  getOpenMarkdownFileErrorMessage,
   matchesActiveDocumentKey,
   openMarkdownDocument,
   selectMarkdownFilePath,
@@ -17,6 +18,7 @@ import {
   isCancellationError,
   runWithCancellation,
 } from "@/lib/cancellation";
+import { notifyError } from "@/lib/toast";
 
 import { useSessionStore } from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
@@ -81,7 +83,7 @@ export const openFolderContextAtPath = (path: string) =>
     }
 
     const initialDocumentKey = getActiveDocumentKeySnapshot();
-    const { folderContext, indexDocument } = await openFolderContext(
+    const { folderContext, indexDocument, indexError } = await openFolderContext(
       path,
       getSessionFolderOpenOptions(),
       cancellationToken,
@@ -100,6 +102,7 @@ export const openFolderContextAtPath = (path: string) =>
     }
 
     recordRecentFolderSession(folderContext.path);
+    notifyFolderIndexOpenFailure(indexError);
 
     return true;
   });
@@ -175,4 +178,17 @@ const recordRecentFile = (filePath: string) => {
 
 const recordRecentFolder = (folderPath: string) => {
   useRecentItemsStore.getState().recordRecentFolder(folderPath);
+};
+
+const notifyFolderIndexOpenFailure = (error: unknown) => {
+  if (!error) {
+    return;
+  }
+
+  const indexError = getOpenMarkdownFileErrorMessage(error);
+
+  notifyError({
+    title: "Could not open folder index file.",
+    description: indexError.description ?? indexError.title,
+  });
 };

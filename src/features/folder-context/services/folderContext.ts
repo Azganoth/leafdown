@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 
+import type { OpenMarkdownFileError } from "@/features/document";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
 import {
@@ -9,12 +10,14 @@ import {
   type ArticleTree,
   type FolderIndexDocument,
   type ScanMarkdownFolderResult,
+  type ScanMarkdownFolderWarning,
 } from "./folderContextApi";
 
 export interface FolderContextState {
   path: string;
   tree: ArticleTree;
   isEmpty: boolean;
+  warnings: ScanMarkdownFolderWarning[];
 }
 
 export interface FolderContextScanOptions {
@@ -29,6 +32,7 @@ export interface OpenFolderContextOptions extends FolderContextScanOptions {
 export interface OpenedFolderContext {
   folderContext: FolderContextState;
   indexDocument: FolderIndexDocument | null;
+  indexError: OpenMarkdownFileError | null;
 }
 
 export type {
@@ -36,12 +40,14 @@ export type {
   ArticleTree,
   ArticleTreeNode,
   FolderIndexDocument,
+  ScanMarkdownFolderWarning,
 } from "./folderContextApi";
 
 const toFolderContext = (folder: ScanMarkdownFolderResult): FolderContextState => ({
   path: folder.path,
   tree: folder.tree,
   isEmpty: folder.isEmpty,
+  warnings: folder.warnings,
 });
 
 export const selectFolderContextPath = async () => {
@@ -90,5 +96,6 @@ export const openFolderContext = async (
   return {
     folderContext: toFolderContext(result.folder),
     indexDocument: result.indexDocument,
+    indexError: result.indexError,
   };
 };

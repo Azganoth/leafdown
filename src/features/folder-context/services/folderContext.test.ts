@@ -37,6 +37,13 @@ describe("folder context service", () => {
       path: TEST_NOTES_FOLDER_PATH,
       tree: createArticleTree(),
       isEmpty: false,
+      warnings: [
+        {
+          kind: "readDirectoryFailed",
+          path: `${TEST_NOTES_FOLDER_PATH}/restricted`,
+          message: "access denied",
+        },
+      ],
     } satisfies ScanMarkdownFolderResult;
     mockTauriApi({
       scanMarkdownFolder: () => result,
@@ -51,6 +58,7 @@ describe("folder context service", () => {
       path: TEST_NOTES_FOLDER_PATH,
       tree: result.tree,
       isEmpty: false,
+      warnings: result.warnings,
     });
     expect(getLastTauriApiArgs("scanMarkdownFolder")).toEqual({
       path: TEST_NOTES_FOLDER_PATH,
@@ -65,6 +73,7 @@ describe("folder context service", () => {
         path: TEST_NOTES_FOLDER_PATH,
         tree: createArticleTree(),
         isEmpty: false,
+        warnings: [],
       },
       indexDocument: {
         path: TEST_MARKDOWN_FILE_PATH,
@@ -75,6 +84,7 @@ describe("folder context service", () => {
           sizeBytes: 7,
         },
       },
+      indexError: null,
     } satisfies OpenMarkdownFolderResult;
     mockTauriApi({
       openMarkdownFolder: () => result,
@@ -91,8 +101,10 @@ describe("folder context service", () => {
         path: TEST_NOTES_FOLDER_PATH,
         tree: result.folder.tree,
         isEmpty: false,
+        warnings: [],
       },
       indexDocument: result.indexDocument,
+      indexError: null,
     });
     expect(getLastTauriApiArgs("openMarkdownFolder")).toEqual({
       path: TEST_NOTES_FOLDER_PATH,

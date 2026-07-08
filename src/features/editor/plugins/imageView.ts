@@ -409,7 +409,7 @@ const getPlaceholderText = (resolutionState: ImageResolutionState, target: strin
       return "Save the document to resolve this image.";
 
     case "outsideFolder":
-      return "Image is outside the current folder.";
+      return `Image is outside the current folder: ${resolutionState.resolution.path}`;
 
     case "remoteBlocked":
       return "Remote images are blocked.";
@@ -421,13 +421,19 @@ const getPlaceholderText = (resolutionState: ImageResolutionState, target: strin
       return "Unsupported image target.";
 
     case "invalidPath":
-      return "Invalid image path.";
+      return `Invalid image path: ${resolutionState.resolution.path}`;
 
     case "permissionDenied":
-      return resolutionState.resolution.message || "Image access denied.";
+      return (
+        resolutionState.resolution.message ||
+        `Image access denied: ${resolutionState.resolution.path}`
+      );
 
     case "metadataFailed":
-      return resolutionState.resolution.message || "Image metadata unavailable.";
+      return (
+        resolutionState.resolution.message ||
+        `Image metadata unavailable: ${resolutionState.resolution.path}`
+      );
 
     case "renderable":
       return "";

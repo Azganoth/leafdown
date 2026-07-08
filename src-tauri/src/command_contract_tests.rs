@@ -46,6 +46,11 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
 
     assert_eq!(json_string(&scan_value, "path"), root_path_string);
     assert_eq!(scan_value["isEmpty"].as_bool(), Some(false));
+    assert_eq!(
+        scan_value["warnings"].as_array().map(Vec::len),
+        Some(0),
+        "warnings should serialize as an array"
+    );
     assert_tree_contains_path(&scan_value["tree"], document_path_string.as_str());
 
     let open_result =
@@ -114,9 +119,11 @@ fn image_and_link_commands_default_to_restricted_outside_folder_access() {
         relative_image_target.clone(),
         None,
     ));
+    let blocked_image = serialized(blocked_image);
+    assert_eq!(json_string(&blocked_image, "kind"), "outsideFolder");
     assert_eq!(
-        json_string(&serialized(blocked_image), "kind"),
-        "outsideFolder"
+        json_string(&blocked_image, "path"),
+        path_string(image_path.as_path())
     );
 
     let allowed_image = tauri::async_runtime::block_on(image::resolve_markdown_image_target(
@@ -136,9 +143,11 @@ fn image_and_link_commands_default_to_restricted_outside_folder_access() {
         relative_link_target.clone(),
         None,
     ));
+    let blocked_link = serialized(blocked_link);
+    assert_eq!(json_string(&blocked_link, "kind"), "outsideFolder");
     assert_eq!(
-        json_string(&serialized(blocked_link), "kind"),
-        "outsideFolder"
+        json_string(&blocked_link, "path"),
+        path_string(link_path.as_path())
     );
 
     let allowed_link = tauri::async_runtime::block_on(link::resolve_markdown_link_target(

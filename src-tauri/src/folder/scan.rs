@@ -6,9 +6,9 @@ use std::{
 };
 
 use super::{
-    scan_folder_metadata_error, scan_folder_read_error, FileTreeSortOrder,
-    MarkdownFolderScanResult, MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
-    ScanMarkdownFolderError,
+    scan_folder_metadata_error, scan_folder_metadata_warning, scan_folder_read_error,
+    scan_folder_read_warning, FileTreeSortOrder, MarkdownFolderScanResult, MarkdownFolderTree,
+    MarkdownFolderTreeNode, ScanDepth, ScanMarkdownFolderError, ScanMarkdownFolderWarning,
 };
 use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
 
@@ -39,14 +39,36 @@ pub(super) fn scan_folder_with_depth(
     depth: ScanDepth,
     sort_order: FileTreeSortOrder,
 ) -> Result<MarkdownFolderScanResult, ScanMarkdownFolderError> {
+    let mut warnings = Vec::new();
     let (tree, has_markdown_files) =
-        scan_directory(path, ignored_directories, depth, sort_order, 0)?;
+        scan_root_directory(path, ignored_directories, depth, sort_order, &mut warnings)?;
 
     Ok(MarkdownFolderScanResult {
         path: path_to_string(path),
         tree,
         is_empty: !has_markdown_files,
+        warnings,
     })
+}
+
+fn scan_root_directory(
+    path: &Path,
+    ignored_directories: &[String],
+    depth: ScanDepth,
+    sort_order: FileTreeSortOrder,
+    warnings: &mut Vec<ScanMarkdownFolderWarning>,
+) -> Result<(MarkdownFolderTree, bool), ScanMarkdownFolderError> {
+    let entries = fs::read_dir(path).map_err(|error| scan_folder_read_error(error, path))?;
+
+    scan_directory_entries(
+        path,
+        entries,
+        ignored_directories,
+        depth,
+        sort_order,
+        0,
+        warnings,
+    )
 }
 
 fn scan_directory(
@@ -55,28 +77,66 @@ fn scan_directory(
     depth: ScanDepth,
     sort_order: FileTreeSortOrder,
     current_depth: usize,
-) -> Result<(MarkdownFolderTree, bool), ScanMarkdownFolderError> {
+    warnings: &mut Vec<ScanMarkdownFolderWarning>,
+) -> Result<Option<(MarkdownFolderTree, bool)>, ScanMarkdownFolderError> {
     if matches!(depth, ScanDepth::RootRestricted) && current_depth > 0 {
-        return Ok((directory_tree(path, Vec::new()), false));
+        return Ok(Some((directory_tree(path, Vec::new()), false)));
     }
 
-    let entries = fs::read_dir(path).map_err(|error| scan_folder_read_error(error, path))?;
+    let entries = match fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(error) if current_depth == 0 => {
+            return Err(scan_folder_read_error(error, path));
+        }
+        Err(error) => {
+            warnings.push(scan_folder_read_warning(error, path));
+            return Ok(None);
+        }
+    };
+
+    scan_directory_entries(
+        path,
+        entries,
+        ignored_directories,
+        depth,
+        sort_order,
+        current_depth,
+        warnings,
+    )
+    .map(Some)
+}
+
+fn scan_directory_entries(
+    path: &Path,
+    entries: fs::ReadDir,
+    ignored_directories: &[String],
+    depth: ScanDepth,
+    sort_order: FileTreeSortOrder,
+    current_depth: usize,
+    warnings: &mut Vec<ScanMarkdownFolderWarning>,
+) -> Result<(MarkdownFolderTree, bool), ScanMarkdownFolderError> {
     let mut children = Vec::new();
     let mut has_markdown_files = false;
 
     for entry in entries {
-        let entry = entry.map_err(|error| ScanMarkdownFolderError::DirectoryEntryFailed {
-            path: path_to_string(path),
-            message: error.to_string(),
-        })?;
-        let entry_path = entry.path();
-        let file_type =
-            entry
-                .file_type()
-                .map_err(|error| ScanMarkdownFolderError::MetadataFailed {
-                    path: path_to_string(&entry_path),
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                warnings.push(ScanMarkdownFolderWarning::DirectoryEntryFailed {
+                    path: path_to_string(path),
                     message: error.to_string(),
-                })?;
+                });
+                continue;
+            }
+        };
+        let entry_path = entry.path();
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(error) => {
+                warnings.push(scan_folder_metadata_warning(error, &entry_path));
+                continue;
+            }
+        };
 
         if file_type.is_symlink() {
             continue;
@@ -90,13 +150,17 @@ fn scan_directory(
                 continue;
             }
 
-            let (directory, directory_has_markdown_files) = scan_directory(
+            let Some((directory, directory_has_markdown_files)) = scan_directory(
                 &entry_path,
                 ignored_directories,
                 depth,
                 sort_order,
                 current_depth + 1,
-            )?;
+                warnings,
+            )?
+            else {
+                continue;
+            };
             children.push(MarkdownFolderTreeNode::Directory {
                 name: directory.name,
                 path: directory.path,

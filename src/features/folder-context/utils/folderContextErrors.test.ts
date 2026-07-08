@@ -56,14 +56,6 @@ describe("folder context errors", () => {
         description: "read failed",
       },
     },
-    {
-      name: "directory entry failed",
-      error: { kind: "directoryEntryFailed", path: "C:/Notes/draft.md", message: "entry failed" },
-      expected: {
-        title: "Could not scan folder entry.",
-        description: "entry failed",
-      },
-    },
   ])("maps scan error: $name", ({ error, expected }) => {
     expect(getScanFolderContextErrorMessage(error)).toEqual(expected);
   });
@@ -77,18 +69,6 @@ describe("folder context errors", () => {
     ).toEqual({
       title: "Could not read folder.",
       description: "read failed",
-    });
-  });
-
-  it("maps index-open errors through document IO messages", () => {
-    expect(
-      getOpenFolderContextErrorMessage({
-        kind: "indexOpenFailed",
-        error: { kind: "invalidEncoding", path: "C:/Notes/readme.md" },
-      }),
-    ).toEqual({
-      title: "Could not open folder index file.",
-      description: "Leafdown opens Markdown files encoded as UTF-8.",
     });
   });
 

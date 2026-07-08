@@ -21,6 +21,7 @@ export const createFolderContext = (
   path: TEST_NOTES_FOLDER_PATH,
   tree: createArticleTree(),
   isEmpty: false,
+  warnings: [],
   ...overrides,
 });
 

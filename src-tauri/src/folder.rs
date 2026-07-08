@@ -24,6 +24,7 @@ pub(crate) struct MarkdownFolderScanResult {
     pub(crate) path: String,
     pub(crate) tree: MarkdownFolderTree,
     pub(crate) is_empty: bool,
+    pub(crate) warnings: Vec<ScanMarkdownFolderWarning>,
 }
 
 #[derive(Debug, Serialize)]
@@ -31,6 +32,7 @@ pub(crate) struct MarkdownFolderScanResult {
 pub(crate) struct OpenMarkdownFolderResult {
     pub(crate) folder: MarkdownFolderScanResult,
     pub(crate) index_document: Option<OpenMarkdownFileResult>,
+    pub(crate) index_error: Option<OpenMarkdownFileError>,
 }
 
 #[derive(Debug, Serialize)]
@@ -64,6 +66,16 @@ pub(crate) enum ScanMarkdownFolderError {
     MetadataFailed { path: String, message: String },
     NotDirectory { path: String },
     ReadDirectoryFailed { path: String, message: String },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub(crate) enum ScanMarkdownFolderWarning {
+    InvalidPath { path: String },
+    MissingFolder { path: String },
+    PermissionDenied { path: String, message: String },
+    MetadataFailed { path: String, message: String },
+    ReadDirectoryFailed { path: String, message: String },
     DirectoryEntryFailed { path: String, message: String },
 }
 
@@ -71,7 +83,6 @@ pub(crate) enum ScanMarkdownFolderError {
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub(crate) enum OpenMarkdownFolderError {
     ScanFailed { error: ScanMarkdownFolderError },
-    IndexOpenFailed { error: OpenMarkdownFileError },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,14 +191,18 @@ fn open_folder(
     let folder = scan_folder(path, ignored_directories, sort_order)
         .map_err(|error| OpenMarkdownFolderError::ScanFailed { error })?;
     let index_path = index::find_root_index_path(&folder.tree, index_file_names.as_slice());
-    let index_document = index_path
-        .map(|index_path| read_markdown_file(Path::new(index_path)))
-        .transpose()
-        .map_err(|error| OpenMarkdownFolderError::IndexOpenFailed { error })?;
+    let (index_document, index_error) = match index_path {
+        Some(index_path) => match read_markdown_file(Path::new(index_path)) {
+            Ok(index_document) => (Some(index_document), None),
+            Err(error) => (None, Some(error)),
+        },
+        None => (None, None),
+    };
 
     Ok(OpenMarkdownFolderResult {
         folder,
         index_document,
+        index_error,
     })
 }
 
@@ -233,6 +248,43 @@ fn scan_folder_read_error(error: io::Error, path: &Path) -> ScanMarkdownFolderEr
     }
 }
 
+pub(super) fn scan_folder_metadata_warning(
+    error: io::Error,
+    path: &Path,
+) -> ScanMarkdownFolderWarning {
+    let path = path_to_string(path);
+
+    match error.kind() {
+        ErrorKind::InvalidInput => ScanMarkdownFolderWarning::InvalidPath { path },
+        ErrorKind::NotFound => ScanMarkdownFolderWarning::MissingFolder { path },
+        ErrorKind::PermissionDenied => ScanMarkdownFolderWarning::PermissionDenied {
+            path,
+            message: error.to_string(),
+        },
+        _ => ScanMarkdownFolderWarning::MetadataFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
+pub(super) fn scan_folder_read_warning(error: io::Error, path: &Path) -> ScanMarkdownFolderWarning {
+    let path = path_to_string(path);
+
+    match error.kind() {
+        ErrorKind::InvalidInput => ScanMarkdownFolderWarning::InvalidPath { path },
+        ErrorKind::NotFound => ScanMarkdownFolderWarning::MissingFolder { path },
+        ErrorKind::PermissionDenied => ScanMarkdownFolderWarning::PermissionDenied {
+            path,
+            message: error.to_string(),
+        },
+        _ => ScanMarkdownFolderWarning::ReadDirectoryFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
 #[cfg(test)]
 fn scan_folder_with_depth(
     path: &Path,
@@ -257,7 +309,7 @@ mod tests {
         scan_folder_read_error, scan_folder_with_depth, FileTreeSortOrder, MarkdownFolderTree,
         MarkdownFolderTreeNode, ScanDepth, ScanMarkdownFolderError,
     };
-    use crate::test_utils::TestDirectory;
+    use crate::{document::OpenMarkdownFileError, test_utils::TestDirectory};
 
     #[test]
     fn scans_markdown_files_and_keeps_non_ignored_directories() {
@@ -445,6 +497,28 @@ mod tests {
 
         assert!(result.index_document.is_none());
         assert!(!result.folder.is_empty);
+    }
+
+    #[test]
+    fn opens_folder_contexts_when_root_index_fails_to_open() {
+        let root = TestDirectory::new("open-index-error");
+        root.write_file_with_content("readme.md", [0xff, 0xfe]);
+        root.write_file("article.md");
+
+        let result = open_folder(
+            &root.path,
+            vec!["readme".to_owned()],
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect("folder should still open when the index file fails");
+
+        assert!(!result.folder.is_empty);
+        assert!(result.index_document.is_none());
+        assert!(matches!(
+            result.index_error,
+            Some(OpenMarkdownFileError::InvalidEncoding { .. })
+        ));
     }
 
     #[test]

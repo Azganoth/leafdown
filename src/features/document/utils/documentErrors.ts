@@ -80,6 +80,7 @@ const SAVE_MARKDOWN_FILE_ERROR_KINDS = [
   "unsupportedFileType",
   "invalidPath",
   "missingFile",
+  "missingParentFolder",
   "permissionDenied",
   "externalModification",
   "writeFailed",
@@ -113,6 +114,11 @@ export const getSaveMarkdownFileErrorMessage = (
       return {
         title: "Saved Markdown file is missing.",
         description: error.path,
+      };
+    case "missingParentFolder":
+      return {
+        title: "Save folder not found.",
+        description: error.parentFolderPath,
       };
     case "permissionDenied":
       return {

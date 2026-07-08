@@ -14,13 +14,13 @@ export type ResolveMarkdownImageTargetResult =
   | { kind: "renderable"; path: string }
   | { kind: "missing"; path: string }
   | { kind: "untitledRelative" }
-  | { kind: "outsideFolder" }
+  | { kind: "outsideFolder"; path: string }
   | { kind: "remoteBlocked" }
   | { kind: "unsupportedFormat" }
   | { kind: "unsupportedTarget" }
-  | { kind: "invalidPath" }
-  | { kind: "permissionDenied"; message: string }
-  | { kind: "metadataFailed"; message: string };
+  | { kind: "invalidPath"; path: string }
+  | { kind: "permissionDenied"; path: string; message: string }
+  | { kind: "metadataFailed"; path: string; message: string };
 
 export const resolveMarkdownImageTarget = ({
   allowOutsideFolder,

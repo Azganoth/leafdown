@@ -12,15 +12,15 @@ pub(crate) fn path_to_string(path: &Path) -> String {
 pub(crate) enum MarkdownReferencePathResolution {
     Resolved(PathBuf),
     UntitledRelative,
-    OutsideFolder,
+    OutsideFolder(PathBuf),
 }
 
 pub(crate) enum ExistingPathResolution {
     Found { is_file: bool, path: String },
-    InvalidPath,
+    InvalidPath { path: String },
     Missing { path: String },
-    PermissionDenied { message: String },
-    MetadataFailed { message: String },
+    PermissionDenied { path: String, message: String },
+    MetadataFailed { path: String, message: String },
 }
 
 pub(crate) fn parse_file_url_path(target: &str) -> Option<PathBuf> {
@@ -108,7 +108,7 @@ pub(crate) fn resolve_markdown_reference_path(
         && (is_absolute_target_without_context
             || resolves_outside_folder(resolved_path.as_path(), folder_context_path))
     {
-        return MarkdownReferencePathResolution::OutsideFolder;
+        return MarkdownReferencePathResolution::OutsideFolder(resolved_path);
     }
 
     MarkdownReferencePathResolution::Resolved(resolved_path)
@@ -127,14 +127,18 @@ pub(crate) fn resolve_existing_path(path: &Path) -> ExistingPathResolution {
             path: canonicalize_or_original(path),
         },
         Err(error) => match error.kind() {
-            ErrorKind::InvalidInput => ExistingPathResolution::InvalidPath,
+            ErrorKind::InvalidInput => ExistingPathResolution::InvalidPath {
+                path: path_to_string(path),
+            },
             ErrorKind::NotFound => ExistingPathResolution::Missing {
                 path: path_to_string(path),
             },
             ErrorKind::PermissionDenied => ExistingPathResolution::PermissionDenied {
+                path: path_to_string(path),
                 message: error.to_string(),
             },
             _ => ExistingPathResolution::MetadataFailed {
+                path: path_to_string(path),
                 message: error.to_string(),
             },
         },
@@ -322,7 +326,7 @@ mod tests {
 
         assert_eq!(
             blocked_resolution,
-            MarkdownReferencePathResolution::OutsideFolder,
+            MarkdownReferencePathResolution::OutsideFolder(target_path.clone()),
         );
         assert_eq!(
             allowed_resolution,
@@ -342,7 +346,7 @@ mod tests {
 
         assert_eq!(
             blocked_resolution,
-            MarkdownReferencePathResolution::OutsideFolder,
+            MarkdownReferencePathResolution::OutsideFolder(target_path.clone()),
         );
         assert_eq!(
             allowed_resolution,

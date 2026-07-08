@@ -95,6 +95,10 @@ pub(crate) enum SaveMarkdownFileError {
     MissingFile {
         path: String,
     },
+    MissingParentFolder {
+        path: String,
+        parent_folder_path: String,
+    },
     PermissionDenied {
         path: String,
         message: String,
@@ -219,7 +223,8 @@ pub(crate) fn write_markdown_file(
 
     verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
 
-    fs::write(path, content).map_err(|error| save_write_error(error, serialized_path.as_str()))?;
+    fs::write(path, content)
+        .map_err(|error| save_write_error(error, path, serialized_path.as_str()))?;
 
     let metadata = read_file_metadata(path)
         .map_err(|error| save_metadata_error(error, serialized_path.as_str()))?;
@@ -418,22 +423,43 @@ fn save_metadata_error(error: FileMetadataReadError, path: &str) -> SaveMarkdown
     }
 }
 
-fn save_write_error(error: std::io::Error, path: &str) -> SaveMarkdownFileError {
+fn save_write_error(
+    error: std::io::Error,
+    path: &Path,
+    serialized_path: &str,
+) -> SaveMarkdownFileError {
     match error.kind() {
         ErrorKind::InvalidInput => SaveMarkdownFileError::InvalidPath {
-            path: path.to_owned(),
+            path: serialized_path.to_owned(),
         },
-        ErrorKind::NotFound => SaveMarkdownFileError::MissingFile {
-            path: path.to_owned(),
-        },
+        ErrorKind::NotFound => save_missing_write_target_error(path, serialized_path),
         ErrorKind::PermissionDenied => SaveMarkdownFileError::PermissionDenied {
-            path: path.to_owned(),
+            path: serialized_path.to_owned(),
             message: error.to_string(),
         },
         _ => SaveMarkdownFileError::WriteFailed {
-            path: path.to_owned(),
+            path: serialized_path.to_owned(),
             message: error.to_string(),
         },
+    }
+}
+
+fn save_missing_write_target_error(path: &Path, serialized_path: &str) -> SaveMarkdownFileError {
+    let Some(parent_folder) = path.parent() else {
+        return SaveMarkdownFileError::InvalidPath {
+            path: serialized_path.to_owned(),
+        };
+    };
+
+    if !parent_folder.exists() {
+        return SaveMarkdownFileError::MissingParentFolder {
+            path: serialized_path.to_owned(),
+            parent_folder_path: path_to_string(parent_folder),
+        };
+    }
+
+    SaveMarkdownFileError::MissingFile {
+        path: serialized_path.to_owned(),
     }
 }
 
@@ -591,6 +617,25 @@ mod tests {
     }
 
     #[test]
+    fn reports_missing_parent_folder_when_save_target_parent_does_not_exist() {
+        let root = TestDirectory::new("save-missing-parent");
+        let path = root.path("missing/readme.md");
+        let parent_folder_path = path.parent().unwrap().to_string_lossy().into_owned();
+
+        let error = write_markdown_file(&path, "New document\n", None, false)
+            .expect_err("missing parent folder should be reported separately");
+
+        assert!(matches!(
+            error,
+            SaveMarkdownFileError::MissingParentFolder {
+                path: error_path,
+                parent_folder_path: error_parent_folder_path,
+            } if error_path == path.to_string_lossy()
+                && error_parent_folder_path == parent_folder_path
+        ));
+    }
+
+    #[test]
     fn rejects_unsupported_save_file_types() {
         let file = create_test_file("notes.md", "");
         let unsupported_path = file.root.path.join("notes.txt");
@@ -612,7 +657,11 @@ mod tests {
             SaveMarkdownFileError::InvalidPath { .. }
         ));
         assert!(matches!(
-            save_write_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
+            save_write_error(
+                std::io::Error::from(ErrorKind::InvalidInput),
+                Path::new("bad:path"),
+                "bad:path"
+            ),
             SaveMarkdownFileError::InvalidPath { .. }
         ));
     }

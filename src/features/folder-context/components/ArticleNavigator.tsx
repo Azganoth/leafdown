@@ -6,6 +6,7 @@ import {
   FolderOpenIcon,
   FolderTreeIcon,
   InfoIcon,
+  TriangleAlertIcon,
 } from "lucide-react";
 import { useEffect, useRef, type Ref } from "react";
 
@@ -61,6 +62,11 @@ export function ArticleNavigator({
     folderContext && activeArticlePath
       ? !isSameOrParentPath(folderContext.path, activeArticlePath)
       : false;
+  const scanWarningCount = folderContext?.warnings.length ?? 0;
+  const emptyFolderMessage =
+    scanWarningCount > 0
+      ? "No supported Markdown files found in scanned entries."
+      : "No supported Markdown files found.";
   const rows = folderContext
     ? buildArticleNavigatorRows({
         activeArticlePath,
@@ -115,9 +121,10 @@ export function ArticleNavigator({
       {folderContext && (
         <>
           {activeDocumentIsDetached && <DetachedDocumentNotice />}
+          {scanWarningCount > 0 && <FolderScanWarningNotice warningCount={scanWarningCount} />}
           {folderContext.isEmpty && (
             <p className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
-              No supported Markdown files found.
+              {emptyFolderMessage}
             </p>
           )}
           {hasRows && (
@@ -149,6 +156,26 @@ function DetachedDocumentNotice() {
     </div>
   );
 }
+
+interface FolderScanWarningNoticeProps {
+  warningCount: number;
+}
+
+function FolderScanWarningNotice({ warningCount }: FolderScanWarningNoticeProps) {
+  return (
+    <div className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
+      <div className="flex gap-2 rounded-md border border-border bg-card/65 px-2 py-1.5">
+        <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+        <span>
+          Some folder entries could not be scanned. {getScanWarningIssueText(warningCount)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const getScanWarningIssueText = (warningCount: number) =>
+  warningCount === 1 ? "1 issue found." : `${warningCount} issues found.`;
 
 function NoFolderContext() {
   return (

@@ -43,6 +43,14 @@ const confirmLocalFileLink = (path: string) =>
     cancelLabel: "Cancel",
   });
 
+const confirmOutsideFolderMarkdownLink = (path: string) =>
+  showConfirmDialog(`Open this Markdown file outside the current folder?\n\n${path}`, {
+    title: "Open outside folder?",
+    kind: "warning",
+    okLabel: "Open file",
+    cancelLabel: "Cancel",
+  });
+
 const openExternalWebTarget = async (url: string) => {
   try {
     await openUrl(url);
@@ -86,7 +94,7 @@ const activateResolvedMarkdownLink = async (
       return openLocalFileTarget(resolution.path);
 
     case "outsideFolder":
-      return activateOutsideFolderLink(options);
+      return activateOutsideFolderLink(options, resolution.path);
 
     case "missing":
       notifyWarning("Link target not found.", resolution.path);
@@ -101,21 +109,22 @@ const activateResolvedMarkdownLink = async (
       return false;
 
     case "invalidPath":
-      notifyWarning("Invalid link path.", options.target);
+      notifyWarning("Invalid link path.", resolution.path);
       return false;
 
     case "permissionDenied":
-      notifyWarning("Link access denied.", resolution.message);
+      notifyWarning("Link access denied.", resolution.message || resolution.path);
       return false;
 
     case "metadataFailed":
-      notifyWarning("Link target metadata unavailable.", resolution.message);
+      notifyWarning("Link target metadata unavailable.", resolution.message || resolution.path);
       return false;
   }
 };
 
 const activateOutsideFolderLink = async (
   options: ActivateMarkdownLinkOptions,
+  path: string,
 ): Promise<boolean> => {
   const resolution = await resolveMarkdownLink({
     ...options,
@@ -123,6 +132,14 @@ const activateOutsideFolderLink = async (
   });
 
   if (resolution.kind === "outsideFolder") {
+    notifyWarning("Link target is outside the current folder.", resolution.path || path);
+    return false;
+  }
+
+  if (
+    resolution.kind === "localMarkdown" &&
+    !(await confirmOutsideFolderMarkdownLink(resolution.path))
+  ) {
     return false;
   }
 

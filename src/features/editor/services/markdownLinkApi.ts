@@ -16,11 +16,11 @@ export type ResolveMarkdownLinkTargetResult =
   | { kind: "localFile"; path: string }
   | { kind: "missing"; path: string }
   | { kind: "untitledRelative" }
-  | { kind: "outsideFolder" }
+  | { kind: "outsideFolder"; path: string }
   | { kind: "unsupportedTarget" }
-  | { kind: "invalidPath" }
-  | { kind: "permissionDenied"; message: string }
-  | { kind: "metadataFailed"; message: string };
+  | { kind: "invalidPath"; path: string }
+  | { kind: "permissionDenied"; path: string; message: string }
+  | { kind: "metadataFailed"; path: string; message: string };
 
 export const resolveMarkdownLinkTarget = ({
   allowOutsideFolder,

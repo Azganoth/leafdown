@@ -8,6 +8,7 @@ export {
   type ArticleTreeNode,
   type FolderContextState,
   type OpenedFolderContext,
+  type ScanMarkdownFolderWarning,
 } from "./services/folderContext";
 export {
   FOLDER_CONTEXT_CHANGED_EVENT,

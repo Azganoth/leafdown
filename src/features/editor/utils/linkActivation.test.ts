@@ -38,10 +38,11 @@ describe("Markdown link activation", () => {
     expect(openPath).not.toHaveBeenCalled();
   });
 
-  it("delegates outside-folder Markdown links to the application callback without confirmation", async () => {
+  it("asks before opening outside-folder Markdown links", async () => {
+    vi.mocked(confirm).mockResolvedValue(true);
     const resolveMarkdownLinkTarget = vi
       .fn()
-      .mockResolvedValueOnce({ kind: "outsideFolder" })
+      .mockResolvedValueOnce({ kind: "outsideFolder", path: "C:/Other/target.md" })
       .mockResolvedValueOnce({ kind: "localMarkdown", path: "C:/Other/target.md" });
     mockTauriApiCommand("resolveMarkdownLinkTarget", resolveMarkdownLinkTarget);
 
@@ -49,7 +50,15 @@ describe("Markdown link activation", () => {
       activateMarkdownLink(createMarkdownLinkOptions({ target: "../Other/target.md" })),
     ).resolves.toBe(true);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirm).toHaveBeenCalledWith(
+      "Open this Markdown file outside the current folder?\n\nC:/Other/target.md",
+      {
+        title: "Open outside folder?",
+        kind: "warning",
+        okLabel: "Open file",
+        cancelLabel: "Cancel",
+      },
+    );
     expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("resolveMarkdownLinkTarget"), {
       ...createMarkdownReferenceContext(),
       allowOutsideFolder: false,
@@ -67,7 +76,7 @@ describe("Markdown link activation", () => {
     vi.mocked(confirm).mockResolvedValue(true);
     const resolveMarkdownLinkTarget = vi
       .fn()
-      .mockResolvedValueOnce({ kind: "outsideFolder" })
+      .mockResolvedValueOnce({ kind: "outsideFolder", path: "C:/Other/manual.pdf" })
       .mockResolvedValueOnce({ kind: "localFile", path: "C:/Other/manual.pdf" });
     mockTauriApiCommand("resolveMarkdownLinkTarget", resolveMarkdownLinkTarget);
 
@@ -116,7 +125,7 @@ describe("Markdown link activation", () => {
       title: "Unsupported link target.",
     },
     {
-      resolution: { kind: "invalidPath" },
+      resolution: { kind: "invalidPath", path: "bad:path" },
       title: "Invalid link path.",
     },
   ] as const)(

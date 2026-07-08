@@ -1,4 +1,3 @@
-import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
@@ -19,7 +18,6 @@ const SCAN_FOLDER_CONTEXT_ERROR_KINDS = [
   "metadataFailed",
   "notDirectory",
   "readDirectoryFailed",
-  "directoryEntryFailed",
 ] as const satisfies readonly ScanFolderContextError["kind"][];
 
 const FALLBACK_SCAN_FOLDER_ERROR: MessageData = {
@@ -65,11 +63,6 @@ export const getScanFolderContextErrorMessage = (
         title: "Could not read folder.",
         description: error.message ?? error.path,
       };
-    case "directoryEntryFailed":
-      return {
-        title: "Could not scan folder entry.",
-        description: error.message ?? error.path,
-      };
   }
 };
 
@@ -78,7 +71,6 @@ export const isScanFolderContextError = (error: unknown): error is ScanFolderCon
 
 const OPEN_FOLDER_CONTEXT_ERROR_KINDS = [
   "scanFailed",
-  "indexOpenFailed",
 ] as const satisfies readonly OpenFolderContextError["kind"][];
 
 const FALLBACK_OPEN_FOLDER_ERROR: MessageData = {
@@ -96,14 +88,6 @@ export const getOpenFolderContextErrorMessage = (
   switch (error.kind) {
     case "scanFailed":
       return getScanFolderContextErrorMessage(error.error, fallback);
-    case "indexOpenFailed": {
-      const indexError = getOpenMarkdownFileErrorMessage(error.error);
-
-      return {
-        title: "Could not open folder index file.",
-        description: indexError.description ?? indexError.title,
-      };
-    }
   }
 };
 

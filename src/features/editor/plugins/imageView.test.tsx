@@ -93,12 +93,20 @@ describe("Markdown images", () => {
         markdown: "![Unsafe](custom:target.png)",
       },
       {
-        backendResult: { kind: "permissionDenied", message: "No image permission." },
+        backendResult: {
+          kind: "permissionDenied",
+          path: "C:/Notes/assets/private.png",
+          message: "No image permission.",
+        },
         expectedMessage: "No image permission.",
         markdown: "![Denied](./assets/private.png)",
       },
       {
-        backendResult: { kind: "metadataFailed", message: "Could not inspect image." },
+        backendResult: {
+          kind: "metadataFailed",
+          path: "C:/Notes/assets/image.png",
+          message: "Could not inspect image.",
+        },
         expectedMessage: "Could not inspect image.",
         markdown: "![Metadata](./assets/image.png)",
       },
@@ -125,14 +133,16 @@ describe("Markdown images", () => {
       const user = setupUser();
       const resolveMarkdownImageTarget = vi
         .fn()
-        .mockResolvedValueOnce({ kind: "outsideFolder" })
+        .mockResolvedValueOnce({ kind: "outsideFolder", path: "C:\\Other\\outside.png" })
         .mockResolvedValue({ kind: "renderable", path: "C:\\Other\\outside.png" });
       mockTauriApiCommand("resolveMarkdownImageTarget", resolveMarkdownImageTarget);
 
       const mounted = await mountImageEditor("![Outside](../outside.png)");
 
       await waitFor(() => {
-        expect(mounted.view.dom).toHaveTextContent("Image is outside the current folder.");
+        expect(mounted.view.dom).toHaveTextContent(
+          "Image is outside the current folder: C:\\Other\\outside.png",
+        );
       });
 
       const button = within(mounted.view.dom).getByRole("button", { name: "Load image" });

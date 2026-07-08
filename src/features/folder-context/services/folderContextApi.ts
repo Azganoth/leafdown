@@ -60,6 +60,7 @@ export interface ScanMarkdownFolderResult {
   path: string;
   tree: ArticleTree;
   isEmpty: boolean;
+  warnings: ScanMarkdownFolderWarning[];
 }
 
 /* NOTE: src-tauri/src/folder.rs (ScanMarkdownFolderError). */
@@ -69,6 +70,14 @@ export type ScanMarkdownFolderError =
   | { kind: "permissionDenied"; path: string; message: string }
   | { kind: "metadataFailed"; path: string; message: string }
   | { kind: "notDirectory"; path: string }
+  | { kind: "readDirectoryFailed"; path: string; message: string };
+
+/* NOTE: src-tauri/src/folder.rs (ScanMarkdownFolderWarning). */
+export type ScanMarkdownFolderWarning =
+  | { kind: "invalidPath"; path: string }
+  | { kind: "missingFolder"; path: string }
+  | { kind: "permissionDenied"; path: string; message: string }
+  | { kind: "metadataFailed"; path: string; message: string }
   | { kind: "readDirectoryFailed"; path: string; message: string }
   | { kind: "directoryEntryFailed"; path: string; message: string };
 
@@ -80,12 +89,11 @@ export interface OpenMarkdownFolderArgs extends ScanMarkdownFolderArgs {
 export interface OpenMarkdownFolderResult {
   folder: ScanMarkdownFolderResult;
   indexDocument: FolderIndexDocument | null;
+  indexError: OpenMarkdownFileError | null;
 }
 
 /* NOTE: src-tauri/src/folder.rs (OpenMarkdownFolderError). */
-export type OpenMarkdownFolderError =
-  | { kind: "scanFailed"; error: ScanMarkdownFolderError }
-  | { kind: "indexOpenFailed"; error: OpenMarkdownFileError };
+export type OpenMarkdownFolderError = { kind: "scanFailed"; error: ScanMarkdownFolderError };
 
 export interface WatchMarkdownFolderArgs {
   path: string;

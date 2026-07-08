@@ -10,6 +10,16 @@ const folderContext = createFolderContext();
 
 const emptyFolderContext = createEmptyFolderContext();
 
+const folderContextWithScanWarning = createFolderContext({
+  warnings: [
+    {
+      kind: "readDirectoryFailed",
+      path: "C:/Notes/restricted",
+      message: "Access denied",
+    },
+  ],
+});
+
 describe("ArticleNavigator", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
 
@@ -82,5 +92,35 @@ describe("ArticleNavigator", () => {
 
     expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
     expect(screen.queryByText("No visible folder entries.")).not.toBeInTheDocument();
+  });
+
+  it("shows scan warnings in the navigator", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={folderContextWithScanWarning}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Some folder entries could not be scanned/u)).toBeInTheDocument();
+    expect(screen.getByText(/1 issue found/u)).toBeInTheDocument();
+  });
+
+  it("qualifies the empty message when scan warnings exist", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={createEmptyFolderContext({
+          warnings: folderContextWithScanWarning.warnings,
+        })}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("No supported Markdown files found in scanned entries."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No supported Markdown files found.")).not.toBeInTheDocument();
   });
 });

@@ -58,6 +58,7 @@ export type SaveMarkdownFileError =
   | { kind: "unsupportedFileType"; path: string }
   | { kind: "invalidPath"; path: string }
   | { kind: "missingFile"; path: string }
+  | { kind: "missingParentFolder"; path: string; parentFolderPath: string }
   | { kind: "permissionDenied"; path: string; message: string }
   | {
       kind: "externalModification";

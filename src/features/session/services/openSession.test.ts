@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenedMarkdownDocument } from "@/features/document";
@@ -50,6 +51,7 @@ const createNextUntitledDocument = () =>
 interface OpenFolderContextCommandResult {
   folder: FolderContextState;
   indexDocument: null;
+  indexError: null | { kind: "missingFile"; path: string };
 }
 
 describe("open session workflows", () => {
@@ -102,6 +104,7 @@ describe("open session workflows", () => {
     mockTauriApiCommand("openMarkdownFolder", () => ({
       folder: emptyNotesFolderContext,
       indexDocument: null,
+      indexError: null,
     }));
 
     await expect(openFolderContextAtPath(TEST_NOTES_FOLDER_PATH)).resolves.toBe(true);
@@ -112,6 +115,24 @@ describe("open session workflows", () => {
       activeDocument: null,
     });
     expect(useRecentItemsStore.getState().recentFolders).toEqual([TEST_NOTES_FOLDER_PATH]);
+  });
+
+  it("opens folders when the configured index fails and reports the index error", async () => {
+    mockTauriApiCommand("openMarkdownFolder", () => ({
+      folder: emptyNotesFolderContext,
+      indexDocument: null,
+      indexError: { kind: "missingFile", path: `${TEST_NOTES_FOLDER_PATH}/readme.md` },
+    }));
+
+    await expect(openFolderContextAtPath(TEST_NOTES_FOLDER_PATH)).resolves.toBe(true);
+
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: TEST_NOTES_FOLDER_PATH },
+      activeDocument: null,
+    });
+    expect(toast.error).toHaveBeenCalledWith("Could not open folder index file.", {
+      description: `${TEST_NOTES_FOLDER_PATH}/readme.md`,
+    });
   });
 
   it("cancels open-file transitions before reading a new target", async () => {
@@ -230,6 +251,7 @@ describe("open session workflows", () => {
     const openedOtherFolder: OpenFolderContextCommandResult = {
       folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
       indexDocument: null,
+      indexError: null,
     };
     const openFolderDeferred = Promise.withResolvers<OpenFolderContextCommandResult>();
     setDefaultSession({
@@ -302,6 +324,7 @@ describe("open session workflows", () => {
     supersededOpenFolder.resolve({
       folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
       indexDocument: null,
+      indexError: null,
     });
 
     await expect(supersededOpenPromise).resolves.toBe(false);
@@ -310,7 +333,11 @@ describe("open session workflows", () => {
       activeDocument: { status: "saved", path: TEST_MARKDOWN_FILE_PATH },
     });
 
-    latestOpenFolder.resolve({ folder: latestFolderContext, indexDocument: null });
+    latestOpenFolder.resolve({
+      folder: latestFolderContext,
+      indexDocument: null,
+      indexError: null,
+    });
 
     await expect(latestOpenPromise).resolves.toBe(true);
     expect(useSessionStore.getState()).toMatchObject({

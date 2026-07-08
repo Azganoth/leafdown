@@ -24,6 +24,7 @@ describe("folderContextApi", () => {
         children: [],
       },
       isEmpty: true,
+      warnings: [],
     } satisfies ScanMarkdownFolderResult;
     vi.mocked(invoke).mockResolvedValueOnce(result);
 
@@ -52,8 +53,10 @@ describe("folderContextApi", () => {
           children: [],
         },
         isEmpty: false,
+        warnings: [],
       },
       indexDocument: null,
+      indexError: null,
     } satisfies OpenMarkdownFolderResult;
     vi.mocked(invoke).mockResolvedValueOnce(result);
 

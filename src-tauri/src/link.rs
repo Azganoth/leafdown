@@ -18,11 +18,11 @@ pub(crate) enum ResolveMarkdownLinkTargetResult {
     LocalFile { path: String },
     Missing { path: String },
     UntitledRelative,
-    OutsideFolder,
+    OutsideFolder { path: String },
     UnsupportedTarget,
-    InvalidPath,
-    PermissionDenied { message: String },
-    MetadataFailed { message: String },
+    InvalidPath { path: String },
+    PermissionDenied { path: String, message: String },
+    MetadataFailed { path: String, message: String },
 }
 
 enum ParsedLinkTarget {
@@ -38,6 +38,8 @@ pub(crate) async fn resolve_markdown_link_target(
     target: String,
     allow_outside_folder: Option<bool>,
 ) -> ResolveMarkdownLinkTargetResult {
+    let error_path = target.clone();
+
     tauri::async_runtime::spawn_blocking(move || {
         resolve_link_target(
             document_path.as_deref().map(Path::new),
@@ -48,6 +50,7 @@ pub(crate) async fn resolve_markdown_link_target(
     })
     .await
     .unwrap_or_else(|error| ResolveMarkdownLinkTargetResult::MetadataFailed {
+        path: error_path,
         message: error.to_string(),
     })
 }
@@ -86,8 +89,10 @@ fn resolve_local_link_target(
         MarkdownReferencePathResolution::UntitledRelative => {
             return ResolveMarkdownLinkTargetResult::UntitledRelative;
         }
-        MarkdownReferencePathResolution::OutsideFolder => {
-            return ResolveMarkdownLinkTargetResult::OutsideFolder;
+        MarkdownReferencePathResolution::OutsideFolder(path) => {
+            return ResolveMarkdownLinkTargetResult::OutsideFolder {
+                path: path.to_string_lossy().into_owned(),
+            };
         }
     };
 
@@ -103,15 +108,17 @@ fn resolve_existing_link_target(resolved_path: &Path) -> ResolveMarkdownLinkTarg
                 ResolveMarkdownLinkTargetResult::LocalFile { path }
             }
         }
-        ExistingPathResolution::InvalidPath => ResolveMarkdownLinkTargetResult::InvalidPath,
+        ExistingPathResolution::InvalidPath { path } => {
+            ResolveMarkdownLinkTargetResult::InvalidPath { path }
+        }
         ExistingPathResolution::Missing { path } => {
             ResolveMarkdownLinkTargetResult::Missing { path }
         }
-        ExistingPathResolution::PermissionDenied { message } => {
-            ResolveMarkdownLinkTargetResult::PermissionDenied { message }
+        ExistingPathResolution::PermissionDenied { path, message } => {
+            ResolveMarkdownLinkTargetResult::PermissionDenied { path, message }
         }
-        ExistingPathResolution::MetadataFailed { message } => {
-            ResolveMarkdownLinkTargetResult::MetadataFailed { message }
+        ExistingPathResolution::MetadataFailed { path, message } => {
+            ResolveMarkdownLinkTargetResult::MetadataFailed { path, message }
         }
     }
 }
@@ -325,7 +332,9 @@ mod tests {
 
         assert_eq!(
             blocked_result,
-            ResolveMarkdownLinkTargetResult::OutsideFolder
+            ResolveMarkdownLinkTargetResult::OutsideFolder {
+                path: target_path.to_string_lossy().into_owned()
+            }
         );
         assert_eq!(
             local_markdown_path(allowed_result),
@@ -353,7 +362,9 @@ mod tests {
 
         assert_eq!(
             blocked_result,
-            ResolveMarkdownLinkTargetResult::OutsideFolder
+            ResolveMarkdownLinkTargetResult::OutsideFolder {
+                path: target_path.to_string_lossy().into_owned()
+            }
         );
         assert_eq!(
             local_file_path(allowed_result),

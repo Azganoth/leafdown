@@ -115,6 +115,18 @@ describe("document IO errors", () => {
       },
     },
     {
+      name: "missing parent folder",
+      error: {
+        kind: "missingParentFolder",
+        path: "C:/Missing/readme.md",
+        parentFolderPath: "C:/Missing",
+      },
+      expected: {
+        title: "Save folder not found.",
+        description: "C:/Missing",
+      },
+    },
+    {
       name: "permission denied",
       error: {
         kind: "permissionDenied",

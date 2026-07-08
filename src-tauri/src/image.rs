@@ -15,13 +15,13 @@ pub(crate) enum ResolveMarkdownImageTargetResult {
     Renderable { path: String },
     Missing { path: String },
     UntitledRelative,
-    OutsideFolder,
+    OutsideFolder { path: String },
     RemoteBlocked,
     UnsupportedFormat,
     UnsupportedTarget,
-    InvalidPath,
-    PermissionDenied { message: String },
-    MetadataFailed { message: String },
+    InvalidPath { path: String },
+    PermissionDenied { path: String, message: String },
+    MetadataFailed { path: String, message: String },
 }
 
 enum ParsedImageTarget {
@@ -37,6 +37,8 @@ pub(crate) async fn resolve_markdown_image_target(
     target: String,
     allow_outside_folder: Option<bool>,
 ) -> ResolveMarkdownImageTargetResult {
+    let error_path = target.clone();
+
     tauri::async_runtime::spawn_blocking(move || {
         resolve_image_target(
             document_path.as_deref().map(Path::new),
@@ -47,6 +49,7 @@ pub(crate) async fn resolve_markdown_image_target(
     })
     .await
     .unwrap_or_else(|error| ResolveMarkdownImageTargetResult::MetadataFailed {
+        path: error_path,
         message: error.to_string(),
     })
 }
@@ -89,8 +92,10 @@ fn resolve_local_image_target(
         MarkdownReferencePathResolution::UntitledRelative => {
             return ResolveMarkdownImageTargetResult::UntitledRelative;
         }
-        MarkdownReferencePathResolution::OutsideFolder => {
-            return ResolveMarkdownImageTargetResult::OutsideFolder;
+        MarkdownReferencePathResolution::OutsideFolder(path) => {
+            return ResolveMarkdownImageTargetResult::OutsideFolder {
+                path: path.to_string_lossy().into_owned(),
+            };
         }
     };
 
@@ -107,15 +112,17 @@ fn resolve_existing_image_target(resolved_path: &Path) -> ResolveMarkdownImageTa
         ExistingPathResolution::Found { path, .. } => {
             ResolveMarkdownImageTargetResult::Renderable { path }
         }
-        ExistingPathResolution::InvalidPath => ResolveMarkdownImageTargetResult::InvalidPath,
+        ExistingPathResolution::InvalidPath { path } => {
+            ResolveMarkdownImageTargetResult::InvalidPath { path }
+        }
         ExistingPathResolution::Missing { path } => {
             ResolveMarkdownImageTargetResult::Missing { path }
         }
-        ExistingPathResolution::PermissionDenied { message } => {
-            ResolveMarkdownImageTargetResult::PermissionDenied { message }
+        ExistingPathResolution::PermissionDenied { path, message } => {
+            ResolveMarkdownImageTargetResult::PermissionDenied { path, message }
         }
-        ExistingPathResolution::MetadataFailed { message } => {
-            ResolveMarkdownImageTargetResult::MetadataFailed { message }
+        ExistingPathResolution::MetadataFailed { path, message } => {
+            ResolveMarkdownImageTargetResult::MetadataFailed { path, message }
         }
     }
 }
@@ -281,7 +288,9 @@ mod tests {
 
         assert_eq!(
             blocked_result,
-            ResolveMarkdownImageTargetResult::OutsideFolder
+            ResolveMarkdownImageTargetResult::OutsideFolder {
+                path: image_path.to_string_lossy().into_owned()
+            }
         );
         assert_eq!(
             renderable_path(allowed_result),
@@ -309,7 +318,9 @@ mod tests {
 
         assert_eq!(
             blocked_result,
-            ResolveMarkdownImageTargetResult::OutsideFolder
+            ResolveMarkdownImageTargetResult::OutsideFolder {
+                path: image_path.to_string_lossy().into_owned()
+            }
         );
         assert_eq!(
             renderable_path(allowed_result),

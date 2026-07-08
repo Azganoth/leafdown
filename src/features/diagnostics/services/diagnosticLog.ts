@@ -13,6 +13,7 @@ import {
 import { getDiagnosticsRuntime } from "./diagnosticsApi";
 
 const MAX_DIAGNOSTIC_FIELD_LENGTH = 12_000;
+export const SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS = 1_000;
 
 interface UnexpectedErrorDiagnosticOptions {
   runId?: string;
@@ -103,6 +104,14 @@ export const formatDiagnosticEvent = (
       runId: options.runId,
     }),
   );
+
+export const getDiagnosticOperationDurationMs = (startedAtMs: number) =>
+  Math.max(0, Math.round(performance.now() - startedAtMs));
+
+export const shouldWriteSlowOperationDiagnostic = (
+  durationMs: number,
+  thresholdMs = SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+) => durationMs >= thresholdMs;
 
 const DIAGNOSTIC_WRITERS = {
   error: writeLogError,

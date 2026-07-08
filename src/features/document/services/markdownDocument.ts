@@ -1,7 +1,13 @@
 import { extname } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
-import { writeDiagnosticWarn } from "@/features/diagnostics";
+import {
+  getDiagnosticOperationDurationMs,
+  shouldWriteSlowOperationDiagnostic,
+  SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+  writeDiagnosticInfo,
+  writeDiagnosticWarn,
+} from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
 import {
@@ -56,11 +62,28 @@ export const openMarkdownDocument = async (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
 ) => {
+  const startedAtMs = performance.now();
+
   try {
-    return await raceWithCancellation(cancellationToken, () => openMarkdownFile({ path }));
+    const document = await raceWithCancellation(cancellationToken, () =>
+      openMarkdownFile({ path }),
+    );
+
+    writeDocumentOperationTimingDiagnostic("openMarkdownDocument", startedAtMs, {
+      outcome: "succeeded",
+      path: document.path,
+      sizeBytes: document.metadata.sizeBytes,
+    });
+
+    return document;
   } catch (error) {
     if (isOpenMarkdownFileError(error)) {
       writeDocumentOperationFailureDiagnostic("openMarkdownDocument", error);
+      writeDocumentOperationTimingDiagnostic("openMarkdownDocument", startedAtMs, {
+        errorKind: error.kind,
+        outcome: "failed",
+        path: error.path,
+      });
     }
 
     throw error;
@@ -74,19 +97,37 @@ export const saveMarkdownDocument = async (
 ) => {
   const expectedMetadata = options.expectedMetadata ?? null;
   const overwrite = options.overwrite ?? false;
+  const startedAtMs = performance.now();
 
   try {
-    return await saveMarkdownFile({
+    const savedDocument = await saveMarkdownFile({
       path,
       content,
       expectedMetadata,
       overwrite,
     });
+
+    writeDocumentOperationTimingDiagnostic("saveMarkdownDocument", startedAtMs, {
+      hasExpectedMetadata: expectedMetadata !== null,
+      outcome: "succeeded",
+      overwrite,
+      path: savedDocument.path,
+      sizeBytes: savedDocument.metadata.sizeBytes,
+    });
+
+    return savedDocument;
   } catch (error) {
     if (isSaveMarkdownFileError(error)) {
       writeDocumentOperationFailureDiagnostic("saveMarkdownDocument", error, {
         hasExpectedMetadata: expectedMetadata !== null,
         overwrite,
+      });
+      writeDocumentOperationTimingDiagnostic("saveMarkdownDocument", startedAtMs, {
+        errorKind: error.kind,
+        hasExpectedMetadata: expectedMetadata !== null,
+        outcome: "failed",
+        overwrite,
+        path: error.path,
       });
     }
 
@@ -111,5 +152,26 @@ const writeDocumentOperationFailureDiagnostic = (
     feature: "document",
     operation,
     path: error.path,
+  });
+};
+
+const writeDocumentOperationTimingDiagnostic = (
+  operation: "openMarkdownDocument" | "saveMarkdownDocument",
+  startedAtMs: number,
+  context: Record<string, boolean | number | string | undefined>,
+) => {
+  const durationMs = getDiagnosticOperationDurationMs(startedAtMs);
+
+  if (!shouldWriteSlowOperationDiagnostic(durationMs)) {
+    return;
+  }
+
+  void writeDiagnosticInfo({
+    ...context,
+    durationMs,
+    event: "operationTiming",
+    feature: "document",
+    operation,
+    thresholdMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   });
 };

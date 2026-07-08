@@ -1,13 +1,14 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { warn as writeLogWarn } from "@tauri-apps/plugin-log";
+import { info as writeLogInfo, warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { describe, expect, it, vi } from "vitest";
 
+import { SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS } from "@/features/diagnostics";
 import {
   CancellationToken,
   CancellationTokenSource,
   isCancellationError,
 } from "@/lib/cancellation";
-import { createArticleTree } from "@/test/factories/folderContext";
+import { createArticleTree, createNestedArticleTree } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
@@ -79,6 +80,50 @@ describe("folder context service", () => {
       warningKinds: {
         readDirectoryFailed: 1,
       },
+    });
+  });
+
+  it("logs slow folder scan timing with article and warning counts", async () => {
+    const result = {
+      path: TEST_NOTES_FOLDER_PATH,
+      tree: createNestedArticleTree(),
+      isEmpty: false,
+      warnings: [],
+    } satisfies ScanMarkdownFolderResult;
+    const performanceNow = mockSlowOperation();
+    mockTauriApi({
+      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
+      scanMarkdownFolder: () => result,
+    });
+
+    try {
+      await expect(
+        scanFolderContext(TEST_NOTES_FOLDER_PATH, {
+          ignoredDirectories: [],
+          sortOrder: "name",
+        }),
+      ).resolves.toMatchObject({
+        path: TEST_NOTES_FOLDER_PATH,
+        tree: result.tree,
+      });
+    } finally {
+      performanceNow.mockRestore();
+    }
+
+    await expect
+      .poll(() => vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "")
+      .toContain('"event":"operationTiming"');
+    expect(getLastInfoPayload()).toMatchObject({
+      articleCount: 3,
+      durationMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25,
+      event: "operationTiming",
+      feature: "folder-context",
+      isEmpty: false,
+      operation: "scanFolderContext",
+      outcome: "succeeded",
+      path: TEST_NOTES_FOLDER_PATH,
+      thresholdMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+      warningCount: 0,
     });
   });
 
@@ -252,3 +297,12 @@ describe("folder context service", () => {
 
 const getLastWarnPayload = () =>
   JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}") as Record<string, unknown>;
+
+const getLastInfoPayload = () =>
+  JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}") as Record<string, unknown>;
+
+const mockSlowOperation = () =>
+  vi
+    .spyOn(performance, "now")
+    .mockReturnValueOnce(0)
+    .mockReturnValueOnce(SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25);

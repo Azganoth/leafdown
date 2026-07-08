@@ -2,7 +2,10 @@ export { DiagnosticsDialog } from "./components/DiagnosticsDialog";
 export {
   formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
+  getDiagnosticOperationDurationMs,
   installUnexpectedErrorDiagnostics,
+  shouldWriteSlowOperationDiagnostic,
+  SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,

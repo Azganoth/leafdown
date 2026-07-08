@@ -399,7 +399,8 @@ Avoid:
 
 - Passing domain error payloads to `notifyOperationFailure`.
 - Logging cancellation errors.
-- Writing Markdown document contents to diagnostic logs or copied summaries.
+- Explicitly adding active Markdown document text to diagnostic logs or copied
+  summaries.
 - Uploading diagnostic logs automatically.
 - Calling `console.error` outside the shared unexpected-error helper.
 - Creating a global `AppError` hierarchy for feature-specific domain errors.
@@ -416,7 +417,9 @@ domain information. Unexpected logs are lightly deduped to keep repeated global
 events or render-loop failures from flooding the console and local log file.
 Diagnostic entries may include operation labels, error messages, stack traces,
 React component stacks, and local file paths when those paths are part of the
-failed workflow.
+failed workflow. Captured browser, editor, or library error messages and stack
+traces may include user content if the thrown error includes it; application code
+should not add active document text as diagnostic context.
 
 Example:
 

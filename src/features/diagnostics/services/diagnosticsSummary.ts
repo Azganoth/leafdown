@@ -11,9 +11,9 @@ export const formatDiagnosticsSummary = (summary: DiagnosticsSummary, generatedA
     `System: ${summary.operatingSystem} ${summary.architecture}`,
     `Logs directory: ${summary.logDirectoryPath}`,
     `Current log file: ${summary.logFilePath}`,
-    `Log retention: ${summary.logFileCount} files, ${formatLogSize(summary.logMaxFileSizeBytes)} each`,
+    `Log retention: current log plus ${summary.logFileCount} retained files, ${formatLogSize(summary.logMaxFileSizeBytes)} each`,
     "Privacy: logs stay on this device and are not uploaded automatically.",
-    "Note: diagnostics may include local file paths, but not Markdown document contents.",
+    "Note: diagnostics may include local file paths and user content captured inside error messages or stack traces.",
   ].join("\n");
 
 const formatLogSize = (bytes: number) => {

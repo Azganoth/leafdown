@@ -514,8 +514,9 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 
 `Open logs folder` opens Leafdown's app-owned local diagnostic log directory.
 `Copy diagnostics summary` writes app version, platform, log location, retention
-settings, and local-only privacy notes to the clipboard. The summary does not
-include log file contents or Markdown document contents.
+settings, and local-only privacy notes to the clipboard. The summary does not include log file
+contents or active Markdown document text. Local logs may include user content
+when captured error messages or stack traces include it.
 
 ### Context Popup
 

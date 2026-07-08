@@ -144,7 +144,10 @@ requiring a special debug build.
   data automatically.
 - Diagnostic logs may include operation labels, error messages, stack traces, and
   local file paths needed to debug filesystem workflows.
-- Diagnostic logs must not include Markdown document contents.
+- Leafdown must not explicitly add Markdown document text to diagnostic logs or
+  copied summaries.
+- Captured browser, editor, or library error messages and stack traces may still
+  contain user content if that content is part of the thrown error.
 - Diagnostic logs live in Tauri's app log directory:
   `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
   `~/Library/Logs/com.azganoth.leafdown` on macOS, and

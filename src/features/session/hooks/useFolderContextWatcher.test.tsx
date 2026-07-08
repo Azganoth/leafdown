@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { info as writeLogInfo, warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -68,6 +69,30 @@ const latestFolderContextWatchScope = (): FolderContextWatchScope => {
   };
 };
 
+const getInfoDiagnosticPayload = (event: string) =>
+  vi
+    .mocked(writeLogInfo)
+    .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
+    .find((payload) => payload.event === event);
+
+const getWarnDiagnosticPayload = (event: string) =>
+  vi
+    .mocked(writeLogWarn)
+    .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
+    .find((payload) => payload.event === event);
+
+const waitForInfoDiagnosticPayload = async (event: string) => {
+  await waitFor(() => expect(getInfoDiagnosticPayload(event)).toBeDefined());
+
+  return getInfoDiagnosticPayload(event) as Record<string, unknown>;
+};
+
+const waitForWarnDiagnosticPayload = async (event: string) => {
+  await waitFor(() => expect(getWarnDiagnosticPayload(event)).toBeDefined());
+
+  return getWarnDiagnosticPayload(event) as Record<string, unknown>;
+};
+
 const advanceFolderRefreshTimer = async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(FOLDER_WATCH_REFRESH_DELAY_MS);
@@ -117,6 +142,14 @@ describe("useFolderContextWatcher", () => {
         });
       });
       const scope = latestFolderContextWatchScope();
+      await expect(waitForInfoDiagnosticPayload("folderWatcherStarted")).resolves.toMatchObject({
+        feature: "folder-context",
+        folderPath: "C:/Notes",
+        ignoredDirectoryCount: 2,
+        operation: "folderContextWatcher",
+        scopeGeneration: scope.generation,
+        scopeId: scope.id,
+      });
 
       unmount();
 
@@ -124,6 +157,13 @@ describe("useFolderContextWatcher", () => {
       expect(getLastTauriApiArgs("unwatchMarkdownFolder")).toEqual({
         scopeId: scope.id,
         scopeGeneration: scope.generation,
+      });
+      await expect(waitForInfoDiagnosticPayload("folderWatcherStopped")).resolves.toMatchObject({
+        feature: "folder-context",
+        folderPath: "C:/Notes",
+        operation: "folderContextWatcher",
+        scopeGeneration: scope.generation,
+        scopeId: scope.id,
       });
     });
 
@@ -234,6 +274,36 @@ describe("useFolderContextWatcher", () => {
       } finally {
         consoleError.mockRestore();
       }
+    });
+
+    it("logs typed native watcher start failures", async () => {
+      mockTauriApi({
+        unwatchMarkdownFolder: () => undefined,
+        watchMarkdownFolder: () =>
+          Promise.reject({
+            kind: "permissionDenied",
+            message: "access denied",
+            path: "C:/Notes",
+          }),
+      });
+      setDefaultSession({ folderContext: notesFolderContext });
+
+      renderHook(() => useFolderContextWatcher());
+
+      await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith("Permission denied watching folder.", {
+          description: "access denied",
+        });
+      });
+      await expect(waitForWarnDiagnosticPayload("folderWatcherStartFailed")).resolves.toMatchObject(
+        {
+          errorKind: "permissionDenied",
+          errorPath: "C:/Notes",
+          feature: "folder-context",
+          folderPath: "C:/Notes",
+          operation: "folderContextWatcher",
+        },
+      );
     });
   });
 
@@ -478,6 +548,13 @@ describe("useFolderContextWatcher", () => {
 
       expect(toast.error).toHaveBeenCalledWith("Could not watch folder.", {
         description: "watch failed",
+      });
+      await expect(waitForWarnDiagnosticPayload("folderWatcherError")).resolves.toMatchObject({
+        errorKind: "watchFailed",
+        errorPath: "C:/Notes",
+        feature: "folder-context",
+        folderPath: "C:/Notes",
+        operation: "folderContextWatcher",
       });
     });
   });

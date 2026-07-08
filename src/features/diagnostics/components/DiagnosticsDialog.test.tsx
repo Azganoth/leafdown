@@ -44,8 +44,10 @@ describe("DiagnosticsDialog", () => {
       expect(diagnosticsSummaryInput().value).toContain("Leafdown diagnostics");
     });
 
-    expect(diagnosticsSummaryInput().value).toContain(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath);
+    expect(diagnosticsSummaryInput().value).toContain("App: Leafdown 0.1.0");
+    expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath)).toBeInTheDocument();
     expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logFilePath)).toBeInTheDocument();
+    expect(screen.getByText("Current log plus 5 retained files, 1 MB each")).toBeInTheDocument();
   });
 
   it("copies the displayed diagnostics summary", async () => {
@@ -65,10 +67,12 @@ describe("DiagnosticsDialog", () => {
     fireEvent.click(copyButton);
 
     await waitFor(() => {
-      expect(clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringContaining(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath),
-      );
+      expect(clipboard.writeText).toHaveBeenCalled();
     });
+    const copiedText = clipboard.writeText.mock.calls.at(-1)?.[0] ?? "";
+
+    expect(copiedText).toContain("Leafdown diagnostics");
+    expect(copiedText).toContain("App: Leafdown 0.1.0");
     expect(toast.success).toHaveBeenCalledWith("Diagnostics summary copied.");
   });
 

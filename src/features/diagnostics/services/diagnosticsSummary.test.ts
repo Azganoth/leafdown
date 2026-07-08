@@ -17,7 +17,7 @@ const TEST_DIAGNOSTICS_SUMMARY = {
 } satisfies DiagnosticsSummary;
 
 describe("diagnostics summary", () => {
-  it("formats support metadata without log contents", () => {
+  it("formats copyable support metadata without local log details", () => {
     const summary = formatDiagnosticsSummary(
       TEST_DIAGNOSTICS_SUMMARY,
       new Date("2026-07-08T12:00:00.000Z"),
@@ -26,9 +26,7 @@ describe("diagnostics summary", () => {
     expect(summary).toContain("Leafdown diagnostics");
     expect(summary).toContain("Generated: 2026-07-08T12:00:00.000Z");
     expect(summary).toContain("App: Leafdown 0.1.0");
+    expect(summary).toContain("Identifier: com.azganoth.leafdown");
     expect(summary).toContain("System: windows x86_64");
-    expect(summary).toContain(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath);
-    expect(summary).toContain("Log retention: current log plus 5 retained files, 1 MB each");
-    expect(summary).toContain("logs stay on this device");
   });
 });

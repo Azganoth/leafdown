@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/Dialog";
 import { Textarea } from "@/components/ui/Textarea";
 import { getErrorDescription, notifyOperationFailure } from "@/lib/errors";
+import { formatFileSize } from "@/lib/formatFileSize";
 import { notifySuccess } from "@/lib/toast";
 
 import { getDiagnosticsSummary, type DiagnosticsSummary } from "../services/diagnosticsApi";
@@ -142,6 +143,12 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
               <div className="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]">
                 <dt className="font-medium text-muted-foreground">Current log</dt>
                 <dd className="min-w-0 font-mono break-all">{summary.logFilePath}</dd>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-[7rem_minmax(0,1fr)]">
+                <dt className="font-medium text-muted-foreground">Retention</dt>
+                <dd className="min-w-0">
+                  {`Current log plus ${summary.logFileCount} retained files, ${formatFileSize(summary.logMaxFileSizeBytes)} each`}
+                </dd>
               </div>
             </dl>
           )}

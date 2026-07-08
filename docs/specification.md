@@ -512,11 +512,12 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **About**
 
 `Diagnostics...` opens a dialog that shows app version, platform, log location,
-retention settings, and local-only privacy notes. The dialog provides actions to
-copy the diagnostics summary and open Leafdown's app-owned local diagnostic log
-directory. The summary does not include log file contents or active Markdown
-document text. Local logs may include user content when captured error messages
-or stack traces include it.
+retention settings, and local-only privacy notes. The copied diagnostics summary
+includes app and platform metadata only; log paths, retention settings, and
+privacy text remain visible in the dialog rather than copied. The dialog also
+provides an action to open Leafdown's app-owned local diagnostic log directory.
+Local logs may include user content when captured error messages or stack traces
+include it.
 
 ### Context Popup
 

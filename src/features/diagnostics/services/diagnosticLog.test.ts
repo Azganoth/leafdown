@@ -12,6 +12,7 @@ import {
   formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
+  resetDiagnosticsRunIdForTests,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,
@@ -19,6 +20,7 @@ import {
 
 describe("diagnostic log bridge", () => {
   beforeEach(() => {
+    resetDiagnosticsRunIdForTests();
     mockTauriApiCommand("getDiagnosticsRuntime", () => ({ runId: "run-test" }));
   });
 
@@ -99,6 +101,28 @@ describe("diagnostic log bridge", () => {
 
     expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"appClosing"'));
     expect(writeLogWarn).toHaveBeenCalledWith(expect.stringContaining('"event":"operationFailed"'));
+  });
+
+  it("retries diagnostic run id lookup after a transient failure", async () => {
+    let attempts = 0;
+    mockTauriApiCommand("getDiagnosticsRuntime", () => {
+      attempts += 1;
+
+      if (attempts === 1) {
+        return Promise.reject(new Error("runtime unavailable"));
+      }
+
+      return { runId: "run-recovered" };
+    });
+
+    await writeDiagnosticInfo({ event: "firstDiagnostic" });
+
+    expect(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0]).not.toContain("runId");
+
+    await writeDiagnosticInfo({ event: "secondDiagnostic" });
+
+    expect(attempts).toBe(2);
+    expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"runId":"run-recovered"'));
   });
 
   it("registers unexpected error diagnostics with the shared error helper", async () => {

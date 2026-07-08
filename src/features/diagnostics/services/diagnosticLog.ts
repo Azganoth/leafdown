@@ -54,6 +54,11 @@ interface UnexpectedErrorDiagnosticPayload {
 let diagnosticsRunId: string | undefined;
 let diagnosticsRunIdPromise: Promise<string | undefined> | null = null;
 
+export const resetDiagnosticsRunIdForTests = () => {
+  diagnosticsRunId = undefined;
+  diagnosticsRunIdPromise = null;
+};
+
 export const installUnexpectedErrorDiagnostics = () => {
   void getDiagnosticsRunId();
 
@@ -161,7 +166,10 @@ const getDiagnosticsRunId = () => {
       diagnosticsRunId = runtime.runId;
       return diagnosticsRunId;
     })
-    .catch(() => undefined);
+    .catch(() => {
+      diagnosticsRunIdPromise = null;
+      return undefined;
+    });
 
   return diagnosticsRunIdPromise;
 };

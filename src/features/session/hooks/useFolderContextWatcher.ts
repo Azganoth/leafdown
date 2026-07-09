@@ -1,7 +1,11 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect } from "react";
 
-import { writeDiagnosticInfo, writeDiagnosticWarn } from "@/features/diagnostics";
+import {
+  writeDiagnosticOperationFailure,
+  writeDiagnosticOperationLifecycle,
+  writeDiagnosticOperationWarning,
+} from "@/features/diagnostics";
 import {
   FOLDER_CONTEXT_CHANGED_EVENT,
   FOLDER_CONTEXT_WATCH_ERROR_EVENT,
@@ -31,15 +35,8 @@ const IGNORED_DIRECTORIES_SIGNATURE_SEPARATOR = "\u0000";
 let nextFolderWatcherScopeGeneration = 0;
 
 type FolderContextWatchListener = "folderChanged" | "watchError";
-type FolderContextWatcherInfoEvent =
-  | "folderWatcherStarted"
-  | "folderWatcherStarting"
-  | "folderWatcherStopped"
-  | "folderWatcherStopping";
-type FolderContextWatcherWarnEvent =
-  | "folderWatcherError"
-  | "folderWatcherStartFailed"
-  | "folderWatcherStopFailed";
+type FolderContextWatcherLifecyclePhase = "started" | "starting" | "stopped" | "stopping";
+type FolderContextWatcherFailurePhase = "starting" | "stopping";
 
 export const resetFolderWatcherScopeGenerationForTests = () => {
   nextFolderWatcherScopeGeneration = 0;
@@ -87,6 +84,7 @@ class FolderContextWatchSession {
   );
   private isStarted = false;
   private isDisposed = false;
+  private isNativeWatcherStarted = false;
   private readonly listenerDisposables = new DisposableMap<
     FolderContextWatchListener,
     () => void
@@ -103,7 +101,7 @@ class FolderContextWatchSession {
     }
 
     this.isStarted = true;
-    this.writeInfoDiagnostic("folderWatcherStarting");
+    this.writeLifecycleDiagnostic("starting");
 
     void this.listenAndStartWatcher().catch((error) => {
       this.listenerDisposables.clear();
@@ -119,15 +117,26 @@ class FolderContextWatchSession {
     this.isDisposed = true;
     this.refreshRunner.dispose();
     this.listenerDisposables.dispose();
-    this.writeInfoDiagnostic("folderWatcherStopping");
+
+    const shouldLogNativeStop = this.isNativeWatcherStarted;
+
+    if (shouldLogNativeStop) {
+      this.writeLifecycleDiagnostic("stopping");
+    }
+
     void unwatchMarkdownFolder({
       scopeId: this.nativeWatchScope.id,
       scopeGeneration: this.nativeWatchScope.generation,
     })
-      .then(() => this.writeInfoDiagnostic("folderWatcherStopped"))
+      .then(() => {
+        if (shouldLogNativeStop) {
+          this.writeLifecycleDiagnostic("stopped");
+        }
+      })
       .catch((error) => {
-        this.writeWarnDiagnostic("folderWatcherStopFailed", {
+        this.writeFailureDiagnostic("stopping", {
           errorMessage: getErrorDescription(error),
+          wasNativeWatcherStarted: shouldLogNativeStop,
         });
         handleUnexpectedError(error, "unwatchMarkdownFolder");
       });
@@ -221,10 +230,10 @@ class FolderContextWatchSession {
             return;
           }
 
-          this.writeWarnDiagnostic(
-            "folderWatcherError",
-            getWatchErrorDiagnosticContext(event.payload.error),
-          );
+          this.writeWarningDiagnostic({
+            ...getWatchErrorDiagnosticContext(event.payload.error),
+            warningKind: "watchError",
+          });
           notifyError(getWatchFolderContextErrorMessage(event.payload.error));
         },
       ),
@@ -242,7 +251,8 @@ class FolderContextWatchSession {
     });
 
     if (!this.isDisposed) {
-      this.writeInfoDiagnostic("folderWatcherStarted");
+      this.isNativeWatcherStarted = true;
+      this.writeLifecycleDiagnostic("started");
     }
   }
 
@@ -252,7 +262,7 @@ class FolderContextWatchSession {
     }
 
     if (isWatchFolderContextError(error)) {
-      this.writeWarnDiagnostic("folderWatcherStartFailed", getWatchErrorDiagnosticContext(error));
+      this.writeFailureDiagnostic("starting", getWatchErrorDiagnosticContext(error));
       notifyError(getWatchFolderContextErrorMessage(error));
       return;
     }
@@ -260,30 +270,45 @@ class FolderContextWatchSession {
     notifyOperationFailure("Could not start folder watcher.", error, "startFolderContextWatcher");
   }
 
-  private writeInfoDiagnostic(event: FolderContextWatcherInfoEvent) {
-    void writeDiagnosticInfo({
-      ...this.getDiagnosticContext(),
-      event,
+  private writeLifecycleDiagnostic(phase: FolderContextWatcherLifecyclePhase) {
+    writeDiagnosticOperationLifecycle({
+      context: this.getDiagnosticContext(),
+      feature: "folder-context",
+      operation: "folderContextWatcher",
+      phase,
     });
   }
 
-  private writeWarnDiagnostic(
-    event: FolderContextWatcherWarnEvent,
-    context: Record<string, number | string | undefined> = {},
+  private writeFailureDiagnostic(
+    phase: FolderContextWatcherFailurePhase,
+    context: Record<string, boolean | number | string | undefined> = {},
   ) {
-    void writeDiagnosticWarn({
-      ...this.getDiagnosticContext(),
-      ...context,
-      event,
+    writeDiagnosticOperationFailure({
+      context: {
+        ...this.getDiagnosticContext(),
+        ...context,
+        phase,
+      },
+      feature: "folder-context",
+      operation: "folderContextWatcher",
+    });
+  }
+
+  private writeWarningDiagnostic(context: Record<string, number | string | undefined>) {
+    writeDiagnosticOperationWarning({
+      context: {
+        ...this.getDiagnosticContext(),
+        ...context,
+      },
+      feature: "folder-context",
+      operation: "folderContextWatcher",
     });
   }
 
   private getDiagnosticContext() {
     return {
-      feature: "folder-context",
       folderPath: this.folderPath,
       ignoredDirectoryCount: this.ignoredDirectories.length,
-      operation: "folderContextWatcher",
       scopeGeneration: this.nativeWatchScope.generation,
       scopeId: this.nativeWatchScope.id,
     };

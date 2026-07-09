@@ -9,11 +9,16 @@ export {
   startDiagnosticOperationTimer,
   writeDiagnosticError,
   writeDiagnosticInfo,
+  writeDiagnosticOperationFailure,
+  writeDiagnosticOperationLifecycle,
+  writeDiagnosticOperationWarning,
   writeDiagnosticWarn,
   writeSlowOperationDiagnostic,
   writeUnexpectedErrorDiagnostic,
   type DiagnosticEventPayload,
   type DiagnosticJsonValue,
+  type DiagnosticOperationDiagnosticOptions,
+  type DiagnosticOperationLifecycleOptions,
   type SlowOperationDiagnosticOptions,
 } from "./services/diagnosticLog";
 export {

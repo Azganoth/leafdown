@@ -3,7 +3,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 
 import {
   startDiagnosticOperationTimer,
-  writeDiagnosticWarn,
+  writeDiagnosticOperationFailure,
   writeSlowOperationDiagnostic,
 } from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
@@ -143,13 +143,14 @@ const writeDocumentOperationFailureDiagnostic = (
   error: OpenMarkdownFileError | SaveMarkdownFileError,
   context: Record<string, boolean> = {},
 ) => {
-  void writeDiagnosticWarn({
-    ...context,
-    errorKind: error.kind,
-    event: "operationFailed",
+  writeDiagnosticOperationFailure({
+    context: {
+      ...context,
+      errorKind: error.kind,
+      path: error.path,
+    },
     feature: "document",
     operation,
-    path: error.path,
   });
 };
 

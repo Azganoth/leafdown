@@ -69,28 +69,39 @@ const latestFolderContextWatchScope = (): FolderContextWatchScope => {
   };
 };
 
-const getInfoDiagnosticPayload = (event: string) =>
+const matchesDiagnosticFields = (
+  payload: Record<string, unknown>,
+  fields: Record<string, unknown>,
+) => Object.entries(fields).every(([key, value]) => payload[key] === value);
+
+const getInfoDiagnosticPayload = (event: string, fields: Record<string, unknown> = {}) =>
   vi
     .mocked(writeLogInfo)
     .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
-    .find((payload) => payload.event === event);
+    .find((payload) => payload.event === event && matchesDiagnosticFields(payload, fields));
 
-const getWarnDiagnosticPayload = (event: string) =>
+const getWarnDiagnosticPayload = (event: string, fields: Record<string, unknown> = {}) =>
   vi
     .mocked(writeLogWarn)
     .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
-    .find((payload) => payload.event === event);
+    .find((payload) => payload.event === event && matchesDiagnosticFields(payload, fields));
 
-const waitForInfoDiagnosticPayload = async (event: string) => {
-  await waitFor(() => expect(getInfoDiagnosticPayload(event)).toBeDefined());
+const waitForInfoDiagnosticPayload = async (
+  event: string,
+  fields: Record<string, unknown> = {},
+) => {
+  await waitFor(() => expect(getInfoDiagnosticPayload(event, fields)).toBeDefined());
 
-  return getInfoDiagnosticPayload(event) as Record<string, unknown>;
+  return getInfoDiagnosticPayload(event, fields) as Record<string, unknown>;
 };
 
-const waitForWarnDiagnosticPayload = async (event: string) => {
-  await waitFor(() => expect(getWarnDiagnosticPayload(event)).toBeDefined());
+const waitForWarnDiagnosticPayload = async (
+  event: string,
+  fields: Record<string, unknown> = {},
+) => {
+  await waitFor(() => expect(getWarnDiagnosticPayload(event, fields)).toBeDefined());
 
-  return getWarnDiagnosticPayload(event) as Record<string, unknown>;
+  return getWarnDiagnosticPayload(event, fields) as Record<string, unknown>;
 };
 
 const advanceFolderRefreshTimer = async () => {
@@ -142,11 +153,14 @@ describe("useFolderContextWatcher", () => {
         });
       });
       const scope = latestFolderContextWatchScope();
-      await expect(waitForInfoDiagnosticPayload("folderWatcherStarted")).resolves.toMatchObject({
+      await expect(
+        waitForInfoDiagnosticPayload("operationLifecycle", { phase: "started" }),
+      ).resolves.toMatchObject({
         feature: "folder-context",
         folderPath: "C:/Notes",
         ignoredDirectoryCount: 2,
         operation: "folderContextWatcher",
+        phase: "started",
         scopeGeneration: scope.generation,
         scopeId: scope.id,
       });
@@ -158,10 +172,13 @@ describe("useFolderContextWatcher", () => {
         scopeId: scope.id,
         scopeGeneration: scope.generation,
       });
-      await expect(waitForInfoDiagnosticPayload("folderWatcherStopped")).resolves.toMatchObject({
+      await expect(
+        waitForInfoDiagnosticPayload("operationLifecycle", { phase: "stopped" }),
+      ).resolves.toMatchObject({
         feature: "folder-context",
         folderPath: "C:/Notes",
         operation: "folderContextWatcher",
+        phase: "stopped",
         scopeGeneration: scope.generation,
         scopeId: scope.id,
       });
@@ -250,6 +267,9 @@ describe("useFolderContextWatcher", () => {
       await waitFor(() => expect(unlistenFolderWatchError).toHaveBeenCalledTimes(1));
       expect(unlistenFolderChanged).toHaveBeenCalledTimes(1);
       expect(countTauriApiCalls("watchMarkdownFolder")).toBe(0);
+      await waitFor(() => expect(countTauriApiCalls("unwatchMarkdownFolder")).toBe(1));
+      await Promise.resolve();
+      expect(getInfoDiagnosticPayload("operationLifecycle", { phase: "stopped" })).toBeUndefined();
     });
 
     it("reports unexpected listener setup failures", async () => {
@@ -295,15 +315,16 @@ describe("useFolderContextWatcher", () => {
           description: "access denied",
         });
       });
-      await expect(waitForWarnDiagnosticPayload("folderWatcherStartFailed")).resolves.toMatchObject(
-        {
-          errorKind: "permissionDenied",
-          errorPath: "C:/Notes",
-          feature: "folder-context",
-          folderPath: "C:/Notes",
-          operation: "folderContextWatcher",
-        },
-      );
+      await expect(
+        waitForWarnDiagnosticPayload("operationFailed", { phase: "starting" }),
+      ).resolves.toMatchObject({
+        errorKind: "permissionDenied",
+        errorPath: "C:/Notes",
+        feature: "folder-context",
+        folderPath: "C:/Notes",
+        operation: "folderContextWatcher",
+        phase: "starting",
+      });
     });
   });
 
@@ -549,12 +570,15 @@ describe("useFolderContextWatcher", () => {
       expect(toast.error).toHaveBeenCalledWith("Could not watch folder.", {
         description: "watch failed",
       });
-      await expect(waitForWarnDiagnosticPayload("folderWatcherError")).resolves.toMatchObject({
+      await expect(
+        waitForWarnDiagnosticPayload("operationWarning", { warningKind: "watchError" }),
+      ).resolves.toMatchObject({
         errorKind: "watchFailed",
         errorPath: "C:/Notes",
         feature: "folder-context",
         folderPath: "C:/Notes",
         operation: "folderContextWatcher",
+        warningKind: "watchError",
       });
     });
   });

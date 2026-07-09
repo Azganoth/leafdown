@@ -36,6 +36,16 @@ export interface SlowOperationDiagnosticOptions {
   thresholdMs?: number;
 }
 
+export interface DiagnosticOperationDiagnosticOptions {
+  context?: Record<string, DiagnosticJsonValue>;
+  feature: string;
+  operation: string;
+}
+
+export interface DiagnosticOperationLifecycleOptions extends DiagnosticOperationDiagnosticOptions {
+  phase: string;
+}
+
 interface UnexpectedErrorDiagnosticPayload extends DiagnosticEventPayload {
   componentStack?: string;
   context?: string;
@@ -73,6 +83,44 @@ export const writeDiagnosticError = (payload: DiagnosticEventPayload) =>
 
 export const formatDiagnosticEvent = (payload: DiagnosticEventPayload) =>
   JSON.stringify(normalizeDiagnosticPayload(payload));
+
+export const writeDiagnosticOperationFailure = ({
+  context = {},
+  feature,
+  operation,
+}: DiagnosticOperationDiagnosticOptions) =>
+  writeDiagnosticWarn({
+    ...context,
+    event: "operationFailed",
+    feature,
+    operation,
+  });
+
+export const writeDiagnosticOperationWarning = ({
+  context = {},
+  feature,
+  operation,
+}: DiagnosticOperationDiagnosticOptions) =>
+  writeDiagnosticWarn({
+    ...context,
+    event: "operationWarning",
+    feature,
+    operation,
+  });
+
+export const writeDiagnosticOperationLifecycle = ({
+  context = {},
+  feature,
+  operation,
+  phase,
+}: DiagnosticOperationLifecycleOptions) =>
+  writeDiagnosticInfo({
+    ...context,
+    event: "operationLifecycle",
+    feature,
+    operation,
+    phase,
+  });
 
 export const getDiagnosticOperationDurationMs = (startedAtMs: number) =>
   Math.max(0, Math.round(performance.now() - startedAtMs));

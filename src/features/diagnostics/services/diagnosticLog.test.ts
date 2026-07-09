@@ -14,6 +14,9 @@ import {
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   writeDiagnosticError,
   writeDiagnosticInfo,
+  writeDiagnosticOperationFailure,
+  writeDiagnosticOperationLifecycle,
+  writeDiagnosticOperationWarning,
   writeDiagnosticWarn,
   writeSlowOperationDiagnostic,
   writeUnexpectedErrorDiagnostic,
@@ -94,6 +97,47 @@ describe("diagnostic log bridge", () => {
     expect(writeLogError).toHaveBeenCalledWith(
       expect.stringContaining('"event":"frontendUnexpectedError"'),
     );
+  });
+
+  it("writes standardized operation diagnostics", async () => {
+    await writeDiagnosticOperationFailure({
+      context: { errorKind: "missingFile", path: "notes/missing.md" },
+      feature: "document",
+      operation: "openMarkdownDocument",
+    });
+    await writeDiagnosticOperationWarning({
+      context: { warningKind: "scanWarnings", warningCount: 1 },
+      feature: "folder-context",
+      operation: "scanFolderContext",
+    });
+    await writeDiagnosticOperationLifecycle({
+      context: { scopeId: "folder-watch:1" },
+      feature: "folder-context",
+      operation: "folderContextWatcher",
+      phase: "started",
+    });
+
+    expect(JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-2)?.[0] ?? "{}")).toMatchObject({
+      errorKind: "missingFile",
+      event: "operationFailed",
+      feature: "document",
+      operation: "openMarkdownDocument",
+      path: "notes/missing.md",
+    });
+    expect(JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+      event: "operationWarning",
+      feature: "folder-context",
+      operation: "scanFolderContext",
+      warningCount: 1,
+      warningKind: "scanWarnings",
+    });
+    expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+      event: "operationLifecycle",
+      feature: "folder-context",
+      operation: "folderContextWatcher",
+      phase: "started",
+      scopeId: "folder-watch:1",
+    });
   });
 
   it("writes slow operation diagnostics when the threshold is reached", () => {

@@ -2,7 +2,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   startDiagnosticOperationTimer,
-  writeDiagnosticWarn,
+  writeDiagnosticOperationFailure,
+  writeDiagnosticOperationWarning,
   writeSlowOperationDiagnostic,
 } from "@/features/diagnostics";
 import { isOpenMarkdownFileError, type OpenMarkdownFileError } from "@/features/document";
@@ -167,13 +168,14 @@ const writeFolderOperationFailureDiagnostic = (
 ) => {
   const scanError = error.kind === "scanFailed" ? error.error : error;
 
-  void writeDiagnosticWarn({
-    causeKind: error.kind === "scanFailed" ? scanError.kind : undefined,
-    errorKind: error.kind,
-    event: "operationFailed",
+  writeDiagnosticOperationFailure({
+    context: {
+      causeKind: error.kind === "scanFailed" ? scanError.kind : undefined,
+      errorKind: error.kind,
+      path: scanError.path,
+    },
     feature: "folder-context",
     operation,
-    path: scanError.path,
   });
 };
 
@@ -185,14 +187,15 @@ const writeFolderScanWarningsDiagnostic = (
     return;
   }
 
-  void writeDiagnosticWarn({
-    event: "operationWarning",
+  writeDiagnosticOperationWarning({
+    context: {
+      path: folder.path,
+      warningCount: folder.warnings.length,
+      warningKind: "scanWarnings",
+      warningKinds: countScanWarningKinds(folder.warnings),
+    },
     feature: "folder-context",
     operation,
-    path: folder.path,
-    warningCount: folder.warnings.length,
-    warningKind: "scanWarnings",
-    warningKinds: countScanWarningKinds(folder.warnings),
   });
 };
 
@@ -201,13 +204,14 @@ const writeFolderIndexFailureDiagnostic = (error: OpenMarkdownFileError | null) 
     return;
   }
 
-  void writeDiagnosticWarn({
-    errorKind: error.kind,
-    event: "operationWarning",
+  writeDiagnosticOperationWarning({
+    context: {
+      errorKind: error.kind,
+      path: error.path,
+      warningKind: "indexDocumentOpenFailed",
+    },
     feature: "folder-context",
     operation: "openFolderContext",
-    path: error.path,
-    warningKind: "indexDocumentOpenFailed",
   });
 };
 

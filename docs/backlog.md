@@ -30,6 +30,7 @@
 - Remote image explicit load action
 - Gutter plus insertion button
 - Keyboard-selection context popup trigger
+- Grammar check integration
 
 ## Markdown Extensions
 
@@ -78,6 +79,10 @@
 - Changelog
 - Support policy and support-channel documentation
 - Funding configuration and donation/support links
+
+## Internationalization
+
+- Internationalization and localization support
 
 ## Performance
 

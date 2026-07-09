@@ -11,6 +11,7 @@ import {
   formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
+  writeDiagnosticError,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,
@@ -81,12 +82,16 @@ describe("diagnostic log bridge", () => {
     });
   });
 
-  it("writes structured diagnostics at info and warn levels", async () => {
+  it("writes structured diagnostics at info, warn, and error levels", async () => {
     await writeDiagnosticInfo({ event: "appClosing" });
     await writeDiagnosticWarn({ event: "operationFailed", feature: "document" });
+    await writeDiagnosticError({ event: "frontendUnexpectedError", feature: "diagnostics" });
 
     expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"appClosing"'));
     expect(writeLogWarn).toHaveBeenCalledWith(expect.stringContaining('"event":"operationFailed"'));
+    expect(writeLogError).toHaveBeenCalledWith(
+      expect.stringContaining('"event":"frontendUnexpectedError"'),
+    );
   });
 
   it("registers unexpected error diagnostics with the shared error helper", async () => {

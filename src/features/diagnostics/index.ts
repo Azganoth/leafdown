@@ -6,6 +6,7 @@ export {
   installUnexpectedErrorDiagnostics,
   shouldWriteSlowOperationDiagnostic,
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+  writeDiagnosticError,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
   writeUnexpectedErrorDiagnostic,

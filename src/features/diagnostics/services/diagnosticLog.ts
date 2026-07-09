@@ -14,9 +14,9 @@ const MAX_DIAGNOSTIC_FIELD_LENGTH = 12_000;
 export const SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS = 1_000;
 
 type DiagnosticLogLevel = "error" | "info" | "warn";
-type DiagnosticPayloadValue =
-  | DiagnosticPayloadValue[]
-  | { [key: string]: DiagnosticPayloadValue }
+type DiagnosticJsonValue =
+  | DiagnosticJsonValue[]
+  | { [key: string]: DiagnosticJsonValue }
   | boolean
   | null
   | number
@@ -25,10 +25,10 @@ type DiagnosticPayloadValue =
 
 export interface DiagnosticEventPayload {
   event: string;
-  [key: string]: DiagnosticPayloadValue;
+  [key: string]: DiagnosticJsonValue;
 }
 
-interface UnexpectedErrorDiagnosticPayload {
+interface UnexpectedErrorDiagnosticPayload extends DiagnosticEventPayload {
   componentStack?: string;
   context?: string;
   error: {
@@ -48,16 +48,11 @@ export const installUnexpectedErrorDiagnostics = () => {
   return addUnexpectedErrorReporter(reporter);
 };
 
-export const writeUnexpectedErrorDiagnostic = async (entry: UnexpectedErrorLogEntry) => {
-  try {
-    await writeLogError(formatUnexpectedErrorDiagnostic(entry));
-  } catch {
-    // Diagnostics must never break the app workflow that triggered them.
-  }
-};
+export const writeUnexpectedErrorDiagnostic = (entry: UnexpectedErrorLogEntry) =>
+  writeDiagnosticError(createUnexpectedErrorDiagnosticPayload(entry));
 
 export const formatUnexpectedErrorDiagnostic = (entry: UnexpectedErrorLogEntry) =>
-  JSON.stringify(createUnexpectedErrorDiagnosticPayload(entry));
+  formatDiagnosticEvent(createUnexpectedErrorDiagnosticPayload(entry));
 
 export const writeDiagnosticInfo = (payload: DiagnosticEventPayload) =>
   writeDiagnosticEvent("info", payload);
@@ -65,8 +60,11 @@ export const writeDiagnosticInfo = (payload: DiagnosticEventPayload) =>
 export const writeDiagnosticWarn = (payload: DiagnosticEventPayload) =>
   writeDiagnosticEvent("warn", payload);
 
+export const writeDiagnosticError = (payload: DiagnosticEventPayload) =>
+  writeDiagnosticEvent("error", payload);
+
 export const formatDiagnosticEvent = (payload: DiagnosticEventPayload) =>
-  JSON.stringify(sanitizeDiagnosticPayload(payload));
+  JSON.stringify(normalizeDiagnosticPayload(payload));
 
 export const getDiagnosticOperationDurationMs = (startedAtMs: number) =>
   Math.max(0, Math.round(performance.now() - startedAtMs));
@@ -104,34 +102,34 @@ const createUnexpectedErrorDiagnosticPayload = (
   message: truncateDiagnosticField(entry.message) ?? "Unexpected error.",
 });
 
-const sanitizeDiagnosticPayload = (
+const normalizeDiagnosticPayload = (
   payload: DiagnosticEventPayload,
-): Record<string, DiagnosticPayloadValue> =>
+): Record<string, DiagnosticJsonValue> =>
   Object.fromEntries(
     Object.entries(payload).flatMap(([key, value]) => {
-      const sanitizedValue = sanitizeDiagnosticValue(value);
+      const normalizedValue = normalizeDiagnosticValue(value);
 
-      return sanitizedValue === undefined ? [] : [[key, sanitizedValue]];
+      return normalizedValue === undefined ? [] : [[key, normalizedValue]];
     }),
   );
 
-const sanitizeDiagnosticValue = (value: DiagnosticPayloadValue): DiagnosticPayloadValue => {
+const normalizeDiagnosticValue = (value: DiagnosticJsonValue): DiagnosticJsonValue => {
   if (typeof value === "string") {
     return truncateDiagnosticField(value);
   }
 
   if (Array.isArray(value)) {
     return value
-      .map((entry) => sanitizeDiagnosticValue(entry))
+      .map((entry) => normalizeDiagnosticValue(entry))
       .filter((entry) => entry !== undefined);
   }
 
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).flatMap(([key, entry]) => {
-        const sanitizedEntry = sanitizeDiagnosticValue(entry);
+        const normalizedEntry = normalizeDiagnosticValue(entry);
 
-        return sanitizedEntry === undefined ? [] : [[key, sanitizedEntry]];
+        return normalizedEntry === undefined ? [] : [[key, normalizedEntry]];
       }),
     );
   }

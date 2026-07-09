@@ -1,6 +1,6 @@
 [package]
 name = "leafdown"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 description = "A local-first Markdown editor for ordinary files and folders"
 authors = ["Azganoth"]
 license = "GPL-3.0-or-later"

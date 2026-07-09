@@ -525,8 +525,8 @@ log formatter. Structured frontend diagnostics add event-specific fields such as
 `event`, `feature`, `operation`, `errorKind`, `warningKind`, `phase`,
 `durationMs`, and local paths relevant to the failed or slow workflow.
 Application code must not explicitly add active Markdown document text to
-diagnostic payloads. Payload normalization may truncate long strings and drop
-unsupported `undefined` values; it is not redaction.
+diagnostic payloads. Payload normalization may truncate long strings and omit
+unsupported diagnostic values; it is not redaction.
 
 ### Context Popup
 

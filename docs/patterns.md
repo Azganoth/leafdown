@@ -391,8 +391,9 @@ Use:
   startup, to mirror shared unexpected-error logs into the local Tauri log file
   as structured diagnostic events.
 - Feature-owned diagnostic events for expected operation failures, folder watcher
-  lifecycle/error transitions, clean shutdown, and slow operation timings when
-  those events help support without adding active Markdown document text.
+  lifecycle/error transitions, confirmed app/window close lifecycle, and slow
+  operation timings when those events help support without adding active
+  Markdown document text.
 - Diagnostics feature helpers such as `writeDiagnosticOperationFailure`,
   `writeDiagnosticOperationWarning`, `writeDiagnosticOperationLifecycle`, and
   `writeDiagnosticSlowOperation` for operation-scoped logs, rather than

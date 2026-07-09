@@ -152,8 +152,8 @@ requiring a special debug build.
   copied summaries.
 - Captured browser, editor, or library error messages and stack traces may still
   contain user content if that content is part of the thrown error.
-- Frontend diagnostic payload normalization may truncate long strings and drop
-  unsupported `undefined` values, but it is not privacy redaction.
+- Frontend diagnostic payload normalization may truncate long strings and omit
+  unsupported diagnostic values, but it is not privacy redaction.
 - Diagnostic logs live in Tauri's app log directory:
   `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
   `~/Library/Logs/com.azganoth.leafdown` on macOS, and

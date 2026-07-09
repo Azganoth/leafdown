@@ -92,7 +92,6 @@ describe("folder context service", () => {
     } satisfies ScanMarkdownFolderResult;
     const performanceNow = mockSlowOperation();
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       scanMarkdownFolder: () => result,
     });
 
@@ -176,7 +175,6 @@ describe("folder context service", () => {
 
   it("logs expected folder scan failures", async () => {
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       scanMarkdownFolder: () =>
         Promise.reject({
           kind: "readDirectoryFailed",
@@ -221,7 +219,6 @@ describe("folder context service", () => {
       },
     } satisfies OpenMarkdownFolderResult;
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       openMarkdownFolder: () => result,
     });
 

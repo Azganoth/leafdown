@@ -76,7 +76,6 @@ pub fn run() {
             document::save_markdown_file,
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
-            diagnostics::get_diagnostics_runtime,
             image::resolve_markdown_image_target,
             link::resolve_markdown_link_target,
             folder::scan_markdown_folder,

@@ -45,12 +45,6 @@ pub(crate) struct DiagnosticsSummary {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct DiagnosticsRuntimeSummary {
-    run_id: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
 struct AppStartedDiagnosticPayload<'a> {
     app_identifier: &'a str,
     app_name: &'a str,
@@ -131,15 +125,6 @@ pub(crate) fn get_diagnostics_summary(
         log_directory_path.as_path(),
         runtime.run_id(),
     ))
-}
-
-#[tauri::command]
-pub(crate) fn get_diagnostics_runtime(
-    runtime: State<'_, DiagnosticsRuntime>,
-) -> DiagnosticsRuntimeSummary {
-    DiagnosticsRuntimeSummary {
-        run_id: runtime.run_id().to_owned(),
-    }
 }
 
 pub(crate) fn format_app_started_diagnostic(

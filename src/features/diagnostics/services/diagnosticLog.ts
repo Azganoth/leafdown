@@ -10,14 +10,8 @@ import {
   type UnexpectedErrorReporter,
 } from "@/lib/errors";
 
-import { getDiagnosticsRuntime } from "./diagnosticsApi";
-
 const MAX_DIAGNOSTIC_FIELD_LENGTH = 12_000;
 export const SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS = 1_000;
-
-interface UnexpectedErrorDiagnosticOptions {
-  runId?: string;
-}
 
 type DiagnosticLogLevel = "error" | "info" | "warn";
 type DiagnosticPayloadValue =
@@ -34,10 +28,6 @@ export interface DiagnosticEventPayload {
   [key: string]: DiagnosticPayloadValue;
 }
 
-interface DiagnosticEventOptions {
-  runId?: string;
-}
-
 interface UnexpectedErrorDiagnosticPayload {
   componentStack?: string;
   context?: string;
@@ -48,20 +38,9 @@ interface UnexpectedErrorDiagnosticPayload {
   };
   event: "frontendUnexpectedError";
   message: string;
-  runId?: string;
 }
 
-let diagnosticsRunId: string | undefined;
-let diagnosticsRunIdPromise: Promise<string | undefined> | null = null;
-
-export const resetDiagnosticsRunIdForTests = () => {
-  diagnosticsRunId = undefined;
-  diagnosticsRunIdPromise = null;
-};
-
 export const installUnexpectedErrorDiagnostics = () => {
-  void getDiagnosticsRunId();
-
   const reporter: UnexpectedErrorReporter = (entry) => {
     void writeUnexpectedErrorDiagnostic(entry);
   };
@@ -69,46 +48,25 @@ export const installUnexpectedErrorDiagnostics = () => {
   return addUnexpectedErrorReporter(reporter);
 };
 
-export const writeUnexpectedErrorDiagnostic = async (
-  entry: UnexpectedErrorLogEntry,
-  options: UnexpectedErrorDiagnosticOptions = {},
-) => {
+export const writeUnexpectedErrorDiagnostic = async (entry: UnexpectedErrorLogEntry) => {
   try {
-    await writeLogError(
-      formatUnexpectedErrorDiagnostic(entry, {
-        runId: options.runId ?? (await getDiagnosticsRunId()),
-      }),
-    );
+    await writeLogError(formatUnexpectedErrorDiagnostic(entry));
   } catch {
     // Diagnostics must never break the app workflow that triggered them.
   }
 };
 
-export const formatUnexpectedErrorDiagnostic = (
-  entry: UnexpectedErrorLogEntry,
-  options: UnexpectedErrorDiagnosticOptions = {},
-) => JSON.stringify(createUnexpectedErrorDiagnosticPayload(entry, options));
+export const formatUnexpectedErrorDiagnostic = (entry: UnexpectedErrorLogEntry) =>
+  JSON.stringify(createUnexpectedErrorDiagnosticPayload(entry));
 
-export const writeDiagnosticInfo = (
-  payload: DiagnosticEventPayload,
-  options: DiagnosticEventOptions = {},
-) => writeDiagnosticEvent("info", payload, options);
+export const writeDiagnosticInfo = (payload: DiagnosticEventPayload) =>
+  writeDiagnosticEvent("info", payload);
 
-export const writeDiagnosticWarn = (
-  payload: DiagnosticEventPayload,
-  options: DiagnosticEventOptions = {},
-) => writeDiagnosticEvent("warn", payload, options);
+export const writeDiagnosticWarn = (payload: DiagnosticEventPayload) =>
+  writeDiagnosticEvent("warn", payload);
 
-export const formatDiagnosticEvent = (
-  payload: DiagnosticEventPayload,
-  options: DiagnosticEventOptions = {},
-) =>
-  JSON.stringify(
-    sanitizeDiagnosticPayload({
-      ...payload,
-      runId: options.runId,
-    }),
-  );
+export const formatDiagnosticEvent = (payload: DiagnosticEventPayload) =>
+  JSON.stringify(sanitizeDiagnosticPayload(payload));
 
 export const getDiagnosticOperationDurationMs = (startedAtMs: number) =>
   Math.max(0, Math.round(performance.now() - startedAtMs));
@@ -124,17 +82,9 @@ const DIAGNOSTIC_WRITERS = {
   warn: writeLogWarn,
 } satisfies Record<DiagnosticLogLevel, (message: string) => Promise<void>>;
 
-const writeDiagnosticEvent = async (
-  level: DiagnosticLogLevel,
-  payload: DiagnosticEventPayload,
-  options: DiagnosticEventOptions,
-) => {
+const writeDiagnosticEvent = async (level: DiagnosticLogLevel, payload: DiagnosticEventPayload) => {
   try {
-    await DIAGNOSTIC_WRITERS[level](
-      formatDiagnosticEvent(payload, {
-        runId: options.runId ?? (await getDiagnosticsRunId()),
-      }),
-    );
+    await DIAGNOSTIC_WRITERS[level](formatDiagnosticEvent(payload));
   } catch {
     // Diagnostics must never break the app workflow that triggered them.
   }
@@ -142,7 +92,6 @@ const writeDiagnosticEvent = async (
 
 const createUnexpectedErrorDiagnosticPayload = (
   entry: UnexpectedErrorLogEntry,
-  options: UnexpectedErrorDiagnosticOptions,
 ): UnexpectedErrorDiagnosticPayload => ({
   componentStack: truncateDiagnosticField(entry.componentStack),
   context: truncateDiagnosticField(entry.contextLabel),
@@ -153,26 +102,7 @@ const createUnexpectedErrorDiagnosticPayload = (
   },
   event: "frontendUnexpectedError",
   message: truncateDiagnosticField(entry.message) ?? "Unexpected error.",
-  runId: truncateDiagnosticField(options.runId),
 });
-
-const getDiagnosticsRunId = () => {
-  if (diagnosticsRunId) {
-    return Promise.resolve(diagnosticsRunId);
-  }
-
-  diagnosticsRunIdPromise ??= getDiagnosticsRuntime()
-    .then((runtime) => {
-      diagnosticsRunId = runtime.runId;
-      return diagnosticsRunId;
-    })
-    .catch(() => {
-      diagnosticsRunIdPromise = null;
-      return undefined;
-    });
-
-  return diagnosticsRunIdPromise;
-};
 
 const sanitizeDiagnosticPayload = (
   payload: DiagnosticEventPayload,

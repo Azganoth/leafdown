@@ -15,7 +15,6 @@ describe("markdown document service", () => {
     });
     const performanceNow = mockSlowOperation();
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       openMarkdownFile: () => openedDocument,
     });
 
@@ -46,7 +45,6 @@ describe("markdown document service", () => {
 
   it("logs expected open failures without document content", async () => {
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       openMarkdownFile: () =>
         Promise.reject({
           kind: "missingFile",
@@ -82,7 +80,6 @@ describe("markdown document service", () => {
   it("logs expected save failures without the markdown content", async () => {
     const performanceNow = mockSlowOperation();
     mockTauriApi({
-      getDiagnosticsRuntime: () => ({ runId: "run-test" }),
       saveMarkdownFile: () =>
         Promise.reject({
           kind: "writeFailed",

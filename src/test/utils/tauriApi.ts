@@ -1,10 +1,5 @@
 import { OPEN_WEBVIEW_DEVTOOLS_COMMAND } from "@/commands/actions/help";
-import {
-  GET_DIAGNOSTICS_RUNTIME_COMMAND,
-  GET_DIAGNOSTICS_SUMMARY_COMMAND,
-  type DiagnosticsRuntimeSummary,
-  type DiagnosticsSummary,
-} from "@/features/diagnostics";
+import { GET_DIAGNOSTICS_SUMMARY_COMMAND, type DiagnosticsSummary } from "@/features/diagnostics";
 import {
   OPEN_MARKDOWN_FILE_COMMAND,
   SAVE_MARKDOWN_FILE_COMMAND,
@@ -53,7 +48,6 @@ interface TauriApiCommandArgs {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
   openWebviewDevtools: undefined;
-  getDiagnosticsRuntime: undefined;
   getDiagnosticsSummary: undefined;
 }
 
@@ -67,7 +61,6 @@ interface TauriApiCommandResults {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
   openWebviewDevtools: void;
-  getDiagnosticsRuntime: DiagnosticsRuntimeSummary;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
 
@@ -91,7 +84,6 @@ const TAURI_API_COMMANDS = {
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
-  getDiagnosticsRuntime: GET_DIAGNOSTICS_RUNTIME_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;
 

@@ -1,7 +1,7 @@
 [package]
 name = "leafdown"
 version = "0.1.0"
-description = "A Tauri App"
+description = "A local-first Markdown editor for ordinary files and folders"
 authors = ["Azganoth"]
 license = "GPL-3.0-or-later"
 edition = "2021"

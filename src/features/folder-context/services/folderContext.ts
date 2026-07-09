@@ -1,11 +1,9 @@
 import { open } from "@tauri-apps/plugin-dialog";
 
 import {
-  getDiagnosticOperationDurationMs,
-  shouldWriteSlowOperationDiagnostic,
-  SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
-  writeDiagnosticInfo,
+  startDiagnosticOperationTimer,
   writeDiagnosticWarn,
+  writeSlowOperationDiagnostic,
 } from "@/features/diagnostics";
 import { isOpenMarkdownFileError, type OpenMarkdownFileError } from "@/features/document";
 import { CancellationToken, isCancellationError, raceWithCancellation } from "@/lib/cancellation";
@@ -83,7 +81,7 @@ export const scanFolderContext = async (
   { ignoredDirectories, sortOrder }: FolderContextScanOptions,
   cancellationToken: CancellationToken = CancellationToken.None,
 ) => {
-  const startedAtMs = performance.now();
+  const startedAtMs = startDiagnosticOperationTimer();
 
   try {
     const folder = await raceWithCancellation(cancellationToken, () =>
@@ -120,7 +118,7 @@ export const openFolderContext = async (
   { ignoredDirectories, indexFileNames, sortOrder }: OpenFolderContextOptions,
   cancellationToken: CancellationToken = CancellationToken.None,
 ): Promise<OpenedFolderContext> => {
-  const startedAtMs = performance.now();
+  const startedAtMs = startDiagnosticOperationTimer();
 
   try {
     const result = await raceWithCancellation(cancellationToken, () =>
@@ -218,19 +216,11 @@ const writeFolderOperationTimingDiagnostic = (
   startedAtMs: number,
   context: Record<string, boolean | number | string | undefined>,
 ) => {
-  const durationMs = getDiagnosticOperationDurationMs(startedAtMs);
-
-  if (!shouldWriteSlowOperationDiagnostic(durationMs)) {
-    return;
-  }
-
-  void writeDiagnosticInfo({
-    ...context,
-    durationMs,
-    event: "operationTiming",
+  writeSlowOperationDiagnostic({
+    context,
     feature: "folder-context",
     operation,
-    thresholdMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+    startedAtMs,
   });
 };
 

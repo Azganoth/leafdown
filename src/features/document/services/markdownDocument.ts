@@ -2,11 +2,9 @@ import { extname } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
 import {
-  getDiagnosticOperationDurationMs,
-  shouldWriteSlowOperationDiagnostic,
-  SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
-  writeDiagnosticInfo,
+  startDiagnosticOperationTimer,
   writeDiagnosticWarn,
+  writeSlowOperationDiagnostic,
 } from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
@@ -62,7 +60,7 @@ export const openMarkdownDocument = async (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
 ) => {
-  const startedAtMs = performance.now();
+  const startedAtMs = startDiagnosticOperationTimer();
 
   try {
     const document = await raceWithCancellation(cancellationToken, () =>
@@ -97,7 +95,7 @@ export const saveMarkdownDocument = async (
 ) => {
   const expectedMetadata = options.expectedMetadata ?? null;
   const overwrite = options.overwrite ?? false;
-  const startedAtMs = performance.now();
+  const startedAtMs = startDiagnosticOperationTimer();
 
   try {
     const savedDocument = await saveMarkdownFile({
@@ -160,18 +158,10 @@ const writeDocumentOperationTimingDiagnostic = (
   startedAtMs: number,
   context: Record<string, boolean | number | string | undefined>,
 ) => {
-  const durationMs = getDiagnosticOperationDurationMs(startedAtMs);
-
-  if (!shouldWriteSlowOperationDiagnostic(durationMs)) {
-    return;
-  }
-
-  void writeDiagnosticInfo({
-    ...context,
-    durationMs,
-    event: "operationTiming",
+  writeSlowOperationDiagnostic({
+    context,
     feature: "document",
     operation,
-    thresholdMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+    startedAtMs,
   });
 };

@@ -11,9 +11,11 @@ import {
   formatDiagnosticEvent,
   formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
+  SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   writeDiagnosticError,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
+  writeSlowOperationDiagnostic,
   writeUnexpectedErrorDiagnostic,
 } from "./diagnosticLog";
 
@@ -92,6 +94,56 @@ describe("diagnostic log bridge", () => {
     expect(writeLogError).toHaveBeenCalledWith(
       expect.stringContaining('"event":"frontendUnexpectedError"'),
     );
+  });
+
+  it("writes slow operation diagnostics when the threshold is reached", () => {
+    const performanceNow = vi
+      .spyOn(performance, "now")
+      .mockReturnValueOnce(SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25);
+
+    try {
+      expect(
+        writeSlowOperationDiagnostic({
+          context: { outcome: "succeeded", path: "notes/article.md" },
+          feature: "document",
+          operation: "openMarkdownDocument",
+          startedAtMs: 0,
+        }),
+      ).toBe(true);
+    } finally {
+      performanceNow.mockRestore();
+    }
+
+    expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"operationTiming"'));
+    expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+      durationMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25,
+      event: "operationTiming",
+      feature: "document",
+      operation: "openMarkdownDocument",
+      outcome: "succeeded",
+      path: "notes/article.md",
+      thresholdMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+    });
+  });
+
+  it("skips slow operation diagnostics below the threshold", () => {
+    const performanceNow = vi
+      .spyOn(performance, "now")
+      .mockReturnValueOnce(SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS - 1);
+
+    try {
+      expect(
+        writeSlowOperationDiagnostic({
+          feature: "document",
+          operation: "openMarkdownDocument",
+          startedAtMs: 0,
+        }),
+      ).toBe(false);
+    } finally {
+      performanceNow.mockRestore();
+    }
+
+    expect(writeLogInfo).not.toHaveBeenCalled();
   });
 
   it("registers unexpected error diagnostics with the shared error helper", async () => {

@@ -6,11 +6,15 @@ export {
   installUnexpectedErrorDiagnostics,
   shouldWriteSlowOperationDiagnostic,
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+  startDiagnosticOperationTimer,
   writeDiagnosticError,
   writeDiagnosticInfo,
   writeDiagnosticWarn,
+  writeSlowOperationDiagnostic,
   writeUnexpectedErrorDiagnostic,
   type DiagnosticEventPayload,
+  type DiagnosticJsonValue,
+  type SlowOperationDiagnosticOptions,
 } from "./services/diagnosticLog";
 export {
   GET_DIAGNOSTICS_SUMMARY_COMMAND,

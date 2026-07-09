@@ -14,7 +14,7 @@ const MAX_DIAGNOSTIC_FIELD_LENGTH = 12_000;
 export const SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS = 1_000;
 
 type DiagnosticLogLevel = "error" | "info" | "warn";
-type DiagnosticJsonValue =
+export type DiagnosticJsonValue =
   | DiagnosticJsonValue[]
   | { [key: string]: DiagnosticJsonValue }
   | boolean
@@ -26,6 +26,14 @@ type DiagnosticJsonValue =
 export interface DiagnosticEventPayload {
   event: string;
   [key: string]: DiagnosticJsonValue;
+}
+
+export interface SlowOperationDiagnosticOptions {
+  context?: Record<string, DiagnosticJsonValue>;
+  feature: string;
+  operation: string;
+  startedAtMs: number;
+  thresholdMs?: number;
 }
 
 interface UnexpectedErrorDiagnosticPayload extends DiagnosticEventPayload {
@@ -69,10 +77,37 @@ export const formatDiagnosticEvent = (payload: DiagnosticEventPayload) =>
 export const getDiagnosticOperationDurationMs = (startedAtMs: number) =>
   Math.max(0, Math.round(performance.now() - startedAtMs));
 
+export const startDiagnosticOperationTimer = () => performance.now();
+
 export const shouldWriteSlowOperationDiagnostic = (
   durationMs: number,
   thresholdMs = SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
 ) => durationMs >= thresholdMs;
+
+export const writeSlowOperationDiagnostic = ({
+  context = {},
+  feature,
+  operation,
+  startedAtMs,
+  thresholdMs = SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
+}: SlowOperationDiagnosticOptions) => {
+  const durationMs = getDiagnosticOperationDurationMs(startedAtMs);
+
+  if (!shouldWriteSlowOperationDiagnostic(durationMs, thresholdMs)) {
+    return false;
+  }
+
+  void writeDiagnosticInfo({
+    ...context,
+    durationMs,
+    event: "operationTiming",
+    feature,
+    operation,
+    thresholdMs,
+  });
+
+  return true;
+};
 
 const DIAGNOSTIC_WRITERS = {
   error: writeLogError,

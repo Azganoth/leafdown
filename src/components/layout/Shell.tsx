@@ -5,6 +5,7 @@ import { DocumentScreen } from "@/components/screens/DocumentScreen";
 import { EmptyFolderScreen } from "@/components/screens/EmptyFolderScreen";
 import { FolderOnlyScreen } from "@/components/screens/FolderOnlyScreen";
 import { WelcomeScreen } from "@/components/screens/WelcomeScreen";
+import { DiagnosticsDialog } from "@/features/diagnostics";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import { ArticleNavigator } from "@/features/folder-context";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
@@ -92,6 +93,10 @@ export function Shell() {
         <PreferencesDialog
           open={commands.preferencesOpen}
           onOpenChange={commands.setPreferencesOpen}
+        />
+        <DiagnosticsDialog
+          open={commands.diagnosticsOpen}
+          onOpenChange={commands.setDiagnosticsOpen}
         />
         <AboutDialog open={commands.aboutOpen} onOpenChange={commands.setAboutOpen} />
       </div>

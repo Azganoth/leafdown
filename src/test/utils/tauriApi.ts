@@ -1,4 +1,5 @@
 import { OPEN_WEBVIEW_DEVTOOLS_COMMAND } from "@/commands/actions/help";
+import { GET_DIAGNOSTICS_SUMMARY_COMMAND, type DiagnosticsSummary } from "@/features/diagnostics";
 import {
   OPEN_MARKDOWN_FILE_COMMAND,
   SAVE_MARKDOWN_FILE_COMMAND,
@@ -47,6 +48,7 @@ interface TauriApiCommandArgs {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
   openWebviewDevtools: undefined;
+  getDiagnosticsSummary: undefined;
 }
 
 interface TauriApiCommandResults {
@@ -59,6 +61,7 @@ interface TauriApiCommandResults {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
   openWebviewDevtools: void;
+  getDiagnosticsSummary: DiagnosticsSummary;
 }
 
 type TauriApiCommandName = keyof TauriApiCommandArgs;
@@ -81,6 +84,7 @@ const TAURI_API_COMMANDS = {
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
+  getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;
 
 export const mockTauriApi = (handlers: TauriApiCommandHandlers) => {

@@ -169,7 +169,7 @@ export function CommandMenuBar({
         <MenubarMenu>
           <MenubarTrigger>{COMMAND_MENU_LABELS.help}</MenubarTrigger>
           <MenubarContent>
-            <CommandItems commandIds={["help.openDevTools"]} />
+            <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["help.about"]} />
           </MenubarContent>

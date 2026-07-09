@@ -16,6 +16,10 @@ export const openDevTools = async () => {
   }
 };
 
+export const openDiagnostics = () => {
+  useCommandUIStore.getState().setDiagnosticsOpen(true);
+};
+
 export const openAbout = () => {
   useCommandUIStore.getState().setAboutOpen(true);
 };

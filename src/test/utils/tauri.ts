@@ -3,6 +3,7 @@ import { documentDir, extname, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
+import { debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { expect, vi } from "vitest";
 
@@ -82,6 +83,12 @@ export const resetTauriMocks = () => {
   vi.mocked(confirm).mockReset().mockResolvedValue(false);
   vi.mocked(open).mockReset().mockResolvedValue(null);
   vi.mocked(save).mockReset().mockResolvedValue(null);
+
+  vi.mocked(debug).mockReset().mockResolvedValue(undefined);
+  vi.mocked(error).mockReset().mockResolvedValue(undefined);
+  vi.mocked(info).mockReset().mockResolvedValue(undefined);
+  vi.mocked(trace).mockReset().mockResolvedValue(undefined);
+  vi.mocked(warn).mockReset().mockResolvedValue(undefined);
 
   vi.mocked(openPath).mockReset().mockResolvedValue(undefined);
   vi.mocked(openUrl).mockReset().mockResolvedValue(undefined);

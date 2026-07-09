@@ -1,8 +1,19 @@
 import { extname } from "@tauri-apps/api/path";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
+import {
+  startDiagnosticOperationTimer,
+  writeDiagnosticOperationFailure,
+  writeDiagnosticSlowOperation,
+} from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
+import {
+  isOpenMarkdownFileError,
+  isSaveMarkdownFileError,
+  type OpenMarkdownFileError,
+  type SaveMarkdownFileError,
+} from "../utils/documentErrors";
 import type { FileMetadataSnapshot } from "../utils/documentState";
 import {
   MARKDOWN_FILE_EXTENSIONS,
@@ -48,21 +59,110 @@ export const selectMarkdownSavePath = (defaultPath: string) =>
 export const openMarkdownDocument = async (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
-) => raceWithCancellation(cancellationToken, () => openMarkdownFile({ path }));
+) => {
+  const startedAtMs = startDiagnosticOperationTimer();
 
-export const saveMarkdownDocument = (
+  try {
+    const document = await raceWithCancellation(cancellationToken, () =>
+      openMarkdownFile({ path }),
+    );
+
+    writeDocumentOperationTimingDiagnostic("openMarkdownDocument", startedAtMs, {
+      outcome: "succeeded",
+      path: document.path,
+      sizeBytes: document.metadata.sizeBytes,
+    });
+
+    return document;
+  } catch (error) {
+    if (isOpenMarkdownFileError(error)) {
+      writeDocumentOperationFailureDiagnostic("openMarkdownDocument", error);
+      writeDocumentOperationTimingDiagnostic("openMarkdownDocument", startedAtMs, {
+        errorKind: error.kind,
+        outcome: "failed",
+        path: error.path,
+      });
+    }
+
+    throw error;
+  }
+};
+
+export const saveMarkdownDocument = async (
   path: string,
   content: string,
   options: WriteMarkdownDocumentOptions = {},
-) =>
-  saveMarkdownFile({
-    path,
-    content,
-    expectedMetadata: options.expectedMetadata ?? null,
-    overwrite: options.overwrite ?? false,
-  });
+) => {
+  const expectedMetadata = options.expectedMetadata ?? null;
+  const overwrite = options.overwrite ?? false;
+  const startedAtMs = startDiagnosticOperationTimer();
+
+  try {
+    const savedDocument = await saveMarkdownFile({
+      path,
+      content,
+      expectedMetadata,
+      overwrite,
+    });
+
+    writeDocumentOperationTimingDiagnostic("saveMarkdownDocument", startedAtMs, {
+      hasExpectedMetadata: expectedMetadata !== null,
+      outcome: "succeeded",
+      overwrite,
+      path: savedDocument.path,
+      sizeBytes: savedDocument.metadata.sizeBytes,
+    });
+
+    return savedDocument;
+  } catch (error) {
+    if (isSaveMarkdownFileError(error)) {
+      writeDocumentOperationFailureDiagnostic("saveMarkdownDocument", error, {
+        hasExpectedMetadata: expectedMetadata !== null,
+        overwrite,
+      });
+      writeDocumentOperationTimingDiagnostic("saveMarkdownDocument", startedAtMs, {
+        errorKind: error.kind,
+        hasExpectedMetadata: expectedMetadata !== null,
+        outcome: "failed",
+        overwrite,
+        path: error.path,
+      });
+    }
+
+    throw error;
+  }
+};
 
 export const ensureMarkdownExtension = async (
   path: string,
   defaultExtension: MarkdownFileExtension,
 ) => ((await extname(path)) ? path : `${path}${defaultExtension}`);
+
+const writeDocumentOperationFailureDiagnostic = (
+  operation: "openMarkdownDocument" | "saveMarkdownDocument",
+  error: OpenMarkdownFileError | SaveMarkdownFileError,
+  context: Record<string, boolean> = {},
+) => {
+  writeDiagnosticOperationFailure({
+    context: {
+      ...context,
+      errorKind: error.kind,
+      path: error.path,
+    },
+    feature: "document",
+    operation,
+  });
+};
+
+const writeDocumentOperationTimingDiagnostic = (
+  operation: "openMarkdownDocument" | "saveMarkdownDocument",
+  startedAtMs: number,
+  context: Record<string, boolean | number | string | undefined>,
+) => {
+  writeDiagnosticSlowOperation({
+    context,
+    feature: "document",
+    operation,
+    startedAtMs,
+  });
+};

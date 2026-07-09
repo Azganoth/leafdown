@@ -436,7 +436,7 @@ describe("document workflows", () => {
         filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
         defaultPath: TEST_MARKDOWN_FILE_PATH,
       });
-      expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("saveMarkdownFile"), {
+      expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {
         path: RECOVERED_MARKDOWN_PATH,
         content: "# Missing\n",
         expectedMetadata: null,
@@ -501,7 +501,7 @@ describe("document workflows", () => {
           cancelLabel: "Cancel save",
         },
       );
-      expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("saveMarkdownFile"), {
+      expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {
         path: TEST_MARKDOWN_FILE_PATH,
         content: "# Local\n",
         expectedMetadata: activeDocument.metadata,
@@ -528,7 +528,7 @@ describe("document workflows", () => {
 
       await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
 
-      expect(invoke).toHaveBeenCalledTimes(1);
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
       expect(useSessionStore.getState().activeDocument).toMatchObject(activeDocument);
     });
   });

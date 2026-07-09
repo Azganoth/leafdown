@@ -387,6 +387,17 @@ Use:
   that failed but do not have a feature-owned error contract.
 - `handleUnexpectedError(error, context)` for internal failures that should be
   logged but do not need immediate user feedback.
+- The diagnostics feature's unexpected-error reporter, installed once at
+  startup, to mirror shared unexpected-error logs into the local Tauri log file
+  as structured diagnostic events.
+- Feature-owned diagnostic events for expected operation failures, folder watcher
+  lifecycle/error transitions, confirmed app/window close lifecycle, and slow
+  operation timings when those events help support without adding active
+  Markdown document text.
+- Diagnostics feature helpers such as `writeDiagnosticOperationFailure`,
+  `writeDiagnosticOperationWarning`, `writeDiagnosticOperationLifecycle`, and
+  `writeDiagnosticSlowOperation` for operation-scoped logs, rather than
+  hand-assembling repeated event envelopes at call sites.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.
 - `UnexpectedErrorBoundary` around the main application surface for React render
@@ -397,6 +408,9 @@ Avoid:
 
 - Passing domain error payloads to `notifyOperationFailure`.
 - Logging cancellation errors.
+- Explicitly adding active Markdown document text to diagnostic logs or copied
+  summaries.
+- Uploading diagnostic logs automatically.
 - Calling `console.error` outside the shared unexpected-error helper.
 - Creating a global `AppError` hierarchy for feature-specific domain errors.
 - Showing a toast for every unexpected internal failure.
@@ -409,7 +423,19 @@ Expected domain failures need precise user-facing recovery text. Unexpected
 failures need consistent logging and enough context to debug. Keeping those paths
 separate prevents generic "something failed" helpers from swallowing useful
 domain information. Unexpected logs are lightly deduped to keep repeated global
-events or render-loop failures from flooding the console.
+events or render-loop failures from flooding the console and local log file.
+Diagnostic logs are JSON Lines. The Rust log formatter owns the envelope fields:
+UTC `timestamp`, diagnostic `runId`, stable frontend/backend `target`, and log
+`level`. Frontend and backend log messages provide event-specific fields for
+unexpected errors, expected operation failures and warnings, lifecycle events,
+and slow operation timings.
+Diagnostic entries may include operation labels, diagnostic run identifiers,
+error messages, stack traces, React component stacks, and local file paths when
+those paths are part of the failed workflow. Captured browser, editor, or library
+error messages and stack traces may include user content if the thrown error
+includes it; application code should not add active document text as diagnostic
+context. Frontend diagnostic normalization truncates long strings and drops
+unsupported `undefined` values, but it is not redaction.
 
 Example:
 

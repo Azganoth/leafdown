@@ -126,7 +126,8 @@ Markdown editing.
 **Status:** Accepted
 
 **Decision:** Leafdown intentionally exposes webview DevTools to users for local
-debugging and support.
+debugging and support, and writes bounded diagnostic logs to an app-owned local
+logs directory.
 
 **Rationale:** Leafdown is a local-first desktop app. When a user encounters a
 rendering, editor, filesystem, or platform-specific problem, local inspection is
@@ -136,9 +137,30 @@ requiring a special debug build.
 **Consequences:**
 
 - The Help menu includes an `Open DevTools` action in user builds.
+- The Help menu includes a `Diagnostics...` dialog with actions to open the local
+  logs folder and copy a concise diagnostics summary.
 - DevTools availability is a support feature, not a telemetry mechanism.
 - Leafdown does not upload console output, logs, document contents, or diagnostic
   data automatically.
+- Diagnostic logs may include operation labels, error kinds, lifecycle events,
+  timing metadata, error messages, stack traces, and local file paths needed to
+  debug filesystem workflows.
+- Diagnostic log files use JSON Lines: each line is one JSON object with
+  backend-owned envelope fields such as UTC timestamp, diagnostic run ID, target,
+  and level, plus event-specific diagnostic fields.
+- Leafdown must not explicitly add Markdown document text to diagnostic logs or
+  copied summaries.
+- Captured browser, editor, or library error messages and stack traces may still
+  contain user content if that content is part of the thrown error.
+- Frontend diagnostic payload normalization may truncate long strings and omit
+  unsupported diagnostic values, but it is not privacy redaction.
+- Diagnostic logs live in Tauri's app log directory:
+  `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
+  `~/Library/Logs/com.azganoth.leafdown` on macOS, and
+  `$XDG_DATA_HOME/com.azganoth.leafdown/logs` or
+  `~/.local/share/com.azganoth.leafdown/logs` on Linux.
+- Local log storage is bounded by a 1 MiB active log file and five retained log
+  files.
 - Documentation and release hardening must treat DevTools as intentionally
   available rather than development-only.
 

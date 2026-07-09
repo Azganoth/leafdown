@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use serde::Serialize;
+use serde_json::{Map, Value};
 use tauri::{plugin::TauriPlugin, AppHandle, Manager, Runtime, State};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -15,6 +16,11 @@ const FALLBACK_LOG_TIMESTAMP: &str = "unknown-time";
 pub(crate) const DIAGNOSTIC_LOG_FILE_NAME: &str = "leafdown";
 pub(crate) const DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES: u64 = 1_048_576;
 pub(crate) const DIAGNOSTIC_LOG_FILE_COUNT: usize = 5;
+const LOG_TIMESTAMP_FIELD: &str = "timestamp";
+const LOG_RUN_ID_FIELD: &str = "runId";
+const LOG_TARGET_FIELD: &str = "target";
+const LOG_LEVEL_FIELD: &str = "level";
+const LOG_MESSAGE_FIELD: &str = "message";
 
 #[derive(Debug)]
 pub(crate) struct DiagnosticsRuntime {
@@ -52,7 +58,6 @@ struct AppStartedDiagnosticPayload<'a> {
     architecture: &'static str,
     event: &'static str,
     operating_system: &'static str,
-    run_id: &'a str,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,21 +67,25 @@ pub(crate) enum DiagnosticsError {
     CreateLogDirectoryFailed { path: String, message: String },
 }
 
-pub(crate) fn build_log_plugin<R: Runtime>() -> TauriPlugin<R> {
+pub(crate) fn build_log_plugin<R: Runtime>(run_id: String) -> TauriPlugin<R> {
     tauri_plugin_log::Builder::new()
         .clear_targets()
         .target(Target::new(TargetKind::LogDir {
             file_name: Some(DIAGNOSTIC_LOG_FILE_NAME.to_owned()),
         }))
         .target(Target::new(TargetKind::Stdout))
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{}][{}][{}] {}",
-                current_log_timestamp(),
-                normalize_log_target(record.target()),
-                record.level(),
-                message
-            ));
+        .format(move |out, message, record| {
+            let level = record.level().as_str().to_ascii_lowercase();
+            let message = message.to_string();
+            let line = format_diagnostic_log_record(
+                current_log_timestamp().as_str(),
+                run_id.as_str(),
+                record.target(),
+                level.as_str(),
+                message.as_str(),
+            );
+
+            out.finish(format_args!("{line}"));
         })
         .level(log::LevelFilter::Info)
         .max_file_size(DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES.into())
@@ -137,7 +146,6 @@ pub(crate) fn format_app_started_diagnostic(
     app_name: &str,
     app_version: &str,
     app_identifier: &str,
-    run_id: &str,
 ) -> String {
     let payload = AppStartedDiagnosticPayload {
         app_identifier,
@@ -146,12 +154,74 @@ pub(crate) fn format_app_started_diagnostic(
         architecture: std::env::consts::ARCH,
         event: APP_STARTED_DIAGNOSTIC_EVENT,
         operating_system: std::env::consts::OS,
-        run_id,
     };
 
-    serde_json::to_string(&payload).unwrap_or_else(|_| {
-        format!("{{\"event\":\"{APP_STARTED_DIAGNOSTIC_EVENT}\",\"runId\":\"{run_id}\"}}")
+    serde_json::to_string(&payload)
+        .unwrap_or_else(|_| format!("{{\"event\":\"{APP_STARTED_DIAGNOSTIC_EVENT}\"}}"))
+}
+
+fn format_diagnostic_log_record(
+    timestamp: &str,
+    run_id: &str,
+    target: &str,
+    level: &str,
+    message: &str,
+) -> String {
+    let mut fields = match serde_json::from_str::<Value>(message) {
+        Ok(Value::Object(fields)) => fields,
+        _ => {
+            let mut fields = Map::new();
+            fields.insert(
+                LOG_MESSAGE_FIELD.to_owned(),
+                Value::String(message.to_owned()),
+            );
+            fields
+        }
+    };
+
+    fields.insert(
+        LOG_TIMESTAMP_FIELD.to_owned(),
+        Value::String(timestamp.to_owned()),
+    );
+    fields.insert(
+        LOG_RUN_ID_FIELD.to_owned(),
+        Value::String(run_id.to_owned()),
+    );
+    fields.insert(
+        LOG_TARGET_FIELD.to_owned(),
+        Value::String(normalize_log_target(target)),
+    );
+    fields.insert(LOG_LEVEL_FIELD.to_owned(), Value::String(level.to_owned()));
+
+    serde_json::to_string(&Value::Object(fields))
+        .unwrap_or_else(|_| fallback_log_record(timestamp, run_id, target, level, message))
+}
+
+fn fallback_log_record(
+    timestamp: &str,
+    run_id: &str,
+    target: &str,
+    level: &str,
+    message: &str,
+) -> String {
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FallbackLogRecord<'a> {
+        timestamp: &'a str,
+        run_id: &'a str,
+        target: String,
+        level: &'a str,
+        message: &'a str,
+    }
+
+    serde_json::to_string(&FallbackLogRecord {
+        timestamp,
+        run_id,
+        target: normalize_log_target(target),
+        level,
+        message,
     })
+    .unwrap_or_else(|_| "{}".to_owned())
 }
 
 fn create_diagnostics_summary(
@@ -218,8 +288,8 @@ mod tests {
 
     use super::{
         create_diagnostics_run_id, create_diagnostics_summary, format_app_started_diagnostic,
-        normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT, DIAGNOSTIC_LOG_FILE_NAME,
-        DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
+        format_diagnostic_log_record, normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT,
+        DIAGNOSTIC_LOG_FILE_NAME, DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
     };
 
     #[test]
@@ -255,7 +325,7 @@ mod tests {
     #[test]
     fn app_started_diagnostic_serializes_as_structured_payload() {
         let diagnostic =
-            format_app_started_diagnostic("Leafdown", "0.1.0", "com.azganoth.leafdown", "run-test");
+            format_app_started_diagnostic("Leafdown", "0.1.0", "com.azganoth.leafdown");
         let value: Value =
             serde_json::from_str(diagnostic.as_str()).expect("startup diagnostic should be JSON");
 
@@ -266,7 +336,47 @@ mod tests {
             json_string(&value, "appIdentifier"),
             "com.azganoth.leafdown"
         );
+        assert!(value.get("runId").is_none());
+    }
+
+    #[test]
+    fn diagnostic_log_records_merge_structured_payloads_with_backend_envelope() {
+        let line = format_diagnostic_log_record(
+            "2026-07-09T12:00:00Z",
+            "run-test",
+            "webview:writeDiagnostic@http://localhost:1420/source.ts:1:1",
+            "warn",
+            r#"{"event":"operationFailed","feature":"document","level":"payload-level","runId":"payload-run"}"#,
+        );
+        let value = parse_json_line(line.as_str());
+
+        assert_eq!(json_string(&value, "timestamp"), "2026-07-09T12:00:00Z");
         assert_eq!(json_string(&value, "runId"), "run-test");
+        assert_eq!(json_string(&value, "target"), "frontend");
+        assert_eq!(json_string(&value, "level"), "warn");
+        assert_eq!(json_string(&value, "event"), "operationFailed");
+        assert_eq!(json_string(&value, "feature"), "document");
+    }
+
+    #[test]
+    fn diagnostic_log_records_wrap_plain_text_messages_as_jsonl() {
+        let line = format_diagnostic_log_record(
+            "2026-07-09T12:00:00Z",
+            "run-test",
+            "leafdown_lib::folder::watch",
+            "error",
+            "failed to emit close-requested event",
+        );
+        let value = parse_json_line(line.as_str());
+
+        assert_eq!(json_string(&value, "timestamp"), "2026-07-09T12:00:00Z");
+        assert_eq!(json_string(&value, "runId"), "run-test");
+        assert_eq!(json_string(&value, "target"), "backend::folder::watch");
+        assert_eq!(json_string(&value, "level"), "error");
+        assert_eq!(
+            json_string(&value, "message"),
+            "failed to emit close-requested event"
+        );
     }
 
     #[test]
@@ -299,5 +409,9 @@ mod tests {
             .get(key)
             .and_then(Value::as_str)
             .expect("JSON field should be a string")
+    }
+
+    fn parse_json_line(line: &str) -> Value {
+        serde_json::from_str(line).expect("log line should be valid JSON")
     }
 }

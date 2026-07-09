@@ -1,4 +1,4 @@
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, WindowEvent};
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
@@ -23,8 +23,11 @@ const TITLEBAR_BUTTON_HOVER_BACKGROUND: &str = "color-mix(in srgb, currentColor 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 // Public because src/main.rs is a separate binary crate that enters through the library crate.
 pub fn run() {
+    let diagnostics_runtime = diagnostics::DiagnosticsRuntime::new();
+    let diagnostics_run_id = diagnostics_runtime.run_id().to_owned();
+
     tauri::Builder::default()
-        .plugin(diagnostics::build_log_plugin())
+        .plugin(diagnostics::build_log_plugin(diagnostics_run_id))
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 // Prevent auto showing the window
@@ -42,12 +45,11 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
-        .manage(diagnostics::DiagnosticsRuntime::new())
+        .manage(diagnostics_runtime)
         .manage(folder::FolderWatcherState::default())
         .setup(|app| {
             let package_info = app.package_info();
             let app_version = package_info.version.to_string();
-            let runtime = app.state::<diagnostics::DiagnosticsRuntime>();
 
             log::info!(
                 "{}",
@@ -55,7 +57,6 @@ pub fn run() {
                     package_info.name.as_str(),
                     app_version.as_str(),
                     app.config().identifier.as_str(),
-                    runtime.run_id(),
                 )
             );
 

@@ -4,7 +4,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import {
   startDiagnosticOperationTimer,
   writeDiagnosticOperationFailure,
-  writeSlowOperationDiagnostic,
+  writeDiagnosticSlowOperation,
 } from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
@@ -159,7 +159,7 @@ const writeDocumentOperationTimingDiagnostic = (
   startedAtMs: number,
   context: Record<string, boolean | number | string | undefined>,
 ) => {
-  writeSlowOperationDiagnostic({
+  writeDiagnosticSlowOperation({
     context,
     feature: "document",
     operation,

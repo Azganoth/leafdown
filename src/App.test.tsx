@@ -84,10 +84,10 @@ describe("App", () => {
     expect(confirm).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
-        event: "appClosing",
+        event: "operationLifecycle",
         feature: "app",
-        operation: "windowCloseRequested",
-        reason: "windowCloseRequested",
+        operation: "window",
+        phase: "closing",
       });
     });
     await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());

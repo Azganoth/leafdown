@@ -8,7 +8,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { UnexpectedErrorBoundary } from "@/components/layout/UnexpectedErrorBoundary";
 import { Toaster } from "@/components/ui/Sonner";
-import { writeDiagnosticInfo } from "@/features/diagnostics";
+import { writeDiagnosticOperationLifecycle } from "@/features/diagnostics";
 import {
   recentItemsStoreTauriHandler,
   settingsStoreTauriHandler,
@@ -58,11 +58,10 @@ export function App() {
       const appWindow = getCurrentWindow();
 
       if (await confirmDiscardActiveDocumentChanges()) {
-        await writeDiagnosticInfo({
-          event: "appClosing",
+        await writeDiagnosticOperationLifecycle({
           feature: "app",
-          operation: "windowCloseRequested",
-          reason: "windowCloseRequested",
+          operation: "window",
+          phase: "closing",
         });
         await appWindow.destroy();
       }

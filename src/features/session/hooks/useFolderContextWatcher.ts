@@ -281,7 +281,7 @@ class FolderContextWatchSession {
 
   private writeFailureDiagnostic(
     phase: FolderContextWatcherFailurePhase,
-    context: Record<string, boolean | number | string | undefined> = {},
+    context: Record<string, unknown> = {},
   ) {
     writeDiagnosticOperationFailure({
       context: {
@@ -294,7 +294,7 @@ class FolderContextWatchSession {
     });
   }
 
-  private writeWarningDiagnostic(context: Record<string, number | string | undefined>) {
+  private writeWarningDiagnostic(context: Record<string, unknown>) {
     writeDiagnosticOperationWarning({
       context: {
         ...this.getDiagnosticContext(),

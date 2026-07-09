@@ -395,7 +395,7 @@ Use:
   those events help support without adding active Markdown document text.
 - Diagnostics feature helpers such as `writeDiagnosticOperationFailure`,
   `writeDiagnosticOperationWarning`, `writeDiagnosticOperationLifecycle`, and
-  `writeSlowOperationDiagnostic` for operation-scoped logs, rather than
+  `writeDiagnosticSlowOperation` for operation-scoped logs, rather than
   hand-assembling repeated event envelopes at call sites.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.

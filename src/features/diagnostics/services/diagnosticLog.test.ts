@@ -8,8 +8,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { handleUnexpectedError } from "@/lib/errors";
 
 import {
-  formatDiagnosticEvent,
-  formatUnexpectedErrorDiagnostic,
   installUnexpectedErrorDiagnostics,
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   writeDiagnosticError,
@@ -17,16 +15,16 @@ import {
   writeDiagnosticOperationFailure,
   writeDiagnosticOperationLifecycle,
   writeDiagnosticOperationWarning,
+  writeDiagnosticSlowOperation,
+  writeDiagnosticUnexpectedError,
   writeDiagnosticWarn,
-  writeSlowOperationDiagnostic,
-  writeUnexpectedErrorDiagnostic,
 } from "./diagnosticLog";
 
 describe("diagnostic log bridge", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("formats unexpected frontend errors as one-line diagnostics", () => {
-    const logMessage = formatUnexpectedErrorDiagnostic({
+  it("writes unexpected frontend errors to the Tauri log plugin", async () => {
+    await writeDiagnosticUnexpectedError({
       componentStack: "DiagnosticComponent",
       contextLabel: "test: run",
       errorMessage: "failed",
@@ -34,6 +32,7 @@ describe("diagnostic log bridge", () => {
       errorStack: "Error: failed\n    at test",
       message: "Unexpected error (test: run).",
     });
+    const logMessage = vi.mocked(writeLogError).mock.calls.at(-1)?.[0] ?? "{}";
     const payload = JSON.parse(logMessage) as {
       componentStack: string;
       context: string;
@@ -48,35 +47,24 @@ describe("diagnostic log bridge", () => {
     expect(payload.error.message).toBe("failed");
     expect(payload.error.stack).toContain("Error: failed");
     expect(payload).not.toHaveProperty("runId");
+    expect(logMessage).not.toContain("\n");
   });
 
-  it("writes unexpected frontend errors to the Tauri log plugin", async () => {
-    await writeUnexpectedErrorDiagnostic({
-      contextLabel: "diagnostics.test",
-      errorMessage: "write failed",
-      errorName: "Error",
-      message: "Unexpected error (diagnostics.test).",
-    });
-
-    expect(writeLogError).toHaveBeenCalledWith(
-      expect.stringContaining('"event":"frontendUnexpectedError"'),
-    );
-    expect(writeLogError).not.toHaveBeenCalledWith(expect.stringContaining('"runId"'));
-  });
-
-  it("formats structured diagnostic events as one-line payloads", () => {
-    const message = formatDiagnosticEvent({
+  it("normalizes structured diagnostic events as one-line payloads", async () => {
+    await writeDiagnosticWarn({
       event: "operationFailed",
       feature: "document",
       nested: {
         omitted: undefined,
+        unsupported: () => undefined,
         value: "kept",
       },
     });
+    const message = vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}";
     const payload = JSON.parse(message) as {
       event: string;
       feature: string;
-      nested: { omitted?: string; value: string };
+      nested: { omitted?: string; unsupported?: string; value: string };
     };
 
     expect(message).not.toContain("\n");
@@ -88,11 +76,11 @@ describe("diagnostic log bridge", () => {
   });
 
   it("writes structured diagnostics at info, warn, and error levels", async () => {
-    await writeDiagnosticInfo({ event: "appClosing" });
+    await writeDiagnosticInfo({ event: "diagnosticInfo", feature: "diagnostics" });
     await writeDiagnosticWarn({ event: "operationFailed", feature: "document" });
     await writeDiagnosticError({ event: "frontendUnexpectedError", feature: "diagnostics" });
 
-    expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"appClosing"'));
+    expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"diagnosticInfo"'));
     expect(writeLogWarn).toHaveBeenCalledWith(expect.stringContaining('"event":"operationFailed"'));
     expect(writeLogError).toHaveBeenCalledWith(
       expect.stringContaining('"event":"frontendUnexpectedError"'),
@@ -147,7 +135,7 @@ describe("diagnostic log bridge", () => {
 
     try {
       expect(
-        writeSlowOperationDiagnostic({
+        writeDiagnosticSlowOperation({
           context: { outcome: "succeeded", path: "notes/article.md" },
           feature: "document",
           operation: "openMarkdownDocument",
@@ -177,7 +165,7 @@ describe("diagnostic log bridge", () => {
 
     try {
       expect(
-        writeSlowOperationDiagnostic({
+        writeDiagnosticSlowOperation({
           feature: "document",
           operation: "openMarkdownDocument",
           startedAtMs: 0,

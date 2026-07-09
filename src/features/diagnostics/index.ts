@@ -1,10 +1,6 @@
 export { DiagnosticsDialog } from "./components/DiagnosticsDialog";
 export {
-  formatDiagnosticEvent,
-  formatUnexpectedErrorDiagnostic,
-  getDiagnosticOperationDurationMs,
   installUnexpectedErrorDiagnostics,
-  shouldWriteSlowOperationDiagnostic,
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,
   startDiagnosticOperationTimer,
   writeDiagnosticError,
@@ -12,14 +8,10 @@ export {
   writeDiagnosticOperationFailure,
   writeDiagnosticOperationLifecycle,
   writeDiagnosticOperationWarning,
+  writeDiagnosticSlowOperation,
+  writeDiagnosticUnexpectedError,
   writeDiagnosticWarn,
-  writeSlowOperationDiagnostic,
-  writeUnexpectedErrorDiagnostic,
   type DiagnosticEventPayload,
-  type DiagnosticJsonValue,
-  type DiagnosticOperationDiagnosticOptions,
-  type DiagnosticOperationLifecycleOptions,
-  type SlowOperationDiagnosticOptions,
 } from "./services/diagnosticLog";
 export {
   GET_DIAGNOSTICS_SUMMARY_COMMAND,

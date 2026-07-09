@@ -4,7 +4,7 @@ import {
   startDiagnosticOperationTimer,
   writeDiagnosticOperationFailure,
   writeDiagnosticOperationWarning,
-  writeSlowOperationDiagnostic,
+  writeDiagnosticSlowOperation,
 } from "@/features/diagnostics";
 import { isOpenMarkdownFileError, type OpenMarkdownFileError } from "@/features/document";
 import { CancellationToken, isCancellationError, raceWithCancellation } from "@/lib/cancellation";
@@ -220,7 +220,7 @@ const writeFolderOperationTimingDiagnostic = (
   startedAtMs: number,
   context: Record<string, boolean | number | string | undefined>,
 ) => {
-  writeSlowOperationDiagnostic({
+  writeDiagnosticSlowOperation({
     context,
     feature: "folder-context",
     operation,

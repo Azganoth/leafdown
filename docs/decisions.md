@@ -145,10 +145,15 @@ requiring a special debug build.
 - Diagnostic logs may include operation labels, error kinds, lifecycle events,
   timing metadata, error messages, stack traces, and local file paths needed to
   debug filesystem workflows.
+- Diagnostic log files use JSON Lines: each line is one JSON object with
+  backend-owned envelope fields such as UTC timestamp, diagnostic run ID, target,
+  and level, plus event-specific diagnostic fields.
 - Leafdown must not explicitly add Markdown document text to diagnostic logs or
   copied summaries.
 - Captured browser, editor, or library error messages and stack traces may still
   contain user content if that content is part of the thrown error.
+- Frontend diagnostic payload normalization may truncate long strings and drop
+  unsupported `undefined` values, but it is not privacy redaction.
 - Diagnostic logs live in Tauri's app log directory:
   `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
   `~/Library/Logs/com.azganoth.leafdown` on macOS, and

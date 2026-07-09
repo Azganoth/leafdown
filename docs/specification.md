@@ -519,6 +519,15 @@ copied. The dialog also provides an action to open Leafdown's app-owned local
 diagnostic log directory. Local logs may include user content when captured error
 messages or stack traces include it.
 
+Diagnostic log files are JSON Lines. Each log line is a single JSON object with
+UTC timestamp, diagnostic run ID, target, and level fields owned by the backend
+log formatter. Structured frontend diagnostics add event-specific fields such as
+`event`, `feature`, `operation`, `errorKind`, `warningKind`, `phase`,
+`durationMs`, and local paths relevant to the failed or slow workflow.
+Application code must not explicitly add active Markdown document text to
+diagnostic payloads. Payload normalization may truncate long strings and drop
+unsupported `undefined` values; it is not redaction.
+
 ### Context Popup
 
 The context popup is a contextual menu triggered by selection or right-click within the editor.

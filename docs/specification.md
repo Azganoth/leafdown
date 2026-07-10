@@ -55,7 +55,9 @@ Primary user interface surfaces:
 - **Article navigator:** shows articles (supported Markdown files) from the current folder
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
   Non-ignored directories may appear even when they have no supported Markdown
-  files. Folder scans skip symlinked entries rather than following them.
+  files. Directories are listed before articles within each folder, then the
+  selected article sort order is applied within each group. Folder scans skip
+  symlinked entries rather than following them.
   When the active saved document is outside the current folder context, the
   article navigator keeps showing the current folder context and displays a
   compact detached-document message instead of selecting an article.

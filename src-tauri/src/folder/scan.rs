@@ -223,10 +223,16 @@ pub(super) fn is_ignored_directory(name: &str, ignored_directories: &[String]) -
 
 fn sort_tree_nodes(nodes: &mut [MarkdownFolderTreeNode], sort_order: FileTreeSortOrder) {
     match sort_order {
-        FileTreeSortOrder::Name => nodes.sort_by_cached_key(sort_name),
-        FileTreeSortOrder::ModifiedDate => {
-            nodes.sort_by_cached_key(|node| (Reverse(modified_at_unix_ms(node)), sort_name(node)))
+        FileTreeSortOrder::Name => {
+            nodes.sort_by_cached_key(|node| (node_kind_order(node), sort_name(node)))
         }
+        FileTreeSortOrder::ModifiedDate => nodes.sort_by_cached_key(|node| {
+            (
+                node_kind_order(node),
+                Reverse(modified_at_unix_ms(node)),
+                sort_name(node),
+            )
+        }),
         FileTreeSortOrder::Type => nodes.sort_by_cached_key(|node| {
             (node_kind_order(node), node_extension(node), sort_name(node))
         }),

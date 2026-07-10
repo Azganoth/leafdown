@@ -31,6 +31,7 @@ export const APPLICATION_COMMANDS = {
   "file.revealInSidebar": appCommand(file.revealInSidebar, file.getRevealInSidebarState),
   "file.preferences": appCommand(file.openPreferences),
   "file.closeDocument": appCommand(file.closeDocument, file.getCloseDocumentState),
+  "file.closeFolder": appCommand(file.closeFolder, file.getCloseFolderState),
   "file.closeWindow": appCommand(file.closeWindow),
 
   "edit.lineEnding.crlf": appCommand(edit.setCrlfLineEnding, edit.getCrlfLineEndingState),

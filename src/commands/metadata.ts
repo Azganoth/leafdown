@@ -42,6 +42,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.revealInSidebar": commandDef("Reveal in sidebar"),
   "file.preferences": commandDef("Preferences...", { key: ",", mod: true }),
   "file.closeDocument": commandDef("Close document", { key: "w", mod: true }),
+  "file.closeFolder": commandDef("Close folder"),
   "file.closeWindow": commandDef("Close window", { key: "q", mod: true }, { key: "F4", alt: true }),
   "edit.undo": editorCommandDef("edit.undo", { key: "z", mod: true }),
   "edit.redo": editorCommandDef(

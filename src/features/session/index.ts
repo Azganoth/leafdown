@@ -7,7 +7,7 @@ export {
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "./services/documentWorkflows";
-export { changeArticleSortOrder } from "./services/folderContextWorkflows";
+export { changeArticleSortOrder, closeFolderContext } from "./services/folderContextWorkflows";
 export {
   openFolderContextAtPath,
   openMarkdownFileAtPath,

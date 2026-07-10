@@ -63,6 +63,7 @@ describe("CommandMenuBar", () => {
         if (
           commandId === "file.save" ||
           commandId === "file.saveAs" ||
+          commandId === "file.closeFolder" ||
           commandId === "file.revealInSidebar"
         ) {
           return disabledState;
@@ -85,6 +86,7 @@ describe("CommandMenuBar", () => {
     expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Save as/)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Reveal in sidebar/)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Close folder/)).toHaveAttribute("data-disabled");
   });
 
   it("keeps unavailable view commands disabled and omits Post-MVP commands", async () => {

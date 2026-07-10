@@ -102,6 +102,8 @@ Application state model:
 
 - `Close document` closes only the active document. When a folder context exists,
   it remains active.
+- `Close folder` closes the active folder context and active document after
+  dirty-state handling, returning to the welcome screen.
 - `Close window` closes the current app window after dirty-state handling.
 - Closing, switching files, or exiting with a dirty document prompts the user.
 
@@ -366,6 +368,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Print...** (`Mod+P`, Post-MVP)
 - **Preferences...** (`Mod+,`)
 - **Close document** (`Mod+W`)
+- **Close folder**
 - **Close window** (`Alt+F4` / `Mod+Q`)
 
 #### Edit Menu
@@ -598,6 +601,7 @@ Inactive commands are disabled rather than hidden.
   an error.
 - `Reveal in sidebar` requires a folder context and an active saved article in the
   article navigator.
+- `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
 - `Sort articles by`, `Collapse all folders`, and `Expand all folders` require

@@ -3,6 +3,21 @@ import { useSettingsStore } from "@/features/preferences";
 import { isSamePath } from "@/lib/path";
 
 import { useSessionStore } from "../stores/session";
+import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
+
+export const closeFolderContext = async () => {
+  if (!useSessionStore.getState().folderContext) {
+    return false;
+  }
+
+  if (!(await confirmDiscardActiveDocumentChanges())) {
+    return false;
+  }
+
+  useSessionStore.getState().reset();
+
+  return true;
+};
 
 export const changeArticleSortOrder = async (sortOrder: ArticleSortOrder) => {
   const folderContext = useSessionStore.getState().folderContext;

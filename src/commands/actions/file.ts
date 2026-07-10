@@ -12,6 +12,7 @@ import {
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import {
   closeActiveMarkdownDocument,
+  closeFolderContext,
   createNewMarkdownDocument,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
@@ -158,6 +159,17 @@ export const closeDocument = async () => {
   }
 };
 
+export const closeFolder = async () => {
+  try {
+    const closed = await closeFolderContext();
+    if (closed) {
+      notifySuccess("Folder closed.");
+    }
+  } catch (error) {
+    notifyOperationFailure("Could not close folder.", error, "closeFolder");
+  }
+};
+
 export const closeWindow = async () => {
   try {
     await getCurrentWindow().close();
@@ -195,3 +207,6 @@ export const getRevealInSidebarState = (context: AppCommandContext) =>
 
 export const getCloseDocumentState = (context: AppCommandContext) =>
   documentOnly(context.activeDocument);
+
+export const getCloseFolderState = (context: AppCommandContext) =>
+  context.folderContext ? enabled() : disabled("No folder context is open.");

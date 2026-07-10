@@ -77,7 +77,9 @@ export function CommandMenuBar({
             <MenubarSeparator />
             <CommandItems commandIds={["file.preferences"]} />
             <MenubarSeparator />
-            <CommandItems commandIds={["file.closeDocument", "file.closeWindow"]} />
+            <CommandItems
+              commandIds={["file.closeDocument", "file.closeFolder", "file.closeWindow"]}
+            />
           </MenubarContent>
         </MenubarMenu>
 

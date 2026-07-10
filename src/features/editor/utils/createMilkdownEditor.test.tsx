@@ -14,4 +14,14 @@ describe("createMilkdownEditor", () => {
     expect(mounted.getMarkdown()).toContain("# Notes");
     expect(mounted.getMarkdown()).toContain("Paragraph");
   });
+
+  it("disables native grammar and writing assistance on the editor surface", async () => {
+    const mounted = await mountEditor("Paragraph");
+
+    expect(mounted.view.dom).toHaveAttribute("spellcheck", "false");
+    expect(mounted.view.dom).toHaveAttribute("autocorrect", "off");
+    expect(mounted.view.dom).toHaveAttribute("data-gramm", "false");
+    expect(mounted.view.dom).toHaveAttribute("data-ms-editor", "false");
+    expect(mounted.root.querySelector(".milkdown")).toHaveAttribute("spellcheck", "false");
+  });
 });

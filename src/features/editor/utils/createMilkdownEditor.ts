@@ -1,4 +1,11 @@
-import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from "@milkdown/kit/core";
+import {
+  Editor,
+  defaultValueCtx,
+  editorViewCtx,
+  editorViewOptionsCtx,
+  rootAttrsCtx,
+  rootCtx,
+} from "@milkdown/kit/core";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
@@ -52,6 +59,15 @@ export interface CreateMilkdownEditorOptions {
 export type MilkdownEditorInstance = Editor;
 
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
+const DISABLED_TEXT_ASSISTANCE_ATTRIBUTES = {
+  spellcheck: "false",
+  writingsuggestions: "false",
+  autocorrect: "off",
+  "data-gramm": "false",
+  "data-gramm_editor": "false",
+  "data-enable-grammarly": "false",
+  "data-ms-editor": "false",
+};
 
 export const createMilkdownEditor = async ({
   root,
@@ -89,6 +105,17 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);
+      ctx.update(rootAttrsCtx, (attributes) => ({
+        ...attributes,
+        ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
+      }));
+      ctx.update(editorViewOptionsCtx, (options) => ({
+        ...options,
+        attributes: {
+          ...options.attributes,
+          ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
+        },
+      }));
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
 

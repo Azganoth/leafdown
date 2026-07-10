@@ -15,7 +15,6 @@ const mockCoordinates = (mounted: MountedMilkdownEditor) => {
     right: 20 + pos,
     top: 30 + pos,
   }));
-  vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({ inside: -1, pos: 3 });
 };
 
 describe("context popup plugin", () => {
@@ -32,32 +31,31 @@ describe("context popup plugin", () => {
     });
   });
 
-  it("moves the caret for right-clicks outside the current selection", async () => {
+  it("opens from right-click without re-resolving the caret from pointer coordinates", async () => {
     const onContextPopupRequested = vi.fn();
     const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
 
-    mockCoordinates(mounted);
-    vi.mocked(mounted.view.posAtCoords).mockReturnValue({ inside: -1, pos: 8 });
+    const posAtCoords = vi.spyOn(mounted.view, "posAtCoords");
     setTextSelection(mounted.view, 1, 6);
+    dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
+
+    expect(onContextPopupRequested).toHaveBeenCalledWith({ x: 80, y: 42 });
+    expect(posAtCoords).not.toHaveBeenCalled();
+    expect(mounted.view.state.selection.empty).toBe(false);
+    expect(mounted.view.state.selection.from).toBe(1);
+    expect(mounted.view.state.selection.to).toBe(6);
+  });
+
+  it("opens from right-click after native pointer handling has already moved the caret", async () => {
+    const onContextPopupRequested = vi.fn();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    setTextSelection(mounted.view, 8);
     dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
 
     expect(onContextPopupRequested).toHaveBeenCalledWith({ x: 80, y: 42 });
     expect(mounted.view.state.selection.empty).toBe(true);
     expect(mounted.view.state.selection.from).toBe(8);
-  });
-
-  it("preserves the active selection for right-clicks inside it", async () => {
-    const onContextPopupRequested = vi.fn();
-    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
-
-    mockCoordinates(mounted);
-    vi.mocked(mounted.view.posAtCoords).mockReturnValue({ inside: -1, pos: 3 });
-    setTextSelection(mounted.view, 1, 6);
-    dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
-
-    expect(mounted.view.state.selection.empty).toBe(false);
-    expect(mounted.view.state.selection.from).toBe(1);
-    expect(mounted.view.state.selection.to).toBe(6);
   });
 
   it("closes on Escape and typing", async () => {

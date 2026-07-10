@@ -124,7 +124,8 @@ Application state model:
 
 - **Closed:** no popup is visible.
 - **Open from selection:** commands act on the selected text or blocks.
-- **Open from right-click:** commands act at the clicked caret location.
+- **Open from right-click:** commands act on the editor selection established by
+  the right-click.
 
 ## Editor Model
 
@@ -538,7 +539,9 @@ unsupported diagnostic values; it is not redaction.
 The context popup is a contextual menu triggered by selection or right-click within the editor.
 
 - Right-click inside an existing selection keeps the selection.
-- Right-click outside a selection moves the caret to the clicked location.
+- Right-click outside a selection uses the editor's normal pointer handling to
+  place the caret at the clicked location; the popup does not perform a second
+  coordinate-based caret move.
 - `Escape`, typing, clicking outside, or scrolling the popup out of view closes
   it.
 

@@ -1,8 +1,6 @@
-import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
-
-import { hasPointerCoordinates } from "@/lib/input";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
@@ -86,32 +84,6 @@ const syncPopupToSelection = (
 const isEditablePopupTarget = (event: MouseEvent) =>
   event.target instanceof HTMLElement && event.target.closest("input, textarea, select") !== null;
 
-const setCaretAtPointer = (view: EditorView, event: MouseEvent) => {
-  if (!hasPointerCoordinates(event)) {
-    return false;
-  }
-
-  const result = view.posAtCoords({ left: event.clientX, top: event.clientY });
-
-  if (!result) {
-    return false;
-  }
-
-  const { selection } = view.state;
-  const clickInsideSelection =
-    !selection.empty && selection.from <= result.pos && result.pos <= selection.to;
-
-  if (clickInsideSelection) {
-    return true;
-  }
-
-  const nextSelection = Selection.near(view.state.doc.resolve(result.pos));
-
-  view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView());
-
-  return true;
-};
-
 export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPluginOptions = {}) =>
   $prose(
     () =>
@@ -130,7 +102,6 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               }
 
               event.preventDefault();
-              setCaretAtPointer(view, event);
               view.focus();
               options.onRequest?.({
                 x: event.clientX,

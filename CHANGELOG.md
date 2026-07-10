@@ -19,6 +19,8 @@ sections and version names that match the application package version.
 
 - Disable browser and editor writing suggestions in the editor.
 - Keep open dialogs visible while dragging the titlebar.
+- Stop the context popup from forcing an extra caret move from right-click
+  coordinates.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

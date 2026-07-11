@@ -192,6 +192,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Lists support `Enter`, `Tab`, and `Shift+Tab` for continuation and indentation.
 - `Shift+Enter` inserts a hard line break where supported.
+- Double-clicking text preserves the browser's word-boundary behavior but excludes
+  immediately following horizontal whitespace from the resulting selection.
 - Auto-pair brackets and quotes inserts matching `()`, `[]`, `{}`, `"..."`, and
   `'...'` pairs, wraps selected text in the active text block, and removes an
   empty pair when `Backspace` is pressed between the delimiters. Quote

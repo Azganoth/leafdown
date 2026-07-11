@@ -11,8 +11,8 @@ const renderOpenDialog = () => {
     ...renderWithUser(
       <>
         <button type="button">Outside</button>
-        <header data-tauri-drag-region style={{ pointerEvents: "auto" }}>
-          Titlebar
+        <header id="leafdown-titlebar" style={{ pointerEvents: "auto" }}>
+          <div data-tauri-drag-region>Titlebar</div>
         </header>
         <Dialog open onOpenChange={onOpenChange}>
           <DialogContent>

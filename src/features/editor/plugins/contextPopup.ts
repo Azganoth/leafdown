@@ -6,7 +6,8 @@ export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup
 
 export interface ContextPopupAnchor {
   x: number;
-  y: number;
+  top: number;
+  bottom: number;
 }
 
 export interface LeafdownContextPopupPluginOptions {
@@ -18,17 +19,14 @@ export interface LeafdownContextPopupPluginOptions {
 const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
   const { selection } = view.state;
 
-  if (selection.empty) {
-    return null;
-  }
-
   try {
-    const from = view.coordsAtPos(selection.from);
-    const to = view.coordsAtPos(selection.to);
+    const from = view.coordsAtPos(selection.from, 1);
+    const to = selection.empty ? from : view.coordsAtPos(selection.to, -1);
 
     return {
       x: Math.round((from.left + to.right) / 2),
-      y: Math.round(Math.min(from.top, to.top)),
+      top: Math.round(from.top),
+      bottom: Math.round(to.bottom),
     };
   } catch {
     return null;
@@ -76,7 +74,7 @@ const syncPopupToSelection = (
     return;
   }
 
-  if (!requestSelectionPopup(view, options.onRequest)) {
+  if (view.state.selection.empty || !requestSelectionPopup(view, options.onRequest)) {
     options.onClose?.();
   }
 };
@@ -103,10 +101,10 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
               event.preventDefault();
               view.focus();
-              options.onRequest?.({
-                x: event.clientX,
-                y: event.clientY,
-              });
+
+              if (!requestSelectionPopup(view, options.onRequest)) {
+                options.onClose?.();
+              }
 
               return true;
             },
@@ -117,6 +115,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
               window.requestAnimationFrame(() => {
                 if (view.isDestroyed) {
+                  return;
+                }
+
+                if (view.state.selection.empty) {
+                  closePopup(options);
                   return;
                 }
 

@@ -22,6 +22,7 @@ sections and version names that match the application package version.
 - Keep open dialogs visible while dragging the titlebar.
 - Stop the context popup from forcing an extra caret move from right-click
   coordinates.
+- Position context popups around the active selection.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

@@ -26,10 +26,25 @@ const enabledPopupCommandState = createActiveEditorCommandState({
 });
 
 describe("EditorContextPopup", () => {
+  it("uses the selection range as the collision-aware popup anchor", () => {
+    render(
+      <EditorContextPopup
+        anchor={{ x: 40, top: 60, bottom: 80 }}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+      />,
+    );
+
+    const anchor = document.querySelector('[data-slot="popover-anchor"]');
+
+    expect(anchor).toHaveStyle({ height: "20px", left: "40px", top: "60px" });
+  });
+
   it("renders the initial five-row context UI", () => {
     render(
       <EditorContextPopup
-        anchor={{ x: 40, y: 60 }}
+        anchor={{ x: 40, top: 60, bottom: 80 }}
         commandState={enabledPopupCommandState}
         onClose={vi.fn()}
         onExecute={vi.fn()}
@@ -62,7 +77,7 @@ describe("EditorContextPopup", () => {
 
     const { user } = renderWithUser(
       <EditorContextPopup
-        anchor={{ x: 40, y: 60 }}
+        anchor={{ x: 40, top: 60, bottom: 80 }}
         commandState={{
           ...enabledPopupCommandState,
           enabledCommands: {
@@ -86,7 +101,7 @@ describe("EditorContextPopup", () => {
 
     const { user } = renderWithUser(
       <EditorContextPopup
-        anchor={{ x: 40, y: 60 }}
+        anchor={{ x: 40, top: 60, bottom: 80 }}
         commandState={createEditorCommandState({
           enabledCommandIds: ["edit.copy"],
         })}

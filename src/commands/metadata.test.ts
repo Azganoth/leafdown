@@ -19,6 +19,15 @@ describe("command metadata", () => {
     ]);
   });
 
+  it("registers task-list shortcuts", () => {
+    expect(COMMAND_DEFINITIONS["format.taskList"].shortcuts).toEqual([
+      { key: "9", mod: true, alt: true },
+    ]);
+    expect(COMMAND_DEFINITIONS["format.toggleTaskChecked"].shortcuts).toEqual([
+      { key: "Enter", mod: true },
+    ]);
+  });
+
   it("does not register duplicate shortcuts", () => {
     const shortcuts = (Object.keys(COMMAND_DEFINITIONS) as AppCommandId[]).flatMap((commandId) =>
       (COMMAND_DEFINITIONS[commandId].shortcuts ?? []).map((shortcut) => ({

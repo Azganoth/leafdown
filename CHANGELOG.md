@@ -10,6 +10,7 @@ sections and version names that match the application package version.
 ### Added
 
 - Close folder contexts from the File menu.
+- Add keyboard shortcuts for formatting task lists and toggling task items.
 
 ### Changed
 

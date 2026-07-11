@@ -139,8 +139,12 @@ export function EditorContextPopup({
       <PopoverAnchor asChild>
         <span
           aria-hidden
-          className="pointer-events-none fixed size-px"
-          style={{ left: anchor.x, top: anchor.y }}
+          className="pointer-events-none fixed w-px"
+          style={{
+            left: anchor.x,
+            top: anchor.top,
+            height: Math.max(1, anchor.bottom - anchor.top),
+          }}
         />
       </PopoverAnchor>
       <PopoverContent

@@ -55,7 +55,9 @@ Primary user interface surfaces:
 - **Article navigator:** shows articles (supported Markdown files) from the current folder
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
   Non-ignored directories may appear even when they have no supported Markdown
-  files. Folder scans skip symlinked entries rather than following them.
+  files. Directories are listed before articles within each folder, then the
+  selected article sort order is applied within each group. Folder scans skip
+  symlinked entries rather than following them.
   When the active saved document is outside the current folder context, the
   article navigator keeps showing the current folder context and displays a
   compact detached-document message instead of selecting an article.
@@ -100,6 +102,8 @@ Application state model:
 
 - `Close document` closes only the active document. When a folder context exists,
   it remains active.
+- `Close folder` closes the active folder context and active document after
+  dirty-state handling, returning to the welcome screen.
 - `Close window` closes the current app window after dirty-state handling.
 - Closing, switching files, or exiting with a dirty document prompts the user.
 
@@ -120,7 +124,8 @@ Application state model:
 
 - **Closed:** no popup is visible.
 - **Open from selection:** commands act on the selected text or blocks.
-- **Open from right-click:** commands act at the clicked caret location.
+- **Open from right-click:** commands act on the editor selection established by
+  the right-click.
 
 ## Editor Model
 
@@ -364,6 +369,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Print...** (`Mod+P`, Post-MVP)
 - **Preferences...** (`Mod+,`)
 - **Close document** (`Mod+W`)
+- **Close folder**
 - **Close window** (`Alt+F4` / `Mod+Q`)
 
 #### Edit Menu
@@ -533,7 +539,9 @@ unsupported diagnostic values; it is not redaction.
 The context popup is a contextual menu triggered by selection or right-click within the editor.
 
 - Right-click inside an existing selection keeps the selection.
-- Right-click outside a selection moves the caret to the clicked location.
+- Right-click outside a selection uses the editor's normal pointer handling to
+  place the caret at the clicked location; the popup does not perform a second
+  coordinate-based caret move.
 - `Escape`, typing, clicking outside, or scrolling the popup out of view closes
   it.
 
@@ -596,6 +604,7 @@ Inactive commands are disabled rather than hidden.
   an error.
 - `Reveal in sidebar` requires a folder context and an active saved article in the
   article navigator.
+- `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
 - `Sort articles by`, `Collapse all folders`, and `Expand all folders` require

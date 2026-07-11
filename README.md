@@ -42,6 +42,8 @@ UI are tracked separately in the backlog.
 See [docs/README.md](./docs/README.md) for product and architecture
 documentation.
 
+See [CHANGELOG.md](./CHANGELOG.md) for release notes.
+
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the project workflow and
 contribution conventions.
 

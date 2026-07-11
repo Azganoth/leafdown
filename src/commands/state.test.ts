@@ -13,8 +13,20 @@ describe("command state", () => {
 
     expect(getCommandState("file.save", context)).toMatchObject({ enabled: false });
     expect(getCommandState("file.saveAs", context)).toMatchObject({ enabled: false });
+    expect(getCommandState("file.closeFolder", context)).toMatchObject({ enabled: false });
     expect(getCommandState("edit.undo", context)).toMatchObject({ enabled: false });
     expect(getCommandState("insert.table", context)).toMatchObject({ enabled: false });
+  });
+
+  it("enables Close folder when a folder context is open", () => {
+    expect(
+      getCommandState(
+        "file.closeFolder",
+        createAppCommandContext({
+          folderContext: createFolderContext(),
+        }),
+      ),
+    ).toMatchObject({ enabled: true });
   });
 
   it("enables Save only for dirty saved documents or untitled documents", () => {

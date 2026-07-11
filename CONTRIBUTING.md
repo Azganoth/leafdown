@@ -22,6 +22,9 @@ under the project license, currently GNU General Public License v3.0 or later
 When a change affects product behavior, keep the owning docs and implementation
 aligned in the same change when practical.
 
+Record notable user-facing changes in [`CHANGELOG.md`](./CHANGELOG.md) under
+`Unreleased` until they are assigned to a release version.
+
 If docs overlap or appear to conflict, prefer them in this order:
 
 1. [`docs/decisions.md`](./docs/decisions.md)
@@ -143,6 +146,7 @@ Pull Request requirements:
 - Use closing keywords (e.g., `Closes #123`) to automate issue resolution on merge.
 - Maintain a single, focused objective where practical.
 - Update documentation when behavior, architecture, or release scope changes.
+- Update the changelog for notable user-facing changes.
 - Document testing notes, trade-offs, or follow-up work.
 - Use the established pull request body style:
   - `## Summary` with concise bullets covering the main implementation and test changes.

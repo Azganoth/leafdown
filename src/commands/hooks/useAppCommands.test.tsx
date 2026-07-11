@@ -94,6 +94,32 @@ describe("useAppCommands shortcut routing", () => {
     expect(runCommand).not.toHaveBeenCalled();
   });
 
+  it("routes the task-list format shortcut", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("Task");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const taskListShortcut = dispatchKeyDown(mounted.view.dom, "9", { alt: true, ctrl: true });
+
+    expect(taskListShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith("format.taskList");
+    expect(mounted.getMarkdown()).toContain("* [ ] Task");
+  });
+
+  it("routes the task checked-state shortcut", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("- [ ] Task");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const toggleTaskShortcut = dispatchKeyDown(mounted.view.dom, "Enter", { ctrl: true });
+
+    expect(toggleTaskShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).toHaveBeenCalledWith("format.toggleTaskChecked");
+    expect(mounted.getMarkdown()).toContain("* [x] Task");
+  });
+
   it.each([
     ["s", { ctrl: true }],
     ["S", { ctrl: true, shift: true }],

@@ -1,6 +1,8 @@
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { describe, expect, it, vi } from "vitest";
 
 import { useSettingsStore } from "@/features/preferences";
+import { createSavedDocument } from "@/test/factories/document";
 import {
   createArticleTree,
   createEmptyFolderContext,
@@ -10,11 +12,53 @@ import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useSessionStore } from "../stores/session";
-import { changeArticleSortOrder } from "./folderContextWorkflows";
+import { changeArticleSortOrder, closeFolderContext } from "./folderContextWorkflows";
 
 const notesFolderContext = createEmptyFolderContext();
 
 describe("folder context workflows", () => {
+  it("closes folder-only sessions back to the welcome state", async () => {
+    setDefaultSession({ folderContext: notesFolderContext });
+
+    await expect(closeFolderContext()).resolves.toBe(true);
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocument: null,
+      folderContext: null,
+    });
+  });
+
+  it("keeps folder contexts open when dirty document discard is declined", async () => {
+    setDefaultSession({
+      activeDocument: createSavedDocument({ isDirty: true }),
+      folderContext: notesFolderContext,
+    });
+
+    await expect(closeFolderContext()).resolves.toBe(false);
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocument: {
+        isDirty: true,
+      },
+      folderContext: {
+        path: notesFolderContext.path,
+      },
+    });
+  });
+
+  it("does not close anything without an active folder context", async () => {
+    setDefaultSession({ activeDocument: createSavedDocument() });
+
+    await expect(closeFolderContext()).resolves.toBe(false);
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      status: "saved",
+    });
+  });
+
   it("does not roll back article sort order after a newer pending change", async () => {
     const scanDeferred = Promise.withResolvers<never>();
     setDefaultSettings({ articleSortOrder: "name" });

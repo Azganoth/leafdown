@@ -1,14 +1,13 @@
-import { Plugin, PluginKey, Selection } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
-
-import { hasPointerCoordinates } from "@/lib/input";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
 export interface ContextPopupAnchor {
   x: number;
-  y: number;
+  top: number;
+  bottom: number;
 }
 
 export interface LeafdownContextPopupPluginOptions {
@@ -20,17 +19,14 @@ export interface LeafdownContextPopupPluginOptions {
 const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
   const { selection } = view.state;
 
-  if (selection.empty) {
-    return null;
-  }
-
   try {
-    const from = view.coordsAtPos(selection.from);
-    const to = view.coordsAtPos(selection.to);
+    const from = view.coordsAtPos(selection.from, 1);
+    const to = selection.empty ? from : view.coordsAtPos(selection.to, -1);
 
     return {
       x: Math.round((from.left + to.right) / 2),
-      y: Math.round(Math.min(from.top, to.top)),
+      top: Math.round(from.top),
+      bottom: Math.round(to.bottom),
     };
   } catch {
     return null;
@@ -78,39 +74,13 @@ const syncPopupToSelection = (
     return;
   }
 
-  if (!requestSelectionPopup(view, options.onRequest)) {
+  if (view.state.selection.empty || !requestSelectionPopup(view, options.onRequest)) {
     options.onClose?.();
   }
 };
 
 const isEditablePopupTarget = (event: MouseEvent) =>
   event.target instanceof HTMLElement && event.target.closest("input, textarea, select") !== null;
-
-const setCaretAtPointer = (view: EditorView, event: MouseEvent) => {
-  if (!hasPointerCoordinates(event)) {
-    return false;
-  }
-
-  const result = view.posAtCoords({ left: event.clientX, top: event.clientY });
-
-  if (!result) {
-    return false;
-  }
-
-  const { selection } = view.state;
-  const clickInsideSelection =
-    !selection.empty && selection.from <= result.pos && result.pos <= selection.to;
-
-  if (clickInsideSelection) {
-    return true;
-  }
-
-  const nextSelection = Selection.near(view.state.doc.resolve(result.pos));
-
-  view.dispatch(view.state.tr.setSelection(nextSelection).scrollIntoView());
-
-  return true;
-};
 
 export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPluginOptions = {}) =>
   $prose(
@@ -130,12 +100,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               }
 
               event.preventDefault();
-              setCaretAtPointer(view, event);
               view.focus();
-              options.onRequest?.({
-                x: event.clientX,
-                y: event.clientY,
-              });
+
+              if (!requestSelectionPopup(view, options.onRequest)) {
+                options.onClose?.();
+              }
 
               return true;
             },
@@ -146,6 +115,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
               window.requestAnimationFrame(() => {
                 if (view.isDestroyed) {
+                  return;
+                }
+
+                if (view.state.selection.empty) {
+                  closePopup(options);
                   return;
                 }
 

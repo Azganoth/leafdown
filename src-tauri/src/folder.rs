@@ -401,6 +401,18 @@ mod tests {
     }
 
     #[test]
+    fn sorts_directories_before_files_by_name_when_configured() {
+        let root = TestDirectory::new("scan-name-sort");
+        root.write_file("alpha.md");
+        root.create_directory("zeta");
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("folder should scan with name sorting");
+
+        assert_eq!(direct_child_names(&result.tree), vec!["zeta", "alpha.md"]);
+    }
+
+    #[test]
     fn sorts_tree_nodes_by_type_when_configured() {
         let root = TestDirectory::new("scan-type-sort");
         root.write_file("zeta.md");
@@ -414,6 +426,22 @@ mod tests {
             direct_child_names(&result.tree),
             vec!["notes", "alpha.markdown", "zeta.md"]
         );
+    }
+
+    #[test]
+    fn sorts_directories_before_files_by_modified_date_when_configured() {
+        let root = TestDirectory::new("scan-modified-date-directory-sort");
+        root.create_directory("zeta");
+        write_file_with_modified_time(&root, "alpha.md", 2_200_000_000_000);
+
+        let result = scan_folder(
+            &root.path,
+            ignored_directories(),
+            FileTreeSortOrder::ModifiedDate,
+        )
+        .expect("folder should scan with modified-date sorting");
+
+        assert_eq!(direct_child_names(&result.tree), vec!["zeta", "alpha.md"]);
     }
 
     #[test]

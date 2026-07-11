@@ -12,6 +12,7 @@
 - [MVP](./mvp.md): MVP release goal, scope rule, acceptance criteria, and
   execution reference.
 - [Backlog](./backlog.md): Post-MVP candidates and deferred ideas.
+- [Changelog](../CHANGELOG.md): release notes for user-facing changes.
 
 If documents overlap or appear to conflict, prefer them in this order:
 Decisions, Specification, Architecture, Engineering Patterns, MVP, Backlog.

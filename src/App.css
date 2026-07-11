@@ -93,6 +93,14 @@
   button:not(:disabled):not([aria-disabled="true"]) {
     @apply cursor-pointer;
   }
+
+  [data-tauri-frame-tb] {
+    pointer-events: none;
+
+    > button {
+      pointer-events: auto;
+    }
+  }
 }
 
 /* Attribute Mappings */

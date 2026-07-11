@@ -42,6 +42,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.revealInSidebar": commandDef("Reveal in sidebar"),
   "file.preferences": commandDef("Preferences...", { key: ",", mod: true }),
   "file.closeDocument": commandDef("Close document", { key: "w", mod: true }),
+  "file.closeFolder": commandDef("Close folder"),
   "file.closeWindow": commandDef("Close window", { key: "q", mod: true }, { key: "F4", alt: true }),
   "edit.undo": editorCommandDef("edit.undo", { key: "z", mod: true }),
   "edit.redo": editorCommandDef(
@@ -128,13 +129,20 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
     mod: true,
     alt: true,
   }),
-  "format.taskList": editorCommandDef("format.taskList"),
+  "format.taskList": editorCommandDef("format.taskList", {
+    key: "9",
+    mod: true,
+    alt: true,
+  }),
   "format.increaseListIndent": editorCommandDef("format.increaseListIndent", { key: "Tab" }),
   "format.decreaseListIndent": editorCommandDef("format.decreaseListIndent", {
     key: "Tab",
     shift: true,
   }),
-  "format.toggleTaskChecked": editorCommandDef("format.toggleTaskChecked"),
+  "format.toggleTaskChecked": editorCommandDef("format.toggleTaskChecked", {
+    key: "Enter",
+    mod: true,
+  }),
   "format.blockquote": editorCommandDef("format.blockquote", {
     key: "b",
     mod: true,

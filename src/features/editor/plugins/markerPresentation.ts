@@ -1,19 +1,11 @@
-import type { Mark, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
-import { isNonNullish } from "@/lib/predicates";
-
-import {
-  getCandidateMarksAtSelection,
-  getMarkRangeAtSelection,
-  type ActiveMarkRange,
-} from "../utils/marks";
 import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
-import { getRangeText } from "../utils/textRanges";
 
 export const leafdownMarkerPresentationPluginKey = new PluginKey("leafdownMarkerPresentation");
 
@@ -22,12 +14,6 @@ interface NodeWithPos {
   pos: number;
 }
 
-interface ParsedMarkSource {
-  attrs?: Record<string, unknown>;
-  text: string;
-}
-
-const INLINE_SOURCE_MARK_NAMES = ["link"] as const;
 const SOURCE_NODE_NAMES = new Set(["footnote_reference", "html"]);
 
 export const createLeafdownMarkerPresentationPlugin = () =>
@@ -46,7 +32,6 @@ const getMarkerDecorations = (state: EditorState) => {
 
   addPersistentFootnoteDefinitionMarkers(state, decorations);
   addCaretBasedMarkers(state, decorations);
-  addFocusedInlineSourceEditor(state, decorations);
   addFocusedSourceNodeEditors(state, decorations);
 
   return decorations;
@@ -90,30 +75,6 @@ const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => 
 
     decorations.push(createSubtleMarkerDecoration(pos, node, marker));
   }
-};
-
-const addFocusedInlineSourceEditor = (state: EditorState, decorations: Decoration[]) => {
-  if (!isCaretSelection(state)) {
-    return;
-  }
-
-  const activeMarkRange = getActiveInlineSourceMarkRange(state);
-
-  if (!activeMarkRange) {
-    return;
-  }
-
-  decorations.push(
-    Decoration.widget(
-      activeMarkRange.from,
-      (view) => createInlineSourceEditor(view, activeMarkRange),
-      {
-        key: `inline-source:${activeMarkRange.from}:${activeMarkRange.to}:${activeMarkRange.mark.type.name}`,
-        side: -1,
-        stopEvent: isWidgetInputEvent,
-      },
-    ),
-  );
 };
 
 const addFocusedSourceNodeEditors = (state: EditorState, decorations: Decoration[]) => {
@@ -173,162 +134,6 @@ const getSubtleMarkerForNode = (node: ProseMirrorNode) => {
     default:
       return null;
   }
-};
-
-const getActiveInlineSourceMarkRange = (state: EditorState): ActiveMarkRange | null => {
-  const { selection } = state;
-
-  if (!isTextCaretSelection(selection)) {
-    return null;
-  }
-
-  const markTypes = INLINE_SOURCE_MARK_NAMES.map((markName) => state.schema.marks[markName]).filter(
-    isNonNullish,
-  );
-  const candidateMarks = getCandidateMarksAtSelection(state);
-  const activeMark =
-    INLINE_SOURCE_MARK_NAMES.map((markName) =>
-      candidateMarks.find((mark) => mark.type.name === markName && markTypes.includes(mark.type)),
-    ).find(Boolean) ?? null;
-
-  if (!activeMark) {
-    return null;
-  }
-
-  return getMarkRangeAtSelection(state, activeMark);
-};
-
-const createInlineSourceEditor = (view: EditorView, range: ActiveMarkRange) => {
-  const input = createSourceInput("Inline Markdown", serializeMarkSource(view.state, range));
-  let applied = false;
-
-  const applySource = () => {
-    if (applied) {
-      return;
-    }
-
-    const parsed = parseMarkSource(input.value, range.mark.type.name);
-
-    if (!parsed) {
-      return;
-    }
-
-    const mark = range.mark.type.create({
-      ...range.mark.attrs,
-      ...parsed.attrs,
-    });
-    const textNode = view.state.schema.text(
-      parsed.text,
-      mark.addToSet(getPreservedInlineSourceMarks(view.state, range)),
-    );
-    const tr = view.state.tr.replaceWith(range.from, range.to, textNode);
-
-    applied = true;
-    dispatchWithTextSelection(view, tr, range.from + parsed.text.length);
-  };
-
-  bindSourceInput(input, applySource, view);
-
-  return input;
-};
-
-const getPreservedInlineSourceMarks = (state: EditorState, range: ActiveMarkRange) => {
-  let commonMarks: Mark[] | null = null;
-
-  state.doc.nodesBetween(range.from, range.to, (node) => {
-    if (!node.isText) {
-      return true;
-    }
-
-    const nodeMarks = node.marks.filter((mark) => mark.type !== range.mark.type);
-    commonMarks =
-      commonMarks === null ? nodeMarks : commonMarks.filter((mark) => mark.isInSet(nodeMarks));
-
-    return true;
-  });
-
-  return commonMarks ?? [];
-};
-
-const serializeMarkSource = (state: EditorState, range: ActiveMarkRange) => {
-  const text = getRangeText(state.doc, range);
-
-  switch (range.mark.type.name) {
-    case "strike_through":
-      return `~~${text}~~`;
-
-    case "inlineCode":
-      return `\`${text}\``;
-
-    case "link":
-      return serializeLinkSource(text, range.mark);
-
-    default:
-      return text;
-  }
-};
-
-const serializeLinkSource = (text: string, mark: Mark) => {
-  const href = String(mark.attrs.href ?? "");
-  const title = mark.attrs.title ? ` "${String(mark.attrs.title).replaceAll('"', '\\"')}"` : "";
-
-  return text === href && href ? `<${href}>` : `[${text}](${href}${title})`;
-};
-
-const parseMarkSource = (source: string, markName: string): ParsedMarkSource | null => {
-  switch (markName) {
-    case "strike_through":
-      return parseWrappedSource(source, /^~~(?<text>.+)~~$/u);
-
-    case "inlineCode":
-      return parseWrappedSource(source, /^`(?<text>.+)`$/u);
-
-    case "link":
-      return parseLinkSource(source);
-
-    default:
-      return null;
-  }
-};
-
-const parseWrappedSource = (source: string, pattern: RegExp): ParsedMarkSource | null => {
-  const match = pattern.exec(source.trim());
-  const text = match?.groups?.text;
-
-  if (!text) {
-    return null;
-  }
-
-  return { text };
-};
-
-const parseLinkSource = (source: string): ParsedMarkSource | null => {
-  const autolink = /^<(?<target>[^<>]+)>$/u.exec(source.trim());
-
-  if (autolink?.groups?.target) {
-    return {
-      attrs: { href: autolink.groups.target, title: null },
-      text: autolink.groups.target,
-    };
-  }
-
-  const match = /^\[(?<text>.*)\]\((?<body>.*)\)$/u.exec(source.trim());
-  const groups = match?.groups;
-
-  if (!groups?.text) {
-    return null;
-  }
-
-  const body = groups.body.trim();
-  const titleMatch = /^(?<href>.*)\s+"(?<title>[^"]*)"\s*$/u.exec(body);
-
-  return {
-    attrs: {
-      href: titleMatch?.groups?.href.trim() ?? body,
-      title: titleMatch?.groups?.title ?? null,
-    },
-    text: groups.text,
-  };
 };
 
 const getActiveSourceNode = (state: EditorState): NodeWithPos | null => {
@@ -450,10 +255,6 @@ const bindSourceInput = (input: HTMLInputElement, applySource: () => void, view:
     }
   });
   input.addEventListener("blur", applySource);
-};
-
-const dispatchWithTextSelection = (view: EditorView, tr: Transaction, position: number) => {
-  view.dispatch(tr.setSelection(TextSelection.create(tr.doc, position)).scrollIntoView());
 };
 
 const isWidgetInputEvent = (event: Event) => event.target instanceof HTMLInputElement;

@@ -3,12 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN, UNCHECKED_TASK_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import { dispatchBlur, dispatchInput, dispatchKeyDown } from "@/test/utils/events";
+import { dispatchInput, dispatchKeyDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
   getEditorNodePosition,
-  getEditorTextContent,
   setSelectionAtElementTextEnd,
   setTextSelection,
 } from "@/test/utils/prosemirror";
@@ -51,29 +50,6 @@ describe("marker presentation", () => {
     );
   });
 
-  it("keeps detached inline Markdown source editing for links", async () => {
-    const mounted = await mountStyledEditor("[Link](https://example.com) plain");
-    const link = getEditorDomElement(mounted, "a");
-
-    setSelectionAtElementTextEnd(mounted.view, link);
-
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Inline Markdown" });
-
-    expect(input).toHaveValue("[Link](https://example.com)");
-    expect(getEditorTextContent(mounted)).toBe("Link plain");
-
-    dispatchInput(input, "[Updated](https://leafdown.dev)");
-
-    expect(mounted.getMarkdown()).toBe("[Link](https://example.com) plain\n");
-
-    dispatchKeyDown(input, "Enter");
-    dispatchBlur(input);
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("[Updated](https://leafdown.dev) plain\n");
-    });
-  });
-
   it("does not add caret markers to blockquotes or list items", async () => {
     const mounted = await mountStyledEditor(`> Quote
 
@@ -106,42 +82,6 @@ ${UNCHECKED_TASK_MARKDOWN}`);
 
     expect(taskListItem).not.toHaveClass("leafdown-marker-node--subtle");
     expect(taskListItem).not.toHaveAttribute("data-leafdown-marker");
-  });
-
-  it("exposes autolinks as editable raw Markdown source", async () => {
-    const mounted = await mountStyledEditor("<https://example.com>");
-    const link = getEditorDomElement(mounted, "a");
-
-    setSelectionAtElementTextEnd(mounted.view, link);
-
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Inline Markdown" });
-
-    expect(input).toHaveValue("<https://example.com>");
-
-    dispatchInput(input, "<https://leafdown.dev>");
-    dispatchKeyDown(input, "Enter");
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("<https://leafdown.dev>\n");
-    });
-  });
-
-  it("preserves coexisting marks when applying inline Markdown source", async () => {
-    const mounted = await mountStyledEditor("**[Strong Link](https://example.com)**");
-    const link = getEditorDomElement(mounted, "a");
-
-    setSelectionAtElementTextEnd(mounted.view, link);
-
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Inline Markdown" });
-
-    expect(input).toHaveValue("[Strong Link](https://example.com)");
-
-    dispatchInput(input, "[Updated](https://leafdown.dev)");
-    dispatchKeyDown(input, "Enter");
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("**[Updated](https://leafdown.dev)**\n");
-    });
   });
 
   it("exposes footnote references as editable raw Markdown source", async () => {

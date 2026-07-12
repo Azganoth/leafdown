@@ -12,10 +12,10 @@ import { isNonNullish } from "@/lib/predicates";
 
 import {
   areProjectionMarksEqual,
+  createProjectionSource,
   createProjectionMarkDescriptor,
   getProjectionDelimiterBounds,
   getProjectionReplacement,
-  getSourceMarkers,
   isProjectionMarkerText,
   isProjectionMarkName,
   normalizeProjectionSourceAfterEdit,
@@ -436,6 +436,8 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
       "leafdown-inline-source-projection__content--strikethrough",
     marks.some((mark) => mark.markName === "inlineCode") &&
       "leafdown-inline-source-projection__content--inline-code",
+    marks.some((mark) => mark.markName === "link") &&
+      "leafdown-inline-source-projection__content--link",
   ]
     .filter(isNonNullish)
     .join(" ");
@@ -877,22 +879,24 @@ const getNextCharacterRange = (
 
 const createEnterProjectionTransaction = (state: EditorState, range: ActiveProjectionRange) => {
   const originalText = getRangeText(state.doc, range);
-  const sourceMarkers = getSourceMarkers(range.marks, originalText);
-  const originalSource = `${sourceMarkers.opening}${originalText}${sourceMarkers.closing}`;
+  const originalSource = createProjectionSource(range.marks, originalText);
+  const sourceTextOffset = originalSource.indexOf(originalText);
   const selectionOffset = Math.min(
     Math.max(state.selection.from - range.from, 0),
     originalText.length,
   );
-  const selectionPosition = range.from + sourceMarkers.opening.length + selectionOffset;
+  const selectionPosition = range.from + sourceTextOffset + selectionOffset;
   const session = createProjectionSession({
     from: range.from,
     marks: range.marks,
     originalSource,
     originalText,
   });
+  const closingSource = originalSource.slice(sourceTextOffset + originalText.length);
+  const openingSource = originalSource.slice(0, sourceTextOffset);
   const transaction = state.tr
-    .replaceWith(range.to, range.to, state.schema.text(sourceMarkers.closing))
-    .replaceWith(range.from, range.from, state.schema.text(sourceMarkers.opening));
+    .replaceWith(range.to, range.to, state.schema.text(closingSource))
+    .replaceWith(range.from, range.from, state.schema.text(openingSource));
 
   transaction
     .setSelection(TextSelection.create(transaction.doc, selectionPosition))

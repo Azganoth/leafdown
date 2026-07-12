@@ -2,7 +2,6 @@ import { Plugin, TextSelection } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
 import { getTextWordRangeAtPosition } from "../utils/textRanges";
-import { hasTransientInlineSourceProjection } from "./inlineSourceProjection";
 
 export const createLeafdownDoubleClickSelectionPlugin = () =>
   $prose(
@@ -10,7 +9,7 @@ export const createLeafdownDoubleClickSelectionPlugin = () =>
       new Plugin({
         props: {
           handleDoubleClick: (view, position, event) => {
-            if (event.button !== 0 || hasTransientInlineSourceProjection(view.state)) {
+            if (event.button !== 0) {
               return false;
             }
 

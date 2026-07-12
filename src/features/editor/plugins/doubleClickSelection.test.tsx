@@ -69,7 +69,7 @@ describe("double-click selection plugin", () => {
     expect(getSelectedEditorText(mounted)).toBe("A");
   });
 
-  it("leaves non-text, non-primary, and inline-source-projection interactions native", async () => {
+  it("leaves non-text and non-primary interactions native", async () => {
     const mounted = await mountEditor(HELLO_WORLD_TEXT);
 
     expect(dispatchEditorDoubleClick(mounted.view, 0).defaultPrevented).toBe(false);
@@ -80,6 +80,10 @@ describe("double-click selection plugin", () => {
     setSelectionAtElementTextEnd(projectionEditor.view, strong);
 
     expect(hasActiveInlineSourceProjection(projectionEditor.view.state)).toBe(true);
-    expect(dispatchEditorDoubleClick(projectionEditor.view, 4).defaultPrevented).toBe(false);
+
+    const event = dispatchEditorDoubleClick(projectionEditor.view, 4);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(getSelectedEditorText(projectionEditor)).toBe("Bold");
   });
 });

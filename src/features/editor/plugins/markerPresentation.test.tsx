@@ -51,26 +51,26 @@ describe("marker presentation", () => {
     );
   });
 
-  it("keeps detached inline Markdown source editing for non-projected inline marks", async () => {
-    const mounted = await mountStyledEditor("`Code` plain");
-    const code = getEditorDomElement(mounted, "code");
+  it("keeps detached inline Markdown source editing for links", async () => {
+    const mounted = await mountStyledEditor("[Link](https://example.com) plain");
+    const link = getEditorDomElement(mounted, "a");
 
-    setSelectionAtElementTextEnd(mounted.view, code);
+    setSelectionAtElementTextEnd(mounted.view, link);
 
     const input = within(mounted.view.dom).getByRole("textbox", { name: "Inline Markdown" });
 
-    expect(input).toHaveValue("`Code`");
-    expect(getEditorTextContent(mounted)).toBe("Code plain");
+    expect(input).toHaveValue("[Link](https://example.com)");
+    expect(getEditorTextContent(mounted)).toBe("Link plain");
 
-    dispatchInput(input, "`Updated`");
+    dispatchInput(input, "[Updated](https://leafdown.dev)");
 
-    expect(mounted.getMarkdown()).toBe("`Code` plain\n");
+    expect(mounted.getMarkdown()).toBe("[Link](https://example.com) plain\n");
 
     dispatchKeyDown(input, "Enter");
     dispatchBlur(input);
 
     await waitFor(() => {
-      expect(mounted.getMarkdown()).toBe("`Updated` plain\n");
+      expect(mounted.getMarkdown()).toBe("[Updated](https://leafdown.dev) plain\n");
     });
   });
 

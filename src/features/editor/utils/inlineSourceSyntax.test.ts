@@ -86,6 +86,13 @@ describe("inline source syntax", () => {
       source: "~~Strikethrough~~",
       text: "Strikethrough",
     },
+    {
+      closing: "``",
+      marks: [expectedMark("inlineCode", "`")],
+      opening: "``",
+      source: "``Code ` content``",
+      text: "Code ` content",
+    },
   ])("parses simple delimited source $source", ({ source, ...expected }) => {
     expectMarkSource(source, expected);
   });
@@ -182,6 +189,24 @@ describe("inline source syntax", () => {
     ).toEqual({
       closing: "**_~~",
       opening: "~~_**",
+    });
+  });
+
+  it("uses a backtick run that cannot occur inside projected inline code", () => {
+    expect(
+      getSourceMarkers([{ attrs: { marker: "`" }, marker: "`", markName: "inlineCode" }], "a``b"),
+    ).toEqual({
+      closing: "```",
+      opening: "```",
+    });
+  });
+
+  it("normalizes inline-code source whitespace according to Markdown code-span rules", () => {
+    expectMarkSource("` code `", {
+      closing: "`",
+      marks: [expectedMark("inlineCode", "`")],
+      opening: "`",
+      text: "code",
     });
   });
 

@@ -1,9 +1,14 @@
-export const SUPPORTED_PROJECTION_MARK_NAMES = ["strong", "emphasis", "strike_through"] as const;
+export const SUPPORTED_PROJECTION_MARK_NAMES = [
+  "strong",
+  "emphasis",
+  "strike_through",
+  "inlineCode",
+] as const;
 
 export type ProjectionEditKind = "delete" | "insert" | "replace";
 export type ProjectionDelimiterSide = "closing" | "opening";
 export type ProjectionMarkName = (typeof SUPPORTED_PROJECTION_MARK_NAMES)[number];
-export type ProjectionMarkerCharacter = "*" | "_" | "~";
+export type ProjectionMarkerCharacter = "*" | "_" | "~" | "`";
 
 export interface ProjectionMarkDescriptor {
   attrs: Record<string, unknown>;
@@ -54,6 +59,12 @@ interface NestedProjectionSourceInput {
 }
 
 export const parseProjectionSource = (source: string): ParsedProjectionSource => {
+  const inlineCode = parseInlineCodeProjectionSource(source);
+
+  if (inlineCode) {
+    return inlineCode;
+  }
+
   const strikethrough = parseStrikethroughProjectionSource(source);
 
   if (strikethrough) {
@@ -104,6 +115,17 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
     return null;
   }
 
+  if (bounds.marker === "`") {
+    if (context.kind !== "insert" || context.delimiterSide !== null) {
+      return null;
+    }
+
+    const text = source.slice(bounds.contentFrom, bounds.contentTo);
+    const marker = getInlineCodeMarker(text);
+
+    return `${marker}${text}${marker}`;
+  }
+
   const markerCount = getNormalizedMarkerCount(bounds, context);
 
   if (markerCount < 1 || markerCount > 3) {
@@ -117,7 +139,7 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
 };
 
 export const getProjectionDelimiterBounds = (source: string): ProjectionDelimiterBounds | null => {
-  const openingMatch = /^(?<opening>\*+|_+|~+)/u.exec(source);
+  const openingMatch = /^(?<opening>\*+|_+|~+|`+)/u.exec(source);
 
   if (!openingMatch?.groups) {
     return null;
@@ -125,7 +147,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
 
   const opening = openingMatch.groups.opening;
   const marker = getMarkerCharacterFromSource(opening);
-  const closingMatch = /(\*+|_+|~+)$/u.exec(source.slice(opening.length));
+  const closingMatch = /(\*+|_+|~+|`+)$/u.exec(source.slice(opening.length));
   const closing = closingMatch?.[0] ?? "";
 
   if (closing && getMarkerCharacterFromSource(closing) !== marker) {
@@ -141,7 +163,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
   };
 };
 
-export const isProjectionMarkerText = (text: string) => /^[*_~]+$/u.test(text);
+export const isProjectionMarkerText = (text: string) => /^[*_~`]+$/u.test(text);
 
 export const isProjectionMarkName = (markName: string): markName is ProjectionMarkName =>
   SUPPORTED_PROJECTION_MARK_NAMES.includes(markName as ProjectionMarkName);
@@ -156,7 +178,15 @@ export const areProjectionMarksEqual = (
       leftMark.markName === right[index]?.markName && leftMark.marker === right[index]?.marker,
   );
 
-export const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
+export const getSourceMarkers = (marks: ProjectionMarkDescriptor[], text = "") => {
+  const inlineCode = marks.find((mark) => mark.markName === "inlineCode");
+
+  if (inlineCode) {
+    const marker = getInlineCodeMarker(text);
+
+    return { closing: marker, opening: marker };
+  }
+
   const strikethrough = marks.find((mark) => mark.markName === "strike_through");
   const nestedMarks = marks.filter((mark) => mark.markName !== "strike_through");
   const nestedMarkers = getSourceMarkersWithoutStrikethrough(nestedMarks);
@@ -249,6 +279,42 @@ const parseStrikethroughProjectionSource = (source: string): ParsedProjectionSou
   };
 };
 
+const parseInlineCodeProjectionSource = (source: string): ParsedProjectionSource | null => {
+  const opening = /^`+/u.exec(source)?.[0];
+  const closing = /`+$/u.exec(source)?.[0];
+
+  if (!opening || !closing || opening.length !== closing.length) {
+    return null;
+  }
+
+  const text = source.slice(opening.length, source.length - closing.length);
+
+  if (!text || hasMatchingBacktickRun(text, opening.length)) {
+    return null;
+  }
+
+  return {
+    closing,
+    marks: [createProjectionMarkDescriptorFromSource("inlineCode", opening)],
+    opening,
+    text: normalizeInlineCodeText(text),
+    type: "mark",
+  };
+};
+
+const hasMatchingBacktickRun = (text: string, length: number) =>
+  Array.from(text.matchAll(/`+/gu)).some((match) => match[0].length === length);
+
+const normalizeInlineCodeText = (text: string) => {
+  const normalizedLineEndings = text.replaceAll(/\r\n?|\n/gu, " ");
+
+  return normalizedLineEndings.startsWith(" ") &&
+    normalizedLineEndings.endsWith(" ") &&
+    normalizedLineEndings.trim() !== ""
+    ? normalizedLineEndings.slice(1, -1)
+    : normalizedLineEndings;
+};
+
 const shouldParseAsNestedProjection = (parsed: ParsedProjectionSource) => {
   if (parsed.type !== "mark" || parsed.marks.length !== 1) {
     return false;
@@ -265,7 +331,7 @@ const getNormalizedMarkerCount = (
   bounds: ProjectionDelimiterBounds,
   context: ProjectionEditContext,
 ) => {
-  if (bounds.marker === "~") {
+  if (bounds.marker === "~" || bounds.marker === "`") {
     return 0;
   }
 
@@ -401,16 +467,39 @@ const getSourceMarkerOptions = (markName: ProjectionMarkName) =>
     ? (["**", "__"] as const)
     : markName === "strike_through"
       ? (["~~"] as const)
-      : (["*", "_"] as const);
+      : markName === "inlineCode"
+        ? (["`"] as const)
+        : (["*", "_"] as const);
 
 const getMarkerCharacterFromSource = (markerSyntax: string): ProjectionMarkerCharacter =>
-  markerSyntax.startsWith("~") ? "~" : markerSyntax.startsWith("_") ? "_" : "*";
+  markerSyntax.startsWith("`")
+    ? "`"
+    : markerSyntax.startsWith("~")
+      ? "~"
+      : markerSyntax.startsWith("_")
+        ? "_"
+        : "*";
 
 const getMarkerCharacterFromAttrs = (
   markName: ProjectionMarkName,
   attrs: Record<string, unknown>,
 ): ProjectionMarkerCharacter =>
-  markName === "strike_through" ? "~" : String(attrs.marker ?? "*") === "_" ? "_" : "*";
+  markName === "strike_through"
+    ? "~"
+    : markName === "inlineCode"
+      ? "`"
+      : String(attrs.marker ?? "*") === "_"
+        ? "_"
+        : "*";
 
 const getSourceMarker = (markName: ProjectionMarkName, marker: ProjectionMarkerCharacter) =>
   markName === "strong" || markName === "strike_through" ? marker.repeat(2) : marker;
+
+const getInlineCodeMarker = (text: string) => {
+  const longestBacktickRun = Math.max(
+    0,
+    ...Array.from(text.matchAll(/`+/gu), (match) => match[0].length),
+  );
+
+  return "`".repeat(longestBacktickRun + 1);
+};

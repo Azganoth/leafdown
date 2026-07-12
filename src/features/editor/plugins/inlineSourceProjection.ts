@@ -434,6 +434,8 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
       "leafdown-inline-source-projection__content--emphasis",
     marks.some((mark) => mark.markName === "strike_through") &&
       "leafdown-inline-source-projection__content--strikethrough",
+    marks.some((mark) => mark.markName === "inlineCode") &&
+      "leafdown-inline-source-projection__content--inline-code",
   ]
     .filter(isNonNullish)
     .join(" ");
@@ -875,7 +877,7 @@ const getNextCharacterRange = (
 
 const createEnterProjectionTransaction = (state: EditorState, range: ActiveProjectionRange) => {
   const originalText = getRangeText(state.doc, range);
-  const sourceMarkers = getSourceMarkers(range.marks);
+  const sourceMarkers = getSourceMarkers(range.marks, originalText);
   const originalSource = `${sourceMarkers.opening}${originalText}${sourceMarkers.closing}`;
   const selectionOffset = Math.min(
     Math.max(state.selection.from - range.from, 0),
@@ -1260,6 +1262,14 @@ const getProjectionMarksForRange = (
 };
 
 const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+  const inlineCode = node.marks.find((mark) => mark.type.name === "inlineCode");
+
+  if (inlineCode) {
+    return node.marks.length === 1
+      ? [createProjectionMarkDescriptor("inlineCode", inlineCode.attrs)]
+      : [];
+  }
+
   if (node.marks.some((mark) => !isProjectionMarkName(mark.type.name))) {
     return [];
   }

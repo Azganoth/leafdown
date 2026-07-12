@@ -44,7 +44,10 @@ const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
 };
 
-const enterProjection = (mounted: MountedMilkdownEditor, selector: "del" | "em" | "strong") => {
+const enterProjection = (
+  mounted: MountedMilkdownEditor,
+  selector: "code" | "del" | "em" | "strong",
+) => {
   const element = getEditorDomElement(mounted, selector);
 
   setSelectionAtElementTextEnd(mounted.view, element);
@@ -125,6 +128,20 @@ describe("inline source projection", () => {
         ),
       ).toHaveTextContent("Strike");
     });
+
+    it("projects inline-code markers as real editable document text", async () => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      expect(getEditorTextContent(mounted)).toBe("`Code` plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
+      expect(
+        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--inline-code"),
+      ).toHaveTextContent("Code");
+    });
   });
 
   describe("source editing", () => {
@@ -203,6 +220,20 @@ describe("inline source projection", () => {
       expect(mounted.getMarkdown()).toBe("_**~~Nesteder~~**_ plain\n");
     });
 
+    it("uses a longer delimiter run when inline-code content gains a backtick", async () => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`Code`");
+
+      setTextSelection(mounted.view, sourceStart + "`Co".length);
+      typeText(mounted.view, "`");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("``Co`de`` plain\n");
+    });
+
     it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {
       const mounted = await mountProjectionEditor("*Soft* plain");
 
@@ -260,6 +291,22 @@ describe("inline source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
+    });
+
+    it("forms inline-code projection when a left backtick completes plain source", async () => {
+      const mounted = await mountProjectionEditor("Code` plain");
+
+      const sourceStart = getEditorTextPosition(mounted, "Code`");
+
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, "`");
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("`Code` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("`Code` plain\n");
     });
 
     it("keeps outer-boundary text outside the projected content", async () => {

@@ -281,6 +281,21 @@ describe("inline source projection", () => {
       expect(autolink.getMarkdown()).toBe("<https://leafdown.dev>\n");
     });
 
+    it("preserves an empty-destination link when its label is edited", async () => {
+      const mounted = await mountProjectionEditor("[Link]()");
+
+      enterProjection(mounted, "a");
+
+      const sourceStart = getEditorTextPosition(mounted, "[Link]()");
+
+      setTextSelection(mounted.view, sourceStart + 1);
+      typeText(mounted.view, "Updated ");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("[Updated Link]()\n");
+      expect(getEditorDomElement(mounted, "a")).toHaveAttribute("href", "");
+    });
+
     it("preserves a uniform outer strong mark around projected links", async () => {
       const mounted = await mountProjectionEditor("**[Strong Link](https://example.com)**");
 

@@ -66,6 +66,17 @@ interface ParsedLinkSource {
   text: string;
 }
 
+interface ParsedLinkTitle {
+  href: string;
+  title: string;
+}
+
+const LINK_TITLE_PATTERNS = [
+  /^(?<href>.*?)\s+"(?<title>(?:[^"\\]|\\.)*)"\s*$/u,
+  /^(?<href>.*?)\s+'(?<title>(?:[^'\\]|\\.)*)'\s*$/u,
+  /^(?<href>.*?)\s+\((?<title>(?:[^()\\]|\\.)*)\)\s*$/u,
+] as const;
+
 export const parseProjectionSource = (source: string): ParsedProjectionSource => {
   const link = parseLinkProjectionSource(source);
 
@@ -352,23 +363,36 @@ const parseLinkProjectionSource = (source: string): ParsedLinkSource | null => {
   }
 
   const body = groups.body.trim();
-  const titleMatch = /^(?<href>.*?)\s+"(?<title>(?:[^"\\]|\\.)*)"\s*$/u.exec(body);
-  const href = titleMatch?.groups?.href.trim() ?? body;
-
-  if (!href) {
-    return null;
-  }
+  const linkTitle = parseLinkTitle(body);
+  const href = getLinkDestination(linkTitle?.href ?? body);
 
   return {
     attrs: {
       href,
-      title: titleMatch?.groups?.title.replaceAll(/\\(.)/gu, "$1") ?? null,
+      title: linkTitle?.title ?? null,
     },
     closing: `](${body})`,
     opening: "[",
     text: groups.text,
   };
 };
+
+const parseLinkTitle = (body: string): ParsedLinkTitle | null => {
+  for (const pattern of LINK_TITLE_PATTERNS) {
+    const groups = pattern.exec(body)?.groups;
+
+    if (groups?.href !== undefined && groups.title !== undefined) {
+      return {
+        href: groups.href.trim(),
+        title: groups.title.replaceAll(/\\(.)/gu, "$1"),
+      };
+    }
+  }
+
+  return null;
+};
+
+const getLinkDestination = (destination: string) => (destination === "<>" ? "" : destination);
 
 const createLinkProjectionSource = ({
   attrs,

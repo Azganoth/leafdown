@@ -260,6 +260,40 @@ describe("inline source syntax", () => {
     }
   });
 
+  it.each([
+    { source: '[Link](https://example.com "Double")', title: "Double" },
+    { source: "[Link](https://example.com 'Single')", title: "Single" },
+    { source: "[Link](https://example.com (Parenthesized))", title: "Parenthesized" },
+  ])("parses the GFM link title delimiter in $source", ({ source, title }) => {
+    const parsed = parseProjectionSource(source);
+
+    expect(parsed.type).toBe("mark");
+
+    if (parsed.type === "mark") {
+      expect(parsed.marks).toContainEqual(
+        expect.objectContaining({
+          attrs: expect.objectContaining({ href: "https://example.com", title }),
+          markName: "link",
+        }),
+      );
+    }
+  });
+
+  it.each(["[Link]()", "[Link](<>)"])("parses an empty link destination in %s", (source) => {
+    const parsed = parseProjectionSource(source);
+
+    expect(parsed.type).toBe("mark");
+
+    if (parsed.type === "mark") {
+      expect(parsed.marks).toContainEqual(
+        expect.objectContaining({
+          attrs: expect.objectContaining({ href: "", title: null }),
+          markName: "link",
+        }),
+      );
+    }
+  });
+
   it("serializes links and autolinks from their canonical mark attributes", () => {
     expect(
       createProjectionSource(

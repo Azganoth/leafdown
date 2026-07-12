@@ -1,9 +1,15 @@
-export const SUPPORTED_PROJECTION_MARK_NAMES = ["strong", "emphasis"] as const;
+export const SUPPORTED_PROJECTION_MARK_NAMES = [
+  "strong",
+  "emphasis",
+  "strike_through",
+  "inlineCode",
+  "link",
+] as const;
 
 export type ProjectionEditKind = "delete" | "insert" | "replace";
 export type ProjectionDelimiterSide = "closing" | "opening";
 export type ProjectionMarkName = (typeof SUPPORTED_PROJECTION_MARK_NAMES)[number];
-export type ProjectionMarkerCharacter = "*" | "_";
+export type ProjectionMarkerCharacter = "*" | "_" | "~" | "`";
 
 export interface ProjectionMarkDescriptor {
   attrs: Record<string, unknown>;
@@ -53,25 +59,68 @@ interface NestedProjectionSourceInput {
   text: string;
 }
 
+interface ParsedLinkSource {
+  attrs: Record<string, unknown>;
+  closing: string;
+  opening: string;
+  text: string;
+}
+
+interface ParsedLinkTitle {
+  href: string;
+  title: string;
+}
+
+const LINK_TITLE_PATTERNS = [
+  /^(?<href>.*?)\s+"(?<title>(?:[^"\\]|\\.)*)"\s*$/u,
+  /^(?<href>.*?)\s+'(?<title>(?:[^'\\]|\\.)*)'\s*$/u,
+  /^(?<href>.*?)\s+\((?<title>(?:[^()\\]|\\.)*)\)\s*$/u,
+] as const;
+
 export const parseProjectionSource = (source: string): ParsedProjectionSource => {
+  const link = parseLinkProjectionSource(source);
+
+  if (link) {
+    return createLinkProjectionSource(link);
+  }
+
+  const inlineCode = parseInlineCodeProjectionSource(source);
+
+  if (inlineCode) {
+    return inlineCode;
+  }
+
+  const strikethrough = parseStrikethroughProjectionSource(source);
+
+  if (strikethrough) {
+    return strikethrough;
+  }
+
   const delimited = parseDelimitedProjectionSource(source);
 
-  if (delimited && !shouldParseAsNestedProjection(delimited)) {
-    return delimited;
-  }
+  const nested =
+    delimited && shouldParseAsNestedProjection(delimited)
+      ? parseNestedProjectionSource(source)
+      : null;
+  const parsed = nested ?? delimited;
 
-  const nested = parseNestedProjectionSource(source);
+  if (parsed?.type === "mark") {
+    const nestedLink = parseLinkProjectionSource(parsed.text);
 
-  if (nested) {
-    return nested;
-  }
+    if (nestedLink) {
+      const linkProjection = createLinkProjectionSource(nestedLink);
 
-  return (
-    delimited ?? {
-      text: source,
-      type: "literal",
+      return {
+        closing: `${linkProjection.closing}${parsed.closing}`,
+        marks: [...parsed.marks, ...linkProjection.marks],
+        opening: `${parsed.opening}${linkProjection.opening}`,
+        text: linkProjection.text,
+        type: "mark",
+      };
     }
-  );
+  }
+
+  return parsed ?? { text: source, type: "literal" };
 };
 
 export const normalizeProjectionSourceAfterEdit = (
@@ -98,6 +147,17 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
     return null;
   }
 
+  if (bounds.marker === "`") {
+    if (context.kind !== "insert" || context.delimiterSide !== null) {
+      return null;
+    }
+
+    const text = source.slice(bounds.contentFrom, bounds.contentTo);
+    const marker = getInlineCodeMarker(text);
+
+    return `${marker}${text}${marker}`;
+  }
+
   const markerCount = getNormalizedMarkerCount(bounds, context);
 
   if (markerCount < 1 || markerCount > 3) {
@@ -111,7 +171,7 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
 };
 
 export const getProjectionDelimiterBounds = (source: string): ProjectionDelimiterBounds | null => {
-  const openingMatch = /^(?<opening>\*+|_+)/u.exec(source);
+  const openingMatch = /^(?<opening>\*+|_+|~+|`+)/u.exec(source);
 
   if (!openingMatch?.groups) {
     return null;
@@ -119,7 +179,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
 
   const opening = openingMatch.groups.opening;
   const marker = getMarkerCharacterFromSource(opening);
-  const closingMatch = /(\*+|_+)$/u.exec(source.slice(opening.length));
+  const closingMatch = /(\*+|_+|~+|`+)$/u.exec(source.slice(opening.length));
   const closing = closingMatch?.[0] ?? "";
 
   if (closing && getMarkerCharacterFromSource(closing) !== marker) {
@@ -135,7 +195,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
   };
 };
 
-export const isProjectionMarkerText = (text: string) => /^[*_]+$/u.test(text);
+export const isProjectionMarkerText = (text: string) => /^[*_~`]+$/u.test(text);
 
 export const isProjectionMarkName = (markName: string): markName is ProjectionMarkName =>
   SUPPORTED_PROJECTION_MARK_NAMES.includes(markName as ProjectionMarkName);
@@ -150,7 +210,41 @@ export const areProjectionMarksEqual = (
       leftMark.markName === right[index]?.markName && leftMark.marker === right[index]?.marker,
   );
 
-export const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
+export const getSourceMarkers = (marks: ProjectionMarkDescriptor[], text = "") => {
+  const sourceMarks = marks.filter((mark) => mark.markName !== "link");
+  const inlineCode = sourceMarks.find((mark) => mark.markName === "inlineCode");
+
+  if (inlineCode) {
+    const marker = getInlineCodeMarker(text);
+
+    return { closing: marker, opening: marker };
+  }
+
+  const strikethrough = sourceMarks.find((mark) => mark.markName === "strike_through");
+  const nestedMarks = sourceMarks.filter((mark) => mark.markName !== "strike_through");
+  const nestedMarkers = getSourceMarkersWithoutStrikethrough(nestedMarks);
+
+  if (strikethrough) {
+    const strikethroughMarker = getSourceMarker("strike_through", strikethrough.marker);
+
+    return {
+      closing: `${nestedMarkers.closing}${strikethroughMarker}`,
+      opening: `${strikethroughMarker}${nestedMarkers.opening}`,
+    };
+  }
+
+  return nestedMarkers;
+};
+
+export const createProjectionSource = (marks: ProjectionMarkDescriptor[], text: string) => {
+  const link = marks.find((mark) => mark.markName === "link");
+  const source = link ? serializeLinkProjectionSource(text, link.attrs) : text;
+  const sourceMarkers = getSourceMarkers(marks, source);
+
+  return `${sourceMarkers.opening}${source}${sourceMarkers.closing}`;
+};
+
+const getSourceMarkersWithoutStrikethrough = (marks: ProjectionMarkDescriptor[]) => {
   const strong = marks.find((mark) => mark.markName === "strong");
   const emphasis = marks.find((mark) => mark.markName === "emphasis");
 
@@ -204,6 +298,137 @@ const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource 
   };
 };
 
+const parseStrikethroughProjectionSource = (source: string): ParsedProjectionSource | null => {
+  const text = getWrappedText(source, "~~", "~~");
+
+  if (text === null) {
+    return null;
+  }
+
+  const nested = parseProjectionSource(text);
+  const marks = [
+    createProjectionMarkDescriptorFromSource("strike_through", "~~"),
+    ...(nested.type === "mark" ? nested.marks : []),
+  ];
+
+  return {
+    closing: `${nested.type === "mark" ? nested.closing : ""}~~`,
+    marks,
+    opening: `~~${nested.type === "mark" ? nested.opening : ""}`,
+    text: nested.type === "mark" ? nested.text : text,
+    type: "mark",
+  };
+};
+
+const parseInlineCodeProjectionSource = (source: string): ParsedProjectionSource | null => {
+  const opening = /^`+/u.exec(source)?.[0];
+  const closing = /`+$/u.exec(source)?.[0];
+
+  if (!opening || !closing || opening.length !== closing.length) {
+    return null;
+  }
+
+  const text = source.slice(opening.length, source.length - closing.length);
+
+  if (!text || hasMatchingBacktickRun(text, opening.length)) {
+    return null;
+  }
+
+  return {
+    closing,
+    marks: [createProjectionMarkDescriptorFromSource("inlineCode", opening)],
+    opening,
+    text: normalizeInlineCodeText(text),
+    type: "mark",
+  };
+};
+
+const parseLinkProjectionSource = (source: string): ParsedLinkSource | null => {
+  const autolink = /^<(?<target>[^<>\s]+)>$/u.exec(source);
+
+  if (autolink?.groups?.target) {
+    return {
+      attrs: { href: autolink.groups.target, title: null },
+      closing: ">",
+      opening: "<",
+      text: autolink.groups.target,
+    };
+  }
+
+  const match = /^\[(?<text>.+)\]\((?<body>.*)\)$/su.exec(source);
+  const groups = match?.groups;
+
+  if (!groups?.text) {
+    return null;
+  }
+
+  const body = groups.body.trim();
+  const linkTitle = parseLinkTitle(body);
+  const href = getLinkDestination(linkTitle?.href ?? body);
+
+  return {
+    attrs: {
+      href,
+      title: linkTitle?.title ?? null,
+    },
+    closing: `](${body})`,
+    opening: "[",
+    text: groups.text,
+  };
+};
+
+const parseLinkTitle = (body: string): ParsedLinkTitle | null => {
+  for (const pattern of LINK_TITLE_PATTERNS) {
+    const groups = pattern.exec(body)?.groups;
+
+    if (groups?.href !== undefined && groups.title !== undefined) {
+      return {
+        href: groups.href.trim(),
+        title: groups.title.replaceAll(/\\(.)/gu, "$1"),
+      };
+    }
+  }
+
+  return null;
+};
+
+const getLinkDestination = (destination: string) => (destination === "<>" ? "" : destination);
+
+const createLinkProjectionSource = ({
+  attrs,
+  closing,
+  opening,
+  text,
+}: ParsedLinkSource): Extract<ParsedProjectionSource, { type: "mark" }> => ({
+  closing,
+  marks: [createProjectionMarkDescriptor("link", attrs)],
+  opening,
+  text,
+  type: "mark",
+});
+
+const serializeLinkProjectionSource = (text: string, attrs: Record<string, unknown>) => {
+  const href = String(attrs.href ?? "");
+  const title = attrs.title
+    ? ` "${String(attrs.title).replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`
+    : "";
+
+  return text === href && href && !title ? `<${href}>` : `[${text}](${href}${title})`;
+};
+
+const hasMatchingBacktickRun = (text: string, length: number) =>
+  Array.from(text.matchAll(/`+/gu)).some((match) => match[0].length === length);
+
+const normalizeInlineCodeText = (text: string) => {
+  const normalizedLineEndings = text.replaceAll(/\r\n?|\n/gu, " ");
+
+  return normalizedLineEndings.startsWith(" ") &&
+    normalizedLineEndings.endsWith(" ") &&
+    normalizedLineEndings.trim() !== ""
+    ? normalizedLineEndings.slice(1, -1)
+    : normalizedLineEndings;
+};
+
 const shouldParseAsNestedProjection = (parsed: ParsedProjectionSource) => {
   if (parsed.type !== "mark" || parsed.marks.length !== 1) {
     return false;
@@ -220,6 +445,10 @@ const getNormalizedMarkerCount = (
   bounds: ProjectionDelimiterBounds,
   context: ProjectionEditContext,
 ) => {
+  if (bounds.marker === "~" || bounds.marker === "`") {
+    return 0;
+  }
+
   if (context.delimiterSide === "opening") {
     return Math.min(bounds.opening.length, 3);
   }
@@ -325,7 +554,7 @@ export const createProjectionMarkDescriptor = (
   markName: ProjectionMarkName,
   attrs: Record<string, unknown> = {},
 ): ProjectionMarkDescriptor => {
-  const marker = getMarkerCharacterFromAttrs(attrs);
+  const marker = getMarkerCharacterFromAttrs(markName, attrs);
 
   return {
     attrs: { ...attrs, marker },
@@ -348,13 +577,45 @@ const createProjectionMarkDescriptorFromSource = (
 };
 
 const getSourceMarkerOptions = (markName: ProjectionMarkName) =>
-  markName === "strong" ? (["**", "__"] as const) : (["*", "_"] as const);
+  markName === "strong"
+    ? (["**", "__"] as const)
+    : markName === "strike_through"
+      ? (["~~"] as const)
+      : markName === "inlineCode"
+        ? (["`"] as const)
+        : markName === "link"
+          ? ([] as const)
+          : (["*", "_"] as const);
 
 const getMarkerCharacterFromSource = (markerSyntax: string): ProjectionMarkerCharacter =>
-  markerSyntax.startsWith("_") ? "_" : "*";
+  markerSyntax.startsWith("`")
+    ? "`"
+    : markerSyntax.startsWith("~")
+      ? "~"
+      : markerSyntax.startsWith("_")
+        ? "_"
+        : "*";
 
-const getMarkerCharacterFromAttrs = (attrs: Record<string, unknown>): ProjectionMarkerCharacter =>
-  String(attrs.marker ?? "*") === "_" ? "_" : "*";
+const getMarkerCharacterFromAttrs = (
+  markName: ProjectionMarkName,
+  attrs: Record<string, unknown>,
+): ProjectionMarkerCharacter =>
+  markName === "strike_through"
+    ? "~"
+    : markName === "inlineCode"
+      ? "`"
+      : String(attrs.marker ?? "*") === "_"
+        ? "_"
+        : "*";
 
 const getSourceMarker = (markName: ProjectionMarkName, marker: ProjectionMarkerCharacter) =>
-  markName === "strong" ? marker.repeat(2) : marker;
+  markName === "strong" || markName === "strike_through" ? marker.repeat(2) : marker;
+
+const getInlineCodeMarker = (text: string) => {
+  const longestBacktickRun = Math.max(
+    0,
+    ...Array.from(text.matchAll(/`+/gu), (match) => match[0].length),
+  );
+
+  return "`".repeat(longestBacktickRun + 1);
+};

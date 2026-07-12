@@ -20,7 +20,10 @@ import {
 } from "@/test/utils/prosemirror";
 
 import { runEditorCommand } from "../commands";
-import { hasActiveInlineSourceProjection } from "./inlineSourceProjection";
+import {
+  hasActiveInlineSourceProjection,
+  pasteIntoInlineSourceProjection,
+} from "./inlineSourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
 const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
@@ -44,7 +47,10 @@ const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
 };
 
-const enterProjection = (mounted: MountedMilkdownEditor, selector: "em" | "strong") => {
+const enterProjection = (
+  mounted: MountedMilkdownEditor,
+  selector: "a" | "code" | "del" | "em" | "strong",
+) => {
   const element = getEditorDomElement(mounted, selector);
 
   setSelectionAtElementTextEnd(mounted.view, element);
@@ -108,6 +114,50 @@ describe("inline source projection", () => {
 
       expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
       expect(content).toHaveTextContent("Bold");
+    });
+
+    it("projects strikethrough markers as real editable document text", async () => {
+      const mounted = await mountProjectionEditor("~~Strike~~ plain");
+
+      enterProjection(mounted, "del");
+
+      expect(getEditorTextContent(mounted)).toBe("~~Strike~~ plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
+      expect(
+        mounted.view.dom.querySelector(
+          ".leafdown-inline-source-projection__content--strikethrough",
+        ),
+      ).toHaveTextContent("Strike");
+    });
+
+    it("projects inline-code markers as real editable document text", async () => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      expect(getEditorTextContent(mounted)).toBe("`Code` plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
+      expect(
+        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--inline-code"),
+      ).toHaveTextContent("Code");
+    });
+
+    it("projects link source as real editable document text", async () => {
+      const mounted = await mountProjectionEditor("[Link](https://example.com) plain");
+
+      enterProjection(mounted, "a");
+
+      expect(getEditorTextContent(mounted)).toBe("[Link](https://example.com) plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
+      expect(
+        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--link"),
+      ).toHaveTextContent("Link");
     });
   });
 
@@ -177,6 +227,87 @@ describe("inline source projection", () => {
       expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
     });
 
+    it("commits edited strikethrough source and preserves nested marks", async () => {
+      const mounted = await mountProjectionEditor("~~_**Nested**_~~ plain");
+
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("_**~~Nesteder~~**_ plain\n");
+    });
+
+    it("uses a longer delimiter run when inline-code content gains a backtick", async () => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`Code`");
+
+      setTextSelection(mounted.view, sourceStart + "`Co".length);
+      typeText(mounted.view, "`");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("``Co`de`` plain\n");
+    });
+
+    it("commits edited link and autolink source", async () => {
+      const link = await mountProjectionEditor("[Link](https://example.com) plain");
+
+      enterProjection(link, "a");
+
+      const linkSourceStart = getEditorTextPosition(link, "[Link](https://example.com)");
+
+      setTextSelection(link.view, linkSourceStart + 1);
+      typeText(link.view, "Updated ");
+      setSelectionAtDocumentEnd(link.view);
+
+      expect(link.getMarkdown()).toBe("[Updated Link](https://example.com) plain\n");
+
+      const autolink = await mountProjectionEditor("<https://example.com>");
+
+      enterProjection(autolink, "a");
+
+      const autolinkSourceStart = getEditorTextPosition(autolink, "<https://example.com>");
+
+      setTextSelection(
+        autolink.view,
+        autolinkSourceStart,
+        autolinkSourceStart + "<https://example.com>".length,
+      );
+      expect(pasteIntoInlineSourceProjection(autolink.view, "<https://leafdown.dev>")).toBe(true);
+      setSelectionAtDocumentEnd(autolink.view);
+
+      expect(autolink.getMarkdown()).toBe("<https://leafdown.dev>\n");
+    });
+
+    it("preserves an empty-destination link when its label is edited", async () => {
+      const mounted = await mountProjectionEditor("[Link]()");
+
+      enterProjection(mounted, "a");
+
+      const sourceStart = getEditorTextPosition(mounted, "[Link]()");
+
+      setTextSelection(mounted.view, sourceStart + 1);
+      typeText(mounted.view, "Updated ");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("[Updated Link]()\n");
+      expect(getEditorDomElement(mounted, "a")).toHaveAttribute("href", "");
+    });
+
+    it("preserves a uniform outer strong mark around projected links", async () => {
+      const mounted = await mountProjectionEditor("**[Strong Link](https://example.com)**");
+
+      enterProjection(mounted, "a");
+
+      expect(getEditorTextContent(mounted)).toBe("**[Strong Link](https://example.com)**");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("**[Strong Link](https://example.com)**\n");
+    });
+
     it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {
       const mounted = await mountProjectionEditor("*Soft* plain");
 
@@ -236,6 +367,22 @@ describe("inline source projection", () => {
       expect(mounted.getMarkdown()).toBe("*Soft* plain\n");
     });
 
+    it("forms inline-code projection when a left backtick completes plain source", async () => {
+      const mounted = await mountProjectionEditor("Code` plain");
+
+      const sourceStart = getEditorTextPosition(mounted, "Code`");
+
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, "`");
+
+      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("`Code` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("`Code` plain\n");
+    });
+
     it("keeps outer-boundary text outside the projected content", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
@@ -250,6 +397,20 @@ describe("inline source projection", () => {
       expect(getEditorTextContent(mounted)).toBe(`A${BOLD_PLAIN_MARKDOWN}`);
 
       expect(mounted.getMarkdown()).toBe(`A${BOLD_PLAIN_MARKDOWN}\n`);
+    });
+
+    it.each(["~", "`"])("keeps a foreign marker %s outside a strong projection", async (marker) => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, marker);
+
+      expect(getEditorTextContent(mounted)).toBe(`${marker}${BOLD_PLAIN_MARKDOWN}`);
+      expect(mounted.getMarkdown()).toBe(`\\${marker}${BOLD_PLAIN_MARKDOWN}\n`);
     });
 
     it("inserts delimiter-interior text inside the projected content", async () => {

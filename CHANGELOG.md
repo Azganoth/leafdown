@@ -15,6 +15,8 @@ sections and version names that match the application package version.
 ### Changed
 
 - Sort article directories before articles in the article navigator.
+- Extend seamless in-document Markdown source projection to strikethrough,
+  inline code, links, and autolinks.
 
 ### Fixed
 
@@ -24,6 +26,9 @@ sections and version names that match the application package version.
 - Stop the context popup from forcing an extra caret move from right-click
   coordinates.
 - Position context popups around the active selection.
+- Keep foreign Markdown markers outside active inline source projections.
+- Preserve empty link destinations and GFM link titles while editing projected
+  link source.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

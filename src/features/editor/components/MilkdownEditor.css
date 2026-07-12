@@ -135,7 +135,7 @@
     }
 
     :not(pre) > code {
-      @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
+      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
     pre {
@@ -280,6 +280,18 @@
 
     .leafdown-inline-source-projection__content--emphasis {
       @apply italic;
+    }
+
+    .leafdown-inline-source-projection__content--strikethrough {
+      @apply line-through;
+    }
+
+    .leafdown-inline-source-projection__content--inline-code {
+      @apply text-inherit;
+    }
+
+    .leafdown-inline-source-projection__content--link {
+      @apply text-primary underline underline-offset-2;
     }
 
     .leafdown-source-edit {

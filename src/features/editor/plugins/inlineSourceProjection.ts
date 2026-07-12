@@ -12,10 +12,10 @@ import { isNonNullish } from "@/lib/predicates";
 
 import {
   areProjectionMarksEqual,
+  createProjectionSource,
   createProjectionMarkDescriptor,
   getProjectionDelimiterBounds,
   getProjectionReplacement,
-  getSourceMarkers,
   isProjectionMarkerText,
   isProjectionMarkName,
   normalizeProjectionSourceAfterEdit,
@@ -432,6 +432,12 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
       "leafdown-inline-source-projection__content--strong",
     marks.some((mark) => mark.markName === "emphasis") &&
       "leafdown-inline-source-projection__content--emphasis",
+    marks.some((mark) => mark.markName === "strike_through") &&
+      "leafdown-inline-source-projection__content--strikethrough",
+    marks.some((mark) => mark.markName === "inlineCode") &&
+      "leafdown-inline-source-projection__content--inline-code",
+    marks.some((mark) => mark.markName === "link") &&
+      "leafdown-inline-source-projection__content--link",
   ]
     .filter(isNonNullish)
     .join(" ");
@@ -447,7 +453,7 @@ const handleProjectionTextInput = (view: EditorView, from: number, to: number, t
     return false;
   }
 
-  if (isOuterProjectionTextInsertion(session, from, to, text)) {
+  if (isOuterProjectionTextInsertion(view.state, session, from, to, text)) {
     return false;
   }
 
@@ -457,6 +463,7 @@ const handleProjectionTextInput = (view: EditorView, from: number, to: number, t
 };
 
 const isOuterProjectionTextInsertion = (
+  state: EditorState,
   session: ProjectionSession,
   from: number,
   to: number,
@@ -464,7 +471,7 @@ const isOuterProjectionTextInsertion = (
 ) =>
   from === to &&
   text.length > 0 &&
-  !isProjectionMarkerText(text) &&
+  !isActiveProjectionMarkerText(getProjectionSource(state, session), text) &&
   (from === session.from || from === session.to);
 
 const handleProjectionSourceTextInput = (
@@ -718,7 +725,7 @@ const getProjectionEdit = (
     text,
   );
 
-  if (kind === "insert" && !isProjectionMarkerText(text)) {
+  if (kind === "insert" && !isActiveProjectionMarkerText(source, text)) {
     const bounds = getProjectionDelimiterBounds(source);
     const remappedPosition = bounds
       ? getContentBoundaryInsertionPosition(bounds, normalizedFrom)
@@ -750,7 +757,7 @@ const getProjectionEditedDelimiterSide = (
     return null;
   }
 
-  if (isProjectionMarkerText(text) && from === to) {
+  if (isActiveProjectionMarkerText(source, text) && from === to) {
     if (from <= bounds.contentFrom) {
       return "opening";
     }
@@ -773,6 +780,16 @@ const getProjectionEditedDelimiterSide = (
   }
 
   return null;
+};
+
+const isActiveProjectionMarkerText = (source: string, text: string) => {
+  const bounds = getProjectionDelimiterBounds(source);
+
+  if (!bounds) {
+    return isProjectionMarkerText(text);
+  }
+
+  return text.length > 0 && Array.from(text).every((character) => character === bounds.marker);
 };
 
 const getContentBoundaryInsertionPosition = (
@@ -873,22 +890,24 @@ const getNextCharacterRange = (
 
 const createEnterProjectionTransaction = (state: EditorState, range: ActiveProjectionRange) => {
   const originalText = getRangeText(state.doc, range);
-  const sourceMarkers = getSourceMarkers(range.marks);
-  const originalSource = `${sourceMarkers.opening}${originalText}${sourceMarkers.closing}`;
+  const originalSource = createProjectionSource(range.marks, originalText);
+  const sourceTextOffset = originalSource.indexOf(originalText);
   const selectionOffset = Math.min(
     Math.max(state.selection.from - range.from, 0),
     originalText.length,
   );
-  const selectionPosition = range.from + sourceMarkers.opening.length + selectionOffset;
+  const selectionPosition = range.from + sourceTextOffset + selectionOffset;
   const session = createProjectionSession({
     from: range.from,
     marks: range.marks,
     originalSource,
     originalText,
   });
+  const closingSource = originalSource.slice(sourceTextOffset + originalText.length);
+  const openingSource = originalSource.slice(0, sourceTextOffset);
   const transaction = state.tr
-    .replaceWith(range.to, range.to, state.schema.text(sourceMarkers.closing))
-    .replaceWith(range.from, range.from, state.schema.text(sourceMarkers.opening));
+    .replaceWith(range.to, range.to, state.schema.text(closingSource))
+    .replaceWith(range.from, range.from, state.schema.text(openingSource));
 
   transaction
     .setSelection(TextSelection.create(transaction.doc, selectionPosition))
@@ -1258,6 +1277,14 @@ const getProjectionMarksForRange = (
 };
 
 const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+  const inlineCode = node.marks.find((mark) => mark.type.name === "inlineCode");
+
+  if (inlineCode) {
+    return node.marks.length === 1
+      ? [createProjectionMarkDescriptor("inlineCode", inlineCode.attrs)]
+      : [];
+  }
+
   if (node.marks.some((mark) => !isProjectionMarkName(mark.type.name))) {
     return [];
   }

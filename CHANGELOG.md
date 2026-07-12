@@ -15,6 +15,8 @@ sections and version names that match the application package version.
 ### Changed
 
 - Sort article directories before articles in the article navigator.
+- Extend seamless in-document Markdown source projection to strikethrough,
+  inline code, links, and autolinks.
 
 ### Fixed
 

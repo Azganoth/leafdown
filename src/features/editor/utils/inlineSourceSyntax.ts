@@ -1,9 +1,9 @@
-export const SUPPORTED_PROJECTION_MARK_NAMES = ["strong", "emphasis"] as const;
+export const SUPPORTED_PROJECTION_MARK_NAMES = ["strong", "emphasis", "strike_through"] as const;
 
 export type ProjectionEditKind = "delete" | "insert" | "replace";
 export type ProjectionDelimiterSide = "closing" | "opening";
 export type ProjectionMarkName = (typeof SUPPORTED_PROJECTION_MARK_NAMES)[number];
-export type ProjectionMarkerCharacter = "*" | "_";
+export type ProjectionMarkerCharacter = "*" | "_" | "~";
 
 export interface ProjectionMarkDescriptor {
   attrs: Record<string, unknown>;
@@ -54,6 +54,12 @@ interface NestedProjectionSourceInput {
 }
 
 export const parseProjectionSource = (source: string): ParsedProjectionSource => {
+  const strikethrough = parseStrikethroughProjectionSource(source);
+
+  if (strikethrough) {
+    return strikethrough;
+  }
+
   const delimited = parseDelimitedProjectionSource(source);
 
   if (delimited && !shouldParseAsNestedProjection(delimited)) {
@@ -111,7 +117,7 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
 };
 
 export const getProjectionDelimiterBounds = (source: string): ProjectionDelimiterBounds | null => {
-  const openingMatch = /^(?<opening>\*+|_+)/u.exec(source);
+  const openingMatch = /^(?<opening>\*+|_+|~+)/u.exec(source);
 
   if (!openingMatch?.groups) {
     return null;
@@ -119,7 +125,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
 
   const opening = openingMatch.groups.opening;
   const marker = getMarkerCharacterFromSource(opening);
-  const closingMatch = /(\*+|_+)$/u.exec(source.slice(opening.length));
+  const closingMatch = /(\*+|_+|~+)$/u.exec(source.slice(opening.length));
   const closing = closingMatch?.[0] ?? "";
 
   if (closing && getMarkerCharacterFromSource(closing) !== marker) {
@@ -135,7 +141,7 @@ export const getProjectionDelimiterBounds = (source: string): ProjectionDelimite
   };
 };
 
-export const isProjectionMarkerText = (text: string) => /^[*_]+$/u.test(text);
+export const isProjectionMarkerText = (text: string) => /^[*_~]+$/u.test(text);
 
 export const isProjectionMarkName = (markName: string): markName is ProjectionMarkName =>
   SUPPORTED_PROJECTION_MARK_NAMES.includes(markName as ProjectionMarkName);
@@ -151,6 +157,23 @@ export const areProjectionMarksEqual = (
   );
 
 export const getSourceMarkers = (marks: ProjectionMarkDescriptor[]) => {
+  const strikethrough = marks.find((mark) => mark.markName === "strike_through");
+  const nestedMarks = marks.filter((mark) => mark.markName !== "strike_through");
+  const nestedMarkers = getSourceMarkersWithoutStrikethrough(nestedMarks);
+
+  if (strikethrough) {
+    const strikethroughMarker = getSourceMarker("strike_through", strikethrough.marker);
+
+    return {
+      closing: `${nestedMarkers.closing}${strikethroughMarker}`,
+      opening: `${strikethroughMarker}${nestedMarkers.opening}`,
+    };
+  }
+
+  return nestedMarkers;
+};
+
+const getSourceMarkersWithoutStrikethrough = (marks: ProjectionMarkDescriptor[]) => {
   const strong = marks.find((mark) => mark.markName === "strong");
   const emphasis = marks.find((mark) => mark.markName === "emphasis");
 
@@ -204,6 +227,28 @@ const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource 
   };
 };
 
+const parseStrikethroughProjectionSource = (source: string): ParsedProjectionSource | null => {
+  const text = getWrappedText(source, "~~", "~~");
+
+  if (text === null) {
+    return null;
+  }
+
+  const nested = parseProjectionSource(text);
+  const marks = [
+    createProjectionMarkDescriptorFromSource("strike_through", "~~"),
+    ...(nested.type === "mark" ? nested.marks : []),
+  ];
+
+  return {
+    closing: `${nested.type === "mark" ? nested.closing : ""}~~`,
+    marks,
+    opening: `~~${nested.type === "mark" ? nested.opening : ""}`,
+    text: nested.type === "mark" ? nested.text : text,
+    type: "mark",
+  };
+};
+
 const shouldParseAsNestedProjection = (parsed: ParsedProjectionSource) => {
   if (parsed.type !== "mark" || parsed.marks.length !== 1) {
     return false;
@@ -220,6 +265,10 @@ const getNormalizedMarkerCount = (
   bounds: ProjectionDelimiterBounds,
   context: ProjectionEditContext,
 ) => {
+  if (bounds.marker === "~") {
+    return 0;
+  }
+
   if (context.delimiterSide === "opening") {
     return Math.min(bounds.opening.length, 3);
   }
@@ -325,7 +374,7 @@ export const createProjectionMarkDescriptor = (
   markName: ProjectionMarkName,
   attrs: Record<string, unknown> = {},
 ): ProjectionMarkDescriptor => {
-  const marker = getMarkerCharacterFromAttrs(attrs);
+  const marker = getMarkerCharacterFromAttrs(markName, attrs);
 
   return {
     attrs: { ...attrs, marker },
@@ -348,13 +397,20 @@ const createProjectionMarkDescriptorFromSource = (
 };
 
 const getSourceMarkerOptions = (markName: ProjectionMarkName) =>
-  markName === "strong" ? (["**", "__"] as const) : (["*", "_"] as const);
+  markName === "strong"
+    ? (["**", "__"] as const)
+    : markName === "strike_through"
+      ? (["~~"] as const)
+      : (["*", "_"] as const);
 
 const getMarkerCharacterFromSource = (markerSyntax: string): ProjectionMarkerCharacter =>
-  markerSyntax.startsWith("_") ? "_" : "*";
+  markerSyntax.startsWith("~") ? "~" : markerSyntax.startsWith("_") ? "_" : "*";
 
-const getMarkerCharacterFromAttrs = (attrs: Record<string, unknown>): ProjectionMarkerCharacter =>
-  String(attrs.marker ?? "*") === "_" ? "_" : "*";
+const getMarkerCharacterFromAttrs = (
+  markName: ProjectionMarkName,
+  attrs: Record<string, unknown>,
+): ProjectionMarkerCharacter =>
+  markName === "strike_through" ? "~" : String(attrs.marker ?? "*") === "_" ? "_" : "*";
 
 const getSourceMarker = (markName: ProjectionMarkName, marker: ProjectionMarkerCharacter) =>
-  markName === "strong" ? marker.repeat(2) : marker;
+  markName === "strong" || markName === "strike_through" ? marker.repeat(2) : marker;

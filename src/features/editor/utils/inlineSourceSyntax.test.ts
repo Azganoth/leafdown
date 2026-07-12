@@ -79,6 +79,13 @@ describe("inline source syntax", () => {
       source: "___Strong emphasis___",
       text: "Strong emphasis",
     },
+    {
+      closing: "~~",
+      marks: [expectedMark("strike_through", "~")],
+      opening: "~~",
+      source: "~~Strikethrough~~",
+      text: "Strikethrough",
+    },
   ])("parses simple delimited source $source", ({ source, ...expected }) => {
     expectMarkSource(source, expected);
   });
@@ -117,6 +124,19 @@ describe("inline source syntax", () => {
     });
   });
 
+  it("parses strikethrough around nested strong and emphasis", () => {
+    expectMarkSource("~~_**Nested**_~~", {
+      closing: "**_~~",
+      marks: [
+        expectedMark("strike_through", "~"),
+        expectedMark("strong", "*"),
+        expectedMark("emphasis", "_"),
+      ],
+      opening: "~~_**",
+      text: "Nested",
+    });
+  });
+
   it.each(["plain text", "**Mismatched*", "*", "__"])(
     "treats unsupported source %s as literal",
     (source) => {
@@ -149,6 +169,19 @@ describe("inline source syntax", () => {
     ).toEqual({
       closing: "**_",
       opening: "_**",
+    });
+  });
+
+  it("wraps nested projection source with strikethrough markers", () => {
+    expect(
+      getSourceMarkers([
+        { attrs: { marker: "*" }, marker: "*", markName: "strong" },
+        { attrs: { marker: "_" }, marker: "_", markName: "emphasis" },
+        { attrs: { marker: "~" }, marker: "~", markName: "strike_through" },
+      ]),
+    ).toEqual({
+      closing: "**_~~",
+      opening: "~~_**",
     });
   });
 

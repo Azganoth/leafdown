@@ -44,7 +44,7 @@ const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
 };
 
-const enterProjection = (mounted: MountedMilkdownEditor, selector: "em" | "strong") => {
+const enterProjection = (mounted: MountedMilkdownEditor, selector: "del" | "em" | "strong") => {
   const element = getEditorDomElement(mounted, selector);
 
   setSelectionAtElementTextEnd(mounted.view, element);
@@ -108,6 +108,22 @@ describe("inline source projection", () => {
 
       expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
       expect(content).toHaveTextContent("Bold");
+    });
+
+    it("projects strikethrough markers as real editable document text", async () => {
+      const mounted = await mountProjectionEditor("~~Strike~~ plain");
+
+      enterProjection(mounted, "del");
+
+      expect(getEditorTextContent(mounted)).toBe("~~Strike~~ plain");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
+      ).not.toBeInTheDocument();
+      expect(
+        mounted.view.dom.querySelector(
+          ".leafdown-inline-source-projection__content--strikethrough",
+        ),
+      ).toHaveTextContent("Strike");
     });
   });
 
@@ -175,6 +191,16 @@ describe("inline source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       expect(mounted.getMarkdown()).toBe("*Bold* plain\n");
+    });
+
+    it("commits edited strikethrough source and preserves nested marks", async () => {
+      const mounted = await mountProjectionEditor("~~_**Nested**_~~ plain");
+
+      enterProjection(mounted, "strong");
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("_**~~Nesteder~~**_ plain\n");
     });
 
     it("upgrades emphasis projection to strong when a marker is typed at the delimiter", async () => {

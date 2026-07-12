@@ -432,6 +432,8 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
       "leafdown-inline-source-projection__content--strong",
     marks.some((mark) => mark.markName === "emphasis") &&
       "leafdown-inline-source-projection__content--emphasis",
+    marks.some((mark) => mark.markName === "strike_through") &&
+      "leafdown-inline-source-projection__content--strikethrough",
   ]
     .filter(isNonNullish)
     .join(" ");

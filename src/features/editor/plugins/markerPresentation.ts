@@ -27,7 +27,7 @@ interface ParsedMarkSource {
   text: string;
 }
 
-const INLINE_SOURCE_MARK_NAMES = ["inlineCode", "link", "strike_through"] as const;
+const INLINE_SOURCE_MARK_NAMES = ["inlineCode", "link"] as const;
 const SOURCE_NODE_NAMES = new Set(["footnote_reference", "html"]);
 
 export const createLeafdownMarkerPresentationPlugin = () =>

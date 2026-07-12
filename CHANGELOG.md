@@ -18,6 +18,7 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Exclude trailing whitespace when selecting words by double-clicking text.
 - Disable browser and editor writing suggestions in the editor.
 - Keep open dialogs visible while dragging the titlebar.
 - Stop the context popup from forcing an extra caret move from right-click

@@ -22,6 +22,7 @@ import {
   type LeafdownContextPopupPluginOptions,
 } from "../plugins/contextPopup";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
+import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import {
   createLeafdownInlineSourceProjectionPlugin,
@@ -97,6 +98,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownInlineSourceProjectionPlugin())
+    .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))

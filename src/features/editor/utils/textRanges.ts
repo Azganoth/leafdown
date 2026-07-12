@@ -22,29 +22,33 @@ export const getTextBetween = (source: Fragment | ProseMirrorNode, from: number,
 export const getRangeText = (source: Fragment | ProseMirrorNode, { from, to }: TextRange) =>
   getTextBetween(source, from, to);
 
-const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo | null => {
-  const { selection } = state;
-
-  if (!isTextCaretSelection(selection)) {
-    return null;
-  }
-
-  const textBlock = selection.$from.parent;
+const getTextBlockSelectionInfoAtPosition = (
+  state: EditorState,
+  position: number,
+): TextBlockSelectionInfo | null => {
+  const $position = state.doc.resolve(position);
+  const textBlock = $position.parent;
 
   if (!textBlock.isTextblock) {
     return null;
   }
 
   return {
-    offset: selection.$from.parentOffset,
-    start: selection.$from.start(),
+    offset: $position.parentOffset,
+    start: $position.start(),
     text: getTextBetween(textBlock, 0, textBlock.content.size),
   };
 };
 
-export const getTextWordRangeAtSelection = (state: EditorState): TextRange | null => {
-  const info = getTextBlockSelectionInfo(state);
+const getTextBlockSelectionInfo = (state: EditorState): TextBlockSelectionInfo | null => {
+  const { selection } = state;
 
+  return isTextCaretSelection(selection)
+    ? getTextBlockSelectionInfoAtPosition(state, selection.from)
+    : null;
+};
+
+const getTextWordRange = (info: TextBlockSelectionInfo | null): TextRange | null => {
   if (!info?.text) {
     return null;
   }
@@ -76,6 +80,21 @@ export const getTextWordRangeAtSelection = (state: EditorState): TextRange | nul
     from: start + fromOffset,
     to: start + toOffset,
   };
+};
+
+export const getTextWordRangeAtPosition = (
+  state: EditorState,
+  position: number,
+): TextRange | null => getTextWordRange(getTextBlockSelectionInfoAtPosition(state, position));
+
+export const getTextWordRangeAtSelection = (state: EditorState): TextRange | null => {
+  const { selection } = state;
+
+  if (!isTextCaretSelection(selection)) {
+    return null;
+  }
+
+  return getTextWordRangeAtPosition(state, selection.from);
 };
 
 export const getTextWordRangeBeforeSelection = (state: EditorState): TextRange | null => {

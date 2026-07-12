@@ -453,7 +453,7 @@ const handleProjectionTextInput = (view: EditorView, from: number, to: number, t
     return false;
   }
 
-  if (isOuterProjectionTextInsertion(session, from, to, text)) {
+  if (isOuterProjectionTextInsertion(view.state, session, from, to, text)) {
     return false;
   }
 
@@ -463,6 +463,7 @@ const handleProjectionTextInput = (view: EditorView, from: number, to: number, t
 };
 
 const isOuterProjectionTextInsertion = (
+  state: EditorState,
   session: ProjectionSession,
   from: number,
   to: number,
@@ -470,7 +471,7 @@ const isOuterProjectionTextInsertion = (
 ) =>
   from === to &&
   text.length > 0 &&
-  !isProjectionMarkerText(text) &&
+  !isActiveProjectionMarkerText(getProjectionSource(state, session), text) &&
   (from === session.from || from === session.to);
 
 const handleProjectionSourceTextInput = (
@@ -724,7 +725,7 @@ const getProjectionEdit = (
     text,
   );
 
-  if (kind === "insert" && !isProjectionMarkerText(text)) {
+  if (kind === "insert" && !isActiveProjectionMarkerText(source, text)) {
     const bounds = getProjectionDelimiterBounds(source);
     const remappedPosition = bounds
       ? getContentBoundaryInsertionPosition(bounds, normalizedFrom)
@@ -756,7 +757,7 @@ const getProjectionEditedDelimiterSide = (
     return null;
   }
 
-  if (isProjectionMarkerText(text) && from === to) {
+  if (isActiveProjectionMarkerText(source, text) && from === to) {
     if (from <= bounds.contentFrom) {
       return "opening";
     }
@@ -779,6 +780,16 @@ const getProjectionEditedDelimiterSide = (
   }
 
   return null;
+};
+
+const isActiveProjectionMarkerText = (source: string, text: string) => {
+  const bounds = getProjectionDelimiterBounds(source);
+
+  if (!bounds) {
+    return isProjectionMarkerText(text);
+  }
+
+  return text.length > 0 && Array.from(text).every((character) => character === bounds.marker);
 };
 
 const getContentBoundaryInsertionPosition = (

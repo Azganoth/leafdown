@@ -384,6 +384,20 @@ describe("inline source projection", () => {
       expect(mounted.getMarkdown()).toBe(`A${BOLD_PLAIN_MARKDOWN}\n`);
     });
 
+    it.each(["~", "`"])("keeps a foreign marker %s outside a strong projection", async (marker) => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, marker);
+
+      expect(getEditorTextContent(mounted)).toBe(`${marker}${BOLD_PLAIN_MARKDOWN}`);
+      expect(mounted.getMarkdown()).toBe(`\\${marker}${BOLD_PLAIN_MARKDOWN}\n`);
+    });
+
     it("inserts delimiter-interior text inside the projected content", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

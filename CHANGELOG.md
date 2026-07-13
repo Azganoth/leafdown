@@ -34,6 +34,8 @@ sections and version names that match the application package version.
 - Keep foreign Markdown markers outside active source projections.
 - Preserve empty link destinations and GFM link titles while editing projected
   link source.
+- Project mixed-format link labels as one editable source object and preserve
+  one logical outer link wrapper when saving Markdown.
 - Let `Enter` and `Shift+Enter` continue through normal editor behavior after
   committing projected source, immediately project formatted content that moves
   with the caret, and avoid using `Escape` to close projection.

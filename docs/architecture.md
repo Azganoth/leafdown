@@ -103,9 +103,19 @@ source is committed literally so projected characters are never discarded.
 Registered object adapters own target discovery and precedence, source
 generation, entry and clean-restoration transforms, validation and rehydration,
 presentation spans, and selection mapping. The current mark adapter supports
-strong, emphasis, strikethrough, inline code, links, and autolinks. Future rich
-inline wrappers and atomic inline nodes extend the adapter boundary independently;
-the shared lifecycle must not acquire mark-specific syntax assumptions.
+strong, emphasis, strikethrough, and inline code. A higher-precedence logical
+link adapter owns links and autolinks as complete text-only wrappers, including
+rich labels whose child text nodes carry different nested marks. It uses
+Milkdown's parser and Remark syntax tree to validate one outer link and map
+source positions, then rehydrates the parsed inline fragment or falls back to
+literal text.
+
+Milkdown's default serializer can emit adjacent link wrappers when one logical
+link contains mixed child marks. Leafdown wraps serialization with a transient,
+collision-free placeholder transform so saved Markdown retains one outer link
+without placing placeholders in editor state or history. Future rich inline
+wrappers and atomic inline nodes extend the adapter boundary independently; the
+shared lifecycle must not acquire object-specific syntax assumptions.
 
 Marker presentation is a separate capability. Decorations may style active
 source, but projected Markdown remains real ProseMirror document text rather than

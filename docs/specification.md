@@ -184,9 +184,13 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   than preserving the exact source delimiter length.
 - Link and autolink projection exposes their source directly in the document;
   links preserve their label, target, optional title, and compatible uniform
-  outer inline formatting. A link remains one semantic projection owner:
-  mixed-format labels do not fall back to fragmented projections for their
-  nested marks.
+  outer inline formatting. A link remains one semantic projection owner. A
+  caret or contained text selection anywhere in a text-only label projects the
+  complete link source, including labels with nested strong, emphasis,
+  strikethrough, or inline-code formatting. Valid edits rehydrate one link over
+  the complete rich label; invalid or incomplete edits become exact literal
+  text. Mixed-format labels do not fall back to fragmented projections for
+  their nested marks.
 - A selection crossing plain text, another exact mark combination, another
   inline object, or a text-block boundary does not activate projection. When a
   selection crosses into or out of an active source projection, the projection

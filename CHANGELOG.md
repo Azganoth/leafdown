@@ -20,6 +20,7 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Preserve text and spacing when removing formatting from part of an inline span.
 - Exclude trailing whitespace when selecting words by double-clicking text.
 - Disable browser and editor writing suggestions in the editor.
 - Keep open dialogs visible while dragging the titlebar.

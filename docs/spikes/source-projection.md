@@ -66,17 +66,27 @@ source-projection session engine with object-specific adapters.
   presentation spans, and selection mapping.
 - Active source is unmarked, editable document text. Invalid source commits as
   literal document text so no projected character is lost.
-- The first adapter preserves the existing mark behavior for strong, emphasis,
-  strikethrough, inline code, links, and autolinks.
-- A link-wrapper adapter for #58 and an atomic-node adapter for #60 can extend
-  the same engine independently. Neither feature depends on the other.
+- The mark adapter preserves source behavior for strong, emphasis,
+  strikethrough, and inline code.
+- A higher-precedence logical-link adapter owns text-only links and autolinks as
+  complete wrappers, including mixed-format labels. It validates source through
+  Milkdown's parser and Remark AST, maps selections across nested label syntax,
+  and rehydrates a rich inline fragment with one link mark over the full label.
+- A serialization wrapper preserves one logical outer link in saved Markdown
+  when Milkdown's default serializer would split a mixed-format label into
+  adjacent links. Its placeholders exist only in a temporary serialization
+  document and never enter editor state or history.
+- An atomic-node adapter for #60 can extend the same engine independently; it
+  does not share the logical-link implementation.
 
 The implementation is split between
 `src/features/editor/plugins/sourceProjection.ts`, the shared lifecycle engine;
 `src/features/editor/utils/sourceProjectionAdapters.ts`, the adapter contract,
 registry, and current mark adapter; and
 `src/features/editor/utils/sourceProjectionSyntax.ts`, the current mark syntax
-parser and source builder. Marker presentation remains a separate capability.
+parser and source builder. Logical-link behavior is split between
+`sourceProjectionLinkAdapter.ts`, `sourceProjectionLinkSyntax.ts`, and
+`logicalLinkMarkdown.ts`. Marker presentation remains a separate capability.
 
 ## Original Probe Results
 

@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setSelectionAtDocumentEnd, typeText } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
@@ -157,5 +158,51 @@ describe("Markdown compatibility", () => {
     expect(mounted.view.dom).toHaveClass("ProseMirror");
     expect(mounted.view.dom).toHaveTextContent("Edge Input");
     expect(() => mounted.getMarkdown()).not.toThrow();
+  });
+
+  it.each([
+    "[plain **bold**](https://example.com)",
+    "[**bold** plain](https://example.com)",
+    "[plain *soft* and ~~strike~~](https://example.com)",
+    "[plain `code` and **bold**](https://example.com)",
+    "[plain \\* literal and **bold**](https://example.com)",
+    '**[plain *soft*](https://example.com "Title")**',
+    "[plain **bold**]()",
+    "[a](https://example.com) [b](https://example.com)",
+    "[one **bold**](first) and [two *soft*](second)",
+    "<https://example.com>",
+  ])("preserves logical link wrappers in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("uses logical link serialization for Markdown update listeners", async () => {
+    const onMarkdownUpdated = vi.fn();
+    const mounted = await mountEditor("[plain **bold**](first)\n\nTail", { onMarkdownUpdated });
+
+    vi.useFakeTimers();
+
+    try {
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, "!");
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(onMarkdownUpdated).toHaveBeenCalledWith({
+        markdown: "[plain **bold**](first)\n\nTail!\n",
+        previousMarkdown: "[plain **bold**](first)\n\nTail\n",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    "[before](https://example.com/LEAFDOWNLOGICALLINK0PLACEHOLDER) [plain **bold**](target)",
+    '[before](https://example.com "LEAFDOWNLOGICALLINK0PLACEHOLDER") [plain **bold**](target)',
+  ])("avoids logical-link placeholder collisions in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 });

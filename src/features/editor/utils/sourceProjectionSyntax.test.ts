@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   createProjectionMarkDescriptor,
-  createProjectionSource,
   getProjectionReplacement,
   getSourceMarkers,
   normalizeProjectionSourceAfterEdit,
@@ -145,15 +144,20 @@ describe("source projection syntax", () => {
     });
   });
 
-  it.each(["plain text", "**Mismatched*", "*", "__", "[Link]("])(
-    "treats unsupported source %s as literal",
-    (source) => {
-      expect(parseProjectionSource(source)).toEqual({
-        text: source,
-        type: "literal",
-      });
-    },
-  );
+  it.each([
+    "plain text",
+    "**Mismatched*",
+    "*",
+    "__",
+    "[Link](",
+    "[Link](https://example.com)",
+    "<https://example.com>",
+  ])("treats unsupported source %s as literal", (source) => {
+    expect(parseProjectionSource(source)).toEqual({
+      text: source,
+      type: "literal",
+    });
+  });
 
   it("creates replacements from parsed source text", () => {
     expect(getProjectionReplacement(parseProjectionSource("plain text"))).toEqual({
@@ -211,102 +215,13 @@ describe("source projection syntax", () => {
     });
   });
 
-  it.each([
-    {
-      closing: "](https://example.com)",
-      marks: [expectedMark("link", "*")],
-      opening: "[",
-      source: "[Link](https://example.com)",
-      text: "Link",
-    },
-    {
-      closing: ">",
-      marks: [expectedMark("link", "*")],
-      opening: "<",
-      source: "<https://example.com>",
-      text: "https://example.com",
-    },
-  ])("parses link projection source $source", ({ source, ...expected }) => {
-    expectMarkSource(source, expected);
-  });
-
-  it("parses a link nested in strong source", () => {
+  it("keeps link-like text inside ordinary mark source literal", () => {
     expectMarkSource("**[Link](https://example.com)**", {
-      closing: "](https://example.com)**",
-      marks: [expectedMark("strong", "*"), expectedMark("link", "*")],
-      opening: "**[",
-      text: "Link",
+      closing: "**",
+      marks: [expectedMark("strong", "*")],
+      opening: "**",
+      text: "[Link](https://example.com)",
     });
-  });
-
-  it("parses and unescapes an optional link title", () => {
-    const parsed = parseProjectionSource('[Link](https://example.com "A \\"title\\"")');
-
-    expect(parsed).toMatchObject({
-      closing: '](https://example.com "A \\"title\\"")',
-      opening: "[",
-      text: "Link",
-      type: "mark",
-    });
-    expect(parsed.type).toBe("mark");
-
-    if (parsed.type === "mark") {
-      expect(parsed.marks).toContainEqual(
-        expect.objectContaining({
-          attrs: expect.objectContaining({ href: "https://example.com", title: 'A "title"' }),
-          markName: "link",
-        }),
-      );
-    }
-  });
-
-  it.each([
-    { source: '[Link](https://example.com "Double")', title: "Double" },
-    { source: "[Link](https://example.com 'Single')", title: "Single" },
-    { source: "[Link](https://example.com (Parenthesized))", title: "Parenthesized" },
-  ])("parses the GFM link title delimiter in $source", ({ source, title }) => {
-    const parsed = parseProjectionSource(source);
-
-    expect(parsed.type).toBe("mark");
-
-    if (parsed.type === "mark") {
-      expect(parsed.marks).toContainEqual(
-        expect.objectContaining({
-          attrs: expect.objectContaining({ href: "https://example.com", title }),
-          markName: "link",
-        }),
-      );
-    }
-  });
-
-  it.each(["[Link]()", "[Link](<>)"])("parses an empty link destination in %s", (source) => {
-    const parsed = parseProjectionSource(source);
-
-    expect(parsed.type).toBe("mark");
-
-    if (parsed.type === "mark") {
-      expect(parsed.marks).toContainEqual(
-        expect.objectContaining({
-          attrs: expect.objectContaining({ href: "", title: null }),
-          markName: "link",
-        }),
-      );
-    }
-  });
-
-  it("serializes links and autolinks from their canonical mark attributes", () => {
-    expect(
-      createProjectionSource(
-        [{ attrs: { href: "https://example.com", title: null }, marker: "*", markName: "link" }],
-        "Link",
-      ),
-    ).toBe("[Link](https://example.com)");
-    expect(
-      createProjectionSource(
-        [{ attrs: { href: "https://example.com", title: null }, marker: "*", markName: "link" }],
-        "https://example.com",
-      ),
-    ).toBe("<https://example.com>");
   });
 
   it("normalizes descriptor marker attrs", () => {

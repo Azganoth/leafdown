@@ -31,6 +31,7 @@ import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
+import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import {
   createLeafdownSourceProjectionPlugin,
@@ -103,6 +104,7 @@ export const createMilkdownEditor = async ({
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
     .use(gfm)
+    .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
     .use(history)
     .use(clipboard)

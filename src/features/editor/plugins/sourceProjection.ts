@@ -508,11 +508,10 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
     return didRedo;
   }
 
-  if (event.key === "Enter" || event.key === "Escape") {
-    event.preventDefault();
+  if (event.key === "Enter") {
     finalizeSourceProjection(view);
 
-    return true;
+    return false;
   }
 
   if (event.key !== "Backspace" && event.key !== "Delete") {

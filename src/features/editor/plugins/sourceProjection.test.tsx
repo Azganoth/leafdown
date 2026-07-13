@@ -740,6 +740,90 @@ describe("source projection", () => {
     });
   });
 
+  describe("keyboard handoff", () => {
+    it("delegates Enter and projects the formatted content after the split", async () => {
+      const mounted = await mountProjectionEditor("**LeftRight**");
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**LeftRight**");
+
+      setTextSelection(mounted.view, sourceStart + "**Left".length);
+      typeText(mounted.view, " edited");
+
+      const { handled } = runKeyDownHandlers(mounted.view, "Enter");
+
+      expect(handled).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(mounted.view.dom.querySelectorAll("p")).toHaveLength(2);
+      expect(
+        Array.from(mounted.view.dom.querySelectorAll("strong"), (element) => element.textContent),
+      ).toEqual(["Left edited"]);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("Right");
+      expect(mounted.view.state.selection.$from.parent.textContent).toBe("**Right**");
+      expect(mounted.view.state.selection.$from.parentOffset).toBe(2);
+    });
+
+    it("delegates Shift+Enter and projects the formatted content after the break", async () => {
+      const mounted = await mountProjectionEditor("**LeftRight**");
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**LeftRight**");
+
+      setTextSelection(mounted.view, sourceStart + "**Left".length);
+
+      const { handled } = runKeyDownHandlers(mounted.view, "Enter", { shift: true });
+
+      expect(handled).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(mounted.view.dom.querySelector("br")).toBeInTheDocument();
+      expect(
+        Array.from(mounted.view.dom.querySelectorAll("strong"), (element) => element.textContent),
+      ).toEqual(["Left"]);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("Right");
+    });
+
+    it("delegates Enter after committing invalid projected source literally", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+      setTextSelection(
+        mounted.view,
+        sourceStart + "**Bold*".length,
+        sourceStart + "**Bold**".length,
+      );
+      typeText(mounted.view, "_");
+      setTextSelection(mounted.view, sourceStart + "**Bo".length);
+
+      expect(runKeyDownHandlers(mounted.view, "Enter").handled).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.dom.querySelectorAll("p")).toHaveLength(2);
+      expect(mounted.view.dom.querySelector("strong, em")).not.toBeInTheDocument();
+      expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
+    });
+
+    it("keeps source projection active on Escape", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const { event, handled } = runKeyDownHandlers(mounted.view, "Escape");
+
+      expect(handled).toBe(false);
+      expect(event.defaultPrevented).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+    });
+  });
+
   describe("native history", () => {
     it("preserves native undo after committing a marker deletion", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);

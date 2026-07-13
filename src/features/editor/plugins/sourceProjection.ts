@@ -732,13 +732,18 @@ const createFinalizeProjectionTransaction = (
     replacementSize: session.target.originalContentSize,
   };
   const shouldSuppressProjectionAtSelection = isRangeInsideProjection(state.selection, session);
-  const restoreSelection = shouldSuppressProjectionAtSelection
+  const shouldMapCrossingTextSelection =
+    state.selection instanceof TextSelection &&
+    state.selection.from < session.to &&
+    session.from < state.selection.to;
+  const shouldMapSelection = shouldSuppressProjectionAtSelection || shouldMapCrossingTextSelection;
+  const restoreSelection = shouldMapSelection
     ? adapter.mapSelectionFromSource(state.selection, session, original)
     : null;
-  const commitSelection = shouldSuppressProjectionAtSelection
+  const commitSelection = shouldMapSelection
     ? adapter.mapSelectionFromSource(state.selection, session, parsed)
     : null;
-  const suppressedSelection = restoreSelection;
+  const suppressedSelection = shouldSuppressProjectionAtSelection ? restoreSelection : null;
 
   if (source === session.target.originalSource) {
     return createCleanFinalizeProjectionTransaction(

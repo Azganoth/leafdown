@@ -1,10 +1,17 @@
+import {
+  ParserReady,
+  parserCtx,
+  remarkCtx,
+  SerializerReady,
+  serializerCtx,
+} from "@milkdown/kit/core";
 import { closeHistory } from "@milkdown/kit/prose/history";
 import type { Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
-import { $prose } from "@milkdown/kit/utils";
+import { $proseAsync } from "@milkdown/kit/utils";
 
 import { isRedoKey, isUndoKey } from "@/lib/input";
 import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
@@ -14,11 +21,13 @@ import {
   createLiteralSourceProjectionSlice,
   findSourceProjectionInsertionCandidate,
   findSourceProjectionTarget,
+  MARK_SOURCE_PROJECTION_ADAPTER,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
@@ -94,7 +103,18 @@ export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProj
   });
 
 export const createLeafdownSourceProjectionPlugin = () =>
-  $prose(() => createSourceProjectionProsePlugin());
+  $proseAsync(async (ctx) => {
+    await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
+
+    return createSourceProjectionProsePlugin([
+      createLinkSourceProjectionAdapter({
+        parser: ctx.get(parserCtx),
+        remark: ctx.get(remarkCtx),
+        serializer: ctx.get(serializerCtx),
+      }),
+      MARK_SOURCE_PROJECTION_ADAPTER,
+    ]);
+  });
 
 export const finalizeSourceProjection = (view: EditorView) => {
   const projectionState = getSourceProjectionState(view.state);
@@ -700,9 +720,9 @@ const createFinalizeProjectionTransaction = (
 ): Transaction | null => {
   const source = getProjectionSource(state, session);
   const { adapter } = session;
-  const parsed = adapter.parseSource(state, source);
+  const parsed = adapter.parseSource(state, source, session.target);
   const original = {
-    ...adapter.parseSource(state, session.target.originalSource),
+    ...adapter.parseSource(state, session.target.originalSource, session.target),
     replacement: session.target.originalContent,
     replacementSize: session.target.originalContentSize,
   };

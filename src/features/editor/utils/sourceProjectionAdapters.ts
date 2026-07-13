@@ -90,7 +90,11 @@ export interface SourceProjectionAdapter {
     selection: Selection,
     target: SourceProjectionTarget,
   ) => { anchor: number; head: number };
-  parseSource: (state: EditorState, source: string) => SourceProjectionParseResult;
+  parseSource: (
+    state: EditorState,
+    source: string,
+    target: SourceProjectionTarget,
+  ) => SourceProjectionParseResult;
   restoreCleanTarget: (state: EditorState, session: SourceProjectionSessionRange) => Transaction;
   shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
 }
@@ -322,6 +326,10 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
 };
 
 const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+  if (node.marks.some((mark) => mark.type.name === "link")) {
+    return [];
+  }
+
   const inlineCode = node.marks.find((mark) => mark.type.name === "inlineCode");
 
   if (inlineCode) {
@@ -616,7 +624,7 @@ const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourcePro
     (from === 0 || from === source.length)
   );
 
-const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
+export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
   id: "mark",
   applyEdit: applyMarkSourceProjectionEdit,
   createEnterTransaction: (state, target) => {

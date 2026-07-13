@@ -425,19 +425,29 @@ describe("source projection", () => {
       expect(hasActiveSourceProjection(mixedBlocks.view.state)).toBe(false);
     });
 
-    it("keeps mixed-format link labels under one unprojected link owner", async () => {
+    it("projects a mixed-format link label as one logical source owner", async () => {
       const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");
       const link = getEditorDomElement(mounted, "a");
-      const selectionFrom = getEditorTextPosition(mounted, "Bold");
 
       setSelectionAtElementTextEnd(mounted.view, link);
 
-      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
-      expect(getEditorTextContent(mounted)).toBe("Bold and soft");
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("[**Bold** and *soft*](https://example.com)");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("Bold");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--emphasis"),
+      ).toHaveTextContent("soft");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const selectionFrom = getEditorTextPosition(mounted, "Bold");
 
       setTextSelection(mounted.view, selectionFrom, selectionFrom + "Bold".length);
 
-      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("Bold");
     });
 
     it("restores the exact original document after a clean projection", async () => {
@@ -673,6 +683,93 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(autolink.view);
 
       expect(autolink.getMarkdown()).toBe("<https://leafdown.dev>\n");
+    });
+
+    it("commits edits to a mixed-format link without splitting its wrapper", async () => {
+      const mounted = await mountProjectionEditor(
+        '[**Bold** and *soft*](https://example.com "Title")',
+      );
+
+      enterProjection(mounted, "a");
+
+      const sourceStart = getEditorTextPosition(
+        mounted,
+        '[**Bold** and *soft*](https://example.com "Title")',
+      );
+
+      setTextSelection(mounted.view, sourceStart + "[**Bold".length);
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe('[**Bolder** and *soft*](https://example.com "Title")\n');
+      expect(
+        Array.from(mounted.view.dom.querySelectorAll("a"), (element) => element.textContent).join(
+          "",
+        ),
+      ).toBe("Bolder and soft");
+    });
+
+    it("commits destination edits while preserving a mixed-format label", async () => {
+      const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");
+
+      enterProjection(mounted, "a");
+
+      const destinationFrom = getEditorTextPosition(mounted, "https://example.com");
+
+      setTextSelection(
+        mounted.view,
+        destinationFrom,
+        destinationFrom + "https://example.com".length,
+      );
+      expect(pasteIntoSourceProjection(mounted.view, "https://leafdown.dev")).toBe(true);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("[**Bold** and *soft*](https://leafdown.dev)\n");
+      expect(getEditorDomElement(mounted, "a")).toHaveAttribute("href", "https://leafdown.dev");
+    });
+
+    it("commits malformed mixed-link source literally without losing text", async () => {
+      const mounted = await mountProjectionEditor(
+        "[**Bold** and *soft*](https://example.com) plain",
+      );
+
+      enterProjection(mounted, "a");
+
+      const source = "[**Bold** and *soft*](https://example.com)";
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart + source.length);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.dom.querySelector("a, strong, em")).not.toBeInTheDocument();
+      expect(getEditorTextContent(mounted)).toBe(`${source.slice(0, -1)} plain`);
+    });
+
+    it("preserves an ambient mark that extends beyond a mixed-format link", async () => {
+      const mounted = await mountProjectionEditor(
+        "*Before [**Bold** and soft](https://example.com) after*",
+      );
+
+      enterProjection(mounted, "a");
+
+      expect(getEditorTextContent(mounted)).toBe(
+        "Before [**Bold** and soft](https://example.com) after",
+      );
+
+      const sourceStart = getEditorTextPosition(
+        mounted,
+        "[**Bold** and soft](https://example.com)",
+      );
+
+      setTextSelection(mounted.view, sourceStart + "[**Bold".length);
+      typeText(mounted.view, "er");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(
+        "*Before [**Bolder** and soft](https://example.com) after*\n",
+      );
     });
 
     it("preserves an empty-destination link when its label is edited", async () => {

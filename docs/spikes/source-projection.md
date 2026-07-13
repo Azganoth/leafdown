@@ -76,8 +76,10 @@ source-projection session engine with object-specific adapters.
   when Milkdown's default serializer would split a mixed-format label into
   adjacent links. Its placeholders exist only in a temporary serialization
   document and never enter editor state or history.
-- An atomic-node adapter for #60 can extend the same engine independently; it
-  does not share the logical-link implementation.
+- An atomic footnote-reference adapter owns complete `[^label]` source,
+  left/right and node-selection entry mapping, Milkdown-backed validation,
+  canonical node rehydration, and literal fallback. It does not share the
+  logical-link implementation or modify footnote definitions.
 
 The implementation is split between
 `src/features/editor/plugins/sourceProjection.ts`, the shared lifecycle engine;
@@ -86,7 +88,9 @@ registry, and current mark adapter; and
 `src/features/editor/utils/sourceProjectionSyntax.ts`, the current mark syntax
 parser and source builder. Logical-link behavior is split between
 `sourceProjectionLinkAdapter.ts`, `sourceProjectionLinkSyntax.ts`, and
-`logicalLinkMarkdown.ts`. Marker presentation remains a separate capability.
+`logicalLinkMarkdown.ts`. Footnote-reference behavior lives in
+`sourceProjectionFootnoteReferenceAdapter.ts`. Marker presentation remains a
+separate capability.
 
 ## Original Probe Results
 

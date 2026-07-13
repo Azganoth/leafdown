@@ -174,12 +174,12 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Strong, emphasis, inline code, and strikethrough render visually and expose
   editable local markers near the caret.
 - Seamless source projection for strong, emphasis, strikethrough, inline code,
-  links, and autolinks is local to the active inline object. A caret or text
-  selection activates projection when it is contained within one exact,
-  contiguous combination of supported inline marks. Editing a projected marker
-  can change that object's inline style, but it does not automatically merge
-  adjacent marked runs; broader reshaping is done with an explicit selection or
-  formatting command.
+  links, autolinks, and footnote references is local to the active inline
+  object. For mark-based content, a caret or text selection activates projection
+  when it is contained within one exact, contiguous combination of supported
+  inline marks. Editing a projected marker can change that object's inline
+  style, but it does not automatically merge adjacent marked runs; broader
+  reshaping is done with an explicit selection or formatting command.
 - Inline-code projection uses a valid canonical backtick delimiter run rather
   than preserving the exact source delimiter length.
 - Link and autolink projection exposes their source directly in the document;
@@ -191,6 +191,13 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   the complete rich label; invalid or incomplete edits become exact literal
   text. Mixed-format labels do not fall back to fragmented projections for
   their nested marks.
+- Footnote references project their complete `[^label]` source as editable
+  document text. A caret entering from the left starts at the beginning of the
+  source, a caret entering from the right starts at the end, and selecting the
+  atomic reference selects its label after projection. Valid edits rehydrate a
+  canonical Milkdown footnote-reference node; invalid or incomplete edits become
+  exact literal text. Editing a reference label does not create, rename, delete,
+  or modify any footnote definition.
 - A selection crossing plain text, another exact mark combination, another
   inline object, or a text-block boundary does not activate projection. When a
   selection crosses into or out of an active source projection, the projection
@@ -201,8 +208,6 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   immediately enters projection. `Escape` leaves projection active while the
   caret remains on its target.
 - Normal click places the caret in a link; `Mod+click` opens it.
-- Footnote references render inline and expose editable raw Markdown syntax near
-  the caret.
 - Local relative images render automatically. Clicking an image focuses it. When
   focused, show the raw image Markdown above the image for editing.
 

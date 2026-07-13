@@ -1,12 +1,12 @@
-# Inline Source Projection Spike
+# Source Projection
 
 Issue: https://github.com/Azganoth/leafdown/issues/44
 
-Date checked: 2026-06-06
+Date checked: 2026-07-12
 
 ## Question
 
-Which ProseMirror/Milkdown architecture should Leafdown use to expose inline
+Which ProseMirror/Milkdown architecture should Leafdown use to expose
 Markdown marker characters directly in the editor surface?
 
 The target behavior is seamless source projection: when the caret enters a
@@ -15,20 +15,20 @@ ordinary editable editor content. The caret should move through those marker
 characters, deleting only part of a marker should be possible, and the editor
 should recover without data loss when the edited syntax becomes invalid.
 
-## Context
+## Original Context
 
-Leafdown currently uses Milkdown Kit directly through a Leafdown-owned React
-wrapper. The installed editor packages checked for this spike are:
+Leafdown uses Milkdown Kit directly through a Leafdown-owned React wrapper. The
+installed editor packages checked for this document are:
 
-- `@milkdown/kit@7.21.1`
-- `@milkdown/plugin-highlight@7.21.1`
+- `@milkdown/kit@7.21.2`
+- `@milkdown/plugin-highlight@7.21.2`
 - `prosemirror-view@1.41.8`
 - `prosemirror-model@1.25.7`
 - `prosemirror-state@1.4.4`
 - `prosemirror-transform@1.12.0`
 
-The current marker implementation exposes inline and source-oriented Markdown
-through detached input controls:
+At the time of the original spike, marker implementation exposed inline and
+source-oriented Markdown through detached input controls:
 
 - inline marks use widget decorations with `.leafdown-source-edit` inputs;
 - footnote references and raw HTML use widget decorations with source inputs;
@@ -50,7 +50,35 @@ Relevant source-of-truth docs:
   foundation; programmatic housekeeping transactions should be marked out of
   history; `getMarkdown()` is the serialization bridge.
 
-## Probe Results
+## Current Architecture
+
+Issue #63 generalized the original mark-specific implementation into a shared
+source-projection session engine with object-specific adapters.
+
+- The plugin owns the active session, projected range, projection-local history,
+  transaction metadata, dirty-state integration, finalization, and the
+  restore-before-commit native-history bridge.
+- Every target stores its exact original ProseMirror `Slice` as immutable session
+  data. Clean finalization restores that content exactly; edited finalization
+  restores it before committing the adapter-produced replacement.
+- Registered adapters own target discovery and precedence, source generation,
+  entry and clean-restoration transforms, validation and rehydration,
+  presentation spans, and selection mapping.
+- Active source is unmarked, editable document text. Invalid source commits as
+  literal document text so no projected character is lost.
+- The first adapter preserves the existing mark behavior for strong, emphasis,
+  strikethrough, inline code, links, and autolinks.
+- A link-wrapper adapter for #58 and an atomic-node adapter for #60 can extend
+  the same engine independently. Neither feature depends on the other.
+
+The implementation is split between
+`src/features/editor/plugins/sourceProjection.ts`, the shared lifecycle engine;
+`src/features/editor/utils/sourceProjectionAdapters.ts`, the adapter contract,
+registry, and current mark adapter; and
+`src/features/editor/utils/sourceProjectionSyntax.ts`, the current mark syntax
+parser and source builder. Marker presentation remains a separate capability.
+
+## Original Probe Results
 
 Focused probes were added in
 `src/features/editor/plugins/sourceProjectionSpike.test.tsx`.
@@ -187,7 +215,7 @@ Undo/redo is the highest-risk part of the architecture. The follow-up issue
 should require an explicit projection-session history design before broadening
 syntax support.
 
-## First Implementation Slice
+## Original Implementation Slice
 
 Implement strong and emphasis only.
 
@@ -248,14 +276,14 @@ When implementation lands, update:
   object-specific marker decision. The spike recommendation does not require a
   decision change.
 
-## Follow-Up Issue Body
+## Original Follow-Up Issue Body
 
-Title: `Implement inline source projection for strong and emphasis`
+Title: `Implement source projection for strong and emphasis`
 
 ```md
 ### Summary
 
-Implement the first seamless inline Markdown source projection slice for strong
+Implement the first seamless Markdown source projection slice for strong
 and emphasis markers.
 
 Leafdown should keep Milkdown/ProseMirror as the editor engine. This issue adds

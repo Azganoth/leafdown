@@ -46,7 +46,7 @@ describe("Leafdown dirty tracker plugin", () => {
     expect(mounted.getMarkdown()).toBe("Hello!\n");
   });
 
-  it("tracks inline projection source edits without counting projection housekeeping", async () => {
+  it("tracks source-projection edits without counting projection housekeeping", async () => {
     const onContentChanged = vi.fn();
     const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN, { onContentChanged });
     const strong = getEditorDomElement(mounted, "strong");

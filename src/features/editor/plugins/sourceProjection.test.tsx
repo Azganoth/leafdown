@@ -134,14 +134,14 @@ const TEST_ATOMIC_ADAPTER: SourceProjectionAdapter = {
     state.tr.replace(session.from, session.to, getTestAtomicTarget(session.target).originalContent),
 };
 
-interface MountInlineProjectionEditorOptions {
+interface MountSourceProjectionEditorOptions {
   onContentChanged?: MountMilkdownEditorOptions["onContentChanged"];
   onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"];
 }
 
 const mountProjectionEditor = (
   initialMarkdown: string,
-  options: MountInlineProjectionEditorOptions = {},
+  options: MountSourceProjectionEditorOptions = {},
 ): Promise<MountedMilkdownEditor> =>
   mountEditor(initialMarkdown, {
     onContentChanged: options.onContentChanged,
@@ -827,7 +827,7 @@ describe("source projection", () => {
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     });
 
-    it("switches directly to another inline projection when the selection moves", async () => {
+    it("switches directly to another source projection when the selection moves", async () => {
       const mounted = await mountProjectionEditor("**Bold** and *soft*");
 
       enterProjection(mounted, "strong");
@@ -840,7 +840,7 @@ describe("source projection", () => {
       expect(getEditorTextContent(mounted)).toBe("Bold and *soft*");
     });
 
-    it("commits the current projection before switching to another inline projection", async () => {
+    it("commits the current projection before switching to another source projection", async () => {
       const mounted = await mountProjectionEditor("**Bold** and *soft*");
 
       enterProjection(mounted, "strong");

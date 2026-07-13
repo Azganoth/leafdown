@@ -880,6 +880,29 @@ describe("source projection", () => {
         expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
       },
     );
+
+    it("preserves whitespace and native history after partial projected formatting removal", async () => {
+      const onContentChanged = vi.fn();
+      const mounted = await mountProjectionEditor("**Double asterisk strong**", {
+        onContentChanged,
+      });
+
+      enterProjection(mounted, "strong");
+
+      const selectionFrom = getEditorTextPosition(mounted, "asterisk");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "asterisk".length);
+
+      expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+      expect(mounted.getMarkdown()).toBe("**Double** asterisk **strong**\n");
+
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("**Double asterisk strong**\n");
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("**Double** asterisk **strong**\n");
+    });
   });
 
   describe("lifecycle integration", () => {

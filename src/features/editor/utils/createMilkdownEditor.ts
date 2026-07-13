@@ -9,13 +9,19 @@ import {
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { commonmark } from "@milkdown/kit/preset/commonmark";
-import { gfm } from "@milkdown/kit/preset/gfm";
+import {
+  commonmark,
+  emphasisKeymap,
+  inlineCodeKeymap,
+  strongKeymap,
+} from "@milkdown/kit/preset/commonmark";
+import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
-import type { EditorCommandState } from "../commands";
+import { runEditorCommand, type EditorCommandId, type EditorCommandState } from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import {
   createLeafdownContextPopupPlugin,
@@ -86,11 +92,18 @@ export const createMilkdownEditor = async ({
     ...getMarkdownReferenceContext(),
     onOpenMarkdownPath,
   });
+  const editor = Editor.make();
+  const runCommand = (commandId: EditorCommandId) => {
+    const result = runEditorCommand(editor, commandId);
 
-  return Editor.make()
+    return typeof result === "boolean" ? result : false;
+  };
+
+  return editor
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
     .use(gfm)
+    .use(createLeafdownCommandKeymapPlugin(runCommand))
     .use(history)
     .use(clipboard)
     .use(listener)
@@ -120,6 +133,22 @@ export const createMilkdownEditor = async ({
       }));
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
+      ctx.update(strongKeymap.key, (keymap) => ({
+        ...keymap,
+        ToggleBold: { ...keymap.ToggleBold, shortcuts: [] },
+      }));
+      ctx.update(emphasisKeymap.key, (keymap) => ({
+        ...keymap,
+        ToggleEmphasis: { ...keymap.ToggleEmphasis, shortcuts: [] },
+      }));
+      ctx.update(inlineCodeKeymap.key, (keymap) => ({
+        ...keymap,
+        ToggleInlineCode: { ...keymap.ToggleInlineCode, shortcuts: [] },
+      }));
+      ctx.update(strikethroughKeymap.key, (keymap) => ({
+        ...keymap,
+        ToggleStrikethrough: { ...keymap.ToggleStrikethrough, shortcuts: [] },
+      }));
 
       if (onMarkdownUpdated) {
         ctx.get(listenerCtx).markdownUpdated((listenerCtx, markdown, previousMarkdown) => {

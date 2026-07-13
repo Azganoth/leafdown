@@ -10,7 +10,9 @@ type ModifierKeys = Extract<keyof KeyboardEventInit, "altKey" | "ctrlKey" | "met
 type ModifierEventInit = ModifierAliases & Pick<KeyboardEventInit, ModifierKeys>;
 
 export type TestKeyboardEventOptions = Omit<KeyboardEventInit, ModifierKeys | "key"> &
-  ModifierEventInit;
+  ModifierEventInit & {
+    keyCode?: number;
+  };
 
 export type TestMouseEventOptions = Omit<MouseEventInit, ModifierKeys> & ModifierEventInit;
 
@@ -26,13 +28,21 @@ const normalizeModifierOptions = <T extends ModifierEventInit>(options: T) => {
   };
 };
 
-export const createKeyboardEvent = (key: string, init: TestKeyboardEventOptions = {}) =>
-  new KeyboardEvent("keydown", {
+export const createKeyboardEvent = (key: string, init: TestKeyboardEventOptions = {}) => {
+  const { keyCode, ...eventInit } = normalizeModifierOptions(init);
+  const event = new KeyboardEvent("keydown", {
     bubbles: true,
     cancelable: true,
     key,
-    ...normalizeModifierOptions(init),
+    ...eventInit,
   });
+
+  if (keyCode !== undefined) {
+    Object.defineProperty(event, "keyCode", { value: keyCode });
+  }
+
+  return event;
+};
 
 export const createKeyboardEventLike = (
   key: string,

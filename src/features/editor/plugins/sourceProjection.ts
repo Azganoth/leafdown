@@ -24,6 +24,7 @@ import { getRangeText, getTextBetween, type TextRange } from "../utils/textRange
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   pendingCommit: null,
   session: null,
+  suppressAfterEnter: false,
   suppressAt: null,
 };
 
@@ -48,12 +49,14 @@ interface PendingProjectionCommit extends TextRange {
 interface SourceProjectionPluginState {
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
+  suppressAfterEnter: boolean;
   suppressAt: number | null;
 }
 
 type ProjectionHistoryDirection = "redo" | "undo";
 
 type ProjectionMeta =
+  | { type: "delegateEnter" }
   | { type: "enter"; session: ProjectionSession }
   | { type: "enterFromUserEdit"; session: ProjectionSession }
   | { type: "userEdit"; previousSource: string }
@@ -199,6 +202,7 @@ export const isSourceProjectionHousekeepingTransaction = (transaction: Transacti
   const meta = getProjectionMeta(transaction);
 
   return (
+    meta?.type === "delegateEnter" ||
     meta?.type === "enter" ||
     meta?.type === "restoreBeforeCommit" ||
     meta?.type === "commitAfterRestore"
@@ -249,10 +253,18 @@ const applyProjectionTransaction = (
 ): SourceProjectionPluginState => {
   const meta = getProjectionMeta(transaction);
 
+  if (meta?.type === "delegateEnter") {
+    return {
+      ...pluginState,
+      suppressAfterEnter: true,
+    };
+  }
+
   if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {
     return {
       pendingCommit: null,
       session: meta.session,
+      suppressAfterEnter: false,
       suppressAt: null,
     };
   }
@@ -261,6 +273,7 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: meta.pendingCommit,
       session: null,
+      suppressAfterEnter: pluginState.suppressAfterEnter,
       suppressAt: meta.suppressAt,
     };
   }
@@ -269,15 +282,22 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: null,
       session: null,
+      suppressAfterEnter: pluginState.suppressAfterEnter,
       suppressAt: meta.suppressAt,
     };
   }
 
-  const suppressAt = getMappedSuppressPosition(pluginState.suppressAt, transaction);
+  const didHandleDelegatedEnter = pluginState.suppressAfterEnter && transaction.docChanged;
+  const suppressAfterEnter = didHandleDelegatedEnter ? false : pluginState.suppressAfterEnter;
+  const suppressAt =
+    didHandleDelegatedEnter && transaction.selection.empty
+      ? transaction.selection.from
+      : getMappedSuppressPosition(pluginState.suppressAt, transaction);
 
   if (!pluginState.session) {
     return {
       ...pluginState,
+      suppressAfterEnter,
       suppressAt,
     };
   }
@@ -297,6 +317,7 @@ const applyProjectionTransaction = (
             ? session.undoStack
             : [...session.undoStack, meta.previousSource],
       },
+      suppressAfterEnter,
       suppressAt,
     };
   }
@@ -309,6 +330,7 @@ const applyProjectionTransaction = (
         redoStack: [...session.redoStack, meta.currentSource],
         undoStack: session.undoStack.slice(0, -1),
       },
+      suppressAfterEnter,
       suppressAt,
     };
   }
@@ -321,6 +343,7 @@ const applyProjectionTransaction = (
         redoStack: session.redoStack.slice(0, -1),
         undoStack: [...session.undoStack, meta.currentSource],
       },
+      suppressAfterEnter,
       suppressAt,
     };
   }
@@ -329,6 +352,7 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: null,
       session: null,
+      suppressAfterEnter,
       suppressAt,
     };
   }
@@ -336,6 +360,7 @@ const applyProjectionTransaction = (
   return {
     ...pluginState,
     session,
+    suppressAfterEnter,
     suppressAt,
   };
 };
@@ -508,11 +533,15 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
     return didRedo;
   }
 
-  if (event.key === "Enter" || event.key === "Escape") {
-    event.preventDefault();
+  if (event.key === "Enter") {
+    view.dispatch(
+      view.state.tr.setMeta("addToHistory", false).setMeta(leafdownSourceProjectionPluginKey, {
+        type: "delegateEnter",
+      } satisfies ProjectionMeta),
+    );
     finalizeSourceProjection(view);
 
-    return true;
+    return false;
   }
 
   if (event.key !== "Backspace" && event.key !== "Delete") {

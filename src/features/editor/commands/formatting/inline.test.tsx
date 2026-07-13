@@ -10,6 +10,7 @@ import {
   typeText,
 } from "@/test/utils/prosemirror";
 
+import { hasActiveSourceProjection } from "../../plugins/sourceProjection";
 import { selectAll } from "../editing/selection";
 import {
   canClearInlineFormat,
@@ -31,7 +32,8 @@ describe("editor inline formatting commands", () => {
     expect(canClearInlineFormat(mounted.view.state)).toBe(false);
     expect(toggleStrong(mounted.view)).toBe(true);
     expect(canClearInlineFormat(mounted.view.state)).toBe(true);
-    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Hello");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toContain("**Hello** world");
     expect(mounted.getMarkdown()).toContain("**Hello** world");
 
     expect(toggleStrong(mounted.view)).toBe(true);
@@ -44,7 +46,8 @@ describe("editor inline formatting commands", () => {
     expect(mounted.getMarkdown()).toContain("*world*");
 
     expect(toggleStrikethrough(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelector("del")).toHaveTextContent("world");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.getMarkdown()).toContain("*~~world~~*");
   });
 
   it.each([
@@ -142,9 +145,11 @@ describe("editor inline formatting commands", () => {
     setTextSelection(mounted.view, 1, 6);
 
     expect(toggleInlineCode(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelector("code")).toHaveTextContent("Hello");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toContain("`Hello` world");
     expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
     expect(mounted.getMarkdown()).toContain("`Hello` world");
+    expect(mounted.view.dom.querySelector("code")).toHaveTextContent("Hello");
   });
 
   it("preserves whitespace when inline code replaces partial formatting", async () => {

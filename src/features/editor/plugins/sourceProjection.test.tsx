@@ -290,6 +290,156 @@ describe("source projection", () => {
       ).toHaveTextContent("Link");
     });
 
+    it("projects only the exact mark combination around the caret", async () => {
+      const mounted = await mountProjectionEditor("***Bold and italic***");
+
+      enterProjection(mounted, "strong");
+
+      const selectionFrom = getEditorTextPosition(mounted, "and");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "and".length);
+
+      expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const expectedTargets = [
+        { documentText: "***Bold*** and italic", word: "Bold" },
+        { documentText: "Bold *and* italic", word: "and" },
+        { documentText: "Bold and ***italic***", word: "italic" },
+      ] as const;
+
+      for (const { documentText, word } of expectedTargets) {
+        const caretPosition = getEditorTextPosition(mounted, word) + 1;
+
+        setTextSelection(mounted.view, caretPosition);
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(getEditorTextContent(mounted)).toBe(documentText);
+
+        setSelectionAtDocumentEnd(mounted.view);
+      }
+    });
+
+    it("projects a uniform inline target containing a forward or backward selection", async () => {
+      const onContentChanged = vi.fn();
+      const mounted = await mountProjectionEditor("*Single asterisk emphasis* plain", {
+        onContentChanged,
+      });
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const selectionFrom = getEditorTextPosition(mounted, "asterisk");
+      const selectionTo = selectionFrom + "asterisk".length;
+
+      setTextSelection(mounted.view, selectionFrom, selectionTo);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(mounted.view.state.selection.anchor).toBeLessThan(mounted.view.state.selection.head);
+      expect(onContentChanged).not.toHaveBeenCalled();
+
+      setSelectionAtDocumentEnd(mounted.view);
+      setTextSelection(mounted.view, selectionTo, selectionFrom);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(mounted.view.state.selection.anchor).toBeGreaterThan(
+        mounted.view.state.selection.head,
+      );
+      expect(onContentChanged).not.toHaveBeenCalled();
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const targetFrom = getEditorTextPosition(mounted, "Single");
+      const targetTo = getEditorTextPosition(mounted, "emphasis") + "emphasis".length;
+
+      setTextSelection(mounted.view, targetFrom, targetTo);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("Single asterisk emphasis");
+      expect(onContentChanged).not.toHaveBeenCalled();
+    });
+
+    it("projects a uniform link containing a text selection", async () => {
+      const mounted = await mountProjectionEditor("[Link](https://example.com) plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const selectionFrom = getEditorTextPosition(mounted, "Link");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "Link".length);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("Link");
+      expect(getEditorTextContent(mounted)).toBe("[Link](https://example.com) plain");
+    });
+
+    it("immediately projects the exact segment created by a formatting command", async () => {
+      const mounted = await mountProjectionEditor("*Single asterisk emphasis*");
+
+      enterProjection(mounted, "em");
+
+      const selectionFrom = getEditorTextPosition(mounted, "asterisk");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "asterisk".length);
+
+      expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(getEditorTextContent(mounted)).toBe("Single ***asterisk*** emphasis");
+      expect(mounted.getMarkdown()).toBe("*Single* ***asterisk*** *emphasis*\n");
+    });
+
+    it("immediately projects the exact segment left by a formatting command", async () => {
+      const mounted = await mountProjectionEditor("***Bold and italic***");
+
+      enterProjection(mounted, "strong");
+
+      const selectionFrom = getEditorTextPosition(mounted, "and");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "and".length);
+
+      expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("and");
+      expect(getEditorTextContent(mounted)).toBe("Bold *and* italic");
+    });
+
+    it("does not project selections crossing exact inline targets or text blocks", async () => {
+      const mixedInline = await mountProjectionEditor("***Bold*** plain *soft*");
+      const inlineFrom = getEditorTextPosition(mixedInline, "Bold");
+      const inlineTo = getEditorTextPosition(mixedInline, "soft") + "soft".length;
+
+      setTextSelection(mixedInline.view, inlineFrom, inlineTo);
+
+      expect(hasActiveSourceProjection(mixedInline.view.state)).toBe(false);
+
+      const mixedBlocks = await mountProjectionEditor("**First**\n\n*Second*");
+      const blockFrom = getEditorTextPosition(mixedBlocks, "First");
+      const blockTo = getEditorTextPosition(mixedBlocks, "Second") + "Second".length;
+
+      setTextSelection(mixedBlocks.view, blockFrom, blockTo);
+
+      expect(hasActiveSourceProjection(mixedBlocks.view.state)).toBe(false);
+    });
+
+    it("keeps mixed-format link labels under one unprojected link owner", async () => {
+      const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");
+      const link = getEditorDomElement(mounted, "a");
+      const selectionFrom = getEditorTextPosition(mounted, "Bold");
+
+      setSelectionAtElementTextEnd(mounted.view, link);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(getEditorTextContent(mounted)).toBe("Bold and soft");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "Bold".length);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    });
+
     it("restores the exact original document after a clean projection", async () => {
       const mounted = await mountProjectionEditor(
         '**[Strong Link](https://example.com "Title")** plain',
@@ -894,6 +1044,7 @@ describe("source projection", () => {
       setTextSelection(mounted.view, selectionFrom, selectionFrom + "asterisk".length);
 
       expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(getSelectedEditorText(mounted)).toBe("asterisk");
       expect(onContentChanged).toHaveBeenCalledTimes(1);
       expect(mounted.getMarkdown()).toBe("**Double** asterisk **strong**\n");

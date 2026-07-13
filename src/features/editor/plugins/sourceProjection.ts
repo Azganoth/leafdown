@@ -1,6 +1,6 @@
 import { closeHistory } from "@milkdown/kit/prose/history";
 import type { Slice } from "@milkdown/kit/prose/model";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
@@ -24,7 +24,7 @@ import { getRangeText, getTextBetween, type TextRange } from "../utils/textRange
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   pendingCommit: null,
   session: null,
-  suppressAt: null,
+  suppressedSelection: null,
 };
 
 export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionPluginState>(
@@ -42,13 +42,18 @@ interface PendingProjectionCommit extends TextRange {
   replacement: Slice;
   selectionAnchor: number | null;
   selectionHead: number | null;
-  suppressAt: number | null;
+  suppressedSelection: SuppressedProjectionSelection | null;
+}
+
+interface SuppressedProjectionSelection {
+  anchor: number;
+  head: number;
 }
 
 interface SourceProjectionPluginState {
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
-  suppressAt: number | null;
+  suppressedSelection: SuppressedProjectionSelection | null;
 }
 
 type ProjectionHistoryDirection = "redo" | "undo";
@@ -62,9 +67,12 @@ type ProjectionMeta =
   | {
       type: "restoreBeforeCommit";
       pendingCommit: PendingProjectionCommit | null;
-      suppressAt: number | null;
+      suppressedSelection: SuppressedProjectionSelection | null;
     }
-  | { type: "commitAfterRestore"; suppressAt: number | null };
+  | {
+      type: "commitAfterRestore";
+      suppressedSelection: SuppressedProjectionSelection | null;
+    };
 
 export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProjectionAdapter[]) =>
   new Plugin<SourceProjectionPluginState>({
@@ -229,7 +237,7 @@ const appendProjectionTransaction = (
     return createFinalizeProjectionTransaction(state, projectionState.session);
   }
 
-  if (projectionState.suppressAt === state.selection.from) {
+  if (areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
     return null;
   }
 
@@ -253,7 +261,7 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: null,
       session: meta.session,
-      suppressAt: null,
+      suppressedSelection: null,
     };
   }
 
@@ -261,7 +269,7 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: meta.pendingCommit,
       session: null,
-      suppressAt: meta.suppressAt,
+      suppressedSelection: meta.suppressedSelection,
     };
   }
 
@@ -269,16 +277,19 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: null,
       session: null,
-      suppressAt: meta.suppressAt,
+      suppressedSelection: meta.suppressedSelection,
     };
   }
 
-  const suppressAt = getMappedSuppressPosition(pluginState.suppressAt, transaction);
+  const suppressedSelection = getMappedSuppressedSelection(
+    pluginState.suppressedSelection,
+    transaction,
+  );
 
   if (!pluginState.session) {
     return {
       ...pluginState,
-      suppressAt,
+      suppressedSelection,
     };
   }
 
@@ -297,7 +308,7 @@ const applyProjectionTransaction = (
             ? session.undoStack
             : [...session.undoStack, meta.previousSource],
       },
-      suppressAt,
+      suppressedSelection,
     };
   }
 
@@ -309,7 +320,7 @@ const applyProjectionTransaction = (
         redoStack: [...session.redoStack, meta.currentSource],
         undoStack: session.undoStack.slice(0, -1),
       },
-      suppressAt,
+      suppressedSelection,
     };
   }
 
@@ -321,7 +332,7 @@ const applyProjectionTransaction = (
         redoStack: session.redoStack.slice(0, -1),
         undoStack: [...session.undoStack, meta.currentSource],
       },
-      suppressAt,
+      suppressedSelection,
     };
   }
 
@@ -329,32 +340,37 @@ const applyProjectionTransaction = (
     return {
       pendingCommit: null,
       session: null,
-      suppressAt,
+      suppressedSelection,
     };
   }
 
   return {
     ...pluginState,
     session,
-    suppressAt,
+    suppressedSelection,
   };
 };
 
-const getMappedSuppressPosition = (suppressAt: number | null, transaction: Transaction) => {
-  if (suppressAt === null) {
+const getMappedSuppressedSelection = (
+  suppressedSelection: SuppressedProjectionSelection | null,
+  transaction: Transaction,
+) => {
+  if (!suppressedSelection || transaction.docChanged) {
     return null;
   }
 
-  const mappedSuppressAt = transaction.docChanged
-    ? transaction.mapping.map(suppressAt, -1)
-    : suppressAt;
-
-  if (transaction.selectionSet && transaction.selection.from !== mappedSuppressAt) {
+  if (transaction.selectionSet && !areSelectionsEqual(suppressedSelection, transaction.selection)) {
     return null;
   }
 
-  return mappedSuppressAt;
+  return suppressedSelection;
 };
+
+const areSelectionsEqual = (
+  suppressedSelection: SuppressedProjectionSelection | null,
+  selection: Selection,
+) =>
+  suppressedSelection?.anchor === selection.anchor && suppressedSelection.head === selection.head;
 
 const createProjectionDecorations = (state: EditorState) => {
   const session = getSourceProjectionState(state).session;
@@ -697,13 +713,15 @@ const createFinalizeProjectionTransaction = (
   const commitSelection = shouldSuppressProjectionAtSelection
     ? adapter.mapSelectionFromSource(state.selection, session, parsed)
     : null;
-  const suppressAt =
-    restoreSelection && restoreSelection.anchor === restoreSelection.head
-      ? restoreSelection.anchor
-      : null;
+  const suppressedSelection = restoreSelection;
 
   if (source === session.target.originalSource) {
-    return createCleanFinalizeProjectionTransaction(state, session, restoreSelection, suppressAt);
+    return createCleanFinalizeProjectionTransaction(
+      state,
+      session,
+      restoreSelection,
+      suppressedSelection,
+    );
   }
 
   return createRestoreBeforeCommitTransaction({
@@ -713,7 +731,7 @@ const createFinalizeProjectionTransaction = (
     session,
     source,
     state,
-    suppressAt,
+    suppressedSelection,
   });
 };
 
@@ -724,7 +742,7 @@ interface RestoreBeforeCommitTransactionInput {
   session: ProjectionSession;
   source: string;
   state: EditorState;
-  suppressAt: number | null;
+  suppressedSelection: SuppressedProjectionSelection | null;
 }
 
 const createRestoreBeforeCommitTransaction = ({
@@ -734,7 +752,7 @@ const createRestoreBeforeCommitTransaction = ({
   session,
   source,
   state,
-  suppressAt,
+  suppressedSelection,
 }: RestoreBeforeCommitTransactionInput) => {
   const pendingCommit =
     source === session.target.originalSource
@@ -744,10 +762,7 @@ const createRestoreBeforeCommitTransaction = ({
           replacement,
           selectionAnchor: commitSelection?.anchor ?? null,
           selectionHead: commitSelection?.head ?? null,
-          suppressAt:
-            commitSelection && commitSelection.anchor === commitSelection.head
-              ? commitSelection.anchor
-              : null,
+          suppressedSelection: commitSelection,
           to: session.from + session.target.originalContentSize,
         };
   const transaction = replaceProjectionRange(
@@ -768,7 +783,7 @@ const createRestoreBeforeCommitTransaction = ({
     .setMeta("addToHistory", false)
     .setMeta(leafdownSourceProjectionPluginKey, {
       pendingCommit,
-      suppressAt,
+      suppressedSelection,
       type: "restoreBeforeCommit",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -780,7 +795,7 @@ const createCleanFinalizeProjectionTransaction = (
   state: EditorState,
   session: ProjectionSession,
   restoreSelection: { anchor: number; head: number } | null,
-  suppressAt: number | null,
+  suppressedSelection: SuppressedProjectionSelection | null,
 ) => {
   const transaction = session.adapter.restoreCleanTarget(state, session);
 
@@ -795,7 +810,7 @@ const createCleanFinalizeProjectionTransaction = (
     .setMeta("addToHistory", false)
     .setMeta(leafdownSourceProjectionPluginKey, {
       pendingCommit: null,
-      suppressAt,
+      suppressedSelection,
       type: "restoreBeforeCommit",
     } satisfies ProjectionMeta)
     .scrollIntoView();
@@ -827,7 +842,7 @@ const createCommitAfterRestoreTransaction = (
   transaction
     .setStoredMarks([])
     .setMeta(leafdownSourceProjectionPluginKey, {
-      suppressAt: pendingCommit.suppressAt,
+      suppressedSelection: pendingCommit.suppressedSelection,
       type: "commitAfterRestore",
     } satisfies ProjectionMeta)
     .scrollIntoView();

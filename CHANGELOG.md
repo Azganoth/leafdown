@@ -20,6 +20,8 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Activate source projection for contained text selections and limit each
+  projection to one exact inline mark combination.
 - Preserve text and spacing when removing formatting from part of an inline span.
 - Exclude trailing whitespace when selecting words by double-clicking text.
 - Disable browser and editor writing suggestions in the editor.

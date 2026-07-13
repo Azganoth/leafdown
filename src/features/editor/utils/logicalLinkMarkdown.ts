@@ -56,19 +56,14 @@ const serializeInlineContent = (
 };
 
 const createLogicalLinkToken = (
-  documentText: string,
-  linkMark: Mark,
+  serializedDocument: string,
   tokenIndex: number,
   usedTokens: Set<string>,
 ) => {
   let index = tokenIndex;
   let token = `${LOGICAL_LINK_TOKEN_PREFIX}${index}${LOGICAL_LINK_TOKEN_SUFFIX}`;
 
-  while (
-    documentText.includes(token) ||
-    String(linkMark.attrs.href ?? "") === token ||
-    usedTokens.has(token)
-  ) {
+  while (serializedDocument.includes(token) || usedTokens.has(token)) {
     index += 1;
     token = `${LOGICAL_LINK_TOKEN_PREFIX}${index}${LOGICAL_LINK_TOKEN_SUFFIX}`;
   }
@@ -83,11 +78,12 @@ const createLogicalLinkReplacement = (
   document: ProseMirrorNode,
   nodes: readonly ProseMirrorNode[],
   linkMark: Mark,
+  serializedDocument: string,
   tokenIndex: number,
   usedTokens: Set<string>,
 ) => {
   const commonOuterMarks = getCommonOuterMarks(nodes, linkMark);
-  const token = createLogicalLinkToken(document.textContent, linkMark, tokenIndex, usedTokens);
+  const token = createLogicalLinkToken(serializedDocument, tokenIndex, usedTokens);
   const removedMarks = [linkMark, ...commonOuterMarks];
   const labelContent = Fragment.fromArray(
     nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks))),
@@ -111,6 +107,7 @@ const transformTextBlockContent = (
   serializer: Serializer,
   document: ProseMirrorNode,
   textBlock: ProseMirrorNode,
+  serializedDocument: string,
   replacementOffset: number,
   usedTokens: Set<string>,
 ): TransformLogicalLinksResult => {
@@ -150,6 +147,7 @@ const transformTextBlockContent = (
       document,
       linkNodes,
       linkMark,
+      serializedDocument,
       replacementOffset + replacements.length,
       usedTokens,
     );
@@ -169,11 +167,19 @@ const transformLogicalLinks = (
   serializer: Serializer,
   document: ProseMirrorNode,
   node: ProseMirrorNode,
+  serializedDocument: string,
   replacementOffset = 0,
   usedTokens = new Set<string>(),
 ): TransformLogicalLinksResult => {
   if (node.isTextblock) {
-    return transformTextBlockContent(serializer, document, node, replacementOffset, usedTokens);
+    return transformTextBlockContent(
+      serializer,
+      document,
+      node,
+      serializedDocument,
+      replacementOffset,
+      usedTokens,
+    );
   }
 
   if (node.isLeaf) {
@@ -188,6 +194,7 @@ const transformLogicalLinks = (
       serializer,
       document,
       child,
+      serializedDocument,
       replacementOffset + replacements.length,
       usedTokens,
     );
@@ -205,10 +212,16 @@ const transformLogicalLinks = (
 export const createLogicalLinkMarkdownSerializer =
   (serializer: Serializer): Serializer =>
   (document) => {
-    const { content, replacements } = transformLogicalLinks(serializer, document, document);
+    const serializedDocument = serializer(document);
+    const { content, replacements } = transformLogicalLinks(
+      serializer,
+      document,
+      document,
+      serializedDocument,
+    );
 
     if (!replacements.length) {
-      return serializer(document);
+      return serializedDocument;
     }
 
     const transformedDocument = document.copy(content);

@@ -196,4 +196,13 @@ describe("Markdown compatibility", () => {
       vi.useRealTimers();
     }
   });
+
+  it.each([
+    "[before](https://example.com/LEAFDOWNLOGICALLINK0PLACEHOLDER) [plain **bold**](target)",
+    '[before](https://example.com "LEAFDOWNLOGICALLINK0PLACEHOLDER") [plain **bold**](target)',
+  ])("avoids logical-link placeholder collisions in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
 });

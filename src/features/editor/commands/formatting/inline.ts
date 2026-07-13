@@ -27,6 +27,56 @@ const createMark = (markType: MarkType) =>
 const rangeHasMark = (state: EditorState, { from, to }: TextRange, markType: MarkType) =>
   from < to && state.doc.rangeHasMark(from, to, markType);
 
+const getWhitespaceSafeMarkRemovalRange = (
+  state: EditorState,
+  range: TextRange,
+  markType: MarkType,
+): TextRange => {
+  let { from, to } = range;
+  const nodeAfterFrom = state.doc.resolve(from).nodeAfter;
+  const nodeBeforeTo = state.doc.resolve(to).nodeBefore;
+  const startsWithMark =
+    nodeAfterFrom?.isText === true && nodeAfterFrom.marks.some((mark) => mark.type === markType);
+  const endsWithMark =
+    nodeBeforeTo?.isText === true && nodeBeforeTo.marks.some((mark) => mark.type === markType);
+
+  while (startsWithMark && from > 0) {
+    const nodeBefore = state.doc.resolve(from).nodeBefore;
+
+    if (!nodeBefore?.isText || !nodeBefore.marks.some((mark) => mark.type === markType)) {
+      break;
+    }
+
+    const text = nodeBefore.text ?? "";
+    const whitespaceLength = text.length - text.trimEnd().length;
+
+    if (whitespaceLength === 0) {
+      break;
+    }
+
+    from -= whitespaceLength;
+  }
+
+  while (endsWithMark && to < state.doc.content.size) {
+    const nodeAfter = state.doc.resolve(to).nodeAfter;
+
+    if (!nodeAfter?.isText || !nodeAfter.marks.some((mark) => mark.type === markType)) {
+      break;
+    }
+
+    const text = nodeAfter.text ?? "";
+    const whitespaceLength = text.length - text.trimStart().length;
+
+    if (whitespaceLength === 0) {
+      break;
+    }
+
+    to += whitespaceLength;
+  }
+
+  return { from, to };
+};
+
 const removeOtherInlineMarks = (
   state: EditorState,
   range: TextRange,
@@ -35,9 +85,13 @@ const removeOtherInlineMarks = (
   const tr = state.tr;
 
   for (const markType of getClearableMarkTypes(state)) {
-    if (markType !== preservedMarkType) {
-      tr.removeMark(range.from, range.to, markType);
+    if (markType === preservedMarkType || !rangeHasMark(state, range, markType)) {
+      continue;
     }
+
+    const removalRange = getWhitespaceSafeMarkRemovalRange(state, range, markType);
+
+    tr.removeMark(removalRange.from, removalRange.to, markType);
   }
 
   return tr;
@@ -131,7 +185,9 @@ const toggleInlineFormatting = (view: EditorView, markName: InlineMarkName) => {
       : view.state.tr;
 
   if (shouldRemove) {
-    tr.removeMark(range.from, range.to, markType);
+    const removalRange = getWhitespaceSafeMarkRemovalRange(view.state, range, markType);
+
+    tr.removeMark(removalRange.from, removalRange.to, markType);
   } else {
     tr.addMark(range.from, range.to, createMark(markType));
   }
@@ -163,9 +219,16 @@ export const clearInlineFormat = (view: EditorView) => {
 
   if (!selection.empty) {
     const tr = view.state.tr;
+    const range = { from: selection.from, to: selection.to };
 
     for (const markType of markTypes) {
-      tr.removeMark(selection.from, selection.to, markType);
+      if (!rangeHasMark(view.state, range, markType)) {
+        continue;
+      }
+
+      const removalRange = getWhitespaceSafeMarkRemovalRange(view.state, range, markType);
+
+      tr.removeMark(removalRange.from, removalRange.to, markType);
     }
 
     view.focus();

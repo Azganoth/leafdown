@@ -283,15 +283,19 @@
     }
 
     .leafdown-source-projection__content--strikethrough {
-      @apply line-through;
+      @apply text-muted-foreground line-through;
     }
 
     .leafdown-source-projection__content--inline-code {
-      @apply text-inherit;
+      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
     .leafdown-source-projection__content--link {
-      @apply text-primary underline underline-offset-2;
+      @apply text-primary underline decoration-primary/45 underline-offset-2 transition-colors;
+
+      &:hover {
+        @apply decoration-primary;
+      }
     }
 
     .leafdown-source-edit {

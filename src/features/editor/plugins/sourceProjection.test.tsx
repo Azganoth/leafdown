@@ -151,6 +151,23 @@ describe("source projection", () => {
         mounted.view.dom.querySelector(".leafdown-source-projection__content--link"),
       ).toHaveTextContent("Link");
     });
+
+    it("restores the exact original document after a clean projection", async () => {
+      const mounted = await mountProjectionEditor(
+        '**[Strong Link](https://example.com "Title")** plain',
+      );
+      const originalDocument = mounted.view.state.doc;
+
+      enterProjection(mounted, "a");
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(false);
+      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+      expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+    });
   });
 
   describe("source editing", () => {
@@ -514,11 +531,19 @@ describe("source projection", () => {
     });
 
     it.each([
-      { commandId: "format.strong" as const, selector: "strong" },
-      { commandId: "format.emphasis" as const, selector: "em" },
+      {
+        commandId: "format.strong" as const,
+        expectedMarkdown: "**Plain paragraph**\n",
+        selector: "strong",
+      },
+      {
+        commandId: "format.emphasis" as const,
+        expectedMarkdown: "*Plain paragraph*\n",
+        selector: "em",
+      },
     ])(
       "preserves native undo after applying $commandId to a whole paragraph",
-      async ({ commandId, selector }) => {
+      async ({ commandId, expectedMarkdown, selector }) => {
         const mounted = await mountProjectionEditor("Plain paragraph");
 
         expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
@@ -532,6 +557,7 @@ describe("source projection", () => {
         expect(await runCommand(mounted, "edit.undo")).toBe(true);
         expect(mounted.getMarkdown()).toBe("Plain paragraph\n");
         expect(await runCommand(mounted, "edit.redo")).toBe(true);
+        expect(mounted.getMarkdown()).toBe(expectedMarkdown);
         expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
       },
     );

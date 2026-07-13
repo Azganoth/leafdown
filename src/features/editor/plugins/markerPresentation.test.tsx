@@ -8,6 +8,7 @@ import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
   getEditorNodePosition,
+  getEditorTextContent,
   setSelectionAtElementTextEnd,
   setTextSelection,
 } from "@/test/utils/prosemirror";
@@ -84,22 +85,22 @@ ${UNCHECKED_TASK_MARKDOWN}`);
     expect(taskListItem).not.toHaveAttribute("data-leafdown-marker");
   });
 
-  it("exposes footnote references as editable raw Markdown source", async () => {
+  it("leaves footnote-reference source editing to in-document projection", async () => {
     const mounted = await mountStyledEditor("Text[^note]\n\n[^note]: Detail");
     const footnoteReferencePos = getEditorNodePosition(mounted, "footnote_reference");
 
     setTextSelection(mounted.view, footnoteReferencePos);
 
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Markdown source" });
-
-    expect(input).toHaveValue("[^note]");
-
-    dispatchInput(input, "[^updated]");
-    dispatchKeyDown(input, "Enter");
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toContain("Text[^updated]");
-    });
+    expect(getEditorTextContent(mounted)).toContain("Text[^note]");
+    expect(
+      Array.from(
+        mounted.view.dom.querySelectorAll("[data-leafdown-source~='footnote-reference']"),
+        (element) => element.textContent,
+      ).join(""),
+    ).toBe("[^note]");
+    expect(
+      within(mounted.view.dom).queryByRole("textbox", { name: "Markdown source" }),
+    ).not.toBeInTheDocument();
   });
 
   it("exposes raw HTML as editable raw Markdown source", async () => {

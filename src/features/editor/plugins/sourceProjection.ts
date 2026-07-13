@@ -27,6 +27,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
@@ -107,6 +108,10 @@ export const createLeafdownSourceProjectionPlugin = () =>
     await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
 
     return createSourceProjectionProsePlugin([
+      createFootnoteReferenceSourceProjectionAdapter({
+        parser: ctx.get(parserCtx),
+        serializer: ctx.get(serializerCtx),
+      }),
       createLinkSourceProjectionAdapter({
         parser: ctx.get(parserCtx),
         remark: ctx.get(remarkCtx),

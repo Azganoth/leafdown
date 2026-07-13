@@ -290,6 +290,10 @@
       @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
+    .leafdown-source-projection__content--footnote-reference {
+      @apply text-xs text-primary;
+    }
+
     .leafdown-source-projection__content--link {
       @apply text-primary underline decoration-primary/45 underline-offset-2 transition-colors;
 

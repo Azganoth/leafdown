@@ -20,6 +20,8 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Route inline-formatting keyboard shortcuts through Leafdown commands so they
+  behave consistently with menus and popup controls during source projection.
 - Activate source projection for contained text selections and limit each
   projection to one exact inline mark combination.
 - Preserve text and spacing when removing formatting from part of an inline span.

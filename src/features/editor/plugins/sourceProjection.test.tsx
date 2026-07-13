@@ -654,6 +654,26 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe("_**~~Nesteder~~**_ plain\n");
     });
 
+    it("keeps edited link-like text literal inside an ordinary mark projection", async () => {
+      const mounted = await mountProjectionEditor("**placeholder** plain");
+
+      enterProjection(mounted, "strong");
+      const source = "**placeholder**";
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+      expect(pasteIntoSourceProjection(mounted.view, "**[Links](https://example.com)**")).toBe(
+        true,
+      );
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("**\\[Links]\\(https\\://example.com)** plain\n");
+      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+      expect(getEditorDomElement(mounted, "strong")).toHaveTextContent(
+        "[Links](https://example.com)",
+      );
+    });
+
     it("uses a longer delimiter run when inline-code content gains a backtick", async () => {
       const mounted = await mountProjectionEditor("`Code` plain");
 

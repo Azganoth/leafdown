@@ -4,7 +4,7 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 
 import { isNonNullish } from "@/lib/predicates";
 
-import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
+import { getCandidateMarksAtSelection } from "./marks";
 import {
   createProjectionMarkDescriptor,
   createProjectionSource,
@@ -199,33 +199,12 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
       ({ from, to }) => from <= selection.from && selection.to <= to,
     );
 
-    return containingSegment ? getSelectableProjectionRange(state, containingSegment) : null;
+    return containingSegment ? getActiveProjectionRange(containingSegment) : null;
   }
 
   const candidateMarks = getCandidateMarksAtSelection(state);
-  const linkType = state.schema.marks.link;
-  const activeLink = linkType
-    ? (candidateMarks.find((mark) => mark.type === linkType) ?? null)
-    : null;
-  if (activeLink) {
-    const linkRange = getMarkRangeAtSelection(state, activeLink);
-
-    if (!linkRange) {
-      return null;
-    }
-
-    const uniformLinkSegment = segments.find(
-      (segment) => segment.from === linkRange.from && segment.to === linkRange.to,
-    );
-
-    return uniformLinkSegment ? getActiveProjectionRange(uniformLinkSegment) : null;
-  }
 
   for (const markName of SUPPORTED_PROJECTION_MARK_NAMES) {
-    if (markName === "link") {
-      continue;
-    }
-
     const markType = state.schema.marks[markName];
     if (!markType) {
       continue;
@@ -248,23 +227,6 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
   }
 
   return null;
-};
-
-const getSelectableProjectionRange = (
-  state: EditorState,
-  segment: ProjectionMarkSegment,
-): ActiveProjectionRange | null => {
-  const linkMark = segment.documentMarks.find((mark) => mark.type.name === "link");
-
-  if (!linkMark) {
-    return getActiveProjectionRange(segment);
-  }
-
-  const linkRange = getMarkRangeAtSelection(state, linkMark);
-
-  return linkRange?.from === segment.from && linkRange.to === segment.to
-    ? getActiveProjectionRange(segment)
-    : null;
 };
 
 const getActiveProjectionRange = ({ from, marks, to }: ProjectionMarkSegment) => ({
@@ -311,10 +273,6 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
   });
 
   return segments.flatMap((segment) => {
-    if (segment.marks.some((mark) => mark.markName === "link")) {
-      return [segment];
-    }
-
     const text = getRangeText(state.doc, segment);
     const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
     const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
@@ -435,7 +393,6 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
       "leafdown-source-projection__content--strikethrough",
     marks.some((mark) => mark.markName === "inlineCode") &&
       "leafdown-source-projection__content--inline-code",
-    marks.some((mark) => mark.markName === "link") && "leafdown-source-projection__content--link",
   ]
     .filter(isNonNullish)
     .join(" ");

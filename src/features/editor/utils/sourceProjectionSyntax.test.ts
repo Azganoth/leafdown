@@ -9,7 +9,7 @@ import {
   parseProjectionSource,
   type ProjectionMarkerCharacter,
   type ProjectionMarkName,
-} from "./inlineSourceSyntax";
+} from "./sourceProjectionSyntax";
 
 interface ExpectedProjectionMark {
   marker: ProjectionMarkerCharacter;
@@ -50,7 +50,7 @@ const expectMarkSource = (source: string, expected: ExpectedMarkSource) => {
   }
 };
 
-describe("inline source syntax", () => {
+describe("source projection syntax", () => {
   it.each([
     {
       closing: "*",

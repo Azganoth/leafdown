@@ -24,13 +24,13 @@ import {
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
-import {
-  createLeafdownInlineSourceProjectionPlugin,
-  finalizeInlineSourceProjection,
-  hasTransientInlineSourceProjection,
-} from "../plugins/inlineSourceProjection";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
+import {
+  createLeafdownSourceProjectionPlugin,
+  finalizeSourceProjection,
+  hasTransientSourceProjection,
+} from "../plugins/sourceProjection";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownHighlightParser } from "./highlighting";
@@ -97,7 +97,7 @@ export const createMilkdownEditor = async ({
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
-    .use(createLeafdownInlineSourceProjectionPlugin())
+    .use(createLeafdownSourceProjectionPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
@@ -123,7 +123,7 @@ export const createMilkdownEditor = async ({
 
       if (onMarkdownUpdated) {
         ctx.get(listenerCtx).markdownUpdated((listenerCtx, markdown, previousMarkdown) => {
-          if (hasTransientInlineSourceProjection(listenerCtx.get(editorViewCtx).state)) {
+          if (hasTransientSourceProjection(listenerCtx.get(editorViewCtx).state)) {
             return;
           }
 
@@ -134,7 +134,7 @@ export const createMilkdownEditor = async ({
 };
 
 export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
-  finalizeInlineSourceProjection(editor.ctx.get(editorViewCtx));
+  finalizeSourceProjection(editor.ctx.get(editorViewCtx));
 
   return editor.action(getMarkdown());
 };

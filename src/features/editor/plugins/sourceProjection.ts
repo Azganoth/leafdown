@@ -11,6 +11,12 @@ import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { isNonNullish } from "@/lib/predicates";
 
 import {
+  getCandidateMarksAtSelection,
+  getMarkRangeAtSelection,
+  type ActiveMarkRange,
+} from "../utils/marks";
+import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
+import {
   areProjectionMarksEqual,
   createProjectionSource,
   createProjectionMarkDescriptor,
@@ -28,23 +34,18 @@ import {
   type ProjectionEditKind,
   type ProjectionMarkDescriptor,
   type ProjectionReplacement,
-} from "../utils/inlineSourceSyntax";
-import {
-  getCandidateMarksAtSelection,
-  getMarkRangeAtSelection,
-  type ActiveMarkRange,
-} from "../utils/marks";
-import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
+} from "../utils/sourceProjectionSyntax";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
-const EMPTY_PROJECTION_STATE: InlineSourceProjectionPluginState = {
+const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   pendingCommit: null,
   session: null,
   suppressAt: null,
 };
 
-export const leafdownInlineSourceProjectionPluginKey =
-  new PluginKey<InlineSourceProjectionPluginState>("leafdownInlineSourceProjection");
+export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionPluginState>(
+  "leafdownSourceProjection",
+);
 
 interface ActiveProjectionRange extends ActiveMarkRange {
   marks: ProjectionMarkDescriptor[];
@@ -65,7 +66,7 @@ interface PendingProjectionCommit extends TextRange {
   suppressAt: number | null;
 }
 
-interface InlineSourceProjectionPluginState {
+interface SourceProjectionPluginState {
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
   suppressAt: number | null;
@@ -99,11 +100,11 @@ type ProjectionMeta =
     }
   | { type: "commitAfterRestore"; suppressAt: number | null };
 
-export const createLeafdownInlineSourceProjectionPlugin = () =>
+export const createLeafdownSourceProjectionPlugin = () =>
   $prose(
     () =>
-      new Plugin<InlineSourceProjectionPluginState>({
-        key: leafdownInlineSourceProjectionPluginKey,
+      new Plugin<SourceProjectionPluginState>({
+        key: leafdownSourceProjectionPluginKey,
         appendTransaction: (_transactions, _oldState, newState) =>
           appendProjectionTransaction(newState),
         props: {
@@ -121,8 +122,8 @@ export const createLeafdownInlineSourceProjectionPlugin = () =>
       }),
   );
 
-export const finalizeInlineSourceProjection = (view: EditorView) => {
-  const projectionState = getInlineSourceProjectionState(view.state);
+export const finalizeSourceProjection = (view: EditorView) => {
+  const projectionState = getSourceProjectionState(view.state);
 
   if (!projectionState.session) {
     return false;
@@ -139,41 +140,39 @@ export const finalizeInlineSourceProjection = (view: EditorView) => {
   return true;
 };
 
-export const hasActiveInlineSourceProjection = (state: EditorState) =>
-  getInlineSourceProjectionState(state).session !== null;
+export const hasActiveSourceProjection = (state: EditorState) =>
+  getSourceProjectionState(state).session !== null;
 
-export const hasTransientInlineSourceProjection = (state: EditorState) => {
-  const projectionState = getInlineSourceProjectionState(state);
+export const hasTransientSourceProjection = (state: EditorState) => {
+  const projectionState = getSourceProjectionState(state);
 
   return projectionState.session !== null || projectionState.pendingCommit !== null;
 };
 
-export const canUndoInlineSourceProjection = (state: EditorState) => {
-  const { session } = getInlineSourceProjectionState(state);
+export const canUndoSourceProjection = (state: EditorState) => {
+  const { session } = getSourceProjectionState(state);
 
   return session !== null && session.undoStack.length > 0;
 };
 
-export const canRedoInlineSourceProjection = (state: EditorState) => {
-  const { session } = getInlineSourceProjectionState(state);
+export const canRedoSourceProjection = (state: EditorState) => {
+  const { session } = getSourceProjectionState(state);
 
   return session !== null && session.redoStack.length > 0;
 };
 
-export const canDeferInlineSourceProjectionToNativeHistory = (state: EditorState) => {
-  const { session } = getInlineSourceProjectionState(state);
+export const canDeferSourceProjectionToNativeHistory = (state: EditorState) => {
+  const { session } = getSourceProjectionState(state);
 
   return session !== null && isCleanProjectionSession(state, session);
 };
 
-export const undoInlineSourceProjection = (view: EditorView) =>
-  runProjectionLocalHistory(view, "undo");
+export const undoSourceProjection = (view: EditorView) => runProjectionLocalHistory(view, "undo");
 
-export const redoInlineSourceProjection = (view: EditorView) =>
-  runProjectionLocalHistory(view, "redo");
+export const redoSourceProjection = (view: EditorView) => runProjectionLocalHistory(view, "redo");
 
 const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistoryDirection) => {
-  const { session } = getInlineSourceProjectionState(view.state);
+  const { session } = getSourceProjectionState(view.state);
 
   if (!session) {
     return false;
@@ -183,7 +182,7 @@ const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistor
 
   if (source === undefined) {
     if (isCleanProjectionSession(view.state, session)) {
-      finalizeInlineSourceProjection(view);
+      finalizeSourceProjection(view);
 
       return false;
     }
@@ -195,7 +194,7 @@ const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistor
   const transaction = replaceProjectionSource(view.state, session, source);
   const metaType = direction === "undo" ? "localUndo" : "localRedo";
 
-  transaction.setMeta("addToHistory", false).setMeta(leafdownInlineSourceProjectionPluginKey, {
+  transaction.setMeta("addToHistory", false).setMeta(leafdownSourceProjectionPluginKey, {
     currentSource,
     type: metaType,
   } satisfies ProjectionMeta);
@@ -206,8 +205,8 @@ const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistor
   return true;
 };
 
-export const pasteIntoInlineSourceProjection = (view: EditorView, text: string) => {
-  const session = getInlineSourceProjectionState(view.state).session;
+export const pasteIntoSourceProjection = (view: EditorView, text: string) => {
+  const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
   if (!session || !isRangeInsideProjection(selection, session)) {
@@ -224,13 +223,13 @@ export const pasteIntoInlineSourceProjection = (view: EditorView, text: string) 
   return true;
 };
 
-export const isInlineSourceProjectionDirtyTransaction = (transaction: Transaction) => {
+export const isSourceProjectionDirtyTransaction = (transaction: Transaction) => {
   const meta = getProjectionMeta(transaction);
 
   return meta?.type === "userEdit";
 };
 
-export const isInlineSourceProjectionHousekeepingTransaction = (transaction: Transaction) => {
+export const isSourceProjectionHousekeepingTransaction = (transaction: Transaction) => {
   const meta = getProjectionMeta(transaction);
 
   return (
@@ -240,14 +239,14 @@ export const isInlineSourceProjectionHousekeepingTransaction = (transaction: Tra
   );
 };
 
-const getInlineSourceProjectionState = (state: EditorState) =>
-  leafdownInlineSourceProjectionPluginKey.getState(state) ?? EMPTY_PROJECTION_STATE;
+const getSourceProjectionState = (state: EditorState) =>
+  leafdownSourceProjectionPluginKey.getState(state) ?? EMPTY_PROJECTION_STATE;
 
 const getProjectionMeta = (transaction: Transaction) =>
-  transaction.getMeta(leafdownInlineSourceProjectionPluginKey) as ProjectionMeta | undefined;
+  transaction.getMeta(leafdownSourceProjectionPluginKey) as ProjectionMeta | undefined;
 
 const appendProjectionTransaction = (state: EditorState) => {
-  const projectionState = getInlineSourceProjectionState(state);
+  const projectionState = getSourceProjectionState(state);
 
   if (projectionState.pendingCommit) {
     return createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
@@ -280,9 +279,9 @@ const appendProjectionTransaction = (state: EditorState) => {
 
 const applyProjectionTransaction = (
   transaction: Transaction,
-  pluginState: InlineSourceProjectionPluginState,
+  pluginState: SourceProjectionPluginState,
   newState: EditorState,
-): InlineSourceProjectionPluginState => {
+): SourceProjectionPluginState => {
   const meta = getProjectionMeta(transaction);
 
   if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {
@@ -393,7 +392,7 @@ const getMappedSuppressPosition = (suppressAt: number | null, transaction: Trans
 };
 
 const createProjectionDecorations = (state: EditorState) => {
-  const session = getInlineSourceProjectionState(state).session;
+  const session = getSourceProjectionState(state).session;
 
   if (!session) {
     return DecorationSet.empty;
@@ -403,21 +402,21 @@ const createProjectionDecorations = (state: EditorState) => {
   const parsed = parseProjectionSource(source);
   const decorations = [
     Decoration.inline(session.from, session.to, {
-      class: "leafdown-inline-source-projection",
-      "data-leafdown-inline-source": session.marks.map((mark) => mark.markName).join(" "),
+      class: "leafdown-source-projection",
+      "data-leafdown-source": session.marks.map((mark) => mark.markName).join(" "),
     }),
   ];
 
   if (parsed.type === "mark") {
     decorations.push(
       Decoration.inline(session.from, session.from + parsed.opening.length, {
-        class: "leafdown-inline-source-projection__marker",
+        class: "leafdown-source-projection__marker",
       }),
       Decoration.inline(session.from + parsed.opening.length, session.to - parsed.closing.length, {
         class: getProjectionContentClassName(parsed.marks),
       }),
       Decoration.inline(session.to - parsed.closing.length, session.to, {
-        class: "leafdown-inline-source-projection__marker",
+        class: "leafdown-source-projection__marker",
       }),
     );
   }
@@ -427,23 +426,22 @@ const createProjectionDecorations = (state: EditorState) => {
 
 const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
   [
-    "leafdown-inline-source-projection__content",
+    "leafdown-source-projection__content",
     marks.some((mark) => mark.markName === "strong") &&
-      "leafdown-inline-source-projection__content--strong",
+      "leafdown-source-projection__content--strong",
     marks.some((mark) => mark.markName === "emphasis") &&
-      "leafdown-inline-source-projection__content--emphasis",
+      "leafdown-source-projection__content--emphasis",
     marks.some((mark) => mark.markName === "strike_through") &&
-      "leafdown-inline-source-projection__content--strikethrough",
+      "leafdown-source-projection__content--strikethrough",
     marks.some((mark) => mark.markName === "inlineCode") &&
-      "leafdown-inline-source-projection__content--inline-code",
-    marks.some((mark) => mark.markName === "link") &&
-      "leafdown-inline-source-projection__content--link",
+      "leafdown-source-projection__content--inline-code",
+    marks.some((mark) => mark.markName === "link") && "leafdown-source-projection__content--link",
   ]
     .filter(isNonNullish)
     .join(" ");
 
 const handleProjectionTextInput = (view: EditorView, from: number, to: number, text: string) => {
-  const session = getInlineSourceProjectionState(view.state).session;
+  const session = getSourceProjectionState(view.state).session;
 
   if (!session) {
     return handleProjectionSourceTextInput(view, from, to, text);
@@ -500,7 +498,7 @@ const handleProjectionSourceTextInput = (
   transaction
     .setSelection(TextSelection.create(transaction.doc, candidate.from + text.length))
     .setStoredMarks([])
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       session: createProjectionSession({
         from: candidate.from,
         marks: candidate.marks,
@@ -589,7 +587,7 @@ const isPlainTextRange = (state: EditorState, from: number, to: number) => {
 };
 
 const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: Slice) => {
-  const session = getInlineSourceProjectionState(view.state).session;
+  const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
   if (!session || !isRangeInsideProjection(selection, session)) {
@@ -611,14 +609,14 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: S
 };
 
 const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
-  const session = getInlineSourceProjectionState(view.state).session;
+  const session = getSourceProjectionState(view.state).session;
 
   if (!session) {
     return false;
   }
 
   if (isUndoKey(event)) {
-    const didUndo = undoInlineSourceProjection(view);
+    const didUndo = undoSourceProjection(view);
 
     if (didUndo) {
       event.preventDefault();
@@ -628,7 +626,7 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   }
 
   if (isRedoKey(event)) {
-    const didRedo = redoInlineSourceProjection(view);
+    const didRedo = redoSourceProjection(view);
 
     if (didRedo) {
       event.preventDefault();
@@ -639,7 +637,7 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
 
   if (event.key === "Enter" || event.key === "Escape") {
     event.preventDefault();
-    finalizeInlineSourceProjection(view);
+    finalizeSourceProjection(view);
 
     return true;
   }
@@ -661,7 +659,7 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
 };
 
 const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text: string) => {
-  const session = getInlineSourceProjectionState(view.state).session;
+  const session = getSourceProjectionState(view.state).session;
 
   if (!session) {
     return;
@@ -689,7 +687,7 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     )
     .setStoredMarks([])
     .setMeta("addToHistory", false)
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       previousSource,
       type: "userEdit",
     } satisfies ProjectionMeta);
@@ -913,7 +911,7 @@ const createEnterProjectionTransaction = (state: EditorState, range: ActiveProje
     .setSelection(TextSelection.create(transaction.doc, selectionPosition))
     .setStoredMarks([])
     .setMeta("addToHistory", false)
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       session,
       type: "enter",
     } satisfies ProjectionMeta)
@@ -1017,7 +1015,7 @@ const createRestoreBeforeCommitTransaction = ({
     )
     .setStoredMarks([])
     .setMeta("addToHistory", false)
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       pendingCommit,
       suppressAt,
       type: "restoreBeforeCommit",
@@ -1055,7 +1053,7 @@ const createCleanFinalizeProjectionTransaction = (
     )
     .setStoredMarks([])
     .setMeta("addToHistory", false)
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       pendingCommit: null,
       suppressAt,
       type: "restoreBeforeCommit",
@@ -1093,7 +1091,7 @@ const createCommitAfterRestoreTransaction = (
       ),
     )
     .setStoredMarks([])
-    .setMeta(leafdownInlineSourceProjectionPluginKey, {
+    .setMeta(leafdownSourceProjectionPluginKey, {
       suppressAt: pendingCommit.suppressAt,
       type: "commitAfterRestore",
     } satisfies ProjectionMeta)

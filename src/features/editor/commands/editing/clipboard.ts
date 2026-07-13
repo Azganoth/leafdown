@@ -7,9 +7,9 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
-  hasActiveInlineSourceProjection,
-  pasteIntoInlineSourceProjection,
-} from "../../plugins/inlineSourceProjection";
+  hasActiveSourceProjection,
+  pasteIntoSourceProjection,
+} from "../../plugins/sourceProjection";
 import { getEditorView, runProseMirrorCommand } from "../../utils/milkdown";
 
 interface ClipboardPayload {
@@ -134,13 +134,13 @@ const pasteRichText = async (view: EditorView) => {
   return pasteText(view);
 };
 
-const pasteInlineSourceProjectionText = async (view: EditorView) => {
+const pasteSourceProjectionText = async (view: EditorView) => {
   const text = await readClipboardText();
   if (text === null) {
     return false;
   }
 
-  return pasteIntoInlineSourceProjection(view, text);
+  return pasteIntoSourceProjection(view, text);
 };
 
 /* Commands */
@@ -165,8 +165,8 @@ export const cutSelection = async (view: EditorView) => {
 
 export const paste = async (editor: Editor, format: ClipboardPasteFormat) => {
   const view = getEditorView(editor);
-  if (hasActiveInlineSourceProjection(view.state)) {
-    return pasteInlineSourceProjectionText(view);
+  if (hasActiveSourceProjection(view.state)) {
+    return pasteSourceProjectionText(view);
   }
 
   switch (format) {

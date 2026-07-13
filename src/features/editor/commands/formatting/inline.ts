@@ -6,9 +6,9 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { isNonNullish } from "@/lib/predicates";
 
 import {
-  finalizeInlineSourceProjection,
-  hasActiveInlineSourceProjection,
-} from "../../plugins/inlineSourceProjection";
+  finalizeSourceProjection,
+  hasActiveSourceProjection,
+} from "../../plugins/sourceProjection";
 import {
   getCandidateMarksAtSelection,
   getMarkRangeAtSelection,
@@ -108,8 +108,8 @@ const CLEARABLE_INLINE_MARK_NAMES = [
 ] as const;
 
 const toggleInlineFormatting = (view: EditorView, markName: InlineMarkName) => {
-  if (hasActiveInlineSourceProjection(view.state)) {
-    finalizeInlineSourceProjection(view);
+  if (hasActiveSourceProjection(view.state)) {
+    finalizeSourceProjection(view);
   }
 
   const markType = getMarkType(view.state, markName);
@@ -154,8 +154,8 @@ export const toggleStrikethrough = (view: EditorView) =>
 export const toggleInlineCode = (view: EditorView) => toggleInlineFormatting(view, "inlineCode");
 
 export const clearInlineFormat = (view: EditorView) => {
-  if (hasActiveInlineSourceProjection(view.state)) {
-    finalizeInlineSourceProjection(view);
+  if (hasActiveSourceProjection(view.state)) {
+    finalizeSourceProjection(view);
   }
 
   const { selection } = view.state;
@@ -207,7 +207,7 @@ export const clearInlineFormat = (view: EditorView) => {
 /* State */
 
 export const canClearInlineFormat = (state: EditorState) => {
-  if (hasActiveInlineSourceProjection(state)) {
+  if (hasActiveSourceProjection(state)) {
     return true;
   }
 

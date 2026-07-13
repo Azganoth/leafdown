@@ -13,19 +13,24 @@ import {
   areProjectionMarksEqual,
   createProjectionMarkDescriptor,
   createProjectionSource,
+  getProjectionDelimiterBounds,
   getProjectionReplacement,
+  isProjectionMarkerText,
   isProjectionMarkName,
+  normalizeProjectionSourceAfterEdit,
   parseProjectionSource,
   SUPPORTED_PROJECTION_MARK_NAMES,
   type ParsedProjectionSource,
+  type ProjectionDelimiterBounds,
+  type ProjectionDelimiterSide,
+  type ProjectionEditContext,
+  type ProjectionEditKind,
   type ProjectionMarkDescriptor,
 } from "./sourceProjectionSyntax";
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
-type SourceProjectionAdapterId = "mark";
-
 export interface SourceProjectionTarget extends TextRange {
-  adapterId: SourceProjectionAdapterId;
+  adapterId: string;
   originalContent: Slice;
   originalContentSize: number;
   originalSource: string;
@@ -47,11 +52,22 @@ export interface SourceProjectionParseResult {
   source: string;
 }
 
+export interface SourceProjectionEdit extends TextRange {
+  text: string;
+}
+
+export interface SourceProjectionEditResult {
+  selectionOffset: number;
+  source: string;
+}
+
+export interface SourceProjectionPresentationSpan extends TextRange {
+  className: string;
+}
+
 export interface SourceProjectionPresentation {
-  closingLength: number;
-  contentClassName: string | null;
-  openingLength: number;
   sourceTypes: string[];
+  spans: SourceProjectionPresentationSpan[];
 }
 
 export interface SourceProjectionInsertionCandidate extends TextRange {
@@ -60,8 +76,14 @@ export interface SourceProjectionInsertionCandidate extends TextRange {
 }
 
 export interface SourceProjectionAdapter {
-  id: SourceProjectionAdapterId;
+  id: string;
+  applyEdit?: (source: string, edit: SourceProjectionEdit) => SourceProjectionEditResult;
   createEnterTransaction: (state: EditorState, target: SourceProjectionTarget) => Transaction;
+  findInsertionCandidate?: (
+    state: EditorState,
+    position: number,
+    text: string,
+  ) => SourceProjectionInsertionCandidate | null;
   findTarget: (state: EditorState) => SourceProjectionTarget | null;
   getPresentation: (target: SourceProjectionTarget, source: string) => SourceProjectionPresentation;
   mapSelectionFromSource: (
@@ -75,6 +97,17 @@ export interface SourceProjectionAdapter {
   ) => { anchor: number; head: number };
   parseSource: (state: EditorState, source: string) => SourceProjectionParseResult;
   restoreCleanTarget: (state: EditorState, session: SourceProjectionSessionRange) => Transaction;
+  shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
+}
+
+export interface SourceProjectionTargetMatch {
+  adapter: SourceProjectionAdapter;
+  target: SourceProjectionTarget;
+}
+
+export interface SourceProjectionInsertionMatch {
+  adapter: SourceProjectionAdapter;
+  candidate: SourceProjectionInsertionCandidate;
 }
 
 interface ActiveProjectionRange extends ActiveMarkRange {
@@ -100,6 +133,19 @@ const createTextSlice = (
 
 export const createLiteralSourceProjectionSlice = (state: EditorState, text: string) =>
   createTextSlice(state, text);
+
+export const applyLiteralSourceProjectionEdit = (
+  source: string,
+  { from, text, to }: SourceProjectionEdit,
+): SourceProjectionEditResult => {
+  const normalizedFrom = Math.min(Math.max(from, 0), source.length);
+  const normalizedTo = Math.min(Math.max(to, normalizedFrom), source.length);
+
+  return {
+    selectionOffset: normalizedFrom + text.length,
+    source: `${source.slice(0, normalizedFrom)}${text}${source.slice(normalizedTo)}`,
+  };
+};
 
 const createMarkSourceProjectionTarget = (
   state: EditorState,
@@ -381,8 +427,133 @@ const mapSelectionFromSourcePosition = (
   );
 };
 
+const getProjectionEditKind = ({ from, text, to }: SourceProjectionEdit): ProjectionEditKind => {
+  if (text.length > 0 && from === to) {
+    return "insert";
+  }
+
+  if (text.length === 0) {
+    return "delete";
+  }
+
+  return "replace";
+};
+
+const getMarkProjectionEdit = (
+  source: string,
+  { from, text, to }: SourceProjectionEdit,
+): SourceProjectionEdit & { context: ProjectionEditContext } => {
+  const normalizedFrom = Math.min(Math.max(from, 0), source.length);
+  const normalizedTo = Math.min(Math.max(to, normalizedFrom), source.length);
+  const edit = { from: normalizedFrom, text, to: normalizedTo };
+  const kind = getProjectionEditKind(edit);
+  const delimiterSide = getProjectionEditedDelimiterSide(source, edit);
+
+  if (kind === "insert" && !isActiveProjectionMarkerText(source, text)) {
+    const bounds = getProjectionDelimiterBounds(source);
+    const remappedPosition = bounds
+      ? getContentBoundaryInsertionPosition(bounds, normalizedFrom)
+      : normalizedFrom;
+
+    return {
+      context: { delimiterSide: null, kind },
+      from: remappedPosition,
+      text,
+      to: remappedPosition,
+    };
+  }
+
+  return {
+    context: { delimiterSide, kind },
+    ...edit,
+  };
+};
+
+const getProjectionEditedDelimiterSide = (
+  source: string,
+  { from, text, to }: SourceProjectionEdit,
+): ProjectionDelimiterSide | null => {
+  const bounds = getProjectionDelimiterBounds(source);
+
+  if (!bounds) {
+    return null;
+  }
+
+  if (isActiveProjectionMarkerText(source, text) && from === to) {
+    if (from <= bounds.contentFrom) {
+      return "opening";
+    }
+
+    if (from >= bounds.contentTo) {
+      return "closing";
+    }
+
+    return null;
+  }
+
+  if (text.length === 0) {
+    if (from < bounds.contentFrom) {
+      return "opening";
+    }
+
+    if (to > bounds.contentTo) {
+      return "closing";
+    }
+  }
+
+  return null;
+};
+
+const isActiveProjectionMarkerText = (source: string, text: string) => {
+  const bounds = getProjectionDelimiterBounds(source);
+
+  if (!bounds) {
+    return isProjectionMarkerText(text);
+  }
+
+  return text.length > 0 && Array.from(text).every((character) => character === bounds.marker);
+};
+
+const getContentBoundaryInsertionPosition = (
+  bounds: ProjectionDelimiterBounds,
+  position: number,
+) => {
+  if (position <= bounds.contentFrom) {
+    return bounds.contentFrom;
+  }
+
+  if (position >= bounds.contentTo) {
+    return bounds.contentTo;
+  }
+
+  return position;
+};
+
+const applyMarkSourceProjectionEdit = (
+  source: string,
+  editInput: SourceProjectionEdit,
+): SourceProjectionEditResult => {
+  const edit = getMarkProjectionEdit(source, editInput);
+  const editedSource = `${source.slice(0, edit.from)}${edit.text}${source.slice(edit.to)}`;
+  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, edit.context);
+
+  return {
+    selectionOffset: Math.min(edit.from + edit.text.length, nextSource.length),
+    source: nextSource,
+  };
+};
+
+const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>
+  !(
+    from === to &&
+    text.length > 0 &&
+    !isActiveProjectionMarkerText(source, text) &&
+    (from === 0 || from === source.length)
+  );
+
 const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
   id: "mark",
+  applyEdit: applyMarkSourceProjectionEdit,
   createEnterTransaction: (state, target) => {
     const markTarget = getMarkSourceProjectionTarget(target);
     const contentOffset = markTarget.originalSource.indexOf(markTarget.originalText);
@@ -401,16 +572,39 @@ const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
 
     return range ? createMarkSourceProjectionTarget(state, range) : null;
   },
+  findInsertionCandidate: getSourceProjectionInsertionCandidate,
   getPresentation: (target, source) => {
     const markTarget = getMarkSourceProjectionTarget(target);
     const parsed = parseProjectionSource(source);
     const marks = parsed.type === "mark" ? parsed.marks : markTarget.marks;
+    const spans: SourceProjectionPresentationSpan[] = [];
+
+    if (parsed.type === "mark") {
+      const contentFrom = parsed.opening.length;
+      const contentTo = source.length - parsed.closing.length;
+
+      spans.push(
+        {
+          className: "leafdown-source-projection__marker",
+          from: 0,
+          to: contentFrom,
+        },
+        {
+          className: getProjectionContentClassName(marks),
+          from: contentFrom,
+          to: contentTo,
+        },
+        {
+          className: "leafdown-source-projection__marker",
+          from: contentTo,
+          to: source.length,
+        },
+      );
+    }
 
     return {
-      closingLength: parsed.type === "mark" ? parsed.closing.length : 0,
-      contentClassName: parsed.type === "mark" ? getProjectionContentClassName(marks) : null,
-      openingLength: parsed.type === "mark" ? parsed.opening.length : 0,
       sourceTypes: marks.map((mark) => mark.markName),
+      spans,
     };
   },
   mapSelectionFromSource: (selection, session, result) => {
@@ -473,30 +667,41 @@ const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
 
     return transaction;
   },
+  shouldHandleTextInput: shouldHandleMarkTextInput,
 };
 
-const SOURCE_PROJECTION_ADAPTERS = [MARK_SOURCE_PROJECTION_ADAPTER] as const;
+const SOURCE_PROJECTION_ADAPTERS: readonly SourceProjectionAdapter[] = [
+  MARK_SOURCE_PROJECTION_ADAPTER,
+];
 
-export const findSourceProjectionTarget = (state: EditorState) => {
-  for (const adapter of SOURCE_PROJECTION_ADAPTERS) {
+export const findSourceProjectionTarget = (
+  state: EditorState,
+  adapters: readonly SourceProjectionAdapter[] = SOURCE_PROJECTION_ADAPTERS,
+): SourceProjectionTargetMatch | null => {
+  for (const adapter of adapters) {
     const target = adapter.findTarget(state);
 
     if (target) {
-      return target;
+      return { adapter, target };
     }
   }
 
   return null;
 };
 
-export const getSourceProjectionAdapter = (target: SourceProjectionTarget) => {
-  const adapter = SOURCE_PROJECTION_ADAPTERS.find(
-    (candidateAdapter) => candidateAdapter.id === target.adapterId,
-  );
+export const findSourceProjectionInsertionCandidate = (
+  state: EditorState,
+  position: number,
+  text: string,
+  adapters: readonly SourceProjectionAdapter[] = SOURCE_PROJECTION_ADAPTERS,
+): SourceProjectionInsertionMatch | null => {
+  for (const adapter of adapters) {
+    const candidate = adapter.findInsertionCandidate?.(state, position, text) ?? null;
 
-  if (!adapter) {
-    throw new Error(`No source-projection adapter is registered for '${target.adapterId}'`);
+    if (candidate) {
+      return { adapter, candidate };
+    }
   }
 
-  return adapter;
+  return null;
 };

@@ -742,6 +742,49 @@ describe("source projection", () => {
       ).toBe("Bolder and soft");
     });
 
+    it.each([
+      {
+        content: "strike",
+        expectedContent: "striked",
+        expectedMarkdown: "[plain ~~striked~~](https://example.com)\n",
+        initialMarkdown: "[plain ~~strike~~](https://example.com)",
+        selector: "del",
+        source: "[plain ~~strike~~](https://example.com)",
+      },
+      {
+        content: "code",
+        expectedContent: "coded",
+        expectedMarkdown: "[plain `coded`](https://example.com)\n",
+        initialMarkdown: "[plain `code`](https://example.com)",
+        selector: "code",
+        source: "[plain `code`](https://example.com)",
+      },
+    ] as const)(
+      "rehydrates an edited $selector label inside one logical link projection",
+      async ({ content, expectedContent, expectedMarkdown, initialMarkdown, selector, source }) => {
+        const mounted = await mountProjectionEditor(initialMarkdown);
+
+        setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, selector));
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(getEditorTextContent(mounted)).toBe(source);
+
+        const contentEnd = getEditorTextPosition(mounted, content) + content.length;
+
+        setTextSelection(mounted.view, contentEnd);
+        typeText(mounted.view, "d");
+        setSelectionAtDocumentEnd(mounted.view);
+
+        expect(mounted.getMarkdown()).toBe(expectedMarkdown);
+        expect(
+          Array.from(mounted.view.dom.querySelectorAll("a"), (element) => element.textContent).join(
+            "",
+          ),
+        ).toBe(`plain ${expectedContent}`);
+        expect(getEditorDomElement(mounted, selector)).toHaveTextContent(expectedContent);
+      },
+    );
+
     it("commits destination edits while preserving a mixed-format label", async () => {
       const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");
 

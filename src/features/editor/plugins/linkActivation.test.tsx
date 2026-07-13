@@ -1,4 +1,3 @@
-import { TextSelection } from "@milkdown/kit/prose/state";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { describe, expect, it } from "vitest";
@@ -36,9 +35,6 @@ describe("Markdown links", () => {
     const mounted = await mountLinkEditor("[Guide](guide.md)");
     const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
 
-    mounted.view.dispatch(
-      mounted.view.state.tr.setSelection(TextSelection.create(mounted.view.state.doc, 1)),
-    );
     const event = dispatchClick(link);
 
     expect(event.defaultPrevented).toBe(true);

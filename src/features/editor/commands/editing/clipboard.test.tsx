@@ -62,8 +62,8 @@ describe("editor clipboard commands", () => {
     await expect(paste(markdownEditor.editor, "markdown")).resolves.toBe(true);
 
     expect(markdownEditor.view.dom).toHaveTextContent("**Bold**");
-    expect(markdownEditor.view.dom.querySelector("strong")).toBeInTheDocument();
     expect(markdownEditor.getMarkdown()).toBe("**Bold**\n");
+    expect(markdownEditor.view.dom.querySelector("strong")).toBeInTheDocument();
   });
 
   it("pastes rich text from clipboard HTML when available", async () => {

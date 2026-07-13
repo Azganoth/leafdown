@@ -252,6 +252,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   between the brackets.
 - `Clear inline formatting` removes supported inline formatting from the
   selection, or from the active marked inline element when there is no selection.
+- Inline-formatting keyboard shortcuts run the same Leafdown commands as menu
+  and context-popup controls. When source projection is active, the command
+  finalizes the projected source before changing formatting and reactivates an
+  eligible resulting projection.
 
 ### Block Formatting Commands
 

@@ -10,7 +10,13 @@ import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession } from "@/test/utils/appStores";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
-import { setSelectionAtDocumentEnd } from "@/test/utils/prosemirror";
+import {
+  getEditorTextContent,
+  getEditorTextPosition,
+  getSelectedEditorText,
+  setSelectionAtDocumentEnd,
+  setTextSelection,
+} from "@/test/utils/prosemirror";
 import { render, waitFor } from "@/test/utils/react";
 
 import { APPLICATION_COMMANDS } from "../application";
@@ -93,6 +99,58 @@ describe("useAppCommands shortcut routing", () => {
     expect(mounted.view.state.selection.to).toBe(mounted.view.state.doc.content.size);
     expect(runCommand).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      commandId: "format.strong" as const,
+      expectedMarkdown: "*Single* ***asterisk*** *emphasis*\n",
+      key: "b",
+      keyCode: 66,
+      modifiers: { ctrl: true },
+    },
+    {
+      commandId: "format.emphasis" as const,
+      expectedMarkdown: "*Single* asterisk *emphasis*\n",
+      key: "i",
+      keyCode: 73,
+      modifiers: { ctrl: true },
+    },
+    {
+      commandId: "format.strikethrough" as const,
+      expectedMarkdown: "*Single* *~~asterisk~~* *emphasis*\n",
+      key: "x",
+      keyCode: 88,
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      commandId: "format.inlineCode" as const,
+      expectedMarkdown: "*Single* `asterisk` *emphasis*\n",
+      key: "e",
+      keyCode: 69,
+      modifiers: { ctrl: true },
+    },
+  ])(
+    "lets the editor route $commandId without duplicate app dispatch",
+    async ({ expectedMarkdown, key, keyCode, modifiers }) => {
+      const { mounted, runCommand } = await mountActiveEditor("*Single asterisk emphasis*");
+
+      render(<AppCommandsHarness />);
+
+      const selectionFrom = getEditorTextPosition(mounted, "asterisk");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "asterisk".length);
+
+      expect(getEditorTextContent(mounted)).toBe("*Single asterisk emphasis*");
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+
+      const shortcut = dispatchKeyDown(mounted.view.dom, key, { ...modifiers, keyCode });
+
+      expect(shortcut.defaultPrevented).toBe(true);
+      expect(runCommand).not.toHaveBeenCalled();
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(mounted.getMarkdown()).toBe(expectedMarkdown);
+    },
+  );
 
   it("routes the task-list format shortcut", async () => {
     const { mounted, runCommand } = await mountActiveEditor("Task");

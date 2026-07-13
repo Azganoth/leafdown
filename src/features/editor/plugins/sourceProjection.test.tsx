@@ -290,6 +290,46 @@ describe("source projection", () => {
       ).toHaveTextContent("Link");
     });
 
+    it("projects only the exact mark combination around the caret", async () => {
+      const mounted = await mountProjectionEditor("***Bold and italic***");
+
+      enterProjection(mounted, "strong");
+
+      const selectionFrom = getEditorTextPosition(mounted, "and");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "and".length);
+
+      expect(runEditorCommand(mounted.editor, "format.strong")).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+
+      const expectedTargets = [
+        { documentText: "***Bold*** and italic", word: "Bold" },
+        { documentText: "Bold *and* italic", word: "and" },
+        { documentText: "Bold and ***italic***", word: "italic" },
+      ] as const;
+
+      for (const { documentText, word } of expectedTargets) {
+        const caretPosition = getEditorTextPosition(mounted, word) + 1;
+
+        setTextSelection(mounted.view, caretPosition);
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(getEditorTextContent(mounted)).toBe(documentText);
+
+        setSelectionAtDocumentEnd(mounted.view);
+      }
+    });
+
+    it("keeps mixed-format link labels under one unprojected link owner", async () => {
+      const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");
+      const link = getEditorDomElement(mounted, "a");
+
+      setSelectionAtElementTextEnd(mounted.view, link);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(getEditorTextContent(mounted)).toBe("Bold and soft");
+    });
+
     it("restores the exact original document after a clean projection", async () => {
       const mounted = await mountProjectionEditor(
         '**[Strong Link](https://example.com "Title")** plain',

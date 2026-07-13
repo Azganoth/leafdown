@@ -1,16 +1,11 @@
-import { Fragment, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 
 import { isNonNullish } from "@/lib/predicates";
 
-import {
-  getCandidateMarksAtSelection,
-  getMarkRangeAtSelection,
-  type ActiveMarkRange,
-} from "./marks";
+import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import { isTextCaretSelection } from "./selections";
 import {
-  areProjectionMarksEqual,
   createProjectionMarkDescriptor,
   createProjectionSource,
   getProjectionDelimiterBounds,
@@ -110,8 +105,12 @@ export interface SourceProjectionInsertionMatch {
   candidate: SourceProjectionInsertionCandidate;
 }
 
-interface ActiveProjectionRange extends ActiveMarkRange {
+interface ActiveProjectionRange extends TextRange {
   marks: ProjectionMarkDescriptor[];
+}
+
+interface ProjectionMarkSegment extends ActiveProjectionRange {
+  documentMarks: readonly Mark[];
 }
 
 const createTextSlice = (
@@ -190,8 +189,31 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
   }
 
   const candidateMarks = getCandidateMarksAtSelection(state);
+  const linkType = state.schema.marks.link;
+  const activeLink = linkType
+    ? (candidateMarks.find((mark) => mark.type === linkType) ?? null)
+    : null;
+  const segments = getProjectionMarkSegments(state);
+
+  if (activeLink) {
+    const linkRange = getMarkRangeAtSelection(state, activeLink);
+
+    if (!linkRange) {
+      return null;
+    }
+
+    const uniformLinkSegment = segments.find(
+      (segment) => segment.from === linkRange.from && segment.to === linkRange.to,
+    );
+
+    return uniformLinkSegment ? getActiveProjectionRange(uniformLinkSegment) : null;
+  }
 
   for (const markName of SUPPORTED_PROJECTION_MARK_NAMES) {
+    if (markName === "link") {
+      continue;
+    }
+
     const markType = state.schema.marks[markName];
     if (!markType) {
       continue;
@@ -203,57 +225,75 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
       continue;
     }
 
-    const range = getMarkRangeAtSelection(state, activeMark);
-    if (!range) {
-      continue;
-    }
+    const segment = segments.find(
+      ({ documentMarks, from, to }) =>
+        from <= selection.from && selection.from <= to && activeMark.isInSet(documentMarks),
+    );
 
-    const marks = getProjectionMarksForRange(state, range);
-
-    if (marks) {
-      return {
-        ...range,
-        marks,
-      };
+    if (segment) {
+      return getActiveProjectionRange(segment);
     }
   }
 
   return null;
 };
 
-const getProjectionMarksForRange = (
-  state: EditorState,
-  range: ActiveMarkRange,
-): ProjectionMarkDescriptor[] | null => {
-  let supportedMarks: ProjectionMarkDescriptor[] | null = null;
+const getActiveProjectionRange = ({ from, marks, to }: ProjectionMarkSegment) => ({
+  from,
+  marks,
+  to,
+});
 
-  state.doc.nodesBetween(range.from, range.to, (node) => {
-    if (node.isText) {
-      const projectionMarks = getProjectionMarksFromTextNode(node);
+const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] => {
+  const { $from } = state.selection;
 
-      if (
-        !projectionMarks.length ||
-        !projectionMarks.some((mark) => mark.markName === range.mark.type.name) ||
-        (supportedMarks && !areProjectionMarksEqual(supportedMarks, projectionMarks))
-      ) {
-        supportedMarks = null;
-        return false;
-      }
+  if (!$from.parent.isTextblock) {
+    return [];
+  }
 
-      supportedMarks ??= projectionMarks;
+  const parentStart = $from.start();
+  const segments: ProjectionMarkSegment[] = [];
 
-      return true;
+  $from.parent.forEach((node, offset) => {
+    if (!node.isText) {
+      return;
     }
 
-    if (node.isInline) {
-      supportedMarks = null;
-      return false;
+    const marks = getProjectionMarksFromTextNode(node);
+
+    if (!marks.length) {
+      return;
     }
 
-    return true;
+    const from = parentStart + offset;
+    const previousSegment = segments.at(-1);
+
+    if (previousSegment?.to === from && Mark.sameSet(previousSegment.documentMarks, node.marks)) {
+      previousSegment.to = from + node.nodeSize;
+      return;
+    }
+
+    segments.push({
+      documentMarks: node.marks,
+      from,
+      marks,
+      to: from + node.nodeSize,
+    });
   });
 
-  return supportedMarks;
+  return segments.flatMap((segment) => {
+    if (segment.marks.some((mark) => mark.markName === "link")) {
+      return [segment];
+    }
+
+    const text = getRangeText(state.doc, segment);
+    const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
+    const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
+    const from = segment.from + leadingWhitespaceLength;
+    const to = segment.to - trailingWhitespaceLength;
+
+    return from < to ? [{ ...segment, from, to }] : [];
+  });
 };
 
 const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {

@@ -185,6 +185,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   outer inline formatting.
 - Selection may cross into or out of an active source projection. In that case,
   the projection finalizes and preserves the user's selection range.
+- `Enter` and `Shift+Enter` internally finalize active projected source before
+  continuing through the editor's normal line-break behavior in the same
+  keypress. `Escape` leaves projection active while the caret remains on its
+  target.
 - Normal click places the caret in a link; `Mod+click` opens it.
 - Footnote references render inline and expose editable raw Markdown syntax near
   the caret.

@@ -29,6 +29,8 @@ sections and version names that match the application package version.
 - Keep foreign Markdown markers outside active source projections.
 - Preserve empty link destinations and GFM link titles while editing projected
   link source.
+- Let `Enter` and `Shift+Enter` continue through normal editor behavior after
+  committing projected source, without using `Escape` to close projection.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

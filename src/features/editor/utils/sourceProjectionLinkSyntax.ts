@@ -209,12 +209,16 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   };
 };
 
-export const mapLinkDocumentPositionToSource = (position: number, map: LinkSourceMap) => {
+export const mapLinkDocumentPositionToSource = (
+  position: number,
+  map: LinkSourceMap,
+  association: -1 | 1 = 1,
+) => {
   const offset = Math.min(Math.max(position, 0), map.documentSize);
-  const leaf =
-    map.leaves.find(
-      ({ documentFrom, documentTo }) => documentFrom <= offset && offset <= documentTo,
-    ) ?? map.leaves.at(-1);
+  const matchingLeaves = map.leaves.filter(
+    ({ documentFrom, documentTo }) => documentFrom <= offset && offset <= documentTo,
+  );
+  const leaf = (association < 0 ? matchingLeaves[0] : matchingLeaves.at(-1)) ?? map.leaves.at(-1);
 
   if (!leaf) {
     return 0;

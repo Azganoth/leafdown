@@ -245,7 +245,11 @@ const parseLinkSource = (
   };
 };
 
-const mapSelectionPositionToSource = (position: number, target: LinkSourceProjectionTarget) => {
+const mapSelectionPositionToSource = (
+  position: number,
+  target: LinkSourceProjectionTarget,
+  association: -1 | 1,
+) => {
   if (position < target.from) {
     return position;
   }
@@ -254,7 +258,10 @@ const mapSelectionPositionToSource = (position: number, target: LinkSourceProjec
     return target.from + target.originalSource.length + (position - target.to);
   }
 
-  return target.from + mapLinkDocumentPositionToSource(position - target.from, target.sourceMap);
+  return (
+    target.from +
+    mapLinkDocumentPositionToSource(position - target.from, target.sourceMap, association)
+  );
 };
 
 const mapSelectionPositionFromSource = (
@@ -363,10 +370,13 @@ export const createLinkSourceProjectionAdapter = ({
   },
   mapSelectionToSource: (selection, target) => {
     const linkTarget = getLinkTarget(target);
+    const isForwardSelection = selection.anchor <= selection.head;
+    const anchorAssociation = selection.empty || isForwardSelection ? 1 : -1;
+    const headAssociation = selection.empty || !isForwardSelection ? 1 : -1;
 
     return {
-      anchor: mapSelectionPositionToSource(selection.anchor, linkTarget),
-      head: mapSelectionPositionToSource(selection.head, linkTarget),
+      anchor: mapSelectionPositionToSource(selection.anchor, linkTarget, anchorAssociation),
+      head: mapSelectionPositionToSource(selection.head, linkTarget, headAssociation),
     };
   },
   parseSource: (state, source, target) => {

@@ -86,6 +86,31 @@ Syntax highlighting uses bundled Shiki assets through Milkdown highlighting
 plugins. Raw Markdown HTML is preserved as text-like editor content instead of
 being rendered as browser DOM.
 
+### Source Projection
+
+Source projection temporarily exposes a supported Markdown object as unmarked,
+editable document text while Milkdown's canonical model remains the resting
+document representation.
+
+The shared plugin engine owns the active session, projected range, exact original
+ProseMirror `Slice`, projection-local undo and redo, transaction metadata,
+dirty-state integration, serialization finalization, and the native-history
+restore-before-commit sequence. A clean session restores the immutable original
+slice exactly. An edited session first restores that slice outside history, then
+commits the adapter-produced replacement as the native history change. Invalid
+source is committed literally so projected characters are never discarded.
+
+Registered object adapters own target discovery and precedence, source
+generation, entry and clean-restoration transforms, validation and rehydration,
+presentation spans, and selection mapping. The current mark adapter supports
+strong, emphasis, strikethrough, inline code, links, and autolinks. Future rich
+inline wrappers and atomic inline nodes extend the adapter boundary independently;
+the shared lifecycle must not acquire mark-specific syntax assumptions.
+
+Marker presentation is a separate capability. Decorations may style active
+source, but projected Markdown remains real ProseMirror document text rather than
+widget or NodeView input state.
+
 ## Backend Responsibilities
 
 The Rust backend manages:

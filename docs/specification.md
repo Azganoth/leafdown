@@ -183,7 +183,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Link and autolink projection exposes their source directly in the document;
   links preserve their label, target, optional title, and compatible uniform
   outer inline formatting.
-- Selection may cross into or out of an active inline projection. In that case,
+- Selection may cross into or out of an active source projection. In that case,
   the projection finalizes and preserves the user's selection range.
 - Normal click places the caret in a link; `Mod+click` opens it.
 - Footnote references render inline and expose editable raw Markdown syntax near

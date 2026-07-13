@@ -3,9 +3,9 @@ import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
 import {
-  isInlineSourceProjectionDirtyTransaction,
-  isInlineSourceProjectionHousekeepingTransaction,
-} from "./inlineSourceProjection";
+  isSourceProjectionDirtyTransaction,
+  isSourceProjectionHousekeepingTransaction,
+} from "./sourceProjection";
 
 interface DirtyTrackerPluginState {
   trackedChangeCount: number;
@@ -24,9 +24,9 @@ const getDirtyTrackerState = (state: EditorState) =>
 
 const shouldTrackDirtyTransaction = (transaction: Transaction) =>
   transaction.docChanged &&
-  (isInlineSourceProjectionDirtyTransaction(transaction) ||
+  (isSourceProjectionDirtyTransaction(transaction) ||
     (transaction.getMeta("addToHistory") !== false &&
-      !isInlineSourceProjectionHousekeepingTransaction(transaction)));
+      !isSourceProjectionHousekeepingTransaction(transaction)));
 
 export const createLeafdownDirtyTrackerPlugin = (onContentChanged: () => void) =>
   $prose(

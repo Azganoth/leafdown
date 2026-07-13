@@ -15,7 +15,7 @@ import {
   setSelectionAtElementTextEnd,
 } from "@/test/utils/prosemirror";
 
-import { hasActiveInlineSourceProjection } from "./inlineSourceProjection";
+import { hasActiveSourceProjection } from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -79,7 +79,7 @@ describe("double-click selection plugin", () => {
     const strong = getEditorDomElement(projectionEditor, "strong");
     setSelectionAtElementTextEnd(projectionEditor.view, strong);
 
-    expect(hasActiveInlineSourceProjection(projectionEditor.view.state)).toBe(true);
+    expect(hasActiveSourceProjection(projectionEditor.view.state)).toBe(true);
 
     const event = dispatchEditorDoubleClick(projectionEditor.view, 4);
 

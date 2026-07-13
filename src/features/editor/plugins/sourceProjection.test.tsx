@@ -1,3 +1,5 @@
+import { Fragment, Slice } from "@milkdown/kit/prose/model";
+import { NodeSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
@@ -9,6 +11,7 @@ import {
 } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
+  getEditorNodePosition,
   getEditorTextContent,
   getEditorTextPosition,
   getSelectedEditorText,
@@ -21,27 +24,159 @@ import {
 
 import { runEditorCommand } from "../commands";
 import {
-  hasActiveInlineSourceProjection,
-  pasteIntoInlineSourceProjection,
-} from "./inlineSourceProjection";
+  createLiteralSourceProjectionSlice,
+  type SourceProjectionAdapter,
+  type SourceProjectionTarget,
+} from "../utils/sourceProjectionAdapters";
+import {
+  createSourceProjectionProsePlugin,
+  hasActiveSourceProjection,
+  leafdownSourceProjectionPluginKey,
+  pasteIntoSourceProjection,
+} from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
 const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
+const TEST_ATOMIC_ADAPTER_ID = "test-atomic";
 
-interface MountInlineProjectionEditorOptions {
+interface TestAtomicTarget extends SourceProjectionTarget {
+  adapterId: typeof TEST_ATOMIC_ADAPTER_ID;
+  label: string;
+}
+
+const getTestAtomicTarget = (target: SourceProjectionTarget): TestAtomicTarget => {
+  if (target.adapterId !== TEST_ATOMIC_ADAPTER_ID) {
+    throw new Error(`Expected a test atomic target, received '${target.adapterId}'`);
+  }
+
+  return target as TestAtomicTarget;
+};
+
+const TEST_ATOMIC_ADAPTER: SourceProjectionAdapter = {
+  id: TEST_ATOMIC_ADAPTER_ID,
+  createEnterTransaction: (state, target) =>
+    state.tr.replace(
+      target.from,
+      target.to,
+      createLiteralSourceProjectionSlice(state, target.originalSource),
+    ),
+  findTarget: (state) => {
+    const { selection } = state;
+
+    if (
+      !(selection instanceof NodeSelection) ||
+      selection.node.type.name !== "footnote_reference"
+    ) {
+      return null;
+    }
+
+    const label = String(selection.node.attrs.label ?? "");
+
+    return {
+      adapterId: TEST_ATOMIC_ADAPTER_ID,
+      from: selection.from,
+      label,
+      originalContent: state.doc.slice(selection.from, selection.to),
+      originalContentSize: selection.to - selection.from,
+      originalSource: `[^${label}]`,
+      to: selection.to,
+    } satisfies TestAtomicTarget;
+  },
+  getPresentation: (_target, source) => {
+    const contentTo = Math.max(2, source.length - 1);
+
+    return {
+      sourceTypes: ["footnote-reference"],
+      spans: [
+        { className: "test-source-projection__marker", from: 0, to: 2 },
+        {
+          className: "test-source-projection__label",
+          from: 2,
+          to: contentTo,
+        },
+        {
+          className: "test-source-projection__marker",
+          from: contentTo,
+          to: source.length,
+        },
+      ],
+    };
+  },
+  mapSelectionFromSource: (_selection, session, result) => ({
+    anchor: session.from + result.replacementSize,
+    head: session.from + result.replacementSize,
+  }),
+  mapSelectionToSource: (_selection, target) => {
+    const atomicTarget = getTestAtomicTarget(target);
+
+    return {
+      anchor: target.from + 2,
+      head: target.from + 2 + atomicTarget.label.length,
+    };
+  },
+  parseSource: (state, source) => {
+    const label = /^\[\^(?<label>[^\]]+)\]$/u.exec(source)?.groups?.label;
+    const node = label ? state.schema.nodes.footnote_reference?.create({ label }) : null;
+
+    return node
+      ? {
+          replacement: new Slice(Fragment.from(node), 0, 0),
+          replacementSize: node.nodeSize,
+          source,
+        }
+      : {
+          replacement: createLiteralSourceProjectionSlice(state, source),
+          replacementSize: source.length,
+          source,
+        };
+  },
+  restoreCleanTarget: (state, session) =>
+    state.tr.replace(session.from, session.to, getTestAtomicTarget(session.target).originalContent),
+};
+
+interface MountSourceProjectionEditorOptions {
   onContentChanged?: MountMilkdownEditorOptions["onContentChanged"];
   onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"];
 }
 
 const mountProjectionEditor = (
   initialMarkdown: string,
-  options: MountInlineProjectionEditorOptions = {},
+  options: MountSourceProjectionEditorOptions = {},
 ): Promise<MountedMilkdownEditor> =>
   mountEditor(initialMarkdown, {
     onContentChanged: options.onContentChanged,
     onMarkdownUpdated: options.onMarkdownUpdated,
     rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
   });
+
+const installTestAtomicAdapter = (mounted: MountedMilkdownEditor) => {
+  const plugin = createSourceProjectionProsePlugin([TEST_ATOMIC_ADAPTER]);
+  let didReplaceSourceProjectionPlugin = false;
+  const plugins = mounted.view.state.plugins.map((statePlugin) => {
+    if (statePlugin.spec.key !== leafdownSourceProjectionPluginKey) {
+      return statePlugin;
+    }
+
+    didReplaceSourceProjectionPlugin = true;
+    return plugin;
+  });
+
+  if (!didReplaceSourceProjectionPlugin) {
+    throw new Error(
+      "Could not replace the source-projection plugin for the adapter contract test.",
+    );
+  }
+
+  mounted.view.updateState(mounted.view.state.reconfigure({ plugins }));
+};
+
+const selectTestFootnoteReference = (mounted: MountedMilkdownEditor) => {
+  const position = getEditorNodePosition(mounted, "footnote_reference");
+
+  mounted.view.dispatch(
+    mounted.view.state.tr.setSelection(NodeSelection.create(mounted.view.state.doc, position)),
+  );
+};
 
 const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
@@ -55,13 +190,13 @@ const enterProjection = (
 
   setSelectionAtElementTextEnd(mounted.view, element);
 
-  expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+  expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
 };
 
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
 
-describe("inline source projection", () => {
+describe("source projection", () => {
   describe("entry and rendering", () => {
     it("projects strong markers as real editable document text", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
@@ -76,13 +211,13 @@ describe("inline source projection", () => {
       const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
       setTextSelection(mounted.view, sourceStart);
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
 
       setTextSelection(mounted.view, sourceStart + 1);
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
 
       setTextSelection(mounted.view, sourceStart + "**Bold".length);
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     });
 
     it.each([
@@ -105,12 +240,9 @@ describe("inline source projection", () => {
       enterProjection(mounted, "strong");
 
       const markers = Array.from(
-        mounted.view.dom.querySelectorAll(".leafdown-inline-source-projection__marker"),
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
       );
-      const content = getEditorDomElement(
-        mounted,
-        ".leafdown-inline-source-projection__content--strong",
-      );
+      const content = getEditorDomElement(mounted, ".leafdown-source-projection__content--strong");
 
       expect(markers.map((marker) => marker.textContent).join("")).toBe("****");
       expect(content).toHaveTextContent("Bold");
@@ -126,9 +258,7 @@ describe("inline source projection", () => {
         mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
       ).not.toBeInTheDocument();
       expect(
-        mounted.view.dom.querySelector(
-          ".leafdown-inline-source-projection__content--strikethrough",
-        ),
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strikethrough"),
       ).toHaveTextContent("Strike");
     });
 
@@ -142,7 +272,7 @@ describe("inline source projection", () => {
         mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
       ).not.toBeInTheDocument();
       expect(
-        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--inline-code"),
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--inline-code"),
       ).toHaveTextContent("Code");
     });
 
@@ -156,8 +286,122 @@ describe("inline source projection", () => {
         mounted.view.dom.querySelector(".leafdown-source-edit[aria-label='Inline Markdown']"),
       ).not.toBeInTheDocument();
       expect(
-        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--link"),
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--link"),
       ).toHaveTextContent("Link");
+    });
+
+    it("restores the exact original document after a clean projection", async () => {
+      const mounted = await mountProjectionEditor(
+        '**[Strong Link](https://example.com "Title")** plain',
+      );
+      const originalDocument = mounted.view.state.doc;
+
+      enterProjection(mounted, "a");
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(false);
+      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+      expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+    });
+  });
+
+  describe("adapter contract", () => {
+    it("allows an atomic adapter to activate from a node selection and restore exactly", async () => {
+      const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail");
+      const originalDocument = mounted.view.state.doc;
+
+      installTestAtomicAdapter(mounted);
+      selectTestFootnoteReference(mounted);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("note");
+      expect(mounted.view.dom.querySelectorAll(".test-source-projection__marker")).toHaveLength(2);
+      expect(mounted.view.dom.querySelector(".test-source-projection__label")).toHaveTextContent(
+        "note",
+      );
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+    });
+
+    it("uses literal editing and adapter rehydration for an atomic target", async () => {
+      const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail");
+
+      installTestAtomicAdapter(mounted);
+      selectTestFootnoteReference(mounted);
+      typeText(mounted.view, "updated");
+
+      expect(getEditorTextContent(mounted)).toContain("Text[^updated]");
+      expect(mounted.view.dom.querySelector(".test-source-projection__label")).toHaveTextContent(
+        "updated",
+      );
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toContain("Text[^updated]");
+    });
+
+    it("uses the generic literal boundary policy when an adapter provides no edit policy", async () => {
+      const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail");
+
+      installTestAtomicAdapter(mounted);
+      selectTestFootnoteReference(mounted);
+
+      const sourceStart = getEditorTextPosition(mounted, "[^note]");
+
+      setTextSelection(mounted.view, sourceStart);
+      typeText(mounted.view, "x");
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection"),
+          (element) => element.textContent,
+        ).join(""),
+      ).toBe("x[^note]");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toContain("Textx\\[^note]");
+    });
+
+    it("preserves an external node selection while switching atomic targets", async () => {
+      const mounted = await mountProjectionEditor(
+        "One[^one] two[^two]\n\n[^one]: First\n\n[^two]: Second",
+      );
+
+      installTestAtomicAdapter(mounted);
+
+      const firstPosition = getEditorNodePosition(
+        mounted,
+        "footnote_reference",
+        (node) => node.attrs.label === "one",
+      );
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.setSelection(
+          NodeSelection.create(mounted.view.state.doc, firstPosition),
+        ),
+      );
+
+      const secondPosition = getEditorNodePosition(
+        mounted,
+        "footnote_reference",
+        (node) => node.attrs.label === "two",
+      );
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.setSelection(
+          NodeSelection.create(mounted.view.state.doc, secondPosition),
+        ),
+      );
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("two");
     });
   });
 
@@ -205,7 +449,7 @@ describe("inline source projection", () => {
       typeText(mounted.view, "er");
       setSelectionAtDocumentEnd(mounted.view);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.getMarkdown()).toBe(expected);
     });
 
@@ -219,7 +463,7 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart + 1);
       runKeyDownHandlers(mounted.view, "Backspace");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("*Bold* plain");
 
       setSelectionAtDocumentEnd(mounted.view);
@@ -275,7 +519,7 @@ describe("inline source projection", () => {
         autolinkSourceStart,
         autolinkSourceStart + "<https://example.com>".length,
       );
-      expect(pasteIntoInlineSourceProjection(autolink.view, "<https://leafdown.dev>")).toBe(true);
+      expect(pasteIntoSourceProjection(autolink.view, "<https://leafdown.dev>")).toBe(true);
       setSelectionAtDocumentEnd(autolink.view);
 
       expect(autolink.getMarkdown()).toBe("<https://leafdown.dev>\n");
@@ -318,7 +562,7 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart + 1);
       typeText(mounted.view, "*");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("**Soft** plain");
 
       setSelectionAtDocumentEnd(mounted.view);
@@ -336,15 +580,15 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart + 1);
       runKeyDownHandlers(mounted.view, "Backspace");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("Soft* plain");
 
       typeText(mounted.view, "*");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("*Soft* plain");
       expect(
-        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--emphasis"),
       ).toHaveTextContent("Soft");
     });
 
@@ -356,10 +600,10 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart);
       typeText(mounted.view, "*");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("*Soft* plain");
       expect(
-        mounted.view.dom.querySelector(".leafdown-inline-source-projection__content--emphasis"),
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--emphasis"),
       ).toHaveTextContent("Soft");
 
       setSelectionAtDocumentEnd(mounted.view);
@@ -375,7 +619,7 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart);
       typeText(mounted.view, "`");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("`Code` plain");
 
       setSelectionAtDocumentEnd(mounted.view);
@@ -393,7 +637,7 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart);
       typeText(mounted.view, "A");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe(`A${BOLD_PLAIN_MARKDOWN}`);
 
       expect(mounted.getMarkdown()).toBe(`A${BOLD_PLAIN_MARKDOWN}\n`);
@@ -423,7 +667,7 @@ describe("inline source projection", () => {
       setTextSelection(mounted.view, sourceStart + 1);
       typeText(mounted.view, "Z");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("**ZBold** plain");
     });
 
@@ -445,7 +689,7 @@ describe("inline source projection", () => {
 
       typeText(mounted.view, "*");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("*Bold* plain");
 
       typeText(mounted.view, "*");
@@ -485,12 +729,12 @@ describe("inline source projection", () => {
       );
       typeText(mounted.view, "_");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
 
       setSelectionAtDocumentEnd(mounted.view);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
       expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
     });
@@ -514,7 +758,7 @@ describe("inline source projection", () => {
 
       setSelectionAtElementTextEnd(mounted.view, emphasis);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(await runCommand(mounted, "edit.undo")).toBe(true);
       expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
       expect(await runCommand(mounted, "edit.redo")).toBe(true);
@@ -522,11 +766,19 @@ describe("inline source projection", () => {
     });
 
     it.each([
-      { commandId: "format.strong" as const, selector: "strong" },
-      { commandId: "format.emphasis" as const, selector: "em" },
+      {
+        commandId: "format.strong" as const,
+        expectedMarkdown: "**Plain paragraph**\n",
+        selector: "strong",
+      },
+      {
+        commandId: "format.emphasis" as const,
+        expectedMarkdown: "*Plain paragraph*\n",
+        selector: "em",
+      },
     ])(
       "preserves native undo after applying $commandId to a whole paragraph",
-      async ({ commandId, selector }) => {
+      async ({ commandId, expectedMarkdown, selector }) => {
         const mounted = await mountProjectionEditor("Plain paragraph");
 
         expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
@@ -536,10 +788,11 @@ describe("inline source projection", () => {
 
         setSelectionAtElementTextEnd(mounted.view, formatted);
 
-        expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
         expect(await runCommand(mounted, "edit.undo")).toBe(true);
         expect(mounted.getMarkdown()).toBe("Plain paragraph\n");
         expect(await runCommand(mounted, "edit.redo")).toBe(true);
+        expect(mounted.getMarkdown()).toBe(expectedMarkdown);
         expect(mounted.view.dom.querySelector(selector)).toHaveTextContent("Plain paragraph");
       },
     );
@@ -569,12 +822,12 @@ describe("inline source projection", () => {
       enterProjection(mounted, "strong");
       typeText(mounted.view, "er");
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     });
 
-    it("switches directly to another inline projection when the selection moves", async () => {
+    it("switches directly to another source projection when the selection moves", async () => {
       const mounted = await mountProjectionEditor("**Bold** and *soft*");
 
       enterProjection(mounted, "strong");
@@ -583,11 +836,11 @@ describe("inline source projection", () => {
 
       setSelectionAtElementTextEnd(mounted.view, emphasis);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("Bold and *soft*");
     });
 
-    it("commits the current projection before switching to another inline projection", async () => {
+    it("commits the current projection before switching to another source projection", async () => {
       const mounted = await mountProjectionEditor("**Bold** and *soft*");
 
       enterProjection(mounted, "strong");
@@ -597,7 +850,7 @@ describe("inline source projection", () => {
 
       setSelectionAtElementTextEnd(mounted.view, emphasis);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("Bolder and *soft*");
       expect(mounted.getMarkdown()).toBe("**Bolder** and *soft*\n");
     });
@@ -612,7 +865,7 @@ describe("inline source projection", () => {
 
       setTextSelection(mounted.view, sourceStart + 2, plainEnd);
 
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.view.state.selection.empty).toBe(false);
       expect(getSelectedEditorText(mounted)).toBe("Bold plain");
     });
@@ -673,7 +926,7 @@ describe("inline source projection", () => {
       enterProjection(mounted, "strong");
 
       expect(await runCommand(mounted, "edit.undo")).toBe(true);
-      expect(hasActiveInlineSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
 
       expect(await runCommand(mounted, "edit.redo")).toBe(true);

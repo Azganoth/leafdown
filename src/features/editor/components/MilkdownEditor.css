@@ -264,34 +264,38 @@
       content: attr(data-leafdown-marker);
     }
 
-    .leafdown-inline-source-projection {
+    .leafdown-source-projection {
       color: inherit;
     }
 
-    .leafdown-inline-source-projection__marker {
+    .leafdown-source-projection__marker {
       @apply text-muted-foreground;
       font-style: normal;
       font-weight: 400;
     }
 
-    .leafdown-inline-source-projection__content--strong {
+    .leafdown-source-projection__content--strong {
       @apply font-semibold text-foreground;
     }
 
-    .leafdown-inline-source-projection__content--emphasis {
+    .leafdown-source-projection__content--emphasis {
       @apply italic;
     }
 
-    .leafdown-inline-source-projection__content--strikethrough {
-      @apply line-through;
+    .leafdown-source-projection__content--strikethrough {
+      @apply text-muted-foreground line-through;
     }
 
-    .leafdown-inline-source-projection__content--inline-code {
-      @apply text-inherit;
+    .leafdown-source-projection__content--inline-code {
+      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
-    .leafdown-inline-source-projection__content--link {
-      @apply text-primary underline underline-offset-2;
+    .leafdown-source-projection__content--link {
+      @apply text-primary underline decoration-primary/45 underline-offset-2 transition-colors;
+
+      &:hover {
+        @apply decoration-primary;
+      }
     }
 
     .leafdown-source-edit {

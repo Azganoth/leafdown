@@ -741,7 +741,7 @@ describe("source projection", () => {
   });
 
   describe("keyboard handoff", () => {
-    it("finalizes projected source and delegates Enter to Milkdown", async () => {
+    it("delegates Enter and projects the formatted content after the split", async () => {
       const mounted = await mountProjectionEditor("**LeftRight**");
 
       enterProjection(mounted, "strong");
@@ -754,16 +754,19 @@ describe("source projection", () => {
       const { handled } = runKeyDownHandlers(mounted.view, "Enter");
 
       expect(handled).toBe(true);
-      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(mounted.view.dom.querySelectorAll("p")).toHaveLength(2);
       expect(
         Array.from(mounted.view.dom.querySelectorAll("strong"), (element) => element.textContent),
-      ).toEqual(["Left edited", "Right"]);
-      expect(mounted.view.state.selection.$from.parent.textContent).toBe("Right");
-      expect(mounted.view.state.selection.$from.parentOffset).toBe(0);
+      ).toEqual(["Left edited"]);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("Right");
+      expect(mounted.view.state.selection.$from.parent.textContent).toBe("**Right**");
+      expect(mounted.view.state.selection.$from.parentOffset).toBe(2);
     });
 
-    it("finalizes projected source and delegates Shift+Enter to Milkdown", async () => {
+    it("delegates Shift+Enter and projects the formatted content after the break", async () => {
       const mounted = await mountProjectionEditor("**LeftRight**");
 
       enterProjection(mounted, "strong");
@@ -775,11 +778,14 @@ describe("source projection", () => {
       const { handled } = runKeyDownHandlers(mounted.view, "Enter", { shift: true });
 
       expect(handled).toBe(true);
-      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(mounted.view.dom.querySelector("br")).toBeInTheDocument();
       expect(
         Array.from(mounted.view.dom.querySelectorAll("strong"), (element) => element.textContent),
-      ).toEqual(["Left", "Right"]);
+      ).toEqual(["Left"]);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("Right");
     });
 
     it("delegates Enter after committing invalid projected source literally", async () => {

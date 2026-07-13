@@ -1,10 +1,10 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
+import { TextSelection } from "@milkdown/kit/prose/state";
 
 import { isNonNullish } from "@/lib/predicates";
 
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
-import { isTextCaretSelection } from "./selections";
 import {
   createProjectionMarkDescriptor,
   createProjectionSource,
@@ -184,8 +184,18 @@ const createMarkSourceProjectionTargetFromSource = (
 const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange | null => {
   const { selection } = state;
 
-  if (!isTextCaretSelection(selection)) {
+  if (!(selection instanceof TextSelection) || selection.$from.parent !== selection.$to.parent) {
     return null;
+  }
+
+  const segments = getProjectionMarkSegments(state);
+
+  if (!selection.empty) {
+    const containingSegment = segments.find(
+      ({ from, to }) => from <= selection.from && selection.to <= to,
+    );
+
+    return containingSegment ? getSelectableProjectionRange(state, containingSegment) : null;
   }
 
   const candidateMarks = getCandidateMarksAtSelection(state);
@@ -193,8 +203,6 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
   const activeLink = linkType
     ? (candidateMarks.find((mark) => mark.type === linkType) ?? null)
     : null;
-  const segments = getProjectionMarkSegments(state);
-
   if (activeLink) {
     const linkRange = getMarkRangeAtSelection(state, activeLink);
 
@@ -236,6 +244,23 @@ const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange
   }
 
   return null;
+};
+
+const getSelectableProjectionRange = (
+  state: EditorState,
+  segment: ProjectionMarkSegment,
+): ActiveProjectionRange | null => {
+  const linkMark = segment.documentMarks.find((mark) => mark.type.name === "link");
+
+  if (!linkMark) {
+    return getActiveProjectionRange(segment);
+  }
+
+  const linkRange = getMarkRangeAtSelection(state, linkMark);
+
+  return linkRange?.from === segment.from && linkRange.to === segment.to
+    ? getActiveProjectionRange(segment)
+    : null;
 };
 
 const getActiveProjectionRange = ({ from, marks, to }: ProjectionMarkSegment) => ({

@@ -1,4 +1,9 @@
-import { Fragment, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import {
+  Fragment,
+  Slice,
+  type Mark,
+  type Node as ProseMirrorNode,
+} from "@milkdown/kit/prose/model";
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, Serializer } from "@milkdown/kit/transformer";
@@ -17,9 +22,15 @@ const FOOTNOTE_DEFINITION_NODE_NAME = "footnote_definition";
 const FOOTNOTE_REFERENCE_OPENING = "[^";
 const FOOTNOTE_REFERENCE_CLOSING = "]";
 const VALIDATION_DEFINITION_CONTENT = "Leafdown";
+const AMBIENT_MARK_CLASS_NAMES: Readonly<Record<string, string>> = {
+  emphasis: "leafdown-source-projection__content--emphasis",
+  strike_through: "leafdown-source-projection__content--strikethrough",
+  strong: "leafdown-source-projection__content--strong",
+};
 
 interface FootnoteReferenceSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof FOOTNOTE_REFERENCE_ADAPTER_ID;
+  ambientMarks: readonly Mark[];
 }
 
 interface FootnoteReferenceAdapterDependencies {
@@ -44,7 +55,7 @@ const serializeFootnoteReference = (
   serializer: Serializer,
   node: ProseMirrorNode,
 ) => {
-  const paragraph = state.schema.nodes.paragraph.create(null, node);
+  const paragraph = state.schema.nodes.paragraph.create(null, node.mark([]));
   const document = state.schema.nodes.doc.create(null, paragraph);
 
   return serializer(document).replace(/\n$/u, "");
@@ -57,6 +68,7 @@ const createFootnoteReferenceTarget = (
   from: number,
 ): FootnoteReferenceSourceProjectionTarget => ({
   adapterId: FOOTNOTE_REFERENCE_ADAPTER_ID,
+  ambientMarks: node.marks,
   from,
   originalContent: state.doc.slice(from, from + node.nodeSize),
   originalContentSize: node.nodeSize,
@@ -222,13 +234,18 @@ const mapSelectionFromSource = (
   };
 };
 
-const getFootnoteReferencePresentation = (source: string) => {
+const getFootnoteReferencePresentation = (source: string, ambientMarks: readonly Mark[]) => {
   if (!hasCompleteFootnoteReferenceWrapper(source)) {
     return [];
   }
 
   const labelFrom = FOOTNOTE_REFERENCE_OPENING.length;
   const labelTo = source.length - FOOTNOTE_REFERENCE_CLOSING.length;
+  const ambientClassNames = ambientMarks.flatMap((mark) => {
+    const className = AMBIENT_MARK_CLASS_NAMES[mark.type.name];
+
+    return className ? [className] : [];
+  });
 
   return [
     {
@@ -237,8 +254,11 @@ const getFootnoteReferencePresentation = (source: string) => {
       to: labelFrom,
     },
     {
-      className:
-        "leafdown-source-projection__content leafdown-source-projection__content--footnote-reference",
+      className: [
+        "leafdown-source-projection__content",
+        "leafdown-source-projection__content--footnote-reference",
+        ...ambientClassNames,
+      ].join(" "),
       from: labelFrom,
       to: labelTo,
     },
@@ -249,6 +269,9 @@ const getFootnoteReferencePresentation = (source: string) => {
     },
   ];
 };
+
+const createMarkedLiteralSlice = (state: EditorState, source: string, marks: readonly Mark[]) =>
+  source ? new Slice(Fragment.from(state.schema.text(source, marks)), 0, 0) : Slice.empty;
 
 export const createFootnoteReferenceSourceProjectionAdapter = ({
   parser,
@@ -262,10 +285,14 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
       createLiteralSourceProjectionSlice(state, target.originalSource),
     ),
   findTarget: (state) => findFootnoteReferenceTarget(state, serializer),
-  getPresentation: (_target, source) => ({
-    sourceTypes: [FOOTNOTE_REFERENCE_ADAPTER_ID],
-    spans: getFootnoteReferencePresentation(source),
-  }),
+  getPresentation: (target, source) => {
+    const { ambientMarks } = getFootnoteReferenceTarget(target);
+
+    return {
+      sourceTypes: [FOOTNOTE_REFERENCE_ADAPTER_ID, ...ambientMarks.map((mark) => mark.type.name)],
+      spans: getFootnoteReferencePresentation(source, ambientMarks),
+    };
+  },
   mapSelectionFromSource: (selection, session, result) =>
     mapSelectionFromSource(parser, selection, session, result),
   mapSelectionToSource: (selection, target) => {
@@ -286,17 +313,18 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
       head: mapSelectionPositionToSource(selection.head, footnoteTarget),
     };
   },
-  parseSource: (state, source) => {
+  parseSource: (state, source, target) => {
     const reference = parseFootnoteReferenceSource(parser, source);
+    const { ambientMarks } = getFootnoteReferenceTarget(target);
 
     return reference
       ? {
-          replacement: new Slice(Fragment.from(reference), 0, 0),
+          replacement: new Slice(Fragment.from(reference.mark(ambientMarks)), 0, 0),
           replacementSize: reference.nodeSize,
           source,
         }
       : {
-          replacement: createLiteralSourceProjectionSlice(state, source),
+          replacement: createMarkedLiteralSlice(state, source, ambientMarks),
           replacementSize: source.length,
           source,
         };

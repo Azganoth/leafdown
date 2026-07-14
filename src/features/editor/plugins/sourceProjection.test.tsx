@@ -386,8 +386,8 @@ describe("source projection", () => {
       expect(hasActiveSourceProjection(right.view.state)).toBe(true);
     });
 
-    it("activates from a node selection and restores the exact original document", async () => {
-      const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail");
+    it("projects only semantic source from a marked node and restores exactly", async () => {
+      const mounted = await mountProjectionEditor("**Text[^note]**\n\n[^note]: Detail");
       const originalDocument = mounted.view.state.doc;
 
       selectFootnoteReference(mounted);
@@ -400,6 +400,12 @@ describe("source projection", () => {
       expect(
         mounted.view.dom.querySelector(".leafdown-source-projection__content--footnote-reference"),
       ).toHaveTextContent("note");
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll("[data-leafdown-source~='footnote-reference']"),
+          (element) => element.textContent,
+        ).join(""),
+      ).toBe("[^note]");
 
       setSelectionAtDocumentEnd(mounted.view);
 
@@ -424,6 +430,77 @@ describe("source projection", () => {
           (node) => node.attrs.label === "updated",
         ),
       ).toBeGreaterThan(0);
+    });
+
+    it.each([
+      {
+        description: "strong",
+        expectedMarks: ["strong"],
+        expectedSource: "**Text[^NOTE]**",
+        initialSource: "**Text[^note]**",
+      },
+      {
+        description: "emphasis",
+        expectedMarks: ["emphasis"],
+        expectedSource: "*Text[^NOTE]*",
+        initialSource: "*Text[^note]*",
+      },
+      {
+        description: "strikethrough",
+        expectedMarks: ["strike_through"],
+        expectedSource: "~~Text[^NOTE]~~",
+        initialSource: "~~Text[^note]~~",
+      },
+      {
+        description: "combined strong and emphasis",
+        expectedMarks: ["emphasis", "strong"],
+        expectedSource: "***Text[^NOTE]***",
+        initialSource: "***Text[^note]***",
+      },
+    ])(
+      "preserves $description around a valid edited reference",
+      async ({ expectedMarks, expectedSource, initialSource }) => {
+        const mounted = await mountProjectionEditor(`${initialSource}\n\n[^note]: Detail`);
+
+        selectFootnoteReference(mounted);
+        typeText(mounted.view, "NOTE");
+        setSelectionAtDocumentEnd(mounted.view);
+
+        const referencePosition = getEditorNodePosition(
+          mounted,
+          "footnote_reference",
+          (node) => node.attrs.label === "NOTE",
+        );
+        const reference = mounted.view.state.doc.nodeAt(referencePosition);
+
+        expect(reference?.marks.map((mark) => mark.type.name).toSorted()).toEqual(expectedMarks);
+        expect(mounted.getMarkdown()).toContain(expectedSource);
+      },
+    );
+
+    it("preserves ambient marks when incomplete source becomes literal text", async () => {
+      const mounted = await mountProjectionEditor("**Text[^note]**\n\n[^note]: Detail");
+
+      selectFootnoteReference(mounted);
+
+      const source = "[^note]";
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart + source.length);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const strongMark = mounted.view.state.schema.marks.strong;
+      let hasStrongLiteral = false;
+
+      mounted.view.state.doc.descendants((node) => {
+        if (node.isText && node.text?.includes("[^note") && strongMark.isInSet(node.marks)) {
+          hasStrongLiteral = true;
+        }
+      });
+
+      expect(hasStrongLiteral).toBe(true);
+      expect(mounted.getMarkdown()).toContain("**Text\\[^note**");
     });
 
     it("commits incomplete footnote source as exact literal document text", async () => {

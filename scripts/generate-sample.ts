@@ -48,26 +48,27 @@ write(
   "readme.md",
   `# Leafdown Sample Folder
 
-This is a manual testing folder for Leafdown. Open it with
-**File → Open folder…** to exercise sidebar scanning, Markdown rendering,
-and edge-case error states.
+Welcome to a small working set for Leafdown. Open it with
+**File → Open folder…** to browse a realistic collection of notes while also
+exercising navigation, rendering, and deliberately focused edge cases.
 
 ## Contents
 
-- [Syntax Benchmark](./syntax-benchmark.md) — CommonMark and GFM rendering.
-- [Article Navigator](./article-navigator/README.MD) — Nested folders, uppercase
-  extensions, empty directories, and sort-order fixtures.
-- [Media and Links](./media-and-links.md) — Local image/link resolution,
-  missing targets, blocked remote images, and special-character paths.
-- [Future Syntax Preservation](./future-syntax-preservation.md) — Markdown
-  extension candidates that should remain editable even before first-class
-  support lands.
-- [Nested Document](./nested-directory/doc-alternate.markdown) — Alternate
-  \`.markdown\` extension support.
-- \`.cache/\` — Contains a Markdown file inside an ignored directory.
-- \`node_modules/\` — Contains a Markdown file inside another ignored directory.
-- \`empty-directory/\` — A subfolder with no Markdown files.
-- \`edge-cases/\` — Error and boundary condition fixtures.
+- [Garden pilot field report](./field-report.md) collects the week's findings,
+  decisions, and next steps.
+- [Release review notes](./editor-regression-notes.md) are a compact working
+  document for rich inline editing and save/reopen checks.
+- [Article navigator](./article-navigator/README.MD) contains the project's
+  nested planning notes and sorting fixtures.
+- [Media and links](./media-and-links.md) records the assets shared with the
+  team, including intentionally unavailable references.
+- [Research format notes](./research-format-notes.md) keeps future Markdown
+  ideas readable before Leafdown supports them natively.
+- [Alternate extension document](./nested-directory/doc-alternate.markdown)
+  uses \`.markdown\` instead of \`.md\`.
+- \`.cache/\` and \`node_modules/\` contain intentionally ignored articles.
+- \`empty-directory/\` contains no articles.
+- \`edge-cases/\` holds focused loading, safety, and boundary fixtures.
 
 ## Relative Image
 
@@ -79,135 +80,118 @@ protocol:
 );
 
 // ---------------------------------------------------------------------------
-// Syntax benchmark
-// Validates: CommonMark and GFM element rendering, heading hierarchy,
-//            list types, blockquotes, code blocks, tables, inline formatting,
-//            horizontal rules, footnotes, and HTML sanitization.
+// Field report
+// Validates: ordinary CommonMark and GFM rendering in coherent prose: headings,
+//            lists, blockquotes, code, tables, links, images, and footnotes.
 // ---------------------------------------------------------------------------
 
 write(
-  "syntax-benchmark.md",
-  `# Syntax Benchmark
+  "field-report.md",
+  `# Community Garden Sensor Pilot
 
-A comprehensive rendering test for CommonMark and GFM elements.
+## Week 4 field report
 
-## Headings
+The south-bed sensors held their target range through the first dry week. A
+_temporary_ watering schedule became **necessary** only after the evening
+readings drifted, and the ***calibration review*** confirmed that the probes
+were still healthy.[^calibration]
 
-### Third-Level Heading
+The team used [the **sensor calibration** *review* notes](./article-navigator/01-overview.md "Calibration review")
+to compare the new probes with the earlier manual readings. The old estimate is
+now ~~superseded~~, while the command \`pnpm sample\` remains the quickest way
+to rebuild this folder before a walkthrough.
 
-#### Fourth-Level Heading
+> “The readings are useful when they tell us when _not_ to water.”
+>
+> — Mara, garden volunteer
 
-##### Fifth-Level Heading
+### What changed
 
-###### Sixth-Level Heading
+1. Reposition the north-bed probe before the next rain.
+2. Publish the short calibration note for the volunteer team.
+3. Review the replacement-battery estimate with the coordinator.
 
-## Paragraphs
+- [x] Record the first week of readings.
+- [x] Compare the new probe against the manual gauge.
+- [ ] Move the north-bed probe.
+  - [ ] Photograph the mounting point.
+  - [ ] Add the final location to the map.
+- [ ] Share the next watering window with volunteers.
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
-habitant morbi tristique senectus et netus et malesuada fames ac turpis
-egestas. Vestibulum tortor quam, feugiat vitae, ultricies eget, tempor sit
-amet, ante.
+### Reading summary
 
-A second paragraph separated by a blank line to verify paragraph splitting.
+| Bed | Latest reading | Working interpretation |
+| :-- | :------------: | ---------------------- |
+| North | \`31%\` | Reposition the probe before changing the schedule. |
+| South | \`42%\` | Keep the current plan through Friday. |
+| Herbs | \`38%\` | Ask for one more manual reading. |
 
-## Emphasis and Strong
+### Implementation note
 
-- *Single asterisk emphasis*
-- _Single underscore emphasis_
-- **Double asterisk strong**
-- __Double underscore strong__
-- ***Bold and italic***
-- ~~Strikethrough~~
-
-## Links
-
-- [Relative link to readme](./readme.md)
-- [External link](https://github.com/Azganoth/leafdown)
-- [**Formatted link text**](./readme.md)
-- Autolink: https://example.com
-
-## Images
-
-![Sample Icon](./assets/icon.png)
-
-## Inline Code
-
-Use \`const x = 42;\` for inline code. Backtick escaping: \`\`\`nested\`\`\`.
-
-## Code Blocks
+The import script keeps each reading as a small record so the team can inspect
+it without opening a spreadsheet:
 
 \`\`\`typescript
-const greet = (name: string): string => {
-  return \\\`Hello, \\\${name}!\\\`;
-};
+interface Reading {
+  bed: string;
+  moisture: number;
+}
 
-console.log(greet("Leafdown"));
+const needsFollowUp = ({ moisture }: Reading) => moisture < 35;
+
+console.log(needsFollowUp({ bed: "North", moisture: 31 }));
 \`\`\`
 
-\`\`\`
-Plain code block without a language identifier.
-\`\`\`
-
-## Blockquotes
-
-> A single-level blockquote.
->
-> > A nested blockquote.
->
-> Back to the first level.
-
-## Lists
-
-### Unordered
-
-- Item 1
-- Item 2
-  - Nested 2a
-  - Nested 2b
-- Item 3
-
-### Ordered
-
-1. First
-2. Second
-   1. Nested 2a
-   2. Nested 2b
-3. Third
-
-### Task List
-
-- [x] Completed task
-- [ ] Incomplete task
-- [ ] Task with *inline emphasis*
-
-## Tables
-
-| Name    | Role      | Extension    |
-| :------ | :-------: | -----------: |
-| Alice   | Developer | .md          |
-| Bob     | Tester    | .markdown    |
-| Charlie | Designer  | .md          |
-
-## Horizontal Rules
+![Garden sensor map](./assets/icon.png)
 
 ---
 
-***
+## Next visit
 
-___
+The next visit is scheduled for Tuesday morning. The team will bring one spare
+battery, the printed layout, and the notes from the [first field
+walk](./nested-directory/doc-alternate.markdown).
 
-## Footnotes
+[^calibration]: The south-bed probe was checked against the manual gauge at
+    08:30. The readings differed by less than two percentage points.
+`,
+);
 
-Here is a sentence with a footnote[^1].
+// ---------------------------------------------------------------------------
+// Editor regression notes
+// Validates: realistic source-projection and serialization seeds: mixed logical
+//            links, nested marks, code-span delimiter runs, autolinks,
+//            footnotes, and formatting around an atomic reference.
+// ---------------------------------------------------------------------------
 
-[^1]: This is the footnote content.
+write(
+  "editor-regression-notes.md",
+  `# Release Review Notes
 
-## HTML Sanitization
+## Copy review
 
-Raw HTML should be escaped and rendered as code-like text, not parsed as DOM:
+The [**calibration summary** with *field observations*, ~~retired wording~~,
+and \`v2\`](./article-navigator/01-overview.md "Calibration review") should
+remain one link when it is edited and saved. Its label also keeps a literal
+\\* marker for the copy editor to preserve.
 
-<div>This div tag should appear as plain text.</div>
-<script>alert("XSS should be blocked")</script>
+The guide points readers to <https://example.com/releases/2026-06>, while the
+draft recommendation is _deliberate_ rather than __final__. Use
+\`\`pnpm run \`preview\`\`\` when checking the local walkthrough; the nested
+backtick is part of the command shown to reviewers.
+
+## Editorial decision
+
+The **archive note[^archive]** stays with the approved wording, and the
+*follow-up reference[^follow-up]* remains with the scheduling sentence. Those
+references belong to the document text rather than to a separate form.
+
+When the paragraph is revised, select only **one phrase** before applying a
+format command, then undo and redo the change. A line break in the middle of
+the emphasized recommendation should continue as ordinary editor behavior.
+
+[^archive]: The original calibration record is retained for the release notes.
+[^follow-up]: The scheduling decision is reviewed after the Tuesday visit.
 `,
 );
 

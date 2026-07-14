@@ -27,6 +27,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
@@ -107,6 +108,10 @@ export const createLeafdownSourceProjectionPlugin = () =>
     await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
 
     return createSourceProjectionProsePlugin([
+      createFootnoteReferenceSourceProjectionAdapter({
+        parser: ctx.get(parserCtx),
+        serializer: ctx.get(serializerCtx),
+      }),
       createLinkSourceProjectionAdapter({
         parser: ctx.get(parserCtx),
         remark: ctx.get(remarkCtx),
@@ -727,13 +732,18 @@ const createFinalizeProjectionTransaction = (
     replacementSize: session.target.originalContentSize,
   };
   const shouldSuppressProjectionAtSelection = isRangeInsideProjection(state.selection, session);
-  const restoreSelection = shouldSuppressProjectionAtSelection
+  const shouldMapCrossingTextSelection =
+    state.selection instanceof TextSelection &&
+    state.selection.from < session.to &&
+    session.from < state.selection.to;
+  const shouldMapSelection = shouldSuppressProjectionAtSelection || shouldMapCrossingTextSelection;
+  const restoreSelection = shouldMapSelection
     ? adapter.mapSelectionFromSource(state.selection, session, original)
     : null;
-  const commitSelection = shouldSuppressProjectionAtSelection
+  const commitSelection = shouldMapSelection
     ? adapter.mapSelectionFromSource(state.selection, session, parsed)
     : null;
-  const suppressedSelection = restoreSelection;
+  const suppressedSelection = shouldSuppressProjectionAtSelection ? restoreSelection : null;
 
   if (source === session.target.originalSource) {
     return createCleanFinalizeProjectionTransaction(

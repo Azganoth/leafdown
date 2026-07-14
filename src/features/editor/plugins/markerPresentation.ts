@@ -14,7 +14,7 @@ interface NodeWithPos {
   pos: number;
 }
 
-const SOURCE_NODE_NAMES = new Set(["footnote_reference", "html"]);
+const SOURCE_NODE_NAMES = new Set(["html"]);
 
 export const createLeafdownMarkerPresentationPlugin = () =>
   $prose(
@@ -198,24 +198,10 @@ const createSourceNodeEditor = (
 };
 
 const serializeSourceNode = (node: ProseMirrorNode) => {
-  if (node.type.name === "footnote_reference") {
-    return `[^${getFootnoteLabel(node)}]`;
-  }
-
   return String(node.attrs.value ?? "");
 };
 
 const parseSourceNode = (source: string, nodeName: string): Record<string, unknown> | null => {
-  if (nodeName === "footnote_reference") {
-    const label = /^\[\^(?<label>[^\]]+)\]$/u.exec(source.trim())?.groups?.label;
-
-    if (!label) {
-      return null;
-    }
-
-    return { label };
-  }
-
   if (nodeName === "html") {
     return { value: source };
   }

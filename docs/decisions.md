@@ -193,6 +193,11 @@ requiring a special debug build.
 **Consequences:**
 
 - Defer to GFM preset defaults unless explicitly overridden by the specification.
+- Bare GFM URL literals and angle-bracket autolinks share Milkdown's canonical
+  link representation. Milkdown serializes eligible bare URLs as `<https://…>`,
+  so source projection exposes that canonical serialized form. Leafdown does not
+  preserve bare-versus-angle source provenance or bypass projection for bare
+  URLs.
 - Develop custom UI components only when required by the product specification.
 
 ### Do not use Crepe

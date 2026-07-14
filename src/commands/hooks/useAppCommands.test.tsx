@@ -176,6 +176,40 @@ describe("useAppCommands shortcut routing", () => {
     expect(mounted.getMarkdown()).toBe("[text in link](./link)\n");
   });
 
+  it("preserves escaped link-label text through keyboard undo and redo", async () => {
+    const initialMarkdown = "[\\*](./link)";
+    const formattedMarkdown = "**[\\*](./link)**";
+    const { mounted, runCommand } = await mountActiveEditor(initialMarkdown);
+
+    render(<AppCommandsHarness />);
+
+    const selectionFrom = getEditorTextPosition(mounted, "*");
+
+    setTextSelection(mounted.view, selectionFrom, selectionFrom + 1);
+
+    const formatShortcut = dispatchKeyDown(mounted.view.dom, "b", { ctrl: true, keyCode: 66 });
+
+    expect(formatShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(getEditorTextContent(mounted)).toBe(formattedMarkdown);
+    expect(getSelectedEditorText(mounted)).toBe("\\*");
+
+    const undoShortcut = dispatchKeyDown(mounted.view.dom, "z", { ctrl: true, keyCode: 90 });
+
+    expect(undoShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(getEditorTextContent(mounted)).toBe(initialMarkdown);
+    expect(getSelectedEditorText(mounted)).toBe("\\*");
+
+    const redoShortcut = dispatchKeyDown(mounted.view.dom, "y", { ctrl: true, keyCode: 89 });
+
+    expect(redoShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(getEditorTextContent(mounted)).toBe(formattedMarkdown);
+    expect(getSelectedEditorText(mounted)).toBe("\\*");
+    expect(mounted.getMarkdown()).toBe(`${formattedMarkdown}\n`);
+  });
+
   it.each([
     ["Mod-y", "y", { ctrl: true, keyCode: 89 }],
     ["Shift-Mod-z", "z", { ctrl: true, keyCode: 90, shift: true }],

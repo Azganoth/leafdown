@@ -254,6 +254,32 @@ const parseLinkSource = (
 const getLinkContentText = (target: LinkSourceProjectionTarget) =>
   target.originalContent.content.textBetween(0, target.originalContent.content.size);
 
+const mergeCoincidentInsertions = (edits: readonly LinkProjectionTextEdit[]) => {
+  const merged: LinkProjectionTextEdit[] = [];
+  const insertions = new Map<number, LinkProjectionTextEdit>();
+
+  for (const edit of edits) {
+    if (edit.from !== edit.to) {
+      merged.push(edit);
+      continue;
+    }
+
+    const existing = insertions.get(edit.from);
+
+    if (existing) {
+      existing.text += edit.text;
+      continue;
+    }
+
+    const insertion = { ...edit };
+
+    insertions.set(edit.from, insertion);
+    merged.push(insertion);
+  }
+
+  return merged;
+};
+
 const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
   const source = target.originalSource;
   const content = getLinkContentText(target);
@@ -277,6 +303,27 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       const sourceText = source.slice(sourceFrom, sourceTo);
 
       if (sourceText !== documentText) {
+        const preservedTextOffset = sourceText.indexOf(documentText);
+
+        if (preservedTextOffset >= 0) {
+          const prefix = sourceText.slice(0, preservedTextOffset);
+          const preservedSourceFrom = sourceFrom + preservedTextOffset;
+          const preservedSourceTo = preservedSourceFrom + documentText.length;
+          const suffix = sourceText.slice(preservedTextOffset + documentText.length);
+
+          if (prefix) {
+            enter.push({ from: documentFrom, text: prefix, to: documentFrom });
+            restore.push({ from: sourceFrom, text: "", to: preservedSourceFrom });
+          }
+
+          if (suffix) {
+            enter.push({ from: documentFrom + 1, text: suffix, to: documentFrom + 1 });
+            restore.push({ from: preservedSourceTo, text: "", to: sourceTo });
+          }
+
+          continue;
+        }
+
         enter.push({ from: documentFrom, text: sourceText, to: documentFrom + 1 });
         restore.push({ from: sourceFrom, text: documentText, to: sourceTo });
       }
@@ -296,7 +343,7 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
     restore.push({ from: previousSourceTo, text: "", to: source.length });
   }
 
-  return { enter, restore };
+  return { enter: mergeCoincidentInsertions(enter), restore };
 };
 
 const applyLinkProjectionTextEdits = (

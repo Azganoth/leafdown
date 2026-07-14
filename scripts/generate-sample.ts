@@ -180,6 +180,24 @@ to rebuild this folder before a walkthrough.
 2. Publish the short calibration note for the volunteer team.
 3. Review the replacement-battery estimate with the coordinator.
 
+For Tuesday's visit, the coordinator will organize the handoff in order:
+
+1. Pack the field kit.
+   1. Put the spare battery beside the north-bed probe.
+   2. Add the printed layout to the weatherproof folder.
+2. Brief the volunteers at the garden gate.
+   1. Confirm who records the final reading.
+   2. Agree on where the updated photo will be stored.
+
+The kit itself is grouped by the volunteer who will use it:
+
+- Measurement supplies
+  - Spare battery and probe cloth
+  - Manual moisture gauge
+- Handoff material
+  - Printed layout
+  - Camera checklist
+
 - [x] Record the first week of readings.
 - [x] Compare the new probe against the manual gauge.
 - [ ] Move the north-bed probe.

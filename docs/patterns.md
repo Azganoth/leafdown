@@ -173,6 +173,11 @@ Why:
 Menus, shortcuts, context popups, and future command surfaces should agree on
 labels, shortcuts, enabled state, and behavior.
 
+Semantic editor shortcuts should route their canonical Leafdown command IDs and
+consume recognized owned bindings even when the command is unavailable. Disable
+only the corresponding Milkdown semantic binding; keep Milkdown's structural
+editing keymaps and native providers in place.
+
 Example:
 
 ```ts

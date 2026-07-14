@@ -64,8 +64,10 @@ The application maintains three primary runtime states:
 
 ### Milkdown Responsibilities
 
-- Managing the editor model, schema, parsing, serialization, commands, and keymaps.
-- Handling history, clipboard events, event listeners, and default plugins.
+- Managing the editor model, schema, parsing, serialization, and native command
+  implementations.
+- Providing native history, structural keymaps, clipboard events, event
+  listeners, and default plugins.
 - Enforcing CommonMark and GFM specifications.
 
 ### Leafdown Responsibilities
@@ -73,6 +75,8 @@ The application maintains three primary runtime states:
 - Rendering the React editor wrapper and application layout.
 - Managing folder context, active document state, global settings, and session history.
 - Controlling the context popup, marker visibility rules, and menu integration.
+- Routing semantic formatting and projection-aware history shortcuts through the
+  same command IDs and availability rules as other command surfaces.
 - Orchestrating local file workflows, dirty-state checks, and external-change handling.
 - Resolving relative links/images, handling missing-image states, and blocking remote images.
 - Applying theme variables and general app-level styling.
@@ -107,8 +111,10 @@ strong, emphasis, strikethrough, and inline code. A higher-precedence logical
 link adapter owns links and autolinks as complete text-only wrappers, including
 rich labels whose child text nodes carry different nested marks. It uses
 Milkdown's parser and Remark syntax tree to validate one outer link and map
-source positions, then rehydrates the parsed inline fragment or falls back to
-literal text.
+source positions. Clean entry and restoration preserve existing label
+characters while adding or removing projected delimiters and canonical marks,
+so native history steps remain mapped across transient projection. Edited source
+rehydrates the parsed inline fragment or falls back to literal text.
 
 Milkdown's default serializer can emit adjacent link wrappers when one logical
 link contains mixed child marks. Leafdown wraps serialization with a transient,

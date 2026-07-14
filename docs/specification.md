@@ -228,13 +228,19 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `Shift+Tab`: Moves focus to the cell to the left.
   - `Enter`: Moves focus to the cell directly below. If pressed in the bottom row, inserts a new row below and focuses it.
   - `ArrowDown` (in the bottom row of a table): Exits the table downwards and moves the caret to the block below (creating a new empty paragraph block if none exists).
-- Editor keyboard behavior should use Milkdown defaults unless Leafdown requires
-  an explicit override.
+- Milkdown owns structural, context-sensitive editing shortcuts such as text
+  insertion, deletion, list and table navigation, and heading downgrade.
+  Leafdown owns shortcuts for semantic commands exposed through application
+  command surfaces and projection-aware history so their availability and
+  behavior match menus and context popups.
 - The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
 
 ### Editing Commands
 
-- `Undo` and `Redo` use the editor history.
+- `Undo` and `Redo` use Milkdown's native editor history through Leafdown's
+  projection-aware commands. Their keyboard shortcuts use projection-local
+  history while projected source is dirty, or finalize clean projection before
+  native history runs.
 - `Cut`, `Copy`, and `Copy as` use editor clipboard behavior and operate on the
   current selection.
 - `Paste` and `Paste as` use editor clipboard behavior and insert at the caret or
@@ -283,6 +289,9 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   parentheses.
 - The `Table` insert command creates a default 2-by-2 table.
 - The `Paragraph` insert command creates a new empty paragraph.
+- Block-formatting keyboard shortcuts run the same Leafdown commands as menu and
+  context-popup controls, including heading toggles, list conversion and
+  lifting, blockquote toggles, code-block toggles, and multi-block behavior.
 
 ### Table Commands
 

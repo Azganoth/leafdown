@@ -231,6 +231,60 @@ describe("useAppCommands shortcut routing", () => {
     expect(mounted.getMarkdown()).toBe("Hello\n");
   });
 
+  it("routes an active heading shortcut through its toggle command", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("## Heading");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const headingShortcut = dispatchKeyDown(mounted.view.dom, "2", {
+      alt: true,
+      ctrl: true,
+      keyCode: 50,
+    });
+
+    expect(headingShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelector("h2")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toBe("Heading\n");
+  });
+
+  it("routes the paragraph shortcut through the Leafdown command", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("### Heading");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const paragraphShortcut = dispatchKeyDown(mounted.view.dom, "0", {
+      alt: true,
+      ctrl: true,
+      keyCode: 48,
+    });
+
+    expect(paragraphShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelector("h3")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toBe("Heading\n");
+  });
+
+  it("routes a heading shortcut across a multi-block selection", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("First\n\nSecond");
+
+    render(<AppCommandsHarness />);
+    expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+
+    const headingShortcut = dispatchKeyDown(mounted.view.dom, "3", {
+      alt: true,
+      ctrl: true,
+      keyCode: 51,
+    });
+
+    expect(headingShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelectorAll("h3")).toHaveLength(2);
+    expect(mounted.getMarkdown()).toBe("### First\n\n### Second\n");
+  });
+
   it("routes the task-list format shortcut", async () => {
     const { mounted, runCommand } = await mountActiveEditor("Task");
 

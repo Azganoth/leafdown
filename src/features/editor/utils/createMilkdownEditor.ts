@@ -12,7 +12,9 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
   commonmark,
   emphasisKeymap,
+  headingKeymap,
   inlineCodeKeymap,
+  paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
@@ -150,6 +152,19 @@ export const createMilkdownEditor = async ({
         ...keymap,
         Redo: { ...keymap.Redo, shortcuts: [] },
         Undo: { ...keymap.Undo, shortcuts: [] },
+      }));
+      ctx.update(paragraphKeymap.key, (keymap) => ({
+        ...keymap,
+        TurnIntoText: { ...keymap.TurnIntoText, shortcuts: [] },
+      }));
+      ctx.update(headingKeymap.key, (keymap) => ({
+        ...keymap,
+        TurnIntoH1: { ...keymap.TurnIntoH1, shortcuts: [] },
+        TurnIntoH2: { ...keymap.TurnIntoH2, shortcuts: [] },
+        TurnIntoH3: { ...keymap.TurnIntoH3, shortcuts: [] },
+        TurnIntoH4: { ...keymap.TurnIntoH4, shortcuts: [] },
+        TurnIntoH5: { ...keymap.TurnIntoH5, shortcuts: [] },
+        TurnIntoH6: { ...keymap.TurnIntoH6, shortcuts: [] },
       }));
       ctx.update(strongKeymap.key, (keymap) => ({
         ...keymap,

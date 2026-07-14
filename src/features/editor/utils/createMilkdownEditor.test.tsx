@@ -2,8 +2,10 @@ import { historyKeymap } from "@milkdown/kit/plugin/history";
 import {
   emphasisKeymap,
   hardbreakKeymap,
+  headingKeymap,
   inlineCodeKeymap,
   listItemKeymap,
+  paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
@@ -50,6 +52,20 @@ describe("createMilkdownEditor", () => {
 
     expect(mounted.editor.ctx.get(historyKeymap.key).Undo.shortcuts).toEqual([]);
     expect(mounted.editor.ctx.get(historyKeymap.key).Redo.shortcuts).toEqual([]);
+  });
+
+  it("reserves paragraph and heading shortcuts for Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+    const headings = mounted.editor.ctx.get(headingKeymap.key);
+
+    expect(mounted.editor.ctx.get(paragraphKeymap.key).TurnIntoText.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH1.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH2.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH3.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH4.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH5.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH6.shortcuts).toEqual([]);
+    expect(headings.DowngradeHeading.shortcuts).toEqual(["Delete", "Backspace"]);
   });
 
   it("retains Milkdown structural editing shortcuts", async () => {

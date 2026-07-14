@@ -19,11 +19,13 @@ body:
       required: true
 
   - type: textarea
-    id: docs
+    id: related_context
     attributes:
-      label: Related docs
-      description: Link relevant docs sections, or decisions. Use `y` to generate permalinks on GitHub.
-      placeholder: "[Specification: File workflows](https://github.com/Azganoth/leafdown/blob/aacf982/docs/specification.md#file-workflows)"
+      label: Related context
+      description: Link related issues, pull requests, documentation, decisions, or prior investigation. Use `y` to generate permalinks for repository files on GitHub.
+      placeholder: |
+        - Related issue or pull request: #
+        - Documentation or decision:
 
   - type: textarea
     id: done

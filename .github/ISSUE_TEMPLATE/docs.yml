@@ -29,3 +29,24 @@ body:
     id: reason
     attributes:
       label: Reason
+
+  - type: textarea
+    id: related_context
+    attributes:
+      label: Related context
+      description: Link related issues, pull requests, documentation, decisions, or prior investigation. Use `y` to generate permalinks for repository files on GitHub.
+      placeholder: |
+        - Related issue or pull request: #
+        - Documentation or decision:
+
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checklist for completing and verifying the documentation change.
+      placeholder: |
+        - [ ] Intended documentation updated
+        - [ ] Related links and terminology verified
+        - [ ] Conflicting or superseded guidance updated
+    validations:
+      required: true

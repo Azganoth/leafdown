@@ -172,6 +172,11 @@ to rebuild this folder before a walkthrough.
 
 > “The readings are useful when they tell us when _not_ to water.”
 >
+> > “Start with the north bed, then leave the south-bed schedule alone unless
+> > the manual gauge disagrees.”
+> >
+> > — coordinator's reply
+>
 > — Mara, garden volunteer
 
 ### What changed
@@ -229,6 +234,14 @@ const needsFollowUp = ({ moisture }: Reading) => moisture < 35;
 console.log(needsFollowUp({ bed: "North", moisture: 31 }));
 \`\`\`
 
+The handheld display also leaves this plain reading in the visit log:
+
+\`\`\`
+bed=north
+moisture=31
+action=reposition
+\`\`\`
+
 ![Garden sensor map](./assets/icon.png)
 
 ---
@@ -265,7 +278,10 @@ remain one link when it is edited and saved. Its label also keeps a literal
 The guide points readers to <https://example.com/releases/2026-06>, while the
 draft recommendation is _deliberate_ rather than __final__. Use
 \`\`pnpm run \`preview\`\`\` when checking the local walkthrough; the nested
-backtick is part of the command shown to reviewers.
+backtick is part of the command shown to reviewers. The public briefing remains
+available at https://example.com/releases/2026-06/briefing.
+
+***
 
 ## Editorial decision
 
@@ -485,6 +501,8 @@ assembled.
 
 Calibration
 : Comparing a probe with a trusted manual measurement.
+
+___
 
 ## Working formulas
 

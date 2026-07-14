@@ -1,3 +1,4 @@
+import { historyKeymap } from "@milkdown/kit/plugin/history";
 import {
   emphasisKeymap,
   hardbreakKeymap,
@@ -42,6 +43,13 @@ describe("createMilkdownEditor", () => {
     expect(mounted.editor.ctx.get(strikethroughKeymap.key).ToggleStrikethrough.shortcuts).toEqual(
       [],
     );
+  });
+
+  it("reserves history shortcuts for projection-aware Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+
+    expect(mounted.editor.ctx.get(historyKeymap.key).Undo.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(historyKeymap.key).Redo.shortcuts).toEqual([]);
   });
 
   it("retains Milkdown structural editing shortcuts", async () => {

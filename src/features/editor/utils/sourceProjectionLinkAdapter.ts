@@ -1,6 +1,6 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import type { EditorState } from "@milkdown/kit/prose/state";
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isNonNullish } from "@/lib/predicates";
@@ -47,6 +47,12 @@ interface LinkAdapterDependencies {
   parser: Parser;
   remark: RemarkParser;
   serializer: Serializer;
+}
+
+interface LinkProjectionTextEdit {
+  from: number;
+  text: string;
+  to: number;
 }
 
 const getLinkTarget = (target: SourceProjectionTarget): LinkSourceProjectionTarget => {
@@ -245,6 +251,117 @@ const parseLinkSource = (
   };
 };
 
+const getLinkContentText = (target: LinkSourceProjectionTarget) =>
+  target.originalContent.content.textBetween(0, target.originalContent.content.size);
+
+const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
+  const source = target.originalSource;
+  const content = getLinkContentText(target);
+  const enter: LinkProjectionTextEdit[] = [];
+  const restore: LinkProjectionTextEdit[] = [];
+  let previousSourceTo = 0;
+
+  for (const leaf of target.sourceMap.leaves) {
+    if (previousSourceTo < leaf.sourceFrom) {
+      const marker = source.slice(previousSourceTo, leaf.sourceFrom);
+
+      enter.push({ from: leaf.documentFrom, text: marker, to: leaf.documentFrom });
+      restore.push({ from: previousSourceTo, text: "", to: leaf.sourceFrom });
+    }
+
+    for (let offset = 0; offset < leaf.documentTo - leaf.documentFrom; offset += 1) {
+      const documentFrom = leaf.documentFrom + offset;
+      const sourceFrom = leaf.sourceBoundaries[offset];
+      const sourceTo = leaf.sourceBoundaries[offset + 1];
+      const documentText = content.slice(documentFrom, documentFrom + 1);
+      const sourceText = source.slice(sourceFrom, sourceTo);
+
+      if (sourceText !== documentText) {
+        enter.push({ from: documentFrom, text: sourceText, to: documentFrom + 1 });
+        restore.push({ from: sourceFrom, text: documentText, to: sourceTo });
+      }
+    }
+
+    previousSourceTo = leaf.sourceTo;
+  }
+
+  if (previousSourceTo < source.length) {
+    const marker = source.slice(previousSourceTo);
+
+    enter.push({
+      from: target.sourceMap.documentSize,
+      text: marker,
+      to: target.sourceMap.documentSize,
+    });
+    restore.push({ from: previousSourceTo, text: "", to: source.length });
+  }
+
+  return { enter, restore };
+};
+
+const applyLinkProjectionTextEdits = (
+  transaction: Transaction,
+  basePosition: number,
+  edits: readonly LinkProjectionTextEdit[],
+) => {
+  const descendingEdits = [...edits].sort(
+    (left, right) => right.from - left.from || right.to - left.to,
+  );
+
+  for (const edit of descendingEdits) {
+    transaction.insertText(edit.text, basePosition + edit.from, basePosition + edit.to);
+  }
+
+  return transaction;
+};
+
+const addLinkTargetMarks = (
+  transaction: Transaction,
+  target: LinkSourceProjectionTarget,
+  from: number,
+) => {
+  target.originalContent.content.forEach((node, offset) => {
+    if (!node.isText) {
+      return;
+    }
+
+    for (const mark of node.marks) {
+      transaction.addMark(from + offset, from + offset + node.nodeSize, mark);
+    }
+  });
+
+  return transaction;
+};
+
+const createEnterLinkProjectionTransaction = (
+  state: EditorState,
+  target: LinkSourceProjectionTarget,
+) => {
+  const transaction = state.tr.removeMark(target.from, target.to);
+  const { enter } = getLinkProjectionTextEdits(target);
+
+  return applyLinkProjectionTextEdits(transaction, target.from, enter);
+};
+
+const createRestoreCleanLinkTransaction = (
+  state: EditorState,
+  session: SourceProjectionSessionRange,
+) => {
+  const target = getLinkTarget(session.target);
+  const { restore } = getLinkProjectionTextEdits(target);
+  const transaction = applyLinkProjectionTextEdits(state.tr, session.from, restore);
+
+  addLinkTargetMarks(transaction, target, session.from);
+
+  const restoredTo = session.from + target.originalContentSize;
+
+  if (!transaction.doc.slice(session.from, restoredTo).eq(target.originalContent)) {
+    transaction.replace(session.from, restoredTo, target.originalContent);
+  }
+
+  return transaction;
+};
+
 const mapSelectionPositionToSource = (
   position: number,
   target: LinkSourceProjectionTarget,
@@ -344,11 +461,7 @@ export const createLinkSourceProjectionAdapter = ({
 }: LinkAdapterDependencies): SourceProjectionAdapter => ({
   id: LINK_ADAPTER_ID,
   createEnterTransaction: (state, target) =>
-    state.tr.replace(
-      target.from,
-      target.to,
-      createLiteralSourceProjectionSlice(state, target.originalSource),
-    ),
+    createEnterLinkProjectionTransaction(state, getLinkTarget(target)),
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (target, source) => {
     const parsedMap = createLinkSourceMap(remark, source);
@@ -395,6 +508,5 @@ export const createLinkSourceProjectionAdapter = ({
           source,
         };
   },
-  restoreCleanTarget: (state, session) =>
-    state.tr.replace(session.from, session.to, getLinkTarget(session.target).originalContent),
+  restoreCleanTarget: createRestoreCleanLinkTransaction,
 });

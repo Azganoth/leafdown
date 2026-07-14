@@ -11,11 +11,14 @@ import { setDefaultSession } from "@/test/utils/appStores";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
+  getEditorDomElement,
   getEditorTextContent,
   getEditorTextPosition,
   getSelectedEditorText,
   setSelectionAtDocumentEnd,
+  setSelectionAtElementTextEnd,
   setTextSelection,
+  typeText,
 } from "@/test/utils/prosemirror";
 import { render, waitFor } from "@/test/utils/react";
 
@@ -151,6 +154,82 @@ describe("useAppCommands shortcut routing", () => {
       expect(mounted.getMarkdown()).toBe(expectedMarkdown);
     },
   );
+
+  it("routes projected link history without moving the selection or dispatching twice", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("[text in link](./link)");
+
+    render(<AppCommandsHarness />);
+
+    const selectionFrom = getEditorTextPosition(mounted, "in");
+
+    setTextSelection(mounted.view, selectionFrom, selectionFrom + "in".length);
+
+    dispatchKeyDown(mounted.view.dom, "b", { ctrl: true, keyCode: 66 });
+    expect(getEditorTextContent(mounted)).toBe("[text **in** link](./link)");
+
+    const undoShortcut = dispatchKeyDown(mounted.view.dom, "z", { ctrl: true, keyCode: 90 });
+
+    expect(undoShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(getEditorTextContent(mounted)).toBe("[text in link](./link)");
+    expect(getSelectedEditorText(mounted)).toBe("in");
+    expect(mounted.getMarkdown()).toBe("[text in link](./link)\n");
+  });
+
+  it.each([
+    ["Mod-y", "y", { ctrl: true, keyCode: 89 }],
+    ["Shift-Mod-z", "z", { ctrl: true, keyCode: 90, shift: true }],
+  ] satisfies Array<[string, string, TestKeyboardEventOptions]>)(
+    "routes projection-local redo through %s",
+    async (_, key, modifiers) => {
+      const { mounted, runCommand } = await mountActiveEditor("**Bold** plain");
+
+      render(<AppCommandsHarness />);
+      setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+      typeText(mounted.view, "er");
+
+      expect(getEditorTextContent(mounted)).toBe("**Bolder** plain");
+
+      dispatchKeyDown(mounted.view.dom, "z", { ctrl: true, keyCode: 90 });
+      expect(getEditorTextContent(mounted)).toBe("**Bolde** plain");
+
+      const redoShortcut = dispatchKeyDown(mounted.view.dom, key, modifiers);
+
+      expect(redoShortcut.defaultPrevented).toBe(true);
+      expect(runCommand).not.toHaveBeenCalled();
+      expect(getEditorTextContent(mounted)).toBe("**Bolder** plain");
+    },
+  );
+
+  it("finalizes a clean projection before routing native undo", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("**Bold** plain");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "!");
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    expect(getEditorTextContent(mounted)).toBe("**Bold** plain!");
+
+    const undoShortcut = dispatchKeyDown(mounted.view.dom, "z", { ctrl: true, keyCode: 90 });
+
+    expect(undoShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(getEditorTextContent(mounted)).toBe("Bold plain");
+    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
+  });
+
+  it("consumes an owned history shortcut when no history is available", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("Hello");
+
+    render(<AppCommandsHarness />);
+
+    const undoShortcut = dispatchKeyDown(mounted.view.dom, "z", { ctrl: true, keyCode: 90 });
+
+    expect(undoShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.getMarkdown()).toBe("Hello\n");
+  });
 
   it("routes the task-list format shortcut", async () => {
     const { mounted, runCommand } = await mountActiveEditor("Task");

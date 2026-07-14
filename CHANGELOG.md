@@ -20,6 +20,10 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Route Undo and Redo shortcuts through projection-aware editor commands and
+  preserve native history when formatting text inside projected links.
+- Route paragraph, heading, list, blockquote, and code-block shortcuts through
+  the same Leafdown commands as menus and popup controls.
 - Route inline-formatting keyboard shortcuts through Leafdown commands so they
   behave consistently with menus and popup controls during source projection.
 - Activate source projection for contained text selections and limit each

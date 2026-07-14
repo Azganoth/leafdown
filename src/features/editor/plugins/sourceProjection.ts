@@ -13,7 +13,6 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $proseAsync } from "@milkdown/kit/utils";
 
-import { isRedoKey, isUndoKey } from "@/lib/input";
 import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
@@ -527,26 +526,6 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
 
   if (!session) {
     return false;
-  }
-
-  if (isUndoKey(event)) {
-    const didUndo = undoSourceProjection(view);
-
-    if (didUndo) {
-      event.preventDefault();
-    }
-
-    return didUndo;
-  }
-
-  if (isRedoKey(event)) {
-    const didRedo = redoSourceProjection(view);
-
-    if (didRedo) {
-      event.preventDefault();
-    }
-
-    return didRedo;
   }
 
   if (event.key === "Enter") {

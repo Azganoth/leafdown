@@ -1,8 +1,15 @@
+import { historyKeymap } from "@milkdown/kit/plugin/history";
 import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
   emphasisKeymap,
   hardbreakKeymap,
+  headingKeymap,
   inlineCodeKeymap,
   listItemKeymap,
+  orderedListKeymap,
+  paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
@@ -42,6 +49,36 @@ describe("createMilkdownEditor", () => {
     expect(mounted.editor.ctx.get(strikethroughKeymap.key).ToggleStrikethrough.shortcuts).toEqual(
       [],
     );
+  });
+
+  it("reserves history shortcuts for projection-aware Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+
+    expect(mounted.editor.ctx.get(historyKeymap.key).Undo.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(historyKeymap.key).Redo.shortcuts).toEqual([]);
+  });
+
+  it("reserves paragraph and heading shortcuts for Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+    const headings = mounted.editor.ctx.get(headingKeymap.key);
+
+    expect(mounted.editor.ctx.get(paragraphKeymap.key).TurnIntoText.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH1.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH2.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH3.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH4.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH5.shortcuts).toEqual([]);
+    expect(headings.TurnIntoH6.shortcuts).toEqual([]);
+    expect(headings.DowngradeHeading.shortcuts).toEqual(["Delete", "Backspace"]);
+  });
+
+  it("reserves semantic container shortcuts for Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+
+    expect(mounted.editor.ctx.get(orderedListKeymap.key).WrapInOrderedList.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(bulletListKeymap.key).WrapInBulletList.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(blockquoteKeymap.key).WrapInBlockquote.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(codeBlockKeymap.key).CreateCodeBlock.shortcuts).toEqual([]);
   });
 
   it("retains Milkdown structural editing shortcuts", async () => {

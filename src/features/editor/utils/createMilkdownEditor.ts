@@ -7,19 +7,30 @@ import {
   rootCtx,
 } from "@milkdown/kit/core";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
-import { history } from "@milkdown/kit/plugin/history";
+import { history, historyKeymap } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
   commonmark,
   emphasisKeymap,
+  headingKeymap,
   inlineCodeKeymap,
+  orderedListKeymap,
+  paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
-import { runEditorCommand, type EditorCommandId, type EditorCommandState } from "../commands";
+import {
+  getEditorCommandState,
+  runEditorCommand,
+  type EditorCommandId,
+  type EditorCommandState,
+} from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
@@ -95,6 +106,12 @@ export const createMilkdownEditor = async ({
   });
   const editor = Editor.make();
   const runCommand = (commandId: EditorCommandId) => {
+    const commandState = getEditorCommandState(editor.ctx.get(editorViewCtx));
+
+    if (!commandState.enabledCommands[commandId]) {
+      return false;
+    }
+
     const result = runEditorCommand(editor, commandId);
 
     return typeof result === "boolean" ? result : false;
@@ -135,6 +152,40 @@ export const createMilkdownEditor = async ({
       }));
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
+      ctx.update(historyKeymap.key, (keymap) => ({
+        ...keymap,
+        Redo: { ...keymap.Redo, shortcuts: [] },
+        Undo: { ...keymap.Undo, shortcuts: [] },
+      }));
+      ctx.update(paragraphKeymap.key, (keymap) => ({
+        ...keymap,
+        TurnIntoText: { ...keymap.TurnIntoText, shortcuts: [] },
+      }));
+      ctx.update(headingKeymap.key, (keymap) => ({
+        ...keymap,
+        TurnIntoH1: { ...keymap.TurnIntoH1, shortcuts: [] },
+        TurnIntoH2: { ...keymap.TurnIntoH2, shortcuts: [] },
+        TurnIntoH3: { ...keymap.TurnIntoH3, shortcuts: [] },
+        TurnIntoH4: { ...keymap.TurnIntoH4, shortcuts: [] },
+        TurnIntoH5: { ...keymap.TurnIntoH5, shortcuts: [] },
+        TurnIntoH6: { ...keymap.TurnIntoH6, shortcuts: [] },
+      }));
+      ctx.update(orderedListKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInOrderedList: { ...keymap.WrapInOrderedList, shortcuts: [] },
+      }));
+      ctx.update(bulletListKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInBulletList: { ...keymap.WrapInBulletList, shortcuts: [] },
+      }));
+      ctx.update(blockquoteKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInBlockquote: { ...keymap.WrapInBlockquote, shortcuts: [] },
+      }));
+      ctx.update(codeBlockKeymap.key, (keymap) => ({
+        ...keymap,
+        CreateCodeBlock: { ...keymap.CreateCodeBlock, shortcuts: [] },
+      }));
       ctx.update(strongKeymap.key, (keymap) => ({
         ...keymap,
         ToggleBold: { ...keymap.ToggleBold, shortcuts: [] },

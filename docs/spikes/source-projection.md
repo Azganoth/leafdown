@@ -64,6 +64,9 @@ source-projection session engine with object-specific adapters.
 - Registered adapters own target discovery and precedence, source generation,
   entry and clean-restoration transforms, validation and rehydration,
   presentation spans, and selection mapping.
+- Adapters distinguish semantic source owned by their target from ambient marks
+  that are not exposed for editing. Ambient context remains adapter-owned rather
+  than leaking into projected source.
 - Active source is unmarked, editable document text. Invalid source commits as
   literal document text so no projected character is lost.
 - The mark adapter preserves source behavior for strong, emphasis,
@@ -78,8 +81,9 @@ source-projection session engine with object-specific adapters.
   document and never enter editor state or history.
 - An atomic footnote-reference adapter owns complete `[^label]` source,
   left/right and node-selection entry mapping, Milkdown-backed validation,
-  canonical node rehydration, and literal fallback. It does not share the
-  logical-link implementation or modify footnote definitions.
+  canonical node rehydration, ambient-mark preservation, and literal fallback.
+  It does not share the logical-link implementation or modify footnote
+  definitions.
 
 The implementation is split between
 `src/features/editor/plugins/sourceProjection.ts`, the shared lifecycle engine;

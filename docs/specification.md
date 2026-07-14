@@ -196,8 +196,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   source, a caret entering from the right starts at the end, and selecting the
   atomic reference selects its label after projection. Valid edits rehydrate a
   canonical Milkdown footnote-reference node; invalid or incomplete edits become
-  exact literal text. Editing a reference label does not create, rename, delete,
-  or modify any footnote definition.
+  exact literal text. Compatible inline formatting around the complete reference
+  is ambient rather than part of its projected source and remains applied after
+  either outcome. Editing a reference label does not create, rename, delete, or
+  modify any footnote definition.
 - A selection crossing plain text, another exact mark combination, another
   inline object, or a text-block boundary does not activate projection. When a
   selection crosses into or out of an active source projection, the projection

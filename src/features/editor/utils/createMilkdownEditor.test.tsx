@@ -1,10 +1,14 @@
 import { historyKeymap } from "@milkdown/kit/plugin/history";
 import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
   emphasisKeymap,
   hardbreakKeymap,
   headingKeymap,
   inlineCodeKeymap,
   listItemKeymap,
+  orderedListKeymap,
   paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
@@ -66,6 +70,15 @@ describe("createMilkdownEditor", () => {
     expect(headings.TurnIntoH5.shortcuts).toEqual([]);
     expect(headings.TurnIntoH6.shortcuts).toEqual([]);
     expect(headings.DowngradeHeading.shortcuts).toEqual(["Delete", "Backspace"]);
+  });
+
+  it("reserves semantic container shortcuts for Leafdown commands", async () => {
+    const mounted = await mountEditor("Paragraph");
+
+    expect(mounted.editor.ctx.get(orderedListKeymap.key).WrapInOrderedList.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(bulletListKeymap.key).WrapInBulletList.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(blockquoteKeymap.key).WrapInBlockquote.shortcuts).toEqual([]);
+    expect(mounted.editor.ctx.get(codeBlockKeymap.key).CreateCodeBlock.shortcuts).toEqual([]);
   });
 
   it("retains Milkdown structural editing shortcuts", async () => {

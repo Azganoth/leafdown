@@ -10,10 +10,14 @@ import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history, historyKeymap } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
+  blockquoteKeymap,
+  bulletListKeymap,
+  codeBlockKeymap,
   commonmark,
   emphasisKeymap,
   headingKeymap,
   inlineCodeKeymap,
+  orderedListKeymap,
   paragraphKeymap,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
@@ -165,6 +169,22 @@ export const createMilkdownEditor = async ({
         TurnIntoH4: { ...keymap.TurnIntoH4, shortcuts: [] },
         TurnIntoH5: { ...keymap.TurnIntoH5, shortcuts: [] },
         TurnIntoH6: { ...keymap.TurnIntoH6, shortcuts: [] },
+      }));
+      ctx.update(orderedListKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInOrderedList: { ...keymap.WrapInOrderedList, shortcuts: [] },
+      }));
+      ctx.update(bulletListKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInBulletList: { ...keymap.WrapInBulletList, shortcuts: [] },
+      }));
+      ctx.update(blockquoteKeymap.key, (keymap) => ({
+        ...keymap,
+        WrapInBlockquote: { ...keymap.WrapInBlockquote, shortcuts: [] },
+      }));
+      ctx.update(codeBlockKeymap.key, (keymap) => ({
+        ...keymap,
+        CreateCodeBlock: { ...keymap.CreateCodeBlock, shortcuts: [] },
       }));
       ctx.update(strongKeymap.key, (keymap) => ({
         ...keymap,

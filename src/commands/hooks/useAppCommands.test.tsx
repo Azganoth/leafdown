@@ -285,6 +285,87 @@ describe("useAppCommands shortcut routing", () => {
     expect(mounted.getMarkdown()).toBe("### First\n\n### Second\n");
   });
 
+  it("routes list conversion and lifting through the ordered-list command", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("- Item");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const convertShortcut = dispatchKeyDown(mounted.view.dom, "7", {
+      alt: true,
+      ctrl: true,
+      keyCode: 55,
+    });
+
+    expect(convertShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.getMarkdown()).toBe("1. Item\n");
+
+    const liftShortcut = dispatchKeyDown(mounted.view.dom, "7", {
+      alt: true,
+      ctrl: true,
+      keyCode: 55,
+    });
+
+    expect(liftShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.getMarkdown()).toBe("Item\n");
+  });
+
+  it("routes an unordered-list shortcut across a multi-block selection", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("First\n\nSecond");
+
+    render(<AppCommandsHarness />);
+    expect(runEditorCommand(mounted.editor, "edit.selectAll")).toBe(true);
+
+    const listShortcut = dispatchKeyDown(mounted.view.dom, "8", {
+      alt: true,
+      ctrl: true,
+      keyCode: 56,
+    });
+
+    expect(listShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelectorAll("ul > li")).toHaveLength(2);
+    expect(mounted.getMarkdown()).toBe("* First\n* Second\n");
+  });
+
+  it("routes the active blockquote shortcut through its toggle command", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("> Quote");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const blockquoteShortcut = dispatchKeyDown(mounted.view.dom, "b", {
+      ctrl: true,
+      keyCode: 66,
+      shift: true,
+    });
+
+    expect(blockquoteShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelector("blockquote")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toBe("Quote\n");
+  });
+
+  it("routes the active code-block shortcut through its toggle command", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("```\nconst value = 1;\n```");
+
+    render(<AppCommandsHarness />);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const codeBlockShortcut = dispatchKeyDown(mounted.view.dom, "c", {
+      alt: true,
+      ctrl: true,
+      keyCode: 67,
+    });
+
+    expect(codeBlockShortcut.defaultPrevented).toBe(true);
+    expect(runCommand).not.toHaveBeenCalled();
+    expect(mounted.view.dom.querySelector("pre")).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toBe("const value = 1;\n");
+  });
+
   it("routes the task-list format shortcut", async () => {
     const { mounted, runCommand } = await mountActiveEditor("Task");
 

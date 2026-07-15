@@ -55,6 +55,12 @@ const selectFootnoteReference = (
   );
 };
 
+const getProjectedFootnoteSource = (mounted: MountedMilkdownEditor) =>
+  Array.from(
+    mounted.view.dom.querySelectorAll("[data-leafdown-source~='footnote-reference']"),
+    (element) => element.textContent,
+  ).join("");
+
 const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
 };
@@ -600,12 +606,7 @@ describe("source projection", () => {
         setTextSelection(mounted.view, textPosition + 1);
 
         expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-        expect(
-          Array.from(
-            mounted.view.dom.querySelectorAll("[data-leafdown-source~='footnote-reference']"),
-            (element) => element.textContent,
-          ).join(""),
-        ).toBe(source);
+        expect(getProjectedFootnoteSource(mounted)).toBe(source);
       },
     );
 
@@ -930,6 +931,149 @@ describe("source projection", () => {
         getEditorTextPosition(mounted, literal) + literal.length,
       );
     });
+
+    it.each([
+      { direction: "forward", reverse: false },
+      { direction: "backward", reverse: true },
+    ])(
+      "preserves a $direction selection across the owning marked fragment",
+      async ({ reverse }) => {
+        const source = "**archive note[^archive]**";
+        const mounted = await mountProjectionEditor(`${source}\n\n[^archive]: Detail`);
+        const textFrom = getEditorTextPosition(mounted, "archive note");
+        const referenceTo = getEditorNodePosition(mounted, "footnote_reference") + 1;
+
+        setTextSelection(
+          mounted.view,
+          reverse ? referenceTo : textFrom,
+          reverse ? textFrom : referenceTo,
+        );
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(getSelectedEditorText(mounted)).toBe("archive note[^archive]");
+        expect(mounted.view.state.selection.anchor > mounted.view.state.selection.head).toBe(
+          reverse,
+        );
+      },
+    );
+
+    it("uses projection-local history before preserving native history for a marked reference", async () => {
+      const initialMarkdown = "**Text[^note]**\n\n[^note]: Detail";
+      const editedMarkdown = "**Text[^updated]**\n\n[^note]: Detail\n";
+      const mounted = await mountProjectionEditor(initialMarkdown);
+
+      selectFootnoteReference(mounted);
+      expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe("**Text[^updated]**");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getProjectedFootnoteSource(mounted)).toBe("**Text[^note]**");
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getProjectedFootnoteSource(mounted)).toBe("**Text[^updated]**");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(editedMarkdown);
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(`${initialMarkdown}\n`);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(editedMarkdown);
+    });
+
+    it("commits a marked reference before switching directly to another marked fragment", async () => {
+      const mounted = await mountProjectionEditor(
+        "**One[^one]** and *two[^two]*\n\n[^one]: First\n\n[^two]: Second",
+      );
+
+      selectFootnoteReference(mounted, (node) => node.attrs.label === "one");
+      expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
+
+      const secondPosition = getEditorNodePosition(
+        mounted,
+        "footnote_reference",
+        (node) => node.attrs.label === "two",
+      );
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.setSelection(
+          NodeSelection.create(mounted.view.state.doc, secondPosition),
+        ),
+      );
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getProjectedFootnoteSource(mounted)).toBe("*two[^two]*");
+      expect(mounted.getMarkdown()).toBe(
+        "**One[^updated]** and *two[^two]*\n\n[^one]: First\n\n[^two]: Second\n",
+      );
+      expect(mounted.getMarkdown()).not.toContain("[^updated]:");
+    });
+
+    it("tracks only marked-fragment edits and emits the finalized Markdown update", async () => {
+      const onContentChanged = vi.fn();
+      const onMarkdownUpdated = vi.fn();
+      const mounted = await mountProjectionEditor("**Text[^note]**\n\n[^note]: Detail", {
+        onContentChanged,
+        onMarkdownUpdated,
+      });
+
+      vi.useFakeTimers();
+
+      try {
+        selectFootnoteReference(mounted);
+        await waitForMarkdownUpdateListener();
+
+        expect(onContentChanged).not.toHaveBeenCalled();
+        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+
+        expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
+        await waitForMarkdownUpdateListener();
+
+        expect(onContentChanged).toHaveBeenCalledTimes(1);
+        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+        expect(mounted.getMarkdown()).toBe("**Text[^updated]**\n\n[^note]: Detail\n");
+
+        await waitForMarkdownUpdateListener();
+
+        expect(onMarkdownUpdated).toHaveBeenCalledWith(
+          expect.objectContaining({
+            markdown: "**Text[^updated]**\n\n[^note]: Detail\n",
+          }),
+        );
+        expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it.each([
+      {
+        source: "**archive note[^archive]**",
+        definition: "[^archive]: Detail",
+        text: "archive note",
+      },
+      {
+        source: "*follow-up reference[^follow-up]*",
+        definition: "[^follow-up]: More",
+        text: "follow-up reference",
+      },
+    ])(
+      "saves and reopens $source through the existing Milkdown serializer",
+      async ({ definition, source, text }) => {
+        const expectedMarkdown = `${source}\n\n${definition}\n`;
+        const mounted = await mountProjectionEditor(`${source}\n\n${definition}`);
+
+        setTextSelection(mounted.view, getEditorTextPosition(mounted, text) + 1);
+
+        expect(getProjectedFootnoteSource(mounted)).toBe(source);
+        expect(mounted.getMarkdown()).toBe(expectedMarkdown);
+
+        const reopened = await mountProjectionEditor(expectedMarkdown);
+
+        setTextSelection(reopened.view, getEditorTextPosition(reopened, text) + 1);
+
+        expect(getProjectedFootnoteSource(reopened)).toBe(source);
+      },
+    );
   });
 
   describe("source editing", () => {

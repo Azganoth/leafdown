@@ -629,6 +629,92 @@ describe("source projection", () => {
       },
     );
 
+    it.each([
+      { description: "text after the reference", source: "**left[^note]right**" },
+      { description: "whitespace before the reference atom", source: "**left [^note]**" },
+      { description: "whitespace after the reference atom", source: "**[^note] right**" },
+    ])("keeps $description inside one marked fragment", async ({ source }) => {
+      const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
+
+      selectFootnoteReference(mounted);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe(source);
+    });
+
+    it.each([
+      {
+        boundary: "link",
+        markdown: "**left[^note][link](https://example.com)right**",
+      },
+      {
+        boundary: "inline code",
+        markdown: "**left[^note]`code`right**",
+      },
+      {
+        boundary: "image",
+        markdown: "**left[^note]![alt](image.png)right**",
+      },
+      {
+        boundary: "inline HTML",
+        markdown: "**left[^note]<span>raw</span>right**",
+      },
+      {
+        boundary: "hard break",
+        markdown: "**left[^note]  \nright**",
+      },
+    ])("stops a marked footnote fragment at a $boundary", async ({ markdown }) => {
+      const mounted = await mountProjectionEditor(`${markdown}\n\n[^note]: Detail`);
+
+      selectFootnoteReference(mounted);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe("**left[^note]**");
+    });
+
+    it.each([
+      {
+        boundary: "different mark set",
+        markdown: "**left[^note]**_right_",
+      },
+      {
+        boundary: "different strong-marker attributes",
+        markdown: "**left[^note]**__right__",
+      },
+    ])("stops at an adjacent $boundary", async ({ markdown }) => {
+      const mounted = await mountProjectionEditor(`${markdown}\n\n[^note]: Detail`);
+
+      selectFootnoteReference(mounted);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe("**left[^note]**");
+    });
+
+    it("trims only marked edge whitespace around a footnote fragment", async () => {
+      const mounted = await mountProjectionEditor("Before Text[^note] after\n\n[^note]: Detail");
+      const textPosition = getEditorTextPosition(mounted, "Text");
+      const referencePosition = getEditorNodePosition(mounted, "footnote_reference");
+      const strongMark = mounted.view.state.schema.marks.strong.create({ marker: "*" });
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.addMark(textPosition - 1, referencePosition + 2, strongMark),
+      );
+      selectFootnoteReference(mounted);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe("**Text[^note]**");
+      expect(getEditorTextContent(mounted)).toContain("Before **Text[^note]** after");
+    });
+
+    it("keeps a linked marked footnote reference on its standalone adapter", async () => {
+      const source = "[**left[^note]**](https://example.com)";
+      const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
+
+      selectFootnoteReference(mounted);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getProjectedFootnoteSource(mounted)).toBe("[^note]");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--link"),
+      ).not.toBeInTheDocument();
+    });
+
     it("downgrades the owning strong fragment while keeping its canonical reference", async () => {
       const mounted = await mountProjectionEditor("**Text[^note]**\n\n[^note]: Detail");
 

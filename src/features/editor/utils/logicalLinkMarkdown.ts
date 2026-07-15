@@ -24,8 +24,11 @@ const getMarksWithout = (marks: readonly Mark[], removedMarks: readonly Mark[]) 
 const getInnerLinkMarks = (node: ProseMirrorNode, linkMark: Mark) =>
   getMarksWithout(node.marks, [linkMark]);
 
+const isInlineSoftBreak = (node: ProseMirrorNode) =>
+  node.type.name === "hardbreak" && node.attrs.isInline === true;
+
 const isMixedLinkRun = (nodes: readonly ProseMirrorNode[], linkMark: Mark) => {
-  if (!nodes.every((node) => node.isText)) {
+  if (!nodes.every((node) => node.isText || isInlineSoftBreak(node))) {
     return false;
   }
 

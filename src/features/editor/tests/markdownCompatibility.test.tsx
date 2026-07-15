@@ -177,6 +177,16 @@ describe("Markdown compatibility", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  it.each([
+    "[plain\nlabel](docs/readme.md)",
+    '[**bold** and\n*soft*](docs/readme.md "Title")',
+    "**[plain *soft*\nlabel](docs/readme.md)**",
+  ])("preserves multiline logical link wrappers in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
   it("uses logical link serialization for Markdown update listeners", async () => {
     const onMarkdownUpdated = vi.fn();
     const mounted = await mountEditor("[plain **bold**](first)\n\nTail", { onMarkdownUpdated });

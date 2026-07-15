@@ -21,6 +21,9 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Project uniformly marked text and contained footnote references as one editable
+  Markdown source range while preserving canonical references, selection, and
+  history.
 - Synchronize hover styling across mixed-format rendered link fragments.
 - Project multiline link labels as one editable source object while preserving
   nested formatting, semantic line endings, selection mapping, and history.

@@ -193,15 +193,21 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   Valid edits rehydrate one link over the complete rich label; invalid or
   incomplete edits become exact literal text. Mixed-format and multiline labels
   do not fall back to fragmented projections for their nested content.
-- Footnote references project their complete `[^label]` source as editable
-  document text. A caret entering from the left starts at the beginning of the
-  source, a caret entering from the right starts at the end, and selecting the
-  atomic reference selects its label after projection. Valid edits rehydrate a
-  canonical Milkdown footnote-reference node; invalid or incomplete edits become
-  exact literal text. Compatible inline formatting around the complete reference
-  is ambient rather than part of its projected source and remains applied after
-  either outcome. Editing a reference label does not create, rename, delete, or
-  modify any footnote definition.
+- A footnote reference within one exact, contiguous supported mark combination
+  belongs to that marked fragment. Entering through its text, either reference
+  boundary, or the atomic reference projects one outer wrapper such as
+  `**archive note[^archive]**`; the complete compatible mark set applies to both
+  text and reference nodes. Logical links retain higher semantic ownership, while
+  standalone or otherwise ineligible references use the reference-only adapter.
+- Standalone footnote references project their complete `[^label]` source as
+  editable document text. A caret entering from the left starts at the beginning
+  of the source, a caret entering from the right starts at the end, and selecting
+  an atomic reference selects its label after projection. Valid edits in either
+  projection rehydrate canonical Milkdown footnote-reference nodes. If a marked
+  wrapper remains valid, incomplete reference-like content remains exact text
+  inside its outer marks; if the outer wrapper becomes invalid, the complete
+  projected source becomes exact unmarked literal text. Editing a reference label
+  does not create, rename, delete, or modify any footnote definition.
 - A selection crossing plain text, another exact mark combination, another
   inline object, or a text-block boundary does not activate projection. When a
   selection crosses into or out of an active source projection, the projection

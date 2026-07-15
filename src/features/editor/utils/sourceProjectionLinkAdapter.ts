@@ -290,33 +290,33 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
   const restore: LinkProjectionTextEdit[] = [];
   let previousSourceTo = 0;
 
-  for (const leaf of target.sourceMap.leaves) {
-    if (previousSourceTo < leaf.sourceFrom) {
-      const marker = source.slice(previousSourceTo, leaf.sourceFrom);
+  for (const segment of target.sourceMap.segments) {
+    if (previousSourceTo < segment.sourceFrom) {
+      const marker = source.slice(previousSourceTo, segment.sourceFrom);
 
-      enter.push({ from: leaf.documentFrom, text: marker, to: leaf.documentFrom });
-      restore.push({ from: previousSourceTo, text: "", to: leaf.sourceFrom });
+      enter.push({ from: segment.documentFrom, text: marker, to: segment.documentFrom });
+      restore.push({ from: previousSourceTo, text: "", to: segment.sourceFrom });
     }
 
-    if (leaf.kind === "inlineBreak") {
+    if (segment.type === "inlineBreak") {
       enter.push({
-        from: leaf.documentFrom,
-        text: source.slice(leaf.sourceFrom, leaf.sourceTo),
-        to: leaf.documentTo,
+        from: segment.documentFrom,
+        text: source.slice(segment.sourceFrom, segment.sourceTo),
+        to: segment.documentTo,
       });
       restore.push({
-        from: leaf.sourceFrom,
+        from: segment.sourceFrom,
         text: "\n",
-        to: leaf.sourceTo,
+        to: segment.sourceTo,
       });
-      previousSourceTo = leaf.sourceTo;
+      previousSourceTo = segment.sourceTo;
       continue;
     }
 
-    for (let offset = 0; offset < leaf.documentTo - leaf.documentFrom; offset += 1) {
-      const documentFrom = leaf.documentFrom + offset;
-      const sourceFrom = leaf.sourceBoundaries[offset];
-      const sourceTo = leaf.sourceBoundaries[offset + 1];
+    for (let offset = 0; offset < segment.documentTo - segment.documentFrom; offset += 1) {
+      const documentFrom = segment.documentFrom + offset;
+      const sourceFrom = segment.sourceBoundaries[offset];
+      const sourceTo = segment.sourceBoundaries[offset + 1];
       const documentText = content.slice(documentFrom, documentFrom + 1);
       const sourceText = source.slice(sourceFrom, sourceTo);
 
@@ -347,7 +347,7 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       }
     }
 
-    previousSourceTo = leaf.sourceTo;
+    previousSourceTo = segment.sourceTo;
   }
 
   if (previousSourceTo < source.length) {
@@ -465,17 +465,21 @@ const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
   const spans: SourceProjectionPresentationSpan[] = [];
   let markerFrom = 0;
 
-  for (const leaf of map.leaves) {
-    if (markerFrom < leaf.sourceFrom) {
+  for (const segment of map.segments) {
+    if (markerFrom < segment.sourceFrom) {
       spans.push({
         className: "leafdown-source-projection__marker",
         from: markerFrom,
-        to: leaf.sourceFrom,
+        to: segment.sourceFrom,
       });
     }
 
-    spans.push({ className: leaf.className, from: leaf.sourceFrom, to: leaf.sourceTo });
-    markerFrom = leaf.sourceTo;
+    spans.push({
+      className: segment.className,
+      from: segment.sourceFrom,
+      to: segment.sourceTo,
+    });
+    markerFrom = segment.sourceTo;
   }
 
   if (markerFrom < source.length) {
@@ -507,9 +511,9 @@ const getLinkPresentationMap = (
 
   return {
     ...map,
-    leaves: map.leaves.map((leaf) => ({
-      ...leaf,
-      className: [leaf.className, ...classNames].join(" "),
+    segments: map.segments.map((segment) => ({
+      ...segment,
+      className: [segment.className, ...classNames].join(" "),
     })),
     sourceTypes: [...new Set([...map.sourceTypes, ...ambientTypes])],
   };

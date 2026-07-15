@@ -72,6 +72,10 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
 fn command_errors_serialize_with_frontend_error_kinds() {
     let root = TestDirectory::new("command-contract-errors");
     let unsupported_file = root.write_file("notes.txt");
+    let oversized_file = root.write_file_with_content(
+        "large.md",
+        vec![b'A'; (document::MAX_MARKDOWN_FILE_SIZE_BYTES + 1) as usize],
+    );
     let missing_folder = root.path("missing");
 
     let open_error = tauri::async_runtime::block_on(document::open_markdown_file(path_string(
@@ -84,6 +88,26 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     assert_eq!(
         json_string(&open_error, "path"),
         path_string(unsupported_file.as_path())
+    );
+
+    let oversized_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        path_string(oversized_file.as_path()),
+    ))
+    .expect_err("oversized files should be rejected");
+    let oversized_error = serialized(oversized_error);
+
+    assert_eq!(json_string(&oversized_error, "kind"), "oversizedFile");
+    assert_eq!(
+        json_string(&oversized_error, "path"),
+        path_string(oversized_file.as_path())
+    );
+    assert_eq!(
+        oversized_error["sizeBytes"].as_u64(),
+        Some(document::MAX_MARKDOWN_FILE_SIZE_BYTES + 1)
+    );
+    assert_eq!(
+        oversized_error["maxSizeBytes"].as_u64(),
+        Some(document::MAX_MARKDOWN_FILE_SIZE_BYTES)
     );
 
     let scan_error = tauri::async_runtime::block_on(folder::scan_markdown_folder(

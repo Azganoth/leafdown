@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
+import { dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountMilkdownEditorOptions } from "@/test/utils/milkdown";
 import {
   getEditorNodePosition,
@@ -23,6 +24,8 @@ const mountEditor = setupMilkdownEditorMount();
 const PLAIN_LINK_SOURCE = "[first field\nwalk](./nested-directory/doc-alternate.markdown)";
 const MIXED_LINK_SOURCE =
   '[**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`](./article-navigator/01-overview.md "Calibration review")';
+const MIXED_LINK_LABEL_SOURCE =
+  "**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`";
 
 const mountProjectionEditor = (
   source: string,
@@ -138,6 +141,37 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(MIXED_LINK_SOURCE);
     expect(mounted.view.dom.querySelector("a, strong, em, del, code")).not.toBeInTheDocument();
+  });
+
+  it("coordinates mixed-format projected label presentation across a soft break", async () => {
+    const mounted = await mountProjectionEditor(MIXED_LINK_SOURCE);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    const getLabelFragments = () =>
+      Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+      );
+    const firstFragment = getLabelFragments()[0];
+
+    if (!firstFragment) {
+      throw new Error("Expected projected mixed-link label presentation fragments.");
+    }
+
+    expect(
+      getLabelFragments()
+        .map((fragment) => fragment.textContent)
+        .join(""),
+    ).toBe(MIXED_LINK_LABEL_SOURCE);
+
+    dispatchMouseEvent(firstFragment, "mouseover");
+
+    expect(
+      getLabelFragments().every((fragment) =>
+        fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
+      ),
+    ).toBe(true);
   });
 
   it.each([

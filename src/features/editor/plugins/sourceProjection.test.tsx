@@ -400,6 +400,24 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe(`${source}\n`);
     });
 
+    it("presents a plain titled projected link label as one semantic range", async () => {
+      const source = '[Plain label](./article.md "Reference")';
+      const mounted = await mountProjectionEditor(source);
+
+      enterProjection(mounted, "a");
+
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe("Plain label");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${source}\n`);
+    });
+
     it("synchronizes projected link-label hover across presentation fragments", async () => {
       const onContentChanged = vi.fn();
       const mounted = await mountProjectionEditor(

@@ -20,6 +20,7 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Show a size-aware error when opening a Markdown file that exceeds the loading limit.
 - Route Undo and Redo shortcuts through projection-aware editor commands and
   preserve native history when formatting text inside projected links.
 - Route paragraph, heading, list, blockquote, and code-block shortcuts through

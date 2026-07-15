@@ -54,7 +54,11 @@ pub(crate) struct MarkdownFolderChangedEvent {
 }
 
 #[derive(Clone, Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum WatchMarkdownFolderError {
     InvalidPath { path: String },
     MissingFolder { path: String },

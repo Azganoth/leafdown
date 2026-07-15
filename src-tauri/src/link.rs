@@ -11,7 +11,11 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum ResolveMarkdownLinkTargetResult {
     ExternalWeb { url: String },
     LocalMarkdown { path: String },

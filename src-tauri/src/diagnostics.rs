@@ -55,7 +55,11 @@ struct AppStartedDiagnosticPayload<'a> {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum DiagnosticsError {
     LogDirectoryUnavailable { message: String },
     CreateLogDirectoryFailed { path: String, message: String },

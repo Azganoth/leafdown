@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use serde_json::Value;
 
@@ -72,6 +72,12 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
 fn command_errors_serialize_with_frontend_error_kinds() {
     let root = TestDirectory::new("command-contract-errors");
     let unsupported_file = root.write_file("notes.txt");
+    let externally_modified_file = root.write_file("modified.md");
+    let missing_parent_file = root.path("missing/readme.md");
+    let oversized_file = root.write_file_with_content(
+        "large.md",
+        vec![b'A'; (document::MAX_MARKDOWN_FILE_SIZE_BYTES + 1) as usize],
+    );
     let missing_folder = root.path("missing");
 
     let open_error = tauri::async_runtime::block_on(document::open_markdown_file(path_string(
@@ -84,6 +90,74 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     assert_eq!(
         json_string(&open_error, "path"),
         path_string(unsupported_file.as_path())
+    );
+
+    let oversized_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        path_string(oversized_file.as_path()),
+    ))
+    .expect_err("oversized files should be rejected");
+    let oversized_error = serialized(oversized_error);
+
+    assert_eq!(json_string(&oversized_error, "kind"), "oversizedFile");
+    assert_eq!(
+        json_string(&oversized_error, "path"),
+        path_string(oversized_file.as_path())
+    );
+    assert_eq!(
+        oversized_error["sizeBytes"].as_u64(),
+        Some(document::MAX_MARKDOWN_FILE_SIZE_BYTES + 1)
+    );
+    assert_eq!(
+        oversized_error["maxSizeBytes"].as_u64(),
+        Some(document::MAX_MARKDOWN_FILE_SIZE_BYTES)
+    );
+
+    let missing_parent_error = tauri::async_runtime::block_on(document::save_markdown_file(
+        path_string(missing_parent_file.as_path()),
+        "# Saved\n".to_owned(),
+        None,
+        None,
+    ))
+    .expect_err("missing parent folders should be rejected");
+    let missing_parent_error = serialized(missing_parent_error);
+
+    assert_eq!(
+        json_string(&missing_parent_error, "kind"),
+        "missingParentFolder"
+    );
+    assert_eq!(
+        json_string(&missing_parent_error, "parentFolderPath"),
+        path_string(root.path("missing").as_path())
+    );
+
+    let opened_document = document::read_markdown_file(externally_modified_file.as_path())
+        .expect("test Markdown file should open");
+    fs::write(externally_modified_file.as_path(), "# Changed externally\n")
+        .expect("test Markdown file should change");
+    let external_modification_error = tauri::async_runtime::block_on(document::save_markdown_file(
+        path_string(externally_modified_file.as_path()),
+        "# Saved\n".to_owned(),
+        Some(opened_document.metadata),
+        None,
+    ))
+    .expect_err("externally modified files should be rejected");
+    let external_modification_error = serialized(external_modification_error);
+
+    assert_eq!(
+        json_string(&external_modification_error, "kind"),
+        "externalModification"
+    );
+    assert!(
+        external_modification_error["currentMetadata"]["sizeBytes"]
+            .as_u64()
+            .is_some(),
+        "currentMetadata.sizeBytes should serialize as a number"
+    );
+    assert!(
+        external_modification_error["currentMetadata"]["modifiedAtUnixMs"]
+            .as_u64()
+            .is_some(),
+        "currentMetadata.modifiedAtUnixMs should serialize as a number"
     );
 
     let scan_error = tauri::async_runtime::block_on(folder::scan_markdown_folder(

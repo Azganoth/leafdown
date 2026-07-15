@@ -42,6 +42,7 @@ import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
+import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import {
@@ -129,6 +130,7 @@ export const createMilkdownEditor = async ({
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
+    .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())

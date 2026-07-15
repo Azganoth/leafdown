@@ -75,6 +75,10 @@
       &:hover {
         @apply decoration-primary;
       }
+
+      &:has(.leafdown-rendered-link__content--hovered) {
+        @apply decoration-primary;
+      }
     }
 
     ul,

@@ -855,6 +855,30 @@ describe("source projection", () => {
       expect(getEditorDomElement(mounted, "code")).toHaveTextContent("Code`");
     });
 
+    it.each([
+      {
+        expected: "`` `!Code `` plain",
+        position: "`".length,
+        side: "leading",
+      },
+      {
+        expected: "``Code`!`` plain",
+        position: "`Code".length,
+        side: "trailing",
+      },
+    ])("keeps the caret with a $side boundary-backtick edit", async ({ expected, position }) => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`Code`");
+      setTextSelection(mounted.view, sourceStart + position);
+      typeText(mounted.view, "`");
+      typeText(mounted.view, "!");
+
+      expect(getEditorTextContent(mounted)).toBe(expected);
+    });
+
     it("does not project invalid unpadded inline-code source as a code mark", async () => {
       const source = "``pnpm run `preview``` plain";
       const mounted = await mountProjectionEditor(source);

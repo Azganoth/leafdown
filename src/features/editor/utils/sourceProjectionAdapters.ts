@@ -566,9 +566,35 @@ const applyMarkSourceProjectionEdit = (
   const nextSource = normalizeProjectionSourceAfterEdit(editedSource, edit.context);
 
   return {
-    selectionOffset: Math.min(edit.from + edit.text.length, nextSource.length),
+    selectionOffset: getProjectionEditSelectionOffset(source, edit, nextSource),
     source: nextSource,
   };
+};
+
+const getProjectionEditSelectionOffset = (
+  source: string,
+  edit: SourceProjectionEdit & { context: ProjectionEditContext },
+  nextSource: string,
+) => {
+  const parsed = parseProjectionSource(source);
+  const nextParsed = parseProjectionSource(nextSource);
+  const isInlineCode =
+    parsed.type === "mark" && parsed.marks.some((mark) => mark.markName === "inlineCode");
+  const remainsInlineCode =
+    nextParsed.type === "mark" && nextParsed.marks.some((mark) => mark.markName === "inlineCode");
+
+  if (!isInlineCode || !remainsInlineCode || edit.context.delimiterSide !== null) {
+    return Math.min(edit.from + edit.text.length, nextSource.length);
+  }
+
+  const contentBounds = getProjectionSourceContentBounds(source);
+  const nextContentBounds = getProjectionSourceContentBounds(nextSource);
+  const contentOffset = Math.min(
+    Math.max(edit.from - contentBounds.from, 0),
+    contentBounds.to - contentBounds.from,
+  );
+
+  return Math.min(nextContentBounds.from + contentOffset + edit.text.length, nextContentBounds.to);
 };
 
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>

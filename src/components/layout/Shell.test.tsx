@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
+import { useSessionStore } from "@/features/session";
 import { createSavedDocument } from "@/test/factories/document";
 import {
   createArticleTree,
@@ -27,6 +28,12 @@ vi.mock("@/features/session", async (importOriginal) => ({
 }));
 
 const SPEC_MARKDOWN_PATH = `${TEST_NESTED_DIRECTORY_PATH}/spec.md`;
+const OVERSIZED_MARKDOWN_FILE_ERROR = {
+  kind: "oversizedFile",
+  path: "C:/Notes/large-document.md",
+  sizeBytes: 5 * 1024 * 1024 + 1024,
+  maxSizeBytes: 5 * 1024 * 1024,
+} as const;
 
 const nestedFolderContext = createFolderContext({
   tree: createNestedArticleTree(),
@@ -143,6 +150,29 @@ describe("Shell", () => {
       expect(toast.error).toHaveBeenCalledWith("Could not read Markdown file.", {
         description: "access failed",
       });
+    });
+  });
+
+  it("reports oversized article open failures without changing the session", async () => {
+    const activeDocument = createSavedDocument({ content: "# Current" });
+    setDefaultSession({
+      activeDocument,
+      folderContext: nestedFolderContext,
+    });
+    mockTauriApiCommand("openMarkdownFile", () => Promise.reject(OVERSIZED_MARKDOWN_FILE_ERROR));
+
+    const { user } = renderWithUser(<Shell />);
+    await user.click(screen.getByRole("button", { name: "draft.markdown" }));
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Markdown file is too large.", {
+        description: "5.0 MB selected. Files larger than 5 MB do not load.",
+      });
+    });
+
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocument,
+      folderContext: nestedFolderContext,
     });
   });
 });

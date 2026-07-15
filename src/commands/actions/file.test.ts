@@ -1,3 +1,4 @@
+import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
@@ -13,15 +14,56 @@ import {
   TEST_NESTED_MARKDOWN_FILE_PATH,
 } from "@/test/fixtures/paths";
 import { setDefaultRecentItems, setDefaultSettings } from "@/test/utils/appStores";
+import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
-import { clearRecentItems, openLocation, openPreferences, revealInSidebar } from "./file";
+import {
+  clearRecentItems,
+  openFile,
+  openLocation,
+  openPreferences,
+  openRecentMarkdownFile,
+  revealInSidebar,
+} from "./file";
+
+const OVERSIZED_MARKDOWN_FILE_PATH = "C:/Notes/large-document.md";
+const OVERSIZED_MARKDOWN_FILE_ERROR = {
+  kind: "oversizedFile",
+  path: OVERSIZED_MARKDOWN_FILE_PATH,
+  sizeBytes: 5 * 1024 * 1024 + 1024,
+  maxSizeBytes: 5 * 1024 * 1024,
+} as const;
+
+const expectOversizedMarkdownFileToast = () => {
+  expect(toast.error).toHaveBeenCalledWith("Markdown file is too large.", {
+    description: "5.0 MB selected. Files larger than 5 MB do not load.",
+  });
+};
 
 describe("file actions", () => {
   it("clears recent items", () => {
     setDefaultRecentItems({ recentFiles: [TEST_MARKDOWN_FILE_PATH] });
     clearRecentItems();
     expect(useRecentItemsStore.getState().recentFiles).toEqual([]);
+  });
+
+  it("reports oversized files selected through File > Open", async () => {
+    vi.mocked(open).mockResolvedValueOnce(OVERSIZED_MARKDOWN_FILE_PATH);
+    mockTauriApiCommand("openMarkdownFile", () => Promise.reject(OVERSIZED_MARKDOWN_FILE_ERROR));
+
+    await openFile();
+
+    expectOversizedMarkdownFileToast();
+    expect(useRecentItemsStore.getState().recentFiles).not.toContain(OVERSIZED_MARKDOWN_FILE_PATH);
+  });
+
+  it("reports oversized recent files", async () => {
+    mockTauriApiCommand("openMarkdownFile", () => Promise.reject(OVERSIZED_MARKDOWN_FILE_ERROR));
+
+    await openRecentMarkdownFile(OVERSIZED_MARKDOWN_FILE_PATH);
+
+    expectOversizedMarkdownFileToast();
+    expect(useRecentItemsStore.getState().recentFiles).not.toContain(OVERSIZED_MARKDOWN_FILE_PATH);
   });
 
   it("reveals the active article and opens the sidebar", () => {

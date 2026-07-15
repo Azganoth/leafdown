@@ -18,9 +18,9 @@ import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
+  createMarkSourceProjectionAdapter,
   findSourceProjectionInsertionCandidate,
   findSourceProjectionTarget,
-  MARK_SOURCE_PROJECTION_ADAPTER,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
   type SourceProjectionTarget,
@@ -114,17 +114,25 @@ export const createLeafdownSourceProjectionPlugin = () =>
   $proseAsync(async (ctx) => {
     await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
 
+    const parser = ctx.get(parserCtx);
+    const remark = ctx.get(remarkCtx);
+    const serializer = ctx.get(serializerCtx);
+
     return createSourceProjectionProsePlugin([
-      createFootnoteReferenceSourceProjectionAdapter({
-        parser: ctx.get(parserCtx),
-        serializer: ctx.get(serializerCtx),
-      }),
       createLinkSourceProjectionAdapter({
-        parser: ctx.get(parserCtx),
-        remark: ctx.get(remarkCtx),
-        serializer: ctx.get(serializerCtx),
+        parser,
+        remark,
+        serializer,
       }),
-      MARK_SOURCE_PROJECTION_ADAPTER,
+      createMarkSourceProjectionAdapter({
+        parser,
+        remark,
+        serializer,
+      }),
+      createFootnoteReferenceSourceProjectionAdapter({
+        parser,
+        serializer,
+      }),
     ]);
   });
 

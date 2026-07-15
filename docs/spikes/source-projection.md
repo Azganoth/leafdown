@@ -65,12 +65,16 @@ source-projection session engine with object-specific adapters.
   entry and clean-restoration transforms, validation and rehydration,
   presentation spans, and selection mapping.
 - Adapters distinguish semantic source owned by their target from ambient marks
-  that are not exposed for editing. Ambient context remains adapter-owned rather
-  than leaking into projected source.
+  that are not exposed for editing. Ownership precedence is logical link,
+  qualifying marked fragment, then standalone footnote reference. Ambient
+  context remains adapter-owned rather than leaking into projected source.
 - Active source is unmarked, editable document text. Invalid source commits as
   literal document text so no projected character is lost.
 - The mark adapter preserves source behavior for strong, emphasis,
-  strikethrough, and inline code.
+  strikethrough, and inline code. One exact, contiguous supported mark set may
+  also own text and footnote-reference nodes as a rich marked fragment. Its local
+  codec validates reference syntax through Milkdown and Remark, maps atomic
+  references, and rehydrates canonical nodes without changing definitions.
 - A higher-precedence logical-link adapter owns links and autolinks as complete
   wrappers, including mixed-format and multiline labels. It validates source
   through Milkdown's parser and Remark AST, maps selections across nested label
@@ -80,7 +84,8 @@ source-projection session engine with object-specific adapters.
   when Milkdown's default serializer would split a mixed-format label into
   adjacent links. Its placeholders exist only in a temporary serialization
   document and never enter editor state or history.
-- An atomic footnote-reference adapter owns complete `[^label]` source,
+- An atomic footnote-reference adapter owns complete `[^label]` source when the
+  reference is standalone or not part of an eligible marked fragment. It owns
   left/right and node-selection entry mapping, Milkdown-backed validation,
   canonical node rehydration, ambient-mark preservation, and literal fallback.
   It does not share the logical-link implementation or modify footnote
@@ -94,8 +99,11 @@ registry, and current mark adapter; and
 parser and source builder. Logical-link behavior is split between
 `sourceProjectionLinkAdapter.ts`, `sourceProjectionLinkSyntax.ts`, and
 `logicalLinkMarkdown.ts`. Footnote-reference behavior lives in
-`sourceProjectionFootnoteReferenceAdapter.ts`. Marker presentation remains a
-separate capability.
+`sourceProjectionFootnoteReferenceAdapter.ts` and
+`sourceProjectionFootnoteReferenceSyntax.ts`; rich marked-fragment parsing and
+mapping lives in `sourceProjectionMarkedFragmentSyntax.ts`. Marker presentation
+remains a separate capability. Unlike mixed logical links, marked footnote
+fragments require no document-serializer wrapper.
 
 ## Original Probe Results
 

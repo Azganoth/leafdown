@@ -106,25 +106,35 @@ source is committed literally so projected characters are never discarded.
 
 Registered object adapters own target discovery and precedence, source
 generation, entry and clean-restoration transforms, validation and rehydration,
-presentation spans, and selection mapping. The current mark adapter supports
-strong, emphasis, strikethrough, and inline code. A higher-precedence logical
-link adapter owns links and autolinks as complete wrappers, including rich labels
-whose child text nodes carry different nested marks and labels containing
-semantic soft line endings. Milkdown transforms those endings into inline
-`hardbreak` nodes and removes positions from the resulting Remark children, so
-the adapter captures positioned semantic leaves before that transform and maps
-each inline break as one document unit. Clean entry and restoration preserve
-existing label content while adding or removing projected delimiters and
-canonical marks, so native history steps remain mapped across transient
-projection. Edited source rehydrates the parsed inline fragment or falls back to
-literal text.
+presentation spans, and selection mapping. Ownership precedence is logical link,
+qualifying marked fragment, then standalone footnote reference. The mark adapter
+supports strong, emphasis, strikethrough, and inline code. Its fragment-local
+codec additionally lets one exact, contiguous strong, emphasis, or strikethrough
+combination own both text and canonical footnote-reference nodes. It validates
+reference syntax through the installed Milkdown parser and Remark pipeline,
+maps atomic references within the projected source, and rehydrates rich marked
+fragments without changing footnote definitions.
+
+The higher-precedence logical-link adapter owns links and autolinks as complete
+wrappers, including rich labels whose child text nodes carry different nested
+marks and labels containing semantic soft line endings. Milkdown transforms
+those endings into inline `hardbreak` nodes and removes positions from the
+resulting Remark children, so the adapter captures positioned semantic leaves
+before that transform and maps each inline break as one document unit. Clean
+entry and restoration preserve existing label content while adding or removing
+projected delimiters and canonical marks, so native history steps remain mapped
+across transient projection. Edited source rehydrates the parsed inline fragment
+or falls back to literal text.
 
 Milkdown's default serializer can emit adjacent link wrappers when one logical
 link contains mixed child marks. Leafdown wraps serialization with a transient,
 collision-free placeholder transform so saved Markdown retains one outer link
 without placing placeholders in editor state or history. Future rich inline
 wrappers and atomic inline nodes extend the adapter boundary independently; the
-shared lifecycle must not acquire object-specific syntax assumptions.
+shared lifecycle must not acquire object-specific syntax assumptions. Marked
+footnote fragments do not use that link-specific serialization transform:
+Milkdown's existing document serializer already preserves the issue's supported
+one-wrapper examples.
 
 Marker presentation is a separate capability. Decorations may style active
 source, but projected Markdown remains real ProseMirror document text rather than

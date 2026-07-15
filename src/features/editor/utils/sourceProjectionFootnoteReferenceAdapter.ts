@@ -15,13 +15,15 @@ import {
   type SourceProjectionSessionRange,
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
+import {
+  FOOTNOTE_REFERENCE_NODE_NAME,
+  getFootnoteReferenceSourceBounds,
+  mapFootnoteReferenceSourceOffsetToDocument,
+  parseFootnoteReferenceSource,
+  serializeFootnoteReference,
+} from "./sourceProjectionFootnoteReferenceSyntax";
 
 const FOOTNOTE_REFERENCE_ADAPTER_ID = "footnote-reference";
-const FOOTNOTE_REFERENCE_NODE_NAME = "footnote_reference";
-const FOOTNOTE_DEFINITION_NODE_NAME = "footnote_definition";
-const FOOTNOTE_REFERENCE_OPENING = "[^";
-const FOOTNOTE_REFERENCE_CLOSING = "]";
-const VALIDATION_DEFINITION_CONTENT = "Leafdown";
 const AMBIENT_MARK_CLASS_NAMES: Readonly<Record<string, string>> = {
   emphasis: "leafdown-source-projection__content--emphasis",
   strike_through: "leafdown-source-projection__content--strikethrough",
@@ -48,17 +50,6 @@ const getFootnoteReferenceTarget = (
   }
 
   return target as FootnoteReferenceSourceProjectionTarget;
-};
-
-const serializeFootnoteReference = (
-  state: EditorState,
-  serializer: Serializer,
-  node: ProseMirrorNode,
-) => {
-  const paragraph = state.schema.nodes.paragraph.create(null, node.mark([]));
-  const document = state.schema.nodes.doc.create(null, paragraph);
-
-  return serializer(document).replace(/\n$/u, "");
 };
 
 const createFootnoteReferenceTarget = (
@@ -111,51 +102,6 @@ const findFootnoteReferenceTarget = (
     : null;
 };
 
-const hasCompleteFootnoteReferenceWrapper = (source: string) => {
-  if (
-    !source.startsWith(FOOTNOTE_REFERENCE_OPENING) ||
-    !source.endsWith(FOOTNOTE_REFERENCE_CLOSING) ||
-    /[\r\n]/u.test(source)
-  ) {
-    return false;
-  }
-
-  return source.length > FOOTNOTE_REFERENCE_OPENING.length + FOOTNOTE_REFERENCE_CLOSING.length;
-};
-
-const parseFootnoteReferenceSource = (parser: Parser, source: string): ProseMirrorNode | null => {
-  if (!hasCompleteFootnoteReferenceWrapper(source)) {
-    return null;
-  }
-
-  let document: ProseMirrorNode;
-
-  try {
-    document = parser(`${source}\n\n${source}: ${VALIDATION_DEFINITION_CONTENT}`);
-  } catch {
-    return null;
-  }
-
-  if (document.childCount !== 2) {
-    return null;
-  }
-
-  const paragraph = document.firstChild;
-  const definition = document.lastChild;
-  const reference = paragraph?.childCount === 1 ? paragraph.firstChild : null;
-
-  if (
-    paragraph?.type.name !== "paragraph" ||
-    reference?.type.name !== FOOTNOTE_REFERENCE_NODE_NAME ||
-    definition?.type.name !== FOOTNOTE_DEFINITION_NODE_NAME ||
-    reference.attrs.label !== definition.attrs.label
-  ) {
-    return null;
-  }
-
-  return reference;
-};
-
 const mapSelectionPositionToSource = (
   position: number,
   target: FootnoteReferenceSourceProjectionTarget,
@@ -201,20 +147,11 @@ const mapAtomicSelectionPositionFromSource = (
   }
 
   const sourceOffset = position - session.from;
-  const labelFrom = FOOTNOTE_REFERENCE_OPENING.length;
-  const labelTo = result.source.length - FOOTNOTE_REFERENCE_CLOSING.length;
+  const bounds = getFootnoteReferenceSourceBounds(result.source);
 
-  if (sourceOffset <= labelFrom) {
-    return session.from;
-  }
-
-  if (sourceOffset >= labelTo) {
-    return session.from + result.replacementSize;
-  }
-
-  return sourceOffset - labelFrom < labelTo - sourceOffset
-    ? session.from
-    : session.from + result.replacementSize;
+  return bounds
+    ? session.from + mapFootnoteReferenceSourceOffsetToDocument(sourceOffset, bounds)
+    : session.from;
 };
 
 const mapSelectionFromSource = (
@@ -235,12 +172,13 @@ const mapSelectionFromSource = (
 };
 
 const getFootnoteReferencePresentation = (source: string, ambientMarks: readonly Mark[]) => {
-  if (!hasCompleteFootnoteReferenceWrapper(source)) {
+  const bounds = getFootnoteReferenceSourceBounds(source);
+
+  if (!bounds) {
     return [];
   }
 
-  const labelFrom = FOOTNOTE_REFERENCE_OPENING.length;
-  const labelTo = source.length - FOOTNOTE_REFERENCE_CLOSING.length;
+  const { labelFrom, labelTo } = bounds;
   const ambientClassNames = ambientMarks.flatMap((mark) => {
     const className = AMBIENT_MARK_CLASS_NAMES[mark.type.name];
 
@@ -299,12 +237,18 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
     const footnoteTarget = getFootnoteReferenceTarget(target);
 
     if (selection instanceof NodeSelection) {
+      const bounds = getFootnoteReferenceSourceBounds(footnoteTarget.originalSource);
+
+      if (!bounds) {
+        return {
+          anchor: footnoteTarget.from,
+          head: footnoteTarget.from,
+        };
+      }
+
       return {
-        anchor: footnoteTarget.from + FOOTNOTE_REFERENCE_OPENING.length,
-        head:
-          footnoteTarget.from +
-          footnoteTarget.originalSource.length -
-          FOOTNOTE_REFERENCE_CLOSING.length,
+        anchor: footnoteTarget.from + bounds.labelFrom,
+        head: footnoteTarget.from + bounds.labelTo,
       };
     }
 

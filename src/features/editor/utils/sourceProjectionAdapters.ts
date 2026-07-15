@@ -1,10 +1,20 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
+import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isNonNullish } from "@/lib/predicates";
 
 import { getCandidateMarksAtSelection } from "./marks";
+import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  createMarkedFragmentSourceStructure,
+  mapMarkedFragmentDocumentOffsetToSource,
+  mapMarkedFragmentSourceOffsetToDocument,
+  parseMarkedFragmentSource,
+  serializeMarkedFragmentSource,
+  type MarkedFragmentSourceMap,
+} from "./sourceProjectionMarkedFragmentSyntax";
 import {
   createProjectionMarkDescriptor,
   createProjectionSource,
@@ -33,8 +43,16 @@ export interface SourceProjectionTarget extends TextRange {
 
 interface MarkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "mark";
+  hasFootnoteReferences: boolean;
   marks: ProjectionMarkDescriptor[];
   originalText: string;
+  sourceMap: MarkedFragmentSourceMap | null;
+}
+
+interface MarkSourceProjectionAdapterDependencies {
+  parser: Parser;
+  remark: RemarkParser;
+  serializer: Serializer;
 }
 
 export interface SourceProjectionSessionRange extends TextRange {
@@ -115,6 +133,8 @@ interface ActiveProjectionRange extends TextRange {
 
 interface ProjectionMarkSegment extends ActiveProjectionRange {
   documentMarks: readonly Mark[];
+  leadingWhitespaceLength: number;
+  trailingWhitespaceLength: number;
 }
 
 const createTextSlice = (
@@ -153,18 +173,25 @@ export const applyLiteralSourceProjectionEdit = (
 const createMarkSourceProjectionTarget = (
   state: EditorState,
   range: ActiveProjectionRange,
+  serializer?: Serializer,
 ): MarkSourceProjectionTarget => {
+  const originalContent = state.doc.slice(range.from, range.to);
   const originalText = getRangeText(state.doc, range);
-  const originalSource = createProjectionSource(range.marks, originalText);
+  const serialized = serializer
+    ? serializeMarkedFragmentSource(state, serializer, originalContent.content, range.marks)
+    : null;
+  const originalSource = serialized?.source ?? createProjectionSource(range.marks, originalText);
 
   return {
     adapterId: "mark",
     from: range.from,
+    hasFootnoteReferences: serialized?.hasFootnoteReferences ?? false,
     marks: range.marks,
-    originalContent: state.doc.slice(range.from, range.to),
+    originalContent,
     originalContentSize: range.to - range.from,
     originalSource,
     originalText,
+    sourceMap: serialized?.map ?? null,
     to: range.to,
   };
 };
@@ -177,22 +204,39 @@ const createMarkSourceProjectionTargetFromSource = (
 ): MarkSourceProjectionTarget => ({
   adapterId: "mark",
   from,
+  hasFootnoteReferences: false,
   marks: parsed.marks,
   originalContent: createTextSlice(state, parsed.text, parsed.marks),
   originalContentSize: parsed.text.length,
   originalSource: source,
   originalText: parsed.text,
+  sourceMap: null,
   to: from + source.length,
 });
 
-const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange | null => {
+const getActiveProjectionMarkRange = (
+  state: EditorState,
+  includeFootnoteReferences = false,
+): ActiveProjectionRange | null => {
   const { selection } = state;
 
-  if (!(selection instanceof TextSelection) || selection.$from.parent !== selection.$to.parent) {
+  if (selection.$from.parent !== selection.$to.parent) {
     return null;
   }
 
-  const segments = getProjectionMarkSegments(state);
+  const segments = getProjectionMarkSegments(state, includeFootnoteReferences);
+
+  if (selection instanceof NodeSelection) {
+    const containingSegment = segments.find(
+      ({ from, to }) => from <= selection.from && selection.to <= to,
+    );
+
+    return containingSegment ? getActiveProjectionRange(containingSegment) : null;
+  }
+
+  if (!(selection instanceof TextSelection)) {
+    return null;
+  }
 
   if (!selection.empty) {
     const containingSegment = segments.find(
@@ -235,7 +279,10 @@ const getActiveProjectionRange = ({ from, marks, to }: ProjectionMarkSegment) =>
   to,
 });
 
-const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] => {
+const getProjectionMarkSegments = (
+  state: EditorState,
+  includeFootnoteReferences = false,
+): ProjectionMarkSegment[] => {
   const { $from } = state.selection;
 
   if (!$from.parent.isTextblock) {
@@ -246,44 +293,52 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
   const segments: ProjectionMarkSegment[] = [];
 
   $from.parent.forEach((node, offset) => {
-    if (!node.isText) {
-      return;
-    }
-
-    const marks = getProjectionMarksFromTextNode(node);
+    const marks = getProjectionMarksFromInlineNode(node, includeFootnoteReferences);
 
     if (!marks.length) {
       return;
     }
 
+    const text = node.isText ? (node.text ?? "") : "";
+    const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
+    const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
     const from = parentStart + offset;
     const previousSegment = segments.at(-1);
 
     if (previousSegment?.to === from && Mark.sameSet(previousSegment.documentMarks, node.marks)) {
       previousSegment.to = from + node.nodeSize;
+      previousSegment.trailingWhitespaceLength = trailingWhitespaceLength;
       return;
     }
 
     segments.push({
       documentMarks: node.marks,
       from,
+      leadingWhitespaceLength,
       marks,
       to: from + node.nodeSize,
+      trailingWhitespaceLength,
     });
   });
 
   return segments.flatMap((segment) => {
-    const text = getRangeText(state.doc, segment);
-    const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
-    const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
-    const from = segment.from + leadingWhitespaceLength;
-    const to = segment.to - trailingWhitespaceLength;
+    const from = segment.from + segment.leadingWhitespaceLength;
+    const to = segment.to - segment.trailingWhitespaceLength;
 
     return from < to ? [{ ...segment, from, to }] : [];
   });
 };
 
-const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+const getProjectionMarksFromInlineNode = (
+  node: ProseMirrorNode,
+  includeFootnoteReferences: boolean,
+): ProjectionMarkDescriptor[] => {
+  const isFootnoteReference = node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
+
+  if (!node.isText && !(includeFootnoteReferences && isFootnoteReference)) {
+    return [];
+  }
+
   if (node.marks.some((mark) => mark.type.name === "link")) {
     return [];
   }
@@ -291,7 +346,7 @@ const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDe
   const inlineCode = node.marks.find((mark) => mark.type.name === "inlineCode");
 
   if (inlineCode) {
-    return node.marks.length === 1
+    return node.isText && node.marks.length === 1
       ? [createProjectionMarkDescriptor("inlineCode", inlineCode.attrs)]
       : [];
   }
@@ -301,6 +356,10 @@ const getProjectionMarksFromTextNode = (node: ProseMirrorNode): ProjectionMarkDe
   }
 
   return SUPPORTED_PROJECTION_MARK_NAMES.flatMap((markName) => {
+    if (isFootnoteReference && markName === "inlineCode") {
+      return [];
+    }
+
     const mark = node.marks.find((candidateMark) => candidateMark.type.name === markName);
 
     if (!mark) {
@@ -397,6 +456,66 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
     .filter(isNonNullish)
     .join(" ");
 
+const getMarkedFragmentPresentation = (
+  source: string,
+  marks: ProjectionMarkDescriptor[],
+  map: MarkedFragmentSourceMap,
+): SourceProjectionPresentation => {
+  const contentClassName = getProjectionContentClassName(marks);
+  const spans: SourceProjectionPresentationSpan[] = [
+    {
+      className: "leafdown-source-projection__marker",
+      from: 0,
+      to: map.contentFrom,
+    },
+  ];
+  let hasFootnoteReference = false;
+
+  for (const segment of map.segments) {
+    if (segment.type === "text") {
+      spans.push({
+        className: contentClassName,
+        from: segment.sourceFrom,
+        to: segment.sourceTo,
+      });
+      continue;
+    }
+
+    hasFootnoteReference = true;
+    spans.push(
+      {
+        className: "leafdown-source-projection__marker",
+        from: segment.sourceFrom,
+        to: segment.labelFrom,
+      },
+      {
+        className: `${contentClassName} leafdown-source-projection__content--footnote-reference`,
+        from: segment.labelFrom,
+        to: segment.labelTo,
+      },
+      {
+        className: "leafdown-source-projection__marker",
+        from: segment.labelTo,
+        to: segment.sourceTo,
+      },
+    );
+  }
+
+  spans.push({
+    className: "leafdown-source-projection__marker",
+    from: map.contentTo,
+    to: source.length,
+  });
+
+  return {
+    sourceTypes: [
+      ...marks.map((mark) => mark.markName),
+      ...(hasFootnoteReference ? ["footnote-reference"] : []),
+    ],
+    spans: spans.filter(({ from, to }) => from < to),
+  };
+};
+
 const getMarkSourceProjectionTarget = (
   target: SourceProjectionTarget,
 ): MarkSourceProjectionTarget => {
@@ -420,6 +539,25 @@ const mapSelectionToSourcePosition = (position: number, target: MarkSourceProjec
   const contentOffset = Math.min(Math.max(position - target.from, 0), target.originalContentSize);
 
   return target.from + sourceContentBounds.from + contentOffset;
+};
+
+const mapSelectionToMarkedFragmentSourcePosition = (
+  position: number,
+  target: MarkSourceProjectionTarget,
+  association: -1 | 1,
+) => {
+  if (!target.sourceMap || position < target.from) {
+    return position;
+  }
+
+  if (position > target.to) {
+    return target.from + target.originalSource.length + (position - target.to);
+  }
+
+  return (
+    target.from +
+    mapMarkedFragmentDocumentOffsetToSource(position - target.from, target.sourceMap, association)
+  );
 };
 
 const mapSelectionFromSourcePosition = (
@@ -456,6 +594,23 @@ const mapSelectionFromSourcePosition = (
   return (
     session.from + Math.min(Math.max(sourceOffset - sourceContentBounds.from, 0), replacementSize)
   );
+};
+
+const mapSelectionFromMarkedFragmentSourcePosition = (
+  position: number,
+  session: SourceProjectionSessionRange,
+  replacementSize: number,
+  map: MarkedFragmentSourceMap,
+) => {
+  if (position <= session.from) {
+    return position;
+  }
+
+  if (position >= session.to) {
+    return session.from + replacementSize + (position - session.to);
+  }
+
+  return session.from + mapMarkedFragmentSourceOffsetToDocument(position - session.from, map);
 };
 
 const getProjectionEditKind = ({ from, text, to }: SourceProjectionEdit): ProjectionEditKind => {
@@ -634,127 +789,232 @@ const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourcePro
     (from === 0 || from === source.length)
   );
 
-export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
-  id: "mark",
-  applyEdit: applyMarkSourceProjectionEdit,
-  createEnterTransaction: (state, target) => {
-    const markTarget = getMarkSourceProjectionTarget(target);
-    const sourceContentBounds = getProjectionSourceContentBounds(markTarget.originalSource);
-    const closingSource = markTarget.originalSource.slice(sourceContentBounds.to);
-    const openingSource = markTarget.originalSource.slice(0, sourceContentBounds.from);
+export const createMarkSourceProjectionAdapter = (
+  dependencies?: MarkSourceProjectionAdapterDependencies,
+): SourceProjectionAdapter => {
+  const parser = dependencies?.parser;
+  const remark = dependencies?.remark;
+  const serializer = dependencies?.serializer;
+  const supportsMarkedFootnoteFragments = Boolean(parser && remark && serializer);
 
-    return state.tr
-      .removeMark(markTarget.from, markTarget.to)
-      .replaceWith(markTarget.to, markTarget.to, state.schema.text(closingSource))
-      .replaceWith(markTarget.from, markTarget.from, state.schema.text(openingSource));
-  },
-  findTarget: (state) => {
-    const range = getActiveProjectionMarkRange(state);
+  return {
+    id: "mark",
+    applyEdit: applyMarkSourceProjectionEdit,
+    createEnterTransaction: (state, target) => {
+      const markTarget = getMarkSourceProjectionTarget(target);
 
-    return range ? createMarkSourceProjectionTarget(state, range) : null;
-  },
-  findInsertionCandidate: getSourceProjectionInsertionCandidate,
-  getPresentation: (target, source) => {
-    const markTarget = getMarkSourceProjectionTarget(target);
-    const parsed = parseProjectionSource(source);
-    const marks = parsed.type === "mark" ? parsed.marks : markTarget.marks;
-    const spans: SourceProjectionPresentationSpan[] = [];
-
-    if (parsed.type === "mark") {
-      const contentBounds = getProjectionSourceContentBounds(source);
-
-      spans.push(
-        {
-          className: "leafdown-source-projection__marker",
-          from: 0,
-          to: contentBounds.from,
-        },
-        {
-          className: getProjectionContentClassName(marks),
-          from: contentBounds.from,
-          to: contentBounds.to,
-        },
-        {
-          className: "leafdown-source-projection__marker",
-          from: contentBounds.to,
-          to: source.length,
-        },
-      );
-    }
-
-    return {
-      sourceTypes: marks.map((mark) => mark.markName),
-      spans,
-    };
-  },
-  mapSelectionFromSource: (selection, session, result) => {
-    const parsed = parseProjectionSource(result.source);
-
-    return {
-      anchor: mapSelectionFromSourcePosition(
-        selection.anchor,
-        session,
-        result.source,
-        parsed,
-        result.replacementSize,
-      ),
-      head: mapSelectionFromSourcePosition(
-        selection.head,
-        session,
-        result.source,
-        parsed,
-        result.replacementSize,
-      ),
-    };
-  },
-  mapSelectionToSource: (selection, target) => {
-    const markTarget = getMarkSourceProjectionTarget(target);
-
-    return {
-      anchor: mapSelectionToSourcePosition(selection.anchor, markTarget),
-      head: mapSelectionToSourcePosition(selection.head, markTarget),
-    };
-  },
-  parseSource: (state, source) => {
-    const parsed = parseProjectionSource(source);
-    const replacement = getProjectionReplacement(parsed);
-    const replacementSlice =
-      replacement.type === "marked"
-        ? createTextSlice(state, replacement.text, replacement.marks)
-        : createTextSlice(state, replacement.text);
-
-    return {
-      replacement: replacementSlice,
-      replacementSize: replacement.text.length,
-      source,
-    };
-  },
-  restoreCleanTarget: (state, session) => {
-    const target = getMarkSourceProjectionTarget(session.target);
-    const sourceContentBounds = getProjectionSourceContentBounds(target.originalSource);
-    const transaction = state.tr
-      .delete(session.from + sourceContentBounds.to, session.to)
-      .delete(session.from, session.from + sourceContentBounds.from);
-    const restoredTo = session.from + target.originalContentSize;
-
-    if (session.from < restoredTo) {
-      for (const mark of target.marks) {
-        transaction.addMark(
-          session.from,
-          restoredTo,
-          state.schema.marks[mark.markName].create(mark.attrs),
+      if (markTarget.hasFootnoteReferences) {
+        return state.tr.replace(
+          markTarget.from,
+          markTarget.to,
+          createLiteralSourceProjectionSlice(state, markTarget.originalSource),
         );
       }
-    }
 
-    if (!transaction.doc.slice(session.from, restoredTo).eq(target.originalContent)) {
-      transaction.replace(session.from, restoredTo, target.originalContent);
-    }
+      const sourceContentBounds = getProjectionSourceContentBounds(markTarget.originalSource);
+      const closingSource = markTarget.originalSource.slice(sourceContentBounds.to);
+      const openingSource = markTarget.originalSource.slice(0, sourceContentBounds.from);
 
-    return transaction;
-  },
-  shouldHandleTextInput: shouldHandleMarkTextInput,
+      return state.tr
+        .removeMark(markTarget.from, markTarget.to)
+        .replaceWith(markTarget.to, markTarget.to, state.schema.text(closingSource))
+        .replaceWith(markTarget.from, markTarget.from, state.schema.text(openingSource));
+    },
+    findTarget: (state) => {
+      const range = getActiveProjectionMarkRange(state, supportsMarkedFootnoteFragments);
+
+      return range ? createMarkSourceProjectionTarget(state, range, serializer) : null;
+    },
+    findInsertionCandidate: getSourceProjectionInsertionCandidate,
+    getPresentation: (target, source) => {
+      const markTarget = getMarkSourceProjectionTarget(target);
+
+      if (markTarget.hasFootnoteReferences && parser && remark) {
+        const structure = createMarkedFragmentSourceStructure(source, parser, remark);
+
+        if (structure) {
+          return getMarkedFragmentPresentation(source, structure.marks, structure.map);
+        }
+      }
+
+      const parsed = parseProjectionSource(source);
+      const marks = parsed.type === "mark" ? parsed.marks : markTarget.marks;
+      const spans: SourceProjectionPresentationSpan[] = [];
+
+      if (parsed.type === "mark") {
+        const contentBounds = getProjectionSourceContentBounds(source);
+
+        spans.push(
+          {
+            className: "leafdown-source-projection__marker",
+            from: 0,
+            to: contentBounds.from,
+          },
+          {
+            className: getProjectionContentClassName(marks),
+            from: contentBounds.from,
+            to: contentBounds.to,
+          },
+          {
+            className: "leafdown-source-projection__marker",
+            from: contentBounds.to,
+            to: source.length,
+          },
+        );
+      }
+
+      return {
+        sourceTypes: marks.map((mark) => mark.markName),
+        spans,
+      };
+    },
+    mapSelectionFromSource: (selection, session, result) => {
+      const markTarget = getMarkSourceProjectionTarget(session.target);
+
+      if (markTarget.hasFootnoteReferences && parser && remark) {
+        const structure = createMarkedFragmentSourceStructure(result.source, parser, remark);
+
+        if (structure) {
+          return {
+            anchor: mapSelectionFromMarkedFragmentSourcePosition(
+              selection.anchor,
+              session,
+              result.replacementSize,
+              structure.map,
+            ),
+            head: mapSelectionFromMarkedFragmentSourcePosition(
+              selection.head,
+              session,
+              result.replacementSize,
+              structure.map,
+            ),
+          };
+        }
+      }
+
+      const parsed = parseProjectionSource(result.source);
+
+      return {
+        anchor: mapSelectionFromSourcePosition(
+          selection.anchor,
+          session,
+          result.source,
+          parsed,
+          result.replacementSize,
+        ),
+        head: mapSelectionFromSourcePosition(
+          selection.head,
+          session,
+          result.source,
+          parsed,
+          result.replacementSize,
+        ),
+      };
+    },
+    mapSelectionToSource: (selection, target) => {
+      const markTarget = getMarkSourceProjectionTarget(target);
+
+      if (markTarget.hasFootnoteReferences && markTarget.sourceMap) {
+        if (selection instanceof NodeSelection) {
+          const documentOffset = selection.from - markTarget.from;
+          const segment = markTarget.sourceMap.segments.find(
+            (candidate) =>
+              candidate.type === "footnoteReference" && candidate.documentFrom === documentOffset,
+          );
+
+          if (segment?.type === "footnoteReference") {
+            return {
+              anchor: markTarget.from + segment.labelFrom,
+              head: markTarget.from + segment.labelTo,
+            };
+          }
+        }
+
+        const isForwardSelection = selection.anchor <= selection.head;
+        const anchorAssociation = selection.empty || isForwardSelection ? 1 : -1;
+        const headAssociation = selection.empty || !isForwardSelection ? 1 : -1;
+
+        return {
+          anchor: mapSelectionToMarkedFragmentSourcePosition(
+            selection.anchor,
+            markTarget,
+            anchorAssociation,
+          ),
+          head: mapSelectionToMarkedFragmentSourcePosition(
+            selection.head,
+            markTarget,
+            headAssociation,
+          ),
+        };
+      }
+
+      return {
+        anchor: mapSelectionToSourcePosition(selection.anchor, markTarget),
+        head: mapSelectionToSourcePosition(selection.head, markTarget),
+      };
+    },
+    parseSource: (state, source, target) => {
+      const markTarget = getMarkSourceProjectionTarget(target);
+
+      if (markTarget.hasFootnoteReferences && parser && remark) {
+        const richFragment = parseMarkedFragmentSource(state, source, parser, remark);
+
+        if (richFragment) {
+          return {
+            replacement: richFragment.replacement,
+            replacementSize: richFragment.map.documentSize,
+            source,
+          };
+        }
+      }
+
+      const parsed = parseProjectionSource(source);
+      const replacement = getProjectionReplacement(parsed);
+      const replacementSlice =
+        replacement.type === "marked"
+          ? createTextSlice(state, replacement.text, replacement.marks)
+          : createTextSlice(state, replacement.text);
+
+      return {
+        replacement: replacementSlice,
+        replacementSize: replacement.text.length,
+        source,
+      };
+    },
+    restoreCleanTarget: (state, session) => {
+      const target = getMarkSourceProjectionTarget(session.target);
+
+      if (target.hasFootnoteReferences) {
+        return state.tr.replace(session.from, session.to, target.originalContent);
+      }
+
+      const sourceContentBounds = getProjectionSourceContentBounds(target.originalSource);
+      const transaction = state.tr
+        .delete(session.from + sourceContentBounds.to, session.to)
+        .delete(session.from, session.from + sourceContentBounds.from);
+      const restoredTo = session.from + target.originalContentSize;
+
+      if (session.from < restoredTo) {
+        for (const mark of target.marks) {
+          transaction.addMark(
+            session.from,
+            restoredTo,
+            state.schema.marks[mark.markName].create(mark.attrs),
+          );
+        }
+      }
+
+      if (!transaction.doc.slice(session.from, restoredTo).eq(target.originalContent)) {
+        transaction.replace(session.from, restoredTo, target.originalContent);
+      }
+
+      return transaction;
+    },
+    shouldHandleTextInput: shouldHandleMarkTextInput,
+  };
 };
+
+export const MARK_SOURCE_PROJECTION_ADAPTER = createMarkSourceProjectionAdapter();
 
 const SOURCE_PROJECTION_ADAPTERS: readonly SourceProjectionAdapter[] = [
   MARK_SOURCE_PROJECTION_ADAPTER,

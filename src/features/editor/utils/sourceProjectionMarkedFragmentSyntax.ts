@@ -65,6 +65,11 @@ interface MarkdownPosition {
   start?: { offset?: number };
 }
 
+type MarkdownValidationResult =
+  | { children: MarkdownNode[]; type: "structured" }
+  | { type: "invalidOuter" }
+  | { type: "unsupportedInner" };
+
 const FOOTNOTE_REFERENCE_CANDIDATE_PATTERN = /\[\^(?:\\.|[^\]\\\r\n])+\]/gu;
 const VALIDATION_DEFINITION_CONTENT = "Leafdown";
 const MARKDOWN_MARK_TYPES = new Map<string, string>([
@@ -136,12 +141,32 @@ const createMarkedLiteralStructure = (
   };
 };
 
+const createUnmarkedLiteralStructure = (source: string): MarkedFragmentSourceStructure => ({
+  map: {
+    contentFrom: 0,
+    contentTo: source.length,
+    documentSize: source.length,
+    segments: source
+      ? [
+          {
+            documentFrom: 0,
+            documentTo: source.length,
+            sourceFrom: 0,
+            sourceTo: source.length,
+            type: "text",
+          },
+        ]
+      : [],
+  },
+  marks: [],
+});
+
 const getValidatedMarkdownChildren = (
   source: string,
   parser: Parser,
   remark: RemarkParser,
   marks: readonly ProjectionMarkDescriptor[],
-) => {
+): MarkdownValidationResult => {
   const definitions = new Map<string, string>();
 
   for (const match of source.matchAll(FOOTNOTE_REFERENCE_CANDIDATE_PATTERN)) {
@@ -164,13 +189,13 @@ const getValidatedMarkdownChildren = (
     root = remark.parse(validationSource) as MarkdownNode;
     root = remark.runSync(root, validationSource) as MarkdownNode;
   } catch {
-    return null;
+    return { type: "invalidOuter" };
   }
 
   const paragraph = root.type === "root" ? root.children?.[0] : undefined;
 
   if (paragraph?.type !== "paragraph" || paragraph.children?.length !== 1) {
-    return null;
+    return { type: "invalidOuter" };
   }
 
   const expectedTypeList = marks.flatMap((mark) => {
@@ -199,13 +224,13 @@ const getValidatedMarkdownChildren = (
     actualTypes.size !== expectedTypes.size ||
     [...actualTypes].some((type) => !expectedTypes.has(type))
   ) {
-    return null;
+    return { type: "invalidOuter" };
   }
 
   return children.length &&
     children.every((child) => child.type === "text" || child.type === "footnoteReference")
-    ? children
-    : null;
+    ? { children, type: "structured" }
+    : { type: "unsupportedInner" };
 };
 
 export const serializeMarkedFragmentSource = (
@@ -292,11 +317,17 @@ export const createMarkedFragmentSourceStructure = (
     return null;
   }
 
-  const children = getValidatedMarkdownChildren(source, parser, remark, parsed.marks);
+  const validation = getValidatedMarkdownChildren(source, parser, remark, parsed.marks);
 
-  if (!children) {
+  if (validation.type === "invalidOuter") {
+    return createUnmarkedLiteralStructure(source);
+  }
+
+  if (validation.type === "unsupportedInner") {
     return createMarkedLiteralStructure(source, parsed.marks);
   }
+
+  const { children } = validation;
 
   const contentBounds = getProjectionSourceContentBounds(source);
   const segments: MarkedFragmentSourceSegment[] = [];

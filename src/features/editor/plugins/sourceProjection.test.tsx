@@ -767,6 +767,118 @@ describe("source projection", () => {
       expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
     });
 
+    it.each([
+      {
+        description: "strong source with leading whitespace",
+        markerSize: 2,
+        side: "leading",
+        source: "**Text[^note]**",
+      },
+      {
+        description: "strong source with trailing whitespace",
+        markerSize: 2,
+        side: "trailing",
+        source: "**Text[^note]**",
+      },
+      {
+        description: "emphasis source with leading whitespace",
+        markerSize: 1,
+        side: "leading",
+        source: "*Text[^note]*",
+      },
+      {
+        description: "emphasis source with trailing whitespace",
+        markerSize: 1,
+        side: "trailing",
+        source: "*Text[^note]*",
+      },
+      {
+        description: "strikethrough source with leading whitespace",
+        markerSize: 2,
+        side: "leading",
+        source: "~~Text[^note]~~",
+      },
+      {
+        description: "strikethrough source with trailing whitespace",
+        markerSize: 2,
+        side: "trailing",
+        source: "~~Text[^note]~~",
+      },
+      {
+        description: "combined source with leading whitespace",
+        markerSize: 3,
+        side: "leading",
+        source: "***Text[^note]***",
+      },
+      {
+        description: "combined source with trailing whitespace",
+        markerSize: 3,
+        side: "trailing",
+        source: "***Text[^note]***",
+      },
+    ] as const)(
+      "commits CommonMark-invalid $description as complete unmarked literal text",
+      async ({ markerSize, side, source }) => {
+        const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
+
+        selectFootnoteReference(mounted);
+
+        const sourceStart = getEditorTextPosition(mounted, source);
+        const insertionOffset = side === "leading" ? markerSize : source.length - markerSize;
+        const invalidSource = `${source.slice(0, insertionOffset)} ${source.slice(insertionOffset)}`;
+
+        setTextSelection(mounted.view, sourceStart + insertionOffset);
+        typeText(mounted.view, " ");
+        setSelectionAtDocumentEnd(mounted.view);
+
+        let literalNode: ProseMirrorNode | null = null;
+
+        mounted.view.state.doc.descendants((node) => {
+          if (node.isText && node.text?.includes(invalidSource)) {
+            literalNode = node;
+            return false;
+          }
+
+          return true;
+        });
+
+        expect(literalNode).not.toBeNull();
+        expect(literalNode!.marks).toHaveLength(0);
+        expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
+      },
+    );
+
+    it("keeps a valid outer wrapper when marked reference content becomes unsupported", async () => {
+      const source = "**Text[^note]**";
+      const linkLikeSource = "[Text[^note]](https://example.com)";
+      const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
+
+      selectFootnoteReference(mounted);
+
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart + 2, sourceStart + source.length - 2);
+      typeText(mounted.view, linkLikeSource);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const strongMark = mounted.view.state.schema.marks.strong;
+      let literalNode: ProseMirrorNode | null = null;
+
+      mounted.view.state.doc.descendants((node) => {
+        if (node.isText && node.text?.includes(linkLikeSource)) {
+          literalNode = node;
+          return false;
+        }
+
+        return true;
+      });
+
+      expect(literalNode).not.toBeNull();
+      expect(strongMark.isInSet(literalNode!.marks)).toBeDefined();
+      expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
+      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+    });
+
     it("commits incomplete footnote source as exact literal document text", async () => {
       const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail");
 

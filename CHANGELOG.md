@@ -20,6 +20,7 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Preserve inline-code boundary backticks while editing projected Markdown source.
 - Show a size-aware error when opening a Markdown file that exceeds the loading limit.
 - Route Undo and Redo shortcuts through projection-aware editor commands and
   preserve native history when formatting text inside projected links.

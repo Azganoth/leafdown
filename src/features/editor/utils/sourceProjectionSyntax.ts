@@ -24,6 +24,11 @@ export interface ProjectionDelimiterBounds {
   opening: string;
 }
 
+export interface ProjectionSourceContentBounds {
+  from: number;
+  to: number;
+}
+
 export interface ProjectionEditContext {
   delimiterSide: ProjectionDelimiterSide | null;
   kind: ProjectionEditKind;
@@ -109,10 +114,10 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
       return null;
     }
 
-    const text = source.slice(bounds.contentFrom, bounds.contentTo);
-    const marker = getInlineCodeMarker(text);
+    const markerLength = Math.min(bounds.opening.length, bounds.closing.length);
+    const text = normalizeInlineCodeText(source.slice(markerLength, source.length - markerLength));
 
-    return `${marker}${text}${marker}`;
+    return createInlineCodeProjectionSource(text);
   }
 
   const markerCount = getNormalizedMarkerCount(bounds, context);
@@ -193,9 +198,39 @@ export const getSourceMarkers = (marks: ProjectionMarkDescriptor[], text = "") =
 };
 
 export const createProjectionSource = (marks: ProjectionMarkDescriptor[], text: string) => {
+  if (marks.some((mark) => mark.markName === "inlineCode")) {
+    return createInlineCodeProjectionSource(text);
+  }
+
   const sourceMarkers = getSourceMarkers(marks, text);
 
   return `${sourceMarkers.opening}${text}${sourceMarkers.closing}`;
+};
+
+export const getProjectionSourceContentBounds = (source: string): ProjectionSourceContentBounds => {
+  const parsed = parseProjectionSource(source);
+
+  if (parsed.type === "literal") {
+    return { from: 0, to: source.length };
+  }
+
+  const isInlineCode = parsed.marks.some((mark) => mark.markName === "inlineCode");
+  const delimiterBounds = getProjectionDelimiterBounds(source);
+
+  if (!isInlineCode || !delimiterBounds) {
+    return {
+      from: parsed.opening.length,
+      to: source.length - parsed.closing.length,
+    };
+  }
+
+  const text = source.slice(delimiterBounds.contentFrom, delimiterBounds.contentTo);
+  const paddingLength = hasNormalizableInlineCodePadding(text) ? 1 : 0;
+
+  return {
+    from: delimiterBounds.contentFrom + paddingLength,
+    to: delimiterBounds.contentTo - paddingLength,
+  };
 };
 
 const getSourceMarkersWithoutStrikethrough = (marks: ProjectionMarkDescriptor[]) => {
@@ -303,11 +338,19 @@ const hasMatchingBacktickRun = (text: string, length: number) =>
 const normalizeInlineCodeText = (text: string) => {
   const normalizedLineEndings = text.replaceAll(/\r\n?|\n/gu, " ");
 
-  return normalizedLineEndings.startsWith(" ") &&
-    normalizedLineEndings.endsWith(" ") &&
-    normalizedLineEndings.trim() !== ""
+  return hasNormalizableInlineCodePadding(normalizedLineEndings)
     ? normalizedLineEndings.slice(1, -1)
     : normalizedLineEndings;
+};
+
+const hasNormalizableInlineCodePadding = (text: string) =>
+  text.startsWith(" ") && text.endsWith(" ") && text.trim() !== "";
+
+const createInlineCodeProjectionSource = (text: string) => {
+  const marker = getInlineCodeMarker(text);
+  const padding = text.startsWith("`") || text.endsWith("`") ? " " : "";
+
+  return `${marker}${padding}${text}${padding}${marker}`;
 };
 
 const shouldParseAsNestedProjection = (parsed: ParsedProjectionSource) => {

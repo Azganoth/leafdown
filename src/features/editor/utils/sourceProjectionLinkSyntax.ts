@@ -2,18 +2,28 @@ import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
 
 import { isNonNullish } from "@/lib/predicates";
 
-export interface LinkSourceLeaf {
+interface LinkSourceSegmentBase {
   className: string;
   documentFrom: number;
   documentTo: number;
-  sourceBoundaries: number[];
   sourceFrom: number;
   sourceTo: number;
 }
 
+interface LinkTextSourceSegment extends LinkSourceSegmentBase {
+  sourceBoundaries: number[];
+  type: "text";
+}
+
+interface LinkInlineBreakSourceSegment extends LinkSourceSegmentBase {
+  type: "inlineBreak";
+}
+
+export type LinkSourceSegment = LinkInlineBreakSourceSegment | LinkTextSourceSegment;
+
 export interface LinkSourceMap {
   documentSize: number;
-  leaves: LinkSourceLeaf[];
+  segments: LinkSourceSegment[];
   sourceTypes: string[];
 }
 
@@ -23,6 +33,8 @@ interface MarkdownPosition {
 }
 
 const LINK_MARK_NAME = "link";
+const INLINE_BREAK_PATTERN = /\r\n?|\n/gu;
+const SOURCE_INLINE_BREAK_PATTERN = /^[\t ]*(?:\r\n?|\n)/u;
 
 const getMarkdownPosition = (node: MarkdownNode) => {
   const position = node.position as MarkdownPosition | undefined;
@@ -38,8 +50,25 @@ const getMarkdownNodeValue = (node: MarkdownNode) =>
 const getTextSourceBoundaries = (source: string, value: string, sourceFrom: number) => {
   const boundaries = [sourceFrom];
   let sourceOffset = 0;
+  let valueOffset = 0;
 
-  for (let valueOffset = 0; valueOffset < value.length; valueOffset += 1) {
+  while (valueOffset < value.length) {
+    const valueBreak = /^(?:\r\n?|\n)/u.exec(value.slice(valueOffset));
+    const sourceBreak = valueBreak
+      ? SOURCE_INLINE_BREAK_PATTERN.exec(source.slice(sourceOffset))
+      : null;
+
+    if (valueBreak && sourceBreak) {
+      for (let offset = 1; offset < valueBreak[0].length; offset += 1) {
+        boundaries.push(sourceFrom + sourceOffset);
+      }
+
+      sourceOffset += sourceBreak[0].length;
+      valueOffset += valueBreak[0].length;
+      boundaries.push(sourceFrom + sourceOffset);
+      continue;
+    }
+
     if (source[sourceOffset] === "\\" && source[sourceOffset + 1] === value[valueOffset]) {
       sourceOffset += 2;
     } else if (source[sourceOffset] === value[valueOffset]) {
@@ -50,6 +79,7 @@ const getTextSourceBoundaries = (source: string, value: string, sourceFrom: numb
       sourceOffset += Math.max(1, Math.round(remainingSourceLength / remainingValueLength));
     }
 
+    valueOffset += 1;
     boundaries.push(sourceFrom + Math.min(sourceOffset, source.length));
   }
 
@@ -92,9 +122,16 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     .filter(isNonNullish)
     .join(" ");
 
+const isInlineSoftBreak = (node: MarkdownNode) =>
+  node.type === "break" && (node.data as { isInline?: boolean } | undefined)?.isInline === true;
+
 const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
     return typeof node.value === "string";
+  }
+
+  if (isInlineSoftBreak(node)) {
+    return true;
   }
 
   if (node.type !== "strong" && node.type !== "emphasis" && node.type !== "delete") {
@@ -141,7 +178,7 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   let root: MarkdownNode;
 
   try {
-    root = remark.runSync(remark.parse(source), source) as MarkdownNode;
+    root = remark.parse(source) as MarkdownNode;
   } catch {
     return null;
   }
@@ -153,9 +190,62 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   }
 
   const { link, outerTypes } = logicalLink;
-  const leaves: LinkSourceLeaf[] = [];
+  const segments: LinkSourceSegment[] = [];
   const sourceTypes = new Set<string>([LINK_MARK_NAME]);
   let documentOffset = 0;
+
+  const addTextSegments = (
+    value: string,
+    position: { from: number; to: number },
+    className: string,
+  ) => {
+    const rawSource = source.slice(position.from, position.to);
+    const sourceBoundaries = getTextSourceBoundaries(rawSource, value, position.from);
+    let valueFrom = 0;
+
+    for (const match of value.matchAll(INLINE_BREAK_PATTERN)) {
+      const breakFrom = match.index;
+
+      if (valueFrom < breakFrom) {
+        segments.push({
+          className,
+          documentFrom: documentOffset,
+          documentTo: documentOffset + breakFrom - valueFrom,
+          sourceBoundaries: sourceBoundaries.slice(valueFrom, breakFrom + 1),
+          sourceFrom: sourceBoundaries[valueFrom],
+          sourceTo: sourceBoundaries[breakFrom],
+          type: "text",
+        });
+        documentOffset += breakFrom - valueFrom;
+      }
+
+      const breakTo = breakFrom + match[0].length;
+
+      segments.push({
+        className,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        sourceFrom: sourceBoundaries[breakFrom],
+        sourceTo: sourceBoundaries[breakTo],
+        type: "inlineBreak",
+      });
+      documentOffset += 1;
+      valueFrom = breakTo;
+    }
+
+    if (valueFrom < value.length) {
+      segments.push({
+        className,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + value.length - valueFrom,
+        sourceBoundaries: sourceBoundaries.slice(valueFrom),
+        sourceFrom: sourceBoundaries[valueFrom],
+        sourceTo: position.to,
+        type: "text",
+      });
+      documentOffset += value.length - valueFrom;
+    }
+  };
 
   const visit = (node: MarkdownNode, ancestorTypes: readonly string[]): boolean => {
     const nextAncestorTypes = [...ancestorTypes, node.type];
@@ -171,9 +261,6 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
         return false;
       }
 
-      const rawSource = source.slice(position.from, position.to);
-      const sourceBoundaries = getTextSourceBoundaries(rawSource, value, position.from);
-
       for (const type of nextAncestorTypes) {
         if (type === "delete") {
           sourceTypes.add("strike_through");
@@ -182,15 +269,7 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
         }
       }
 
-      leaves.push({
-        className: getLinkContentClassName(nextAncestorTypes),
-        documentFrom: documentOffset,
-        documentTo: documentOffset + value.length,
-        sourceBoundaries,
-        sourceFrom: position.from,
-        sourceTo: position.to,
-      });
-      documentOffset += value.length;
+      addTextSegments(value, position, getLinkContentClassName(nextAncestorTypes));
 
       return true;
     }
@@ -202,9 +281,19 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
     return null;
   }
 
+  try {
+    root = remark.runSync(root, source) as MarkdownNode;
+  } catch {
+    return null;
+  }
+
+  if (!getLogicalLinkNode(root)) {
+    return null;
+  }
+
   return {
     documentSize: documentOffset,
-    leaves,
+    segments,
     sourceTypes: [...sourceTypes],
   };
 };
@@ -215,17 +304,22 @@ export const mapLinkDocumentPositionToSource = (
   association: -1 | 1 = 1,
 ) => {
   const offset = Math.min(Math.max(position, 0), map.documentSize);
-  const matchingLeaves = map.leaves.filter(
+  const matchingSegments = map.segments.filter(
     ({ documentFrom, documentTo }) => documentFrom <= offset && offset <= documentTo,
   );
-  const leaf = (association < 0 ? matchingLeaves[0] : matchingLeaves.at(-1)) ?? map.leaves.at(-1);
+  const segment =
+    (association < 0 ? matchingSegments[0] : matchingSegments.at(-1)) ?? map.segments.at(-1);
 
-  if (!leaf) {
+  if (!segment) {
     return 0;
   }
 
-  return leaf.sourceBoundaries[
-    Math.min(Math.max(offset - leaf.documentFrom, 0), leaf.sourceBoundaries.length - 1)
+  if (segment.type === "inlineBreak") {
+    return offset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
+  }
+
+  return segment.sourceBoundaries[
+    Math.min(Math.max(offset - segment.documentFrom, 0), segment.sourceBoundaries.length - 1)
   ];
 };
 
@@ -233,13 +327,16 @@ export const mapLinkSourcePositionToDocument = (position: number, map: LinkSourc
   let closestDocumentPosition = 0;
   let closestDistance = Number.POSITIVE_INFINITY;
 
-  for (const leaf of map.leaves) {
-    for (const [offset, sourcePosition] of leaf.sourceBoundaries.entries()) {
+  for (const segment of map.segments) {
+    const sourceBoundaries =
+      segment.type === "text" ? segment.sourceBoundaries : [segment.sourceFrom, segment.sourceTo];
+
+    for (const [offset, sourcePosition] of sourceBoundaries.entries()) {
       const distance = Math.abs(position - sourcePosition);
 
       if (distance < closestDistance) {
         closestDistance = distance;
-        closestDocumentPosition = leaf.documentFrom + offset;
+        closestDocumentPosition = segment.documentFrom + offset;
       }
     }
   }

@@ -32,6 +32,11 @@ const SUPPORTED_LINK_MARK_NAMES = new Set([
 ]);
 const OUTER_LINK_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 
+const isInlineSoftBreak = (node: ProseMirrorNode) =>
+  node.type.name === "hardbreak" && node.attrs.isInline === true;
+
+const isSupportedLinkNode = (node: ProseMirrorNode) => node.isText || isInlineSoftBreak(node);
+
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
   ambientMarks: readonly Mark[];
@@ -80,7 +85,7 @@ const getLinkNodes = (state: EditorState, from: number, to: number, linkMark: Ma
     if (
       nodeFrom < from ||
       to < nodeTo ||
-      !node.isText ||
+      !isSupportedLinkNode(node) ||
       !linkMark.isInSet(node.marks) ||
       node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name))
     ) {
@@ -185,9 +190,7 @@ const addMarksToFragment = (fragment: Fragment, marks: readonly Mark[]) => {
   const nodes: ProseMirrorNode[] = [];
 
   fragment.forEach((node) => {
-    nodes.push(
-      node.isText ? node.mark(marks.reduce((set, mark) => mark.addToSet(set), node.marks)) : node,
-    );
+    nodes.push(node.mark(marks.reduce((set, mark) => mark.addToSet(set), node.marks)));
   });
 
   return Fragment.fromArray(nodes);
@@ -227,7 +230,7 @@ const parseLinkSource = (
     const nodeLinkMark = node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
 
     if (
-      !node.isText ||
+      !isSupportedLinkNode(node) ||
       !nodeLinkMark ||
       (linkMark !== null && !linkMark.eq(nodeLinkMark)) ||
       node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name))
@@ -287,18 +290,33 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
   const restore: LinkProjectionTextEdit[] = [];
   let previousSourceTo = 0;
 
-  for (const leaf of target.sourceMap.leaves) {
-    if (previousSourceTo < leaf.sourceFrom) {
-      const marker = source.slice(previousSourceTo, leaf.sourceFrom);
+  for (const segment of target.sourceMap.segments) {
+    if (previousSourceTo < segment.sourceFrom) {
+      const marker = source.slice(previousSourceTo, segment.sourceFrom);
 
-      enter.push({ from: leaf.documentFrom, text: marker, to: leaf.documentFrom });
-      restore.push({ from: previousSourceTo, text: "", to: leaf.sourceFrom });
+      enter.push({ from: segment.documentFrom, text: marker, to: segment.documentFrom });
+      restore.push({ from: previousSourceTo, text: "", to: segment.sourceFrom });
     }
 
-    for (let offset = 0; offset < leaf.documentTo - leaf.documentFrom; offset += 1) {
-      const documentFrom = leaf.documentFrom + offset;
-      const sourceFrom = leaf.sourceBoundaries[offset];
-      const sourceTo = leaf.sourceBoundaries[offset + 1];
+    if (segment.type === "inlineBreak") {
+      enter.push({
+        from: segment.documentFrom,
+        text: source.slice(segment.sourceFrom, segment.sourceTo),
+        to: segment.documentTo,
+      });
+      restore.push({
+        from: segment.sourceFrom,
+        text: "\n",
+        to: segment.sourceTo,
+      });
+      previousSourceTo = segment.sourceTo;
+      continue;
+    }
+
+    for (let offset = 0; offset < segment.documentTo - segment.documentFrom; offset += 1) {
+      const documentFrom = segment.documentFrom + offset;
+      const sourceFrom = segment.sourceBoundaries[offset];
+      const sourceTo = segment.sourceBoundaries[offset + 1];
       const documentText = content.slice(documentFrom, documentFrom + 1);
       const sourceText = source.slice(sourceFrom, sourceTo);
 
@@ -329,7 +347,7 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       }
     }
 
-    previousSourceTo = leaf.sourceTo;
+    previousSourceTo = segment.sourceTo;
   }
 
   if (previousSourceTo < source.length) {
@@ -368,10 +386,6 @@ const addLinkTargetMarks = (
   from: number,
 ) => {
   target.originalContent.content.forEach((node, offset) => {
-    if (!node.isText) {
-      return;
-    }
-
     for (const mark of node.marks) {
       transaction.addMark(from + offset, from + offset + node.nodeSize, mark);
     }
@@ -451,17 +465,21 @@ const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
   const spans: SourceProjectionPresentationSpan[] = [];
   let markerFrom = 0;
 
-  for (const leaf of map.leaves) {
-    if (markerFrom < leaf.sourceFrom) {
+  for (const segment of map.segments) {
+    if (markerFrom < segment.sourceFrom) {
       spans.push({
         className: "leafdown-source-projection__marker",
         from: markerFrom,
-        to: leaf.sourceFrom,
+        to: segment.sourceFrom,
       });
     }
 
-    spans.push({ className: leaf.className, from: leaf.sourceFrom, to: leaf.sourceTo });
-    markerFrom = leaf.sourceTo;
+    spans.push({
+      className: segment.className,
+      from: segment.sourceFrom,
+      to: segment.sourceTo,
+    });
+    markerFrom = segment.sourceTo;
   }
 
   if (markerFrom < source.length) {
@@ -493,9 +511,9 @@ const getLinkPresentationMap = (
 
   return {
     ...map,
-    leaves: map.leaves.map((leaf) => ({
-      ...leaf,
-      className: [leaf.className, ...classNames].join(" "),
+    segments: map.segments.map((segment) => ({
+      ...segment,
+      className: [segment.className, ...classNames].join(" "),
     })),
     sourceTypes: [...new Set([...map.sourceTypes, ...ambientTypes])],
   };

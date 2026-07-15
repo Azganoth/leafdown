@@ -108,13 +108,16 @@ Registered object adapters own target discovery and precedence, source
 generation, entry and clean-restoration transforms, validation and rehydration,
 presentation spans, and selection mapping. The current mark adapter supports
 strong, emphasis, strikethrough, and inline code. A higher-precedence logical
-link adapter owns links and autolinks as complete text-only wrappers, including
-rich labels whose child text nodes carry different nested marks. It uses
-Milkdown's parser and Remark syntax tree to validate one outer link and map
-source positions. Clean entry and restoration preserve existing label
-characters while adding or removing projected delimiters and canonical marks,
-so native history steps remain mapped across transient projection. Edited source
-rehydrates the parsed inline fragment or falls back to literal text.
+link adapter owns links and autolinks as complete wrappers, including rich labels
+whose child text nodes carry different nested marks and labels containing
+semantic soft line endings. Milkdown transforms those endings into inline
+`hardbreak` nodes and removes positions from the resulting Remark children, so
+the adapter captures positioned semantic leaves before that transform and maps
+each inline break as one document unit. Clean entry and restoration preserve
+existing label content while adding or removing projected delimiters and
+canonical marks, so native history steps remain mapped across transient
+projection. Edited source rehydrates the parsed inline fragment or falls back to
+literal text.
 
 Milkdown's default serializer can emit adjacent link wrappers when one logical
 link contains mixed child marks. Leafdown wraps serialization with a transient,

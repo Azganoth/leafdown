@@ -563,12 +563,41 @@ const applyMarkSourceProjectionEdit = (
 ): SourceProjectionEditResult => {
   const edit = getMarkProjectionEdit(source, editInput);
   const editedSource = `${source.slice(0, edit.from)}${edit.text}${source.slice(edit.to)}`;
-  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, edit.context);
+  const nextSource =
+    getInlineCodeSourceAfterContentEdit(source, edit) ??
+    normalizeProjectionSourceAfterEdit(editedSource, edit.context);
 
   return {
     selectionOffset: getProjectionEditSelectionOffset(source, edit, nextSource),
     source: nextSource,
   };
+};
+
+const getInlineCodeSourceAfterContentEdit = (
+  source: string,
+  edit: SourceProjectionEdit & { context: ProjectionEditContext },
+) => {
+  const parsed = parseProjectionSource(source);
+
+  if (
+    parsed.type !== "mark" ||
+    edit.context.delimiterSide !== null ||
+    !parsed.marks.some((mark) => mark.markName === "inlineCode")
+  ) {
+    return null;
+  }
+
+  const contentBounds = getProjectionSourceContentBounds(source);
+
+  if (edit.from < contentBounds.from || edit.to > contentBounds.to) {
+    return null;
+  }
+
+  const contentFrom = edit.from - contentBounds.from;
+  const contentTo = edit.to - contentBounds.from;
+  const text = `${parsed.text.slice(0, contentFrom)}${edit.text}${parsed.text.slice(contentTo)}`;
+
+  return createProjectionSource(parsed.marks, text);
 };
 
 const getProjectionEditSelectionOffset = (

@@ -879,6 +879,49 @@ describe("source projection", () => {
       expect(getEditorTextContent(mounted)).toBe(expected);
     });
 
+    it("does not turn source padding into inline-code content after deleting the only backtick", async () => {
+      const mounted = await mountProjectionEditor("`` ` `` plain");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`` ` ``");
+      setTextSelection(mounted.view, sourceStart + 4);
+      runKeyDownHandlers(mounted.view, "Backspace");
+
+      expect(getEditorTextContent(mounted)).toBe("`` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("\\`\\` plain\n");
+      expect(mounted.view.dom.querySelector("code")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      {
+        expected: "`leading` plain",
+        position: 4,
+        source: "`` `leading `` plain",
+      },
+      {
+        expected: "`trailing` plain",
+        position: 12,
+        source: "`` trailing` `` plain",
+      },
+    ])(
+      "removes a $source boundary backtick without retaining padding",
+      async ({ expected, position, source }) => {
+        const mounted = await mountProjectionEditor(source);
+
+        enterProjection(mounted, "code");
+
+        const sourceStart = getEditorTextPosition(mounted, source.slice(0, -" plain".length));
+        setTextSelection(mounted.view, sourceStart + position);
+        runKeyDownHandlers(mounted.view, "Backspace");
+
+        expect(getEditorTextContent(mounted)).toBe(expected);
+      },
+    );
+
     it("does not project invalid unpadded inline-code source as a code mark", async () => {
       const source = "``pnpm run `preview``` plain";
       const mounted = await mountProjectionEditor(source);

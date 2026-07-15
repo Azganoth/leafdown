@@ -33,6 +33,8 @@ interface MarkdownPosition {
 }
 
 const LINK_MARK_NAME = "link";
+const INLINE_BREAK_PATTERN = /\r\n?|\n/gu;
+const SOURCE_INLINE_BREAK_PATTERN = /^[\t ]*(?:\r\n?|\n)/u;
 
 const getMarkdownPosition = (node: MarkdownNode) => {
   const position = node.position as MarkdownPosition | undefined;
@@ -48,8 +50,25 @@ const getMarkdownNodeValue = (node: MarkdownNode) =>
 const getTextSourceBoundaries = (source: string, value: string, sourceFrom: number) => {
   const boundaries = [sourceFrom];
   let sourceOffset = 0;
+  let valueOffset = 0;
 
-  for (let valueOffset = 0; valueOffset < value.length; valueOffset += 1) {
+  while (valueOffset < value.length) {
+    const valueBreak = /^(?:\r\n?|\n)/u.exec(value.slice(valueOffset));
+    const sourceBreak = valueBreak
+      ? SOURCE_INLINE_BREAK_PATTERN.exec(source.slice(sourceOffset))
+      : null;
+
+    if (valueBreak && sourceBreak) {
+      for (let offset = 1; offset < valueBreak[0].length; offset += 1) {
+        boundaries.push(sourceFrom + sourceOffset);
+      }
+
+      sourceOffset += sourceBreak[0].length;
+      valueOffset += valueBreak[0].length;
+      boundaries.push(sourceFrom + sourceOffset);
+      continue;
+    }
+
     if (source[sourceOffset] === "\\" && source[sourceOffset + 1] === value[valueOffset]) {
       sourceOffset += 2;
     } else if (source[sourceOffset] === value[valueOffset]) {
@@ -60,6 +79,7 @@ const getTextSourceBoundaries = (source: string, value: string, sourceFrom: numb
       sourceOffset += Math.max(1, Math.round(remainingSourceLength / remainingValueLength));
     }
 
+    valueOffset += 1;
     boundaries.push(sourceFrom + Math.min(sourceOffset, source.length));
   }
 
@@ -183,7 +203,7 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
     const sourceBoundaries = getTextSourceBoundaries(rawSource, value, position.from);
     let valueFrom = 0;
 
-    for (const match of value.matchAll(/\r\n?|\n/gu)) {
+    for (const match of value.matchAll(INLINE_BREAK_PATTERN)) {
       const breakFrom = match.index;
 
       if (valueFrom < breakFrom) {

@@ -1,3 +1,4 @@
+import { remarkCtx } from "@milkdown/kit/core";
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +16,7 @@ import {
 } from "@/test/utils/prosemirror";
 
 import { runEditorCommand } from "../commands";
+import { createLinkSourceMap } from "../utils/sourceProjectionLinkSyntax";
 import { hasActiveSourceProjection } from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -63,6 +65,36 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(`${PLAIN_LINK_SOURCE} plain`);
     expect(mounted.view.dom.querySelector("[data-type='hardbreak']")).not.toBeInTheDocument();
+  });
+
+  it("maps whitespace before an inline break to the break source segment", async () => {
+    const source = "[first field \nwalk](./nested-directory/doc-alternate.markdown)";
+    const mounted = await mountProjectionEditor(source);
+    const map = createLinkSourceMap(mounted.editor.ctx.get(remarkCtx), source);
+
+    expect(map?.segments).toEqual([
+      expect.objectContaining({
+        documentFrom: 0,
+        documentTo: 11,
+        sourceFrom: 1,
+        sourceTo: 12,
+        type: "text",
+      }),
+      expect.objectContaining({
+        documentFrom: 11,
+        documentTo: 12,
+        sourceFrom: 12,
+        sourceTo: 14,
+        type: "inlineBreak",
+      }),
+      expect.objectContaining({
+        documentFrom: 12,
+        documentTo: 16,
+        sourceFrom: 14,
+        sourceTo: 18,
+        type: "text",
+      }),
+    ]);
   });
 
   it("projects a mixed-format multiline label as one source object", async () => {

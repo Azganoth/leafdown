@@ -103,6 +103,32 @@ describe("multiline logical-link source projection", () => {
     ]);
   });
 
+  it.each([
+    {
+      label: "Plain label",
+      source: '[Plain label](./article.md "Title")',
+    },
+    {
+      label: "**Bold** with *soft*, ~~old~~, and `code`",
+      source: '[**Bold** with *soft*, ~~old~~, and `code`](./article.md "Title")',
+    },
+    {
+      label: "**Bold** and *soft*",
+      source: '**[**Bold** and *soft*](./article.md "Title")**',
+    },
+  ])(
+    "maps the complete $label link label independently from surrounding syntax",
+    async ({ label, source }) => {
+      const mounted = await mountProjectionEditor(source);
+      const map = createLinkSourceMap(mounted.editor.ctx.get(remarkCtx), source);
+
+      expect(map).not.toBeNull();
+      expect(source.slice(map!.labelFrom, map!.labelTo)).toBe(label);
+      expect(source[map!.labelFrom - 1]).toBe("[");
+      expect(source[map!.labelTo]).toBe("]");
+    },
+  );
+
   it("projects a mixed-format multiline label as one source object", async () => {
     const mounted = await mountProjectionEditor(MIXED_LINK_SOURCE);
     const breakPosition = getInlineBreakPosition(mounted.view.state.doc);

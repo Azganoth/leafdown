@@ -8,6 +8,16 @@ export interface ActiveMarkRange extends TextRange {
   mark: Mark;
 }
 
+export const getCandidateMarksAtPosition = (state: EditorState, position: number): Mark[] => {
+  const $position = state.doc.resolve(position);
+
+  return [
+    ...$position.marks(),
+    ...($position.nodeBefore?.marks ?? []),
+    ...($position.nodeAfter?.marks ?? []),
+  ];
+};
+
 export const getCandidateMarksAtSelection = (state: EditorState): Mark[] => {
   const { selection } = state;
 
@@ -15,26 +25,19 @@ export const getCandidateMarksAtSelection = (state: EditorState): Mark[] => {
     return [];
   }
 
-  return [
-    ...(state.storedMarks ?? []),
-    ...selection.$from.marks(),
-    ...(selection.$from.nodeBefore?.marks ?? []),
-    ...(selection.$from.nodeAfter?.marks ?? []),
-  ];
+  return [...(state.storedMarks ?? []), ...getCandidateMarksAtPosition(state, selection.from)];
 };
 
-export const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
-  const { selection } = state;
-
-  if (!(selection instanceof TextSelection)) {
-    return null;
-  }
-
-  const { $from } = selection;
-  const cursorOffset = $from.parentOffset;
+export const getMarkRangeAtPosition = (
+  state: EditorState,
+  position: number,
+  mark: Mark,
+): ActiveMarkRange | null => {
+  const $position = state.doc.resolve(position);
+  const cursorOffset = $position.parentOffset;
   const markedRanges: TextRange[] = [];
 
-  $from.parent.forEach((node, offset) => {
+  $position.parent.forEach((node, offset) => {
     if (!mark.isInSet(node.marks)) {
       return;
     }
@@ -77,8 +80,16 @@ export const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveM
   }
 
   return {
-    from: $from.start() + from,
+    from: $position.start() + from,
     mark,
-    to: $from.start() + to,
+    to: $position.start() + to,
   };
+};
+
+export const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
+  const { selection } = state;
+
+  return selection instanceof TextSelection
+    ? getMarkRangeAtPosition(state, selection.from, mark)
+    : null;
 };

@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   createProjectionMarkDescriptor,
+  createProjectionSource,
   getProjectionReplacement,
+  getProjectionSourceContentBounds,
   getSourceMarkers,
   normalizeProjectionSourceAfterEdit,
   parseProjectionSource,
@@ -204,6 +206,36 @@ describe("source projection syntax", () => {
       closing: "```",
       opening: "```",
     });
+  });
+
+  it.each([
+    { source: "`` `leading ``", text: "`leading" },
+    { source: "`` trailing` ``", text: "trailing`" },
+    { source: "`` `both` ``", text: "`both`" },
+    { source: "`` ` ``", text: "`" },
+  ])("creates valid padded source for inline code with boundary backticks", ({ source, text }) => {
+    const marks = [createProjectionMarkDescriptor("inlineCode", {})];
+
+    expect(createProjectionSource(marks, text)).toBe(source);
+    expectMarkSource(source, {
+      closing: "``",
+      marks: [expectedMark("inlineCode", "`")],
+      opening: "``",
+      text,
+    });
+    expect(getProjectionSourceContentBounds(source)).toEqual({
+      from: 3,
+      to: 3 + text.length,
+    });
+  });
+
+  it("normalizes inline-code edits that add a boundary backtick", () => {
+    expect(
+      normalizeProjectionSourceAfterEdit("`Code``", { delimiterSide: null, kind: "insert" }),
+    ).toBe("`` Code` ``");
+    expect(
+      normalizeProjectionSourceAfterEdit("``Code`", { delimiterSide: null, kind: "insert" }),
+    ).toBe("`` `Code ``");
   });
 
   it("normalizes inline-code source whitespace according to Markdown code-span rules", () => {

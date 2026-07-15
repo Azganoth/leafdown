@@ -10,13 +10,13 @@ import {
   createProjectionSource,
   getProjectionDelimiterBounds,
   getProjectionReplacement,
+  getProjectionSourceContentBounds,
   isProjectionMarkerText,
   isProjectionMarkName,
   normalizeProjectionSourceAfterEdit,
   parseProjectionSource,
   SUPPORTED_PROJECTION_MARK_NAMES,
   type ParsedProjectionSource,
-  type ProjectionDelimiterBounds,
   type ProjectionDelimiterSide,
   type ProjectionEditContext,
   type ProjectionEditKind,
@@ -416,15 +416,16 @@ const mapSelectionToSourcePosition = (position: number, target: MarkSourceProjec
     return target.from + target.originalSource.length + (position - target.to);
   }
 
-  const sourceTextOffset = target.originalSource.indexOf(target.originalText);
+  const sourceContentBounds = getProjectionSourceContentBounds(target.originalSource);
   const contentOffset = Math.min(Math.max(position - target.from, 0), target.originalContentSize);
 
-  return target.from + sourceTextOffset + contentOffset;
+  return target.from + sourceContentBounds.from + contentOffset;
 };
 
 const mapSelectionFromSourcePosition = (
   position: number,
   session: SourceProjectionSessionRange,
+  source: string,
   parsed: ParsedProjectionSource,
   replacementSize: number,
 ) => {
@@ -442,18 +443,18 @@ const mapSelectionFromSourcePosition = (
     return session.from + Math.min(Math.max(sourceOffset, 0), replacementSize);
   }
 
-  if (sourceOffset <= parsed.opening.length) {
+  const sourceContentBounds = getProjectionSourceContentBounds(source);
+
+  if (sourceOffset <= sourceContentBounds.from) {
     return session.from;
   }
 
-  const closingStart = session.to - session.from - parsed.closing.length;
-
-  if (sourceOffset >= closingStart) {
+  if (sourceOffset >= sourceContentBounds.to) {
     return session.from + replacementSize;
   }
 
   return (
-    session.from + Math.min(Math.max(sourceOffset - parsed.opening.length, 0), replacementSize)
+    session.from + Math.min(Math.max(sourceOffset - sourceContentBounds.from, 0), replacementSize)
   );
 };
 
@@ -480,10 +481,8 @@ const getMarkProjectionEdit = (
   const delimiterSide = getProjectionEditedDelimiterSide(source, edit);
 
   if (kind === "insert" && !isActiveProjectionMarkerText(source, text)) {
-    const bounds = getProjectionDelimiterBounds(source);
-    const remappedPosition = bounds
-      ? getContentBoundaryInsertionPosition(bounds, normalizedFrom)
-      : normalizedFrom;
+    const contentBounds = getProjectionSourceContentBounds(source);
+    const remappedPosition = getContentBoundaryInsertionPosition(contentBounds, normalizedFrom);
 
     return {
       context: { delimiterSide: null, kind },
@@ -510,11 +509,13 @@ const getProjectionEditedDelimiterSide = (
   }
 
   if (isActiveProjectionMarkerText(source, text) && from === to) {
-    if (from <= bounds.contentFrom) {
+    const isInlineCode = bounds.marker === "`";
+
+    if (isInlineCode ? from < bounds.contentFrom : from <= bounds.contentFrom) {
       return "opening";
     }
 
-    if (from >= bounds.contentTo) {
+    if (isInlineCode ? from > bounds.contentTo : from >= bounds.contentTo) {
       return "closing";
     }
 
@@ -544,16 +545,13 @@ const isActiveProjectionMarkerText = (source: string, text: string) => {
   return text.length > 0 && Array.from(text).every((character) => character === bounds.marker);
 };
 
-const getContentBoundaryInsertionPosition = (
-  bounds: ProjectionDelimiterBounds,
-  position: number,
-) => {
-  if (position <= bounds.contentFrom) {
-    return bounds.contentFrom;
+const getContentBoundaryInsertionPosition = (bounds: TextRange, position: number) => {
+  if (position <= bounds.from) {
+    return bounds.from;
   }
 
-  if (position >= bounds.contentTo) {
-    return bounds.contentTo;
+  if (position >= bounds.to) {
+    return bounds.to;
   }
 
   return position;
@@ -565,12 +563,67 @@ const applyMarkSourceProjectionEdit = (
 ): SourceProjectionEditResult => {
   const edit = getMarkProjectionEdit(source, editInput);
   const editedSource = `${source.slice(0, edit.from)}${edit.text}${source.slice(edit.to)}`;
-  const nextSource = normalizeProjectionSourceAfterEdit(editedSource, edit.context);
+  const nextSource =
+    getInlineCodeSourceAfterContentEdit(source, edit) ??
+    normalizeProjectionSourceAfterEdit(editedSource, edit.context);
 
   return {
-    selectionOffset: Math.min(edit.from + edit.text.length, nextSource.length),
+    selectionOffset: getProjectionEditSelectionOffset(source, edit, nextSource),
     source: nextSource,
   };
+};
+
+const getInlineCodeSourceAfterContentEdit = (
+  source: string,
+  edit: SourceProjectionEdit & { context: ProjectionEditContext },
+) => {
+  const parsed = parseProjectionSource(source);
+
+  if (
+    parsed.type !== "mark" ||
+    edit.context.delimiterSide !== null ||
+    !parsed.marks.some((mark) => mark.markName === "inlineCode")
+  ) {
+    return null;
+  }
+
+  const contentBounds = getProjectionSourceContentBounds(source);
+
+  if (edit.from < contentBounds.from || edit.to > contentBounds.to) {
+    return null;
+  }
+
+  const contentFrom = edit.from - contentBounds.from;
+  const contentTo = edit.to - contentBounds.from;
+  const text = `${parsed.text.slice(0, contentFrom)}${edit.text}${parsed.text.slice(contentTo)}`;
+
+  return createProjectionSource(parsed.marks, text);
+};
+
+const getProjectionEditSelectionOffset = (
+  source: string,
+  edit: SourceProjectionEdit & { context: ProjectionEditContext },
+  nextSource: string,
+) => {
+  const parsed = parseProjectionSource(source);
+  const nextParsed = parseProjectionSource(nextSource);
+  const isInlineCode =
+    parsed.type === "mark" && parsed.marks.some((mark) => mark.markName === "inlineCode");
+  const remainsInlineCode =
+    nextParsed.type === "mark" && nextParsed.marks.some((mark) => mark.markName === "inlineCode");
+
+  if (!isInlineCode || !remainsInlineCode || edit.context.delimiterSide !== null) {
+    return Math.min(edit.from + edit.text.length, nextSource.length);
+  }
+
+  const contentBounds = getProjectionSourceContentBounds(source);
+  const nextContentBounds = getProjectionSourceContentBounds(nextSource);
+  const contentOffset = Math.min(
+    Math.max(edit.from - contentBounds.from, 0),
+    contentBounds.to - contentBounds.from,
+  );
+
+  return Math.min(nextContentBounds.from + contentOffset + edit.text.length, nextContentBounds.to);
 };
 
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>
@@ -586,11 +639,9 @@ export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
   applyEdit: applyMarkSourceProjectionEdit,
   createEnterTransaction: (state, target) => {
     const markTarget = getMarkSourceProjectionTarget(target);
-    const contentOffset = markTarget.originalSource.indexOf(markTarget.originalText);
-    const closingSource = markTarget.originalSource.slice(
-      contentOffset + markTarget.originalText.length,
-    );
-    const openingSource = markTarget.originalSource.slice(0, contentOffset);
+    const sourceContentBounds = getProjectionSourceContentBounds(markTarget.originalSource);
+    const closingSource = markTarget.originalSource.slice(sourceContentBounds.to);
+    const openingSource = markTarget.originalSource.slice(0, sourceContentBounds.from);
 
     return state.tr
       .removeMark(markTarget.from, markTarget.to)
@@ -610,23 +661,22 @@ export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
     const spans: SourceProjectionPresentationSpan[] = [];
 
     if (parsed.type === "mark") {
-      const contentFrom = parsed.opening.length;
-      const contentTo = source.length - parsed.closing.length;
+      const contentBounds = getProjectionSourceContentBounds(source);
 
       spans.push(
         {
           className: "leafdown-source-projection__marker",
           from: 0,
-          to: contentFrom,
+          to: contentBounds.from,
         },
         {
           className: getProjectionContentClassName(marks),
-          from: contentFrom,
-          to: contentTo,
+          from: contentBounds.from,
+          to: contentBounds.to,
         },
         {
           className: "leafdown-source-projection__marker",
-          from: contentTo,
+          from: contentBounds.to,
           to: source.length,
         },
       );
@@ -644,10 +694,17 @@ export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
       anchor: mapSelectionFromSourcePosition(
         selection.anchor,
         session,
+        result.source,
         parsed,
         result.replacementSize,
       ),
-      head: mapSelectionFromSourcePosition(selection.head, session, parsed, result.replacementSize),
+      head: mapSelectionFromSourcePosition(
+        selection.head,
+        session,
+        result.source,
+        parsed,
+        result.replacementSize,
+      ),
     };
   },
   mapSelectionToSource: (selection, target) => {
@@ -674,11 +731,10 @@ export const MARK_SOURCE_PROJECTION_ADAPTER: SourceProjectionAdapter = {
   },
   restoreCleanTarget: (state, session) => {
     const target = getMarkSourceProjectionTarget(session.target);
-    const contentOffset = target.originalSource.indexOf(target.originalText);
-    const closingLength = target.originalSource.length - contentOffset - target.originalText.length;
+    const sourceContentBounds = getProjectionSourceContentBounds(target.originalSource);
     const transaction = state.tr
-      .delete(session.to - closingLength, session.to)
-      .delete(session.from, session.from + contentOffset);
+      .delete(session.from + sourceContentBounds.to, session.to)
+      .delete(session.from, session.from + sourceContentBounds.from);
     const restoredTo = session.from + target.originalContentSize;
 
     if (session.from < restoredTo) {

@@ -1,6 +1,6 @@
 import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
 
-import { isNonNullish } from "@/lib/predicates";
+import { isTruthy } from "@/lib/predicates";
 
 interface LinkSourceSegmentBase {
   className: string;
@@ -121,7 +121,7 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     ancestorTypes.includes("delete") && "leafdown-source-projection__content--strikethrough",
     ancestorTypes.includes("inlineCode") && "leafdown-source-projection__content--inline-code",
   ]
-    .filter(isNonNullish)
+    .filter(isTruthy)
     .join(" ");
 
 const isInlineSoftBreak = (node: MarkdownNode) =>

@@ -128,7 +128,9 @@ shared lifecycle must not acquire object-specific syntax assumptions.
 
 Marker presentation is a separate capability. Decorations may style active
 source, but projected Markdown remains real ProseMirror document text rather than
-widget or NodeView input state.
+widget or NodeView input state. Projected links additionally expose one semantic
+label range, including nested Markdown delimiters but excluding link syntax, so
+fragmented decoration spans retain one coordinated presentation and hover state.
 
 ## Backend Responsibilities
 

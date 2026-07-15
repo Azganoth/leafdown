@@ -3,7 +3,7 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
-import { isNonNullish } from "@/lib/predicates";
+import { isTruthy } from "@/lib/predicates";
 
 import { createLogicalLinkMarkdownSerializer } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
@@ -462,7 +462,13 @@ const mapSelectionPositionFromSource = (
 };
 
 const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
-  const spans: SourceProjectionPresentationSpan[] = [];
+  const spans: SourceProjectionPresentationSpan[] = [
+    {
+      className: "leafdown-source-projection__content--link-label",
+      from: map.labelFrom,
+      to: map.labelTo,
+    },
+  ];
   let markerFrom = 0;
 
   for (const segment of map.segments) {
@@ -507,7 +513,7 @@ const getLinkPresentationMap = (
     ambientTypes.includes("strong") && "leafdown-source-projection__content--strong",
     ambientTypes.includes("emphasis") && "leafdown-source-projection__content--emphasis",
     ambientTypes.includes("strike_through") && "leafdown-source-projection__content--strikethrough",
-  ].filter(isNonNullish);
+  ].filter(isTruthy);
 
   return {
     ...map,

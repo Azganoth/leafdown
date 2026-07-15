@@ -1,10 +1,11 @@
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount, type MountMilkdownEditorOptions } from "@/test/utils/milkdown";
 import {
   getEditorNodePosition,
+  getSelectedEditorText,
   getEditorTextContent,
   getEditorTextPosition,
   runKeyDownHandlers,
@@ -13,6 +14,7 @@ import {
   typeText,
 } from "@/test/utils/prosemirror";
 
+import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -20,8 +22,14 @@ const PLAIN_LINK_SOURCE = "[first field\nwalk](./nested-directory/doc-alternate.
 const MIXED_LINK_SOURCE =
   '[**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`](./article-navigator/01-overview.md "Calibration review")';
 
-const mountProjectionEditor = (source: string) =>
-  mountEditor(source, { rootClassName: EDITOR_TEST_ROOT_CLASS_NAME });
+const mountProjectionEditor = (
+  source: string,
+  options: Pick<MountMilkdownEditorOptions, "onContentChanged"> = {},
+) =>
+  mountEditor(source, {
+    ...options,
+    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+  });
 
 const getInlineBreakPosition = (document: ProseMirrorNode) => {
   let position: number | null = null;
@@ -66,6 +74,56 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(MIXED_LINK_SOURCE);
     expect(mounted.view.dom.querySelector("a, strong, em, del, code")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { content: "calibration summary", segment: "strong" },
+    { content: "with", segment: "plain text" },
+    { content: "field observations", segment: "emphasis" },
+    { content: "retired wording", segment: "strikethrough" },
+    { content: "v2", segment: "inline code" },
+  ])("projects the complete mixed link from its $segment segment", async ({ content }) => {
+    const mounted = await mountProjectionEditor(MIXED_LINK_SOURCE);
+    const contentPosition = getEditorTextPosition(mounted, content) + 1;
+
+    setTextSelection(mounted.view, contentPosition);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(MIXED_LINK_SOURCE);
+  });
+
+  it.each([
+    { direction: "forward", reverse: false },
+    { direction: "backward", reverse: true },
+  ])("maps a $direction selection across the soft break", async ({ reverse }) => {
+    const mounted = await mountProjectionEditor(`${PLAIN_LINK_SOURCE} plain`);
+    const fieldFrom = getEditorTextPosition(mounted, "field");
+    const walkTo = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+    setTextSelection(mounted.view, reverse ? walkTo : fieldFrom, reverse ? fieldFrom : walkTo);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getSelectedEditorText(mounted)).toBe("field\nwalk");
+    expect(mounted.view.state.selection.anchor > mounted.view.state.selection.head).toBe(reverse);
+  });
+
+  it.each([
+    {
+      name: "relative destination with title",
+      source: '[field notes\nsummary](./notes.md "Review")',
+    },
+    {
+      name: "JavaScript destination",
+      source: "[legacy script\nlink](javascript:alert)",
+    },
+  ])("keeps projection activation independent of the $name", async ({ source }) => {
+    const mounted = await mountProjectionEditor(source);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(source);
   });
 
   it("restores the exact original document after a clean multiline projection", async () => {
@@ -141,5 +199,68 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
     expect(getEditorTextContent(mounted)).toBe(`${PLAIN_LINK_SOURCE.slice(0, -1)} plain`);
+  });
+
+  it("uses projection-local undo and redo for multiline link edits", async () => {
+    const mounted = await mountProjectionEditor(`${PLAIN_LINK_SOURCE} plain`);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+    setTextSelection(mounted.view, walkEnd);
+    typeText(mounted.view, "!");
+
+    expect(getEditorTextContent(mounted)).toBe(
+      `${PLAIN_LINK_SOURCE.replace("walk", "walk!")} plain`,
+    );
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(`${PLAIN_LINK_SOURCE} plain`);
+    expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(
+      `${PLAIN_LINK_SOURCE.replace("walk", "walk!")} plain`,
+    );
+  });
+
+  it("preserves native undo and redo after committing a multiline link edit", async () => {
+    const initialMarkdown = `${PLAIN_LINK_SOURCE} plain`;
+    const editedMarkdown = `${PLAIN_LINK_SOURCE.replace("walk", "walk!")} plain\n`;
+    const mounted = await mountProjectionEditor(initialMarkdown);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+    setTextSelection(mounted.view, walkEnd);
+    typeText(mounted.view, "!");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(editedMarkdown);
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(`${initialMarkdown}\n`);
+    expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(editedMarkdown);
+  });
+
+  it("tracks only multiline source edits as dirty and serializes the active link", async () => {
+    const onContentChanged = vi.fn();
+    const mounted = await mountProjectionEditor(`${MIXED_LINK_SOURCE} plain`, { onContentChanged });
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    expect(onContentChanged).not.toHaveBeenCalled();
+
+    const codeEnd = getEditorTextPosition(mounted, "v2") + "v2".length;
+
+    setTextSelection(mounted.view, codeEnd);
+    typeText(mounted.view, ".1");
+
+    expect(onContentChanged).toHaveBeenCalledTimes(2);
+    expect(mounted.getMarkdown()).toBe(`${MIXED_LINK_SOURCE.replace("v2", "v2.1")} plain\n`);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(onContentChanged).toHaveBeenCalledTimes(2);
   });
 });

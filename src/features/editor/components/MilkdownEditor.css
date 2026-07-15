@@ -295,10 +295,18 @@
     }
 
     .leafdown-source-projection__content--link {
+      @apply text-primary;
+    }
+
+    .leafdown-source-projection__content--link-label {
       @apply text-primary underline decoration-primary/45 underline-offset-2 transition-colors;
 
-      &:hover {
+      &.leafdown-source-projection__content--link-label-hovered {
         @apply decoration-primary;
+      }
+
+      &.leafdown-source-projection__marker {
+        @apply text-muted-foreground;
       }
     }
 

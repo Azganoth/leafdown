@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
+import { dispatchMouseEvent } from "@/test/utils/events";
 import {
   setupMilkdownEditorMount,
   type MountedMilkdownEditor,
@@ -365,6 +366,129 @@ describe("source projection", () => {
 
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getSelectedEditorText(mounted)).toBe("Bold");
+    });
+
+    it("presents a mixed-format projected link label as one semantic range", async () => {
+      const source =
+        '[**calibration summary** with *field observations*, ~~retired wording~~, and `v2`](./article-navigator/01-overview.md "Calibration review")';
+      const label =
+        "**calibration summary** with *field observations*, ~~retired wording~~, and `v2`";
+      const mounted = await mountProjectionEditor(source);
+
+      enterProjection(mounted, "a");
+
+      const labelRanges = mounted.view.dom.querySelectorAll(
+        ".leafdown-source-projection__content--link-label",
+      );
+
+      expect(Array.from(labelRanges, (range) => range.textContent).join("")).toBe(label);
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strong"),
+      ).toHaveTextContent("calibration summary");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--emphasis"),
+      ).toHaveTextContent("field observations");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--strikethrough"),
+      ).toHaveTextContent("retired wording");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--inline-code"),
+      ).toHaveTextContent("v2");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${source}\n`);
+    });
+
+    it("presents a plain titled projected link label as one semantic range", async () => {
+      const source = '[Plain label](./article.md "Reference")';
+      const mounted = await mountProjectionEditor(source);
+
+      enterProjection(mounted, "a");
+
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe("Plain label");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${source}\n`);
+    });
+
+    it("synchronizes projected link-label hover across presentation fragments", async () => {
+      const onContentChanged = vi.fn();
+      const mounted = await mountProjectionEditor(
+        "[**Bold** and *soft*](https://example.com) plain",
+        {
+          onContentChanged,
+        },
+      );
+
+      enterProjection(mounted, "a");
+
+      const projectedDocument = mounted.view.state.doc;
+      const getLabelFragments = () =>
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+        );
+      const firstFragment = getLabelFragments()[0];
+      const lastFragment = getLabelFragments().at(-1);
+
+      if (!firstFragment || !lastFragment) {
+        throw new Error("Expected projected link-label presentation fragments.");
+      }
+
+      dispatchMouseEvent(firstFragment, "mouseover");
+
+      expect(
+        getLabelFragments().every((fragment) =>
+          fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
+        ),
+      ).toBe(true);
+      expect(mounted.view.state.doc.eq(projectedDocument)).toBe(true);
+      expect(onContentChanged).not.toHaveBeenCalled();
+
+      dispatchMouseEvent(firstFragment, "mouseout", { relatedTarget: lastFragment });
+
+      expect(
+        getLabelFragments().every((fragment) =>
+          fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
+        ),
+      ).toBe(true);
+
+      dispatchMouseEvent(getLabelFragments().at(-1)!, "mouseout");
+
+      expect(
+        getLabelFragments().every(
+          (fragment) =>
+            !fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
+        ),
+      ).toBe(true);
+      expect(mounted.view.state.doc.eq(projectedDocument)).toBe(true);
+      expect(onContentChanged).not.toHaveBeenCalled();
+    });
+
+    it("isolates projected label presentation from adjacent links with the same destination", async () => {
+      const mounted = await mountProjectionEditor(
+        "[First](https://example.com) [**Second** and *soft*](https://example.com)",
+      );
+      const secondLinkPosition = getEditorTextPosition(mounted, "Second") + 1;
+
+      setTextSelection(mounted.view, secondLinkPosition);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe("**Second** and *soft*");
+      const falseClassElements = Array.from(mounted.view.dom.querySelectorAll(".false"));
+
+      expect(falseClassElements).toEqual([]);
     });
 
     it("maps a selection through escaped text in a mixed-format link label", async () => {

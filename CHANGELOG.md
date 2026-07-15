@@ -17,6 +17,7 @@ sections and version names that match the application package version.
 - Sort article directories before articles in the article navigator.
 - Extend seamless in-document Markdown source projection to strikethrough,
   inline code, links, autolinks, and footnote references.
+- Present active mixed-format link labels as one coordinated source range.
 
 ### Fixed
 

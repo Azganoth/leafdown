@@ -1,6 +1,6 @@
 import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
 
-import { isNonNullish } from "@/lib/predicates";
+import { isTruthy } from "@/lib/predicates";
 
 interface LinkSourceSegmentBase {
   className: string;
@@ -23,6 +23,8 @@ export type LinkSourceSegment = LinkInlineBreakSourceSegment | LinkTextSourceSeg
 
 export interface LinkSourceMap {
   documentSize: number;
+  labelFrom: number;
+  labelTo: number;
   segments: LinkSourceSegment[];
   sourceTypes: string[];
 }
@@ -119,7 +121,7 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     ancestorTypes.includes("delete") && "leafdown-source-projection__content--strikethrough",
     ancestorTypes.includes("inlineCode") && "leafdown-source-projection__content--inline-code",
   ]
-    .filter(isNonNullish)
+    .filter(isTruthy)
     .join(" ");
 
 const isInlineSoftBreak = (node: MarkdownNode) =>
@@ -174,6 +176,26 @@ const getLogicalLinkNode = (root: MarkdownNode) => {
   return { link: candidate, outerTypes };
 };
 
+const getLinkLabelBounds = (link: MarkdownNode) => {
+  const linkPosition = getMarkdownPosition(link);
+  const lastChild = link.children?.at(-1);
+  const lastChildPosition = lastChild ? getMarkdownPosition(lastChild) : null;
+
+  if (
+    !linkPosition ||
+    !lastChildPosition ||
+    lastChildPosition.to > linkPosition.to ||
+    linkPosition.from + 1 > lastChildPosition.to
+  ) {
+    return null;
+  }
+
+  return {
+    from: linkPosition.from + 1,
+    to: lastChildPosition.to,
+  };
+};
+
 export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkSourceMap | null => {
   let root: MarkdownNode;
 
@@ -190,6 +212,12 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   }
 
   const { link, outerTypes } = logicalLink;
+  const labelBounds = getLinkLabelBounds(link);
+
+  if (!labelBounds) {
+    return null;
+  }
+
   const segments: LinkSourceSegment[] = [];
   const sourceTypes = new Set<string>([LINK_MARK_NAME]);
   let documentOffset = 0;
@@ -293,6 +321,8 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
 
   return {
     documentSize: documentOffset,
+    labelFrom: labelBounds.from,
+    labelTo: labelBounds.to,
     segments,
     sourceTypes: [...sourceTypes],
   };

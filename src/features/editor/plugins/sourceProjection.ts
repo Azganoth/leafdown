@@ -31,6 +31,7 @@ import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLink
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
+  isLinkLabelHovered: false,
   pendingCommit: null,
   session: null,
   suppressedSelection: null,
@@ -60,6 +61,7 @@ interface SuppressedProjectionSelection {
 }
 
 interface SourceProjectionPluginState {
+  isLinkLabelHovered: boolean;
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
   suppressedSelection: SuppressedProjectionSelection | null;
@@ -73,6 +75,7 @@ type ProjectionMeta =
   | { type: "userEdit"; previousSource: string }
   | { type: "localUndo"; currentSource: string }
   | { type: "localRedo"; currentSource: string }
+  | { isHovered: boolean; type: "linkLabelHover" }
   | {
       type: "restoreBeforeCommit";
       pendingCommit: PendingProjectionCommit | null;
@@ -90,6 +93,10 @@ export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProj
       appendProjectionTransaction(newState, adapters),
     props: {
       decorations: (state) => createProjectionDecorations(state),
+      handleDOMEvents: {
+        mouseout: (view, event) => handleProjectionLinkLabelMouseOut(view, event),
+        mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
+      },
       handleKeyDown: (view, event) => handleProjectionKeyDown(view, event),
       handlePaste: (view, event, slice) => handleProjectionPaste(view, event, slice),
       handleTextInput: (view, from, to, text) =>
@@ -283,6 +290,7 @@ const applyProjectionTransaction = (
 
   if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: meta.session,
       suppressedSelection: null,
@@ -291,6 +299,7 @@ const applyProjectionTransaction = (
 
   if (meta?.type === "restoreBeforeCommit") {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: meta.pendingCommit,
       session: null,
       suppressedSelection: meta.suppressedSelection,
@@ -299,9 +308,17 @@ const applyProjectionTransaction = (
 
   if (meta?.type === "commitAfterRestore") {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: null,
       suppressedSelection: meta.suppressedSelection,
+    };
+  }
+
+  if (meta?.type === "linkLabelHover") {
+    return {
+      ...pluginState,
+      isLinkLabelHovered: meta.isHovered,
     };
   }
 
@@ -323,6 +340,7 @@ const applyProjectionTransaction = (
     const nextSource = getProjectionSource(newState, session);
 
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: {
         ...session,
@@ -338,6 +356,7 @@ const applyProjectionTransaction = (
 
   if (meta?.type === "localUndo") {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: {
         ...session,
@@ -350,6 +369,7 @@ const applyProjectionTransaction = (
 
   if (meta?.type === "localRedo") {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: {
         ...session,
@@ -362,6 +382,7 @@ const applyProjectionTransaction = (
 
   if (transaction.docChanged && !isRangeInsideProjection(newState.selection, session)) {
     return {
+      isLinkLabelHovered: false,
       pendingCommit: null,
       session: null,
       suppressedSelection,
@@ -397,7 +418,8 @@ const areSelectionsEqual = (
   suppressedSelection?.anchor === selection.anchor && suppressedSelection.head === selection.head;
 
 const createProjectionDecorations = (state: EditorState) => {
-  const session = getSourceProjectionState(state).session;
+  const projectionState = getSourceProjectionState(state);
+  const { session } = projectionState;
 
   if (!session) {
     return DecorationSet.empty;
@@ -419,13 +441,65 @@ const createProjectionDecorations = (state: EditorState) => {
     if (from < to) {
       decorations.push(
         Decoration.inline(from, to, {
-          class: span.className,
+          class: getProjectionPresentationClassName(span.className, projectionState),
         }),
       );
     }
   }
 
   return DecorationSet.create(state.doc, decorations);
+};
+
+const LINK_LABEL_PRESENTATION_CLASS_NAME = "leafdown-source-projection__content--link-label";
+const LINK_LABEL_HOVERED_CLASS_NAME = "leafdown-source-projection__content--link-label-hovered";
+
+const getProjectionPresentationClassName = (
+  className: string,
+  { isLinkLabelHovered }: SourceProjectionPluginState,
+) =>
+  isLinkLabelHovered && className.split(" ").includes(LINK_LABEL_PRESENTATION_CLASS_NAME)
+    ? `${className} ${LINK_LABEL_HOVERED_CLASS_NAME}`
+    : className;
+
+const getLinkLabelPresentationElement = (target: EventTarget | null) =>
+  target instanceof Element ? target.closest(`.${LINK_LABEL_PRESENTATION_CLASS_NAME}`) : null;
+
+const setProjectionLinkLabelHover = (view: EditorView, isHovered: boolean) => {
+  const projectionState = getSourceProjectionState(view.state);
+
+  if (!projectionState.session || projectionState.isLinkLabelHovered === isHovered) {
+    return;
+  }
+
+  view.dispatch(
+    view.state.tr.setMeta(leafdownSourceProjectionPluginKey, {
+      isHovered,
+      type: "linkLabelHover",
+    } satisfies ProjectionMeta),
+  );
+};
+
+const handleProjectionLinkLabelMouseOver = (view: EditorView, event: Event) => {
+  if (!getLinkLabelPresentationElement(event.target)) {
+    return false;
+  }
+
+  setProjectionLinkLabelHover(view, true);
+
+  return false;
+};
+
+const handleProjectionLinkLabelMouseOut = (view: EditorView, event: Event) => {
+  if (
+    !getLinkLabelPresentationElement(event.target) ||
+    getLinkLabelPresentationElement((event as MouseEvent).relatedTarget)
+  ) {
+    return false;
+  }
+
+  setProjectionLinkLabelHover(view, false);
+
+  return false;
 };
 
 const handleProjectionTextInput = (

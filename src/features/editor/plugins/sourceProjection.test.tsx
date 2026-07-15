@@ -152,6 +152,47 @@ describe("source projection", () => {
       ).toHaveTextContent("Code");
     });
 
+    it.each([
+      { source: "`` `leading `` plain", text: "`leading" },
+      { source: "`` trailing` `` plain", text: "trailing`" },
+      { source: "`` `both` `` plain", text: "`both`" },
+      { source: "`` ` `` plain", text: "`" },
+    ])(
+      "projects valid padded source for inline code with boundary backticks",
+      async ({ source, text }) => {
+        const mounted = await mountProjectionEditor(source);
+
+        enterProjection(mounted, "code");
+
+        expect(getEditorTextContent(mounted)).toBe(source);
+        expect(
+          mounted.view.dom.querySelector(".leafdown-source-projection__content--inline-code"),
+        ).toHaveTextContent(text);
+        expect(
+          Array.from(
+            mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+            (element) => element.textContent,
+          ).join(""),
+        ).toBe("``  ``");
+      },
+    );
+
+    it("maps an inline-code selection around source-only boundary padding and restores cleanly", async () => {
+      const source = "`` pnpm run `preview` `` plain";
+      const mounted = await mountProjectionEditor(source);
+      const originalDocument = mounted.view.state.doc;
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`` pnpm run `preview` ``");
+
+      setTextSelection(mounted.view, sourceStart + 3, sourceStart + 3 + "pnpm".length);
+      expect(getSelectedEditorText(mounted)).toBe("pnpm");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+    });
+
     it("projects link source as real editable document text", async () => {
       const mounted = await mountProjectionEditor("[Link](https://example.com) plain");
 
@@ -777,6 +818,53 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       expect(mounted.getMarkdown()).toBe("``Co`de`` plain\n");
+    });
+
+    it("preserves inline-code marks and boundary backticks after a projected edit", async () => {
+      const source = "`` pnpm run `preview` `` plain";
+      const mounted = await mountProjectionEditor(source);
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`` pnpm run `preview` ``");
+      setTextSelection(mounted.view, sourceStart + 3 + "pnpm run `preview`".length);
+      typeText(mounted.view, "!");
+
+      expect(getEditorTextContent(mounted)).toBe("``pnpm run `preview`!`` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("``pnpm run `preview`!`` plain\n");
+      expect(getEditorDomElement(mounted, "code")).toHaveTextContent("pnpm run `preview`!");
+    });
+
+    it("adds source padding when inline-code content gains a boundary backtick", async () => {
+      const mounted = await mountProjectionEditor("`Code` plain");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`Code`");
+      setTextSelection(mounted.view, sourceStart + "`Code".length);
+      typeText(mounted.view, "`");
+
+      expect(getEditorTextContent(mounted)).toBe("`` Code` `` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("`` Code` `` plain\n");
+      expect(getEditorDomElement(mounted, "code")).toHaveTextContent("Code`");
+    });
+
+    it("does not project invalid unpadded inline-code source as a code mark", async () => {
+      const source = "``pnpm run `preview``` plain";
+      const mounted = await mountProjectionEditor(source);
+
+      const sourceStart = getEditorTextPosition(mounted, "pnpm run `preview`");
+
+      setTextSelection(mounted.view, sourceStart + 1);
+
+      expect(mounted.view.dom.querySelector("code")).not.toBeInTheDocument();
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     });
 
     it("commits edited link and autolink source", async () => {
@@ -1559,6 +1647,31 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
       expect(await runCommand(mounted, "edit.redo")).toBe(true);
       expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
+    });
+
+    it("preserves local and native history for padded inline-code source", async () => {
+      const initialMarkdown = "`` pnpm run `preview` `` plain";
+      const mounted = await mountProjectionEditor(initialMarkdown);
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`` pnpm run `preview` ``");
+      setTextSelection(mounted.view, sourceStart + 3 + "pnpm run `preview`".length);
+      typeText(mounted.view, "!");
+
+      expect(getEditorTextContent(mounted)).toBe("``pnpm run `preview`!`` plain");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(initialMarkdown);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("``pnpm run `preview`!`` plain");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("``pnpm run `preview`!`` plain\n");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(`${initialMarkdown}\n`);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("``pnpm run `preview`!`` plain\n");
     });
 
     it("uses projection-local undo and redo for mixed-format link source", async () => {

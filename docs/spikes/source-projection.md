@@ -71,10 +71,11 @@ source-projection session engine with object-specific adapters.
   literal document text so no projected character is lost.
 - The mark adapter preserves source behavior for strong, emphasis,
   strikethrough, and inline code.
-- A higher-precedence logical-link adapter owns text-only links and autolinks as
-  complete wrappers, including mixed-format labels. It validates source through
-  Milkdown's parser and Remark AST, maps selections across nested label syntax,
-  and rehydrates a rich inline fragment with one link mark over the full label.
+- A higher-precedence logical-link adapter owns links and autolinks as complete
+  wrappers, including mixed-format and multiline labels. It validates source
+  through Milkdown's parser and Remark AST, maps selections across nested label
+  syntax and semantic inline breaks, and rehydrates a rich inline fragment with
+  one link mark over the full label.
 - A serialization wrapper preserves one logical outer link in saved Markdown
   when Milkdown's default serializer would split a mixed-format label into
   adjacent links. Its placeholders exist only in a temporary serialization

@@ -185,12 +185,14 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Link and autolink projection exposes their source directly in the document;
   links preserve their label, target, optional title, and compatible uniform
   outer inline formatting. A link remains one semantic projection owner. A
-  caret or contained text selection anywhere in a text-only label projects the
+  caret or contained text selection anywhere in a supported label projects the
   complete link source, including labels with nested strong, emphasis,
-  strikethrough, or inline-code formatting. Valid edits rehydrate one link over
-  the complete rich label; invalid or incomplete edits become exact literal
-  text. Mixed-format labels do not fall back to fragmented projections for
-  their nested marks.
+  strikethrough, inline-code formatting, or semantic soft line endings. Soft
+  line endings remain one logical label even though Milkdown represents them as
+  inline break nodes; indentation follows Milkdown's canonical serialization.
+  Valid edits rehydrate one link over the complete rich label; invalid or
+  incomplete edits become exact literal text. Mixed-format and multiline labels
+  do not fall back to fragmented projections for their nested content.
 - Footnote references project their complete `[^label]` source as editable
   document text. A caret entering from the left starts at the beginning of the
   source, a caret entering from the right starts at the end, and selecting the

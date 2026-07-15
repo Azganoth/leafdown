@@ -20,6 +20,8 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Project multiline link labels as one editable source object while preserving
+  nested formatting, semantic line endings, selection mapping, and history.
 - Preserve inline-code boundary backticks while editing projected Markdown source.
 - Show a size-aware error when opening a Markdown file that exceeds the loading limit.
 - Route Undo and Redo shortcuts through projection-aware editor commands and

@@ -40,6 +40,7 @@ const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
 export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionPluginState>(
   "leafdownSourceProjection",
 );
+export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
 
 interface ProjectionSession extends TextRange {
   adapter: SourceProjectionAdapter;
@@ -89,8 +90,8 @@ type ProjectionMeta =
 export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProjectionAdapter[]) =>
   new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
-    appendTransaction: (_transactions, _oldState, newState) =>
-      appendProjectionTransaction(newState, adapters),
+    appendTransaction: (transactions, _oldState, newState) =>
+      appendProjectionTransaction(transactions, newState, adapters),
     props: {
       decorations: (state) => createProjectionDecorations(state),
       handleDOMEvents: {
@@ -251,6 +252,7 @@ const getProjectionMeta = (transaction: Transaction) =>
   transaction.getMeta(leafdownSourceProjectionPluginKey) as ProjectionMeta | undefined;
 
 const appendProjectionTransaction = (
+  transactions: readonly Transaction[],
   state: EditorState,
   adapters?: readonly SourceProjectionAdapter[],
 ) => {
@@ -269,6 +271,14 @@ const appendProjectionTransaction = (
   }
 
   if (areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
+    return null;
+  }
+
+  if (
+    transactions.some(
+      (transaction) => transaction.getMeta(SOURCE_PROJECTION_ENTRY_SUPPRESSION_META) === true,
+    )
+  ) {
     return null;
   }
 

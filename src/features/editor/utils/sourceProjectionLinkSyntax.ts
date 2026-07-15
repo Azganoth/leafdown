@@ -6,6 +6,7 @@ export interface LinkSourceLeaf {
   className: string;
   documentFrom: number;
   documentTo: number;
+  kind: "inlineBreak" | "text";
   sourceBoundaries: number[];
   sourceFrom: number;
   sourceTo: number;
@@ -92,9 +93,16 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     .filter(isNonNullish)
     .join(" ");
 
+const isInlineSoftBreak = (node: MarkdownNode) =>
+  node.type === "break" && (node.data as { isInline?: boolean } | undefined)?.isInline === true;
+
 const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
     return typeof node.value === "string";
+  }
+
+  if (isInlineSoftBreak(node)) {
+    return true;
   }
 
   if (node.type !== "strong" && node.type !== "emphasis" && node.type !== "delete") {
@@ -141,7 +149,7 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   let root: MarkdownNode;
 
   try {
-    root = remark.runSync(remark.parse(source), source) as MarkdownNode;
+    root = remark.parse(source) as MarkdownNode;
   } catch {
     return null;
   }
@@ -157,6 +165,60 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   const sourceTypes = new Set<string>([LINK_MARK_NAME]);
   let documentOffset = 0;
 
+  const addTextLeaves = (
+    value: string,
+    position: { from: number; to: number },
+    className: string,
+  ) => {
+    const rawSource = source.slice(position.from, position.to);
+    const sourceBoundaries = getTextSourceBoundaries(rawSource, value, position.from);
+    let valueFrom = 0;
+
+    for (const match of value.matchAll(/\r\n?|\n/gu)) {
+      const breakFrom = match.index;
+
+      if (valueFrom < breakFrom) {
+        leaves.push({
+          className,
+          documentFrom: documentOffset,
+          documentTo: documentOffset + breakFrom - valueFrom,
+          kind: "text",
+          sourceBoundaries: sourceBoundaries.slice(valueFrom, breakFrom + 1),
+          sourceFrom: sourceBoundaries[valueFrom],
+          sourceTo: sourceBoundaries[breakFrom],
+        });
+        documentOffset += breakFrom - valueFrom;
+      }
+
+      const breakTo = breakFrom + match[0].length;
+
+      leaves.push({
+        className,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        kind: "inlineBreak",
+        sourceBoundaries: [sourceBoundaries[breakFrom], sourceBoundaries[breakTo]],
+        sourceFrom: sourceBoundaries[breakFrom],
+        sourceTo: sourceBoundaries[breakTo],
+      });
+      documentOffset += 1;
+      valueFrom = breakTo;
+    }
+
+    if (valueFrom < value.length) {
+      leaves.push({
+        className,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + value.length - valueFrom,
+        kind: "text",
+        sourceBoundaries: sourceBoundaries.slice(valueFrom),
+        sourceFrom: sourceBoundaries[valueFrom],
+        sourceTo: position.to,
+      });
+      documentOffset += value.length - valueFrom;
+    }
+  };
+
   const visit = (node: MarkdownNode, ancestorTypes: readonly string[]): boolean => {
     const nextAncestorTypes = [...ancestorTypes, node.type];
 
@@ -171,9 +233,6 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
         return false;
       }
 
-      const rawSource = source.slice(position.from, position.to);
-      const sourceBoundaries = getTextSourceBoundaries(rawSource, value, position.from);
-
       for (const type of nextAncestorTypes) {
         if (type === "delete") {
           sourceTypes.add("strike_through");
@@ -182,15 +241,7 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
         }
       }
 
-      leaves.push({
-        className: getLinkContentClassName(nextAncestorTypes),
-        documentFrom: documentOffset,
-        documentTo: documentOffset + value.length,
-        sourceBoundaries,
-        sourceFrom: position.from,
-        sourceTo: position.to,
-      });
-      documentOffset += value.length;
+      addTextLeaves(value, position, getLinkContentClassName(nextAncestorTypes));
 
       return true;
     }
@@ -199,6 +250,16 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   };
 
   if (!visit(link, outerTypes)) {
+    return null;
+  }
+
+  try {
+    root = remark.runSync(root, source) as MarkdownNode;
+  } catch {
+    return null;
+  }
+
+  if (!getLogicalLinkNode(root)) {
     return null;
   }
 

@@ -32,6 +32,11 @@ const SUPPORTED_LINK_MARK_NAMES = new Set([
 ]);
 const OUTER_LINK_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 
+const isInlineSoftBreak = (node: ProseMirrorNode) =>
+  node.type.name === "hardbreak" && node.attrs.isInline === true;
+
+const isSupportedLinkNode = (node: ProseMirrorNode) => node.isText || isInlineSoftBreak(node);
+
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
   ambientMarks: readonly Mark[];
@@ -80,7 +85,7 @@ const getLinkNodes = (state: EditorState, from: number, to: number, linkMark: Ma
     if (
       nodeFrom < from ||
       to < nodeTo ||
-      !node.isText ||
+      !isSupportedLinkNode(node) ||
       !linkMark.isInSet(node.marks) ||
       node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name))
     ) {
@@ -185,9 +190,7 @@ const addMarksToFragment = (fragment: Fragment, marks: readonly Mark[]) => {
   const nodes: ProseMirrorNode[] = [];
 
   fragment.forEach((node) => {
-    nodes.push(
-      node.isText ? node.mark(marks.reduce((set, mark) => mark.addToSet(set), node.marks)) : node,
-    );
+    nodes.push(node.mark(marks.reduce((set, mark) => mark.addToSet(set), node.marks)));
   });
 
   return Fragment.fromArray(nodes);
@@ -227,7 +230,7 @@ const parseLinkSource = (
     const nodeLinkMark = node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
 
     if (
-      !node.isText ||
+      !isSupportedLinkNode(node) ||
       !nodeLinkMark ||
       (linkMark !== null && !linkMark.eq(nodeLinkMark)) ||
       node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name))
@@ -293,6 +296,21 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
 
       enter.push({ from: leaf.documentFrom, text: marker, to: leaf.documentFrom });
       restore.push({ from: previousSourceTo, text: "", to: leaf.sourceFrom });
+    }
+
+    if (leaf.kind === "inlineBreak") {
+      enter.push({
+        from: leaf.documentFrom,
+        text: source.slice(leaf.sourceFrom, leaf.sourceTo),
+        to: leaf.documentTo,
+      });
+      restore.push({
+        from: leaf.sourceFrom,
+        text: "\n",
+        to: leaf.sourceTo,
+      });
+      previousSourceTo = leaf.sourceTo;
+      continue;
     }
 
     for (let offset = 0; offset < leaf.documentTo - leaf.documentFrom; offset += 1) {
@@ -368,10 +386,6 @@ const addLinkTargetMarks = (
   from: number,
 ) => {
   target.originalContent.content.forEach((node, offset) => {
-    if (!node.isText) {
-      return;
-    }
-
     for (const mark of node.marks) {
       transaction.addMark(from + offset, from + offset + node.nodeSize, mark);
     }

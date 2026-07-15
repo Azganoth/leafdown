@@ -10,7 +10,11 @@ use crate::path_utils::{
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum ResolveMarkdownImageTargetResult {
     Renderable { path: String },
     Missing { path: String },

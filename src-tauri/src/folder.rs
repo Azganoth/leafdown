@@ -44,7 +44,11 @@ pub(crate) struct MarkdownFolderTree {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum MarkdownFolderTreeNode {
     Directory {
         name: String,
@@ -58,7 +62,11 @@ pub(crate) enum MarkdownFolderTreeNode {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum ScanMarkdownFolderError {
     InvalidPath { path: String },
     MissingFolder { path: String },
@@ -69,7 +77,11 @@ pub(crate) enum ScanMarkdownFolderError {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum ScanMarkdownFolderWarning {
     InvalidPath { path: String },
     MissingFolder { path: String },
@@ -80,7 +92,11 @@ pub(crate) enum ScanMarkdownFolderWarning {
 }
 
 #[derive(Debug, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum OpenMarkdownFolderError {
     ScanFailed { error: ScanMarkdownFolderError },
 }

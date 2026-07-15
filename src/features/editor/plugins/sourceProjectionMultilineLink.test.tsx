@@ -65,6 +65,12 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(`${PLAIN_LINK_SOURCE} plain`);
     expect(mounted.view.dom.querySelector("[data-type='hardbreak']")).not.toBeInTheDocument();
+
+    const sourceStart = getEditorTextPosition(mounted, PLAIN_LINK_SOURCE);
+    const sourceBreakPosition = PLAIN_LINK_SOURCE.indexOf("\n");
+
+    expect(mounted.view.state.selection.anchor).toBe(sourceStart + sourceBreakPosition + offset);
+    expect(mounted.view.state.selection.head).toBe(sourceStart + sourceBreakPosition + offset);
   });
 
   it("maps whitespace before an inline break to the break source segment", async () => {
@@ -214,6 +220,37 @@ describe("multiline logical-link source projection", () => {
       ]),
     );
     expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
+  });
+
+  it("preserves an ambient mark that extends beyond a multiline link", async () => {
+    const source = `*Before ${PLAIN_LINK_SOURCE} after*`;
+    const mounted = await mountProjectionEditor(source);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(`Before ${PLAIN_LINK_SOURCE} after`);
+
+    const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+    setTextSelection(mounted.view, walkEnd);
+    typeText(mounted.view, "!");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(
+      `*Before* *${PLAIN_LINK_SOURCE.replace("walk", "walk!")}* *after*\n`,
+    );
+    expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
+
+    const inlineNodes: ProseMirrorNode[] = [];
+
+    mounted.view.state.doc.firstChild?.forEach((node) => inlineNodes.push(node));
+
+    expect(inlineNodes).not.toHaveLength(0);
+    expect(
+      inlineNodes.every((node) => node.marks.some((mark) => mark.type.name === "emphasis")),
+    ).toBe(true);
   });
 
   it("commits invalid multiline source as exact literal text", async () => {

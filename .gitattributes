@@ -1,5 +1,9 @@
 * text=auto eol=lf
 
 *.png binary
+*.bmp binary
 *.ico binary
 *.icns binary
+
+# Preserve exact line endings, BOMs, control bytes, tabs, and EOF boundaries.
+corpus/boundaries/bytes/** -text -eol

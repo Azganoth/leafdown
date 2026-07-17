@@ -27,7 +27,6 @@
     "format": "pnpm run --parallel /^format:/",
     "format:frontend": "oxfmt",
     "format:backend": "cargo +nightly-2026-05-22 fmt --manifest-path src-tauri/Cargo.toml",
-    "sample": "node --no-warnings scripts/generate-sample.ts",
     "prepare": "husky"
   },
   "dependencies": {

@@ -223,21 +223,22 @@ outside it.
 - Raw HTML sanitization and script execution prevention.
 - Context popup layout and caret-based marker visibility.
 
-## Development Fixtures
+## Development Corpus
 
-The repository keeps manual development content in [`../sample/`](../sample/).
-Open that folder in Leafdown while iterating on folder scans, editor rendering,
-local link/image handling, and loading error states.
+The repository keeps its manual Markdown corpus in [`../corpus/`](../corpus/).
+Open the corpus root for a broad walkthrough or a focused subdirectory while
+iterating on parsing, rendering, serialization, folder scans, or local resource
+handling.
 
-The sample folder complements automated tests with ordinary linked documents and
-focused filesystem fixtures. Its root index opens a field report for everyday
-CommonMark and GFM rendering, then links to release-review notes for source
-projection and serialization checks. Additional files exercise nested supported
-Markdown documents, article sort order and index precedence, ignored and
-non-Markdown entries, local, missing, remote, Unicode-path, and outside-folder
-references, visible local images with special-character paths, empty documents,
-mixed line endings, invalid UTF-8, malformed Markdown, raw HTML safety,
-unsupported syntax preservation, heading depth, and the oversized-file limit.
-Keep the fixtures aligned with the specification and backlog when those
-behaviors change. Structural and error fixtures may stay deliberately artificial
-when that is necessary to exercise the corresponding boundary.
+The committed corpus complements automated tests with focused CommonMark and
+GFM family documents, explicitly separated nonstandard extensions, meaningful
+syntax interactions, malformed inputs, and coherent practical documents.
+Focused environment scenarios retain article sort order and index precedence,
+non-Markdown entries, local and outside-folder references, and Unicode paths.
+Committed byte-boundary fixtures preserve exact line endings, BOM,
+representative control characters, tabs, and end-of-file behavior through
+repository attributes. Loading limits,
+timestamp sorting, ignored directories, and symlink scanning remain covered by
+automated application tests. Keep the corpus aligned with the specification and
+backlog when behavior changes. Structural and error fixtures may stay
+deliberately artificial when necessary to exercise a boundary.

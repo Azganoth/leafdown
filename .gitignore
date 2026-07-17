@@ -7,9 +7,6 @@ target/
 *.local
 *.tsbuildinfo
 
-# generated sample workspace
-sample/
-
 coverage/
 
 # logs

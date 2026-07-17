@@ -33,9 +33,12 @@ Decisions use a lightweight ADR format:
 - `Rationale`
 - `Consequences`
 
-## Development Fixtures
+## Development Corpus
 
-- [`../sample/`](../sample/): generated manual development fixture folder with realistic field and release-review notes plus focused article-navigation, media, serialization, loading, safety, and unsupported-syntax cases. This directory is not committed; regenerate it locally by running `pnpm sample`.
+- [`../corpus/`](../corpus/): committed manual Markdown corpus covering
+  CommonMark, GFM, nonstandard extensions, practical documents, syntax
+  interactions, malformed input, byte and grammar boundaries, and focused
+  environment scenarios.
 
 ## Spikes
 

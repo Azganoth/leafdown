@@ -155,9 +155,9 @@ Pull Request requirements:
 
 Verify changes locally before merging. Use `pnpm check:frontend` for
 frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and
-`pnpm check` for cross-cutting updates. For manual testing of the editor and
-article navigator, generate the local sample folder by running `pnpm sample` and
-open the `sample/` directory in the app.
+`pnpm check` for cross-cutting updates. For manual testing of Markdown and the
+article navigator, open the committed `corpus/` directory or one of its focused
+scenario directories in the app.
 
 ## Common Commands
 
@@ -165,7 +165,6 @@ open the `sample/` directory in the app.
 
 - Web dev server: `pnpm dev`
 - Tauri dev app: `pnpm tauri dev`
-- Generate sample folder: `pnpm sample`
 
 ### Building
 

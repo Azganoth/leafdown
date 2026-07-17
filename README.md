@@ -47,6 +47,9 @@ See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the project workflow and
 contribution conventions.
 
+See the [Markdown corpus](./corpus/README.md) for committed manual conformance,
+extension, interaction, and environment fixtures.
+
 ## License
 
 This project is licensed under the [GNU General Public License v3.0 or later](./LICENSE).

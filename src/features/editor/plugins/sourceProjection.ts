@@ -285,6 +285,20 @@ export const pasteIntoSourceProjection = (view: EditorView, text: string) => {
   return true;
 };
 
+export const deleteSourceProjectionSelection = (view: EditorView) => {
+  const session = getSourceProjectionState(view.state).session;
+  const { selection } = view.state;
+
+  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+    return false;
+  }
+
+  view.focus();
+  dispatchProjectionEdit(view, selection.from, selection.to, "");
+
+  return true;
+};
+
 export const isSourceProjectionDirtyTransaction = (transaction: Transaction) => {
   const meta = getProjectionMeta(transaction);
 

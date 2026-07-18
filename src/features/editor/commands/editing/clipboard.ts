@@ -7,6 +7,7 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
+  deleteSourceProjectionSelection,
   getSourceProjectionClipboardSlice,
   hasActiveSourceProjection,
   pasteIntoSourceProjection,
@@ -170,6 +171,10 @@ export const copySelection = (view: EditorView, format: ClipboardCopyFormat) => 
 export const cutSelection = async (view: EditorView) => {
   if (!(await copySelection(view, "default"))) {
     return false;
+  }
+
+  if (deleteSourceProjectionSelection(view)) {
+    return true;
   }
 
   return runProseMirrorCommand(view, deleteSelection);

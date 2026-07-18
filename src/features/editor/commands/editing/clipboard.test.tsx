@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
@@ -13,6 +13,8 @@ import {
   setTextSelection,
 } from "@/test/utils/prosemirror";
 
+import { hasActiveSourceProjection } from "../../plugins/sourceProjection";
+import { runEditorCommand } from "../index";
 import { copySelection, cutSelection, paste } from "./clipboard";
 import { selectAll } from "./selection";
 
@@ -51,6 +53,55 @@ describe("editor clipboard commands", () => {
 
     await expectClipboardTextWritten("Hello");
     expect(getEditorTextContent(mounted)).toBe(" world");
+  });
+
+  it("cuts projected content through projection-local history", async () => {
+    const onContentChanged = vi.fn();
+    const mounted = await mountEditor("**Bold** plain", { onContentChanged });
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+    setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+
+    await expect(cutSelection(mounted.view)).resolves.toBe(true);
+
+    await expectClipboardTextWritten("Bold");
+    const html = await getClipboardHtmlWritten();
+    expect(parseClipboardHtml(html).querySelector("strong")).toHaveTextContent("Bold");
+    expect(getEditorTextContent(mounted)).toBe("**** plain");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(onContentChanged).toHaveBeenCalledOnce();
+
+    expect(runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("**Bold** plain");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+    expect(runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("**** plain");
+    expect(onContentChanged).toHaveBeenCalledOnce();
+  });
+
+  it("cuts a complete projected object without finalizing before deletion", async () => {
+    const source = "**Bold**";
+    const mounted = await mountEditor(`${source}tail`);
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+
+    await expect(cutSelection(mounted.view)).resolves.toBe(true);
+
+    await expectClipboardTextWritten(source);
+    expect(
+      parseClipboardHtml(await getClipboardHtmlWritten()).querySelector("strong"),
+    ).toHaveTextContent("Bold");
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+    setSelectionAtDocumentEnd(mounted.view);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.getMarkdown()).toBe("tail\n");
   });
 
   it("copies projected source as exact text and semantic HTML", async () => {

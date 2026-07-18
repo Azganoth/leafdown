@@ -1,4 +1,3 @@
-import { deleteSelection } from "@milkdown/kit/prose/commands";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import {
@@ -6,7 +5,6 @@ import {
   getSourceProjectionClipboardSlice,
   hasActiveSourceProjection,
 } from "../plugins/sourceProjection";
-import { runProseMirrorCommand } from "./milkdown";
 
 export interface EditorClipboardPayload {
   html: string;
@@ -38,5 +36,12 @@ export const deleteClipboardSelection = (
     return deleteSourceProjectionSelection(view);
   }
 
-  return runProseMirrorCommand(view, deleteSelection);
+  if (view.state.selection.empty) {
+    return false;
+  }
+
+  view.focus();
+  view.dispatch(view.state.tr.deleteSelection().scrollIntoView().setMeta("uiEvent", "cut"));
+
+  return true;
 };

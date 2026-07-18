@@ -32,6 +32,7 @@ import {
   type EditorCommandState,
 } from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import {
@@ -126,6 +127,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCommandKeymapPlugin(runCommand))
     .use(history)
     .use(clipboard)
+    .use(createLeafdownClipboardPlugin())
     .use(listener)
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))

@@ -52,6 +52,55 @@ const parseClipboardHtml = (html: string) => {
 };
 
 describe("source projection clipboard slices", () => {
+  it.each([
+    {
+      expectedSelectors: ["em"],
+      expectedText: "Emphasis",
+      selector: "em" as const,
+      source: "*Emphasis*",
+    },
+    {
+      expectedSelectors: ["strong", "em"],
+      expectedText: "Both",
+      selector: "strong" as const,
+      source: "***Both***",
+    },
+    {
+      expectedSelectors: ["del"],
+      expectedText: "Strike",
+      selector: "del" as const,
+      source: "~~Strike~~",
+    },
+    {
+      expectedSelectors: ["code"],
+      expectedText: "Code",
+      selector: "code" as const,
+      source: "`Code`",
+    },
+    {
+      expectedSelectors: ["a"],
+      expectedText: "https://example.com",
+      selector: "a" as const,
+      source: "<https://example.com>",
+    },
+  ])(
+    "resolves complete $source projections across supported inline formats",
+    async ({ expectedSelectors, expectedText, selector, source }) => {
+      const mounted = await mountEditor(source);
+
+      enterProjection(mounted, selector);
+
+      const sourceStart = getEditorTextPosition(mounted, source);
+      setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+
+      const fragment = parseClipboardHtml(getClipboardHtml(mounted));
+
+      for (const expectedSelector of expectedSelectors) {
+        expect(fragment.querySelector(expectedSelector)).toHaveTextContent(expectedText);
+      }
+    },
+  );
+
   it("resolves a clean complete projection without changing editor state", async () => {
     const mounted = await mountEditor("__Strong text__");
 
@@ -82,6 +131,19 @@ describe("source projection clipboard slices", () => {
 
     setTextSelection(mounted.view, sourceStart, sourceStart + 2);
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
+  it("produces the same semantic slice for backward selections", async () => {
+    const source = "**Backward**";
+    const mounted = await mountEditor(source);
+
+    enterProjection(mounted, "strong");
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart + source.length, sourceStart);
+
+    const html = getClipboardHtml(mounted);
+    expect(parseClipboardHtml(html).querySelector("strong")).toHaveTextContent("Backward");
   });
 
   it("uses edited valid source and preserves invalid source literally", async () => {
@@ -116,8 +178,8 @@ describe("source projection clipboard slices", () => {
     expect(invalidFragment.textContent).toBe(invalidSource);
   });
 
-  it("maps link labels but declines link destination-only selections", async () => {
-    const source = "[Label](https://example.com)";
+  it("maps link labels but declines link destination-only and title-only selections", async () => {
+    const source = '[Label](https://example.com "Example title")';
     const mounted = await mountEditor(source);
 
     enterProjection(mounted, "a");
@@ -136,6 +198,30 @@ describe("source projection clipboard slices", () => {
     setTextSelection(mounted.view, sourceStart + destinationFrom, sourceStart + destinationTo);
 
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+
+    const titleFrom = source.indexOf("Example title");
+    const titleTo = titleFrom + "Example title".length;
+    setTextSelection(mounted.view, sourceStart + titleFrom, sourceStart + titleTo);
+
+    expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
+  it("preserves invalid edited links literally", async () => {
+    const source = "[Label](https://example.com)";
+    const mounted = await mountEditor(source);
+
+    enterProjection(mounted, "a");
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart + source.length - 1, sourceStart + source.length);
+    typeText(mounted.view, "]");
+
+    const invalidSource = "[Label](https://example.com]";
+    setTextSelection(mounted.view, sourceStart, sourceStart + invalidSource.length);
+
+    const fragment = parseClipboardHtml(getClipboardHtml(mounted));
+    expect(fragment.querySelector("a")).not.toBeInTheDocument();
+    expect(fragment.textContent).toBe(invalidSource);
   });
 
   it("maps complete atomic references but declines partial labels", async () => {
@@ -155,6 +241,35 @@ describe("source projection clipboard slices", () => {
     expect(hasFootnoteReference).toBe(true);
 
     setTextSelection(mounted.view, sourceStart + 2, sourceStart + source.length - 1);
+    expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
+  it("maps complete marked references but declines partial atomic source", async () => {
+    const source = "**Text[^note]**";
+    const mounted = await mountEditor(`${source}\n\n[^note]: Detail`);
+
+    selectFootnoteReference(mounted);
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+
+    const completeSlice = getSourceProjectionClipboardSlice(mounted.view.state);
+    let hasStrongText = false;
+    let hasFootnoteReference = false;
+    completeSlice?.content.descendants((node) => {
+      hasStrongText ||= node.isText && node.marks.some((mark) => mark.type.name === "strong");
+      hasFootnoteReference ||= node.type.name === "footnote_reference";
+    });
+
+    expect(hasStrongText).toBe(true);
+    expect(hasFootnoteReference).toBe(true);
+
+    const referenceFrom = source.indexOf("[^note]");
+    setTextSelection(
+      mounted.view,
+      sourceStart + referenceFrom + 2,
+      sourceStart + referenceFrom + "[^note]".length - 1,
+    );
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
   });
 });

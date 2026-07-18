@@ -44,6 +44,19 @@ describe("editor clipboard commands", () => {
     expect(clipboard.writeText).toHaveBeenLastCalledWith(expect.stringContaining("**Bold**"));
   });
 
+  it("retains semantic HTML for broader selections outside source projection", async () => {
+    const source = "*Emphasis* and **Strong**";
+    const mounted = await mountEditor(source);
+
+    setTextSelection(mounted.view, 1, mounted.view.state.doc.content.size - 1);
+
+    await expect(copySelection(mounted.view, "default")).resolves.toBe(true);
+
+    const fragment = parseClipboardHtml(await getClipboardHtmlWritten());
+    expect(fragment.querySelector("em")).toHaveTextContent("Emphasis");
+    expect(fragment.querySelector("strong")).toHaveTextContent("Strong");
+  });
+
   it("cuts the current selection after copying it", async () => {
     const mounted = await mountEditor(HELLO_WORLD_TEXT);
 

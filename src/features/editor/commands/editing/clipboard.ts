@@ -7,6 +7,7 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
+  getSourceProjectionClipboardSlice,
   hasActiveSourceProjection,
   pasteIntoSourceProjection,
 } from "../../plugins/sourceProjection";
@@ -45,11 +46,22 @@ const getSelectedClipboardPayload = (
     };
   }
 
-  const serialized = view.serializeForClipboard(slice);
+  const serializedSelection = view.serializeForClipboard(slice);
+
+  if (format === "markdown") {
+    return {
+      text: serializedSelection.text,
+    };
+  }
+
+  const semanticSlice = getSourceProjectionClipboardSlice(view.state);
+  const serializedHtml = semanticSlice
+    ? view.serializeForClipboard(semanticSlice)
+    : serializedSelection;
 
   return {
-    html: format === "default" ? serialized.dom.innerHTML : undefined,
-    text: serialized.text,
+    html: serializedHtml.dom.innerHTML,
+    text: serializedSelection.text,
   };
 };
 

@@ -17,7 +17,15 @@ import { copySelection, cutSelection, paste } from "./clipboard";
 import { selectAll } from "./selection";
 
 const mountEditor = setupMilkdownEditorMount();
-const { clipboard, createClipboardItem, expectClipboardTextWritten } = setupClipboardMock();
+const { clipboard, createClipboardItem, expectClipboardTextWritten, getClipboardHtmlWritten } =
+  setupClipboardMock();
+
+const parseClipboardHtml = (html: string) => {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  return template.content;
+};
 
 describe("editor clipboard commands", () => {
   it("copies selections in plain text and Markdown formats", async () => {
@@ -43,6 +51,72 @@ describe("editor clipboard commands", () => {
 
     await expectClipboardTextWritten("Hello");
     expect(getEditorTextContent(mounted)).toBe(" world");
+  });
+
+  it("copies projected source as exact text and semantic HTML", async () => {
+    const mounted = await mountEditor("__Strong text__ plain");
+    const strong = getEditorDomElement(mounted, "strong");
+
+    setSelectionAtElementTextEnd(mounted.view, strong);
+
+    const source = "__Strong text__";
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+
+    const stateBefore = mounted.view.state;
+
+    await expect(copySelection(mounted.view, "default")).resolves.toBe(true);
+
+    await expectClipboardTextWritten(source);
+    const html = await getClipboardHtmlWritten();
+    const fragment = parseClipboardHtml(html);
+
+    expect(fragment.querySelector("strong")).toHaveTextContent("Strong text");
+    expect(fragment.querySelector("[data-pm-slice]")).not.toBeNull();
+    expect(mounted.view.state).toBe(stateBefore);
+    expect(mounted.getMarkdown()).toBe("__Strong text__ plain\n");
+  });
+
+  it("recreates projected formatting when its semantic HTML is pasted", async () => {
+    const source = "**Bold**";
+    const copied = await mountEditor(source);
+
+    setSelectionAtElementTextEnd(copied.view, getEditorDomElement(copied, "strong"));
+
+    const sourceStart = getEditorTextPosition(copied, source);
+    setTextSelection(copied.view, sourceStart, sourceStart + source.length);
+
+    await expect(copySelection(copied.view, "default")).resolves.toBe(true);
+
+    const html = await getClipboardHtmlWritten();
+    const pasted = await mountEditor("tail");
+
+    setTextSelection(pasted.view, 1);
+
+    clipboard.read.mockResolvedValue([createClipboardItem(TEXT_HTML_MIME_TYPE, html)]);
+    clipboard.readText.mockResolvedValue(source);
+
+    await expect(paste(pasted.editor, "default")).resolves.toBe(true);
+
+    setSelectionAtDocumentEnd(pasted.view);
+    expect(pasted.view.dom.querySelector("strong")).toHaveTextContent("Bold");
+    expect(pasted.getMarkdown()).toBe("**Bold**tail\n");
+  });
+
+  it("keeps projected Copy as formats literal", async () => {
+    const source = "**Bold**";
+    const mounted = await mountEditor(source);
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
+
+    await expect(copySelection(mounted.view, "plainText")).resolves.toBe(true);
+    expect(clipboard.writeText).toHaveBeenLastCalledWith(source);
+
+    await expect(copySelection(mounted.view, "markdown")).resolves.toBe(true);
+    expect(clipboard.writeText).toHaveBeenLastCalledWith(source);
   });
 
   it("pastes plain text literally and Markdown as editor content", async () => {

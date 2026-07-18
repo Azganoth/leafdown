@@ -158,6 +158,53 @@ export const finalizeSourceProjection = (view: EditorView) => {
 export const hasActiveSourceProjection = (state: EditorState) =>
   getSourceProjectionState(state).session !== null;
 
+export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | null => {
+  const { session } = getSourceProjectionState(state);
+  const { selection } = state;
+
+  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+    return null;
+  }
+
+  const source = getProjectionSource(state, session);
+  const parsed = session.adapter.parseSource(state, source, session.target);
+  const semantic =
+    source === session.target.originalSource
+      ? {
+          ...parsed,
+          replacement: session.target.originalContent,
+          replacementSize: session.target.originalContentSize,
+        }
+      : parsed;
+
+  if (
+    session.adapter.canCopySelectionSemantically &&
+    !session.adapter.canCopySelectionSemantically(selection, session, semantic)
+  ) {
+    return null;
+  }
+
+  const mappedSelection = session.adapter.mapSelectionFromSource(selection, session, semantic);
+
+  if (mappedSelection.anchor === mappedSelection.head) {
+    return null;
+  }
+
+  const transaction = replaceProjectionRange(
+    state.tr,
+    session.from,
+    session.to,
+    semantic.replacement,
+  );
+  const selectionInCanonicalDocument = TextSelection.create(
+    transaction.doc,
+    mappedSelection.anchor,
+    mappedSelection.head,
+  );
+
+  return selectionInCanonicalDocument.content();
+};
+
 export const hasTransientSourceProjection = (state: EditorState) => {
   const projectionState = getSourceProjectionState(state);
 

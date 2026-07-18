@@ -216,6 +216,13 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
   serializer,
 }: FootnoteReferenceAdapterDependencies): SourceProjectionAdapter => ({
   id: FOOTNOTE_REFERENCE_ADAPTER_ID,
+  canCopySelectionSemantically: (selection, session, parsed) => {
+    if (!parseFootnoteReferenceSource(parser, parsed.source)) {
+      return true;
+    }
+
+    return selection.from === session.from && selection.to === session.to;
+  },
   createEnterTransaction: (state, target) =>
     state.tr.replace(
       target.from,

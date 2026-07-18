@@ -123,6 +123,14 @@ reference syntax through the installed Milkdown parser and Remark pipeline,
 maps atomic references within the projected source, and rehydrates rich marked
 fragments without changing footnote definitions.
 
+Projection-aware clipboard resolution is read-only and adapter-driven. Plain
+clipboard text comes from the exact transient source selection, while rich HTML
+is serialized by ProseMirror from the corresponding canonical `Slice`. Clean
+sessions reuse their immutable original content; edited sessions parse their
+current source. Adapters reject syntax-only or lossy atomic mappings so those
+selections fall back to literal HTML without finalizing or dispatching editor
+state.
+
 The higher-precedence logical-link adapter owns links and autolinks as complete
 wrappers, including rich labels whose child text nodes carry different nested
 marks and labels containing semantic soft line endings. Milkdown transforms

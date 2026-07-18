@@ -257,6 +257,17 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - `Cut`, `Copy`, and `Copy as` commands use editor clipboard behavior and operate
   on the current selection. Standard keyboard Cut and Copy remain native
   clipboard gestures rather than window-level command dispatches.
+- Default `Cut` and `Copy` commands from a selection contained within active
+  source projection place the exact selected projected characters in
+  `text/plain` and semantically equivalent editor content in `text/html`.
+  Selections that have no faithful semantic equivalent, including
+  delimiter-only, destination-only, title-only, and partial atomic-reference
+  selections, remain literal in both representations. Invalid projected source
+  also remains literal.
+- `Copy as Plain text` and `Copy as Markdown` preserve the exact selected
+  projected characters. Copying does not finalize or modify projection; Cut
+  writes the same clipboard representations before applying its deletion as a
+  projection-local edit.
 - `Paste` and `Paste as` commands use editor clipboard behavior and insert at the
   caret or replace the current selection. Standard keyboard Paste and Paste as
   plain text remain native clipboard gestures so Milkdown can parse the supplied

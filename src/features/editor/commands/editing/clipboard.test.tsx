@@ -68,6 +68,59 @@ describe("editor clipboard commands", () => {
     expect(getEditorTextContent(mounted)).toBe(" world");
   });
 
+  it("does not delete when the clipboard write fails", async () => {
+    const mounted = await mountEditor(HELLO_WORLD_TEXT);
+    const error = new Error("Clipboard write failed");
+
+    setTextSelection(mounted.view, 1, 6);
+    clipboard.write.mockRejectedValueOnce(error);
+
+    await expect(cutSelection(mounted.view)).rejects.toBe(error);
+    expect(getEditorTextContent(mounted)).toBe(HELLO_WORLD_TEXT);
+  });
+
+  it("does not delete a stale selection after an asynchronous clipboard write", async () => {
+    const mounted = await mountEditor(HELLO_WORLD_TEXT);
+    let resolveClipboardWrite: (() => void) | undefined;
+
+    clipboard.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClipboardWrite = resolve;
+        }),
+    );
+    setTextSelection(mounted.view, 1, 6);
+
+    const cutResult = cutSelection(mounted.view);
+
+    setTextSelection(mounted.view, 7, 12);
+    resolveClipboardWrite?.();
+
+    await expect(cutResult).resolves.toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(HELLO_WORLD_TEXT);
+  });
+
+  it("does not delete after the document changes during an asynchronous clipboard write", async () => {
+    const mounted = await mountEditor(HELLO_WORLD_TEXT);
+    let resolveClipboardWrite: (() => void) | undefined;
+
+    clipboard.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveClipboardWrite = resolve;
+        }),
+    );
+    setTextSelection(mounted.view, 1, 6);
+
+    const cutResult = cutSelection(mounted.view);
+
+    mounted.view.dispatch(mounted.view.state.tr.insertText("!", 12));
+    resolveClipboardWrite?.();
+
+    await expect(cutResult).resolves.toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(`${HELLO_WORLD_TEXT}!`);
+  });
+
   it("cuts projected content through projection-local history", async () => {
     const onContentChanged = vi.fn();
     const mounted = await mountEditor("**Bold** plain", { onContentChanged });

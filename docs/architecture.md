@@ -120,8 +120,11 @@ Copy/Cut shortcut metadata remains available for menu labels, but those native
 gestures are excluded from the application keydown dispatcher. Focused controls
 outside Milkdown retain their native browser/WebView behavior. Leafdown supplies
 HTML fragments, including ProseMirror slice metadata; the browser/WebView owns
-the platform clipboard envelope such as CF_HTML. Paste parsing and CF_HTML
-fragment extraction remain a separate input-side concern.
+the platform clipboard envelope such as CF_HTML. At the shared Milkdown HTML
+paste ingress, Leafdown extracts exactly one ordered CF_HTML fragment only when
+that fragment carries ProseMirror slice metadata. Extraction preserves the
+fragment bytes and composes with Milkdown's existing HTML transforms; other
+external HTML remains unchanged.
 
 ### Source Projection
 

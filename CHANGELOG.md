@@ -23,6 +23,8 @@ sections and version names that match the application package version.
 
 ### Fixed
 
+- Prevent Windows CF_HTML transport whitespace from becoming editor content
+  around ProseMirror clipboard fragments.
 - Preserve Markdown, rich-text, plain-text, and source-projection semantics when
   pasting through native keyboard clipboard events.
 - Standardize default Copy and Cut payloads and deletion behavior across native

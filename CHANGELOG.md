@@ -25,8 +25,8 @@ sections and version names that match the application package version.
 
 - Preserve Markdown, rich-text, plain-text, and source-projection semantics when
   pasting through native keyboard clipboard events.
-- Copy active source projections with exact Markdown source as plain text and
-  semantic rich HTML, and keep projected cuts in projection-local history.
+- Copy and Cut commands preserve exact projected Markdown as plain text and
+  semantic rich HTML; projected command cuts stay in projection-local history.
 - Project uniformly marked text and contained footnote references as one editable
   Markdown source range while preserving canonical references, selection, and
   history.

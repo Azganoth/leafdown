@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import { dispatchClipboardEvent, dispatchKeyDown } from "@/test/utils/events";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import {
+  getEditorDomElement,
+  getEditorTextContent,
+  getEditorTextPosition,
+  setSelectionAtElementTextEnd,
+  setTextSelection,
+} from "@/test/utils/prosemirror";
+
+const mountEditor = setupMilkdownEditorMount();
+
+describe("native editor clipboard events", () => {
+  it("parses Markdown from a native plain-text paste", async () => {
+    const mounted = await mountEditor("");
+
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_PLAIN_MIME_TYPE]: "**Bold**",
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("**Bold**");
+    expect(mounted.getMarkdown()).toBe("**Bold**\n");
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Bold");
+  });
+
+  it("preserves semantic HTML from a native rich-text paste", async () => {
+    const mounted = await mountEditor("");
+
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: "<p><strong>Rich</strong> text</p>",
+      [TEXT_PLAIN_MIME_TYPE]: "Rich text",
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Rich");
+    expect(mounted.getMarkdown()).toBe("**Rich** text\n");
+  });
+
+  it("uses the native paste-as-plain-text gesture without parsing rich content", async () => {
+    const mounted = await mountEditor("");
+
+    const shortcut = dispatchKeyDown(mounted.view.dom, "v", {
+      ctrl: true,
+      keyCode: 86,
+      shift: true,
+    });
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: "<p><strong>Bold</strong></p>",
+      [TEXT_PLAIN_MIME_TYPE]: "**Bold**",
+    });
+
+    expect(shortcut.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
+    expect(getEditorTextContent(mounted)).toBe("**Bold**");
+  });
+
+  it("pastes literal plain text inside an active source projection", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+    setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: "<p><em>Paste</em></p>",
+      [TEXT_PLAIN_MIME_TYPE]: "*Paste*",
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("***Paste*** plain");
+  });
+});

@@ -117,6 +117,40 @@ export const dispatchKeyDown = (
   return event;
 };
 
+export const dispatchClipboardEvent = (
+  target: EventTarget,
+  type: "copy" | "cut" | "paste",
+  initialData: Readonly<Record<string, string>> = {},
+) => {
+  const data = new Map(Object.entries(initialData));
+  const clipboardData = {
+    clearData: (format?: string) => {
+      if (format) {
+        data.delete(format);
+      } else {
+        data.clear();
+      }
+    },
+    getData: (format: string) => data.get(format) ?? "",
+    setData: (format: string, value: string) => {
+      data.set(format, value);
+      return true;
+    },
+    get types() {
+      return [...data.keys()];
+    },
+  } as unknown as DataTransfer;
+  const event = new Event(type, {
+    bubbles: true,
+    cancelable: true,
+  }) as ClipboardEvent;
+
+  Object.defineProperty(event, "clipboardData", { value: clipboardData });
+  target.dispatchEvent(event);
+
+  return { clipboardData, event };
+};
+
 export const dispatchMouseDown = (element: Element, init: TestMouseEventOptions = {}) =>
   dispatchMouseEvent(element, "mousedown", init);
 

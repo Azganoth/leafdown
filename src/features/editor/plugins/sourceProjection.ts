@@ -97,6 +97,7 @@ export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProj
       handleDOMEvents: {
         mouseout: (view, event) => handleProjectionLinkLabelMouseOut(view, event),
         mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
+        paste: (view, event) => handleProjectionPaste(view, event as ClipboardEvent),
       },
       handleKeyDown: (view, event) => handleProjectionKeyDown(view, event),
       handlePaste: (view, event, slice) => handleProjectionPaste(view, event, slice),
@@ -591,7 +592,7 @@ const handleProjectionSourceTextInput = (
   return true;
 };
 
-const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: Slice) => {
+const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: Slice) => {
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
@@ -600,8 +601,8 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice: S
   }
 
   const text =
-    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ??
-    getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER);
+    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ||
+    (slice ? getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER) : "");
 
   if (!text) {
     return false;

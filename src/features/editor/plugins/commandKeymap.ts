@@ -7,9 +7,16 @@ type RunLeafdownCommand = (commandId: EditorCommandId) => boolean;
 const LEAFDOWN_COMMAND_PRIORITY = 100;
 
 const LEAFDOWN_KEYBOARD_COMMANDS = {
+  End: "edit.jumpToLineEnd",
+  Home: "edit.jumpToLineStart",
   "Mod-y": "edit.redo",
   "Mod-z": "edit.undo",
   "Shift-Mod-z": "edit.redo",
+  "Mod-End": "edit.jumpToBottom",
+  "Mod-Home": "edit.jumpToTop",
+  "Mod-Enter": "format.toggleTaskChecked",
+  "Mod-k": "insert.link",
+  "Mod-\\": "format.clearInline",
   "Mod-Alt-0": "format.paragraph",
   "Mod-Alt-1": "format.heading1",
   "Mod-Alt-2": "format.heading2",
@@ -19,6 +26,7 @@ const LEAFDOWN_KEYBOARD_COMMANDS = {
   "Mod-Alt-6": "format.heading6",
   "Mod-Alt-7": "format.orderedList",
   "Mod-Alt-8": "format.unorderedList",
+  "Mod-Alt-9": "format.taskList",
   "Mod-Alt-c": "format.codeBlock",
   "Mod-Alt-x": "format.strikethrough",
   "Mod-Shift-b": "format.blockquote",

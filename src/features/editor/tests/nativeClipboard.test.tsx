@@ -40,6 +40,18 @@ describe("native editor clipboard events", () => {
     expect(mounted.getMarkdown()).toBe("**Rich** text\n");
   });
 
+  it("preserves semantic HTML-only content outside source projection", async () => {
+    const mounted = await mountEditor("");
+
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: "<p><strong>Rich</strong> text</p>",
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Rich");
+    expect(mounted.getMarkdown()).toBe("**Rich** text\n");
+  });
+
   it("uses the native paste-as-plain-text gesture without parsing rich content", async () => {
     const mounted = await mountEditor("");
 
@@ -75,5 +87,22 @@ describe("native editor clipboard events", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(getEditorTextContent(mounted)).toBe("***Paste*** plain");
+  });
+
+  it("consumes HTML-only content inside an active source projection", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+    setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: "<p><em>Paste</em></p>",
+    });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("**Bold** plain");
   });
 });

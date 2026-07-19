@@ -604,12 +604,15 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
     event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ||
     (slice ? getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER) : "");
 
-  if (!text) {
+  if (!text && !event.clipboardData && !slice) {
     return false;
   }
 
   event.preventDefault();
-  dispatchProjectionEdit(view, selection.from, selection.to, text);
+
+  if (text) {
+    dispatchProjectionEdit(view, selection.from, selection.to, text);
+  }
 
   return true;
 };

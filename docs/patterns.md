@@ -173,10 +173,19 @@ Why:
 Menus, shortcuts, context popups, and future command surfaces should agree on
 labels, shortcuts, enabled state, and behavior.
 
-Semantic editor shortcuts should route their canonical Leafdown command IDs and
-consume recognized owned bindings even when the command is unavailable. Disable
-only the corresponding Milkdown semantic binding; keep Milkdown's structural
-editing keymaps and native providers in place.
+Command metadata is descriptive across surfaces, but shortcut execution remains
+owned by the relevant layer:
+
+- The window-level application hook derives its executable shortcuts from
+  `APPLICATION_COMMAND_IDS`; it must not dispatch every command that happens to
+  have shortcut metadata.
+- Semantic editor shortcuts route canonical Leafdown editor command IDs from the
+  editor keymap and consume recognized owned bindings even when the command is
+  unavailable. Disable only the corresponding Milkdown semantic binding.
+- Structural editor keys and native clipboard gestures remain with Milkdown,
+  ProseMirror, or the browser. Focused text inputs and embedded editor inputs must
+  not be captured by editor bindings or rerouted as editor commands by the
+  application hook.
 
 Example:
 

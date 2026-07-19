@@ -86,6 +86,14 @@ React wrapper. Crepe and packages that introduce Crepe transitively are excluded
 from the MVP editor foundation. Milkdown plugins and components are adopted when
 aligned with Leafdown's user experience.
 
+Shortcut execution follows the layer that owns the interaction. The window-level
+application listener routes only application command IDs and reserved webview
+suppression. Leafdown's editor keymap routes semantic editor commands and
+projection-aware history while the editor has focus. Milkdown, ProseMirror, and
+the browser retain structural editing and native clipboard event ownership. The
+shared command metadata describes labels and displayed shortcuts across these
+surfaces; it is not itself a global executable shortcut registry.
+
 Syntax highlighting uses bundled Shiki assets through Milkdown highlighting
 plugins. Raw Markdown HTML is preserved as text-like editor content instead of
 being rendered as browser DOM.

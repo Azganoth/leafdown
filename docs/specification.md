@@ -241,6 +241,11 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   Leafdown owns shortcuts for semantic commands exposed through application
   command surfaces and projection-aware history so their availability and
   behavior match menus and context popups.
+- The window-level shortcut listener executes only application commands. Editor
+  shortcuts execute through the focused editor keymap, while standard clipboard
+  gestures and other native text-input keys remain with the browser and
+  ProseMirror. This boundary also applies to focused raw Markdown inputs embedded
+  in the editor.
 - The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
 
 ### Editing Commands
@@ -249,10 +254,14 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   projection-aware commands. Their keyboard shortcuts use projection-local
   history while projected source is dirty, or finalize clean projection before
   native history runs.
-- `Cut`, `Copy`, and `Copy as` use editor clipboard behavior and operate on the
-  current selection.
-- `Paste` and `Paste as` use editor clipboard behavior and insert at the caret or
-  replace the current selection.
+- `Cut`, `Copy`, and `Copy as` commands use editor clipboard behavior and operate
+  on the current selection. Standard keyboard Cut and Copy remain native
+  clipboard gestures rather than window-level command dispatches.
+- `Paste` and `Paste as` commands use editor clipboard behavior and insert at the
+  caret or replace the current selection. Standard keyboard Paste and Paste as
+  plain text remain native clipboard gestures so Milkdown can parse the supplied
+  plain-text or HTML payload. An active source projection intercepts native Paste
+  first and inserts its plain-text payload literally.
 - `Delete` removes the current selection when one exists; otherwise it uses the
   normal editor delete behavior.
 - `Delete word backward` deletes the word behind the caret.

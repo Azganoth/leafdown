@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { createKeyboardEventLike } from "@/test/utils/events";
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 
+import { APPLICATION_COMMAND_IDS } from "./application";
 import { type AppCommandId } from "./dispatch";
 import {
+  APPLICATION_SHORTCUT_COMMAND_IDS,
   COMMAND_DEFINITIONS,
   formatShortcut,
   getShortcutSignature,
@@ -12,6 +14,18 @@ import {
 } from "./metadata";
 
 describe("command metadata", () => {
+  it("limits window-level shortcut routing to application commands", () => {
+    expect(APPLICATION_SHORTCUT_COMMAND_IDS).toContain("file.save");
+    expect(APPLICATION_SHORTCUT_COMMAND_IDS).toContain("view.toggleSidebar");
+    expect(
+      APPLICATION_SHORTCUT_COMMAND_IDS.every((commandId) =>
+        APPLICATION_COMMAND_IDS.includes(commandId),
+      ),
+    ).toBe(true);
+    expect(APPLICATION_SHORTCUT_COMMAND_IDS).not.toContain("edit.copy");
+    expect(APPLICATION_SHORTCUT_COMMAND_IDS).not.toContain("format.strong");
+  });
+
   it("registers alternate shortcuts for a command", () => {
     expect(COMMAND_DEFINITIONS["edit.redo"].shortcuts).toEqual([
       { key: "y", mod: true },

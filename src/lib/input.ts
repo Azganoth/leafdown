@@ -23,4 +23,4 @@ export const isRedoKey = (event: KeyboardEvent) => {
   return isPrimaryModifierEvent(event) && (key === "y" || (key === "z" && event.shiftKey));
 };
 
-export const normalizeKeyboardKey = (key: string) => (key.length === 1 ? key.toLowerCase() : key);
+export const normalizeKeyboardKey = (key: string) => key.toLowerCase();

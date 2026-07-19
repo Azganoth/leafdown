@@ -10,7 +10,11 @@ import { isPrimaryModifierEvent, normalizeKeyboardKey } from "@/lib/input";
 import { openRecentFolderContext, openRecentMarkdownFile } from "../actions/file";
 import type { AppCommandContext } from "../context";
 import { dispatchAppCommand, type AppCommandId } from "../dispatch";
-import { COMMAND_DEFINITIONS, SHORTCUT_COMMAND_IDS, matchesShortcut } from "../metadata";
+import {
+  APPLICATION_SHORTCUT_COMMAND_IDS,
+  COMMAND_DEFINITIONS,
+  matchesShortcut,
+} from "../metadata";
 import { getCommandState } from "../state";
 import { useCommandUIStore } from "../stores/commandUi";
 
@@ -134,7 +138,7 @@ export const useAppCommands = () => {
         return;
       }
 
-      const shortcutCommandId = SHORTCUT_COMMAND_IDS.find((commandId) =>
+      const shortcutCommandId = APPLICATION_SHORTCUT_COMMAND_IDS.find((commandId) =>
         COMMAND_DEFINITIONS[commandId].shortcuts?.some((shortcut) =>
           matchesShortcut(event, shortcut),
         ),

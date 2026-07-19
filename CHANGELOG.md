@@ -15,12 +15,16 @@ sections and version names that match the application package version.
 ### Changed
 
 - Sort article directories before articles in the article navigator.
+- Separate global application shortcuts, focused editor command shortcuts, and
+  native text-input and clipboard gestures by ownership.
 - Extend seamless in-document Markdown source projection to strikethrough,
   inline code, links, autolinks, and footnote references.
 - Present active mixed-format link labels as one coordinated source range.
 
 ### Fixed
 
+- Preserve Markdown, rich-text, plain-text, and source-projection semantics when
+  pasting through native keyboard clipboard events.
 - Project uniformly marked text and contained footnote references as one editable
   Markdown source range while preserving canonical references, selection, and
   history.

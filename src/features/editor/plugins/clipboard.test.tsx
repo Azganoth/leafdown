@@ -31,7 +31,7 @@ describe("native editor clipboard events", () => {
 
     setTextSelection(mounted.view, 1, mounted.view.state.doc.content.size - 1);
 
-    const event = dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
     const fragment = parseClipboardHtml(clipboardData);
 
     expect(event.defaultPrevented).toBe(true);
@@ -59,7 +59,7 @@ describe("native editor clipboard events", () => {
       );
 
       const stateBefore = mounted.view.state;
-      const event = dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
+      const { event } = dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
       const fragment = parseClipboardHtml(clipboardData);
 
       expect(event.defaultPrevented).toBe(true);
@@ -95,7 +95,7 @@ describe("native editor clipboard events", () => {
 
     setTextSelection(mounted.view, 1, 6);
 
-    const event = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
 
     expect(event.defaultPrevented).toBe(true);
     expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe("Hello");
@@ -118,7 +118,7 @@ describe("native editor clipboard events", () => {
     const sourceStart = getEditorTextPosition(mounted, "**Bold**");
     setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
 
-    const event = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
 
     expect(event.defaultPrevented).toBe(true);
     expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe("Bold");
@@ -144,7 +144,7 @@ describe("native editor clipboard events", () => {
     });
     setTextSelection(mounted.view, 1, 6);
 
-    const event = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
+    const { event } = dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
 
     expect(event.defaultPrevented).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(HELLO_WORLD_TEXT);

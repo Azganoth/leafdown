@@ -16,8 +16,10 @@ export type TestKeyboardEventOptions = Omit<KeyboardEventInit, ModifierKeys | "k
 
 export type TestMouseEventOptions = Omit<MouseEventInit, ModifierKeys> & ModifierEventInit;
 
-export const createClipboardData = (): DataTransfer => {
-  const data = new Map<string, string>();
+export const createClipboardData = (
+  initialData: Readonly<Record<string, string>> = {},
+): DataTransfer => {
+  const data = new Map(Object.entries(initialData));
 
   return {
     clearData: (format?: string) => {
@@ -36,6 +38,10 @@ export const createClipboardData = (): DataTransfer => {
     },
   } as unknown as DataTransfer;
 };
+
+const isClipboardDataTransfer = (
+  value: DataTransfer | Readonly<Record<string, string>>,
+): value is DataTransfer => typeof (value as DataTransfer).getData === "function";
 
 const normalizeModifierOptions = <T extends ModifierEventInit>(options: T) => {
   const { alt, ctrl, meta, shift, ...eventOptions } = options;
@@ -81,22 +87,6 @@ export const dispatchDOMEvent = (target: EventTarget, type: string, init: EventI
     ...init,
   });
 
-  target.dispatchEvent(event);
-
-  return event;
-};
-
-export const dispatchClipboardEvent = (
-  target: EventTarget,
-  type: "copy" | "cut",
-  clipboardData: DataTransfer = createClipboardData(),
-) => {
-  const event = new Event(type, {
-    bubbles: true,
-    cancelable: true,
-  }) as ClipboardEvent;
-
-  Object.defineProperty(event, "clipboardData", { value: clipboardData });
   target.dispatchEvent(event);
 
   return event;
@@ -157,26 +147,9 @@ export const dispatchKeyDown = (
 export const dispatchClipboardEvent = (
   target: EventTarget,
   type: "copy" | "cut" | "paste",
-  initialData: Readonly<Record<string, string>> = {},
+  data: DataTransfer | Readonly<Record<string, string>> = {},
 ) => {
-  const data = new Map(Object.entries(initialData));
-  const clipboardData = {
-    clearData: (format?: string) => {
-      if (format) {
-        data.delete(format);
-      } else {
-        data.clear();
-      }
-    },
-    getData: (format: string) => data.get(format) ?? "",
-    setData: (format: string, value: string) => {
-      data.set(format, value);
-      return true;
-    },
-    get types() {
-      return [...data.keys()];
-    },
-  } as unknown as DataTransfer;
+  const clipboardData = isClipboardDataTransfer(data) ? data : createClipboardData(data);
   const event = new Event(type, {
     bubbles: true,
     cancelable: true,

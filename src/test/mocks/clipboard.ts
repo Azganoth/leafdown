@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, vi } from "vitest";
 
-import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 const createClipboardItem = (type: string, value: string): ClipboardItem =>
   ({
@@ -39,6 +39,23 @@ export const setupClipboardMock = () => {
   return {
     clipboard,
     createClipboardItem,
+    getClipboardHtmlWritten: async () => {
+      const richWriteCall = clipboard.write.mock.calls.at(-1);
+
+      if (!richWriteCall) {
+        throw new Error("Expected clipboard.write to be called.");
+      }
+
+      const [[item]] = richWriteCall;
+
+      if (!item) {
+        throw new Error("Expected clipboard.write to receive a clipboard item.");
+      }
+
+      expect(item.types).toContain(TEXT_HTML_MIME_TYPE);
+
+      return item.getType(TEXT_HTML_MIME_TYPE).then((blob) => blob.text());
+    },
     expectClipboardTextWritten: async (text: string) => {
       const textWriteCall = clipboard.writeText.mock.calls.at(-1);
 

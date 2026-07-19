@@ -7,6 +7,8 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
+  deleteSourceProjectionSelection,
+  getSourceProjectionClipboardSlice,
   hasActiveSourceProjection,
   pasteIntoSourceProjection,
 } from "../../plugins/sourceProjection";
@@ -45,11 +47,22 @@ const getSelectedClipboardPayload = (
     };
   }
 
-  const serialized = view.serializeForClipboard(slice);
+  const serializedSelection = view.serializeForClipboard(slice);
+
+  if (format === "markdown") {
+    return {
+      text: serializedSelection.text,
+    };
+  }
+
+  const semanticSlice = getSourceProjectionClipboardSlice(view.state);
+  const serializedHtml = semanticSlice
+    ? view.serializeForClipboard(semanticSlice)
+    : serializedSelection;
 
   return {
-    html: format === "default" ? serialized.dom.innerHTML : undefined,
-    text: serialized.text,
+    html: serializedHtml.dom.innerHTML,
+    text: serializedSelection.text,
   };
 };
 
@@ -156,8 +169,25 @@ export const copySelection = (view: EditorView, format: ClipboardCopyFormat) => 
 };
 
 export const cutSelection = async (view: EditorView) => {
-  if (!(await copySelection(view, "default"))) {
+  const copiedState = view.state;
+  const copiedProjectionWasActive = hasActiveSourceProjection(copiedState);
+  const payload = getSelectedClipboardPayload(view, "default");
+
+  if (!payload || !(await writeClipboardPayload(payload))) {
     return false;
+  }
+
+  const currentState = view.state;
+  if (
+    !currentState.doc.eq(copiedState.doc) ||
+    !currentState.selection.eq(copiedState.selection) ||
+    hasActiveSourceProjection(currentState) !== copiedProjectionWasActive
+  ) {
+    return false;
+  }
+
+  if (copiedProjectionWasActive) {
+    return deleteSourceProjectionSelection(view);
   }
 
   return runProseMirrorCommand(view, deleteSelection);

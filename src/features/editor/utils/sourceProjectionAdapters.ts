@@ -91,6 +91,11 @@ export interface SourceProjectionInsertionCandidate extends TextRange {
 export interface SourceProjectionAdapter {
   id: string;
   applyEdit?: (source: string, edit: SourceProjectionEdit) => SourceProjectionEditResult;
+  canCopySelectionSemantically?: (
+    selection: Selection,
+    session: SourceProjectionSessionRange,
+    parsed: SourceProjectionParseResult,
+  ) => boolean;
   createEnterTransaction: (state: EditorState, target: SourceProjectionTarget) => Transaction;
   findInsertionCandidate?: (
     state: EditorState,
@@ -800,6 +805,36 @@ export const createMarkSourceProjectionAdapter = (
   return {
     id: "mark",
     applyEdit: applyMarkSourceProjectionEdit,
+    canCopySelectionSemantically: (selection, session, parsed) => {
+      const markTarget = getMarkSourceProjectionTarget(session.target);
+
+      if (!markTarget.hasFootnoteReferences || !parser || !remark) {
+        return true;
+      }
+
+      const structure = createMarkedFragmentSourceStructure(parsed.source, parser, remark);
+
+      if (!structure) {
+        return true;
+      }
+
+      const selectionFrom = selection.from - session.from;
+      const selectionTo = selection.to - session.from;
+
+      return structure.map.segments.every((segment) => {
+        if (segment.type !== "footnoteReference") {
+          return true;
+        }
+
+        const overlapsSelection =
+          selectionFrom < segment.sourceTo && segment.sourceFrom < selectionTo;
+
+        return (
+          !overlapsSelection ||
+          (selectionFrom <= segment.sourceFrom && segment.sourceTo <= selectionTo)
+        );
+      });
+    },
     createEnterTransaction: (state, target) => {
       const markTarget = getMarkSourceProjectionTarget(target);
 

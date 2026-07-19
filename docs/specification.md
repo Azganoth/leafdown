@@ -284,7 +284,11 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   caret or replace the current selection. Standard keyboard Paste and Paste as
   plain text remain native clipboard gestures so Milkdown can parse the supplied
   plain-text or HTML payload. An active source projection intercepts native Paste
-  first and inserts its plain-text payload literally.
+  first and inserts its plain-text payload literally. At their shared HTML
+  ingress, native and command Paste remove only CF_HTML transport context around
+  one valid fragment carrying ProseMirror slice metadata. The fragment itself,
+  including selected whitespace and open-slice context, remains exact; HTML that
+  does not qualify remains unchanged.
 - `Delete` removes the current selection when one exists; otherwise it uses the
   normal editor delete behavior.
 - `Delete word backward` deletes the word behind the caret.

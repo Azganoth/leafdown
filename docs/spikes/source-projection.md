@@ -292,7 +292,10 @@ Required behavior:
   selection when one exists. The same read-only resolver serves native editor
   clipboard events and application command surfaces; keyboard Copy and Cut stay
   native rather than routing through global keydown commands. Paste inside
-  projection continues to use the plain clipboard text literally.
+  projection continues to use the plain clipboard text literally. Outside
+  projection, native and command Paste share an HTML ingress that removes only
+  qualifying CF_HTML transport context around an exact ProseMirror clipboard
+  slice.
 - Selection crossing into or out of a projected range exits or normalizes
   projection predictably.
 

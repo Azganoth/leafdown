@@ -92,7 +92,7 @@ Shortcut execution follows the layer that owns the interaction. The window-level
 application listener routes only application command IDs and reserved webview
 suppression. Leafdown's editor keymap routes semantic editor commands and
 projection-aware history while the editor has focus. Milkdown, ProseMirror, and
-the browser retain structural editing and native clipboard event ownership. The
+the browser retain structural editing and native clipboard gesture ownership. The
 shared command metadata describes labels and displayed shortcuts across these
 surfaces; it is not itself a global executable shortcut registry.
 

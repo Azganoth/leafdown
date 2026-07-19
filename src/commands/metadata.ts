@@ -7,6 +7,7 @@ import {
 } from "@/lib/input";
 import { isTruthy } from "@/lib/predicates";
 
+import { APPLICATION_COMMAND_IDS } from "./application";
 import type { AppCommandId } from "./dispatch";
 
 export type CommandMenuId = "file" | "edit" | "insert" | "format" | "view" | "help";
@@ -188,7 +189,7 @@ export const COMMAND_MENU_LABELS = {
   help: "Help",
 } satisfies Record<CommandMenuId, string>;
 
-export const SHORTCUT_COMMAND_IDS = (Object.keys(COMMAND_DEFINITIONS) as AppCommandId[]).filter(
+export const APPLICATION_SHORTCUT_COMMAND_IDS = APPLICATION_COMMAND_IDS.filter(
   (commandId) => COMMAND_DEFINITIONS[commandId].shortcuts?.length,
 );
 

@@ -3,10 +3,14 @@ import { describe, expect, it } from "vitest";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
+  getEditorDomElement,
   getEditorTextContent,
   getEditorTextPosition,
+  getSelectedEditorText,
   setSelectionAtDocumentEnd,
+  setSelectionAtElementTextEnd,
   setTextSelection,
+  typeText,
 } from "@/test/utils/prosemirror";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -113,5 +117,123 @@ describe("Leafdown editor command keymap", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(mounted.getMarkdown()).toBe("* [x] Task\n");
+  });
+
+  it.each([
+    {
+      expectedMarkdown: "*Single* ***asterisk*** *emphasis*\n",
+      key: "b",
+      modifiers: { ctrl: true },
+    },
+    {
+      expectedMarkdown: "*Single* asterisk *emphasis*\n",
+      key: "i",
+      modifiers: { ctrl: true },
+    },
+    {
+      expectedMarkdown: "*Single* *~~asterisk~~* *emphasis*\n",
+      key: "x",
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      expectedMarkdown: "*Single* `asterisk` *emphasis*\n",
+      key: "e",
+      modifiers: { ctrl: true },
+    },
+  ])(
+    "routes $key through its inline-formatting command",
+    async ({ expectedMarkdown, key, modifiers }) => {
+      const mounted = await mountEditor("*Single asterisk emphasis*");
+      const selectionFrom = getEditorTextPosition(mounted, "asterisk");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "asterisk".length);
+
+      const event = dispatchEditorShortcut(mounted.view.dom, key, modifiers);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("asterisk");
+      expect(mounted.getMarkdown()).toBe(expectedMarkdown);
+    },
+  );
+
+  it.each([
+    {
+      expectedMarkdown: "Heading\n",
+      initialMarkdown: "### Heading",
+      key: "0",
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      expectedMarkdown: "Heading\n",
+      initialMarkdown: "## Heading",
+      key: "2",
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      expectedMarkdown: "1. Item\n",
+      initialMarkdown: "- Item",
+      key: "7",
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      expectedMarkdown: "* Item\n",
+      initialMarkdown: "Item",
+      key: "8",
+      modifiers: { alt: true, ctrl: true },
+    },
+    {
+      expectedMarkdown: "Quote\n",
+      initialMarkdown: "> Quote",
+      key: "b",
+      modifiers: { ctrl: true, shift: true },
+    },
+    {
+      expectedMarkdown: "const value = 1;\n",
+      initialMarkdown: "```\nconst value = 1;\n```",
+      key: "c",
+      modifiers: { alt: true, ctrl: true },
+    },
+  ])(
+    "routes $key through its block-formatting command",
+    async ({ expectedMarkdown, initialMarkdown, key, modifiers }) => {
+      const mounted = await mountEditor(initialMarkdown);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const event = dispatchEditorShortcut(mounted.view.dom, key, modifiers);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(mounted.getMarkdown()).toBe(expectedMarkdown);
+    },
+  );
+
+  it.each([
+    ["y", { ctrl: true }],
+    ["z", { ctrl: true, shift: true }],
+  ] satisfies Array<[string, TestKeyboardEventOptions]>)(
+    "keeps projection-local history in the editor for redo through $key",
+    async (key, modifiers) => {
+      const mounted = await mountEditor("**Bold** plain");
+
+      setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+      typeText(mounted.view, "er");
+      dispatchEditorShortcut(mounted.view.dom, "z", { ctrl: true });
+
+      expect(getEditorTextContent(mounted)).toBe("**Bolde** plain");
+
+      const event = dispatchEditorShortcut(mounted.view.dom, key, modifiers);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("**Bolder** plain");
+    },
+  );
+
+  it("consumes an editor-owned history shortcut when no history is available", async () => {
+    const mounted = await mountEditor("Hello");
+
+    const event = dispatchEditorShortcut(mounted.view.dom, "z", { ctrl: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(mounted.getMarkdown()).toBe("Hello\n");
   });
 });

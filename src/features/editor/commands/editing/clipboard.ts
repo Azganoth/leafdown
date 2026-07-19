@@ -1,5 +1,4 @@
 import type { Editor } from "@milkdown/kit/core";
-import { deleteSelection } from "@milkdown/kit/prose/commands";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { markdownToSlice } from "@milkdown/kit/utils";
@@ -7,17 +6,18 @@ import { markdownToSlice } from "@milkdown/kit/utils";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
-  deleteSourceProjectionSelection,
-  getSourceProjectionClipboardSlice,
   hasActiveSourceProjection,
   pasteIntoSourceProjection,
 } from "../../plugins/sourceProjection";
-import { getEditorView, runProseMirrorCommand } from "../../utils/milkdown";
+import {
+  deleteClipboardSelection,
+  getDefaultClipboardPayload,
+  type EditorClipboardPayload,
+} from "../../utils/clipboard";
+import { getEditorView } from "../../utils/milkdown";
 
-interface ClipboardPayload {
-  html?: string;
-  text: string;
-}
+type ClipboardPayload = Omit<EditorClipboardPayload, "html"> &
+  Partial<Pick<EditorClipboardPayload, "html">>;
 
 interface ClipboardWithRichAccess {
   read?: () => Promise<ClipboardItem[]>;
@@ -35,6 +35,10 @@ const getSelectedClipboardPayload = (
   view: EditorView,
   format: ClipboardCopyFormat,
 ): ClipboardPayload | null => {
+  if (format === "default") {
+    return getDefaultClipboardPayload(view);
+  }
+
   if (view.state.selection.empty) {
     return null;
   }
@@ -55,13 +59,7 @@ const getSelectedClipboardPayload = (
     };
   }
 
-  const semanticSlice = getSourceProjectionClipboardSlice(view.state);
-  const serializedHtml = semanticSlice
-    ? view.serializeForClipboard(semanticSlice)
-    : serializedSelection;
-
   return {
-    html: serializedHtml.dom.innerHTML,
     text: serializedSelection.text,
   };
 };
@@ -186,11 +184,7 @@ export const cutSelection = async (view: EditorView) => {
     return false;
   }
 
-  if (copiedProjectionWasActive) {
-    return deleteSourceProjectionSelection(view);
-  }
-
-  return runProseMirrorCommand(view, deleteSelection);
+  return deleteClipboardSelection(view, copiedProjectionWasActive);
 };
 
 export const paste = async (editor: Editor, format: ClipboardPasteFormat) => {

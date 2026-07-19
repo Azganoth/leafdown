@@ -246,6 +246,10 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   gestures and other native text-input keys remain with the browser and
   ProseMirror. This boundary also applies to focused raw Markdown inputs embedded
   in the editor.
+- `Mod+C` and `Mod+X` remain native clipboard gestures rather than application
+  keydown commands. Inside the Milkdown editor, their resulting `copy` and `cut`
+  events use Leafdown's default editor clipboard behavior. Outside the editor,
+  Copy and Cut remain native to the focused control or browser selection.
 - The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
 
 ### Editing Commands
@@ -254,20 +258,28 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   projection-aware commands. Their keyboard shortcuts use projection-local
   history while projected source is dirty, or finalize clean projection before
   native history runs.
-- `Cut`, `Copy`, and `Copy as` commands use editor clipboard behavior and operate
-  on the current selection. Standard keyboard Cut and Copy remain native
-  clipboard gestures rather than window-level command dispatches.
-- Default `Cut` and `Copy` commands from a selection contained within active
-  source projection place the exact selected projected characters in
-  `text/plain` and semantically equivalent editor content in `text/html`.
-  Selections that have no faithful semantic equivalent, including
-  delimiter-only, destination-only, title-only, and partial atomic-reference
-  selections, remain literal in both representations. Invalid projected source
-  also remains literal.
+- `Cut`, `Copy`, and `Copy as` operate on the current selection. Default `Cut`
+  and `Copy` use one Leafdown clipboard resolver whether invoked by native editor
+  events, the Edit menu, or the context popup. Native editor events write
+  synchronously through the event clipboard data; command surfaces use the
+  asynchronous system Clipboard API with equivalent payload semantics.
+- For regular editor selections, default `Cut` and `Copy` place Milkdown's
+  serialized Markdown selection in `text/plain` and semantically equivalent
+  editor content in `text/html`.
+- Default `Cut` and `Copy` from a selection contained within active source
+  projection place the exact selected projected characters in `text/plain` and
+  semantically equivalent editor content in `text/html`. Selections that have
+  no faithful semantic equivalent, including delimiter-only, destination-only,
+  title-only, and partial atomic-reference selections, remain literal in both
+  representations. Invalid projected source also remains literal.
 - `Copy as Plain text` and `Copy as Markdown` preserve the exact selected
   projected characters. Copying does not finalize or modify projection; Cut
   writes the same clipboard representations before applying its deletion as a
   projection-local edit.
+- Cut deletes the selected editor content only after the clipboard payload is
+  written successfully. An asynchronous command Cut does not delete if the
+  document, selection, or projection mode changes while the clipboard write is
+  pending.
 - `Paste` and `Paste as` commands use editor clipboard behavior and insert at the
   caret or replace the current selection. Standard keyboard Paste and Paste as
   plain text remain native clipboard gestures so Milkdown can parse the supplied

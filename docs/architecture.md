@@ -66,8 +66,8 @@ The application maintains three primary runtime states:
 
 - Managing the editor model, schema, parsing, serialization, and native command
   implementations.
-- Providing native history, structural keymaps, clipboard events, event
-  listeners, and default plugins.
+- Providing native history, structural keymaps, clipboard serialization and
+  fallback primitives, event listeners, and default plugins.
 - Enforcing CommonMark and GFM specifications.
 
 ### Leafdown Responsibilities
@@ -77,6 +77,8 @@ The application maintains three primary runtime states:
 - Controlling the context popup, marker visibility rules, and menu integration.
 - Routing semantic formatting and projection-aware history shortcuts through the
   same command IDs and availability rules as other command surfaces.
+- Owning default editor Copy and Cut payload resolution and deletion semantics
+  across native editor events and application command surfaces.
 - Orchestrating local file workflows, dirty-state checks, and external-change handling.
 - Resolving relative links/images, handling missing-image states, and blocking remote images.
 - Applying theme variables and general app-level styling.
@@ -90,13 +92,36 @@ Shortcut execution follows the layer that owns the interaction. The window-level
 application listener routes only application command IDs and reserved webview
 suppression. Leafdown's editor keymap routes semantic editor commands and
 projection-aware history while the editor has focus. Milkdown, ProseMirror, and
-the browser retain structural editing and native clipboard event ownership. The
+the browser retain structural editing and native clipboard gesture ownership. The
 shared command metadata describes labels and displayed shortcuts across these
 surfaces; it is not itself a global executable shortcut registry.
 
 Syntax highlighting uses bundled Shiki assets through Milkdown highlighting
 plugins. Raw Markdown HTML is preserved as text-like editor content instead of
 being rendered as browser DOM.
+
+### Clipboard Ownership
+
+Leafdown resolves one default Copy/Cut payload from the current editor selection.
+For regular selections, Milkdown's ProseMirror clipboard serializer provides the
+Markdown plain text and semantic HTML fragment. Source projection may replace
+only the rich slice through its read-only semantic resolver while preserving the
+exact transient source selection as plain text.
+
+Two adapters apply that shared policy. A ProseMirror plugin owns native `copy`
+and `cut` events inside the Milkdown editor and writes both formats synchronously
+through `ClipboardEvent.clipboardData`. Edit-menu and context-popup commands use
+the asynchronous system Clipboard API. Both adapters delete through the same
+regular-or-projected Cut policy only after a successful write; asynchronous Cut
+also verifies that its document, selection, and projection mode have not changed
+while the write was pending.
+
+Copy/Cut shortcut metadata remains available for menu labels, but those native
+gestures are excluded from the application keydown dispatcher. Focused controls
+outside Milkdown retain their native browser/WebView behavior. Leafdown supplies
+HTML fragments, including ProseMirror slice metadata; the browser/WebView owns
+the platform clipboard envelope such as CF_HTML. Paste parsing and CF_HTML
+fragment extraction remain a separate input-side concern.
 
 ### Source Projection
 
@@ -123,13 +148,13 @@ reference syntax through the installed Milkdown parser and Remark pipeline,
 maps atomic references within the projected source, and rehydrates rich marked
 fragments without changing footnote definitions.
 
-Projection-aware clipboard resolution is read-only and adapter-driven. Plain
-clipboard text comes from the exact transient source selection, while rich HTML
-is serialized by ProseMirror from the corresponding canonical `Slice`. Clean
-sessions reuse their immutable original content; edited sessions parse their
-current source. Adapters reject syntax-only or lossy atomic mappings so those
-selections fall back to literal HTML without finalizing or dispatching editor
-state.
+Within the shared default clipboard resolver, projection-aware rich-slice
+resolution is read-only and adapter-driven. Plain clipboard text comes from the
+exact transient source selection, while rich HTML is serialized by ProseMirror
+from the corresponding canonical `Slice`. Clean sessions reuse their immutable
+original content; edited sessions parse their current source. Adapters reject
+syntax-only or lossy atomic mappings so those selections fall back to literal
+HTML without finalizing or dispatching editor state.
 
 The higher-precedence logical-link adapter owns links and autolinks as complete
 wrappers, including rich labels whose child text nodes carry different nested

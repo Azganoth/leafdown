@@ -287,10 +287,12 @@ Required behavior:
   user edits.
 - `onMarkdownUpdated` and saved output do not persist transient projection
   syntax accidentally.
-- Copy and Cut commands preserve the exact selected projected source as plain
-  clipboard text while default rich clipboard HTML represents a faithful
-  semantic selection when one exists. Paste inside projection continues to use
-  the plain clipboard text literally.
+- Copy and Cut preserve the exact selected projected source as plain clipboard
+  text while default rich clipboard HTML represents a faithful semantic
+  selection when one exists. The same read-only resolver serves native editor
+  clipboard events and application command surfaces; keyboard Copy and Cut stay
+  native rather than routing through global keydown commands. Paste inside
+  projection continues to use the plain clipboard text literally.
 - Selection crossing into or out of a projected range exits or normalizes
   projection predictably.
 

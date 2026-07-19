@@ -169,12 +169,25 @@ export const copySelection = (view: EditorView, format: ClipboardCopyFormat) => 
 };
 
 export const cutSelection = async (view: EditorView) => {
-  if (!(await copySelection(view, "default"))) {
+  const copiedState = view.state;
+  const copiedProjectionWasActive = hasActiveSourceProjection(copiedState);
+  const payload = getSelectedClipboardPayload(view, "default");
+
+  if (!payload || !(await writeClipboardPayload(payload))) {
     return false;
   }
 
-  if (deleteSourceProjectionSelection(view)) {
-    return true;
+  const currentState = view.state;
+  if (
+    !currentState.doc.eq(copiedState.doc) ||
+    !currentState.selection.eq(copiedState.selection) ||
+    hasActiveSourceProjection(currentState) !== copiedProjectionWasActive
+  ) {
+    return false;
+  }
+
+  if (copiedProjectionWasActive) {
+    return deleteSourceProjectionSelection(view);
   }
 
   return runProseMirrorCommand(view, deleteSelection);

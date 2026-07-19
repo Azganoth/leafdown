@@ -95,6 +95,35 @@ describe("editor clipboard commands", () => {
     expect(onContentChanged).toHaveBeenCalledOnce();
   });
 
+  it("does not delete a changed selection after an asynchronous projected cut write", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+
+    const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+    setTextSelection(mounted.view, sourceStart + 2, sourceStart + "**Bold".length);
+
+    let resolveWrite: (() => void) | undefined;
+    clipboard.write.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+
+    const cutPromise = cutSelection(mounted.view);
+
+    const plainStart = getEditorTextPosition(mounted, "plain");
+    setTextSelection(mounted.view, plainStart, plainStart + "plain".length);
+
+    expect(resolveWrite).toBeTypeOf("function");
+    resolveWrite?.();
+
+    await expect(cutPromise).resolves.toBe(false);
+    await expectClipboardTextWritten("Bold");
+    expect(mounted.getMarkdown()).toBe("**Bold** plain\n");
+  });
+
   it("cuts a complete projected object without finalizing before deletion", async () => {
     const source = "**Bold**";
     const mounted = await mountEditor(`${source}tail`);

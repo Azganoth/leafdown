@@ -53,6 +53,7 @@ import {
 } from "../plugins/sourceProjection";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
+import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
 import {
@@ -147,13 +148,19 @@ export const createMilkdownEditor = async ({
         ...attributes,
         ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
       }));
-      ctx.update(editorViewOptionsCtx, (options) => ({
-        ...options,
-        attributes: {
-          ...options.attributes,
-          ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
-        },
-      }));
+      ctx.update(editorViewOptionsCtx, (options) => {
+        const previousTransformPastedHTML = options.transformPastedHTML;
+
+        return {
+          ...options,
+          attributes: {
+            ...options.attributes,
+            ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
+          },
+          transformPastedHTML: (html, view) =>
+            normalizeProseMirrorClipboardHtml(previousTransformPastedHTML?.(html, view) ?? html),
+        };
+      });
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({

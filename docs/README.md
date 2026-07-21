@@ -11,11 +11,10 @@
 - [Decisions](./decisions.md): accepted product and technical decisions.
 - [Reference](./reference.md): settings, menus, shortcuts,
   contextual availability, and checked state.
-- [Backlog](./backlog.md): unshaped, unscheduled ideas that have not yet become
-  actionable issues.
 
 If product documents overlap or appear to conflict, prefer them in this order:
-Decisions, Specification, Architecture, Backlog.
+Decisions, Specification, Architecture. Reference owns the detailed settings
+and command inventory.
 
 Engineering Patterns provides implementation guidance rather than product
 direction. It yields to Architecture for ownership and dependency boundaries.
@@ -32,9 +31,9 @@ direction. It yields to Architecture for ownership and dependency boundaries.
 
 The [issue tracker](https://github.com/Azganoth/leafdown/issues) is the source
 of truth for actionable work. The [Leafdown Project](https://github.com/users/Azganoth/projects/7)
-tracks prioritization and delivery state. When a backlog idea becomes actionable,
-promote it to an issue and remove the corresponding backlog entry to avoid
-duplicate tracking.
+captures unshaped ideas as draft items and tracks prioritization and delivery
+state. Convert a draft to an issue once its intended outcome is sufficiently
+clear.
 
 ## Conventions
 

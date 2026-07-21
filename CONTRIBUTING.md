@@ -44,15 +44,17 @@ it under Leafdown's [GPL-3.0-or-later license](./LICENSE).
 
 Track actionable outcomes using single, focused issues.
 
-Keep unshaped, unscheduled ideas in [`docs/backlog.md`](./docs/backlog.md).
-Promote an idea to an issue once its intended outcome is sufficiently clear,
-then remove the corresponding backlog entry to avoid tracking the same work in
-two places.
+Maintainers capture unshaped, unscheduled ideas as draft items in the GitHub
+Project with status `Backlog`. A draft is neither a repository issue nor
+accepted work.
 
-To find appropriate work, browse the open issues. Issues with a Project status
-of `Ready` have a sufficiently clear outcome and completion criteria. Comment on
-the issue before beginning substantial work so ownership and direction can be
-confirmed. Backlog entries are unshaped ideas rather than accepted work.
+Convert a draft to a focused issue once its intended outcome is sufficiently
+clear. Keep the issue in `Backlog` while it awaits scheduling or further
+planning, then move it to `Ready` when its completion criteria are clear.
+
+To find appropriate work, browse the Project's `Ready` items or open issues.
+Comment on an issue before beginning substantial work so ownership and direction
+can be confirmed.
 
 Use the repository's [issue chooser](https://github.com/Azganoth/leafdown/issues/new/choose)
 to report bugs, request features, suggest documentation improvements, or ask
@@ -219,8 +221,9 @@ a matching **Release** issue.
 ### Project Fields
 
 The GitHub Project functions as the operational board. Leafdown uses a
-lightweight status pipeline. Issues are the primary Project items; linked pull
-requests are not added as separate operational cards.
+lightweight status pipeline. Draft items capture unshaped ideas, while focused
+issues are the primary implementation items. Linked pull requests are not added
+as separate operational cards.
 
 1. `Backlog` — Captured, not yet shaped.
 2. `Ready` — Clear definition of done; ready for implementation.
@@ -241,15 +244,17 @@ Prioritize issues using the following urgency tiers:
 
 ### Status Workflow
 
-1. Triage each issue by applying its type label, priority, milestone when
-   applicable, and initial project status.
-2. Move the issue to `Ready` once its intended outcome and completion criteria
-   are sufficiently clear.
-3. Assign active work and move the issue to `In Progress`.
-4. Move an item to `Blocked` when work cannot proceed, then return it to the
+1. Capture unshaped ideas as Project drafts in `Backlog`.
+2. Convert a draft to a focused issue once its intended outcome is clear, then
+   apply its type label, priority, milestone when applicable, and initial
+   Project status.
+3. Move the issue to `Ready` once its completion criteria are sufficiently
+   clear.
+4. Assign active work and move the issue to `In Progress`.
+5. Move an item to `Blocked` when work cannot proceed, then return it to the
    appropriate active status once the impediment is resolved.
-5. Move the issue to `Review` when its linked pull request opens.
-6. After merge or closure, confirm that the issue is closed and the project item
+6. Move the issue to `Review` when its linked pull request opens.
+7. After merge or closure, confirm that the issue is closed and the project item
    is `Done`.
 
 The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains

@@ -1,52 +1,43 @@
 name: Documentation
-description: Update project documentation
+description: Report unclear, incorrect, or missing documentation
 labels: ["Documentation"]
 body:
   - type: textarea
     id: summary
     attributes:
       label: Summary
-      description: What doc change is needed?
+      description: What documentation problem did you encounter?
     validations:
       required: true
 
-  - type: dropdown
-    id: doc
+  - type: input
+    id: document
     attributes:
-      label: Document
-      options:
-        - docs/specification.md
-        - docs/architecture.md
-        - docs/decisions.md
-        - docs/mvp.md
-        - docs/backlog.md
-        - docs/README.md
-        - Other
+      label: Document or location
+      description: Provide the repository path, URL, document name, or documentation area.
+      placeholder: README.md, docs/specification.md, or https://...
     validations:
       required: true
 
   - type: textarea
-    id: reason
+    id: problem
     attributes:
-      label: Reason
+      label: What is unclear, incorrect, or missing?
+      description: Explain the problem and any effect it had on your understanding or contribution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Describe a correction or improvement if you have one. Proposed wording is optional.
 
   - type: textarea
     id: related_context
     attributes:
       label: Related context
-      description: Link related issues, pull requests, documentation, decisions, or prior investigation. Use `y` to generate permalinks for repository files on GitHub.
+      description: Link related issues, pull requests, documentation, decisions, or examples.
       placeholder: |
         - Related issue or pull request: #
-        - Documentation or decision:
-
-  - type: textarea
-    id: done
-    attributes:
-      label: Done when
-      description: Checklist for completing and verifying the documentation change.
-      placeholder: |
-        - [ ] Intended documentation updated
-        - [ ] Related links and terminology verified
-        - [ ] Conflicting or superseded guidance updated
-    validations:
-      required: true
+        - Documentation or example:

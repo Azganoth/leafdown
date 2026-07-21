@@ -1,41 +1,40 @@
-name: Feature
-description: Implement a product or technical feature
+name: Feature request
+description: Suggest an improvement to Leafdown
 labels: ["Feature"]
 body:
   - type: textarea
-    id: summary
+    id: problem
     attributes:
-      label: Summary
-      description: What should be implemented?
+      label: Problem or use case
+      description: What are you trying to accomplish, and what is difficult or unavailable today?
     validations:
       required: true
 
   - type: textarea
-    id: behavior
+    id: outcome
     attributes:
-      label: Expected behavior
-      description: What should the user or system be able to do?
+      label: Desired outcome
+      description: What outcome would improve this use case?
     validations:
       required: true
+
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed behavior
+      description: If you have a particular interaction or behavior in mind, describe it here. A proposed solution is not required.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing workaround or alternatives
+      description: How do you handle this today, and what alternatives have you considered?
 
   - type: textarea
     id: related_context
     attributes:
       label: Related context
-      description: Link related issues, pull requests, documentation, decisions, or prior investigation. Use `y` to generate permalinks for repository files on GitHub.
+      description: Link related issues, pull requests, documentation, examples, or prior discussion.
       placeholder: |
         - Related issue or pull request: #
-        - Documentation or decision:
-
-  - type: textarea
-    id: done
-    attributes:
-      label: Done when
-      description: Checklist for completion.
-      placeholder: |
-        - [ ] Behavior implemented
-        - [ ] Error states handled
-        - [ ] Tests/manual checks done
-        - [ ] Docs updated if needed
-    validations:
-      required: true
+        - Documentation or example:

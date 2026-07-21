@@ -37,7 +37,6 @@ Decisions use a lightweight ADR format:
 
 - [`../corpus/`](../corpus/): committed manual Markdown corpus covering CommonMark, GFM, nonstandard extensions, practical documents, syntax interactions, malformed input, byte and grammar boundaries, and focused environment scenarios.
 
-## Spikes
+## Completed Technical Spikes
 
-- [Milkdown API Plan](./spikes/milkdown-api-plan.md): package, import, lifecycle, highlighting, HTML safety, settings, and follow-up issue guidance for the Milkdown editor foundation.
-- [Source Projection](./spikes/source-projection.md): architecture, adapter contract, and original spike guidance for seamless editable Markdown source.
+- [Source Projection Design Record](./spikes/source-projection.md): completed rationale and design constraints for seamless editable Markdown source.

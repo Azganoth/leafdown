@@ -1,11 +1,8 @@
 # Reference
 
-This reference defines Leafdown's settings, command surfaces, and command state.
-For command transformations and editor interaction behavior, see the
-[Specification](./specification.md#editor-model).
+This reference defines Leafdown's settings, command surfaces, and command state. For command transformations and editor interaction behavior, see the [Specification](./specification.md#editor-model).
 
-Items marked `Deferred` are approved future behavior. They are not implemented,
-but should inform future command, menu, and settings design.
+Items marked `Deferred` are approved future behavior. They are not implemented, but should inform future command, menu, and settings design.
 
 ## Settings
 
@@ -14,11 +11,9 @@ Global settings persist across application launches unless specified otherwise.
 ### General
 
 - **Record recent files and folders:** On or Off. Default: On.
-  - The setting controls whether session history records opened paths; the recent
-    lists themselves are persisted session history rather than preferences.
+  - The setting controls whether session history records opened paths; the recent lists themselves are persisted session history rather than preferences.
   - Recent files and recent folders are separate lists.
-  - Recent lists are deduplicated by path, sorted by most recent first, and
-    limited to 10 items each.
+  - Recent lists are deduplicated by path, sorted by most recent first, and limited to 10 items each.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.
 - **Article sort order:** Name, modified date, or type. Default: Name.
@@ -26,28 +21,20 @@ Global settings persist across application launches unless specified otherwise.
 ### Files
 
 - **Default extension for new documents:** `.md` or `.markdown`. Default: `.md`.
-- **Default line ending for new documents:** LF or CRLF. Default: system
-  dependent.
+- **Default line ending for new documents:** LF or CRLF. Default: system dependent.
   - Windows defaults to CRLF. macOS and Linux default to LF.
 - **Insert final newline on save:** On or Off. Default: On.
-- **Index file names for automatic folder open:** ordered list of file base names.
-  Default: `readme`, `index`.
-- **Ignored directories for folder scans:** directory name list. Default: `.git`,
-  `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
-  - Directory name matching is case-sensitive on Unix-like systems and
-    case-insensitive on Windows. Matching directories and their contents are
-    recursively skipped.
+- **Index file names for automatic folder open:** ordered list of file base names. Default: `readme`, `index`.
+- **Ignored directories for folder scans:** directory name list. Default: `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
+  - Directory name matching is case-sensitive on Unix-like systems and case-insensitive on Windows. Matching directories and their contents are recursively skipped.
 - **Auto save:** On or Off. Default: Off. (Deferred)
-- **When dropping a folder:** Open or Insert folder link. Default: Open.
-  (Deferred)
-- **When dropping a Markdown file:** Open or Insert file link. Default: Open.
-  (Deferred)
+- **When dropping a folder:** Open or Insert folder link. Default: Open. (Deferred)
+- **When dropping a Markdown file:** Open or Insert file link. Default: Open. (Deferred)
 
 ### Editor
 
 - **Auto pair brackets and quotes:** On or Off. Default: On.
-- **Indent size on save:** 2 spaces, 4 spaces, or tab. Default: 2 spaces.
-  (Deferred)
+- **Indent size on save:** 2 spaces, 4 spaces, or tab. Default: 2 spaces. (Deferred)
 - **Display line numbers for code blocks:** On or Off. Default: Off. (Deferred)
 - **Soft wrap for code blocks:** On or Off. Default: Off.
 
@@ -55,31 +42,24 @@ Global settings persist across application launches unless specified otherwise.
 
 - **Unordered list marker:** `-`, `*`, or `+`. Default: `-`. (Deferred)
 - **Ordered list marker:** `.` or `)`. Default: `.`. (Deferred)
-- **Ordered list numbering:** Sequential or Repeated. Default: Sequential.
-  (Deferred)
+- **Ordered list numbering:** Sequential or Repeated. Default: Sequential. (Deferred)
 - **Strong marker:** `**` or `__`. Default: `**`. (Deferred)
 - **Emphasis marker:** `*` or `_`. Default: `*`. (Deferred)
-- **Code block fence:** Triple backticks or Triple tildes. Default: Triple
-  backticks. (Deferred)
-- **Horizontal rule marker:** `---`, `***`, or `___`. Default: `---`.
-  (Deferred)
+- **Code block fence:** Triple backticks or Triple tildes. Default: Triple backticks. (Deferred)
+- **Horizontal rule marker:** `---`, `***`, or `___`. Default: `---`. (Deferred)
 
 ### Appearance
 
 - **Appearance theme:** System, Light, or Dark. Default: System.
-- **Render/editor theme:** document typography, font, typography size, code
-  highlight theme, and related editor rendering preferences. Default: Leafdown
-  default theme. (Deferred)
+- **Render/editor theme:** document typography, font, typography size, code highlight theme, and related editor rendering preferences. Default: Leafdown default theme. (Deferred)
 
 ## Command Surfaces
 
-App commands are unified across menus, keyboard shortcuts, and the context popup.
-Availability and checked states are defined in [Command State](#command-state).
+App commands are unified across menus, keyboard shortcuts, and the context popup. Availability and checked states are defined in [Command State](#command-state).
 
 ### Menu Commands
 
-Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux,
-`Command` on macOS).
+Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `Command` on macOS).
 
 #### File Menu
 
@@ -249,56 +229,38 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux,
 - **Diagnostics...**
 - **About**
 
-`Diagnostics...` opens a dialog that shows app version, platform, log location,
-retention settings, and local-only privacy notes. Its copied summary includes app,
-platform, and current diagnostic-run metadata only. The dialog can open
-Leafdown's app-owned local diagnostic log directory. Local logs may include user
-content when captured error messages or stack traces include it.
+`Diagnostics...` opens a dialog that shows app version, platform, log location, retention settings, and local-only privacy notes. Its copied summary includes app, platform, and current diagnostic-run metadata only. The dialog can open Leafdown's app-owned local diagnostic log directory. Local logs may include user content when captured error messages or stack traces include it.
 
-For diagnostic log format and ownership, see
-[Architecture](./architecture.md#backend-responsibilities).
+For diagnostic log format and ownership, see [Architecture](./architecture.md#backend-responsibilities).
 
 ### Context Popup
 
-The context popup is a contextual menu triggered by selection or right-click
-within the editor.
+The context popup is a contextual menu triggered by selection or right-click within the editor.
 
 - Right-click inside an existing selection keeps the selection.
-- Right-click outside a selection uses the editor's normal pointer handling to
-  place the caret at the clicked location; the popup does not perform a second
-  coordinate-based caret move.
-- `Escape`, typing, clicking outside, or scrolling the popup out of view closes
-  it.
+- Right-click outside a selection uses the editor's normal pointer handling to place the caret at the clicked location; the popup does not perform a second coordinate-based caret move.
+- `Escape`, typing, clicking outside, or scrolling the popup out of view closes it.
 
 #### Popup Command Groups
 
 1. Quick actions: Cut, Copy, Paste, Delete.
 2. Inline formatting: Strong, Emphasis, Inline code, Link.
 3. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-4. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5,
-   Heading 6.
-5. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5,
-   Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block,
-   Table, Horizontal rule.
+4. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
+5. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
 
 ## Command State
 
-Availability rules apply to implemented commands across menus, keyboard
-shortcuts, and the context popup. Implemented commands are active by default
-unless disabled by context or build constraints; inactive commands are disabled
-rather than hidden.
+Availability rules apply to implemented commands across menus, keyboard shortcuts, and the context popup. Implemented commands are active by default unless disabled by context or build constraints; inactive commands are disabled rather than hidden.
 
 ### Contextual Availability
 
 #### Document State
 
-- `Save as`, `Close document`, and all `Edit`, `Insert`, and `Format` commands
-  are disabled when no document is open.
-  - Exception: `Insert final newline on save` remains enabled because it controls
-    a global save setting rather than active editor content.
+- `Save as`, `Close document`, and all `Edit`, `Insert`, and `Format` commands are disabled when no document is open.
+  - Exception: `Insert final newline on save` remains enabled because it controls a global save setting rather than active editor content.
 - `Export`, `Print`, and `Outline` are disabled when no document is open.
-- `Save` is disabled when no document is open, or when the document is clean and
-  already saved.
+- `Save` is disabled when no document is open, or when the document is clean and already saved.
 
 #### Selection And Editor State
 
@@ -306,19 +268,13 @@ rather than hidden.
 - `Undo` and `Redo` require available editor history.
 - `Jump to selection` requires a selection.
 - `Delete block` requires an active block.
-- `Delete word backward`, `Delete word forward`, and `Select word` require a word
-  at or adjacent to the caret.
-- `Delete sentence` and `Select sentence` require a sentence at or adjacent to
-  the caret.
-- `Increase list indent` and `Decrease list indent` require a list item and a
-  valid indentation change.
+- `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.
+- `Delete sentence` and `Select sentence` require a sentence at or adjacent to the caret.
+- `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.
 - `Toggle task checked` requires a task list item.
-- `Clear inline formatting` requires supported inline formatting in the selection
-  or an active marked inline element.
-- `Clear block formatting` requires removable block formatting in the current or
-  selected blocks.
-- `Increase heading level` and `Decrease heading level` require a heading that
-  can move in the requested direction.
+- `Clear inline formatting` requires supported inline formatting in the selection or an active marked inline element.
+- `Clear block formatting` requires removable block formatting in the current or selected blocks.
+- `Increase heading level` and `Decrease heading level` require a heading that can move in the requested direction.
 
 #### Table State
 
@@ -326,16 +282,12 @@ rather than hidden.
 
 #### File And Folder State
 
-- `Open file location` requires an active saved document path. If the native file
-  reveal fails because the path is missing or inaccessible, Leafdown shows an
-  error.
-- `Reveal in sidebar` requires a folder context and an active saved article in the
-  article navigator.
+- `Open file location` requires an active saved document path. If the native file reveal fails because the path is missing or inaccessible, Leafdown shows an error.
+- `Reveal in sidebar` requires a folder context and an active saved article in the article navigator.
 - `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a
-  folder context and an available article navigator.
+- `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 
 #### Search And Updates
 
@@ -344,13 +296,11 @@ rather than hidden.
 
 ### Checked And Radio State
 
-Use checkmarks for boolean command state and radio groups for mutually exclusive
-choices.
+Use checkmarks for boolean command state and radio groups for mutually exclusive choices.
 
 #### Boolean State
 
-- `Insert final newline on save` reflects the global save setting. It remains
-  available without an active document.
+- `Insert final newline on save` reflects the global save setting. It remains available without an active document.
 - `Toggle sidebar` reflects global sidebar visibility.
 - `Toggle status bar` reflects global status bar visibility.
 - `Always on top` reflects current window state.
@@ -358,14 +308,11 @@ choices.
 
 #### Radio State
 
-- `Line ending` is a radio group for the active document with CRLF and LF
-  choices.
-- `Appearance` is a radio group for the global appearance theme: `System`,
-  `Light`, or `Dark`.
+- `Line ending` is a radio group for the active document with CRLF and LF choices.
+- `Appearance` is a radio group for the global appearance theme: `System`, `Light`, or `Dark`.
 - `Theme` is a radio group for the global render/editor theme when implemented.
 - `Sort articles by` is a radio group for the global article sort order.
 
 #### Formatting State
 
-- Formatting commands do not expose live checked state until that behavior is
-  intentionally designed.
+- Formatting commands do not expose live checked state until that behavior is intentionally designed.

@@ -1,7 +1,6 @@
 # Bug Issue Template
 
-Create a maintainer-only blank issue, apply the `Bug` label, and replace the
-guidance below with issue-specific content.
+Create a maintainer-only blank issue, apply the `Bug` label, and replace the guidance below with issue-specific content.
 
 ```md
 ### Summary
@@ -35,19 +34,15 @@ Describe what currently happens and how it differs from the expected behavior.
 
 ### Notes, logs, screenshots
 
-Before adding evidence, redact private information such as document content,
-filenames, local paths, account details, tokens, and credentials. Add supporting
-evidence or other useful context. Remove this section when it adds no value.
+Before adding evidence, redact private information such as document content, filenames, local paths, account details, tokens, and credentials. Add supporting evidence or other useful context. Remove this section when it adds no value.
 
 #### Diagnosis
 
-Record the established cause and supporting evidence. Remove this section when
-the cause is still unknown or does not need to be preserved.
+Record the established cause and supporting evidence. Remove this section when the cause is still unknown or does not need to be preserved.
 
 #### Implementation direction
 
-Record established constraints or a useful implementation direction. Remove
-this section when the approach is intentionally open.
+Record established constraints or a useful implementation direction. Remove this section when the approach is intentionally open.
 
 #### Out of scope
 

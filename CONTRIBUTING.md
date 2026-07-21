@@ -12,54 +12,35 @@ Leafdown coordinates development through this repository:
 
 ### Documentation And Change Authority
 
-Follow the document purposes and precedence defined in
-[`docs/README.md`](./docs/README.md).
+Follow the document purposes and precedence defined in [`docs/README.md`](./docs/README.md).
 
-When a change affects product behavior, keep the owning docs and implementation
-aligned in the same change when practical.
+When a change affects product behavior, keep the owning docs and implementation aligned in the same change when practical.
 
-Record notable user-facing changes in [`CHANGELOG.md`](./CHANGELOG.md) under
-`Unreleased` until they are assigned to a release version.
+Record notable user-facing changes in [`CHANGELOG.md`](./CHANGELOG.md) under `Unreleased` until they are assigned to a release version.
 
-If a proposed implementation would change product direction, architecture, or
-release scope, reach agreement in an issue before substantial implementation.
-Update the owning documentation as part of the accepted change.
+If a proposed implementation would change product direction, architecture, or release scope, reach agreement in an issue before substantial implementation. Update the owning documentation as part of the accepted change.
 
 ### AI-Assisted Contributions
 
-AI assistance is allowed, but the human author remains responsible for
-understanding, reviewing, verifying, and explaining the contribution and for
-addressing review feedback. Do not submit generated changes that you cannot
-evaluate or maintain.
+AI assistance is allowed, but the human author remains responsible for understanding, reviewing, verifying, and explaining the contribution and for addressing review feedback. Do not submit generated changes that you cannot evaluate or maintain.
 
-Do not provide vulnerability details, credentials, private files, personal
-information, or other sensitive material to external AI services.
+Do not provide vulnerability details, credentials, private files, personal information, or other sensitive material to external AI services.
 
 ### Contribution Terms
 
-By submitting a contribution, you confirm that you have the right to contribute
-it under Leafdown's [GPL-3.0-or-later license](./LICENSE).
+By submitting a contribution, you confirm that you have the right to contribute it under Leafdown's [GPL-3.0-or-later license](./LICENSE).
 
 ## Find Or Propose Work
 
 Track actionable outcomes using single, focused issues.
 
-Maintainers capture unshaped, unscheduled ideas as draft items in the GitHub
-Project with status `Backlog`. A draft is neither a repository issue nor
-accepted work.
+Maintainers capture unshaped, unscheduled ideas as draft items in the GitHub Project with status `Backlog`. A draft is neither a repository issue nor accepted work.
 
-Convert a draft to a focused issue once its intended outcome is sufficiently
-clear. Keep the issue in `Backlog` while it awaits scheduling or further
-planning, then move it to `Ready` when its completion criteria are clear.
+Convert a draft to a focused issue once its intended outcome is sufficiently clear. Keep the issue in `Backlog` while it awaits scheduling or further planning, then move it to `Ready` when its completion criteria are clear.
 
-To find appropriate work, browse the Project's `Ready` items or open issues.
-Comment on an issue before beginning substantial work so ownership and direction
-can be confirmed.
+To find appropriate work, browse the Project's `Ready` items or open issues. Comment on an issue before beginning substantial work so ownership and direction can be confirmed.
 
-Use the repository's [issue chooser](https://github.com/Azganoth/leafdown/issues/new/choose)
-to report bugs, request features, suggest documentation improvements, or ask
-for support. Report suspected security vulnerabilities privately according to
-[`SECURITY.md`](./SECURITY.md).
+Use the repository's [issue chooser](https://github.com/Azganoth/leafdown/issues/new/choose) to report bugs, request features, suggest documentation improvements, or ask for support. Report suspected security vulnerabilities privately according to [`SECURITY.md`](./SECURITY.md).
 
 Before an issue moves to `Ready`, maintainers should ensure it includes:
 
@@ -72,9 +53,7 @@ Break down larger initiatives using sub-issues.
 
 ## Local Development
 
-Windows is Leafdown's current development and polish target. Keep changes
-cross-platform aware; platform-specific setup for Linux and macOS is not yet
-documented here.
+Windows is Leafdown's current development and polish target. Keep changes cross-platform aware; platform-specific setup for Linux and macOS is not yet documented here.
 
 Before cloning the repository, install:
 
@@ -83,8 +62,7 @@ Before cloning the repository, install:
 - Rust stable (through `rustup`)
 - [Tauri v2 prerequisites for Windows](https://v2.tauri.app/start/prerequisites/#windows)
 
-After forking and cloning the repository, install the required toolchains and
-project dependencies from the repository root:
+After forking and cloning the repository, install the required toolchains and project dependencies from the repository root:
 
 ```powershell
 corepack enable pnpm
@@ -94,9 +72,7 @@ rustup toolchain install stable --profile minimal
 rustup toolchain install nightly-2026-05-22 --profile minimal --component rustfmt
 ```
 
-> Corepack installs the exact pnpm version configured by the repository.
-> `pnpm install` then installs project dependencies and configures the Husky Git
-> hooks used for basic linting and formatting checks.
+> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks.
 
 Start the desktop application with:
 
@@ -104,8 +80,7 @@ Start the desktop application with:
 pnpm tauri dev
 ```
 
-> `pnpm dev` starts only the web frontend and cannot exercise Leafdown's native
-> filesystem and shell behavior.
+> `pnpm dev` starts only the web frontend and cannot exercise Leafdown's native filesystem and shell behavior.
 
 Verify a fresh development environment with:
 
@@ -113,13 +88,9 @@ Verify a fresh development environment with:
 pnpm check
 ```
 
-Before substantial implementation, read the relevant sections of
-[`docs/architecture.md`](./docs/architecture.md) and
-[`docs/patterns.md`](./docs/patterns.md).
+Before substantial implementation, read the relevant sections of [`docs/architecture.md`](./docs/architecture.md) and [`docs/patterns.md`](./docs/patterns.md).
 
-For documentation-only or repository-metadata changes, run targeted formatting
-or validation instead of the full application suite unless executable
-configuration is affected. For example:
+For documentation-only or repository-metadata changes, run targeted formatting or validation instead of the full application suite unless executable configuration is affected. For example:
 
 ```powershell
 pnpm exec oxfmt --check CONTRIBUTING.md
@@ -127,18 +98,13 @@ pnpm exec oxfmt --check CONTRIBUTING.md
 
 ## Development Workflow
 
-For substantial work, start from an accepted issue. For a small, self-contained
-correction, confirm that a direct pull request is appropriate.
+For substantial work, start from an accepted issue. For a small, self-contained correction, confirm that a direct pull request is appropriate.
 
 ### Branches And Commits
 
-- Name maintainer-owned task branches with the issue type followed by a short
-  kebab-case topic, such as `feature/feature-name`, `bug/bug-name`, or
-  `spike/spike-name`. External fork branches may follow this convention but are
-  not required to.
+- Name maintainer-owned task branches with the issue type followed by a short kebab-case topic, such as `feature/feature-name`, `bug/bug-name`, or `spike/spike-name`. External fork branches may follow this convention but are not required to.
 - Format pull request titles according to the Conventional Commits specification without the scope part (e.g., `feat: add markdown component`, `fix: handle missing file path`).
-- Keep intermediate commit messages clear and meaningful. They do not need to
-  follow Conventional Commits.
+- Keep intermediate commit messages clear and meaningful. They do not need to follow Conventional Commits.
 
 1. Fork the repository if needed, then create a focused branch for the change.
 2. Implement the change, including relevant tests and documentation.
@@ -147,39 +113,25 @@ correction, confirm that a direct pull request is appropriate.
 
 ## Pull Requests
 
-Open a focused pull request and complete the repository's
-[`pull request template`](./.github/pull_request_template.md).
+Open a focused pull request and complete the repository's [`pull request template`](./.github/pull_request_template.md).
 
 Pull request requirements:
 
 - Reference the associated issue when one exists.
-- Use closing keywords (e.g., `Closes #123`) when the pull request completes an
-  issue so it closes automatically on merge.
+- Use closing keywords (e.g., `Closes #123`) when the pull request completes an issue so it closes automatically on merge.
 - Update documentation when behavior, architecture, or release scope changes.
 - Update the changelog for notable user-facing changes.
-- Provide meaningful verification evidence and disclose anything that was not
-  verified.
+- Provide meaningful verification evidence and disclose anything that was not verified.
 
-After submission, CI runs the automated checks and maintainers review the scope,
-implementation, and verification evidence. Contributors should address review
-feedback or explain unresolved trade-offs. Maintainers squash merge accepted
-pull requests using the pull request title as the commit title on `main`.
+After submission, CI runs the automated checks and maintainers review the scope, implementation, and verification evidence. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`.
 
-Verify changes locally before merging. Use `pnpm check:frontend` for
-frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and
-`pnpm check` for cross-cutting updates. For manual testing of Markdown and the
-article navigator, open the committed `corpus/` directory or one of its focused
-scenario directories in the app.
+Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app.
 
 ## Maintainer Project Management
 
-Maintainers own issue classification, scheduling, and project state.
-Contributors only need to provide the information requested by the relevant
-issue template. Maintainers apply labels, milestones, priorities, and project
-statuses during triage.
+Maintainers own issue classification, scheduling, and project state. Contributors only need to provide the information requested by the relevant issue template. Maintainers apply labels, milestones, priorities, and project statuses during triage.
 
-When creating maintainer-owned issues directly, use the matching reference
-structure as the minimum:
+When creating maintainer-owned issues directly, use the matching reference structure as the minimum:
 
 - [`Bug`](./.github/maintainer-issue-templates/bug.md)
 - [`Feature`](./.github/maintainer-issue-templates/feature.md)
@@ -187,9 +139,7 @@ structure as the minimum:
 - [`Spike`](./.github/maintainer-issue-templates/spike.md)
 - [`Release`](./.github/maintainer-issue-templates/release.md)
 
-Keep optional sections only when they add useful context.
-Use permanent links for repository code and documentation when historical
-context depends on a specific revision.
+Keep optional sections only when they add useful context. Use permanent links for repository code and documentation when historical context depends on a specific revision.
 
 ### Labels
 
@@ -206,24 +156,17 @@ Maintain a minimal, standard set of labels:
 | `Duplicate`         | This issue or pull request already exists                                |
 | `Needs information` | Waiting for clarification, reproduction details, or other reporter input |
 
-The first six labels categorize the type of work; the remaining labels track
-triage or resolution states.
+The first six labels categorize the type of work; the remaining labels track triage or resolution states.
 
 ### Milestones
 
-Milestones are reserved for concrete delivery targets, not status tracking or
-broad backlog categorization.
+Milestones are reserved for concrete delivery targets, not status tracking or broad backlog categorization.
 
-Future milestones are created only for concrete release versions (e.g.,
-`v0.2.0`). For complex releases, coordinate the scope, checklist, and notes using
-a matching **Release** issue.
+Future milestones are created only for concrete release versions (e.g., `v0.2.0`). For complex releases, coordinate the scope, checklist, and notes using a matching **Release** issue.
 
 ### Project Fields
 
-The GitHub Project functions as the operational board. Leafdown uses a
-lightweight status pipeline. Draft items capture unshaped ideas, while focused
-issues are the primary implementation items. Linked pull requests are not added
-as separate operational cards.
+The GitHub Project functions as the operational board. Leafdown uses a lightweight status pipeline. Draft items capture unshaped ideas, while focused issues are the primary implementation items. Linked pull requests are not added as separate operational cards.
 
 1. `Backlog` — Captured, not yet shaped.
 2. `Ready` — Clear definition of done; ready for implementation.
@@ -234,32 +177,22 @@ as separate operational cards.
 
 Prioritize issues using the following urgency tiers:
 
-1. `P0` — Critical; address immediately (core usage, release readiness, or
-   project health is at risk).
-2. `P1` — Important; resolve in the near term, typically ahead of standard
-   planned work.
+1. `P0` — Critical; address immediately (core usage, release readiness, or project health is at risk).
+2. `P1` — Important; resolve in the near term, typically ahead of standard planned work.
 3. `P2` — Normal; standard planned work.
-4. `P3` — Low; minor improvement or optimization to defer until capacity
-   allows.
+4. `P3` — Low; minor improvement or optimization to defer until capacity allows.
 
 ### Status Workflow
 
 1. Capture unshaped ideas as Project drafts in `Backlog`.
-2. Convert a draft to a focused issue once its intended outcome is clear, then
-   apply its type label, priority, milestone when applicable, and initial
-   Project status.
-3. Move the issue to `Ready` once its completion criteria are sufficiently
-   clear.
+2. Convert a draft to a focused issue once its intended outcome is clear, then apply its type label, priority, milestone when applicable, and initial Project status.
+3. Move the issue to `Ready` once its completion criteria are sufficiently clear.
 4. Assign active work and move the issue to `In Progress`.
-5. Move an item to `Blocked` when work cannot proceed, then return it to the
-   appropriate active status once the impediment is resolved.
+5. Move an item to `Blocked` when work cannot proceed, then return it to the appropriate active status once the impediment is resolved.
 6. Move the issue to `Review` when its linked pull request opens.
-7. After merge or closure, confirm that the issue is closed and the project item
-   is `Done`.
+7. After merge or closure, confirm that the issue is closed and the project item is `Done`.
 
-The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains
-the current views and configured automations. Maintainers remain responsible for
-verifying and correcting project state when needed.
+The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains the current views and configured automations. Maintainers remain responsible for verifying and correcting project state when needed.
 
 ## Command Reference
 
@@ -273,6 +206,4 @@ verifying and correcting project state when needed.
 | Format the repository       | `pnpm format`         |
 | Build the desktop app       | `pnpm tauri build`    |
 
-Treat [`package.json`](./package.json) as the source of truth for individual
-lint, test, formatting, and build scripts. Backend checks and formatting use the
-pinned nightly Rust formatter installed in [Local Development](#local-development).
+Treat [`package.json`](./package.json) as the source of truth for individual lint, test, formatting, and build scripts. Backend checks and formatting use the pinned nightly Rust formatter installed in [Local Development](#local-development).

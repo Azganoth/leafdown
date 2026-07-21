@@ -21,8 +21,7 @@ The initial internal alpha has been released. Leafdown remains under active deve
 
 ## Project
 
-- [Documentation](./docs/README.md): product behavior, decisions, architecture,
-  and engineering patterns.
+- [Documentation](./docs/README.md): product behavior, decisions, architecture, and engineering patterns.
 - [Changelog](./CHANGELOG.md): release notes.
 - [Contributing](./CONTRIBUTING.md): local development and contribution workflow.
 - [Security](./SECURITY.md): private vulnerability reporting.

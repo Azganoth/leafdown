@@ -1,7 +1,6 @@
 # Documentation Issue Template
 
-Create a maintainer-only blank issue, apply the `Documentation` label, and
-replace the guidance below with issue-specific content.
+Create a maintainer-only blank issue, apply the `Documentation` label, and replace the guidance below with issue-specific content.
 
 ```md
 ### Summary
@@ -10,8 +9,7 @@ Describe the documentation problem, why it matters, and the intended scope.
 
 ### Documents or locations
 
-- List the affected repository paths, URLs, document names, or documentation
-  areas.
+- List the affected repository paths, URLs, document names, or documentation areas.
 
 ### Current documentation
 
@@ -34,6 +32,5 @@ Describe the expected guidance, correction, or documentation outcome.
 
 ### Notes
 
-Add supporting examples or other useful context. Remove this section when it
-adds no value.
+Add supporting examples or other useful context. Remove this section when it adds no value.
 ```

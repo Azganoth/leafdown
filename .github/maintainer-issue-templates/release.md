@@ -1,7 +1,6 @@
 # Release Issue Template
 
-Create a maintainer-only blank issue, apply the `Release` label, and replace the
-guidance below with issue-specific content.
+Create a maintainer-only blank issue, apply the `Release` label, and replace the guidance below with issue-specific content.
 
 ```md
 ### Target

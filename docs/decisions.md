@@ -49,23 +49,15 @@
 
 **Status:** Accepted
 
-**Decision:** Opening a folder uses it as the current folder context. Opening a
-file uses its parent folder as the current folder context only when no folder
-context is active. Once a folder context exists, it remains pinned until changed
-by an explicit folder action.
+**Decision:** Opening a folder uses it as the current folder context. Opening a file uses its parent folder as the current folder context only when no folder context is active. Once a folder context exists, it remains pinned until changed by an explicit folder action.
 
-**Rationale:** Keeps folder-aware workflows available while preventing the
-article navigator from unexpectedly collapsing to nested or unrelated document
-parent folders.
+**Rationale:** Keeps folder-aware workflows available while preventing the article navigator from unexpectedly collapsing to nested or unrelated document parent folders.
 
 **Consequences:**
 
-- The sidebar matches the pinned folder context, not necessarily the active
-  document's parent folder.
-- Opening a single file scans its parent folder context only as a bootstrap path
-  when no folder context is active.
-- Opening Markdown documents outside the current folder context does not switch
-  or prompt for a folder-context change.
+- The sidebar matches the pinned folder context, not necessarily the active document's parent folder.
+- Opening a single file scans its parent folder context only as a bootstrap path when no folder context is active.
+- Opening Markdown documents outside the current folder context does not switch or prompt for a folder-context change.
 - Untitled documents associate with the active folder context before saving.
 
 ### Use one hybrid document surface
@@ -87,24 +79,16 @@ parent folders.
 
 **Status:** Accepted
 
-**Decision:** Leafdown chooses editable markers, subtle markers, persistent
-markers, or visual object affordances per Markdown object instead of applying
-one syntax-reveal rule to every object.
+**Decision:** Leafdown chooses editable markers, subtle markers, persistent markers, or visual object affordances per Markdown object instead of applying one syntax-reveal rule to every object.
 
-**Rationale:** Milkdown already provides structural editing for many block
-objects, while inline and source-oriented objects still benefit from local raw
-Markdown editing.
+**Rationale:** Milkdown already provides structural editing for many block objects, while inline and source-oriented objects still benefit from local raw Markdown editing.
 
 **Consequences:**
 
-- The specification's marker visibility and presentation rules own the
-  per-object behavior.
-- Tables, code blocks, and horizontal rules remain visual objects rather than
-  raw delimiter editing surfaces.
-- Blockquotes and lists rely on structural presentation rather than caret marker
-  decorations.
-- Visual objects do not add marker-driven borders, code-language inputs, or
-  other layout-changing affordances unless separately specified.
+- The specification's marker visibility and presentation rules own the per-object behavior.
+- Tables, code blocks, and horizontal rules remain visual objects rather than raw delimiter editing surfaces.
+- Blockquotes and lists rely on structural presentation rather than caret marker decorations.
+- Visual objects do not add marker-driven borders, code-language inputs, or other layout-changing affordances unless separately specified.
 - Selection alone does not change marker visibility.
 
 ### Local-first
@@ -125,44 +109,24 @@ Markdown editing.
 
 **Status:** Accepted
 
-**Decision:** Leafdown intentionally exposes webview DevTools to users for local
-debugging and support, and writes bounded diagnostic logs to an app-owned local
-logs directory.
+**Decision:** Leafdown intentionally exposes webview DevTools to users for local debugging and support, and writes bounded diagnostic logs to an app-owned local logs directory.
 
-**Rationale:** Leafdown is a local-first desktop app. When a user encounters a
-rendering, editor, filesystem, or platform-specific problem, local inspection is
-the fastest way to collect useful debugging context without adding telemetry or
-requiring a special debug build.
+**Rationale:** Leafdown is a local-first desktop app. When a user encounters a rendering, editor, filesystem, or platform-specific problem, local inspection is the fastest way to collect useful debugging context without adding telemetry or requiring a special debug build.
 
 **Consequences:**
 
 - The Help menu includes an `Open DevTools` action in user builds.
-- The Help menu includes a `Diagnostics...` dialog with actions to open the local
-  logs folder and copy a concise diagnostics summary.
+- The Help menu includes a `Diagnostics...` dialog with actions to open the local logs folder and copy a concise diagnostics summary.
 - DevTools availability is a support feature, not a telemetry mechanism.
-- Leafdown does not upload console output, logs, document contents, or diagnostic
-  data automatically.
-- Diagnostic logs may include operation labels, error kinds, lifecycle events,
-  timing metadata, error messages, stack traces, and local file paths needed to
-  debug filesystem workflows.
-- Diagnostic log files use JSON Lines: each line is one JSON object with
-  backend-owned envelope fields such as UTC timestamp, diagnostic run ID, target,
-  and level, plus event-specific diagnostic fields.
-- Leafdown must not explicitly add Markdown document text to diagnostic logs or
-  copied summaries.
-- Captured browser, editor, or library error messages and stack traces may still
-  contain user content if that content is part of the thrown error.
-- Frontend diagnostic payload normalization may truncate long strings and omit
-  unsupported diagnostic values, but it is not privacy redaction.
-- Diagnostic logs live in Tauri's app log directory:
-  `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows,
-  `~/Library/Logs/com.azganoth.leafdown` on macOS, and
-  `$XDG_DATA_HOME/com.azganoth.leafdown/logs` or
-  `~/.local/share/com.azganoth.leafdown/logs` on Linux.
-- Local log storage is bounded by a 1 MiB active log file and five retained log
-  files.
-- Documentation and release hardening must treat DevTools as intentionally
-  available rather than development-only.
+- Leafdown does not upload console output, logs, document contents, or diagnostic data automatically.
+- Diagnostic logs may include operation labels, error kinds, lifecycle events, timing metadata, error messages, stack traces, and local file paths needed to debug filesystem workflows.
+- Diagnostic log files use JSON Lines: each line is one JSON object with backend-owned envelope fields such as UTC timestamp, diagnostic run ID, target, and level, plus event-specific diagnostic fields.
+- Leafdown must not explicitly add Markdown document text to diagnostic logs or copied summaries.
+- Captured browser, editor, or library error messages and stack traces may still contain user content if that content is part of the thrown error.
+- Frontend diagnostic payload normalization may truncate long strings and omit unsupported diagnostic values, but it is not privacy redaction.
+- Diagnostic logs live in Tauri's app log directory: `%LOCALAPPDATA%\com.azganoth.leafdown\logs` on Windows, `~/Library/Logs/com.azganoth.leafdown` on macOS, and `$XDG_DATA_HOME/com.azganoth.leafdown/logs` or `~/.local/share/com.azganoth.leafdown/logs` on Linux.
+- Local log storage is bounded by a 1 MiB active log file and five retained log files.
+- Documentation and release hardening must treat DevTools as intentionally available rather than development-only.
 
 ## Editor Decisions
 
@@ -178,9 +142,7 @@ requiring a special debug build.
 
 - Leverage Milkdown presets and official plugins before writing custom ProseMirror modules.
 - Evaluate default plugin behaviors before applying overrides.
-- Build the editor through a Leafdown-owned React wrapper around Milkdown
-  Kit rather than depending on framework adapters that introduce unwanted editor
-  UI packages.
+- Build the editor through a Leafdown-owned React wrapper around Milkdown Kit rather than depending on framework adapters that introduce unwanted editor UI packages.
 
 ### Accept Milkdown GFM preset behavior
 
@@ -193,11 +155,7 @@ requiring a special debug build.
 **Consequences:**
 
 - Defer to GFM preset defaults unless explicitly overridden by the specification.
-- Bare GFM URL literals and angle-bracket autolinks share Milkdown's canonical
-  link representation. Milkdown serializes eligible bare URLs as `<https://…>`,
-  so source projection exposes that canonical serialized form. Leafdown does not
-  preserve bare-versus-angle source provenance or bypass projection for bare
-  URLs.
+- Bare GFM URL literals and angle-bracket autolinks share Milkdown's canonical link representation. Milkdown serializes eligible bare URLs as `<https://…>`, so source projection exposes that canonical serialized form. Leafdown does not preserve bare-versus-angle source provenance or bypass projection for bare URLs.
 - Develop custom UI components only when required by the product specification.
 
 ### Do not use Crepe

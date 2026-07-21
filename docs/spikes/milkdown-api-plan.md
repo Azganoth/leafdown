@@ -16,11 +16,11 @@ Install exact Milkdown versions after this spike:
 - `@milkdown/plugin-highlight@7.21.1`
 - `shiki@4.1.0`
 
-Do not install `@milkdown/react` for the MVP editor foundation. The package was
+Do not install `@milkdown/react` for Leafdown's editor foundation. The package was
 verified at `7.21.1`, but it depends on `@milkdown/crepe@7.21.1`. That conflicts
 with the current follow-up issue requirement that no Crepe package be introduced,
-and the adapter does not provide enough value to justify loosening that rule for
-the MVP. A local wrapper can mount and destroy `Editor` with ordinary React
+and the adapter does not provide enough value to justify loosening that rule. A
+local wrapper can mount and destroy `Editor` with ordinary React
 effects while keeping Crepe completely absent.
 
 If the project later chooses the official React adapter, issue #22 must be
@@ -40,10 +40,10 @@ shell. It has two integration modes:
   manually and exposes `editor`, `getMarkdown()`, `setReadonly()`, `create()`,
   `destroy()`, and `on()` listener registration.
 
-Using `Crepe` would force more built-in editor UI than Leafdown wants for the
-MVP. It is designed for a complete out-of-the-box editing surface and expects
-Crepe theme CSS. Its default features also introduce behavior outside the current
-MVP, especially LaTeX, image upload UI, block handles/slash menu UI, and a
+Using `Crepe` would force more built-in editor UI than Leafdown wants. It is
+designed for a complete out-of-the-box editing surface and expects Crepe theme
+CSS. Its default features also introduce behavior outside the intended editing
+surface, especially LaTeX, image upload UI, block handles/slash menu UI, and a
 selection toolbar.
 
 `CrepeBuilder` avoids the full default UI if no features are added, but it is
@@ -66,7 +66,7 @@ Crepe could still be useful in two narrow ways:
 - as reference source for future local implementations of table controls,
   selection toolbar behavior, block handles, or CodeMirror code-block editing.
 
-It should not be used as the MVP editor foundation unless the product direction
+It should not be used as Leafdown's editor foundation unless the product direction
 changes toward adopting a Notion-like built-in editor UI. For Leafdown's current
 docs, use Milkdown Kit directly and evaluate individual Kit components before
 adopting them.
@@ -173,7 +173,7 @@ Important verified defaults:
 
 ## Raw HTML
 
-Use Milkdown CommonMark's verified `htmlSchema` as the MVP escaping foundation.
+Use Milkdown CommonMark's verified `htmlSchema` as the escaping foundation.
 Raw HTML is parsed into an inline atom rendered as a `span` with
 `data-type="html"` and `data-value`. Its text is rendered as text content, not
 live HTML. A local runtime probe confirmed that `<div>`, `<script>`, inline
@@ -219,17 +219,17 @@ plain-text highlighting. A probe showed that Shiki throws for unloaded language
 names, while `undefined` or `plaintext` is safe.
 
 Issue #24 should use bundled assets only, avoid CDN/runtime fetches, and keep the
-language set small for MVP. Expand supported languages only after measuring
+language set deliberately small. Expand supported languages only after measuring
 bundle impact or after user-facing settings exist.
 
 ## Auto Pair And Soft Wrap
 
 No official Milkdown auto-pair plugin was found in the verified packages. Use a
-small Leafdown ProseMirror-compatible plugin for MVP auto-pair behavior:
+small Leafdown ProseMirror-compatible plugin for auto-pair behavior:
 
 - implement it with `$prose` and ProseMirror plugin props;
 - gate it behind the `Auto pair brackets and quotes` setting;
-- handle only the documented MVP bracket and quote pairs;
+- handle only the documented bracket and quote pairs;
 - avoid Markdown structural contexts where pairing would corrupt syntax unless
   tests show the behavior is safe.
 
@@ -297,7 +297,7 @@ Issue #24 confirmed the broad spike direction, but changed several
 implementation details:
 
 - The final implementation added direct `@shikijs/langs@4.1.0` and
-  `@shikijs/themes@4.1.0` dependencies for the MVP language/theme set. Importing
+  `@shikijs/themes@4.1.0` dependencies for the current language/theme set. Importing
   Shiki's singleton highlighter path caused the build to enumerate the full
   grammar/theme registry, while direct Shiki core imports kept bundled assets
   explicit.
@@ -314,7 +314,7 @@ implementation details:
   editing is already handled by Milkdown/ProseMirror, so headings use subtle
   caret-based markers, footnote definitions keep a persistent marker, and
   blockquotes, lists, tables, code blocks, and horizontal rules remain rendered
-  structural objects without marker-driven MVP affordances. Inline and
+  structural objects without marker-driven editing affordances. Inline and
   source-oriented objects can still expose editable raw Markdown syntax. See
   `docs/decisions.md#treat-marker-presentation-as-object-specific` and
   `docs/specification.md#marker-visibility-and-presentation`.

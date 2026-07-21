@@ -1,5 +1,10 @@
 # Backlog
 
+This document is an inventory of unshaped, unscheduled ideas. It is not approved
+scope or the operational work queue. When an idea is ready to plan, create a
+focused GitHub issue, add it to the GitHub Project, and remove its entry here so
+the same work is not tracked in two places.
+
 ## Editor
 
 - Block insertion menu

@@ -1,13 +1,16 @@
 # Engineering Patterns
 
-This document explains recurring implementation patterns in Leafdown. Keep it
-focused on stable decisions: what to use, what to avoid, and what mistake the
-pattern prevents.
+This document records recurring implementation practices: when to use them,
+what to avoid, and the failure modes they prevent. It does not define product
+behavior, architecture boundaries, or repository rules.
 
-Use `AGENTS.md` for hard repository rules. Use this document for the reasoning
-behind local patterns.
+Use `AGENTS.md` for hard repository rules and
+[Architecture](./architecture.md) for ownership and dependency direction. Use
+this document for the reasoning behind local patterns.
 
-## Path Identity
+## Foundations
+
+### Path Identity
 
 Use when comparing or storing native file and folder paths.
 
@@ -28,8 +31,9 @@ Avoid:
 
 Why:
 
-Windows paths are case-insensitive and may use `\` or `/`. POSIX paths remain
-case-sensitive. Centralizing path identity keeps those rules consistent.
+Leafdown treats Windows-drive and UNC paths as case-insensitive and normalizes
+slash style; other paths remain case-sensitive. Centralizing path identity keeps
+those rules consistent.
 
 Example:
 
@@ -41,7 +45,7 @@ if (expandedPaths.has(node.path)) {
 }
 ```
 
-## Disposables And Lifecycle
+### Disposables And Lifecycle
 
 Use disposables for listeners, watchers, subscriptions, cancellation sources,
 and other resources that must be released when a scope ends.
@@ -75,7 +79,7 @@ listeners.set("changed", await appWindow.listen(EVENT_NAME, handleEvent));
 listeners.dispose();
 ```
 
-## Cancellation
+### Cancellation
 
 Use cancellation when async work can become stale before it finishes.
 
@@ -113,7 +117,7 @@ const result = await raceWithCancellation(cancellationToken, () =>
 );
 ```
 
-## Async Task Runners
+### Async Task Runners
 
 Use the shared async runners when a task has a recognizable scheduling rule.
 
@@ -122,7 +126,8 @@ Use:
 - `RestartableTaskRunner` when starting a new run should cancel the previous
   run's token.
 - `DebouncedTaskRunner` when repeated requests should collapse into one delayed
-  run and callers need the resulting promise.
+  run and callers need the resulting promise; use it for folder-watcher refreshes
+  so filesystem event bursts coalesce before rescanning the article navigator.
 - `TaskLimiter` when similar tasks should run with bounded concurrency.
 - `SequentialTaskQueue` when tasks must run one at a time in request order.
 - `AsyncLazy` when an expensive async value should load once and be shared.
@@ -147,10 +152,17 @@ const saveQueue = new SequentialTaskQueue();
 export const saveDocument = () => saveQueue.run(saveDocumentNow);
 ```
 
-## Commands
+## Frontend Patterns
+
+### Commands
+
+Product-facing labels, shortcuts, and availability belong in
+[Reference](./reference.md).
+[Architecture](./architecture.md#editor-architecture) defines which interaction
+layer owns command execution; this section explains how to realize that boundary.
 
 The command layer maps command IDs to application behavior. Feature-specific
-execution should remain owned by the feature that understands the domain.
+execution remains owned by the feature that understands the domain.
 
 Use:
 
@@ -177,8 +189,8 @@ Command metadata is descriptive across surfaces, but shortcut execution remains
 owned by the relevant layer:
 
 - The window-level application hook derives its executable shortcuts from
-  `APPLICATION_COMMAND_IDS`; it must not dispatch every command that happens to
-  have shortcut metadata.
+  `APPLICATION_SHORTCUT_COMMAND_IDS`; it must not dispatch every command that
+  happens to have shortcut metadata.
 - Semantic editor shortcuts route canonical Leafdown editor command IDs from the
   editor keymap and consume recognized owned bindings even when the command is
   unavailable. Disable only the corresponding Milkdown semantic binding.
@@ -193,10 +205,14 @@ Example:
 const saveCommand = appCommand(file.saveDocument, file.getSaveDocumentState);
 ```
 
-## Editor Plugins
+### Editor Plugins
 
 Editor plugins should follow ProseMirror and Milkdown lifecycles. Keep plugin
 state and DOM ownership explicit.
+
+Before using a Milkdown API or plugin, confirm the installed package version and
+match Leafdown's established integration. Do not assume an upstream example
+applies unchanged.
 
 Use:
 
@@ -240,7 +256,7 @@ view: (view) => {
 };
 ```
 
-## Stores And Persistence
+### Stores And Persistence
 
 Stores own UI or feature state. Persistence should be explicit about keys,
 versions, defaults, and migrations.
@@ -274,7 +290,7 @@ const SETTINGS_PERSISTED_KEYS = [
 ] satisfies PersistedTauriStoreKey<SettingsPersistedState>[];
 ```
 
-## Testing
+### Testing
 
 Use shared test helpers before adding new mocks, factories, or setup.
 
@@ -310,11 +326,15 @@ beforeEach(() => setDefaultSettings());
 vi.mocked(invoke).mockResolvedValue({ kind: "renderable", path: imagePath });
 ```
 
-## Tauri API Modules
+## Tauri Boundaries
 
-Raw Tauri `invoke` calls should live in feature-owned API modules. Other feature
-services, hooks, commands, and plugins should call those typed wrappers instead
-of repeating command strings.
+### Tauri API Modules
+
+Raw Tauri `invoke` calls for Leafdown Rust commands should live in feature-owned
+API modules. Other feature services, hooks, commands, and plugins should call
+those typed wrappers instead of repeating command strings. This boundary does
+not require wrappers for ordinary Tauri plugin APIs, such as window, dialog, or
+opener behavior.
 
 Use:
 
@@ -352,10 +372,11 @@ export const openMarkdownFile = ({ path }: OpenMarkdownFileArgs) =>
   invoke<OpenMarkdownFileResult>(OPEN_MARKDOWN_FILE_COMMAND, { path });
 ```
 
-## Tauri Boundary Errors
+### Tauri Boundary Errors
 
 Tauri commands should return serializable success and error payloads. The frontend
 should map those known payloads to user-facing messages close to the owning feature.
+Use [Error Handling](#error-handling) after a feature receives a boundary error.
 
 Use:
 
@@ -386,13 +407,16 @@ type OpenMarkdownDocumentError =
   | { kind: "permissionDenied"; path: string; message: string };
 ```
 
-## Error Handling
+## Failure And Diagnostics
 
-Classify failures before choosing a handler.
+### Error Handling
+
+For serialized Tauri command errors, first follow
+[Tauri Boundary Errors](#tauri-boundary-errors). Then classify the received
+failure before choosing a handler.
 
 Use:
 
-- Feature-owned tagged unions and message helpers for domain errors.
 - Local `catch` plus `notifyError(getXErrorMessage(error))` for expected domain
   errors at UI or command boundaries.
 - Silent local handling for control-flow errors such as cancellation, stale async
@@ -406,12 +430,8 @@ Use:
   as structured diagnostic events.
 - Feature-owned diagnostic events for expected operation failures, folder watcher
   lifecycle/error transitions, confirmed app/window close lifecycle, and slow
-  operation timings when those events help support without adding active
-  Markdown document text.
-- Diagnostics feature helpers such as `writeDiagnosticOperationFailure`,
-  `writeDiagnosticOperationWarning`, `writeDiagnosticOperationLifecycle`, and
-  `writeDiagnosticSlowOperation` for operation-scoped logs, rather than
-  hand-assembling repeated event envelopes at call sites.
+  operation timings when they aid support. Use diagnostics helpers rather than
+  hand-assembling repeated event envelopes.
 - `installUnexpectedErrorHandlers()` once at startup to catch errors that escape
   local handling. Keep the returned cleanup wired into dev hot disposal.
 - `UnexpectedErrorBoundary` around the main application surface for React render
@@ -422,9 +442,6 @@ Avoid:
 
 - Passing domain error payloads to `notifyOperationFailure`.
 - Logging cancellation errors.
-- Explicitly adding active Markdown document text to diagnostic logs or copied
-  summaries.
-- Uploading diagnostic logs automatically.
 - Calling `console.error` outside the shared unexpected-error helper.
 - Creating a global `AppError` hierarchy for feature-specific domain errors.
 - Showing a toast for every unexpected internal failure.
@@ -438,18 +455,6 @@ failures need consistent logging and enough context to debug. Keeping those path
 separate prevents generic "something failed" helpers from swallowing useful
 domain information. Unexpected logs are lightly deduped to keep repeated global
 events or render-loop failures from flooding the console and local log file.
-Diagnostic logs are JSON Lines. The Rust log formatter owns the envelope fields:
-UTC `timestamp`, diagnostic `runId`, stable frontend/backend `target`, and log
-`level`. Frontend and backend log messages provide event-specific fields for
-unexpected errors, expected operation failures and warnings, lifecycle events,
-and slow operation timings.
-Diagnostic entries may include operation labels, diagnostic run identifiers,
-error messages, stack traces, React component stacks, and local file paths when
-those paths are part of the failed workflow. Captured browser, editor, or library
-error messages and stack traces may include user content if the thrown error
-includes it; application code should not add active document text as diagnostic
-context. Frontend diagnostic normalization truncates long strings and drops
-unsupported `undefined` values, but it is not redaction.
 
 Example:
 

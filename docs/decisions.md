@@ -26,8 +26,8 @@
 
 **Consequences:**
 
-- The MVP normalizes generated Markdown to the default application style.
-- Output-formatting customization is deferred to Post-MVP.
+- Leafdown normalizes generated Markdown to the default application style.
+- Output-formatting customization remains deferred.
 - Standardize on Milkdown serializer defaults unless configuration overrides are straightforward and reliable.
 - Round-trip tests verify semantic preservation and account for known serializer normalizations.
 
@@ -103,7 +103,7 @@ Markdown editing.
   raw delimiter editing surfaces.
 - Blockquotes and lists rely on structural presentation rather than caret marker
   decorations.
-- MVP visual objects do not add marker-driven borders, code-language inputs, or
+- Visual objects do not add marker-driven borders, code-language inputs, or
   other layout-changing affordances unless separately specified.
 - Selection alone does not change marker visibility.
 
@@ -178,7 +178,7 @@ requiring a special debug build.
 
 - Leverage Milkdown presets and official plugins before writing custom ProseMirror modules.
 - Evaluate default plugin behaviors before applying overrides.
-- Build the MVP editor through a Leafdown-owned React wrapper around Milkdown
+- Build the editor through a Leafdown-owned React wrapper around Milkdown
   Kit rather than depending on framework adapters that introduce unwanted editor
   UI packages.
 

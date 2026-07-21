@@ -2,6 +2,9 @@
 
 Leafdown is a local-first Markdown editor for files and folders, designed as a focused document editor rather than a notes vault, IDE, cloud workspace, or split-pane preview tool.
 
+Items marked `Deferred` describe approved future behavior. They are not
+implemented, but should inform future design and implementation.
+
 ## Product Principles
 
 - Markdown files remain the source of truth.
@@ -19,7 +22,8 @@ Leafdown is a local-first Markdown editor for files and folders, designed as a f
 
 Supported files are `.md` and `.markdown` formats.
 
-Markdown compatibility includes CommonMark and GitHub Flavored Markdown (GFM) elements:
+Leafdown supports the following CommonMark and GitHub Flavored Markdown (GFM)
+features, plus footnotes:
 
 - Headings
 - Paragraphs
@@ -39,7 +43,9 @@ Markdown compatibility includes CommonMark and GitHub Flavored Markdown (GFM) el
 - Autolinks
 - Footnotes
 
-Unsupported syntax is preserved where possible and treated as text.
+Unsupported Markdown is outside Leafdown's supported editing surface. Leafdown
+treats it as literal text where possible, but does not guarantee recognition,
+editable semantics, or byte-for-byte round-tripping after a save.
 
 ## Interface Model
 
@@ -51,7 +57,9 @@ Primary user interface surfaces:
   open file, open folder, recent files, and recent folders.
 - **Menu bar:** provides top-level app commands grouped by File, Edit, Insert,
   Format, View, and Help.
-- **Document surface:** contains the active hybrid Markdown editor. In a folder-only session, it displays a centered placeholder illustration/text prompting the user to select a file from the sidebar or create a new file.
+- **Document surface:** contains the active hybrid Markdown editor. In a
+  folder-only session, it displays a centered placeholder illustration and text
+  prompting the user to select an article or create a new file.
 - **Article navigator:** shows articles (supported Markdown files) from the current folder
   context in a nested tree. Non-Markdown files and ignored directories are hidden.
   Non-ignored directories may appear even when they have no supported Markdown
@@ -61,7 +69,7 @@ Primary user interface surfaces:
   When the active saved document is outside the current folder context, the
   article navigator keeps showing the current folder context and displays a
   compact detached-document message instead of selecting an article.
-  The sidebar is read-only for folder navigation in the MVP; file creation, renaming,
+  The article navigator is currently read-only; file creation, renaming,
   and deletion must be managed through the OS file explorer or via document saving workflows.
 - **Context popup:** provides quick document actions from selection or
   right-click.
@@ -70,7 +78,8 @@ Primary user interface surfaces:
 
 ## State Model
 
-Application state model:
+These state axes compose. A document session, for example, can have a folder
+context and be saved and clean or dirty.
 
 ### App State
 
@@ -80,8 +89,8 @@ Application state model:
 
 ### Folder Context State
 
-- **No folder context:** no local folder is available for sidebar navigation.
-- **Folder context available:** a local folder is available for sidebar navigation
+- **No folder context:** no local folder is available for article navigation.
+- **Folder context available:** a local folder is available for article navigation
   and folder workflows.
 - **Empty folder context:** a folder context is available, but no supported
   Markdown files were found.
@@ -92,8 +101,9 @@ Application state model:
 - **Saved document:** the active document has a file path.
 - **Untitled document:** the active document has no file path yet and requires
   Save as.
-- **Clean:** editor content matches the last opened or saved disk content. Opening a file does not trigger a dirty state, even if Leafdown's default serialization formatting differs from the original disk file.
-- **Dirty:** editor content has unsaved changes. The dirty state is triggered only by actual user transaction events in the editor history.
+- **Clean:** the document has no user edits since it was opened or saved. Loading
+  and serialization normalization do not make it dirty.
+- **Dirty:** the document has unsaved user edits.
 - **Line ending:** the line ending used when saving the active document. Opened
   files start with their detected line ending; untitled documents start with
   `Default line ending for new documents`. If the opened file contains mixed line endings (both LF and CRLF), the detected line ending is determined by majority vote (whichever occurs more frequently in the file).
@@ -137,13 +147,14 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   object rather than applied uniformly to all syntax.
 - Prose blocks wrap to the editor viewport width; horizontal scrolling is restricted to code blocks or tables.
 - Soft wrap is visual only and never modifies saved Markdown.
-- Raw HTML tags and inline elements are sanitized and escaped, rendering them as code-like text strings rather than parsing them as DOM nodes, preventing cross-site scripting (XSS) and layout disruption.
+- Raw HTML is displayed as literal, code-like text and is never rendered as live
+  DOM, preventing script execution and layout disruption.
 
 ### Marker Visibility and Presentation
 
 - Content that shows the syntax marker decoration when the caret is inside the
   block: Headings.
-- Content that remains structurally rendered without marker-driven MVP controls
+- Content that remains structurally rendered without marker-driven editing controls
   or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks,
   Tables.
 - Content that shows the editable raw markdown syntax: Strong, Emphasis,
@@ -165,7 +176,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   interaction; pipe-delimited Markdown is not exposed in the editor surface.
 - Code blocks render as styled monospace blocks with syntax highlighting when
   available. Focused code blocks edit code content directly. Language metadata
-  controls are deferred to Post-MVP.
+  controls are deferred.
 - Footnote definitions render as editable definition blocks with a persistent
   subtle definition marker.
 
@@ -188,8 +199,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   caret or contained text selection anywhere in a supported label projects the
   complete link source, including labels with nested strong, emphasis,
   strikethrough, inline-code formatting, or semantic soft line endings. Soft
-  line endings remain one logical label even though Milkdown represents them as
-  inline break nodes; indentation follows Milkdown's canonical serialization.
+  line endings remain one logical label; indentation follows Leafdown's canonical
+  serialization.
   Valid edits rehydrate one link over the complete rich label; invalid or
   incomplete edits become exact literal text. Mixed-format and multiline labels
   do not fall back to fragmented projections for their nested content.
@@ -236,21 +247,14 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `Shift+Tab`: Moves focus to the cell to the left.
   - `Enter`: Moves focus to the cell directly below. If pressed in the bottom row, inserts a new row below and focuses it.
   - `ArrowDown` (in the bottom row of a table): Exits the table downwards and moves the caret to the block below (creating a new empty paragraph block if none exists).
-- Milkdown owns structural, context-sensitive editing shortcuts such as text
-  insertion, deletion, list and table navigation, and heading downgrade.
-  Leafdown owns shortcuts for semantic commands exposed through application
-  command surfaces and projection-aware history so their availability and
-  behavior match menus and context popups.
-- The window-level shortcut listener executes only application commands. Editor
-  shortcuts execute through the focused editor keymap, while standard clipboard
-  gestures and other native text-input keys remain with the browser and
-  ProseMirror. This boundary also applies to focused raw Markdown inputs embedded
-  in the editor.
-- `Mod+C` and `Mod+X` remain native clipboard gestures rather than application
-  keydown commands. Inside the Milkdown editor, their resulting `copy` and `cut`
-  events use Leafdown's default editor clipboard behavior. Outside the editor,
-  Copy and Cut remain native to the focused control or browser selection.
-- The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
+- Structural editing and native text gestures retain their normal editor behavior.
+  Leafdown commands provide the same semantic operations across menus, keyboard
+  shortcuts, and the context popup.
+- The app intercepts and disables default webview reload and navigation shortcuts,
+  including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
+
+For editor input and clipboard ownership, see
+[Architecture](./architecture.md#editor-architecture).
 
 ### Editing Commands
 
@@ -280,21 +284,16 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   written successfully. An asynchronous command Cut does not delete if the
   document, selection, or projection mode changes while the clipboard write is
   pending.
-- `Paste` and `Paste as` commands use editor clipboard behavior and insert at the
-  caret or replace the current selection. Standard keyboard Paste and Paste as
-  plain text remain native clipboard gestures so Milkdown can parse the supplied
-  plain-text or HTML payload. An active source projection intercepts native Paste
-  first and inserts its plain-text payload literally. At their shared HTML
-  ingress, native and command Paste remove only CF_HTML transport context around
-  one valid fragment carrying ProseMirror slice metadata. The fragment itself,
-  including selected whitespace and open-slice context, remains exact; HTML that
-  does not qualify remains unchanged.
+- `Paste` and `Paste as` insert at the caret or replace the current selection.
+  Active source projection inserts the plain-text payload literally. Paste
+  preserves qualifying editor content, selected whitespace, and structural slice
+  context; other HTML remains unchanged.
 - `Delete` removes the current selection when one exists; otherwise it uses the
   normal editor delete behavior.
 - `Delete word backward` deletes the word behind the caret.
 - `Delete word forward` deletes the word in front of the caret.
-- `Delete block` deletes the active block. (Post-MVP)
-- `Delete sentence` deletes the sentence at or adjacent to the caret. (Post-MVP)
+- `Delete block` deletes the active block. (Deferred)
+- `Delete sentence` deletes the sentence at or adjacent to the caret. (Deferred)
 
 ### Inline Formatting Commands
 
@@ -346,7 +345,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   they use the selected column range.
 - `Add row above` and `Add row below` insert one row before the first selected
   row or after the last selected row.
-- GFM tables keep the header row as a protected structural row for MVP table
+- GFM tables keep the header row as a protected structural row for table
   editing. Row commands that would insert above, move, or delete the header row
   are unavailable. `Add row below` remains available from the header row and
   inserts the first body row.
@@ -366,367 +365,11 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Save output trims trailing blank lines and writes at most one final line
   ending, controlled by `Insert final newline on save`.
 
-## Settings
+## Commands And Settings
 
-Global settings persist across application launches unless specified otherwise:
-
-### General
-
-- **Record recent files and folders:** On or Off. Default: On.
-  - The setting controls whether session history records opened paths; the recent lists themselves are persisted session history rather than preferences.
-  - Recent files and recent folders are separate lists.
-  - Recent lists are deduplicated by path, sorted by most recent first, and
-    limited to 10 items each.
-  - `Clear recent items` clears both recent lists.
-- **Sidebar visibility:** Visible or hidden. Default: Visible.
-- **Article sort order:** Name, modified date, or type. Default: Name.
-
-### Files
-
-- **Default extension for new documents:** `.md` or `.markdown`. Default: `.md`.
-- **Default line ending for new documents:** LF or CRLF. Default: system
-  dependent.
-  - Windows defaults to CRLF. macOS and Linux default to LF.
-- **Insert final newline on save:** On or Off. Default: On.
-- **Index file names for automatic folder open:** ordered list of file base names.
-  Default: `readme`, `index`.
-- **Ignored directories for folder scans:** directory name list. Default: `.git`,
-  `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
-  - Directory name matching is case-sensitive on Unix-like systems and case-insensitive on Windows, matching exact directory names (matching directories and their contents are recursively skipped).
-- **Auto save:** On or Off. Default: Off. (Post-MVP)
-- **When dropping a folder:** Open or Insert folder link. Default: Open. (Post-MVP)
-- **When dropping a Markdown file:** Open or Insert file link. Default: Open. (Post-MVP)
-
-### Editor
-
-- **Auto pair brackets and quotes:** On or Off. Default: On.
-- **Indent size on save:** 2 spaces, 4 spaces, or tab. Default: 2 spaces. (Post-MVP)
-- **Display line numbers for code blocks:** On or Off. Default: Off. (Post-MVP)
-- **Soft wrap for code blocks:** On or Off. Default: Off.
-
-### Output
-
-- **Unordered list marker:** `-`, `*`, or `+`. Default: `-`. (Post-MVP)
-- **Ordered list marker:** `.` or `)`. Default: `.`. (Post-MVP)
-- **Ordered list numbering:** Sequential or Repeated. Default: Sequential. (Post-MVP)
-- **Strong marker:** `**` or `__`. Default: `**`. (Post-MVP)
-- **Emphasis marker:** `*` or `_`. Default: `*`. (Post-MVP)
-- **Code block fence:** Triple backticks or Triple tildes. Default: Triple
-  backticks. (Post-MVP)
-- **Horizontal rule marker:** `---`, `***`, or `___`. Default: `---`. (Post-MVP)
-
-### Appearance
-
-- **Appearance theme:** System, Light, or Dark. Default: System.
-- **Render/editor theme:** document typography, font, typography size, code
-  highlight theme, and related editor rendering preferences. Default: Leafdown
-  default theme. (Post-MVP)
-
-## Command Surfaces
-
-App commands are unified across menus, keyboard shortcuts, and the context popup. Availability and checked states are defined in the Command State section.
-
-### Menu Commands
-
-Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `Command` on macOS).
-
-#### File Menu
-
-- **New** (`Mod+N`)
-- **New window** (`Mod+Shift+N`, Post-MVP)
-- **Open...** (`Mod+O`)
-- **Open folder...** (`Mod+Shift+O`)
-- **Open recent**
-  - **Open last closed** (Post-MVP)
-  - **Recent files**
-    - [recent file items]
-  - **Recent folders**
-    - [recent folder items]
-  - **Clear recent items**
-- **Save** (`Mod+S`)
-- **Save as...** (`Mod+Shift+S`)
-- **Open file location**
-- **Reveal in sidebar**
-- **Export** (Post-MVP)
-  - **Export as PDF...** (Post-MVP)
-  - **Export as HTML...** (Post-MVP)
-- **Print...** (`Mod+P`, Post-MVP)
-- **Preferences...** (`Mod+,`)
-- **Close document** (`Mod+W`)
-- **Close folder**
-- **Close window** (`Alt+F4` / `Mod+Q`)
-
-#### Edit Menu
-
-- **Undo** (`Mod+Z`)
-- **Redo** (`Mod+Y`, `Mod+Shift+Z`)
-- **Cut** (`Mod+X`)
-- **Copy** (`Mod+C`)
-- **Paste** (`Mod+V`)
-- **Copy as**
-  - **Plain text**
-  - **Markdown**
-  - **HTML** (Post-MVP)
-  - **Rich text** (Post-MVP)
-- **Paste as**
-  - **Plain text** (`Mod+Shift+V`)
-  - **Markdown**
-  - **Rich text / formatted text**
-- **Delete**
-  - **Delete** (`Delete`)
-  - **Delete block** (Post-MVP)
-  - **Delete sentence** (Post-MVP)
-  - **Delete word backward** (`Mod+Backspace`)
-  - **Delete word forward** (`Mod+Delete`)
-- **Select**
-  - **Select all** (`Mod+A`)
-  - **Select block** (Post-MVP)
-  - **Select sentence** (Post-MVP)
-  - **Select word**
-- **Jump**
-  - **Jump to top** (`Mod+Home`)
-  - **Jump to bottom** (`Mod+End`)
-  - **Jump to selection**
-  - **Jump to line start** (`Home`)
-  - **Jump to line end** (`End`)
-- **Move block up** (`Alt+Up`, Post-MVP)
-- **Move block down** (`Alt+Down`, Post-MVP)
-- **Line ending**
-  - **Windows line ending (CRLF)**
-  - **Unix line ending (LF)**
-  - **Insert final newline on save**
-- **Find and replace** (Post-MVP)
-  - **Find...** (`Mod+F`, Post-MVP)
-  - **Find next** (`F3`, Post-MVP)
-  - **Find previous** (`Shift+F3`, Post-MVP)
-  - **Replace...** (`Mod+H`, Post-MVP)
-
-#### Insert Menu
-
-- **Paragraph**
-- **Heading**
-  - **Heading 1**
-  - **Heading 2**
-  - **Heading 3**
-  - **Heading 4**
-  - **Heading 5**
-  - **Heading 6**
-- **Link** (`Mod+K`)
-- **Image**
-- **Ordered list**
-- **Unordered list**
-- **Task list**
-- **Blockquote**
-- **Code block**
-- **Table**
-- **Horizontal rule**
-
-#### Format Menu
-
-- **Strong** (`Mod+B`)
-- **Emphasis** (`Mod+I`)
-- **Strikethrough** (`Mod+Alt+X`)
-- **Inline code** (`Mod+E`)
-- **Clear inline formatting** (`Mod+\`)
-- **Paragraph** (`Mod+Alt+0`)
-- **Heading**
-  - **Heading 1** (`Mod+Alt+1`)
-  - **Heading 2** (`Mod+Alt+2`)
-  - **Heading 3** (`Mod+Alt+3`)
-  - **Heading 4** (`Mod+Alt+4`)
-  - **Heading 5** (`Mod+Alt+5`)
-  - **Heading 6** (`Mod+Alt+6`)
-- **Increase heading level**
-- **Decrease heading level**
-- **Ordered list** (`Mod+Alt+7`)
-- **Unordered list** (`Mod+Alt+8`)
-- **Task list**
-- **Increase list indent** (`Tab`)
-- **Decrease list indent** (`Shift+Tab`)
-- **Toggle task checked**
-- **Blockquote** (`Mod+Shift+B`)
-- **Code block** (`Mod+Alt+C`)
-- **Table**
-  - **Delete table**
-  - **Add row above**
-  - **Add row below**
-  - **Add column before**
-  - **Add column after**
-  - **Move row up**
-  - **Move row down**
-  - **Move column left**
-  - **Move column right**
-  - **Delete row**
-  - **Delete column**
-  - **Copy table** (Post-MVP)
-- **Clear block formatting**
-
-#### View Menu
-
-- **Toggle sidebar** (`Mod+Shift+E`)
-- **Toggle status bar** (Post-MVP)
-- **Outline** (Post-MVP)
-- **Zoom in** (`Mod+=`)
-- **Zoom out** (`Mod+-`)
-- **Reset zoom** (`Mod+0`)
-- **Always on top** (Post-MVP)
-- **Full screen** (`F11`)
-- **Appearance**
-  - **System**
-  - **Light**
-  - **Dark**
-- **Theme** (Post-MVP)
-  - [theme items] (Post-MVP)
-- **Sort articles by**
-  - **Name**
-  - **Modified date**
-  - **Type**
-- **Collapse all folders**
-- **Expand all folders**
-
-#### Help Menu
-
-- **What's new...** (Post-MVP)
-- **Keyboard shortcuts** (`Mod+/`, Post-MVP)
-- **Markdown reference** (Post-MVP)
-- **Getting started** (Post-MVP)
-- **File and folder workflows** (Post-MVP)
-- **Settings reference** (Post-MVP)
-- **Report issue** (Post-MVP)
-- **Request feature** (Post-MVP)
-- **Changelog** (Post-MVP)
-- **Check for updates** (Post-MVP)
-- **Support / Donate** (Post-MVP)
-- **Open DevTools**
-- **Diagnostics...**
-- **About**
-
-`Diagnostics...` opens a dialog that shows app version, platform, log location,
-retention settings, and local-only privacy notes. The copied diagnostics summary
-includes app, platform, and current diagnostic run metadata only; log paths,
-retention settings, and privacy text remain visible in the dialog rather than
-copied. The dialog also provides an action to open Leafdown's app-owned local
-diagnostic log directory. Local logs may include user content when captured error
-messages or stack traces include it.
-
-Diagnostic log files are JSON Lines. Each log line is a single JSON object with
-UTC timestamp, diagnostic run ID, target, and level fields owned by the backend
-log formatter. Structured frontend diagnostics add event-specific fields such as
-`event`, `feature`, `operation`, `errorKind`, `warningKind`, `phase`,
-`durationMs`, and local paths relevant to the failed or slow workflow.
-Application code must not explicitly add active Markdown document text to
-diagnostic payloads. Payload normalization may truncate long strings and omit
-unsupported diagnostic values; it is not redaction.
-
-### Context Popup
-
-The context popup is a contextual menu triggered by selection or right-click within the editor.
-
-- Right-click inside an existing selection keeps the selection.
-- Right-click outside a selection uses the editor's normal pointer handling to
-  place the caret at the clicked location; the popup does not perform a second
-  coordinate-based caret move.
-- `Escape`, typing, clicking outside, or scrolling the popup out of view closes
-  it.
-
-#### Popup Command Groups
-
-1. Quick actions: Cut, Copy, Paste, Delete.
-2. Inline formatting: Strong, Emphasis, Inline code, Link.
-3. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-4. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5,
-   Heading 6.
-5. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5,
-   Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block,
-   Table, Horizontal rule.
-
-## Command State
-
-Command availability rules govern menus, keyboard shortcuts, and the context popup. Commands are active by default unless disabled by context or build constraints.
-
-### Contextual Availability
-
-Inactive commands are disabled rather than hidden.
-
-#### Document State
-
-- `Save as`, `Close document`, and all `Edit`, `Insert`, and `Format` commands
-  are disabled when no document is open.
-  - Exception: `Insert final newline on save` remains enabled because it controls
-    a global save setting rather than active editor content.
-- `Export`, `Print`, and `Outline` are disabled when no document is open.
-- `Save` is disabled when no document is open, or when the document is clean and
-  already saved.
-
-#### Selection And Editor State
-
-- `Cut`, `Copy`, and `Copy as` require a selection.
-- `Undo` and `Redo` require available editor history.
-- `Jump to selection` requires a selection.
-- `Delete block` requires an active block.
-- `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.
-- `Delete sentence` and `Select sentence` require a sentence at or adjacent to
-  the caret.
-- `Increase list indent` and `Decrease list indent` require a list item and a
-  valid indentation change.
-- `Toggle task checked` requires a task list item.
-- `Clear inline formatting` requires supported inline formatting in the
-  selection or an active marked inline element.
-- `Clear block formatting` requires removable block formatting in the current or
-  selected blocks.
-- `Increase heading level` and `Decrease heading level` require a heading that
-  can move in the requested direction.
-
-#### Table State
-
-- Table commands require the caret or selection inside a table.
-
-#### File And Folder State
-
-- `Open file location` requires an active saved document path. If the native
-  file reveal fails because the path is missing or inaccessible, Leafdown shows
-  an error.
-- `Reveal in sidebar` requires a folder context and an active saved article in the
-  article navigator.
-- `Close folder` requires a folder context.
-- `Open last closed` requires a last-closed item.
-- `Clear recent items` requires at least one recent file or folder.
-- `Sort articles by`, `Collapse all folders`, and `Expand all folders` require
-  a folder context and an available article navigator.
-
-#### Search And Updates
-
-- `Find next`, `Find previous`, and `Replace` require an active search query.
-- `Check for updates` requires an available update mechanism in the current
-  build.
-
-### Checked And Radio State
-
-Use checkmarks for boolean command state and radio groups for mutually exclusive
-choices.
-
-#### Boolean State
-
-- `Insert final newline on save` reflects the global save setting.
-  It remains available without an active document.
-- `Toggle sidebar` reflects global sidebar visibility.
-- `Toggle status bar` reflects global status bar visibility.
-- `Always on top` reflects current window state.
-- `Full screen` reflects current window state.
-
-#### Radio State
-
-- `Line ending` is a radio group for the active document with CRLF and LF
-  choices.
-- `Appearance` is a radio group for the global appearance theme: `System`,
-  `Light`, or `Dark`.
-- `Theme` is a radio group for the global render/editor theme when implemented.
-- `Sort articles by` is a radio group for the global article sort order.
-
-#### Formatting State
-
-- Formatting commands do not expose live checked state until that behavior is
-  intentionally designed.
+See [Reference](./reference.md) for current and
+Deferred settings, command surfaces, contextual availability, and checked or
+radio state.
 
 ## File And Folder Workflows
 
@@ -734,14 +377,15 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 ### Open File
 
-- Opening a file may be initiated from Open, recent files, or sidebar selection.
+- Opening a file may be initiated from Open, recent files, or article navigator
+  selection.
 - Read the selected Markdown file.
 - If no folder context is active, set the current folder context to the file's
   parent folder and scan that folder for supported Markdown files, skipping
   ignored directories.
 - If a folder context is already active, keep it unchanged.
 - Open the selected file in the document surface.
-- Select the opened file in the sidebar only when it exists in the current
+- Select the opened file in the article navigator only when it exists in the current
   article navigator.
 - Add the file to recents when `Record recent files and folders` is enabled.
   Add the file's parent folder to recent folders only when the file open
@@ -775,13 +419,16 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
   navigator for the current folder context.
 - If the saved file is outside the current folder context, keep the current
   folder context unchanged.
-- Select the saved file in the sidebar only when it exists in the current
+- Select the saved file in the article navigator only when it exists in the current
   article navigator.
 
 ### Filesystem Watching
 
-- The app establishes a native filesystem watcher on the active folder context.
-- When Markdown files are created, renamed, or deleted externally, the article navigator automatically updates to reflect the changes. Filesystem watching events are debounced and throttled before updating the app state to prevent performance degradation during rapid batch operations.
+- Leafdown watches the active folder context for filesystem changes.
+- When Markdown files are created, renamed, or deleted externally, the article
+  navigator automatically updates to reflect the changes.
+- If the active document changes externally, prompt before replacing its editor
+  content. (Deferred)
 
 ## Link And Image Handling
 
@@ -804,16 +451,18 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 ### Images
 
 - Local relative images render automatically when supported.
-  - Local image paths must be resolved to absolute paths on the backend, then converted to Tauri's custom asset protocol URLs (e.g. standard Tauri v2 asset scheme) on the frontend for rendering. The path component of the asset URL must be properly URL-encoded to handle spaces and special characters.
-  - Windows backslashes `\` in absolute paths must be normalized to forward slashes `/` for webview rendering compatibility.
 - Supported local image formats are `.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, and
   `.webp`.
 - Missing local images show a clear placeholder.
-- Remote image Markdown is preserved, but network images are blocked completely in the MVP (loading them is deferred to Post-MVP).
+- Remote image Markdown is preserved, but network images are currently blocked
+  completely; loading them is deferred.
 - Local images that resolve outside the current folder context require
   explicit confirmation before rendering. Instead of a blocking modal, the editor displays an inline placeholder in place of the image, prompting the user to click to load/render it.
 - Selecting a rendered or placeholder image exposes the raw image Markdown for
   editing the alt text and target path.
+
+For local-path resolution and asset-protocol handling, see
+[Architecture](./architecture.md#frontend-responsibilities).
 
 ## Saving, Limits, And Errors
 

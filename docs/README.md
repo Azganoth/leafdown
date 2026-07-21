@@ -9,20 +9,34 @@
 - [Engineering Patterns](./patterns.md): recurring implementation patterns,
   when to use them, and the mistakes they prevent.
 - [Decisions](./decisions.md): accepted product and technical decisions.
-- [MVP](./mvp.md): MVP release goal, scope rule, acceptance criteria, and
-  execution reference.
-- [Backlog](./backlog.md): Post-MVP candidates and deferred ideas.
+- [Reference](./reference.md): settings, menus, shortcuts,
+  contextual availability, and checked state.
+- [Backlog](./backlog.md): unshaped, unscheduled ideas that have not yet become
+  actionable issues.
+
+If product documents overlap or appear to conflict, prefer them in this order:
+Decisions, Specification, Architecture, Backlog.
+
+Engineering Patterns provides implementation guidance rather than product
+direction. It yields to Architecture for ownership and dependency boundaries.
+
+## Repository Guidance
+
+- [Contributing](../CONTRIBUTING.md): contribution workflow and project
+  conventions.
+- [Security](../SECURITY.md): private vulnerability reporting and supported
+  versions.
 - [Changelog](../CHANGELOG.md): release notes for user-facing changes.
 
-If documents overlap or appear to conflict, prefer them in this order:
-Decisions, Specification, Architecture, Engineering Patterns, MVP, Backlog.
+## Work Tracking
+
+The [issue tracker](https://github.com/Azganoth/leafdown/issues) is the source
+of truth for actionable work. The [Leafdown Project](https://github.com/users/Azganoth/projects/7)
+tracks prioritization and delivery state. When a backlog idea becomes actionable,
+promote it to an issue and remove the corresponding backlog entry to avoid
+duplicate tracking.
 
 ## Conventions
-
-### Scope Labels
-
-- `Post-MVP`: deferred until after the MVP.
-- `Development-only`: available only in development builds.
 
 ### Decision Records
 

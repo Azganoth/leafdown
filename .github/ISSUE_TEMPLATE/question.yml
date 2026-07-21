@@ -1,0 +1,36 @@
+name: Question or support
+description: Ask about using or contributing to Leafdown
+labels: ["Question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use the bug report form for a reproducible defect. [Report security vulnerabilities privately](https://github.com/Azganoth/leafdown/security/policy).
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like help understanding or doing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Goal and context
+      description: What are you trying to accomplish, and what relevant context should maintainers know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempts
+    attributes:
+      label: What have you tried?
+      description: Describe documentation, settings, commands, or workarounds you have already tried.
+
+  - type: textarea
+    id: related_context
+    attributes:
+      label: Related context
+      description: Link relevant documentation, issues, screenshots, or examples. Review and redact private information before posting.

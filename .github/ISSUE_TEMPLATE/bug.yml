@@ -1,7 +1,12 @@
-name: Bug
-description: Track a defect in Leafdown
+name: Bug report
+description: Report a reproducible problem in Leafdown
 labels: ["Bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues before reporting a problem. [Report security vulnerabilities privately](https://github.com/Azganoth/leafdown/security/policy). Before posting Markdown, settings, diagnostics, logs, screenshots, or recordings, review and redact private information such as document content, filenames, local paths, account details, tokens, and credentials.
+
   - type: textarea
     id: summary
     attributes:
@@ -35,29 +40,51 @@ body:
     validations:
       required: true
 
-  - type: textarea
-    id: related_context
+  - type: dropdown
+    id: frequency
     attributes:
-      label: Related context
-      description: Link related issues, pull requests, documentation, decisions, or prior investigation. Use `y` to generate permalinks for repository files on GitHub.
-      placeholder: |
-        - Related issue or pull request: #
-        - Documentation or decision:
-
-  - type: textarea
-    id: done
-    attributes:
-      label: Done when
-      description: Checklist for completing and verifying the fix.
-      placeholder: |
-        - [ ] Defect no longer reproduces
-        - [ ] Regression coverage added
-        - [ ] Related behavior remains unchanged
-        - [ ] Docs updated if needed
+      label: Reproduction frequency
+      description: How consistently does the problem occur?
+      options:
+        - Every time
+        - Frequently
+        - Intermittently
+        - Happened once
+        - Unsure
     validations:
       required: true
 
   - type: textarea
+    id: environment
+    attributes:
+      label: Version and environment
+      description: In Leafdown, use Help > Diagnostics > Copy summary and paste the result below. Also provide your detailed Windows version and identify how Leafdown was installed or built.
+      placeholder: |
+        Installation: release / development build / built from source
+        Source commit, if applicable:
+        Windows version:
+        Diagnostics summary:
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal_reproduction
+    attributes:
+      label: Minimal Markdown or relevant settings
+      description: If the problem depends on particular Markdown or settings, provide the smallest example that reproduces it.
+      render: markdown
+
+  - type: textarea
+    id: related_context
+    attributes:
+      label: Related context
+      description: Link related issues, pull requests, documentation, examples, or prior discussion.
+      placeholder: |
+        - Related issue or pull request: #
+        - Documentation or example:
+
+  - type: textarea
     id: notes
     attributes:
-      label: Notes, logs, screenshots
+      label: Logs, screenshots, and additional context
+      description: The copied diagnostics summary contains application and system metadata only. Full diagnostic logs are not privacy-redacted and may contain local paths, error details, stack traces, or user content included in captured errors.

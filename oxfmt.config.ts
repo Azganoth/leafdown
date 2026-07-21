@@ -2,6 +2,14 @@ import { defineConfig } from "oxfmt";
 
 export default defineConfig({
   ignorePatterns: ["corpus/**"],
+  overrides: [
+    {
+      files: ["*.md", "**/*.md"],
+      options: {
+        proseWrap: "never",
+      },
+    },
+  ],
   sortTailwindcss: {
     stylesheet: "./src/App.css",
     functions: ["cva", "cn"],

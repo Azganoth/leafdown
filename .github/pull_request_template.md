@@ -1,21 +1,15 @@
 ## Summary
 
-What changed?
+Explain what changed and why. Use concise bullets when helpful.
 
 ## Related Issue
 
-Closes #
+Use `Closes #123` when complete, `Refs #123` when related, or `Not applicable` when no issue was required.
+
+## Verification
+
+Describe tests added or updated, manual scenarios and platforms, useful reviewer reproduction steps, and anything not verified. Do not repeat CI status.
 
 ## Notes
 
-Anything important for review, testing, or future debugging.
-
-## Checklist
-
-- [ ] Change is consistent with the relevant docs
-- [ ] Architecture/docs updated if needed
-- [ ] Errors/edge cases considered
-- [ ] Manual test completed
-- [ ] Relevant checks run
-- [ ] Release notes or changelog updated if applicable
-- [ ] Follow-up issues created if needed
+Include useful scope clarifications, intentional omissions, tradeoffs, or follow-up context. Remove this section when it adds no value.

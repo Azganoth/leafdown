@@ -1,6 +1,6 @@
 # Contributing
 
-Leafdown coordinates development through this repository:
+Leafdown is an open-source project that accepts community contributions through this public repository. Development is coordinated here:
 
 - Product docs describe intended behavior.
 - Issues track actionable work.

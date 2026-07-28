@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Restore monospace glyphs that were missing from bundled builds.
 - Keep middle-click and right-click on rendered links from navigating the window away from Leafdown.
 - Open confirmed local non-Markdown links with the system default app instead of reporting a failure.
 - Block Markdown image and link targets that name network shares or device paths, however they are spelled.

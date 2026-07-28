@@ -313,7 +313,7 @@ describe("source projection", () => {
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getSelectedEditorText(mounted)).toBe("asterisk");
       expect(getEditorTextContent(mounted)).toBe("Single ***asterisk*** emphasis");
-      expect(mounted.getMarkdown()).toBe("*Single* ***asterisk*** *emphasis*\n");
+      expect(mounted.getMarkdown()).toBe("*Single **asterisk** emphasis*\n");
     });
 
     it("immediately projects the exact segment left by a formatting command", async () => {

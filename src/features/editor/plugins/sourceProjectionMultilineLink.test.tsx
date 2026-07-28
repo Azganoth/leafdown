@@ -299,7 +299,7 @@ describe("multiline logical-link source projection", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(mounted.getMarkdown()).toBe(
-      `*Before* *${PLAIN_LINK_SOURCE.replace("walk", "walk!")}* *after*\n`,
+      `*Before ${PLAIN_LINK_SOURCE.replace("walk", "walk!")} after*\n`,
     );
     expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
 

@@ -121,7 +121,7 @@ describe("Leafdown editor command keymap", () => {
 
   it.each([
     {
-      expectedMarkdown: "*Single* ***asterisk*** *emphasis*\n",
+      expectedMarkdown: "*Single **asterisk** emphasis*\n",
       key: "b",
       modifiers: { ctrl: true },
     },
@@ -131,7 +131,7 @@ describe("Leafdown editor command keymap", () => {
       modifiers: { ctrl: true },
     },
     {
-      expectedMarkdown: "*Single* *~~asterisk~~* *emphasis*\n",
+      expectedMarkdown: "*Single ~~asterisk~~ emphasis*\n",
       key: "x",
       modifiers: { alt: true, ctrl: true },
     },

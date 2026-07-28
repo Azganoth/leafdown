@@ -6,7 +6,8 @@ use crate::{
     document::is_supported_markdown_path,
     path_utils::{
         ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
-        parse_file_url_path, resolve_existing_path, resolve_markdown_reference_path,
+        is_network_or_device_target, parse_file_url_path, resolve_existing_path,
+        resolve_markdown_reference_path,
     },
 };
 
@@ -83,6 +84,10 @@ fn resolve_local_link_target(
     target_path: &Path,
     allow_outside_folder: bool,
 ) -> ResolveMarkdownLinkTargetResult {
+    if is_network_or_device_target(target_path) {
+        return ResolveMarkdownLinkTargetResult::UnsupportedTarget;
+    }
+
     let resolved_path = match resolve_markdown_reference_path(
         document_path,
         folder_context_path,
@@ -134,6 +139,12 @@ fn parse_link_target(target: &str) -> ParsedLinkTarget {
         return ParsedLinkTarget::Unsupported;
     }
 
+    // Reject before reference-part stripping, which would otherwise truncate a verbatim
+    // prefix at its `?` and turn a network target into an unrelated local path.
+    if trimmed_target.starts_with("//") || trimmed_target.starts_with(r"\\") {
+        return ParsedLinkTarget::Unsupported;
+    }
+
     let lower_target = trimmed_target.to_ascii_lowercase();
 
     if lower_target.starts_with("http://") || lower_target.starts_with("https://") {
@@ -180,8 +191,20 @@ fn strip_file_url_reference_parts(target: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::{ResolveMarkdownLinkTargetResult, resolve_link_target};
     use crate::test_utils::{TestDirectory, pathdiff};
+
+    #[cfg(windows)]
+    const NETWORK_TARGETS: [&str; 6] = [
+        r"\\host.example.com\share\notes.md",
+        "//host.example.com/share/notes.md",
+        "file:////host.example.com/share/notes.md",
+        r"\\?\UNC\host.example.com\share\notes.md",
+        r"\\.\pipe\notes.md",
+        r"\\host.example.com\share\payload.exe",
+    ];
 
     fn local_markdown_path(result: ResolveMarkdownLinkTargetResult) -> String {
         match result {
@@ -374,6 +397,25 @@ mod tests {
             local_file_path(allowed_result),
             target_path.canonicalize().unwrap().to_string_lossy()
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn blocks_network_link_targets_however_they_are_spelled() {
+        for target in NETWORK_TARGETS {
+            for allow_outside_folder in [false, true] {
+                assert_eq!(
+                    resolve_link_target(
+                        Some(Path::new(r"C:\notes\docs\readme.md")),
+                        Some(Path::new(r"C:\notes")),
+                        target,
+                        allow_outside_folder,
+                    ),
+                    ResolveMarkdownLinkTargetResult::UnsupportedTarget,
+                    "target {target} with allow_outside_folder={allow_outside_folder}"
+                );
+            }
+        }
     }
 
     #[test]

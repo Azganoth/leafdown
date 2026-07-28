@@ -1,7 +1,7 @@
 use std::{
     fs,
     io::ErrorKind,
-    path::{Component, Path, PathBuf},
+    path::{Component, Path, PathBuf, Prefix},
 };
 
 pub(crate) fn path_to_string(path: &Path) -> String {
@@ -46,6 +46,17 @@ pub(crate) fn parse_file_url_path(target: &str) -> Option<PathBuf> {
     }
 
     Some(PathBuf::from(decoded_path))
+}
+
+pub(crate) fn is_network_or_device_target(target_path: &Path) -> bool {
+    matches!(
+        target_path.components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(
+                prefix.kind(),
+                Prefix::UNC(..) | Prefix::VerbatimUNC(..) | Prefix::DeviceNS(..)
+            )
+    )
 }
 
 pub(crate) fn has_uri_scheme(target: &str) -> bool {
@@ -207,8 +218,8 @@ mod tests {
 
     use super::{
         MarkdownReferencePathResolution, canonicalize_or_original, has_uri_scheme,
-        normalize_path_lexically, parse_file_url_path, resolve_markdown_reference_path,
-        resolves_outside_folder,
+        is_network_or_device_target, normalize_path_lexically, parse_file_url_path,
+        resolve_markdown_reference_path, resolves_outside_folder,
     };
     use crate::test_utils::TestDirectory;
 
@@ -244,6 +255,35 @@ mod tests {
         assert!(has_uri_scheme("custom+scheme:value"));
         assert!(!has_uri_scheme("docs/readme.md"));
         assert!(!has_uri_scheme(":missing-scheme"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn detects_network_and_device_targets() {
+        for target in [
+            r"\\host.example.com\share\readme.md",
+            "//host.example.com/share/readme.md",
+            r"\\?\UNC\host.example.com\share\readme.md",
+            r"\\.\pipe\readme.md",
+        ] {
+            assert!(
+                is_network_or_device_target(Path::new(target)),
+                "expected a network or device target: {target}"
+            );
+        }
+
+        for target in [
+            r"C:\notes\readme.md",
+            r"\\?\C:\notes\readme.md",
+            r"\notes\readme.md",
+            "assets/icon.png",
+            r"..\readme.md",
+        ] {
+            assert!(
+                !is_network_or_device_target(Path::new(target)),
+                "expected a local target: {target}"
+            );
+        }
     }
 
     #[test]

@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Block Markdown image and link targets that name network shares or device paths, however they are spelled.
 - Prevent Windows CF_HTML transport whitespace from becoming editor content around ProseMirror clipboard fragments.
 - Preserve Markdown, rich-text, plain-text, and source-projection semantics when pasting through native keyboard clipboard events.
 - Standardize default Copy and Cut payloads and deletion behavior across native keyboard, menu, and context-popup surfaces.

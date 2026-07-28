@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::path_utils::{
-    ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme, parse_file_url_path,
-    resolve_existing_path, resolve_markdown_reference_path,
+    ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
+    is_network_or_device_target, parse_file_url_path, resolve_existing_path,
+    resolve_markdown_reference_path,
 };
 
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
@@ -82,6 +83,10 @@ fn resolve_local_image_target(
     target_path: &Path,
     allow_outside_folder: bool,
 ) -> ResolveMarkdownImageTargetResult {
+    if is_network_or_device_target(target_path) {
+        return ResolveMarkdownImageTargetResult::RemoteBlocked;
+    }
+
     if !is_supported_image_path(target_path) {
         return ResolveMarkdownImageTargetResult::UnsupportedFormat;
     }
@@ -184,8 +189,19 @@ fn is_supported_image_extension(extension: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::{ResolveMarkdownImageTargetResult, resolve_image_target};
     use crate::test_utils::{TestDirectory, pathdiff};
+
+    #[cfg(windows)]
+    const NETWORK_TARGETS: [&str; 5] = [
+        r"\\host.example.com\share\icon.png",
+        "//host.example.com/share/icon.png",
+        "file:////host.example.com/share/icon.png",
+        r"\\?\UNC\host.example.com\share\icon.png",
+        r"\\.\pipe\icon.png",
+    ];
 
     fn renderable_path(result: ResolveMarkdownImageTargetResult) -> String {
         match result {
@@ -346,6 +362,25 @@ mod tests {
             resolve_image_target(None, None, "\\\\server\\share\\image.png", false),
             ResolveMarkdownImageTargetResult::RemoteBlocked
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn blocks_network_image_targets_however_they_are_spelled() {
+        for target in NETWORK_TARGETS {
+            for allow_outside_folder in [false, true] {
+                assert_eq!(
+                    resolve_image_target(
+                        Some(Path::new(r"C:\notes\docs\readme.md")),
+                        Some(Path::new(r"C:\notes")),
+                        target,
+                        allow_outside_folder,
+                    ),
+                    ResolveMarkdownImageTargetResult::RemoteBlocked,
+                    "target {target} with allow_outside_folder={allow_outside_folder}"
+                );
+            }
+        }
     }
 
     #[test]

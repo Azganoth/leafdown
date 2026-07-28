@@ -30,6 +30,17 @@ pub(crate) enum ResolveMarkdownLinkTargetResult {
     MetadataFailed { path: String, message: String },
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum OpenMarkdownLinkTargetError {
+    UnsupportedTarget,
+    OpenFailed { path: String, message: String },
+}
+
 enum ParsedLinkTarget {
     ExternalWeb(String),
     Local(PathBuf),
@@ -58,6 +69,58 @@ pub(crate) async fn resolve_markdown_link_target(
         path: error_path,
         message: error.to_string(),
     })
+}
+
+#[tauri::command]
+pub(crate) async fn open_markdown_link_target(
+    document_path: Option<String>,
+    folder_context_path: Option<String>,
+    target: String,
+    allow_outside_folder: Option<bool>,
+) -> Result<(), OpenMarkdownLinkTargetError> {
+    let error_path = target.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = resolve_openable_local_file(
+            document_path.as_deref().map(Path::new),
+            folder_context_path.as_deref().map(Path::new),
+            target.as_str(),
+            allow_outside_folder.unwrap_or(false),
+        )?;
+
+        // The opener plugin's path scope is bypassed deliberately. It is a static ACL
+        // glob and cannot express a folder context the user chooses at runtime.
+        tauri_plugin_opener::open_path(path.as_str(), None::<&str>).map_err(|error| {
+            OpenMarkdownLinkTargetError::OpenFailed {
+                path,
+                message: error.to_string(),
+            }
+        })
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(OpenMarkdownLinkTargetError::OpenFailed {
+            path: error_path,
+            message: error.to_string(),
+        })
+    })
+}
+
+pub(crate) fn resolve_openable_local_file(
+    document_path: Option<&Path>,
+    folder_context_path: Option<&Path>,
+    target: &str,
+    allow_outside_folder: bool,
+) -> Result<String, OpenMarkdownLinkTargetError> {
+    match resolve_link_target(
+        document_path,
+        folder_context_path,
+        target,
+        allow_outside_folder,
+    ) {
+        ResolveMarkdownLinkTargetResult::LocalFile { path } => Ok(path),
+        _ => Err(OpenMarkdownLinkTargetError::UnsupportedTarget),
+    }
 }
 
 pub(crate) fn resolve_link_target(
@@ -193,7 +256,10 @@ fn strip_file_url_reference_parts(target: &str) -> &str {
 mod tests {
     use std::path::Path;
 
-    use super::{ResolveMarkdownLinkTargetResult, resolve_link_target};
+    use super::{
+        OpenMarkdownLinkTargetError, ResolveMarkdownLinkTargetResult, resolve_link_target,
+        resolve_openable_local_file,
+    };
     use crate::test_utils::{TestDirectory, pathdiff};
 
     #[cfg(windows)]
@@ -415,6 +481,58 @@ mod tests {
                     "target {target} with allow_outside_folder={allow_outside_folder}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn resolves_openable_local_files_from_the_link_target() {
+        let root = TestDirectory::new("openable-local-file");
+        let document_path = root.markdown_document_path();
+        let pdf_path = root.write_file("docs/assets/manual.pdf");
+
+        let result = resolve_openable_local_file(
+            Some(document_path.as_path()),
+            Some(root.path.as_path()),
+            "assets/manual.pdf",
+            false,
+        );
+
+        assert_eq!(
+            result,
+            Ok(pdf_path
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned())
+        );
+    }
+
+    #[test]
+    fn refuses_to_open_targets_that_do_not_resolve_to_a_local_file() {
+        let root = TestDirectory::new("openable-rejected");
+        let outside = TestDirectory::new("openable-rejected-outside");
+        let document_path = root.markdown_document_path();
+        root.write_file("docs/linked.md");
+        let outside_path = outside.write_file("outside.pdf");
+        let outside_target = pathdiff(outside_path.as_path(), document_path.parent().unwrap());
+
+        for target in [
+            "linked.md",
+            "missing.pdf",
+            "https://example.com/manual.pdf",
+            "javascript:alert(1)",
+            outside_target.as_str(),
+        ] {
+            assert_eq!(
+                resolve_openable_local_file(
+                    Some(document_path.as_path()),
+                    Some(root.path.as_path()),
+                    target,
+                    false,
+                ),
+                Err(OpenMarkdownLinkTargetError::UnsupportedTarget),
+                "target {target}"
+            );
         }
     }
 

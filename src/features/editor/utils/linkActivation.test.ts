@@ -1,11 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
-import { mockTauriApiCommand, tauriApiCommand } from "@/test/utils/tauriApi";
+import {
+  countTauriApiCalls,
+  mockTauriApi,
+  mockTauriApiCommand,
+  tauriApiCommand,
+} from "@/test/utils/tauriApi";
 
 import { activateMarkdownLink } from "./linkActivation";
 
@@ -35,7 +40,7 @@ describe("Markdown link activation", () => {
 
     expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
     expect(confirm).not.toHaveBeenCalled();
-    expect(openPath).not.toHaveBeenCalled();
+    expect(countTauriApiCalls("openMarkdownLinkTarget")).toBe(0);
   });
 
   it("asks before opening outside-folder Markdown links", async () => {
@@ -78,7 +83,10 @@ describe("Markdown link activation", () => {
       .fn()
       .mockResolvedValueOnce({ kind: "outsideFolder", path: "C:/Other/manual.pdf" })
       .mockResolvedValueOnce({ kind: "localFile", path: "C:/Other/manual.pdf" });
-    mockTauriApiCommand("resolveMarkdownLinkTarget", resolveMarkdownLinkTarget);
+    mockTauriApi({
+      resolveMarkdownLinkTarget,
+      openMarkdownLinkTarget: () => undefined,
+    });
 
     await expect(
       activateMarkdownLink(createMarkdownLinkOptions({ target: "../Other/manual.pdf" })),
@@ -94,7 +102,11 @@ describe("Markdown link activation", () => {
         cancelLabel: "Cancel",
       },
     );
-    expect(openPath).toHaveBeenCalledWith("C:/Other/manual.pdf");
+    expect(invoke).toHaveBeenLastCalledWith(tauriApiCommand("openMarkdownLinkTarget"), {
+      ...createMarkdownReferenceContext(),
+      allowOutsideFolder: true,
+      target: "../Other/manual.pdf",
+    });
   });
 
   it("asks before opening local non-Markdown links with the system default app", async () => {
@@ -108,7 +120,25 @@ describe("Markdown link activation", () => {
     ).resolves.toBe(false);
 
     expect(confirm).toHaveBeenCalledTimes(1);
-    expect(openPath).not.toHaveBeenCalled();
+    expect(countTauriApiCalls("openMarkdownLinkTarget")).toBe(0);
+  });
+
+  it("opens confirmed local non-Markdown links through the backend", async () => {
+    vi.mocked(confirm).mockResolvedValue(true);
+    mockTauriApi({
+      resolveMarkdownLinkTarget: () => ({ kind: "localFile", path: "C:/Notes/manual.pdf" }),
+      openMarkdownLinkTarget: () => undefined,
+    });
+
+    await expect(
+      activateMarkdownLink(createMarkdownLinkOptions({ target: "manual.pdf" })),
+    ).resolves.toBe(true);
+
+    expect(invoke).toHaveBeenLastCalledWith(tauriApiCommand("openMarkdownLinkTarget"), {
+      ...createMarkdownReferenceContext(),
+      allowOutsideFolder: false,
+      target: "manual.pdf",
+    });
   });
 
   it.each([
@@ -144,7 +174,7 @@ describe("Markdown link activation", () => {
 
       expect(vi.mocked(toast.warning).mock.calls.at(-1)?.[0]).toBe(title);
       expect(confirm).not.toHaveBeenCalled();
-      expect(openPath).not.toHaveBeenCalled();
+      expect(countTauriApiCalls("openMarkdownLinkTarget")).toBe(0);
       expect(openUrl).not.toHaveBeenCalled();
     },
   );

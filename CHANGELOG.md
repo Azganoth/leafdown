@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Open confirmed local non-Markdown links with the system default app instead of reporting a failure.
 - Block Markdown image and link targets that name network shares or device paths, however they are spelled.
 - Prevent Windows CF_HTML transport whitespace from becoming editor content around ProseMirror clipboard fragments.
 - Preserve Markdown, rich-text, plain-text, and source-projection semantics when pasting through native keyboard clipboard events.

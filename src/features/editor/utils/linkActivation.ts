@@ -1,10 +1,11 @@
 import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { notifyOperationFailure } from "@/lib/errors";
 import { notifyWarning } from "@/lib/toast";
 
 import {
+  openMarkdownLinkTarget,
   resolveMarkdownLinkTarget,
   type ResolveMarkdownLinkTargetResult,
 } from "../services/markdownLinkApi";
@@ -61,9 +62,17 @@ const openExternalWebTarget = async (url: string) => {
   }
 };
 
-const openLocalFilePath = async (path: string) => {
+const openLocalFilePath = async (
+  { documentPath, folderContextPath, target }: ActivateMarkdownLinkOptions,
+  allowOutsideFolder: boolean,
+) => {
   try {
-    await openPath(path);
+    await openMarkdownLinkTarget({
+      allowOutsideFolder,
+      documentPath,
+      folderContextPath,
+      target,
+    });
     return true;
   } catch (error) {
     notifyOperationFailure("Could not open local link.", error, "openLocalFilePath");
@@ -71,17 +80,22 @@ const openLocalFilePath = async (path: string) => {
   }
 };
 
-const openLocalFileTarget = async (path: string) => {
+const openLocalFileTarget = async (
+  options: ActivateMarkdownLinkOptions,
+  path: string,
+  allowOutsideFolder: boolean,
+) => {
   if (!(await confirmLocalFileLink(path))) {
     return false;
   }
 
-  return openLocalFilePath(path);
+  return openLocalFilePath(options, allowOutsideFolder);
 };
 
 const activateResolvedMarkdownLink = async (
   options: ActivateMarkdownLinkOptions,
   resolution: ResolveMarkdownLinkTargetResult,
+  allowOutsideFolder = false,
 ) => {
   switch (resolution.kind) {
     case "externalWeb":
@@ -91,7 +105,7 @@ const activateResolvedMarkdownLink = async (
       return options.onOpenMarkdownPath(resolution.path);
 
     case "localFile":
-      return openLocalFileTarget(resolution.path);
+      return openLocalFileTarget(options, resolution.path, allowOutsideFolder);
 
     case "outsideFolder":
       return activateOutsideFolderLink(options, resolution.path);
@@ -143,7 +157,7 @@ const activateOutsideFolderLink = async (
     return false;
   }
 
-  return activateResolvedMarkdownLink(options, resolution);
+  return activateResolvedMarkdownLink(options, resolution, true);
 };
 
 export const activateMarkdownLink = async (options: ActivateMarkdownLinkOptions) => {

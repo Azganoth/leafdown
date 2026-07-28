@@ -14,7 +14,9 @@ import {
   type ResolveMarkdownImageTargetResult,
 } from "@/features/editor/services/markdownImageApi";
 import {
+  OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  type OpenMarkdownLinkTargetArgs,
   type ResolveMarkdownLinkTargetArgs,
   type ResolveMarkdownLinkTargetResult,
 } from "@/features/editor/services/markdownLinkApi";
@@ -47,6 +49,7 @@ interface TauriApiCommandArgs {
   unwatchMarkdownFolder: UnwatchMarkdownFolderArgs;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
+  openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
 }
@@ -60,6 +63,7 @@ interface TauriApiCommandResults {
   unwatchMarkdownFolder: void;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
+  openMarkdownLinkTarget: void;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
@@ -83,6 +87,7 @@ const TAURI_API_COMMANDS = {
   unwatchMarkdownFolder: UNWATCH_MARKDOWN_FOLDER_COMMAND,
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;

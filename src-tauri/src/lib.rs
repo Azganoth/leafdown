@@ -78,6 +78,7 @@ pub fn run() {
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
             link::resolve_markdown_link_target,
+            link::open_markdown_link_target,
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
             folder::watch_markdown_folder,

@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::path_utils::{
-    has_uri_scheme, parse_file_url_path, resolve_existing_path, resolve_markdown_reference_path,
-    ExistingPathResolution, MarkdownReferencePathResolution,
+    ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme, parse_file_url_path,
+    resolve_existing_path, resolve_markdown_reference_path,
 };
 
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
@@ -184,8 +184,8 @@ fn is_supported_image_extension(extension: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_image_target, ResolveMarkdownImageTargetResult};
-    use crate::test_utils::{pathdiff, TestDirectory};
+    use super::{ResolveMarkdownImageTargetResult, resolve_image_target};
+    use crate::test_utils::{TestDirectory, pathdiff};
 
     fn renderable_path(result: ResolveMarkdownImageTargetResult) -> String {
         match result {

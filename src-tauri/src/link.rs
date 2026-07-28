@@ -5,8 +5,8 @@ use serde::Serialize;
 use crate::{
     document::is_supported_markdown_path,
     path_utils::{
-        has_uri_scheme, parse_file_url_path, resolve_existing_path,
-        resolve_markdown_reference_path, ExistingPathResolution, MarkdownReferencePathResolution,
+        ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
+        parse_file_url_path, resolve_existing_path, resolve_markdown_reference_path,
     },
 };
 
@@ -180,8 +180,8 @@ fn strip_file_url_reference_parts(target: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_link_target, ResolveMarkdownLinkTargetResult};
-    use crate::test_utils::{pathdiff, TestDirectory};
+    use super::{ResolveMarkdownLinkTargetResult, resolve_link_target};
+    use crate::test_utils::{TestDirectory, pathdiff};
 
     fn local_markdown_path(result: ResolveMarkdownLinkTargetResult) -> String {
         match result {

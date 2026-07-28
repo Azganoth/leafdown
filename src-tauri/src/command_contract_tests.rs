@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::{
     document, folder, image, link,
-    test_utils::{pathdiff, TestDirectory},
+    test_utils::{TestDirectory, pathdiff},
 };
 
 #[test]

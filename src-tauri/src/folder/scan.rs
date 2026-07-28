@@ -6,9 +6,9 @@ use std::{
 };
 
 use super::{
-    scan_folder_metadata_error, scan_folder_metadata_warning, scan_folder_read_error,
-    scan_folder_read_warning, FileTreeSortOrder, MarkdownFolderScanResult, MarkdownFolderTree,
-    MarkdownFolderTreeNode, ScanDepth, ScanMarkdownFolderError, ScanMarkdownFolderWarning,
+    FileTreeSortOrder, MarkdownFolderScanResult, MarkdownFolderTree, MarkdownFolderTreeNode,
+    ScanDepth, ScanMarkdownFolderError, ScanMarkdownFolderWarning, scan_folder_metadata_error,
+    scan_folder_metadata_warning, scan_folder_read_error, scan_folder_read_warning,
 };
 use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
 

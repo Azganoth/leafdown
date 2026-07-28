@@ -6,13 +6,13 @@ use std::{
 };
 
 use notify::{
-    event::{CreateKind, RemoveKind},
     Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+    event::{CreateKind, RemoveKind},
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
-use super::{defaults, scan, ScanDepth};
+use super::{ScanDepth, defaults, scan};
 use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
 
 pub(crate) const FOLDER_CHANGED_EVENT: &str = "leafdown://folder-changed";
@@ -424,14 +424,14 @@ mod tests {
     };
 
     use notify::{
-        event::{AccessKind, CreateKind, ModifyKind, RemoveKind},
         Event, EventKind, RecursiveMode,
+        event::{AccessKind, CreateKind, ModifyKind, RemoveKind},
     };
 
     use super::{
-        relevant_event_paths, watch_folder_metadata_error, watch_mode_for_depth,
         ActiveFolderWatcher, FolderWatcherManager, FolderWatcherScopeTracker,
-        WatchMarkdownFolderError,
+        WatchMarkdownFolderError, relevant_event_paths, watch_folder_metadata_error,
+        watch_mode_for_depth,
     };
     use crate::{folder::ScanDepth, test_utils::TestDirectory};
 

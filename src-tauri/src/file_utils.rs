@@ -31,7 +31,7 @@ pub(crate) fn read_utf8_file_with_size_limit(
 mod tests {
     use std::fs;
 
-    use super::{read_utf8_file_with_size_limit, ReadUtf8FileError};
+    use super::{ReadUtf8FileError, read_utf8_file_with_size_limit};
     use crate::test_utils::TestDirectory;
 
     #[test]

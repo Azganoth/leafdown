@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::{
-    document::{read_markdown_file, OpenMarkdownFileError, OpenMarkdownFileResult},
+    document::{OpenMarkdownFileError, OpenMarkdownFileResult, read_markdown_file},
     path_utils::path_to_string,
 };
 
@@ -321,9 +321,9 @@ mod tests {
     };
 
     use super::{
-        defaults::ignored_directories, open_folder, scan_folder, scan_folder_metadata_error,
-        scan_folder_read_error, scan_folder_with_depth, FileTreeSortOrder, MarkdownFolderTree,
-        MarkdownFolderTreeNode, ScanDepth, ScanMarkdownFolderError,
+        FileTreeSortOrder, MarkdownFolderTree, MarkdownFolderTreeNode, ScanDepth,
+        ScanMarkdownFolderError, defaults::ignored_directories, open_folder, scan_folder,
+        scan_folder_metadata_error, scan_folder_read_error, scan_folder_with_depth,
     };
     use crate::{document::OpenMarkdownFileError, test_utils::TestDirectory};
 

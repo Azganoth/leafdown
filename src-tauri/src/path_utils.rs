@@ -175,16 +175,14 @@ fn percent_decode_path(path: &str) -> Option<String> {
     let mut index = 0;
 
     while index < path_bytes.len() {
-        if path_bytes[index] == b'%' {
-            if let (Some(first), Some(second)) =
+        if path_bytes[index] == b'%'
+            && let (Some(first), Some(second)) =
                 (path_bytes.get(index + 1), path_bytes.get(index + 2))
-            {
-                if let (Some(high), Some(low)) = (hex_digit(*first), hex_digit(*second)) {
-                    bytes.push((high << 4) | low);
-                    index += 3;
-                    continue;
-                }
-            }
+            && let (Some(high), Some(low)) = (hex_digit(*first), hex_digit(*second))
+        {
+            bytes.push((high << 4) | low);
+            index += 3;
+            continue;
         }
 
         bytes.push(path_bytes[index]);
@@ -208,8 +206,9 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        canonicalize_or_original, has_uri_scheme, normalize_path_lexically, parse_file_url_path,
-        resolve_markdown_reference_path, resolves_outside_folder, MarkdownReferencePathResolution,
+        MarkdownReferencePathResolution, canonicalize_or_original, has_uri_scheme,
+        normalize_path_lexically, parse_file_url_path, resolve_markdown_reference_path,
+        resolves_outside_folder,
     };
     use crate::test_utils::TestDirectory;
 

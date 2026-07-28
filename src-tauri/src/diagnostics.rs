@@ -2,9 +2,9 @@ use std::{fs, path::Path};
 
 use serde::Serialize;
 use serde_json::{Map, Value};
-use tauri::{plugin::TauriPlugin, AppHandle, Manager, Runtime, State};
+use tauri::{AppHandle, Manager, Runtime, State, plugin::TauriPlugin};
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 use crate::path_utils::path_to_string;
 
@@ -276,9 +276,9 @@ mod tests {
     use serde_json::Value;
 
     use super::{
+        DIAGNOSTIC_LOG_FILE_COUNT, DIAGNOSTIC_LOG_FILE_NAME, DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
         create_diagnostics_run_id, create_diagnostics_summary, format_app_started_diagnostic,
-        format_diagnostic_log_record, normalize_log_target, DIAGNOSTIC_LOG_FILE_COUNT,
-        DIAGNOSTIC_LOG_FILE_NAME, DIAGNOSTIC_LOG_MAX_FILE_SIZE_BYTES,
+        format_diagnostic_log_record, normalize_log_target,
     };
 
     #[test]

@@ -9,7 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_utils::{read_utf8_file_with_size_limit, ReadUtf8FileError},
+    file_utils::{ReadUtf8FileError, read_utf8_file_with_size_limit},
     path_utils::path_to_string,
 };
 
@@ -480,9 +480,9 @@ mod tests {
     };
 
     use super::{
-        detect_line_ending, open_metadata_error, open_read_error, read_markdown_file,
-        save_metadata_error, save_write_error, write_markdown_file, FileMetadataReadError,
-        LineEnding, OpenMarkdownFileError, SaveMarkdownFileError, MAX_MARKDOWN_FILE_SIZE_BYTES,
+        FileMetadataReadError, LineEnding, MAX_MARKDOWN_FILE_SIZE_BYTES, OpenMarkdownFileError,
+        SaveMarkdownFileError, detect_line_ending, open_metadata_error, open_read_error,
+        read_markdown_file, save_metadata_error, save_write_error, write_markdown_file,
     };
     use crate::test_utils::TestDirectory;
 

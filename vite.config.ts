@@ -11,6 +11,11 @@ export default defineConfig({
   },
   plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
   clearScreen: false,
+  build: {
+    // Inlined fonts become data URIs that `font-src 'self'` blocks, and the assets
+    // ship with the app anyway.
+    assetsInlineLimit: (filePath) => (filePath.endsWith(".woff2") ? false : undefined),
+  },
   server: {
     port: 1420,
     strictPort: true,

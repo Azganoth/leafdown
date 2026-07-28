@@ -2,7 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  openMarkdownLinkTarget,
   resolveMarkdownLinkTarget,
   type ResolveMarkdownLinkTargetResult,
 } from "./markdownLinkApi";
@@ -29,6 +31,26 @@ describe("markdownLinkApi", () => {
       documentPath: "C:/Notes/index.md",
       folderContextPath: "C:/Notes",
       target: "./linked.md",
+    });
+  });
+
+  it("invokes the open Markdown link target command", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await expect(
+      openMarkdownLinkTarget({
+        allowOutsideFolder: true,
+        documentPath: "C:/Notes/index.md",
+        folderContextPath: "C:/Notes",
+        target: "../Other/manual.pdf",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(invoke).toHaveBeenCalledWith(OPEN_MARKDOWN_LINK_TARGET_COMMAND, {
+      allowOutsideFolder: true,
+      documentPath: "C:/Notes/index.md",
+      folderContextPath: "C:/Notes",
+      target: "../Other/manual.pdf",
     });
   });
 });

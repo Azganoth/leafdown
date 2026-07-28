@@ -98,6 +98,7 @@ The Rust backend manages:
 
 - Native file dialogs and file IO.
 - File metadata reads and existence checks.
+- Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit.

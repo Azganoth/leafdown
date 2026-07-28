@@ -6,7 +6,7 @@ import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
-import { dispatchClick } from "@/test/utils/events";
+import { dispatchClick, dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 import { waitFor, within } from "@/test/utils/react";
@@ -43,6 +43,32 @@ describe("Markdown links", () => {
     expect(mounted.view.state.selection.empty).toBe(true);
     expect(mounted.view.state.selection.from).toBeGreaterThan(1);
     expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
+  });
+
+  it.each([
+    ["auxclick", 1],
+    ["auxclick", 2],
+    ["click", 1],
+  ] as const)("suppresses %s with button %i on rendered links", async (type, button) => {
+    const mounted = await mountLinkEditor("[Docs](https://example.com/docs)");
+    const link = within(mounted.view.dom).getByRole("link", { name: "Docs" });
+    const selectionBefore = mounted.view.state.selection.from;
+
+    const event = dispatchMouseEvent(link, type, { button });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(countTauriApiCalls("resolveMarkdownLinkTarget")).toBe(0);
+    expect(openUrl).not.toHaveBeenCalled();
+    expect(mounted.view.state.selection.from).toBe(selectionBefore);
+    expect(mounted.getMarkdown()).toBe("[Docs](https://example.com/docs)\n");
+  });
+
+  it("ignores auxclick away from rendered links", async () => {
+    const mounted = await mountLinkEditor("Plain paragraph");
+
+    const event = dispatchMouseEvent(mounted.view.dom, "auxclick", { button: 1 });
+
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("activates links on Mod+click without mutating source Markdown", async () => {

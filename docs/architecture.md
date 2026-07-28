@@ -102,7 +102,7 @@ The Rust backend manages:
 - Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit.
-- Blocking webview navigation to remote origins.
+- Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
 - Mapping permission and IO errors.
 - Writing bounded JSONL local diagnostic logs, owning diagnostic log envelope fields, and reporting the app log directory.
 - Persisting configuration settings and application data.

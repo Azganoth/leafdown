@@ -51,6 +51,8 @@ Before an issue moves to `Ready`, maintainers should ensure it includes:
 
 Break down larger initiatives using sub-issues.
 
+For a spike, record the conclusion, tradeoffs, and evidence in the issue's `Outcome` section, linking prototype or verification pull requests. Update the owning documentation when the accepted outcome changes durable direction; otherwise the issue and linked pull requests remain the record.
+
 ## Local Development
 
 Windows is Leafdown's current development and polish target. Keep changes cross-platform aware; platform-specific setup for Linux and macOS is not yet documented here.

@@ -23,10 +23,11 @@ What should be inspected, prototyped, or tested?
 ### Exit criteria
 
 - [ ] The question is answered.
-- [ ] Tradeoffs and evidence are recorded.
-- [ ] Follow-up issues or documentation updates are created when needed.
+- [ ] The outcome below records the conclusion, tradeoffs, and supporting evidence links.
+- [ ] Follow-up issues are created only for selected work.
+- [ ] Owning documentation updates are identified when the outcome changes durable direction.
 
 ### Outcome
 
-Record what was learned, decided, or ruled out before closing the spike.
+Summarize what was learned, recommended, or ruled out and link supporting evidence.
 ```

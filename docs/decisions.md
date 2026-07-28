@@ -173,6 +173,23 @@
 - Prebuilt Crepe UI styling is excluded.
 - Dependencies that introduce Crepe transitively are avoided.
 
+### Use temporary source projection
+
+**Status:** Accepted
+
+**Decision:** Use temporary source projection for supported Markdown objects: expose the active object's Markdown as editable document text, then rehydrate valid source as canonical Milkdown content or preserve invalid source as literal text.
+
+**Rationale:** Temporary projection lets marker characters occupy ordinary ProseMirror text positions without replacing Milkdown. Decorations and widgets cannot make synthetic markers natively editable without recreating selection, deletion, clipboard, IME, and keyboard behavior. A permanent Markdown-token schema would conflict with Milkdown's CommonMark/GFM model, parser, serializer, clipboard behavior, and node and mark assumptions. The approach was selected in [issue #44](https://github.com/Azganoth/leafdown/issues/44) and [pull request #46](https://github.com/Azganoth/leafdown/pull/46), then generalized through [issue #63](https://github.com/Azganoth/leafdown/issues/63) and [pull request #64](https://github.com/Azganoth/leafdown/pull/64).
+
+**Consequences:**
+
+- Milkdown's canonical model remains the default; projected source is transient and never becomes saved semantic content.
+- Active marker characters are ordinary unmarked document text rather than widget content.
+- A clean session restores its original target exactly. Projection entry and exit are housekeeping, while user edits remain ordinary editor changes managed through an explicit projection-session history bridge.
+- Projection finalizes before serialization. Valid source rehydrates semantic content; invalid source becomes literal text so no projected character is lost.
+- Marker presentation remains separate from projection lifecycle.
+- Architecture owns projection lifecycle and adapter boundaries; Specification owns supported objects and observable editing behavior.
+
 ## Technical Decisions
 
 ### Use Tauri

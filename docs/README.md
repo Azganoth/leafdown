@@ -36,7 +36,3 @@ Decisions use a lightweight ADR format:
 ## Development Corpus
 
 - [`../corpus/`](../corpus/): committed manual Markdown corpus covering CommonMark, GFM, nonstandard extensions, practical documents, syntax interactions, malformed input, byte and grammar boundaries, and focused environment scenarios.
-
-## Completed Technical Spikes
-
-- [Source Projection Design Record](./spikes/source-projection.md): completed rationale and design constraints for seamless editable Markdown source.

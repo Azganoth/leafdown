@@ -187,12 +187,12 @@ fn image_and_link_commands_default_to_restricted_outside_folder_access() {
     let document_path_string = path_string(document_path.as_path());
     let root_path_string = path_string(root.path.as_path());
 
-    let blocked_image = tauri::async_runtime::block_on(image::resolve_markdown_image_target(
-        Some(document_path_string.clone()),
-        Some(root_path_string.clone()),
-        relative_image_target.clone(),
-        None,
-    ));
+    let blocked_image = image::resolve_image_target(
+        Some(document_path.as_path()),
+        Some(root.path.as_path()),
+        relative_image_target.as_str(),
+        false,
+    );
     let blocked_image = serialized(blocked_image);
     assert_eq!(json_string(&blocked_image, "kind"), "outsideFolder");
     assert_eq!(
@@ -200,12 +200,12 @@ fn image_and_link_commands_default_to_restricted_outside_folder_access() {
         path_string(image_path.as_path())
     );
 
-    let allowed_image = tauri::async_runtime::block_on(image::resolve_markdown_image_target(
-        Some(document_path_string.clone()),
-        Some(root_path_string.clone()),
-        relative_image_target,
-        Some(true),
-    ));
+    let allowed_image = image::resolve_image_target(
+        Some(document_path.as_path()),
+        Some(root.path.as_path()),
+        relative_image_target.as_str(),
+        true,
+    );
     assert_eq!(
         json_string(&serialized(allowed_image), "kind"),
         "renderable"
@@ -245,12 +245,12 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     let document_path_string = path_string(document_path.as_path());
     let root_path_string = path_string(root.path.as_path());
 
-    let image_result = tauri::async_runtime::block_on(image::resolve_markdown_image_target(
-        Some(document_path_string.clone()),
-        Some(root_path_string.clone()),
-        "assets/icon.png".to_owned(),
-        None,
-    ));
+    let image_result = image::resolve_image_target(
+        Some(document_path.as_path()),
+        Some(root.path.as_path()),
+        "assets/icon.png",
+        false,
+    );
     let image_result = serialized(image_result);
 
     assert_eq!(json_string(&image_result, "kind"), "renderable");

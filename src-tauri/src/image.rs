@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use tauri::{AppHandle, Manager};
 
 use crate::path_utils::{
     ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
@@ -37,6 +38,7 @@ enum ParsedImageTarget {
 
 #[tauri::command]
 pub(crate) async fn resolve_markdown_image_target(
+    app: AppHandle,
     document_path: Option<String>,
     folder_context_path: Option<String>,
     target: String,
@@ -44,7 +46,7 @@ pub(crate) async fn resolve_markdown_image_target(
 ) -> ResolveMarkdownImageTargetResult {
     let error_path = target.clone();
 
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         resolve_image_target(
             document_path.as_deref().map(Path::new),
             folder_context_path.as_deref().map(Path::new),
@@ -56,7 +58,37 @@ pub(crate) async fn resolve_markdown_image_target(
     .unwrap_or_else(|error| ResolveMarkdownImageTargetResult::MetadataFailed {
         path: error_path,
         message: error.to_string(),
-    })
+    });
+
+    grant_asset_access(&app, result)
+}
+
+// The asset protocol ships with an empty scope, so nothing is readable until a
+// resolution grants it. Routing the grant through `Renderable` alone keeps the
+// protocol limited to what the format, folder-context, and confirmation rules
+// have already approved.
+fn grant_asset_access(
+    app: &AppHandle,
+    result: ResolveMarkdownImageTargetResult,
+) -> ResolveMarkdownImageTargetResult {
+    let Some(path) = renderable_asset_path(&result).map(str::to_owned) else {
+        return result;
+    };
+
+    match app.asset_protocol_scope().allow_file(path.as_str()) {
+        Ok(()) => result,
+        Err(error) => ResolveMarkdownImageTargetResult::MetadataFailed {
+            path,
+            message: error.to_string(),
+        },
+    }
+}
+
+fn renderable_asset_path(result: &ResolveMarkdownImageTargetResult) -> Option<&str> {
+    match result {
+        ResolveMarkdownImageTargetResult::Renderable { path } => Some(path.as_str()),
+        _ => None,
+    }
 }
 
 pub(crate) fn resolve_image_target(
@@ -191,7 +223,7 @@ fn is_supported_image_extension(extension: &str) -> bool {
 mod tests {
     use std::path::Path;
 
-    use super::{ResolveMarkdownImageTargetResult, resolve_image_target};
+    use super::{ResolveMarkdownImageTargetResult, renderable_asset_path, resolve_image_target};
     use crate::test_utils::{TestDirectory, pathdiff};
 
     #[cfg(windows)]
@@ -362,6 +394,42 @@ mod tests {
             resolve_image_target(None, None, "\\\\server\\share\\image.png", false),
             ResolveMarkdownImageTargetResult::RemoteBlocked
         );
+    }
+
+    #[test]
+    fn grants_asset_access_only_for_renderable_results() {
+        assert_eq!(
+            renderable_asset_path(&ResolveMarkdownImageTargetResult::Renderable {
+                path: "C:/Notes/icon.png".to_owned(),
+            }),
+            Some("C:/Notes/icon.png")
+        );
+
+        for result in [
+            ResolveMarkdownImageTargetResult::Missing {
+                path: "C:/Notes/missing.png".to_owned(),
+            },
+            ResolveMarkdownImageTargetResult::UntitledRelative,
+            ResolveMarkdownImageTargetResult::OutsideFolder {
+                path: "C:/Other/icon.png".to_owned(),
+            },
+            ResolveMarkdownImageTargetResult::RemoteBlocked,
+            ResolveMarkdownImageTargetResult::UnsupportedFormat,
+            ResolveMarkdownImageTargetResult::UnsupportedTarget,
+            ResolveMarkdownImageTargetResult::InvalidPath {
+                path: "bad:path".to_owned(),
+            },
+            ResolveMarkdownImageTargetResult::PermissionDenied {
+                path: "C:/Notes/private.png".to_owned(),
+                message: "denied".to_owned(),
+            },
+            ResolveMarkdownImageTargetResult::MetadataFailed {
+                path: "C:/Notes/icon.png".to_owned(),
+                message: "failed".to_owned(),
+            },
+        ] {
+            assert_eq!(renderable_asset_path(&result), None, "{result:?}");
+        }
     }
 
     #[cfg(windows)]

@@ -49,7 +49,9 @@ Before an issue moves to `Ready`, maintainers should ensure it includes:
 - Related documentation links when product behavior is modified
 - Acceptance criteria or a clear definition of done
 
-Break down larger initiatives using sub-issues.
+Use a parent tracking issue when independently actionable issues deliver one bounded outcome and share scope, decisions, dependencies, or completion criteria. Do not use parents for topical collections, releases, or open-ended backlogs; use labels, milestones, or the Project instead.
+
+Keep each sub-issue understandable and deliverable on its own. The parent records only shared scope, decisions, dependencies, and completion criteria. Use GitHub's native sub-issue relationship rather than a duplicated checklist, and close the parent after all required sub-issues and group-level verification are complete.
 
 For a spike, record the conclusion, tradeoffs, and evidence in the issue's `Outcome` section, linking prototype or verification pull requests. Update the owning documentation when the accepted outcome changes durable direction; otherwise the issue and linked pull requests remain the record.
 
@@ -140,6 +142,7 @@ When creating maintainer-owned issues directly, use the matching reference struc
 - [`Documentation`](./.github/maintainer-issue-templates/documentation.md)
 - [`Spike`](./.github/maintainer-issue-templates/spike.md)
 - [`Release`](./.github/maintainer-issue-templates/release.md)
+- [`Tracking`](./.github/maintainer-issue-templates/tracking.md)
 
 Keep optional sections only when they add useful context. Use permanent links for repository code and documentation when historical context depends on a specific revision.
 
@@ -155,10 +158,11 @@ Maintain a minimal, standard set of labels:
 | `Question`          | Question or support request                                              |
 | `Spike`             | Investigation needed before committing to implementation                 |
 | `Release`           | Coordination work for a release                                          |
+| `Tracking`          | Coordination work for a bounded outcome delivered through sub-issues     |
 | `Duplicate`         | This issue or pull request already exists                                |
 | `Needs information` | Waiting for clarification, reproduction details, or other reporter input |
 
-The first six labels categorize the type of work; the remaining labels track triage or resolution states.
+The first seven labels categorize the type of work; the remaining labels track triage or resolution states.
 
 ### Milestones
 
@@ -176,6 +180,8 @@ The GitHub Project functions as the operational board. Leafdown uses a lightweig
 4. `Review` — Pull request open and awaiting review.
 5. `Blocked` — Unable to proceed because of a dependency or other impediment.
 6. `Done` — Merged or closed.
+
+Add a tracking parent to the Project only when the group needs its own delivery status. Sub-issues remain the implementation items and move independently. Use `Backlog` or `Ready` before delivery, `In Progress` while work is active, `Blocked` only for a group-level impediment, and `Done` when closed. Child pull requests do not move the parent to `Review`.
 
 Prioritize issues using the following urgency tiers:
 

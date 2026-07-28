@@ -20,6 +20,11 @@ Record decisions that constrain more than one sub-issue. Link the owning documen
 
 Record genuine dependencies separately from recommended ordering. Remove this section when the sub-issues are independent.
 
+### Related context
+
+- Prior investigation or origin:
+- Related issues or pull requests outside this group:
+
 ### Done when
 
 - [ ] All required sub-issues are complete.

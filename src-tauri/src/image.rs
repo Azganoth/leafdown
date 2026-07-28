@@ -74,14 +74,25 @@ fn grant_asset_access(
     let Some(path) = renderable_asset_path(&result).map(str::to_owned) else {
         return result;
     };
+    let scope = app.asset_protocol_scope();
 
-    match app.asset_protocol_scope().allow_file(path.as_str()) {
-        Ok(()) => result,
-        Err(error) => ResolveMarkdownImageTargetResult::MetadataFailed {
+    if let Err(error) = scope.allow_file(path.as_str()) {
+        return ResolveMarkdownImageTargetResult::MetadataFailed {
             path,
             message: error.to_string(),
-        },
+        };
     }
+
+    // A stored grant is not a matching one: the scope canonicalizes the path it checks.
+    if !scope.is_allowed(path.as_str()) {
+        log::warn!("asset protocol grant did not take effect: {path}");
+
+        let message = format!("Asset access was not granted for {path}");
+
+        return ResolveMarkdownImageTargetResult::MetadataFailed { path, message };
+    }
+
+    result
 }
 
 fn renderable_asset_path(result: &ResolveMarkdownImageTargetResult) -> Option<&str> {

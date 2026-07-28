@@ -24,6 +24,7 @@ What should this release deliver?
 - [ ] Verification complete.
 - [ ] Changelog or release notes prepared.
 - [ ] Build or package published.
+- [ ] Pending security advisories published with patched versions set.
 
 ### Notes
 

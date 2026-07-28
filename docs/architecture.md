@@ -102,6 +102,7 @@ The Rust backend manages:
 - Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit.
+- Blocking webview navigation to remote origins.
 - Mapping permission and IO errors.
 - Writing bounded JSONL local diagnostic logs, owning diagnostic log envelope fields, and reporting the app log directory.
 - Persisting configuration settings and application data.
@@ -146,7 +147,7 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 - Prevent script execution from Markdown content.
 - Do not parse or render raw HTML; escape it or preserve it as plain text.
 - Block automatic loading of remote images.
-- Open external links in the default system browser.
+- Open external links in the default system browser, and keep webview navigation on the local frontend origin.
 - Require confirmation before handing local non-Markdown links to the system default app.
 - Bundle Shiki themes and grammars to avoid runtime network dependencies.
 - Keep diagnostic logs local; never upload them automatically. Application code must not intentionally add active document text to diagnostic context, but browser, editor, or library errors may include user content. Treat logs as potentially sensitive rather than as redacted data.

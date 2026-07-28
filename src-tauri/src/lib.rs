@@ -11,6 +11,7 @@ mod file_utils;
 mod folder;
 mod image;
 mod link;
+mod navigation;
 mod path_utils;
 #[cfg(test)]
 mod test_utils;
@@ -34,6 +35,7 @@ pub fn run() {
                 .with_state_flags(StateFlags::all() ^ StateFlags::VISIBLE)
                 .build(),
         )
+        .plugin(navigation::build_navigation_guard_plugin())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(

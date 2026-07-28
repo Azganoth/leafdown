@@ -45,14 +45,6 @@ const placeCaretInLink = (view: EditorView, event: MouseEvent, link: HTMLAnchorE
   view.focus();
 };
 
-const getClickedLink = (view: EditorView, event: MouseEvent) => {
-  if (event.button !== 0) {
-    return null;
-  }
-
-  return getRenderedLinkAtTarget(view.dom, event.target);
-};
-
 export const createLeafdownLinkActivationPlugin = (
   getLinkContext: () => MarkdownLinkContext = () => DEFAULT_LINK_CONTEXT,
 ) =>
@@ -63,13 +55,17 @@ export const createLeafdownLinkActivationPlugin = (
         props: {
           handleDOMEvents: {
             click: (view, event) => {
-              const link = getClickedLink(view, event);
+              const link = getRenderedLinkAtTarget(view.dom, event.target);
 
               if (!link) {
                 return false;
               }
 
               event.preventDefault();
+
+              if (event.button !== 0) {
+                return true;
+              }
 
               if (!isPrimaryModifierEvent(event)) {
                 placeCaretInLink(view, event, link.element);
@@ -80,6 +76,15 @@ export const createLeafdownLinkActivationPlugin = (
                 ...getLinkContext(),
                 target: link.target,
               });
+
+              return true;
+            },
+            auxclick: (view, event) => {
+              if (!getRenderedLinkAtTarget(view.dom, event.target)) {
+                return false;
+              }
+
+              event.preventDefault();
 
               return true;
             },

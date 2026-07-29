@@ -129,7 +129,7 @@ When creating maintainer-owned issues directly, use the matching reference struc
 
 Keep optional sections only when they add useful context. Use permanent links for repository code and documentation when historical context depends on a specific revision.
 
-A maintainer-created issue is triaged at creation rather than in a later pass: apply its type label, priority, owning assignee, and initial Project status, adding a milestone only when it targets a concrete release version.
+A maintainer-created issue is triaged at creation rather than in a later pass: apply its type label, owning assignee, and priority, adding a milestone only when it targets a concrete release version. Project automation adds the item and sets its initial status; correct that status when the default does not fit.
 
 Use a parent tracking issue when independently actionable issues deliver one bounded outcome and share scope, decisions, dependencies, or completion criteria. Do not use parents for topical collections, releases, or open-ended backlogs; use labels, milestones, or the Project instead.
 
@@ -146,6 +146,7 @@ Maintain a minimal, standard set of labels:
 | `Bug`               | Something isn't working                                                  |
 | `Feature`           | New feature or request                                                   |
 | `Documentation`     | Improvements or additions to documentation                               |
+| `Maintenance`       | Chore, refactor, dependency, or test work without user-facing change     |
 | `Question`          | Question or support request                                              |
 | `Spike`             | Investigation needed before committing to implementation                 |
 | `Release`           | Coordination work for a release                                          |
@@ -153,7 +154,7 @@ Maintain a minimal, standard set of labels:
 | `Duplicate`         | This issue or pull request already exists                                |
 | `Needs information` | Waiting for clarification, reproduction details, or other reporter input |
 
-The first seven labels categorize the type of work; the remaining labels track triage or resolution states.
+The first eight labels categorize the type of work; the remaining labels track triage or resolution states.
 
 ### Milestones
 
@@ -172,7 +173,7 @@ The GitHub Project functions as the operational board. Leafdown uses a lightweig
 5. `Blocked` — Unable to proceed because of a dependency or other impediment.
 6. `Done` — Merged or closed.
 
-Add a tracking parent to the Project only when the group needs its own delivery status. Sub-issues remain the implementation items and move independently. Use `Backlog` or `Ready` before delivery, `In Progress` while work is active, `Blocked` only for a group-level impediment, and `Done` when closed. Child pull requests do not move the parent to `Review`.
+A tracking parent appears on the board like any other issue, where its `Sub-issues progress` field reports group completion. Sub-issues remain the implementation items and move independently. Use `Backlog` or `Ready` before delivery, `In Progress` while work is active, `Blocked` only for a group-level impediment, and `Done` when closed. Child pull requests do not move the parent to `Review`.
 
 Prioritize issues using the following urgency tiers:
 

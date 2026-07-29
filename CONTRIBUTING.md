@@ -173,6 +173,8 @@ The GitHub Project functions as the operational board. Leafdown uses a lightweig
 5. `Blocked` — Unable to proceed because of a dependency or other impediment.
 6. `Done` — Merged or closed.
 
+Closed items are archived from the board automatically after a settling period and remain retrievable from the project's archived items.
+
 A tracking parent appears on the board like any other issue, where its `Sub-issues progress` field reports group completion. Sub-issues remain the implementation items and move independently. Use `Backlog` or `Ready` before delivery, `In Progress` while work is active, `Blocked` only for a group-level impediment, and `Done` when closed. Child pull requests do not move the parent to `Review`.
 
 Prioritize issues using the following urgency tiers:

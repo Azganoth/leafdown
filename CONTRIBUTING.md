@@ -89,7 +89,7 @@ For substantial work, start from an accepted issue. For a small, self-contained 
 
 ### Branches And Commits
 
-- Name maintainer-owned task branches with the issue type followed by a short kebab-case topic, such as `feature/feature-name`, `bug/bug-name`, or `spike/spike-name`. External fork branches may follow this convention but are not required to.
+- Name maintainer-owned task branches with a type prefix followed by a short kebab-case topic, using `bug/`, `feature/`, `docs/`, `chore/`, `spike/`, or `release/`. External fork branches may follow this convention but are not required to.
 - Format pull request titles according to the Conventional Commits specification without the scope part (e.g., `feat: add markdown component`, `fix: handle missing file path`).
 - Keep intermediate commit messages clear and meaningful. They do not need to follow Conventional Commits.
 

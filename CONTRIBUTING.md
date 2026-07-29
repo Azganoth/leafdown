@@ -32,28 +32,11 @@ By submitting a contribution, you confirm that you have the right to contribute 
 
 ## Find Or Propose Work
 
-Track actionable outcomes using single, focused issues.
-
-Maintainers capture unshaped, unscheduled ideas as draft items in the GitHub Project with status `Backlog`. A draft is neither a repository issue nor accepted work.
-
-Convert a draft to a focused issue once its intended outcome is sufficiently clear. Keep the issue in `Backlog` while it awaits scheduling or further planning, then move it to `Ready` when its completion criteria are clear.
+Track actionable outcomes using single, focused issues. Maintainers shape and schedule them as described under [Maintainer Project Management](#maintainer-project-management).
 
 To find appropriate work, browse the Project's `Ready` items or open issues. Comment on an issue before beginning substantial work so ownership and direction can be confirmed.
 
 Use the repository's [issue chooser](https://github.com/Azganoth/leafdown/issues/new/choose) to report bugs, request features, suggest documentation improvements, or ask for support. Report suspected security vulnerabilities privately according to [`SECURITY.md`](./SECURITY.md).
-
-Before an issue moves to `Ready`, maintainers should ensure it includes:
-
-- A clear summary
-- Expected behavior or intended outcome
-- Related documentation links when product behavior is modified
-- Acceptance criteria or a clear definition of done
-
-Use a parent tracking issue when independently actionable issues deliver one bounded outcome and share scope, decisions, dependencies, or completion criteria. Do not use parents for topical collections, releases, or open-ended backlogs; use labels, milestones, or the Project instead.
-
-Keep each sub-issue understandable and deliverable on its own. The parent records only shared scope, decisions, dependencies, and completion criteria. Use GitHub's native sub-issue relationship rather than a duplicated checklist, and close the parent after all required sub-issues and group-level verification are complete.
-
-For a spike, record the conclusion, tradeoffs, and evidence in the issue's `Outcome` section, linking prototype or verification pull requests. Update the owning documentation when the accepted outcome changes durable direction; otherwise the issue and linked pull requests remain the record.
 
 ## Local Development
 
@@ -148,6 +131,12 @@ Keep optional sections only when they add useful context. Use permanent links fo
 
 A maintainer-created issue is triaged at creation rather than in a later pass: apply its type label, priority, owning assignee, and initial Project status, adding a milestone only when it targets a concrete release version.
 
+Use a parent tracking issue when independently actionable issues deliver one bounded outcome and share scope, decisions, dependencies, or completion criteria. Do not use parents for topical collections, releases, or open-ended backlogs; use labels, milestones, or the Project instead.
+
+Keep each sub-issue understandable and deliverable on its own. The parent records only shared scope, decisions, dependencies, and completion criteria. Use GitHub's native sub-issue relationship rather than a duplicated checklist, and close the parent after all required sub-issues and group-level verification are complete.
+
+For a spike, record the conclusion, tradeoffs, and evidence in the issue's `Outcome` section, linking prototype or verification pull requests. Update the owning documentation when the accepted outcome changes durable direction; otherwise the issue and linked pull requests remain the record.
+
 ### Labels
 
 Maintain a minimal, standard set of labels:
@@ -174,7 +163,7 @@ Future milestones are created only for concrete release versions (e.g., `v0.2.0`
 
 ### Project Fields
 
-The GitHub Project functions as the operational board. Leafdown uses a lightweight status pipeline. Draft items capture unshaped ideas, while focused issues are the primary implementation items. Linked pull requests are not added as separate operational cards.
+The GitHub Project functions as the operational board. Leafdown uses a lightweight status pipeline. Draft items capture unshaped ideas and are neither repository issues nor accepted work, while focused issues are the primary implementation items. Linked pull requests are not added as separate operational cards.
 
 1. `Backlog` — Captured, not yet shaped.
 2. `Ready` — Clear definition of done; ready for implementation.
@@ -196,7 +185,7 @@ Prioritize issues using the following urgency tiers:
 
 1. Capture unshaped ideas as Project drafts in `Backlog`.
 2. Convert a draft to a focused issue once its intended outcome is clear, applying the same creation-time triage.
-3. Move the issue to `Ready` once its completion criteria are sufficiently clear.
+3. Move the issue to `Ready` once it carries a clear summary, its expected behavior or intended outcome, related documentation links when product behavior is modified, and acceptance criteria or a clear definition of done.
 4. Move the issue to `In Progress` when work begins, assigning it if it was not assigned at creation.
 5. Move an item to `Blocked` when work cannot proceed, then return it to the appropriate active status once the impediment is resolved.
 6. Move the issue to `Review` when its linked pull request opens.

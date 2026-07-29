@@ -20,7 +20,7 @@ Engineering Patterns provides implementation guidance rather than product direct
 
 ## Work Tracking
 
-The [issue tracker](https://github.com/Azganoth/leafdown/issues) is the source of truth for actionable work. The [Leafdown Project](https://github.com/users/Azganoth/projects/7) captures unshaped ideas as draft items and tracks prioritization and delivery state. Convert a draft to an issue once its intended outcome is sufficiently clear.
+The [issue tracker](https://github.com/Azganoth/leafdown/issues) is the source of truth for actionable work. The [Leafdown Project](https://github.com/users/Azganoth/projects/7) captures unshaped ideas as draft items and tracks prioritization and delivery state. [Contributing](../CONTRIBUTING.md) owns the issue lifecycle, triage fields, and Project statuses.
 
 ## Conventions
 

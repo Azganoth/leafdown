@@ -3,6 +3,7 @@
 ## Workflow And Authorization
 
 - Follow [`CONTRIBUTING.md`](./CONTRIBUTING.md) for documentation authority, issues, project management, branches, commits, pull requests, and releases. Read the relevant sections before acting.
+- Creating an issue or pull request includes triaging it. Read `Maintainer Project Management` and `Pull Requests` before creating either.
 - Treat planning, review, investigation, and diagnosis requests as read-only unless the user explicitly requests implementation or changes.
 - When multiple commits have been agreed, complete and verify each stage before committing it.
 - Never push, create or modify issues or Project items, open or merge pull requests, create tags or releases, or otherwise mutate remote GitHub state without explicit authorization.

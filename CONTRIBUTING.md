@@ -127,13 +127,13 @@ Pull request requirements:
 - Update the changelog for notable user-facing changes.
 - Provide meaningful verification evidence and disclose anything that was not verified.
 
-After submission, CI runs the automated checks and maintainers review the scope, implementation, and verification evidence. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`.
+After submission, CI runs the automated checks. Maintainers apply a type label, assign the pull request's owner, and review the scope, implementation, and verification evidence; priority and Project status stay on the issue. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`.
 
 Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app.
 
 ## Maintainer Project Management
 
-Maintainers own issue classification, scheduling, and project state. Contributors only need to provide the information requested by the relevant issue template. Maintainers apply labels, milestones, priorities, and project statuses during triage.
+Maintainers own issue classification, scheduling, and project state. Contributors only need to provide the information requested by the relevant issue template; maintainers triage contributor-reported issues after they are opened.
 
 When creating maintainer-owned issues directly, use the matching reference structure as the minimum:
 
@@ -145,6 +145,8 @@ When creating maintainer-owned issues directly, use the matching reference struc
 - [`Tracking`](./.github/maintainer-issue-templates/tracking.md)
 
 Keep optional sections only when they add useful context. Use permanent links for repository code and documentation when historical context depends on a specific revision.
+
+A maintainer-created issue is triaged at creation rather than in a later pass: apply its type label, priority, owning assignee, and initial Project status, adding a milestone only when it targets a concrete release version.
 
 ### Labels
 
@@ -193,9 +195,9 @@ Prioritize issues using the following urgency tiers:
 ### Status Workflow
 
 1. Capture unshaped ideas as Project drafts in `Backlog`.
-2. Convert a draft to a focused issue once its intended outcome is clear, then apply its type label, priority, milestone when applicable, and initial Project status.
+2. Convert a draft to a focused issue once its intended outcome is clear, applying the same creation-time triage.
 3. Move the issue to `Ready` once its completion criteria are sufficiently clear.
-4. Assign active work and move the issue to `In Progress`.
+4. Move the issue to `In Progress` when work begins, assigning it if it was not assigned at creation.
 5. Move an item to `Blocked` when work cannot proceed, then return it to the appropriate active status once the impediment is resolved.
 6. Move the issue to `Review` when its linked pull request opens.
 7. After merge or closure, confirm that the issue is closed and the project item is `Done`.

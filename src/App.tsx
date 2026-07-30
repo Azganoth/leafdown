@@ -17,6 +17,7 @@ import {
 } from "@/features/preferences";
 import { confirmDiscardActiveDocumentChanges } from "@/features/session";
 import { handleUnexpectedError } from "@/lib/errors";
+import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
 
 const DeveloperTools = import.meta.env.DEV
@@ -27,12 +28,16 @@ const DeveloperTools = import.meta.env.DEV
     })
   : null;
 
+const setDarkAppearance = (isDark: boolean) => {
+  window.document.documentElement.classList.toggle("dark", isDark);
+};
+
 const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
-  const isDark =
-    theme === "system" ? (await getCurrentWindow().theme()) === "dark" : theme === "dark";
-  window.document.documentElement.classList.toggle("dark", isDark);
+  setDarkAppearance(
+    theme === "system" ? (await getCurrentWindow().theme()) === "dark" : theme === "dark",
+  );
 };
 
 const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
@@ -86,7 +91,22 @@ export function App() {
   const theme = useSettingsStore((state) => state.theme);
 
   useEffect(() => {
+    const disposables = new DisposableStore();
+
     void updateTheme(theme).catch((error) => handleUnexpectedError(error, "updateTheme"));
+
+    if (theme === "system") {
+      void getCurrentWindow()
+        .onThemeChanged(({ payload }) => setDarkAppearance(payload === "dark"))
+        .then((unlisten) => {
+          disposables.add(unlisten);
+        })
+        .catch((error) => handleUnexpectedError(error, "onThemeChanged"));
+    }
+
+    return () => {
+      disposables.dispose();
+    };
   }, [theme]);
 
   return (

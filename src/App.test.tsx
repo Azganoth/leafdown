@@ -14,7 +14,7 @@ import { createUntitledDocument } from "./test/factories/document";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
 import { dispatchDOMEvent } from "./test/utils/events";
 import { render, waitFor } from "./test/utils/react";
-import { getWindowListenHandler } from "./test/utils/tauri";
+import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/utils/tauri";
 
 describe("App", () => {
   beforeEach(() => {
@@ -64,6 +64,63 @@ describe("App", () => {
     });
 
     expect(document.documentElement).not.toHaveClass("dark");
+  });
+
+  it("follows native theme changes while the system theme is selected", async () => {
+    const appWindow = getCurrentWindow();
+    setDefaultSettings({ theme: "system" });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(appWindow.onThemeChanged).toHaveBeenCalled();
+    });
+
+    expect(document.documentElement).not.toHaveClass("dark");
+
+    getWindowThemeChangedHandler()({ payload: "dark" });
+    expect(document.documentElement).toHaveClass("dark");
+
+    getWindowThemeChangedHandler()({ payload: "light" });
+    expect(document.documentElement).not.toHaveClass("dark");
+  });
+
+  it("stops following native theme changes after switching to an explicit theme", async () => {
+    const appWindow = getCurrentWindow();
+    const unlisten = vi.fn();
+    vi.mocked(appWindow.onThemeChanged).mockResolvedValue(unlisten);
+    setDefaultSettings({ theme: "system" });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(appWindow.onThemeChanged).toHaveBeenCalledOnce();
+    });
+
+    useSettingsStore.getState().updateSetting("theme", "light");
+
+    await waitFor(() => {
+      expect(unlisten).toHaveBeenCalledOnce();
+    });
+
+    expect(appWindow.onThemeChanged).toHaveBeenCalledOnce();
+  });
+
+  it("unlistens native theme changes when setup resolves after unmount", async () => {
+    const appWindow = getCurrentWindow();
+    const themeListener = Promise.withResolvers<() => void>();
+    const unlisten = vi.fn();
+    vi.mocked(appWindow.onThemeChanged).mockReturnValue(themeListener.promise);
+    setDefaultSettings({ theme: "system" });
+
+    const { unmount } = render(<App />);
+    unmount();
+
+    themeListener.resolve(unlisten);
+
+    await waitFor(() => {
+      expect(unlisten).toHaveBeenCalledOnce();
+    });
   });
 
   it("destroys the native window after a clean backend close request", async () => {

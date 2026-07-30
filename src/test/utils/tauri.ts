@@ -1,7 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { documentDir, extname, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -35,6 +35,14 @@ export const getWindowListenHandler = <TPayload>(
   expect(listenCall).toBeDefined();
 
   return listenCall?.[1] as (event: { payload: TPayload }) => void;
+};
+
+export const getWindowThemeChangedHandler = (): ((event: { payload: Theme }) => void) => {
+  const themeChangedCall = vi.mocked(getCurrentWindow().onThemeChanged).mock.calls.at(-1);
+
+  expect(themeChangedCall).toBeDefined();
+
+  return themeChangedCall?.[0] as (event: { payload: Theme }) => void;
 };
 
 export const mockInvokeCommands = (handlers: Record<string, InvokeCommandHandler>) => {
@@ -73,6 +81,7 @@ export const resetTauriMocks = () => {
   vi.mocked(appWindow.destroy).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.isFullscreen).mockReset().mockResolvedValue(false);
   vi.mocked(appWindow.listen).mockReset().mockResolvedValue(vi.fn());
+  vi.mocked(appWindow.onThemeChanged).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.setFullscreen).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.show).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.theme).mockReset().mockResolvedValue("light");

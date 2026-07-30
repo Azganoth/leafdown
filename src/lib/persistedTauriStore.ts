@@ -16,13 +16,20 @@ export type PersistedTauriStoreKey<State extends VersionedState> = Exclude<
 
 interface PersistedTauriStore<State extends VersionedState> {
   getState: () => State;
+  setState: (state: Partial<State>) => void;
+}
+
+interface PersistedStateSanitization<State extends VersionedState> {
+  changed: boolean;
+  state: Partial<State>;
 }
 
 interface PersistedTauriStoreOptions<State extends VersionedState> {
   keys: readonly PersistedTauriStoreKey<State>[];
   migrations?: readonly PersistedTauriStoreMigration<State>[];
-  // Runs after migrations so migrations still receive the persisted legacy shape.
-  sanitize?: (state: Partial<State>) => Partial<State>;
+  // Persisted data is user-writable. Sanitize it after migrations so migrations
+  // still receive the legacy shape, and report changes so the file can be repaired.
+  sanitize?: (state: Partial<State>) => PersistedStateSanitization<State>;
   version: number;
 }
 
@@ -61,7 +68,7 @@ export const createPersistedTauriStore = <State extends VersionedState>(
   store: PersistedTauriStore<State>,
   { keys, migrations = [], sanitize, version }: PersistedTauriStoreOptions<State>,
 ) => {
-  let needsMigrationSave = false;
+  let needsPersistedStateRepair = false;
   const handler = createTauriStore(
     id,
     store as never,
@@ -77,11 +84,18 @@ export const createPersistedTauriStore = <State extends VersionedState>(
           } as State;
 
           const migrated = runPersistedStateMigrations(migratedState, migrations, version);
-          needsMigrationSave ||= migrated;
+          needsPersistedStateRepair ||= migrated;
 
           const syncedState = migrated ? migratedState : persistedState;
 
-          return sanitize ? sanitize(syncedState) : syncedState;
+          if (!sanitize) {
+            return syncedState;
+          }
+
+          const sanitization = sanitize(syncedState);
+          needsPersistedStateRepair ||= sanitization.changed;
+
+          return sanitization.state;
         },
       },
       saveOnChange: true,
@@ -92,12 +106,14 @@ export const createPersistedTauriStore = <State extends VersionedState>(
   handler.start = async () => {
     await start();
 
-    if (!needsMigrationSave) {
+    if (!needsPersistedStateRepair) {
       return;
     }
 
-    await handler.saveNow();
-    needsMigrationSave = false;
+    // The persistence plugin starts watching after its initial frontend sync.
+    // Re-emit the merged state so saveOnChange replaces the backend state and file.
+    store.setState({ ...store.getState() });
+    needsPersistedStateRepair = false;
   };
 
   return handler;

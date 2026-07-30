@@ -94,7 +94,10 @@ describe("recent items store", () => {
         version: RECENT_ITEMS_VERSION,
       };
 
-      expect(sanitizeRecentItemsPersistedState(persistedState)).toEqual(persistedState);
+      expect(sanitizeRecentItemsPersistedState(persistedState)).toEqual({
+        changed: false,
+        state: persistedState,
+      });
     });
 
     it("drops persisted lists that are not made of paths", () => {
@@ -105,7 +108,8 @@ describe("recent items store", () => {
       } as unknown as Partial<RecentItemsState>;
 
       expect(sanitizeRecentItemsPersistedState(corruptState)).toEqual({
-        version: RECENT_ITEMS_VERSION,
+        changed: true,
+        state: { version: RECENT_ITEMS_VERSION },
       });
     });
 
@@ -118,8 +122,11 @@ describe("recent items store", () => {
       expect(
         sanitizeRecentItemsPersistedState({ recentFiles, version: RECENT_ITEMS_VERSION }),
       ).toEqual({
-        recentFiles: recentFiles.slice(0, RECENT_ITEM_LIMIT),
-        version: RECENT_ITEMS_VERSION,
+        changed: true,
+        state: {
+          recentFiles: recentFiles.slice(0, RECENT_ITEM_LIMIT),
+          version: RECENT_ITEMS_VERSION,
+        },
       });
     });
   });

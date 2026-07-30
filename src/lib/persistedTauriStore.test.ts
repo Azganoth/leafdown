@@ -10,6 +10,8 @@ interface TestStore {
   version: number;
 }
 
+const asTestStore = (state: unknown) => state as TestStore;
+
 type TauriStoreOptions = NonNullable<Parameters<typeof createTauriStore>[2]>;
 
 const latestTauriStoreOptions = () => {
@@ -79,6 +81,10 @@ describe("createPersistedTauriStore", () => {
       name: "legacy",
       version: 0,
     });
+    useTestStore.setState(asTestStore(migratedState));
+    const listener = vi.fn();
+    const unsubscribe = useTestStore.subscribe(listener);
+
     await handler.start();
 
     expect(migratedState).toEqual({
@@ -86,10 +92,13 @@ describe("createPersistedTauriStore", () => {
       name: "migrated",
       version: 2,
     });
-    expect(handler.saveNow).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(migratedState, migratedState);
+    expect(handler.saveNow).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
-  it("does not save after startup when loaded state is current", async () => {
+  it("does not re-emit loaded state after startup when it is current", async () => {
     const useTestStore = create<TestStore>(() => ({
       enabled: true,
       name: "current",
@@ -97,6 +106,7 @@ describe("createPersistedTauriStore", () => {
     }));
     const handler = createPersistedTauriStore<TestStore>("test", useTestStore, {
       keys: ["enabled", "name"],
+      sanitize: (state) => ({ changed: false, state }),
       version: 2,
     });
     const options = latestTauriStoreOptions();
@@ -106,23 +116,67 @@ describe("createPersistedTauriStore", () => {
       name: "current",
       version: 2,
     };
+    const listener = vi.fn();
+    const unsubscribe = useTestStore.subscribe(listener);
 
     expect(options.hooks?.beforeFrontendSync?.(currentState)).toBe(currentState);
 
     await handler.start();
 
+    expect(listener).not.toHaveBeenCalled();
     expect(handler.saveNow).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
-  it("sanitizes loaded state after migrations have run", () => {
+  it("re-emits sanitized current state after startup for persistence", async () => {
     const useTestStore = create<TestStore>(() => ({
       enabled: false,
       name: "current",
       version: 2,
     }));
-    const sanitize = vi.fn((state: Partial<TestStore>) => ({ ...state, name: "sanitized" }));
+    const handler = createPersistedTauriStore<TestStore>("test", useTestStore, {
+      keys: ["enabled", "name"],
+      sanitize: (state) => ({
+        changed: true,
+        state: { ...state, name: "sanitized" },
+      }),
+      version: 2,
+    });
+    const options = latestTauriStoreOptions();
+    const syncedState = options.hooks?.beforeFrontendSync?.({
+      enabled: false,
+      name: 7,
+      version: 2,
+    } as never);
 
-    createPersistedTauriStore<TestStore>("test", useTestStore, {
+    useTestStore.setState(asTestStore(syncedState));
+    const listener = vi.fn();
+    const unsubscribe = useTestStore.subscribe(listener);
+
+    await handler.start();
+
+    expect(syncedState).toEqual({
+      enabled: false,
+      name: "sanitized",
+      version: 2,
+    });
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(syncedState, syncedState);
+    unsubscribe();
+  });
+
+  it("sanitizes loaded state after migrations and re-emits it for persistence", async () => {
+    const useTestStore = create<TestStore>(() => ({
+      enabled: false,
+      name: "current",
+      version: 2,
+    }));
+    const sanitize = vi.fn((state: Partial<TestStore>) => ({
+      changed: true,
+      state: { ...state, name: "sanitized" },
+    }));
+
+    const handler = createPersistedTauriStore<TestStore>("test", useTestStore, {
       keys: ["enabled", "name"],
       migrations: [
         {
@@ -142,9 +196,17 @@ describe("createPersistedTauriStore", () => {
       name: "legacy",
       version: 0,
     });
+    useTestStore.setState(asTestStore(syncedState));
+    const listener = vi.fn();
+    const unsubscribe = useTestStore.subscribe(listener);
+
+    await handler.start();
 
     expect(sanitize).toHaveBeenCalledWith({ enabled: true, name: "legacy", version: 2 });
     expect(syncedState).toEqual({ enabled: true, name: "sanitized", version: 2 });
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(syncedState, syncedState);
+    unsubscribe();
   });
 
   it("skips completed migrations while upgrading to the target version", async () => {
@@ -178,6 +240,10 @@ describe("createPersistedTauriStore", () => {
       name: "already migrated",
       version: 1,
     });
+    useTestStore.setState(asTestStore(migratedState));
+    const listener = vi.fn();
+    const unsubscribe = useTestStore.subscribe(listener);
+
     await handler.start();
 
     expect(migratedState).toEqual({
@@ -185,6 +251,9 @@ describe("createPersistedTauriStore", () => {
       name: "already migrated",
       version: 3,
     });
-    expect(handler.saveNow).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith(migratedState, migratedState);
+    expect(handler.saveNow).not.toHaveBeenCalled();
+    unsubscribe();
   });
 });

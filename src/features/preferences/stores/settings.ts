@@ -103,11 +103,14 @@ const SETTINGS_VALUE_VALIDATORS: Record<keyof SettingsState, (value: unknown) =>
 
 export const sanitizeSettingsPersistedState = (state: Partial<SettingsPersistedState>) => {
   const sanitizedState: Partial<SettingsPersistedState> = {};
+  let changed = false;
 
   for (const [key, value] of Object.entries(state)) {
     if (key === "version") {
       if (typeof value === "number") {
         sanitizedState.version = value;
+      } else {
+        changed = true;
       }
 
       continue;
@@ -115,10 +118,15 @@ export const sanitizeSettingsPersistedState = (state: Partial<SettingsPersistedS
 
     if (SETTINGS_VALUE_VALIDATORS[key as keyof SettingsState]?.(value)) {
       Object.assign(sanitizedState, { [key]: value });
+    } else {
+      changed = true;
     }
   }
 
-  return sanitizedState;
+  return {
+    changed,
+    state: changed ? sanitizedState : state,
+  };
 };
 
 export const useSettingsStore = create<SettingsStore>()(

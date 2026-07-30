@@ -25,6 +25,7 @@ const RECENT_ITEMS_PERSISTED_KEYS = [
   "recentFiles",
   "recentFolders",
 ] satisfies PersistedTauriStoreKey<RecentItemsState>[];
+const RECENT_ITEMS_PERSISTED_KEY_SET = new Set<string>([...RECENT_ITEMS_PERSISTED_KEYS, "version"]);
 
 const createDefaultRecentItemsState = (): RecentItemsState => ({
   recentFiles: [],
@@ -34,9 +35,12 @@ const createDefaultRecentItemsState = (): RecentItemsState => ({
 
 export const sanitizeRecentItemsPersistedState = (state: Partial<RecentItemsState>) => {
   const sanitizedState: Partial<RecentItemsState> = {};
+  let changed = Object.keys(state).some((key) => !RECENT_ITEMS_PERSISTED_KEY_SET.has(key));
 
   if (typeof state.version === "number") {
     sanitizedState.version = state.version;
+  } else if ("version" in state) {
+    changed = true;
   }
 
   for (const key of RECENT_ITEMS_PERSISTED_KEYS) {
@@ -44,10 +48,16 @@ export const sanitizeRecentItemsPersistedState = (state: Partial<RecentItemsStat
 
     if (isStringArray(value)) {
       sanitizedState[key] = value.slice(0, RECENT_ITEM_LIMIT);
+      changed ||= value.length > RECENT_ITEM_LIMIT;
+    } else if (key in state) {
+      changed = true;
     }
   }
 
-  return sanitizedState;
+  return {
+    changed,
+    state: changed ? sanitizedState : state,
+  };
 };
 
 const addRecentPath = (items: string[], path: string) =>

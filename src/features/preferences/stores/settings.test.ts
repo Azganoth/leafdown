@@ -103,7 +103,10 @@ describe("settings store", () => {
         version: SETTINGS_VERSION,
       };
 
-      expect(sanitizeSettingsPersistedState(persistedState)).toEqual(persistedState);
+      expect(sanitizeSettingsPersistedState(persistedState)).toEqual({
+        changed: false,
+        state: persistedState,
+      });
     });
 
     it("drops persisted settings that fail their value contract", () => {
@@ -118,7 +121,10 @@ describe("settings store", () => {
         version: SETTINGS_VERSION,
       } as unknown as Partial<SettingsPersistedState>;
 
-      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({ version: SETTINGS_VERSION });
+      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({
+        changed: true,
+        state: { version: SETTINGS_VERSION },
+      });
     });
 
     it("drops unknown keys and non-numeric versions", () => {
@@ -128,7 +134,10 @@ describe("settings store", () => {
         version: "1",
       } as unknown as Partial<SettingsPersistedState>;
 
-      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({ theme: "light" });
+      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({
+        changed: true,
+        state: { theme: "light" },
+      });
     });
   });
 });

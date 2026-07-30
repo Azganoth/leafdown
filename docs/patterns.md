@@ -252,6 +252,7 @@ Use:
 - `src/test/factories/` for reusable domain fixtures.
 - Co-located tests for single modules.
 - Feature-level `tests/` directories only for broader integration behavior.
+- The `.test.tsx` extension for any test needing a DOM. The Vitest projects select the environment by extension: `.test.ts` runs under `node` and `.test.tsx` runs under `happy-dom`, regardless of whether the file contains JSX.
 
 Avoid:
 

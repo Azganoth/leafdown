@@ -6,8 +6,10 @@ import {
   DEFAULT_IGNORED_DIRECTORIES,
   DEFAULT_INDEX_FILE_NAMES,
   getSystemDefaultLineEnding,
+  sanitizeSettingsPersistedState,
   SETTINGS_VERSION,
   useSettingsStore,
+  type SettingsPersistedState,
 } from "./settings";
 
 describe("settings store", () => {
@@ -82,5 +84,60 @@ describe("settings store", () => {
     useSettingsStore.getState().reset();
 
     expect(useSettingsStore.getState().version).toBe(SETTINGS_VERSION);
+  });
+
+  describe("sanitizeSettingsPersistedState", () => {
+    it("keeps every valid persisted setting", () => {
+      const persistedState: SettingsPersistedState = {
+        theme: "dark",
+        recordRecentItems: false,
+        sidebarVisible: false,
+        articleSortOrder: "modifiedDate",
+        defaultNewDocumentExtension: ".markdown",
+        defaultNewDocumentLineEnding: "lf",
+        insertFinalNewline: false,
+        indexFileNames: ["home"],
+        ignoredDirectories: ["vendor"],
+        autoPairBracketsAndQuotes: false,
+        softWrapCodeBlocks: true,
+        version: SETTINGS_VERSION,
+      };
+
+      expect(sanitizeSettingsPersistedState(persistedState)).toEqual({
+        changed: false,
+        state: persistedState,
+      });
+    });
+
+    it("drops persisted settings that fail their value contract", () => {
+      const corruptState = {
+        theme: "midnight",
+        sidebarVisible: "yes",
+        articleSortOrder: 3,
+        defaultNewDocumentExtension: "md",
+        defaultNewDocumentLineEnding: "cr",
+        indexFileNames: "home",
+        ignoredDirectories: ["vendor", 7],
+        version: SETTINGS_VERSION,
+      } as unknown as Partial<SettingsPersistedState>;
+
+      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({
+        changed: true,
+        state: { version: SETTINGS_VERSION },
+      });
+    });
+
+    it("drops unknown keys and non-numeric versions", () => {
+      const corruptState = {
+        theme: "light",
+        injected: "value",
+        version: "1",
+      } as unknown as Partial<SettingsPersistedState>;
+
+      expect(sanitizeSettingsPersistedState(corruptState)).toEqual({
+        changed: true,
+        state: { theme: "light" },
+      });
+    });
   });
 });

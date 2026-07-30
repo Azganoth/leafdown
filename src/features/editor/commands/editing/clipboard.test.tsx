@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
 import { setupClipboardMock } from "@/test/mocks/clipboard";
+import { parseClipboardHtml } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -21,13 +22,6 @@ import { selectAll } from "./selection";
 const mountEditor = setupMilkdownEditorMount();
 const { clipboard, createClipboardItem, expectClipboardTextWritten, getClipboardHtmlWritten } =
   setupClipboardMock();
-
-const parseClipboardHtml = (html: string) => {
-  const template = document.createElement("template");
-  template.innerHTML = html;
-
-  return template.content;
-};
 
 describe("editor clipboard commands", () => {
   it("copies selections in plain text and Markdown formats", async () => {
@@ -123,7 +117,7 @@ describe("editor clipboard commands", () => {
 
   it("cuts projected content through projection-local history", async () => {
     const onContentChanged = vi.fn();
-    const mounted = await mountEditor("**Bold** plain", { onContentChanged });
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN, { onContentChanged });
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
 
@@ -140,7 +134,7 @@ describe("editor clipboard commands", () => {
     expect(onContentChanged).toHaveBeenCalledOnce();
 
     expect(runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("**Bold** plain");
+    expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
 
     expect(runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
@@ -149,7 +143,7 @@ describe("editor clipboard commands", () => {
   });
 
   it("does not delete a changed selection after an asynchronous projected cut write", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN);
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
 

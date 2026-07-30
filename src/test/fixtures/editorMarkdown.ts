@@ -1,6 +1,7 @@
 export const BASIC_TABLE_MARKDOWN = "| A | B |\n| - | - |\n| C | D |";
 export const EXTENDED_TABLE_MARKDOWN = `${BASIC_TABLE_MARKDOWN}\n| E | F |`;
 export const BOLD_PLAIN_MARKDOWN = "**Bold** plain";
+export const STRONG_HELLO_MARKDOWN = "**Hello** world";
 export const HELLO_WORLD_TEXT = "Hello world";
 export const MIXED_HEADING_MARKDOWN = "# First\n\n### Second";
 export const TWO_PARAGRAPH_MARKDOWN = "First\n\nSecond";

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import {
+  END_FRAGMENT_MARKER,
+  START_FRAGMENT_MARKER,
+  wrapCfHtmlFragment,
+} from "@/test/fixtures/clipboardHtml";
+import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupClipboardMock } from "@/test/mocks/clipboard";
 import { dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
+  containsNodeType,
   getEditorDomElement,
   getEditorTextPosition,
   setSelectionAtElementTextEnd,
@@ -13,17 +20,12 @@ import {
 
 import { runEditorCommand } from "../commands";
 
-const START_FRAGMENT_MARKER = "<!--StartFragment-->";
-const END_FRAGMENT_MARKER = "<!--EndFragment-->";
 const INLINE_PROSEMIRROR_FRAGMENT = '<p data-pm-slice="1 1 []"><strong>Strong</strong></p>';
 
 const mountEditor = setupMilkdownEditorMount();
 const { clipboard, createClipboardItem } = setupClipboardMock();
 
 type PasteEntryPath = "command" | "native";
-
-const wrapCfHtmlFragment = (fragment: string) =>
-  `<html>\r\n<body>\r\n  \r\n${START_FRAGMENT_MARKER}${fragment}${END_FRAGMENT_MARKER}\r\n  \r\n</body>\r\n</html>`;
 
 const pasteHtml = async (
   mounted: MountedMilkdownEditor,
@@ -65,16 +67,6 @@ const serializeTextSelection = async (markdown: string, first: string, last = fi
   setTextSelection(mounted.view, from, to);
 
   return mounted.view.serializeForClipboard(mounted.view.state.selection.content());
-};
-
-const documentContainsNode = (mounted: MountedMilkdownEditor, nodeTypeName: string) => {
-  let found = false;
-
-  mounted.view.state.doc.descendants((node) => {
-    found ||= node.type.name === nodeTypeName;
-  });
-
-  return found;
 };
 
 describe("CF_HTML paste normalization", () => {
@@ -141,7 +133,7 @@ describe("CF_HTML paste normalization", () => {
       await pasteHtml(wrappedPaste, "native", wrapCfHtmlFragment(fragment), serialized.text);
 
       expect(wrappedPaste.view.state.doc.toJSON()).toEqual(directPaste.view.state.doc.toJSON());
-      expect(documentContainsNode(wrappedPaste, nodeTypeName)).toBe(true);
+      expect(containsNodeType(wrappedPaste, nodeTypeName)).toBe(true);
     },
   );
 
@@ -166,7 +158,7 @@ describe("CF_HTML paste normalization", () => {
   });
 
   it("keeps native paste literal inside active source projection", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN);
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
 

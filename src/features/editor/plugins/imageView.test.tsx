@@ -17,13 +17,10 @@ import {
 
 type RenderableImageTargetResult = { kind: "renderable"; path: string };
 
-const mountEditor = setupMilkdownEditorMount();
-
-const mountImageEditor = (initialMarkdown: string) =>
-  mountEditor(initialMarkdown, {
-    ...createMarkdownReferenceContext(),
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
+const mountImageEditor = setupMilkdownEditorMount({
+  ...createMarkdownReferenceContext(),
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 
 describe("Markdown images", () => {
   describe("resolution outcomes", () => {

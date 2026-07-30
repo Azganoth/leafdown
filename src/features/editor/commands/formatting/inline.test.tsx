@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { HELLO_WORLD_TEXT, TWO_PARAGRAPH_MARKDOWN } from "@/test/fixtures/editorMarkdown";
+import {
+  HELLO_WORLD_TEXT,
+  STRONG_HELLO_MARKDOWN,
+  TWO_PARAGRAPH_MARKDOWN,
+} from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorTextContent,
@@ -33,8 +37,8 @@ describe("editor inline formatting commands", () => {
     expect(toggleStrong(mounted.view)).toBe(true);
     expect(canClearInlineFormat(mounted.view.state)).toBe(true);
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-    expect(getEditorTextContent(mounted)).toContain("**Hello** world");
-    expect(mounted.getMarkdown()).toContain("**Hello** world");
+    expect(getEditorTextContent(mounted)).toContain(STRONG_HELLO_MARKDOWN);
+    expect(mounted.getMarkdown()).toContain(STRONG_HELLO_MARKDOWN);
 
     expect(toggleStrong(mounted.view)).toBe(true);
     expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
@@ -140,7 +144,7 @@ describe("editor inline formatting commands", () => {
   });
 
   it("uses inline code as exclusive inline formatting", async () => {
-    const mounted = await mountEditor("**Hello** world");
+    const mounted = await mountEditor(STRONG_HELLO_MARKDOWN);
 
     setTextSelection(mounted.view, 1, 6);
 

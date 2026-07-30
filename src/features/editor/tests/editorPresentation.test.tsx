@@ -7,13 +7,10 @@ import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { getEditorDomElement } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
-const mountEditor = setupMilkdownEditorMount();
+const mountStyledEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
-
-const mountStyledEditor = (initialMarkdown: string) =>
-  mountEditor(initialMarkdown, {
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
 
 describe("Editor presentation", () => {
   it("renders supported editor blocks with styleable ProseMirror structure", async () => {

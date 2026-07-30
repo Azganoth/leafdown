@@ -1,3 +1,5 @@
+import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
+
 interface ModifierAliases {
   alt?: boolean;
   ctrl?: boolean;
@@ -37,6 +39,13 @@ export const createClipboardData = (
       return [...data.keys()];
     },
   } as unknown as DataTransfer;
+};
+
+export const parseClipboardHtml = (source: DataTransfer | string) => {
+  const template = document.createElement("template");
+  template.innerHTML = typeof source === "string" ? source : source.getData(TEXT_HTML_MIME_TYPE);
+
+  return template.content;
 };
 
 const isClipboardDataTransfer = (
@@ -88,14 +97,6 @@ export const dispatchDOMEvent = (target: EventTarget, type: string, init: EventI
   });
 
   target.dispatchEvent(event);
-
-  return event;
-};
-
-export const dispatchBlur = (element: Element, init: FocusEventInit = {}) => {
-  const event = new FocusEvent("blur", init);
-
-  element.dispatchEvent(event);
 
   return event;
 };

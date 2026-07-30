@@ -14,12 +14,9 @@ import {
 } from "@/test/utils/prosemirror";
 import { waitFor, within } from "@/test/utils/react";
 
-const mountEditor = setupMilkdownEditorMount();
-
-const mountStyledEditor = (initialMarkdown: string) =>
-  mountEditor(initialMarkdown, {
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
+const mountStyledEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 
 describe("marker presentation", () => {
   it("shows subtle heading markers only for collapsed caret context", async () => {

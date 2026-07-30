@@ -7,7 +7,7 @@ import {
   getTableCellTexts,
   setSelectionAtElementTextEnd,
   setSelectionInTableCell,
-  setTableCellSelection,
+  selectTableCellRange,
 } from "@/test/utils/prosemirror";
 
 import {
@@ -124,14 +124,14 @@ describe("editor table formatting commands", () => {
   it("uses selected table ranges for table deletion commands", async () => {
     const rowDeletionEditor = await mountEditor(BASIC_TABLE_MARKDOWN);
 
-    setTableCellSelection(rowDeletionEditor, { row: 1, col: 0 }, { row: 1, col: 1 });
+    selectTableCellRange(rowDeletionEditor, { row: 1, col: 0 }, { row: 1, col: 1 });
 
     expect(deleteRows(rowDeletionEditor.view)).toBe(true);
     expect(rowDeletionEditor.view.dom.querySelector("table")).not.toBeInTheDocument();
 
     const columnDeletionEditor = await mountEditor(EXTENDED_TABLE_MARKDOWN);
 
-    setTableCellSelection(columnDeletionEditor, { row: 0, col: 0 }, { row: 2, col: 1 });
+    selectTableCellRange(columnDeletionEditor, { row: 0, col: 0 }, { row: 2, col: 1 });
 
     expect(deleteColumns(columnDeletionEditor.view)).toBe(true);
     expect(columnDeletionEditor.view.dom.querySelector("table")).not.toBeInTheDocument();

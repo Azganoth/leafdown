@@ -1,4 +1,4 @@
-import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { Fragment, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { Selection, TextSelection } from "@milkdown/kit/prose/state";
 import { CellSelection, TableMap } from "@milkdown/kit/prose/tables";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -54,14 +54,17 @@ export const getEditorTextPosition = (mounted: MountedMilkdownEditor, text: stri
   return range.from + index - range.start;
 };
 
+const toDocument = (target: MountedMilkdownEditor | ProseMirrorNode) =>
+  "view" in target ? target.view.state.doc : target;
+
 export const getEditorNodePosition = (
-  mounted: MountedMilkdownEditor,
+  target: MountedMilkdownEditor | ProseMirrorNode,
   typeName: string,
   predicate: (node: ProseMirrorNode) => boolean = () => true,
 ) => {
   let position: number | null = null;
 
-  mounted.view.state.doc.descendants((node, pos) => {
+  toDocument(target).descendants((node, pos) => {
     if (node.type.name !== typeName || !predicate(node)) {
       return true;
     }
@@ -75,6 +78,43 @@ export const getEditorNodePosition = (
   }
 
   return position;
+};
+
+export const findEditorTextNode = (
+  target: MountedMilkdownEditor | ProseMirrorNode,
+  text: string,
+  predicate: (node: ProseMirrorNode) => boolean = () => true,
+) => {
+  let textNode: ProseMirrorNode | null = null;
+
+  toDocument(target).descendants((node) => {
+    if (textNode || !node.isText || !node.text?.includes(text) || !predicate(node)) {
+      return true;
+    }
+
+    textNode = node;
+    return false;
+  });
+
+  return textNode as ProseMirrorNode | null;
+};
+
+export const getMarkNames = (node: ProseMirrorNode) => node.marks.map((mark) => mark.type.name);
+
+export const containsNodeType = (
+  target: Fragment | MountedMilkdownEditor | ProseMirrorNode,
+  typeName: string,
+) => {
+  let found = false;
+
+  const content = target instanceof Fragment ? target : toDocument(target);
+
+  content.descendants((node) => {
+    found ||= node.type.name === typeName;
+    return !found;
+  });
+
+  return found;
 };
 
 /* DOM */
@@ -103,7 +143,11 @@ export function getEditorDomElement(mounted: MountedMilkdownEditor, selector: st
 
 /* Input */
 
+// Returns whether every character was consumed by a `handleTextInput` handler, which
+// distinguishes plugin-driven input from a plain insertion.
 export const typeText = (view: EditorView, text: string) => {
+  let handledEvery = text.length > 0;
+
   for (const character of text) {
     const { from, to } = view.state.selection;
     const handled =
@@ -111,10 +155,14 @@ export const typeText = (view: EditorView, text: string) => {
         handler(view, from, to, character, () => view.state.tr.insertText(character, from, to)),
       ) ?? false;
 
+    handledEvery &&= handled;
+
     if (!handled) {
       view.dispatch(view.state.tr.insertText(character, from, to));
     }
   }
+
+  return handledEvery;
 };
 
 export const runKeyDownHandlers = (
@@ -195,7 +243,7 @@ const getFirstTable = (mounted: MountedMilkdownEditor) => {
   return table;
 };
 
-export const getTableCellPos = (mounted: MountedMilkdownEditor, row: number, col: number) => {
+const getTableCellPos = (mounted: MountedMilkdownEditor, row: number, col: number) => {
   const table = getFirstTable(mounted);
 
   return table.start + TableMap.get(table.node).positionAt(row, col, table.node);
@@ -216,7 +264,7 @@ export const setSelectionInTableCell = (
   mounted.view.dispatch(mounted.view.state.tr.setSelection(selection));
 };
 
-export const setTableCellSelection = (
+export const selectTableCellRange = (
   mounted: MountedMilkdownEditor,
   anchor: TableCellCoordinates,
   head: TableCellCoordinates,

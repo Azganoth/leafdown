@@ -2,11 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import {
-  setupMilkdownEditorMount,
-  type MountedMilkdownEditor,
-  type MountMilkdownEditorOptions,
-} from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
   getEditorTextContent,
@@ -23,23 +19,10 @@ import { enterProjection } from "@/test/utils/sourceProjection";
 import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 
-const mountEditor = setupMilkdownEditorMount();
+const mountProjectionEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
-
-interface MountSourceProjectionEditorOptions {
-  onContentChanged?: MountMilkdownEditorOptions["onContentChanged"];
-  onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"];
-}
-
-const mountProjectionEditor = (
-  initialMarkdown: string,
-  options: MountSourceProjectionEditorOptions = {},
-): Promise<MountedMilkdownEditor> =>
-  mountEditor(initialMarkdown, {
-    onContentChanged: options.onContentChanged,
-    onMarkdownUpdated: options.onMarkdownUpdated,
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
 
 const waitForMarkdownUpdateListener = async () => {
   await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);

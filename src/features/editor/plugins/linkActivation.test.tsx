@@ -16,19 +16,14 @@ import {
   mockTauriApiCommand,
 } from "@/test/utils/tauriApi";
 
-const mountEditor = setupMilkdownEditorMount();
+const mountEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 
 const mountLinkEditor = (
   initialMarkdown: string,
   documentPath: string | null = "C:/Notes/readme.md",
-) => {
-  const markdownReferenceContext = createMarkdownReferenceContext({ documentPath });
-
-  return mountEditor(initialMarkdown, {
-    ...markdownReferenceContext,
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
-};
+) => mountEditor(initialMarkdown, createMarkdownReferenceContext({ documentPath }));
 
 describe("Markdown links", () => {
   it("places the caret for normal link clicks without activating links", async () => {

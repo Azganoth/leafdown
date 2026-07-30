@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchMouseEvent } from "@/test/utils/events";
-import { setupMilkdownEditorMount, type MountMilkdownEditorOptions } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorNodePosition,
   getSelectedEditorText,
@@ -20,21 +20,14 @@ import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 import { createLinkSourceMap } from "../utils/sourceProjectionLinkSyntax";
 
-const mountEditor = setupMilkdownEditorMount();
+const mountProjectionEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 const PLAIN_LINK_SOURCE = "[first field\nwalk](./nested-directory/doc-alternate.markdown)";
 const MIXED_LINK_SOURCE =
   '[**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`](./article-navigator/01-overview.md "Calibration review")';
 const MIXED_LINK_LABEL_SOURCE =
   "**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`";
-
-const mountProjectionEditor = (
-  source: string,
-  options: Pick<MountMilkdownEditorOptions, "onContentChanged"> = {},
-) =>
-  mountEditor(source, {
-    ...options,
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
 
 const getInlineBreakPosition = (document: ProseMirrorNode) => {
   let position: number | null = null;

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
+import { parseClipboardHtml } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
-import { getEditorTextPosition, setTextSelection, typeText } from "@/test/utils/prosemirror";
+import {
+  containsNodeType,
+  getEditorTextPosition,
+  getMarkNames,
+  setTextSelection,
+  typeText,
+} from "@/test/utils/prosemirror";
 import { enterFootnoteReferenceProjection, enterProjection } from "@/test/utils/sourceProjection";
 
 import {
@@ -17,13 +24,6 @@ const getClipboardHtml = (mounted: MountedMilkdownEditor) => {
   expect(slice).not.toBeNull();
 
   return mounted.view.serializeForClipboard(slice!).dom.innerHTML;
-};
-
-const parseClipboardHtml = (html: string) => {
-  const template = document.createElement("template");
-  template.innerHTML = html;
-
-  return template.content;
 };
 
 describe("source projection clipboard slices", () => {
@@ -209,11 +209,9 @@ describe("source projection clipboard slices", () => {
     setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
 
     const slice = getSourceProjectionClipboardSlice(mounted.view.state);
-    let hasFootnoteReference = false;
-    slice?.content.descendants((node) => {
-      hasFootnoteReference ||= node.type.name === "footnote_reference";
-    });
-    expect(hasFootnoteReference).toBe(true);
+
+    expect(slice).not.toBeNull();
+    expect(containsNodeType(slice!.content, "footnote_reference")).toBe(true);
 
     setTextSelection(mounted.view, sourceStart + 2, sourceStart + source.length - 1);
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
@@ -230,14 +228,12 @@ describe("source projection clipboard slices", () => {
 
     const completeSlice = getSourceProjectionClipboardSlice(mounted.view.state);
     let hasStrongText = false;
-    let hasFootnoteReference = false;
     completeSlice?.content.descendants((node) => {
-      hasStrongText ||= node.isText && node.marks.some((mark) => mark.type.name === "strong");
-      hasFootnoteReference ||= node.type.name === "footnote_reference";
+      hasStrongText ||= node.isText && getMarkNames(node).includes("strong");
     });
 
     expect(hasStrongText).toBe(true);
-    expect(hasFootnoteReference).toBe(true);
+    expect(containsNodeType(completeSlice!.content, "footnote_reference")).toBe(true);
 
     const referenceFrom = source.indexOf("[^note]");
     setTextSelection(

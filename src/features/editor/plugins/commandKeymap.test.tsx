@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BOLD_PLAIN_MARKDOWN, STRONG_HELLO_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
@@ -87,7 +88,7 @@ describe("Leafdown editor command keymap", () => {
   });
 
   it("clears inline formatting through the editor-owned shortcut", async () => {
-    const mounted = await mountEditor("**Hello** world");
+    const mounted = await mountEditor(STRONG_HELLO_MARKDOWN);
 
     setTextSelection(mounted.view, 1, 6);
 
@@ -213,7 +214,7 @@ describe("Leafdown editor command keymap", () => {
   ] satisfies Array<[string, TestKeyboardEventOptions]>)(
     "keeps projection-local history in the editor for redo through $key",
     async (key, modifiers) => {
-      const mounted = await mountEditor("**Bold** plain");
+      const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN);
 
       setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
       typeText(mounted.view, "er");

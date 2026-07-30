@@ -1,7 +1,6 @@
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { info as writeLogInfo } from "@tauri-apps/plugin-log";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -12,6 +11,7 @@ import {
 } from "./features/preferences";
 import { createUntitledDocument } from "./test/factories/document";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
+import { getLastDiagnosticPayload } from "./test/utils/diagnostics";
 import { dispatchDOMEvent } from "./test/utils/events";
 import { render, waitFor } from "./test/utils/react";
 import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/utils/tauri";
@@ -140,7 +140,7 @@ describe("App", () => {
 
     expect(confirm).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+      expect(getLastDiagnosticPayload("info")).toMatchObject({
         event: "operationLifecycle",
         feature: "app",
         operation: "window",

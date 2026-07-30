@@ -123,6 +123,7 @@ When creating maintainer-owned issues directly, use the matching reference struc
 - [`Bug`](./.github/maintainer-issue-templates/bug.md)
 - [`Feature`](./.github/maintainer-issue-templates/feature.md)
 - [`Documentation`](./.github/maintainer-issue-templates/documentation.md)
+- [`Maintenance`](./.github/maintainer-issue-templates/maintenance.md)
 - [`Spike`](./.github/maintainer-issue-templates/spike.md)
 - [`Release`](./.github/maintainer-issue-templates/release.md)
 - [`Tracking`](./.github/maintainer-issue-templates/tracking.md)

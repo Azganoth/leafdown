@@ -1,12 +1,19 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
-import type { LineEnding, MarkdownFileExtension } from "@/features/document";
-import type { ArticleSortOrder } from "@/features/folder-context";
+import {
+  LINE_ENDINGS,
+  MARKDOWN_FILE_EXTENSIONS,
+  type LineEnding,
+  type MarkdownFileExtension,
+} from "@/features/document";
+import { ARTICLE_SORT_ORDERS, type ArticleSortOrder } from "@/features/folder-context";
 import { createPersistedTauriStore, type PersistedTauriStoreKey } from "@/lib/persistedTauriStore";
 import { isWindowsPlatform } from "@/lib/platform";
+import { isBoolean, isOneOf, isStringArray } from "@/lib/predicates";
 
-export type AppearanceTheme = "light" | "dark" | "system";
+export const APPEARANCE_THEMES = ["light", "dark", "system"] as const;
+export type AppearanceTheme = (typeof APPEARANCE_THEMES)[number];
 
 export const SETTINGS_VERSION = 1;
 
@@ -76,6 +83,44 @@ export const createDefaultSettingsState = (): SettingsState => ({
 
 export const getSystemDefaultLineEnding = (): LineEnding => (isWindowsPlatform() ? "crlf" : "lf");
 
+const MARKDOWN_FILE_EXTENSION_VALUES = MARKDOWN_FILE_EXTENSIONS.map(
+  (extension) => `.${extension}` as MarkdownFileExtension,
+);
+
+const SETTINGS_VALUE_VALIDATORS: Record<keyof SettingsState, (value: unknown) => boolean> = {
+  theme: (value) => isOneOf(APPEARANCE_THEMES, value),
+  recordRecentItems: isBoolean,
+  sidebarVisible: isBoolean,
+  articleSortOrder: (value) => isOneOf(ARTICLE_SORT_ORDERS, value),
+  defaultNewDocumentExtension: (value) => isOneOf(MARKDOWN_FILE_EXTENSION_VALUES, value),
+  defaultNewDocumentLineEnding: (value) => isOneOf(LINE_ENDINGS, value),
+  insertFinalNewline: isBoolean,
+  indexFileNames: isStringArray,
+  ignoredDirectories: isStringArray,
+  autoPairBracketsAndQuotes: isBoolean,
+  softWrapCodeBlocks: isBoolean,
+};
+
+export const sanitizeSettingsPersistedState = (state: Partial<SettingsPersistedState>) => {
+  const sanitizedState: Partial<SettingsPersistedState> = {};
+
+  for (const [key, value] of Object.entries(state)) {
+    if (key === "version") {
+      if (typeof value === "number") {
+        sanitizedState.version = value;
+      }
+
+      continue;
+    }
+
+    if (SETTINGS_VALUE_VALIDATORS[key as keyof SettingsState]?.(value)) {
+      Object.assign(sanitizedState, { [key]: value });
+    }
+  }
+
+  return sanitizedState;
+};
+
 export const useSettingsStore = create<SettingsStore>()(
   immer((set) => ({
     ...createDefaultSettingsState(),
@@ -100,6 +145,7 @@ export const settingsStoreTauriHandler = createPersistedTauriStore<SettingsPersi
   useSettingsStore,
   {
     keys: SETTINGS_PERSISTED_KEYS,
+    sanitize: sanitizeSettingsPersistedState,
     version: SETTINGS_VERSION,
   },
 );

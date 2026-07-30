@@ -114,6 +114,39 @@ describe("createPersistedTauriStore", () => {
     expect(handler.saveNow).not.toHaveBeenCalled();
   });
 
+  it("sanitizes loaded state after migrations have run", () => {
+    const useTestStore = create<TestStore>(() => ({
+      enabled: false,
+      name: "current",
+      version: 2,
+    }));
+    const sanitize = vi.fn((state: Partial<TestStore>) => ({ ...state, name: "sanitized" }));
+
+    createPersistedTauriStore<TestStore>("test", useTestStore, {
+      keys: ["enabled", "name"],
+      migrations: [
+        {
+          version: 2,
+          migrate: (state) => {
+            state.enabled = true;
+          },
+        },
+      ],
+      sanitize,
+      version: 2,
+    });
+    const options = latestTauriStoreOptions();
+
+    const syncedState = options.hooks?.beforeFrontendSync?.({
+      enabled: false,
+      name: "legacy",
+      version: 0,
+    });
+
+    expect(sanitize).toHaveBeenCalledWith({ enabled: true, name: "legacy", version: 2 });
+    expect(syncedState).toEqual({ enabled: true, name: "sanitized", version: 2 });
+  });
+
   it("skips completed migrations while upgrading to the target version", async () => {
     const useTestStore = create<TestStore>(() => ({
       enabled: false,

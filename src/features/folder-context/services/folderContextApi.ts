@@ -14,7 +14,8 @@ export const FOLDER_CONTEXT_CHANGED_EVENT = "leafdown://folder-changed";
 export const FOLDER_CONTEXT_WATCH_ERROR_EVENT = "leafdown://folder-watch-error";
 
 /* NOTE: src-tauri/src/folder.rs (FileTreeSortOrder). */
-export type ArticleSortOrder = "name" | "modifiedDate" | "type";
+export const ARTICLE_SORT_ORDERS = ["name", "modifiedDate", "type"] as const;
+export type ArticleSortOrder = (typeof ARTICLE_SORT_ORDERS)[number];
 
 /* NOTE: src-tauri/src/folder.rs (MarkdownFolderTree). */
 export interface ArticleTree {

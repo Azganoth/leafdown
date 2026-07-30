@@ -11,6 +11,7 @@ export {
   type ScanMarkdownFolderWarning,
 } from "./services/folderContext";
 export {
+  ARTICLE_SORT_ORDERS,
   FOLDER_CONTEXT_CHANGED_EVENT,
   FOLDER_CONTEXT_WATCH_ERROR_EVENT,
   unwatchMarkdownFolder,

@@ -21,6 +21,7 @@ export {
 export { formatMarkdownForSave } from "./utils/documentSerialization";
 export {
   getActiveDocumentKey,
+  LINE_ENDINGS,
   matchesActiveDocumentKey,
   toSavedDocument,
   toUntitledDocument,

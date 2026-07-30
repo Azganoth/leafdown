@@ -3,6 +3,7 @@ import { immer } from "zustand/middleware/immer";
 
 import { isSamePath } from "@/lib/path";
 import { createPersistedTauriStore, type PersistedTauriStoreKey } from "@/lib/persistedTauriStore";
+import { isStringArray } from "@/lib/predicates";
 
 export const RECENT_ITEM_LIMIT = 10;
 export const RECENT_ITEMS_VERSION = 1;
@@ -30,6 +31,24 @@ const createDefaultRecentItemsState = (): RecentItemsState => ({
   recentFolders: [],
   version: RECENT_ITEMS_VERSION,
 });
+
+export const sanitizeRecentItemsPersistedState = (state: Partial<RecentItemsState>) => {
+  const sanitizedState: Partial<RecentItemsState> = {};
+
+  if (typeof state.version === "number") {
+    sanitizedState.version = state.version;
+  }
+
+  for (const key of RECENT_ITEMS_PERSISTED_KEYS) {
+    const value = state[key];
+
+    if (isStringArray(value)) {
+      sanitizedState[key] = value.slice(0, RECENT_ITEM_LIMIT);
+    }
+  }
+
+  return sanitizedState;
+};
 
 const addRecentPath = (items: string[], path: string) =>
   path
@@ -61,6 +80,7 @@ export const recentItemsStoreTauriHandler = createPersistedTauriStore<RecentItem
   useRecentItemsStore,
   {
     keys: RECENT_ITEMS_PERSISTED_KEYS,
+    sanitize: sanitizeRecentItemsPersistedState,
     version: RECENT_ITEMS_VERSION,
   },
 );

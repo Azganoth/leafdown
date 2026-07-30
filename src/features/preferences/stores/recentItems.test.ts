@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { setDefaultRecentItems } from "@/test/utils/appStores";
 
-import { RECENT_ITEM_LIMIT, RECENT_ITEMS_VERSION, useRecentItemsStore } from "./recentItems";
+import {
+  RECENT_ITEM_LIMIT,
+  RECENT_ITEMS_VERSION,
+  sanitizeRecentItemsPersistedState,
+  useRecentItemsStore,
+  type RecentItemsState,
+} from "./recentItems";
 
 describe("recent items store", () => {
   beforeEach(() => {
@@ -77,6 +83,44 @@ describe("recent items store", () => {
       recentFiles: [],
       recentFolders: [],
       version: RECENT_ITEMS_VERSION,
+    });
+  });
+
+  describe("sanitizeRecentItemsPersistedState", () => {
+    it("keeps valid persisted path lists", () => {
+      const persistedState = {
+        recentFiles: ["C:/Notes/readme.md"],
+        recentFolders: ["C:/Notes"],
+        version: RECENT_ITEMS_VERSION,
+      };
+
+      expect(sanitizeRecentItemsPersistedState(persistedState)).toEqual(persistedState);
+    });
+
+    it("drops persisted lists that are not made of paths", () => {
+      const corruptState = {
+        recentFiles: "C:/Notes/readme.md",
+        recentFolders: ["C:/Notes", 7],
+        version: RECENT_ITEMS_VERSION,
+      } as unknown as Partial<RecentItemsState>;
+
+      expect(sanitizeRecentItemsPersistedState(corruptState)).toEqual({
+        version: RECENT_ITEMS_VERSION,
+      });
+    });
+
+    it("bounds oversized persisted lists to the recent item limit", () => {
+      const recentFiles = Array.from(
+        { length: RECENT_ITEM_LIMIT + 5 },
+        (_, index) => `C:/Notes/${index}.md`,
+      );
+
+      expect(
+        sanitizeRecentItemsPersistedState({ recentFiles, version: RECENT_ITEMS_VERSION }),
+      ).toEqual({
+        recentFiles: recentFiles.slice(0, RECENT_ITEM_LIMIT),
+        version: RECENT_ITEMS_VERSION,
+      });
     });
   });
 });

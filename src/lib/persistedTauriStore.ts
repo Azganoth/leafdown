@@ -21,6 +21,8 @@ interface PersistedTauriStore<State extends VersionedState> {
 interface PersistedTauriStoreOptions<State extends VersionedState> {
   keys: readonly PersistedTauriStoreKey<State>[];
   migrations?: readonly PersistedTauriStoreMigration<State>[];
+  // Runs after migrations so migrations still receive the persisted legacy shape.
+  sanitize?: (state: Partial<State>) => Partial<State>;
   version: number;
 }
 
@@ -57,7 +59,7 @@ const runPersistedStateMigrations = <State extends VersionedState>(
 export const createPersistedTauriStore = <State extends VersionedState>(
   id: string,
   store: PersistedTauriStore<State>,
-  { keys, migrations = [], version }: PersistedTauriStoreOptions<State>,
+  { keys, migrations = [], sanitize, version }: PersistedTauriStoreOptions<State>,
 ) => {
   let needsMigrationSave = false;
   const handler = createTauriStore(
@@ -77,7 +79,9 @@ export const createPersistedTauriStore = <State extends VersionedState>(
           const migrated = runPersistedStateMigrations(migratedState, migrations, version);
           needsMigrationSave ||= migrated;
 
-          return migrated ? migratedState : persistedState;
+          const syncedState = migrated ? migratedState : persistedState;
+
+          return sanitize ? sanitize(syncedState) : syncedState;
         },
       },
       saveOnChange: true,

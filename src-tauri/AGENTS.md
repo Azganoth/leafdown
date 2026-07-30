@@ -17,4 +17,4 @@
 
 - Co-locate focused unit tests with their Rust module and reuse `crate::test_utils`, including `TestDirectory`, for temporary filesystem setup.
 - Update `command_contract_tests.rs` when command payloads, serialized errors, or cross-command workflows change.
-- Follow the backend-relevant cases in the [`docs/architecture.md` test focus](../docs/architecture.md#test-focus), especially filesystem failures, path handling, encoding, size limits, symlinks, and security boundaries.
+- Follow the backend-relevant cases in the [`docs/architecture.md` verification strategy](../docs/architecture.md#verification-strategy), especially filesystem failures, path handling, encoding, size limits, symlinks, and security boundaries.

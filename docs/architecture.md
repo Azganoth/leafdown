@@ -26,7 +26,7 @@ Single-subject tests are colocated as `*.test.ts` or `*.test.tsx`; feature-level
 
 Types are colocated with the module that owns the concept. A `types/` directory is reserved for a coherent set of shared domain contracts without a clearer owner.
 
-Application composition lives under `src/components/` in `layout/`, `screens/`, and `dialogs/`. Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in `src/components/ui/` and `src/lib/`.
+Application composition lives under `src/components/` in `layout/` and `screens/`. Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in `src/components/ui/` and `src/lib/`.
 
 The `session` feature owns the relationship between the active document and folder context, plus workflows spanning multiple features. Dependencies flow left to right:
 

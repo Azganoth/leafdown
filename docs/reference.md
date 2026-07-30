@@ -169,10 +169,10 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Decrease heading level**
 - **Ordered list** (`Mod+Alt+7`)
 - **Unordered list** (`Mod+Alt+8`)
-- **Task list**
+- **Task list** (`Mod+Alt+9`)
 - **Increase list indent** (`Tab`)
 - **Decrease list indent** (`Shift+Tab`)
-- **Toggle task checked**
+- **Toggle task checked** (`Mod+Enter`)
 - **Blockquote** (`Mod+Shift+B`)
 - **Code block** (`Mod+Alt+C`)
 - **Table**

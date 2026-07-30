@@ -17,8 +17,8 @@ import {
 } from "@/test/utils/prosemirror";
 
 import { runEditorCommand } from "../commands";
+import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 import { createLinkSourceMap } from "../utils/sourceProjectionLinkSyntax";
-import { hasActiveSourceProjection } from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
 const PLAIN_LINK_SOURCE = "[first field\nwalk](./nested-directory/doc-alternate.markdown)";

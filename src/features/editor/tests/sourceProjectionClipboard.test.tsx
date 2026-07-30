@@ -1,40 +1,15 @@
-import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { NodeSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it } from "vitest";
 
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
-import {
-  getEditorDomElement,
-  getEditorNodePosition,
-  getEditorTextPosition,
-  setSelectionAtElementTextEnd,
-  setTextSelection,
-  typeText,
-} from "@/test/utils/prosemirror";
+import { getEditorTextPosition, setTextSelection, typeText } from "@/test/utils/prosemirror";
+import { enterFootnoteReferenceProjection, enterProjection } from "@/test/utils/sourceProjection";
 
-import { getSourceProjectionClipboardSlice, hasActiveSourceProjection } from "./sourceProjection";
+import {
+  getSourceProjectionClipboardSlice,
+  hasActiveSourceProjection,
+} from "../plugins/sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
-
-const enterProjection = (
-  mounted: MountedMilkdownEditor,
-  selector: "a" | "code" | "del" | "em" | "strong",
-) => {
-  setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, selector));
-  expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-};
-
-const selectFootnoteReference = (
-  mounted: MountedMilkdownEditor,
-  predicate: (node: ProseMirrorNode) => boolean = () => true,
-) => {
-  const position = getEditorNodePosition(mounted, "footnote_reference", predicate);
-
-  mounted.view.dispatch(
-    mounted.view.state.tr.setSelection(NodeSelection.create(mounted.view.state.doc, position)),
-  );
-  expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-};
 
 const getClipboardHtml = (mounted: MountedMilkdownEditor) => {
   const slice = getSourceProjectionClipboardSlice(mounted.view.state);
@@ -228,7 +203,7 @@ describe("source projection clipboard slices", () => {
     const source = "[^note]";
     const mounted = await mountEditor(`Before${source} after\n\n[^note]: Detail`);
 
-    selectFootnoteReference(mounted);
+    enterFootnoteReferenceProjection(mounted);
 
     const sourceStart = getEditorTextPosition(mounted, source);
     setTextSelection(mounted.view, sourceStart, sourceStart + source.length);
@@ -248,7 +223,7 @@ describe("source projection clipboard slices", () => {
     const source = "**Text[^note]**";
     const mounted = await mountEditor(`${source}\n\n[^note]: Detail`);
 
-    selectFootnoteReference(mounted);
+    enterFootnoteReferenceProjection(mounted);
 
     const sourceStart = getEditorTextPosition(mounted, source);
     setTextSelection(mounted.view, sourceStart, sourceStart + source.length);

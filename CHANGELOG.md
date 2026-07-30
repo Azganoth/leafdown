@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Follow operating system appearance changes while the system theme is selected.
 - Restore monospace glyphs that were missing from bundled builds.
 - Keep middle-click and right-click on rendered links from navigating the window away from Leafdown.
 - Open confirmed local non-Markdown links with the system default app instead of reporting a failure.

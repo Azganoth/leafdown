@@ -1,5 +1,4 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { info as writeLogInfo, warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +10,7 @@ import {
 } from "@/features/folder-context";
 import { createFolderContext } from "@/test/factories/folderContext";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
+import { findDiagnosticPayload, type DiagnosticLogLevel } from "@/test/utils/diagnostics";
 import { act, renderHook, waitFor } from "@/test/utils/react";
 import { getWindowListenHandler } from "@/test/utils/tauri";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
@@ -69,39 +69,15 @@ const latestFolderContextWatchScope = (): FolderContextWatchScope => {
   };
 };
 
-const matchesDiagnosticFields = (
-  payload: Record<string, unknown>,
-  fields: Record<string, unknown>,
-) => Object.entries(fields).every(([key, value]) => payload[key] === value);
-
-const getInfoDiagnosticPayload = (event: string, fields: Record<string, unknown> = {}) =>
-  vi
-    .mocked(writeLogInfo)
-    .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
-    .find((payload) => payload.event === event && matchesDiagnosticFields(payload, fields));
-
-const getWarnDiagnosticPayload = (event: string, fields: Record<string, unknown> = {}) =>
-  vi
-    .mocked(writeLogWarn)
-    .mock.calls.map(([message]) => JSON.parse(message) as Record<string, unknown>)
-    .find((payload) => payload.event === event && matchesDiagnosticFields(payload, fields));
-
-const waitForInfoDiagnosticPayload = async (
+// `waitFor` keeps the retries inside React's act scope, which `expect.poll` does not do.
+const waitForDiagnosticPayload = async (
+  level: DiagnosticLogLevel,
   event: string,
   fields: Record<string, unknown> = {},
 ) => {
-  await waitFor(() => expect(getInfoDiagnosticPayload(event, fields)).toBeDefined());
+  await waitFor(() => expect(findDiagnosticPayload(level, event, fields)).toBeDefined());
 
-  return getInfoDiagnosticPayload(event, fields) as Record<string, unknown>;
-};
-
-const waitForWarnDiagnosticPayload = async (
-  event: string,
-  fields: Record<string, unknown> = {},
-) => {
-  await waitFor(() => expect(getWarnDiagnosticPayload(event, fields)).toBeDefined());
-
-  return getWarnDiagnosticPayload(event, fields) as Record<string, unknown>;
+  return findDiagnosticPayload(level, event, fields) as Record<string, unknown>;
 };
 
 const advanceFolderRefreshTimer = async () => {
@@ -154,7 +130,7 @@ describe("useFolderContextWatcher", () => {
       });
       const scope = latestFolderContextWatchScope();
       await expect(
-        waitForInfoDiagnosticPayload("operationLifecycle", { phase: "started" }),
+        waitForDiagnosticPayload("info", "operationLifecycle", { phase: "started" }),
       ).resolves.toMatchObject({
         feature: "folder-context",
         folderPath: "C:/Notes",
@@ -173,7 +149,7 @@ describe("useFolderContextWatcher", () => {
         scopeGeneration: scope.generation,
       });
       await expect(
-        waitForInfoDiagnosticPayload("operationLifecycle", { phase: "stopped" }),
+        waitForDiagnosticPayload("info", "operationLifecycle", { phase: "stopped" }),
       ).resolves.toMatchObject({
         feature: "folder-context",
         folderPath: "C:/Notes",
@@ -269,7 +245,9 @@ describe("useFolderContextWatcher", () => {
       expect(countTauriApiCalls("watchMarkdownFolder")).toBe(0);
       await waitFor(() => expect(countTauriApiCalls("unwatchMarkdownFolder")).toBe(1));
       await Promise.resolve();
-      expect(getInfoDiagnosticPayload("operationLifecycle", { phase: "stopped" })).toBeUndefined();
+      expect(
+        findDiagnosticPayload("info", "operationLifecycle", { phase: "stopped" }),
+      ).toBeUndefined();
     });
 
     it("reports unexpected listener setup failures", async () => {
@@ -316,7 +294,7 @@ describe("useFolderContextWatcher", () => {
         });
       });
       await expect(
-        waitForWarnDiagnosticPayload("operationFailed", { phase: "starting" }),
+        waitForDiagnosticPayload("warn", "operationFailed", { phase: "starting" }),
       ).resolves.toMatchObject({
         errorKind: "permissionDenied",
         errorPath: "C:/Notes",
@@ -571,7 +549,7 @@ describe("useFolderContextWatcher", () => {
         description: "watch failed",
       });
       await expect(
-        waitForWarnDiagnosticPayload("operationWarning", { warningKind: "watchError" }),
+        waitForDiagnosticPayload("warn", "operationWarning", { warningKind: "watchError" }),
       ).resolves.toMatchObject({
         errorKind: "watchFailed",
         errorPath: "C:/Notes",

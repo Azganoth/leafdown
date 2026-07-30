@@ -6,6 +6,12 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { handleUnexpectedError } from "@/lib/errors";
+import {
+  getDiagnosticPayloadAt,
+  getLastDiagnosticMessage,
+  getLastDiagnosticPayload,
+  pollForDiagnosticMessage,
+} from "@/test/utils/diagnostics";
 
 import {
   installUnexpectedErrorDiagnostics,
@@ -32,7 +38,7 @@ describe("diagnostic log bridge", () => {
       errorStack: "Error: failed\n    at test",
       message: "Unexpected error (test: run).",
     });
-    const logMessage = vi.mocked(writeLogError).mock.calls.at(-1)?.[0] ?? "{}";
+    const logMessage = getLastDiagnosticMessage("error");
     const payload = JSON.parse(logMessage) as {
       componentStack: string;
       context: string;
@@ -60,7 +66,7 @@ describe("diagnostic log bridge", () => {
         value: "kept",
       },
     });
-    const message = vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}";
+    const message = getLastDiagnosticMessage("warn");
     const payload = JSON.parse(message) as {
       event: string;
       feature: string;
@@ -105,21 +111,21 @@ describe("diagnostic log bridge", () => {
       phase: "started",
     });
 
-    expect(JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-2)?.[0] ?? "{}")).toMatchObject({
+    expect(getDiagnosticPayloadAt("warn", -2)).toMatchObject({
       errorKind: "missingFile",
       event: "operationFailed",
       feature: "document",
       operation: "openMarkdownDocument",
       path: "notes/missing.md",
     });
-    expect(JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+    expect(getLastDiagnosticPayload("warn")).toMatchObject({
       event: "operationWarning",
       feature: "folder-context",
       operation: "scanFolderContext",
       warningCount: 1,
       warningKind: "scanWarnings",
     });
-    expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+    expect(getLastDiagnosticPayload("info")).toMatchObject({
       event: "operationLifecycle",
       feature: "folder-context",
       operation: "folderContextWatcher",
@@ -147,7 +153,7 @@ describe("diagnostic log bridge", () => {
     }
 
     expect(writeLogInfo).toHaveBeenCalledWith(expect.stringContaining('"event":"operationTiming"'));
-    expect(JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}")).toMatchObject({
+    expect(getLastDiagnosticPayload("info")).toMatchObject({
       durationMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25,
       event: "operationTiming",
       feature: "document",
@@ -186,9 +192,7 @@ describe("diagnostic log bridge", () => {
     handleUnexpectedError(new Error("installed diagnostic"), "diagnostics.install");
     cleanup();
 
-    await expect
-      .poll(() => vi.mocked(writeLogError).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"event":"frontendUnexpectedError"');
+    await pollForDiagnosticMessage("error", '"event":"frontendUnexpectedError"');
     expect(consoleError).toHaveBeenCalledOnce();
   });
 });

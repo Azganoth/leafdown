@@ -1,5 +1,4 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { info as writeLogInfo, warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { describe, expect, it, vi } from "vitest";
 
 import { SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS } from "@/features/diagnostics";
@@ -10,6 +9,7 @@ import {
 } from "@/lib/cancellation";
 import { createArticleTree, createNestedArticleTree } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
+import { getLastDiagnosticPayload, pollForDiagnosticMessage } from "@/test/utils/diagnostics";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
 import { openFolderContext, scanFolderContext, selectFolderContextPath } from "./folderContext";
@@ -67,10 +67,8 @@ describe("folder context service", () => {
       ignoredDirectories: [".git"],
       sortOrder: "type",
     });
-    await expect
-      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"warningKind":"scanWarnings"');
-    expect(getLastWarnPayload()).toMatchObject({
+    await pollForDiagnosticMessage("warn", '"warningKind":"scanWarnings"');
+    expect(getLastDiagnosticPayload("warn")).toMatchObject({
       event: "operationWarning",
       feature: "folder-context",
       operation: "scanFolderContext",
@@ -109,10 +107,8 @@ describe("folder context service", () => {
       performanceNow.mockRestore();
     }
 
-    await expect
-      .poll(() => vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"event":"operationTiming"');
-    expect(getLastInfoPayload()).toMatchObject({
+    await pollForDiagnosticMessage("info", '"event":"operationTiming"');
+    expect(getLastDiagnosticPayload("info")).toMatchObject({
       articleCount: 3,
       durationMs: SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS + 25,
       event: "operationTiming",
@@ -192,10 +188,8 @@ describe("folder context service", () => {
       kind: "readDirectoryFailed",
     });
 
-    await expect
-      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"operation":"scanFolderContext"');
-    expect(getLastWarnPayload()).toMatchObject({
+    await pollForDiagnosticMessage("warn", '"operation":"scanFolderContext"');
+    expect(getLastDiagnosticPayload("warn")).toMatchObject({
       errorKind: "readDirectoryFailed",
       event: "operationFailed",
       feature: "folder-context",
@@ -236,10 +230,8 @@ describe("folder context service", () => {
       },
     });
 
-    await expect
-      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"warningKind":"indexDocumentOpenFailed"');
-    expect(getLastWarnPayload()).toMatchObject({
+    await pollForDiagnosticMessage("warn", '"warningKind":"indexDocumentOpenFailed"');
+    expect(getLastDiagnosticPayload("warn")).toMatchObject({
       errorKind: "missingFile",
       event: "operationWarning",
       feature: "folder-context",
@@ -291,12 +283,6 @@ describe("folder context service", () => {
     expect(countTauriApiCalls("openMarkdownFolder")).toBe(1);
   });
 });
-
-const getLastWarnPayload = () =>
-  JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}") as Record<string, unknown>;
-
-const getLastInfoPayload = () =>
-  JSON.parse(vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}") as Record<string, unknown>;
 
 const mockSlowOperation = () =>
   vi

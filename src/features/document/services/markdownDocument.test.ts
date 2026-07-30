@@ -1,9 +1,9 @@
-import { info as writeLogInfo, warn as writeLogWarn } from "@tauri-apps/plugin-log";
 import { describe, expect, it, vi } from "vitest";
 
 import { SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS } from "@/features/diagnostics";
 import { createOpenedMarkdownDocument } from "@/test/factories/document";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
+import { getLastDiagnosticMessage, pollForDiagnosticMessage } from "@/test/utils/diagnostics";
 import { mockTauriApi } from "@/test/utils/tauriApi";
 
 import { openMarkdownDocument, saveMarkdownDocument } from "./markdownDocument";
@@ -24,11 +24,9 @@ describe("markdown document service", () => {
       performanceNow.mockRestore();
     }
 
-    await expect
-      .poll(() => vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"event":"operationTiming"');
+    await pollForDiagnosticMessage("info", '"event":"operationTiming"');
 
-    const logMessage = vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}";
+    const logMessage = getLastDiagnosticMessage("info");
 
     expect(logMessage).not.toContain("Sensitive notes");
     expect(JSON.parse(logMessage)).toMatchObject({
@@ -56,11 +54,9 @@ describe("markdown document service", () => {
       kind: "missingFile",
     });
 
-    await expect
-      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"operation":"openMarkdownDocument"');
+    await pollForDiagnosticMessage("warn", '"operation":"openMarkdownDocument"');
 
-    const payload = JSON.parse(vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}") as {
+    const payload = JSON.parse(getLastDiagnosticMessage("warn")) as {
       errorKind: string;
       event: string;
       feature: string;
@@ -100,11 +96,9 @@ describe("markdown document service", () => {
       performanceNow.mockRestore();
     }
 
-    await expect
-      .poll(() => vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"operation":"saveMarkdownDocument"');
+    await pollForDiagnosticMessage("warn", '"operation":"saveMarkdownDocument"');
 
-    const logMessage = vi.mocked(writeLogWarn).mock.calls.at(-1)?.[0] ?? "{}";
+    const logMessage = getLastDiagnosticMessage("warn");
     const payload = JSON.parse(logMessage) as {
       errorKind: string;
       event: string;
@@ -126,11 +120,9 @@ describe("markdown document service", () => {
       path: TEST_MARKDOWN_FILE_PATH,
     });
 
-    await expect
-      .poll(() => vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "")
-      .toContain('"event":"operationTiming"');
+    await pollForDiagnosticMessage("info", '"event":"operationTiming"');
 
-    const timingLogMessage = vi.mocked(writeLogInfo).mock.calls.at(-1)?.[0] ?? "{}";
+    const timingLogMessage = getLastDiagnosticMessage("info");
 
     expect(timingLogMessage).not.toContain("Sensitive draft");
     expect(JSON.parse(timingLogMessage)).toMatchObject({

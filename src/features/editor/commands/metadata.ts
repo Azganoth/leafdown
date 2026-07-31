@@ -1,3 +1,5 @@
+// Milkdown-free for the same reason as ./contract, so command surfaces can label a command
+// without loading the editor that runs it.
 import type { EditorCommandId } from "./contract";
 
 export const EDITOR_COMMAND_LABELS = {

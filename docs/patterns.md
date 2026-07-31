@@ -143,6 +143,7 @@ Use:
 - `src/commands/metadata.ts` for labels and shortcuts.
 - `src/commands/application.ts` for application command handlers and state getters.
 - `src/commands/state.ts` for routing command state between editor and application commands.
+- `src/features/editor/commands/contract.ts` and `src/features/editor/commands/metadata.ts`, imported directly, when only editor command IDs, the command state shape, its derived constants, or command labels are needed.
 - Feature APIs for the actual domain behavior.
 
 Avoid:
@@ -150,10 +151,13 @@ Avoid:
 - Putting editor, document, or folder business logic directly in menu components.
 - Deep-importing feature internals into UI just to execute a command.
 - Duplicating command availability checks in multiple UI surfaces.
+- Reaching the editor command contract through `@/features/editor`.
 
 Why:
 
 Menus, shortcuts, context popups, and future command surfaces should agree on labels, shortcuts, enabled state, and behavior.
+
+`@/features/editor` exports `MilkdownEditor`, so importing anything from that root loads Milkdown and Shiki. Executing a command needs the editor and should still go through the feature root; describing one does not. Keeping the contract in a Milkdown-free leaf module lets the command layer, the session bridge, and test infrastructure route and label commands without loading an editor they never render. `EDITOR_COMMANDS` satisfies the contract's manifest, so the two cannot drift.
 
 Command metadata is descriptive across surfaces, but shortcut execution remains owned by the relevant layer:
 

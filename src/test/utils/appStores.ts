@@ -14,10 +14,8 @@ import {
   type RecentItemsState,
   type SettingsPersistedState,
 } from "@/features/preferences";
-// Deep import, unlike the feature-root imports above: `@/features/session` re-exports
-// `documentEditorBridge`, which reaches `@/features/editor` and loads Milkdown and Shiki.
-// Every test file runs the `beforeEach` in ../setup/common.ts that imports this module,
-// so going through the feature root makes each of them pay for the editor stack.
+// Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
+// beforeEach in ../setup/common.ts loads this module for every test file.
 import { useSessionStore, type SessionState } from "@/features/session/stores/session";
 
 export const setDefaultSettings = (settings: Partial<SettingsPersistedState> = {}) => {

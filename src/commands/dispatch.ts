@@ -1,7 +1,5 @@
 import { getActiveDocumentKey } from "@/features/document";
-// Deep import, as in @/features/session/services/documentEditorBridge: the editor root
-// exports MilkdownEditor, so reaching the command contract through it would pull Milkdown
-// and Shiki into the command layer and everything that composes it.
+// Deep import by design; see @/features/editor/commands/contract.ts.
 import { EDITOR_COMMAND_IDS, isEditorCommandId } from "@/features/editor/commands/contract";
 import { documentEditorBridge } from "@/features/session";
 

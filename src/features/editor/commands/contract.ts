@@ -1,6 +1,9 @@
-// Kept free of Milkdown imports so consumers that only need the command contract do not
-// load the editor stack. `EDITOR_COMMANDS` in ./index.ts is constrained to this manifest,
-// so the two cannot drift.
+// The Milkdown-free half of the editor's command API, imported directly rather than through
+// `@/features/editor` because that root exports `MilkdownEditor` and so loads Milkdown and
+// Shiki. Consumers that route, label, or describe commands use this module; consumers that
+// execute one still go through the feature root. `EDITOR_COMMANDS` in ./index.ts satisfies
+// this manifest, so the two cannot drift.
+// See docs/patterns.md#commands.
 export const EDITOR_COMMAND_IDS = [
   "edit.undo",
   "edit.redo",

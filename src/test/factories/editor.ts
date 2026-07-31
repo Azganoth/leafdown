@@ -1,6 +1,5 @@
 import type { MarkdownReferenceContext, MilkdownEditorBridge } from "@/features/editor";
-// Deep import, as in ../utils/appStores: reaching EDITOR_COMMAND_IDS through the editor
-// root would load Milkdown for the non-editor tests that use this factory.
+// Deep import by design; see @/features/editor/commands/contract.ts.
 import {
   EDITOR_COMMAND_IDS,
   type EditorCommandId,

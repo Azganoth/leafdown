@@ -1,5 +1,4 @@
-// Deep imports for the same reason as ./dispatch: labels and the command contract carry
-// no Milkdown, but the editor root does.
+// Deep import by design; see @/features/editor/commands/contract.ts.
 import type { EditorCommandId } from "@/features/editor/commands/contract";
 import { EDITOR_COMMAND_LABELS } from "@/features/editor/commands/metadata";
 import {

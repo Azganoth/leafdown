@@ -1,4 +1,4 @@
-import type { EditorCommandId } from ".";
+import type { EditorCommandId } from "./contract";
 
 export const EDITOR_COMMAND_LABELS = {
   "edit.undo": "Undo",

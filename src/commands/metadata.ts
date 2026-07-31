@@ -1,4 +1,7 @@
-import { EDITOR_COMMAND_LABELS, type EditorCommandId } from "@/features/editor";
+// Deep imports for the same reason as ./dispatch: labels and the command contract carry
+// no Milkdown, but the editor root does.
+import type { EditorCommandId } from "@/features/editor/commands/contract";
+import { EDITOR_COMMAND_LABELS } from "@/features/editor/commands/metadata";
 import {
   formatKeyboardKey,
   hasNonPrimaryModifierEvent,

@@ -1,4 +1,5 @@
-import { isEditorCommandId } from "@/features/editor";
+// Deep import for the same reason as ./dispatch: the command contract carries no Milkdown.
+import { isEditorCommandId } from "@/features/editor/commands/contract";
 
 import { APPLICATION_COMMANDS, isApplicationCommandId } from "./application";
 import type { AppCommandContext } from "./context";

@@ -279,7 +279,9 @@ fn resolved_link_paths_match_folder_scan_paths() {
     let root = TestDirectory::new("command-contract-path-identity");
     let document_path = root.markdown_document_path();
     root.write_file("docs/linked.md");
-    let root_path_string = path_string(root.path.as_path());
+    // The frontend supplies a folder path the OS picker produced, so start from the real path
+    // rather than whatever form `TEMP` happens to carry on the host.
+    let root_path_string = canonical_path_string(root.path.as_path());
 
     let scan_result = tauri::async_runtime::block_on(folder::scan_markdown_folder(
         root_path_string.clone(),

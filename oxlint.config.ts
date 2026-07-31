@@ -1,6 +1,6 @@
 import { defineConfig } from "oxlint";
 
-const leafFeatures = ["document", "editor", "folder-context", "preferences"];
+const leafFeatures = ["diagnostics", "document", "editor", "folder-context", "preferences"];
 const restrictedImportRoots = [
   "@/features/session",
   "@/commands",

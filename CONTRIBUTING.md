@@ -46,7 +46,7 @@ Before cloning the repository, install:
 
 - Git
 - Node.js 24 (or later)
-- Rust stable (through `rustup`)
+- Rust (through `rustup`; the repository pins the toolchain version)
 - [Tauri v2 prerequisites for Windows](https://v2.tauri.app/start/prerequisites/#windows)
 
 After forking and cloning the repository, install the required toolchains and project dependencies from the repository root:
@@ -55,11 +55,11 @@ After forking and cloning the repository, install the required toolchains and pr
 corepack enable pnpm
 corepack install
 pnpm install
-rustup toolchain install stable --profile minimal
+rustup toolchain install
 rustup toolchain install nightly-2026-05-22 --profile minimal --component rustfmt
 ```
 
-> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks.
+> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components; the separate nightly is used only by the formatter.
 
 Start the desktop application with:
 
@@ -113,6 +113,8 @@ Pull request requirements:
 After submission, CI runs the automated checks. Maintainers apply a type label, assign the pull request's owner, and review the scope, implementation, and verification evidence; priority and Project status stay on the issue. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`.
 
 Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app.
+
+Frontend checks enforce a coverage floor. It is a ratchet set just below the measured numbers rather than a target: a change that falls below it needs tests, not a lower floor, and the floor is raised when the measured numbers move up.
 
 ## Maintainer Project Management
 

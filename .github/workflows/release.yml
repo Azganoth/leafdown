@@ -39,10 +39,6 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
-      # Nightly is only needed by rustfmt, so keep it out of the build cache key.
-      - name: Setup nightly rustfmt
-        run: rustup toolchain install nightly-2026-05-22 --profile minimal --component rustfmt
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 

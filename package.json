@@ -23,10 +23,10 @@
     "check:frontend": "pnpm check:oxfmt && pnpm lint:frontend && pnpm build && pnpm test:coverage",
     "check:backend": "pnpm check:cargo-fmt && pnpm lint:backend && pnpm test:backend",
     "check:oxfmt": "oxfmt --check",
-    "check:cargo-fmt": "cargo +nightly-2026-05-22 fmt --manifest-path src-tauri/Cargo.toml --check",
+    "check:cargo-fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "format": "pnpm run --parallel /^format:/",
     "format:frontend": "oxfmt",
-    "format:backend": "cargo +nightly-2026-05-22 fmt --manifest-path src-tauri/Cargo.toml",
+    "format:backend": "cargo fmt --manifest-path src-tauri/Cargo.toml",
     "prepare": "husky"
   },
   "dependencies": {

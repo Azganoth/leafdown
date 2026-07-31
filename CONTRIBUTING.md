@@ -56,10 +56,9 @@ corepack enable pnpm
 corepack install
 pnpm install
 rustup toolchain install
-rustup toolchain install nightly-2026-05-22 --profile minimal --component rustfmt
 ```
 
-> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components; the separate nightly is used only by the formatter.
+> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components.
 
 Start the desktop application with:
 
@@ -212,4 +211,6 @@ The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains th
 | Format the repository       | `pnpm format`         |
 | Build the desktop app       | `pnpm tauri build`    |
 
-Treat [`package.json`](./package.json) as the source of truth for individual lint, test, formatting, and build scripts. Backend checks and formatting use the pinned nightly Rust formatter installed in [Local Development](#local-development).
+Treat [`package.json`](./package.json) as the source of truth for individual lint, test, formatting, and build scripts. Backend checks and formatting use the pinned Rust toolchain.
+
+Group Rust imports as std, then external crates, then `super`/`crate`, separated by blank lines. `cargo fmt` sorts within a group but will not create or merge them, so place new imports yourself.

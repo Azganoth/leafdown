@@ -91,7 +91,8 @@ For substantial work, start from an accepted issue. For a small, self-contained 
 
 - Name maintainer-owned task branches with a type prefix followed by a short kebab-case topic, using `bug/`, `feature/`, `docs/`, `chore/`, `spike/`, or `release/`. External fork branches may follow this convention but are not required to.
 - Format pull request titles according to the Conventional Commits specification without the scope part (e.g., `feat: add markdown component`, `fix: handle missing file path`).
-- Keep intermediate commit messages clear and meaningful. They do not need to follow Conventional Commits.
+- Keep intermediate commit messages clear and meaningful, and do not prefix them according to Conventional Commits. Branches are squash merged, so only the pull request title reaches `main` and the prefix is discarded.
+- Give an intermediate commit a body only when the diff does not carry the reasoning: rationale, a constraint, a rejected alternative, or a non-obvious consequence. Verification evidence, commands run, and per-file summaries belong in the pull request body, not here.
 
 1. Fork the repository if needed, then create a focused branch for the change.
 2. Implement the change, including relevant tests and documentation.
@@ -110,7 +111,7 @@ Pull request requirements:
 - Update the changelog for notable user-facing changes.
 - Provide meaningful verification evidence and disclose anything that was not verified.
 
-After submission, CI runs the automated checks. Maintainers apply a type label, assign the pull request's owner, and review the scope, implementation, and verification evidence; priority and Project status stay on the issue. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`.
+After submission, CI runs the automated checks. Maintainers apply a type label, assign the pull request's owner, and review the scope, implementation, and verification evidence; priority and Project status stay on the issue. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`. The pull request body becomes that commit's body and is the permanent record of the change; intermediate commits do not survive the merge. That is why the pull request body carries verification evidence and intermediate commit messages do not.
 
 Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app.
 

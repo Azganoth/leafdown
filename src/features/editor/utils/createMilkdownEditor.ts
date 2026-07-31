@@ -22,6 +22,7 @@ import {
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
@@ -79,6 +80,18 @@ export interface CreateMilkdownEditorOptions {
 }
 
 export type MilkdownEditorInstance = Editor;
+
+type EditorViewAttributes = EditorProps["attributes"];
+
+// ProseMirror resolves attributes per state when given a function, so compose in whichever
+// form arrives instead of flattening one into the other. Exported for colocated tests.
+export const composeEditorViewAttributes = (
+  previous: EditorViewAttributes,
+  added: Record<string, string>,
+): EditorViewAttributes =>
+  typeof previous === "function"
+    ? (state) => ({ ...previous(state), ...added })
+    : { ...previous, ...added };
 
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
 const DISABLED_TEXT_ASSISTANCE_ATTRIBUTES = {
@@ -153,14 +166,10 @@ export const createMilkdownEditor = async ({
 
         return {
           ...options,
-          attributes: {
-            // ProseMirror also allows a function form, which this spread would silently
-            // discard along with every attribute below it. Unreachable with the current
-            // configuration; deferred to #137 rather than guarded blindly.
-            // oxlint-disable-next-line typescript/no-misused-spread
-            ...options.attributes,
-            ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
-          },
+          attributes: composeEditorViewAttributes(
+            options.attributes,
+            DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
+          ),
           transformPastedHTML: (html, view) =>
             normalizeProseMirrorClipboardHtml(previousTransformPastedHTML?.(html, view) ?? html),
         };

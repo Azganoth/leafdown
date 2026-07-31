@@ -13,9 +13,12 @@ import {
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import { describe, expect, it } from "vitest";
 
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+
+import { composeEditorViewAttributes } from "./createMilkdownEditor";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -92,5 +95,34 @@ describe("createMilkdownEditor", () => {
       "Tab",
       "Mod-]",
     ]);
+  });
+
+  describe("composeEditorViewAttributes", () => {
+    const added = { spellcheck: "false" };
+
+    it("merges into an object form", () => {
+      expect(composeEditorViewAttributes({ class: "editor" }, added)).toEqual({
+        class: "editor",
+        spellcheck: "false",
+      });
+    });
+
+    it("merges into an absent form", () => {
+      expect(composeEditorViewAttributes(undefined, added)).toEqual({ spellcheck: "false" });
+    });
+
+    it("preserves the function form so ProseMirror still resolves per state", () => {
+      const composed = composeEditorViewAttributes(
+        (state) => ({ class: `editor-${state.doc.childCount}` }),
+        added,
+      );
+
+      expect(typeof composed).toBe("function");
+      expect(
+        (composed as (state: EditorState) => Record<string, string>)({
+          doc: { childCount: 2 },
+        } as unknown as EditorState),
+      ).toEqual({ class: "editor-2", spellcheck: "false" });
+    });
   });
 });

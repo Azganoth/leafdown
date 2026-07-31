@@ -135,7 +135,9 @@ describe("App", () => {
       );
     });
 
-    const handleCloseRequested = getWindowListenHandler("leafdown://window-close-requested");
+    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+      "leafdown://window-close-requested",
+    );
     await handleCloseRequested({ payload: undefined });
 
     expect(confirm).not.toHaveBeenCalled();
@@ -165,7 +167,9 @@ describe("App", () => {
       );
     });
 
-    const handleCloseRequested = getWindowListenHandler("leafdown://window-close-requested");
+    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+      "leafdown://window-close-requested",
+    );
     await handleCloseRequested({ payload: undefined });
 
     expect(confirm).toHaveBeenCalledWith(

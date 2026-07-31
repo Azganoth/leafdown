@@ -104,7 +104,7 @@ describe("view actions", () => {
   it("toggles fullscreen using the next value consistently", async () => {
     setDefaultUI({ fullscreen: false });
 
-    toggleFullscreen();
+    void toggleFullscreen();
 
     await vi.waitFor(() => {
       expect(getCurrentWindow().setFullscreen).toHaveBeenCalledWith(true);
@@ -120,7 +120,7 @@ describe("view actions", () => {
     );
     setDefaultUI({ fullscreen: true });
 
-    toggleFullscreen();
+    void toggleFullscreen();
 
     await vi.waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Could not update fullscreen mode.", {

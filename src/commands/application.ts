@@ -57,7 +57,7 @@ export const APPLICATION_COMMANDS = {
   "help.about": appCommand(help.openAbout),
 } satisfies Record<string, AppCommand>;
 
-export type ApplicationCommandId = keyof typeof APPLICATION_COMMANDS & string;
+export type ApplicationCommandId = keyof typeof APPLICATION_COMMANDS;
 
 export const APPLICATION_COMMAND_IDS = Object.keys(APPLICATION_COMMANDS) as ApplicationCommandId[];
 

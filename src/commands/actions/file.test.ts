@@ -87,10 +87,10 @@ describe("file actions", () => {
   });
 
   it("opens the active file location only when a saved path is available", async () => {
-    openLocation(createAppCommandContext());
+    void openLocation(createAppCommandContext());
     expect(revealItemInDir).not.toHaveBeenCalled();
 
-    openLocation(createAppCommandContext({ activeDocument: createSavedDocument() }));
+    void openLocation(createAppCommandContext({ activeDocument: createSavedDocument() }));
 
     await vi.waitFor(() => {
       expect(revealItemInDir).toHaveBeenCalledWith(TEST_MARKDOWN_FILE_PATH);
@@ -102,7 +102,7 @@ describe("file actions", () => {
 
     vi.mocked(revealItemInDir).mockRejectedValueOnce(new Error("missing folder"));
 
-    openLocation(createAppCommandContext({ activeDocument: createSavedDocument() }));
+    void openLocation(createAppCommandContext({ activeDocument: createSavedDocument() }));
 
     await vi.waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Could not open file location.", {

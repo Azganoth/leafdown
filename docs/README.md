@@ -28,10 +28,11 @@ The [issue tracker](https://github.com/Azganoth/leafdown/issues) is the source o
 
 Decisions use a lightweight ADR format:
 
-- `Status`
 - `Decision`
 - `Rationale`
 - `Consequences`
+
+`Consequences` records what follows from the decision, not the investigation behind it.
 
 ## Development Corpus
 

@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-frontend:
     name: Frontend Checks
@@ -59,7 +63,7 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Setup Rust
-        run: rustup toolchain install stable --profile minimal
+        run: rustup toolchain install
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
@@ -75,3 +79,11 @@ jobs:
 
       - name: Run backend checks
         run: pnpm check:backend
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit Rust dependencies
+        run: cargo audit --file src-tauri/Cargo.lock

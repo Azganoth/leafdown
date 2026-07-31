@@ -20,7 +20,7 @@
     "test:backend": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:coverage": "vitest run --coverage",
     "check": "pnpm check:frontend && pnpm check:backend",
-    "check:frontend": "pnpm check:oxfmt && pnpm lint:frontend && pnpm test:frontend",
+    "check:frontend": "pnpm check:oxfmt && pnpm lint:frontend && pnpm build && pnpm test:coverage",
     "check:backend": "pnpm check:cargo-fmt && pnpm lint:backend && pnpm test:backend",
     "check:oxfmt": "oxfmt --check",
     "check:cargo-fmt": "cargo +nightly-2026-05-22 fmt --manifest-path src-tauri/Cargo.toml --check",

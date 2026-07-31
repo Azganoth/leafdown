@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
-import { HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
-import { createClipboardData, dispatchClipboardEvent } from "@/test/utils/events";
+import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import { BOLD_PLAIN_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
+import {
+  createClipboardData,
+  dispatchClipboardEvent,
+  parseClipboardHtml,
+} from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -16,13 +20,6 @@ import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "./sourceProjection";
 
 const mountEditor = setupMilkdownEditorMount();
-
-const parseClipboardHtml = (clipboardData: DataTransfer) => {
-  const template = document.createElement("template");
-  template.innerHTML = clipboardData.getData(TEXT_HTML_MIME_TYPE);
-
-  return template.content;
-};
 
 describe("native editor clipboard events", () => {
   it("copies regular selections as plain text and semantic HTML", async () => {
@@ -110,7 +107,7 @@ describe("native editor clipboard events", () => {
 
   it("cuts projected content through projection-local history", async () => {
     const onContentChanged = vi.fn();
-    const mounted = await mountEditor("**Bold** plain", { onContentChanged });
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN, { onContentChanged });
     const clipboardData = createClipboardData();
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
@@ -128,7 +125,7 @@ describe("native editor clipboard events", () => {
     expect(onContentChanged).toHaveBeenCalledOnce();
 
     expect(runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("**Bold** plain");
+    expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
 
     expect(runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
     expect(getEditorTextContent(mounted)).toBe("**** plain");

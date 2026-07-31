@@ -1,20 +1,17 @@
-import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { NodeSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchMouseEvent } from "@/test/utils/events";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
-  setupMilkdownEditorMount,
-  type MountedMilkdownEditor,
-  type MountMilkdownEditorOptions,
-} from "@/test/utils/milkdown";
-import {
+  findEditorTextNode,
   getEditorDomElement,
   getEditorNodePosition,
   getEditorTextContent,
   getEditorTextPosition,
+  getMarkNames,
   getSelectedEditorText,
   runKeyDownHandlers,
   setSelectionAtDocumentEnd,
@@ -27,23 +24,10 @@ import { enterProjection, selectFootnoteReference } from "@/test/utils/sourcePro
 import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection, pasteIntoSourceProjection } from "./sourceProjection";
 
-const mountEditor = setupMilkdownEditorMount();
+const mountProjectionEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
-
-interface MountSourceProjectionEditorOptions {
-  onContentChanged?: MountMilkdownEditorOptions["onContentChanged"];
-  onMarkdownUpdated?: MountMilkdownEditorOptions["onMarkdownUpdated"];
-}
-
-const mountProjectionEditor = (
-  initialMarkdown: string,
-  options: MountSourceProjectionEditorOptions = {},
-): Promise<MountedMilkdownEditor> =>
-  mountEditor(initialMarkdown, {
-    onContentChanged: options.onContentChanged,
-    onMarkdownUpdated: options.onMarkdownUpdated,
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
 
 const getProjectedFootnoteSource = (mounted: MountedMilkdownEditor) =>
   Array.from(
@@ -790,16 +774,11 @@ describe("source projection", () => {
       runKeyDownHandlers(mounted.view, "Backspace");
       setSelectionAtDocumentEnd(mounted.view);
 
-      const strongMark = mounted.view.state.schema.marks.strong;
-      let hasStrongLiteral = false;
+      const strongLiteral = findEditorTextNode(mounted, "[^note", (node) =>
+        getMarkNames(node).includes("strong"),
+      );
 
-      mounted.view.state.doc.descendants((node) => {
-        if (node.isText && node.text?.includes("[^note") && strongMark.isInSet(node.marks)) {
-          hasStrongLiteral = true;
-        }
-      });
-
-      expect(hasStrongLiteral).toBe(true);
+      expect(strongLiteral).not.toBeNull();
       expect(mounted.getMarkdown()).toContain("**Text\\[^note**");
     });
 
@@ -816,16 +795,7 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       const strongMark = mounted.view.state.schema.marks.strong;
-      let literalNode: ProseMirrorNode | null = null;
-
-      mounted.view.state.doc.descendants((node) => {
-        if (node.isText && node.text?.includes("**Text[^note]")) {
-          literalNode = node;
-          return false;
-        }
-
-        return true;
-      });
+      const literalNode = findEditorTextNode(mounted, "**Text[^note]");
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeUndefined();
@@ -896,16 +866,7 @@ describe("source projection", () => {
         typeText(mounted.view, " ");
         setSelectionAtDocumentEnd(mounted.view);
 
-        let literalNode: ProseMirrorNode | null = null;
-
-        mounted.view.state.doc.descendants((node) => {
-          if (node.isText && node.text?.includes(invalidSource)) {
-            literalNode = node;
-            return false;
-          }
-
-          return true;
-        });
+        const literalNode = findEditorTextNode(mounted, invalidSource);
 
         expect(literalNode).not.toBeNull();
         expect(literalNode!.marks).toHaveLength(0);
@@ -927,16 +888,7 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       const strongMark = mounted.view.state.schema.marks.strong;
-      let literalNode: ProseMirrorNode | null = null;
-
-      mounted.view.state.doc.descendants((node) => {
-        if (node.isText && node.text?.includes(linkLikeSource)) {
-          literalNode = node;
-          return false;
-        }
-
-        return true;
-      });
+      const literalNode = findEditorTextNode(mounted, linkLikeSource);
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeDefined();

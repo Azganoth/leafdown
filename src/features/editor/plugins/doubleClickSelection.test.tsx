@@ -5,6 +5,7 @@ import {
   BASIC_TABLE_MARKDOWN,
   BOLD_PLAIN_MARKDOWN,
   HELLO_WORLD_TEXT,
+  STRONG_HELLO_MARKDOWN,
 } from "@/test/fixtures/editorMarkdown";
 import { dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
@@ -47,7 +48,7 @@ describe("double-click selection plugin", () => {
   });
 
   it.each([
-    { initialMarkdown: "**Hello** world", name: "formatted text" },
+    { initialMarkdown: STRONG_HELLO_MARKDOWN, name: "formatted text" },
     { initialMarkdown: "[Hello](guide.md) world", name: "link text" },
   ])("selects the active word in $name", async ({ initialMarkdown }) => {
     const mounted = await mountEditor(initialMarkdown);

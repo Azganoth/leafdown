@@ -8,6 +8,7 @@ import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
+import { wrapCfHtmlFragment } from "@/test/fixtures/clipboardHtml";
 import { setupClipboardMock } from "@/test/mocks/clipboard";
 import { dispatchClick, dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
@@ -23,19 +24,16 @@ import {
 import { runEditorCommand } from "../commands";
 
 const executionFlag = "__leafdownHtmlExecuted";
-const mountEditor = setupMilkdownEditorMount();
 const { clipboard, createClipboardItem } = setupClipboardMock();
 
-const mountStyledEditor = (initialMarkdown: string) =>
-  mountEditor(initialMarkdown, {
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
+const mountStyledEditor = setupMilkdownEditorMount({
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 
-const mountReferenceEditor = (initialMarkdown: string) =>
-  mountEditor(initialMarkdown, {
-    ...createMarkdownReferenceContext(),
-    rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
-  });
+const mountReferenceEditor = setupMilkdownEditorMount({
+  ...createMarkdownReferenceContext(),
+  rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
+});
 
 const getExecutionFlag = (): unknown =>
   (window as unknown as Record<string, unknown>)[executionFlag];
@@ -44,16 +42,11 @@ const resetExecutionFlag = () => {
   (window as unknown as Record<string, unknown>)[executionFlag] = false;
 };
 
-const START_FRAGMENT_MARKER = "<!--StartFragment-->";
-const END_FRAGMENT_MARKER = "<!--EndFragment-->";
 const PASTE_ENTRY_PATHS = ["native", "command"] as const;
 const PASTE_TRANSPORTS = ["bare", "cfHtml", "cfHtmlProseMirrorSlice"] as const;
 
 type PasteEntryPath = (typeof PASTE_ENTRY_PATHS)[number];
 type PasteTransport = (typeof PASTE_TRANSPORTS)[number];
-
-const wrapCfHtmlFragment = (fragment: string) =>
-  `<html>\r\n<body>\r\n  \r\n${START_FRAGMENT_MARKER}${fragment}${END_FRAGMENT_MARKER}\r\n  \r\n</body>\r\n</html>`;
 
 const applyPasteTransport = (fragment: string, transport: PasteTransport) => {
   switch (transport) {

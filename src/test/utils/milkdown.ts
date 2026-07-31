@@ -77,7 +77,7 @@ export const mountMilkdownEditor = async (
   };
 };
 
-export const setupMilkdownEditorMount = () => {
+export const setupMilkdownEditorMount = (defaults: MountMilkdownEditorOptions = {}) => {
   const mountedEditors: MountedMilkdownEditor[] = [];
 
   afterEach(async () => {
@@ -85,7 +85,7 @@ export const setupMilkdownEditorMount = () => {
   });
 
   return async (initialMarkdown: string, options: MountMilkdownEditorOptions = {}) => {
-    const mounted = await mountMilkdownEditor(initialMarkdown, options);
+    const mounted = await mountMilkdownEditor(initialMarkdown, { ...defaults, ...options });
     mountedEditors.push(mounted);
     return mounted;
   };

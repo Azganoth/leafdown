@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchClipboardEvent, dispatchKeyDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
@@ -72,7 +73,7 @@ describe("native editor clipboard events", () => {
   });
 
   it("pastes literal plain text inside an active source projection", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN);
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
 
@@ -90,7 +91,7 @@ describe("native editor clipboard events", () => {
   });
 
   it("consumes HTML-only content inside an active source projection", async () => {
-    const mounted = await mountEditor("**Bold** plain");
+    const mounted = await mountEditor(BOLD_PLAIN_MARKDOWN);
 
     setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
 
@@ -103,6 +104,6 @@ describe("native editor clipboard events", () => {
     });
 
     expect(event.defaultPrevented).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("**Bold** plain");
+    expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
   });
 });

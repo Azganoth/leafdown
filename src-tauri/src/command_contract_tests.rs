@@ -274,6 +274,35 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     );
 }
 
+#[test]
+fn resolved_link_paths_match_folder_scan_paths() {
+    let root = TestDirectory::new("command-contract-path-identity");
+    let document_path = root.markdown_document_path();
+    root.write_file("docs/linked.md");
+    let root_path_string = path_string(root.path.as_path());
+
+    let scan_result = tauri::async_runtime::block_on(folder::scan_markdown_folder(
+        root_path_string.clone(),
+        Some(Vec::new()),
+        None,
+    ))
+    .expect("command should scan the folder");
+    let scan_value = serialized(scan_result);
+
+    let link_result = tauri::async_runtime::block_on(link::resolve_markdown_link_target(
+        Some(path_string(document_path.as_path())),
+        Some(root_path_string),
+        "linked.md".to_owned(),
+        None,
+    ));
+    let link_value = serialized(link_result);
+
+    assert_eq!(json_string(&link_value, "kind"), "localMarkdown");
+    // The frontend matches a resolved link against the article navigator by path. Any form the
+    // two commands disagree on reads as a document outside the folder context.
+    assert_tree_contains_path(&scan_value["tree"], json_string(&link_value, "path"));
+}
+
 fn serialized(value: impl serde::Serialize) -> Value {
     serde_json::to_value(value).expect("command payload should serialize")
 }

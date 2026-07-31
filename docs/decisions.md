@@ -248,6 +248,9 @@
 - Dependabot version updates are deferred rather than adopted. Alerts are already enabled, and past advisories were resolved through routine dependency updates without automation.
 - `cargo audit` gates on vulnerability advisories only. The lockfile carries unmaintained and unsound warnings that are almost entirely GTK3 crates present for Linux targets and never compiled into the Windows bundle, so a green audit is not evidence that every dependency is maintained.
 - A save that truncates before writing is reachable only by a test that forces the write to fail. Coverage does not help: the happy path is tested, so any coverage measure reports the line as covered while the defect sits in the window between two syscalls.
+- A full `tauri build` is deferred off the pull request path. Installer bundling is genuinely unchecked until a release tag, but a Tauri build on every pull request costs minutes against a failure that arrives rarely. It belongs on a manual dispatch or a pre-release run.
+- Version consistency across the manifests is a release checklist line rather than a script. The four values are read once per release by one person, and a script would carry a permanent special case for the WiX four-part numeric form.
+- The pre-commit hook does not apply lint fixes. Formatting is semantically inert and stays; an autofix can change code between the diff the author read and the commit that lands, and the hook was observed rewriting nothing across the changes that introduced these gates.
 
 ## Platform Decisions
 

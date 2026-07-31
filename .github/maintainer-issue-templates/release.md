@@ -21,6 +21,7 @@ What should this release deliver?
 
 - [ ] Release scope confirmed.
 - [ ] Required issues and pull requests complete.
+- [ ] Version matches across `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and the WiX block, which carries the same version in its four-part numeric form.
 - [ ] Verification complete.
 - [ ] Changelog or release notes prepared.
 - [ ] Build or package published.

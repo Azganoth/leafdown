@@ -27,6 +27,14 @@ export default defineConfig({
   },
   overrides: [
     {
+      // Assertions reference methods unbound by design (`expect(mock.method)`), so the
+      // rule reports the test rather than a scoping mistake.
+      files: ["src/**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+      rules: {
+        "typescript/unbound-method": "off",
+      },
+    },
+    {
       files: leafFeatures.map((feature) => `src/features/${feature}/**/*.{ts,tsx}`),
       rules: {
         "no-restricted-imports": [

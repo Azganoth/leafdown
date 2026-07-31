@@ -53,5 +53,8 @@ const getToastOptions = (description: unknown) => {
     return { description };
   }
 
+  // Renders "[object Object]" for a non-primitive description. Deferred: choosing a
+  // readable rendering is a user-facing behavior change, not a lint fix.
+  // oxlint-disable-next-line typescript/no-base-to-string
   return { description: String(description) };
 };

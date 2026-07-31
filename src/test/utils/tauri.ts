@@ -25,16 +25,20 @@ export const getLastInvokeArgs = <TArgs = unknown>(commandName: string): TArgs =
   return invokeCall?.[1] as TArgs;
 };
 
-export const getWindowListenHandler = <TPayload>(
+// Tauri types listeners as void-returning, but a handler may still be async. Tests that
+// need to await its settled effect name the return type; the rest stay void.
+type WindowListenHandler<TPayload, TReturn> = (event: { payload: TPayload }) => TReturn;
+
+export const getWindowListenHandler = <TPayload, TReturn = void>(
   eventName: string,
-): ((event: { payload: TPayload }) => void) => {
+): WindowListenHandler<TPayload, TReturn> => {
   const listenCall = vi
     .mocked(getCurrentWindow().listen)
     .mock.calls.find(([calledEventName]) => calledEventName === eventName);
 
   expect(listenCall).toBeDefined();
 
-  return listenCall?.[1] as (event: { payload: TPayload }) => void;
+  return listenCall?.[1] as WindowListenHandler<TPayload, TReturn>;
 };
 
 export const getWindowThemeChangedHandler = (): ((event: { payload: Theme }) => void) => {

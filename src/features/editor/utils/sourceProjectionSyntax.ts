@@ -526,7 +526,7 @@ const getMarkerCharacterFromAttrs = (
     ? "~"
     : markName === "inlineCode"
       ? "`"
-      : String(attrs.marker ?? "*") === "_"
+      : attrs.marker === "_"
         ? "_"
         : "*";
 

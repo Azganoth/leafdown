@@ -271,7 +271,7 @@ class FolderContextWatchSession {
   }
 
   private writeLifecycleDiagnostic(phase: FolderContextWatcherLifecyclePhase) {
-    writeDiagnosticOperationLifecycle({
+    void writeDiagnosticOperationLifecycle({
       context: this.getDiagnosticContext(),
       feature: "folder-context",
       operation: "folderContextWatcher",
@@ -283,7 +283,7 @@ class FolderContextWatchSession {
     phase: FolderContextWatcherFailurePhase,
     context: Record<string, unknown> = {},
   ) {
-    writeDiagnosticOperationFailure({
+    void writeDiagnosticOperationFailure({
       context: {
         ...this.getDiagnosticContext(),
         ...context,
@@ -295,7 +295,7 @@ class FolderContextWatchSession {
   }
 
   private writeWarningDiagnostic(context: Record<string, unknown>) {
-    writeDiagnosticOperationWarning({
+    void writeDiagnosticOperationWarning({
       context: {
         ...this.getDiagnosticContext(),
         ...context,

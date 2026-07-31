@@ -11,13 +11,16 @@ import { APP_COMMAND_IDS, dispatchAppCommand } from "./dispatch";
 vi.mock("@/features/session", async (importOriginal) => {
   const session = await importOriginal<typeof import("@/features/session")>();
 
-  return {
-    ...session,
-    documentEditorBridge: {
-      ...session.documentEditorBridge,
-      runCommand: vi.fn(),
-    },
-  };
+  // Clone through the prototype: spreading the instance would drop its methods and
+  // leave a bridge that only answers `runCommand`.
+  const documentEditorBridge: typeof session.documentEditorBridge = Object.create(
+    Object.getPrototypeOf(session.documentEditorBridge),
+    Object.getOwnPropertyDescriptors(session.documentEditorBridge),
+  );
+
+  documentEditorBridge.runCommand = vi.fn();
+
+  return { ...session, documentEditorBridge };
 });
 
 describe("app command dispatch", () => {

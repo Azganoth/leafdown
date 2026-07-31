@@ -143,7 +143,7 @@ const writeDocumentOperationFailureDiagnostic = (
   error: OpenMarkdownFileError | SaveMarkdownFileError,
   context: Record<string, boolean> = {},
 ) => {
-  writeDiagnosticOperationFailure({
+  void writeDiagnosticOperationFailure({
     context: {
       ...context,
       errorKind: error.kind,

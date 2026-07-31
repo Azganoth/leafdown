@@ -168,7 +168,7 @@ const writeFolderOperationFailureDiagnostic = (
 ) => {
   const scanError = error.kind === "scanFailed" ? error.error : error;
 
-  writeDiagnosticOperationFailure({
+  void writeDiagnosticOperationFailure({
     context: {
       causeKind: error.kind === "scanFailed" ? scanError.kind : undefined,
       errorKind: error.kind,
@@ -187,7 +187,7 @@ const writeFolderScanWarningsDiagnostic = (
     return;
   }
 
-  writeDiagnosticOperationWarning({
+  void writeDiagnosticOperationWarning({
     context: {
       path: folder.path,
       warningCount: folder.warnings.length,
@@ -204,7 +204,7 @@ const writeFolderIndexFailureDiagnostic = (error: OpenMarkdownFileError | null) 
     return;
   }
 
-  writeDiagnosticOperationWarning({
+  void writeDiagnosticOperationWarning({
     context: {
       errorKind: error.kind,
       path: error.path,

@@ -232,6 +232,23 @@
 - Window decorations are implemented as custom UI components.
 - Menu commands are executed according to the application command model.
 
+### Gate on defect classes automation can reach
+
+**Status:** Accepted
+
+**Decision:** An automated gate is adopted when it catches a defect class this project actually produces, and rejected when it mainly produces work. Coverage floors ratchet below the measured numbers instead of setting targets.
+
+**Rationale:** A review of the substantive `fix:` commits found that none would have been caught by the linter or the type checker. The failures were boundary-semantics defects: a Tauri capability scope that denied every path, an asset grant that stored without matching, OS clipboard formats, Windows path grammar reaching a network host, persisted state trusted at its type, and a theme subscription that was simply absent. Tests are the gate that protects this codebase, so tooling that cannot reach those classes spends attention without reducing risk.
+
+**Consequences:**
+
+- Per-file coverage thresholds are rejected. They would catch the "this file's happy path is untested" shape, but fail immediately against several command actions and would require an exemption list that becomes its own maintenance surface.
+- SHA-pinned GitHub Actions are rejected. Every publisher in use is well known, and without automated bumps a pinned digest rots into a dependency that stops receiving security patches, which is worse than a major tag.
+- A blocking `pnpm audit` step is rejected. It fails builds on transitive tooling advisories with no available fix, in a desktop application with no server surface. GitHub's Dependabot alerts already deliver the same signal without blocking.
+- Dependabot version updates are deferred rather than adopted. Alerts are already enabled, and past advisories were resolved through routine dependency updates without automation.
+- `cargo audit` gates on vulnerability advisories only. The lockfile carries unmaintained and unsound warnings that are almost entirely GTK3 crates present for Linux targets and never compiled into the Windows bundle, so a green audit is not evidence that every dependency is maintained.
+- A save that truncates before writing is reachable only by a test that forces the write to fail. Coverage does not help: the happy path is tested, so any coverage measure reports the line as covered while the defect sits in the window between two syscalls.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

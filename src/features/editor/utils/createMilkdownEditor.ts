@@ -156,7 +156,7 @@ export const createMilkdownEditor = async ({
           attributes: {
             // ProseMirror also allows a function form, which this spread would silently
             // discard along with every attribute below it. Unreachable with the current
-            // configuration; deferred rather than guarded blindly.
+            // configuration; deferred to #137 rather than guarded blindly.
             // oxlint-disable-next-line typescript/no-misused-spread
             ...options.attributes,
             ...DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,

@@ -4,8 +4,6 @@
 
 ### Markdown files remain the source of truth
 
-**Status:** Accepted
-
 **Decision:** Saved documents remain ordinary Markdown files on disk.
 
 **Rationale:** Operate on standard files and directories directly, avoiding a proprietary database or storage wrapper.
@@ -17,8 +15,6 @@
 - File workflows remain compatible with external editor tools.
 
 ### Preserve Markdown semantics over exact formatting
-
-**Status:** Accepted
 
 **Decision:** Leafdown prioritizes preserving Markdown meaning over byte-for-byte formatting.
 
@@ -33,8 +29,6 @@
 
 ### No vault or workspace model
 
-**Status:** Accepted
-
 **Decision:** Opening a folder does not create a vault, workspace, import process, database, or metadata files in that folder.
 
 **Rationale:** Leafdown is designed as a document-centric editor rather than a personal knowledge management system with custom workspace setups.
@@ -46,8 +40,6 @@
 - Folder workflows execute without initialization steps.
 
 ### Always folder-aware
-
-**Status:** Accepted
 
 **Decision:** Opening a folder uses it as the current folder context. Opening a file uses its parent folder as the current folder context only when no folder context is active. Once a folder context exists, it remains pinned until changed by an explicit folder action.
 
@@ -62,8 +54,6 @@
 
 ### Use one hybrid document surface
 
-**Status:** Accepted
-
 **Decision:** The default document surface is one active hybrid WYSIWYG Markdown editor, without a permanent source/preview split or separate read/edit modes.
 
 **Rationale:** A unified surface provides editing availability without the friction of explicit mode switching.
@@ -76,8 +66,6 @@
 - A raw Markdown view, if implemented, is an explicit secondary view rather than the default surface.
 
 ### Treat marker presentation as object-specific
-
-**Status:** Accepted
 
 **Decision:** Leafdown chooses editable markers, subtle markers, persistent markers, or visual object affordances per Markdown object instead of applying one syntax-reveal rule to every object.
 
@@ -93,8 +81,6 @@
 
 ### Local-first
 
-**Status:** Accepted
-
 **Decision:** Leafdown has no accounts, telemetry, cloud sync, or proprietary remote storage.
 
 **Rationale:** The application is built around direct user ownership of local files.
@@ -106,8 +92,6 @@
 - Network access is not required for standard operations.
 
 ### User-accessible debugging
-
-**Status:** Accepted
 
 **Decision:** Leafdown intentionally exposes webview DevTools to users for local debugging and support, and writes bounded diagnostic logs to an app-owned local logs directory.
 
@@ -132,8 +116,6 @@
 
 ### Use Milkdown Kit
 
-**Status:** Accepted
-
 **Decision:** Use Milkdown Kit as the hybrid WYSIWYG Markdown editor foundation.
 
 **Rationale:** Milkdown offers an extensible Markdown-first editor foundation with ProseMirror integration, reducing custom core development.
@@ -145,8 +127,6 @@
 - Build the editor through a Leafdown-owned React wrapper around Milkdown Kit rather than depending on framework adapters that introduce unwanted editor UI packages.
 
 ### Accept Milkdown GFM preset behavior
-
-**Status:** Accepted
 
 **Decision:** Use Milkdown's GFM preset for parsing, rendering, and round-trip serialization, including footnotes.
 
@@ -160,8 +140,6 @@
 
 ### Do not use Crepe
 
-**Status:** Accepted
-
 **Decision:** Build a custom Leafdown React editor UI directly on top of Milkdown Kit instead of using Crepe.
 
 **Rationale:** Leafdown requires specific document styling, a custom context popup, caret-based marker logic, and custom file navigation.
@@ -174,8 +152,6 @@
 - Dependencies that introduce Crepe transitively are avoided.
 
 ### Use temporary source projection
-
-**Status:** Accepted
 
 **Decision:** Use temporary source projection for supported Markdown objects: expose the active object's Markdown as editable document text, then rehydrate valid source as canonical Milkdown content or preserve invalid source as literal text.
 
@@ -194,8 +170,6 @@
 
 ### Use Tauri
 
-**Status:** Accepted
-
 **Decision:** Use Tauri for the desktop shell, native dialogs, filesystem access, and packaging.
 
 **Rationale:** Leafdown is a desktop-first application requiring direct local file and directory access.
@@ -206,8 +180,6 @@
 - Desktop packaging is integrated into the primary build pipeline.
 
 ### Use React, TypeScript, and Vite
-
-**Status:** Accepted
 
 **Decision:** Use React with TypeScript and Vite for the frontend.
 
@@ -221,8 +193,6 @@
 
 ### Use a custom titlebar and menu shell
 
-**Status:** Accepted
-
 **Decision:** Leafdown uses its own titlebar and menu shell.
 
 **Rationale:** The titlebar and menus should blend with Leafdown's aesthetic and command architecture rather than default OS frames.
@@ -234,8 +204,6 @@
 
 ### Gate on defect classes automation can reach
 
-**Status:** Accepted
-
 **Decision:** A gate is adopted when it catches a defect class this project produces, and rejected when it mainly produces work. Coverage floors ratchet below the measured numbers rather than setting targets.
 
 **Rationale:** None of the substantive `fix:` commits would have been caught by the linter or the type checker. They were boundary-semantics defects: a capability scope that denied every path, clipboard formats, Windows path grammar, persisted state trusted at its type. Tests are the gate that protects this codebase.
@@ -244,15 +212,13 @@
 
 - Lint rules are named individually rather than enabled by category, and a rule is dropped when its reports do not hold. `eqeqeq` and `prefer-nullish-coalescing` argue with idioms that are correct here; `no-unnecessary-type-assertion` contradicts the type checker, and removing the assertions it flags fails the build.
 - A green `cargo audit` is not evidence that dependencies are maintained. It gates on vulnerability advisories only, and the unmaintained and unsound warnings it also reports are largely GTK3 crates that never reach the Windows bundle.
-- Blocking dependency audits and SHA-pinned actions are rejected. Both fail on things this project cannot act on, and a pinned digest without automated bumps stops receiving security patches.
+- Actions are pinned by major tag rather than commit SHA.
 - A full `tauri build` stays off the pull request path, and manifest version consistency is a release checklist line rather than a script.
 - The pre-commit hook formats but does not apply lint fixes, so a commit cannot differ from the diff its author read.
 
 ## Platform Decisions
 
 ### Windows first, cross-platform aware
-
-**Status:** Accepted
 
 **Decision:** Initial polish targets Windows while avoiding unnecessary Windows-only assumptions.
 
@@ -264,8 +230,6 @@
 - Operating system differences (shortcuts, paths, line endings) are handled explicitly.
 
 ### Desktop first, web-possible later
-
-**Status:** Accepted
 
 **Decision:** Leafdown is desktop-first; a limited web version may be explored later.
 
@@ -281,8 +245,6 @@
 
 ### Keep Leafdown open source
 
-**Status:** Accepted
-
 **Decision:** Leafdown source code is public and distributed under an open-source license.
 
 **Rationale:** The codebase remains public to support community inspection and contribution.
@@ -293,8 +255,6 @@
 - Public contribution workflows leverage the main repository.
 
 ### Use GPL-3.0-or-later license
-
-**Status:** Accepted
 
 **Decision:** Leafdown is licensed under GNU General Public License v3.0 or later (`GPL-3.0-or-later`).
 
@@ -307,8 +267,6 @@
 - Contributions are accepted under the project license.
 
 ### Free app with optional donation support
-
-**Status:** Accepted
 
 **Decision:** Core functionality is free, with optional donation/support.
 

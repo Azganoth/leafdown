@@ -126,8 +126,10 @@ pub(crate) fn resolve_markdown_reference_path(
 }
 
 pub(crate) fn canonicalize_or_original(path: &Path) -> String {
+    // Frontend path identity keys treat verbatim `\\?\` paths as distinct from the unprefixed
+    // paths folder scans produce, so a resolved target would read as outside the folder context.
     fs::canonicalize(path)
-        .map(|path| path_to_string(path.as_path()))
+        .map(|canonical| path_to_string(dunce::simplified(canonical.as_path())))
         .unwrap_or_else(|_| path_to_string(path))
 }
 
@@ -397,10 +399,32 @@ mod tests {
     fn canonicalizes_existing_paths() {
         let folder = TestDirectory::new("path-utils-canonical");
         let path = folder.write_file("docs/readme.md");
+        let canonical = path.canonicalize().expect("path should canonicalize");
 
         assert_eq!(
             canonicalize_or_original(path.as_path()),
-            path.canonicalize().unwrap().to_string_lossy(),
+            dunce::simplified(canonical.as_path()).to_string_lossy(),
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn strips_verbatim_prefixes_from_canonicalized_paths() {
+        let folder = TestDirectory::new("path-utils-verbatim");
+        let path = folder.write_file("docs/readme.md");
+
+        let canonicalized = canonicalize_or_original(path.as_path());
+
+        assert!(
+            path.canonicalize()
+                .expect("path should canonicalize")
+                .to_string_lossy()
+                .starts_with(r"\\?\"),
+            "expected the raw canonical path to carry a verbatim prefix",
+        );
+        assert!(
+            !canonicalized.starts_with(r"\\?\"),
+            "expected no verbatim prefix, got: {canonicalized}",
         );
     }
 }

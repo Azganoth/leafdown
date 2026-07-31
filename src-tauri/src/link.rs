@@ -260,7 +260,7 @@ mod tests {
         OpenMarkdownLinkTargetError, ResolveMarkdownLinkTargetResult, resolve_link_target,
         resolve_openable_local_file,
     };
-    use crate::test_utils::{TestDirectory, pathdiff};
+    use crate::test_utils::{TestDirectory, canonical_path_string, pathdiff};
 
     #[cfg(windows)]
     const NETWORK_TARGETS: [&str; 6] = [
@@ -324,7 +324,7 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            target_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(target_path.as_path())
         );
     }
 
@@ -343,7 +343,7 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            target_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(target_path.as_path())
         );
     }
 
@@ -369,11 +369,11 @@ mod tests {
 
         assert_eq!(
             local_file_path(file_result),
-            pdf_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(pdf_path.as_path())
         );
         assert_eq!(
             local_file_path(directory_result),
-            directory_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(directory_path.as_path())
         );
     }
 
@@ -431,7 +431,7 @@ mod tests {
         );
         assert_eq!(
             local_markdown_path(allowed_result),
-            target_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(target_path.as_path())
         );
     }
 
@@ -461,7 +461,7 @@ mod tests {
         );
         assert_eq!(
             local_file_path(allowed_result),
-            target_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(target_path.as_path())
         );
     }
 
@@ -497,14 +497,7 @@ mod tests {
             false,
         );
 
-        assert_eq!(
-            result,
-            Ok(pdf_path
-                .canonicalize()
-                .unwrap()
-                .to_string_lossy()
-                .into_owned())
-        );
+        assert_eq!(result, Ok(canonical_path_string(pdf_path.as_path())));
     }
 
     #[test]
@@ -569,7 +562,7 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            target_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(target_path.as_path())
         );
     }
 }

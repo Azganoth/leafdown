@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::{
     document, folder, image, link,
-    test_utils::{TestDirectory, pathdiff},
+    test_utils::{TestDirectory, canonical_path_string, pathdiff},
 };
 
 #[test]
@@ -256,7 +256,7 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     assert_eq!(json_string(&image_result, "kind"), "renderable");
     assert_eq!(
         json_string(&image_result, "path"),
-        path_string(image_path.canonicalize().unwrap().as_path())
+        canonical_path_string(image_path.as_path())
     );
 
     let link_result = tauri::async_runtime::block_on(link::resolve_markdown_link_target(
@@ -270,8 +270,39 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     assert_eq!(json_string(&link_result, "kind"), "localMarkdown");
     assert_eq!(
         json_string(&link_result, "path"),
-        path_string(link_path.canonicalize().unwrap().as_path())
+        canonical_path_string(link_path.as_path())
     );
+}
+
+#[test]
+fn resolved_link_paths_match_folder_scan_paths() {
+    let root = TestDirectory::new("command-contract-path-identity");
+    let document_path = root.markdown_document_path();
+    root.write_file("docs/linked.md");
+    // The frontend supplies a folder path the OS picker produced, so start from the real path
+    // rather than whatever form `TEMP` happens to carry on the host.
+    let root_path_string = canonical_path_string(root.path.as_path());
+
+    let scan_result = tauri::async_runtime::block_on(folder::scan_markdown_folder(
+        root_path_string.clone(),
+        Some(Vec::new()),
+        None,
+    ))
+    .expect("command should scan the folder");
+    let scan_value = serialized(scan_result);
+
+    let link_result = tauri::async_runtime::block_on(link::resolve_markdown_link_target(
+        Some(path_string(document_path.as_path())),
+        Some(root_path_string),
+        "linked.md".to_owned(),
+        None,
+    ));
+    let link_value = serialized(link_result);
+
+    assert_eq!(json_string(&link_value, "kind"), "localMarkdown");
+    // The frontend matches a resolved link against the article navigator by path. Any form the
+    // two commands disagree on reads as a document outside the folder context.
+    assert_tree_contains_path(&scan_value["tree"], json_string(&link_value, "path"));
 }
 
 fn serialized(value: impl serde::Serialize) -> Value {

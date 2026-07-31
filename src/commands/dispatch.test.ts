@@ -14,7 +14,7 @@ vi.mock("@/features/session", async (importOriginal) => {
   // Clone through the prototype: spreading the instance would drop its methods and
   // leave a bridge that only answers `runCommand`.
   const documentEditorBridge: typeof session.documentEditorBridge = Object.create(
-    Object.getPrototypeOf(session.documentEditorBridge),
+    Object.getPrototypeOf(session.documentEditorBridge) as object | null,
     Object.getOwnPropertyDescriptors(session.documentEditorBridge),
   );
 

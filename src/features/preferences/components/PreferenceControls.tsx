@@ -39,7 +39,7 @@ const formatListValue = (items: string[]) => items.join("\n");
 
 const parseListValue = (value: string) =>
   value
-    .split(/[\n,]/)
+    .split(/[\n,]/u)
     .map((item) => item.trim())
     .filter(Boolean);
 

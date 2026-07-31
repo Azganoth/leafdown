@@ -799,7 +799,9 @@ describe("source projection", () => {
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeUndefined();
-      expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
+      expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow(
+        "Could not find footnote_reference node.",
+      );
     });
 
     it.each([
@@ -870,7 +872,9 @@ describe("source projection", () => {
 
         expect(literalNode).not.toBeNull();
         expect(literalNode!.marks).toHaveLength(0);
-        expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
+        expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow(
+          "Could not find footnote_reference node.",
+        );
       },
     );
 
@@ -892,7 +896,9 @@ describe("source projection", () => {
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeDefined();
-      expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow();
+      expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow(
+        "Could not find footnote_reference node.",
+      );
       expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
     });
 

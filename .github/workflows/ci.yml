@@ -14,7 +14,10 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseding a run is only safe on pull requests. Pushes to main share one
+  # group, so cancelling there discards the merged commit's validation and its
+  # Rust cache upload, which PR branches restore from.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check-frontend:

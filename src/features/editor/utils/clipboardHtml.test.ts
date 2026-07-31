@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 
+// Declared here rather than taken from `@/test/fixtures/clipboardHtml` so this boundary
+// test pins the marker bytes independently of the module it exercises.
 const START_FRAGMENT_MARKER = "<!--StartFragment-->";
 const END_FRAGMENT_MARKER = "<!--EndFragment-->";
 

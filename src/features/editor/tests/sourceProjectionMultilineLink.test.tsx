@@ -29,24 +29,8 @@ const MIXED_LINK_SOURCE =
 const MIXED_LINK_LABEL_SOURCE =
   "**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`";
 
-const getInlineBreakPosition = (document: ProseMirrorNode) => {
-  let position: number | null = null;
-
-  document.descendants((node, nodePosition) => {
-    if (node.type.name !== "hardbreak" || node.attrs.isInline !== true) {
-      return true;
-    }
-
-    position = nodePosition;
-    return false;
-  });
-
-  if (position === null) {
-    throw new Error("Expected an inline soft-break node.");
-  }
-
-  return position;
-};
+const getInlineBreakPosition = (document: ProseMirrorNode) =>
+  getEditorNodePosition(document, "hardbreak", (node) => node.attrs.isInline === true);
 
 describe("multiline logical-link source projection", () => {
   it.each([

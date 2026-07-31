@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor";
+import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor/commands/contract";
 import {
   createActiveEditorCommandState,
   createMilkdownEditorBridge,

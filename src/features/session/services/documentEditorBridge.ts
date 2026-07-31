@@ -1,10 +1,14 @@
+import type { MilkdownEditorBridge } from "@/features/editor";
+// Deep import rather than the `@/features/editor` root: the root exports `MilkdownEditor`,
+// so importing the command contract through it would pull Milkdown and Shiki into every
+// consumer of `@/features/session`, most of which never touch the editor.
+// `commands/contract` is the Milkdown-free half of that API.
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
   READY_DISABLED_EDITOR_COMMAND_STATE,
   type EditorCommandId,
   type EditorCommandState,
-  type MilkdownEditorBridge,
-} from "@/features/editor";
+} from "@/features/editor/commands/contract";
 import { SignalSource } from "@/lib/signal";
 
 interface ActiveDocumentEditorBridgeEntry {

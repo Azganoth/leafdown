@@ -1,10 +1,11 @@
-import type {
-  EditorCommandId,
-  EditorCommandState,
-  MarkdownReferenceContext,
-  MilkdownEditorBridge,
-} from "@/features/editor";
-import { EDITOR_COMMAND_IDS } from "@/features/editor";
+import type { MarkdownReferenceContext, MilkdownEditorBridge } from "@/features/editor";
+// Deep import, as in ../utils/appStores: reaching EDITOR_COMMAND_IDS through the editor
+// root would load Milkdown for the non-editor tests that use this factory.
+import {
+  EDITOR_COMMAND_IDS,
+  type EditorCommandId,
+  type EditorCommandState,
+} from "@/features/editor/commands/contract";
 
 export const EDITOR_TEST_ROOT_CLASS_NAME = "leafdown-editor";
 

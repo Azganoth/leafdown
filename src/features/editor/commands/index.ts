@@ -3,6 +3,7 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { withEditorView } from "../utils/milkdown";
+import { EDITOR_COMMAND_IDS, type EditorCommandId, type EditorCommandState } from "./contract";
 import * as clipboard from "./editing/clipboard";
 import * as deletion from "./editing/deletion";
 import * as history from "./editing/history";
@@ -160,38 +161,10 @@ export const EDITOR_COMMANDS = {
   "insert.table": viewCommand(blockInsertion.insertTable),
   "insert.horizontalRule": viewCommand(blockInsertion.insertHorizontalRule),
   "insert.link": viewCommand(linkInsertion.insertLink),
-} satisfies Record<string, EditorCommand>;
-
-export type EditorCommandId = keyof typeof EDITOR_COMMANDS & string;
-
-export const EDITOR_COMMAND_IDS = Object.keys(EDITOR_COMMANDS) as EditorCommandId[];
-
-export const isEditorCommandId = (value: string): value is EditorCommandId =>
-  Object.hasOwn(EDITOR_COMMANDS, value);
+} satisfies Record<EditorCommandId, EditorCommand>;
 
 export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) =>
   EDITOR_COMMANDS[commandId].run(editor);
-
-export interface EditorCommandState {
-  enabledCommands: Record<EditorCommandId, boolean>;
-  status: "inactive" | "ready";
-}
-
-const createEditorCommandEnabledRecord = (enabled: boolean) =>
-  Object.fromEntries(EDITOR_COMMAND_IDS.map((commandId) => [commandId, enabled])) as Record<
-    EditorCommandId,
-    boolean
-  >;
-
-export const INACTIVE_EDITOR_COMMAND_STATE: EditorCommandState = {
-  enabledCommands: createEditorCommandEnabledRecord(false),
-  status: "inactive",
-};
-
-export const READY_DISABLED_EDITOR_COMMAND_STATE: EditorCommandState = {
-  enabledCommands: createEditorCommandEnabledRecord(false),
-  status: "ready",
-};
 
 export const getEditorCommandState = (view: EditorView): EditorCommandState => ({
   enabledCommands: Object.fromEntries(
@@ -202,3 +175,12 @@ export const getEditorCommandState = (view: EditorView): EditorCommandState => (
   ) as Record<EditorCommandId, boolean>,
   status: "ready",
 });
+
+export {
+  EDITOR_COMMAND_IDS,
+  INACTIVE_EDITOR_COMMAND_STATE,
+  isEditorCommandId,
+  READY_DISABLED_EDITOR_COMMAND_STATE,
+  type EditorCommandId,
+  type EditorCommandState,
+} from "./contract";

@@ -1,10 +1,10 @@
-import type {
-  EditorCommandId,
-  EditorCommandState,
-  MarkdownReferenceContext,
-  MilkdownEditorBridge,
-} from "@/features/editor";
-import { EDITOR_COMMAND_IDS } from "@/features/editor";
+import type { MarkdownReferenceContext, MilkdownEditorBridge } from "@/features/editor";
+// Deep import by design; see @/features/editor/commands/contract.ts.
+import {
+  EDITOR_COMMAND_IDS,
+  type EditorCommandId,
+  type EditorCommandState,
+} from "@/features/editor/commands/contract";
 
 export const EDITOR_TEST_ROOT_CLASS_NAME = "leafdown-editor";
 

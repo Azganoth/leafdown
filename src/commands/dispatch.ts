@@ -1,5 +1,6 @@
 import { getActiveDocumentKey } from "@/features/document";
-import { EDITOR_COMMAND_IDS, isEditorCommandId } from "@/features/editor";
+// Deep import by design; see @/features/editor/commands/contract.ts.
+import { EDITOR_COMMAND_IDS, isEditorCommandId } from "@/features/editor/commands/contract";
 import { documentEditorBridge } from "@/features/session";
 
 import {

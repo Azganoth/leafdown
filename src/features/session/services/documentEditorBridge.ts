@@ -1,10 +1,11 @@
+import type { MilkdownEditorBridge } from "@/features/editor";
+// Deep import by design; see @/features/editor/commands/contract.ts.
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
   READY_DISABLED_EDITOR_COMMAND_STATE,
   type EditorCommandId,
   type EditorCommandState,
-  type MilkdownEditorBridge,
-} from "@/features/editor";
+} from "@/features/editor/commands/contract";
 import { SignalSource } from "@/lib/signal";
 
 interface ActiveDocumentEditorBridgeEntry {

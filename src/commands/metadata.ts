@@ -1,4 +1,6 @@
-import { EDITOR_COMMAND_LABELS, type EditorCommandId } from "@/features/editor";
+// Deep import by design; see @/features/editor/commands/contract.ts.
+import type { EditorCommandId } from "@/features/editor/commands/contract";
+import { EDITOR_COMMAND_LABELS } from "@/features/editor/commands/metadata";
 import {
   formatKeyboardKey,
   hasNonPrimaryModifierEvent,

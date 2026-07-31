@@ -14,7 +14,9 @@ import {
   type RecentItemsState,
   type SettingsPersistedState,
 } from "@/features/preferences";
-import { useSessionStore, type SessionState } from "@/features/session";
+// Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
+// beforeEach in ../setup/common.ts loads this module for every test file.
+import { useSessionStore, type SessionState } from "@/features/session/stores/session";
 
 export const setDefaultSettings = (settings: Partial<SettingsPersistedState> = {}) => {
   useSettingsStore.setState({

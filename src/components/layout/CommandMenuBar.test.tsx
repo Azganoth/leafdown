@@ -82,11 +82,11 @@ describe("CommandMenuBar", () => {
 
     await user.click(screen.getByRole("menuitem", { name: "File" }));
 
-    expect(menuItem(/^New/)).toBeInTheDocument();
+    expect(menuItem(/^New/u)).toBeInTheDocument();
     expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
-    expect(menuItem(/^Save as/)).toHaveAttribute("data-disabled");
-    expect(menuItem(/^Reveal in sidebar/)).toHaveAttribute("data-disabled");
-    expect(menuItem(/^Close folder/)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Save as/u)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Reveal in sidebar/u)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Close folder/u)).toHaveAttribute("data-disabled");
   });
 
   it("keeps unavailable view commands disabled and omits Post-MVP commands", async () => {

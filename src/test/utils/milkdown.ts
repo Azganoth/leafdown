@@ -2,16 +2,14 @@ import { editorViewCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { afterEach } from "vitest";
 
-import type {
-  EditorCommandState,
-  MarkdownReferenceContext,
-  MilkdownMarkdownUpdate,
-} from "@/features/editor";
 import {
   type ContextPopupAnchor,
   createMilkdownEditor,
+  type EditorCommandState,
   getMilkdownEditorMarkdown,
+  type MarkdownReferenceContext,
   type MilkdownEditorInstance,
+  type MilkdownMarkdownUpdate,
 } from "@/features/editor";
 
 export interface MountedMilkdownEditor {

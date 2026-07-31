@@ -65,6 +65,8 @@ const normalizeModifierOptions = <T extends ModifierEventInit>(options: T) => {
 };
 
 export const createKeyboardEvent = (key: string, init: TestKeyboardEventOptions = {}) => {
+  // ProseMirror's keymap reads `keyCode`, so tests exercising it have to supply one.
+  // oxlint-disable-next-line typescript/no-deprecated
   const { keyCode, ...eventInit } = normalizeModifierOptions(init);
   const event = new KeyboardEvent("keydown", {
     bubbles: true,

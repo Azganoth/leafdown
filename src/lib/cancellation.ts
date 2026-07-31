@@ -1,6 +1,6 @@
-import { runTaskAsPromise } from "./async";
 import type { Disposable } from "./lifecycle";
 import { Signal, SignalSource } from "./signal";
+import { runTaskAsPromise } from "./task";
 
 export interface CancellationToken {
   readonly isCancellationRequested: boolean;

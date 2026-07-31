@@ -61,7 +61,7 @@ export const getEditorNodePosition = (
   target: MountedMilkdownEditor | ProseMirrorNode,
   typeName: string,
   predicate: (node: ProseMirrorNode) => boolean = () => true,
-) => {
+): number => {
   let position: number | null = null;
 
   toDocument(target).descendants((node, pos) => {

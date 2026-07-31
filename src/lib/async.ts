@@ -1,5 +1,6 @@
 import { CancellationError, CancellationToken, CancellationTokenSource } from "./cancellation";
 import { type Disposable, MutableDisposable } from "./lifecycle";
+import { runTaskAsPromise } from "./task";
 
 export interface AsyncLazyOptions {
   retryOnFailure?: boolean;
@@ -297,11 +298,3 @@ export class DebouncedTaskRunner<T> implements Disposable {
     activeRun.deferred.reject(new CancellationError());
   }
 }
-
-export const runTaskAsPromise = <T>(task: () => T | PromiseLike<T>) => {
-  try {
-    return Promise.resolve(task());
-  } catch (error) {
-    return Promise.reject(error);
-  }
-};

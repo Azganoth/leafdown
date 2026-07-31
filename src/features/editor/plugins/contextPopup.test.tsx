@@ -68,7 +68,9 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 8);
     dispatchMouseUp(mounted.view.dom, { button: 0 });
 
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
 
     expect(onContextPopupRequested).not.toHaveBeenCalled();
   });

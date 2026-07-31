@@ -10,8 +10,9 @@ import type {
 import { MilkdownEditor, type MilkdownEditorBridge } from "./MilkdownEditor";
 
 const milkdownEditorMocks = vi.hoisted(() => ({
-  createMilkdownEditor: vi.fn(),
-  getMilkdownEditorMarkdown: vi.fn(),
+  createMilkdownEditor:
+    vi.fn<(options: CreateMilkdownEditorOptions) => Promise<MilkdownEditorInstance>>(),
+  getMilkdownEditorMarkdown: vi.fn<() => string>(),
 }));
 
 vi.mock("../utils/createMilkdownEditor", () => milkdownEditorMocks);

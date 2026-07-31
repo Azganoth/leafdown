@@ -60,11 +60,15 @@ describe("cancellation", () => {
   it("throws and identifies cancellation errors", () => {
     expect(() => throwIfCancelled(CancellationToken.Cancelled)).toThrow(CancellationError);
 
+    let thrown: unknown;
+
     try {
       throwIfCancelled(CancellationToken.Cancelled);
     } catch (error) {
-      expect(isCancellationError(error)).toBe(true);
+      thrown = error;
     }
+
+    expect(isCancellationError(thrown)).toBe(true);
   });
 
   it("does not throw for uncancelled tokens", () => {

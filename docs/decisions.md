@@ -215,6 +215,7 @@
 - Actions are pinned by major tag rather than commit SHA.
 - A full `tauri build` stays off the pull request path, and manifest version consistency is a release checklist line rather than a script.
 - The pre-commit hook formats but does not apply lint fixes, so a commit cannot differ from the diff its author read.
+- Rust import grouping is a convention rather than a check. The rustfmt options that would enforce it are nightly-only, and stable rustfmt warns, ignores them, and exits 0, so configuring them without a second toolchain would leave a passing check that enforces nothing.
 
 ## Platform Decisions
 

@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use crate::{
     document, folder, image, link,
-    test_utils::{TestDirectory, pathdiff},
+    test_utils::{TestDirectory, canonical_path_string, pathdiff},
 };
 
 #[test]
@@ -256,7 +256,7 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     assert_eq!(json_string(&image_result, "kind"), "renderable");
     assert_eq!(
         json_string(&image_result, "path"),
-        path_string(image_path.canonicalize().unwrap().as_path())
+        canonical_path_string(image_path.as_path())
     );
 
     let link_result = tauri::async_runtime::block_on(link::resolve_markdown_link_target(
@@ -270,7 +270,7 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     assert_eq!(json_string(&link_result, "kind"), "localMarkdown");
     assert_eq!(
         json_string(&link_result, "path"),
-        path_string(link_path.canonicalize().unwrap().as_path())
+        canonical_path_string(link_path.as_path())
     );
 }
 

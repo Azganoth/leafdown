@@ -62,6 +62,16 @@ impl Drop for TestDirectory {
     }
 }
 
+/// Expectations built from a raw `canonicalize` would re-encode the verbatim `\\?\` prefix that
+/// #146 removed, so tests compare against the form the backend actually exposes.
+pub(crate) fn canonical_path_string(path: &Path) -> String {
+    let canonical = path.canonicalize().expect("path should canonicalize");
+
+    dunce::simplified(canonical.as_path())
+        .to_string_lossy()
+        .into_owned()
+}
+
 pub(crate) fn pathdiff(path: &Path, base: &Path) -> String {
     let path_components = path.components().collect::<Vec<_>>();
     let base_components = base.components().collect::<Vec<_>>();

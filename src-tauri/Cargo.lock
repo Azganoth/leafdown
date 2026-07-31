@@ -1992,6 +1992,7 @@ dependencies = [
 name = "leafdown"
 version = "0.1.0-alpha.1"
 dependencies = [
+ "dunce",
  "log",
  "notify",
  "serde",

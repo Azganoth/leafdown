@@ -235,7 +235,7 @@ mod tests {
     use std::path::Path;
 
     use super::{ResolveMarkdownImageTargetResult, renderable_asset_path, resolve_image_target};
-    use crate::test_utils::{TestDirectory, pathdiff};
+    use crate::test_utils::{TestDirectory, canonical_path_string, pathdiff};
 
     #[cfg(windows)]
     const NETWORK_TARGETS: [&str; 5] = [
@@ -275,7 +275,7 @@ mod tests {
 
         assert_eq!(
             renderable_path(result),
-            image_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(image_path.as_path())
         );
     }
 
@@ -294,7 +294,7 @@ mod tests {
 
         assert_eq!(
             renderable_path(result),
-            image_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(image_path.as_path())
         );
     }
 
@@ -357,7 +357,7 @@ mod tests {
         );
         assert_eq!(
             renderable_path(allowed_result),
-            image_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(image_path.as_path())
         );
     }
 
@@ -387,7 +387,7 @@ mod tests {
         );
         assert_eq!(
             renderable_path(allowed_result),
-            image_path.canonicalize().unwrap().to_string_lossy()
+            canonical_path_string(image_path.as_path())
         );
     }
 

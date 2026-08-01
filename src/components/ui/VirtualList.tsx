@@ -168,7 +168,9 @@ function VirtualListItem({
       className={cn("absolute top-0 left-0 w-full", className)}
       style={{
         ...style,
-        contain: "layout paint style",
+        // No `paint`: a row and its control share a box, so it would clip the
+        // control's focus ring.
+        contain: "layout style",
         transform: `translate3d(0, ${virtualRow.start}px, 0)`,
       }}
       {...props}

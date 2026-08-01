@@ -49,6 +49,7 @@ export default defineConfig({
         assertFunctionNames: [
           "expect",
           "expectClipboardTextWritten",
+          "expectControlsOutOfTabSequence",
           "expectMarkSource",
           "expectOversizedMarkdownFileToast",
         ],

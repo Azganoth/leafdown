@@ -215,6 +215,33 @@ view: (view) => {
 };
 ```
 
+### Focus Visibility
+
+Every control that can hold focus must render a visible focus indicator. Suppressing the native outline is fine; suppressing it without putting something in its place is the defect.
+
+Use:
+
+- `focus-visible:` for controls a pointer can also activate, so a click does not leave a ring behind. Radix menu items are the exception and use `focus:`, because their focus is roving and follows the pointer.
+- The `Button` treatment, `focus-visible:border-ring` with `focus-visible:ring-3 focus-visible:ring-ring/50`, as the reference for hand-built surfaces.
+- `outline-hidden` rather than `outline-none` when suppressing the native outline.
+- Room for the ring wherever a control sits inside a clipping box. `overflow` and `contain: paint` both cut a `ring-*` box-shadow off at the boundary.
+
+Avoid:
+
+- `outline-hidden` or `outline-none` with no paired `focus-visible:` rule.
+- Relying on `outline-ring/50` in `App.css` for the indicator. It sets outline color only, so it renders nothing until a style and width exist.
+- Treating an open or active state as the focus indicator. They answer different questions and a keyboard user needs both.
+
+Why:
+
+Leafdown builds its own titlebar, menu shell, and navigator, so focus presentation is not inherited from a platform control. `outline-hidden` and `outline-none` are not interchangeable at the point where it matters: Tailwind compiles `outline-hidden` to a transparent outline and `outline-none` to `outline-style: none`, and under Windows High Contrast the transparent outline is repainted as a real one while `box-shadow` rings are dropped entirely. A ring is the indicator for ordinary rendering and the outline is the one that survives forced colors.
+
+Example:
+
+```tsx
+<MenubarPrimitive.Trigger className="outline-hidden hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted" />
+```
+
 ### Stores And Persistence
 
 Stores own UI or feature state. Persistence should be explicit about keys, versions, defaults, and migrations.

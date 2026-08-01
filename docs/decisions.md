@@ -201,6 +201,7 @@
 
 - Window decorations are implemented as custom UI components.
 - Menu commands are executed according to the application command model.
+- The window controls behave as non-client area: they stay out of the tab sequence like native Win32 caption buttons, remain labeled in the accessibility tree, and leave `Alt+Space` as the keyboard path to minimize, maximize, and close.
 
 ### Gate on defect classes automation can reach
 

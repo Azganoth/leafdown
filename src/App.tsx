@@ -16,7 +16,7 @@ import {
   type SettingsState,
 } from "@/features/preferences";
 import { confirmDiscardActiveDocumentChanges } from "@/features/session";
-import { handleUnexpectedError } from "@/lib/errors";
+import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
 
@@ -47,14 +47,25 @@ export function App() {
 
   useEffect(() => {
     const initializeApp = async () => {
-      await Promise.all([settingsStoreTauriHandler.start(), recentItemsStoreTauriHandler.start()]);
+      try {
+        await Promise.all([
+          settingsStoreTauriHandler.start(),
+          recentItemsStoreTauriHandler.start(),
+        ]);
 
-      await updateTheme(useSettingsStore.getState().theme);
-
-      await getCurrentWindow().show();
+        await updateTheme(useSettingsStore.getState().theme);
+      } finally {
+        // A window that is never shown has no chrome, focus, or taskbar entry, so it cannot even
+        // be asked to close. Showing it regardless keeps a failed startup reportable and exitable.
+        await getCurrentWindow()
+          .show()
+          .catch((error) => handleUnexpectedError(error, "showWindow"));
+      }
     };
 
-    void initializeApp().catch((error) => handleUnexpectedError(error, "initializeApp"));
+    void initializeApp().catch((error) =>
+      notifyOperationFailure("Could not load preferences.", error, "initializeApp"),
+    );
   }, []);
 
   useTauriEvent<void>(

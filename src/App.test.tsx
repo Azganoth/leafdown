@@ -1,6 +1,7 @@
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -40,6 +41,29 @@ describe("App", () => {
       expect(document.documentElement).toHaveClass("dark");
     } finally {
       startRecentItemsStore.mockRestore();
+      startSettingsStore.mockRestore();
+    }
+  });
+
+  it("shows the window and reports the failure when a persisted store fails to start", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockRejectedValue(new Error("Persisted settings are unreadable."));
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.show).toHaveBeenCalled();
+      });
+
+      expect(toast.error).toHaveBeenCalledWith("Could not load preferences.", {
+        description: "Persisted settings are unreadable.",
+      });
+    } finally {
+      consoleError.mockRestore();
       startSettingsStore.mockRestore();
     }
   });

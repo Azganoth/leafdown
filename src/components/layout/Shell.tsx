@@ -40,7 +40,6 @@ export function Shell() {
       <TitleBar />
       <div className="relative mt-8 flex min-h-0 flex-1 flex-col" data-session-mode={sessionMode}>
         <div
-          aria-label="Menu bar"
           data-testid="menu-bar-host"
           className="flex h-9 shrink-0 items-center justify-between border-y border-border bg-card/60 px-2"
         >

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useId } from "react";
 
 import {
   COMMAND_DEFINITIONS,
@@ -11,6 +11,7 @@ import {
   Menubar,
   MenubarCheckboxItem,
   MenubarContent,
+  MenubarGroup,
   MenubarItem,
   MenubarLabel,
   MenubarMenu,
@@ -322,9 +323,11 @@ interface RecentItemsProps {
 }
 
 function RecentItems({ label, items, onOpen }: RecentItemsProps) {
+  const labelId = useId();
+
   return (
-    <>
-      <MenubarLabel>{label}</MenubarLabel>
+    <MenubarGroup aria-labelledby={labelId}>
+      <MenubarLabel id={labelId}>{label}</MenubarLabel>
       {items.length === 0 ? (
         <MenubarItem disabled>No recent {label.toLowerCase().replace("recent ", "")}.</MenubarItem>
       ) : (
@@ -334,7 +337,7 @@ function RecentItems({ label, items, onOpen }: RecentItemsProps) {
           </MenubarItem>
         ))
       )}
-    </>
+    </MenubarGroup>
   );
 }
 

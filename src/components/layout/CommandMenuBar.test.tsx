@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { type AppCommandId, type CommandState } from "@/commands";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
-import { renderWithUser, screen } from "@/test/utils/react";
+import { renderWithUser, screen, within } from "@/test/utils/react";
 
 import { CommandMenuBar } from "./CommandMenuBar";
 
@@ -140,6 +140,27 @@ describe("CommandMenuBar", () => {
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(menuItem("Clear recent items")).toBeInTheDocument();
+  });
+
+  it("groups recent entries under their section headings", async () => {
+    const { user } = renderCommandMenuBar({
+      recentFiles: [TEST_MARKDOWN_FILE_PATH],
+      recentFolders: [TEST_NOTES_FOLDER_PATH],
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "File" }));
+    await user.hover(screen.getByRole("menuitem", { name: "Open recent" }));
+    await user.keyboard("{ArrowRight}");
+
+    const filesGroup = screen.getByRole("group", { name: "Recent files" });
+    const foldersGroup = screen.getByRole("group", { name: "Recent folders" });
+
+    expect(
+      within(filesGroup).getByRole("menuitem", { name: TEST_MARKDOWN_FILE_PATH }),
+    ).toBeVisible();
+    expect(
+      within(foldersGroup).getByRole("menuitem", { name: TEST_NOTES_FOLDER_PATH }),
+    ).toBeVisible();
   });
 
   it("opens recent files and folders from the submenu", async () => {

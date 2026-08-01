@@ -2,7 +2,8 @@ import { createTauriStore } from "@tauri-store/zustand";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { create } from "zustand";
 
-import { createPersistedTauriStore } from "./persistedTauriStore";
+import { createPersistedTauriStore, definePersistedState } from "./persistedTauriStore";
+import { booleanValue, listOf, numberValue, stringValue } from "./valueContract";
 
 interface TestStore {
   enabled: boolean;
@@ -255,5 +256,36 @@ describe("createPersistedTauriStore", () => {
     expect(listener).toHaveBeenCalledWith(migratedState, migratedState);
     expect(handler.saveNow).not.toHaveBeenCalled();
     unsubscribe();
+  });
+});
+
+describe("definePersistedState", () => {
+  const contract = definePersistedState({
+    enabled: booleanValue,
+    names: listOf(stringValue),
+    version: numberValue,
+  });
+
+  it("derives the persisted keys from the shape, excluding the version", () => {
+    expect(contract.keys).toEqual(["enabled", "names"]);
+  });
+
+  it("reports an untouched state as unchanged and returns it as-is", () => {
+    const state = { enabled: true, version: 1 };
+    const result = contract.sanitize(state);
+
+    expect(result.changed).toBe(false);
+    expect(result.state).toBe(state);
+  });
+
+  it("reports a repaired state as changed", () => {
+    expect(contract.sanitize({ enabled: "yes", version: 1 } as never)).toEqual({
+      changed: true,
+      state: { version: 1 },
+    });
+  });
+
+  it("reports an unusable state as changed and empties it", () => {
+    expect(contract.sanitize(["enabled"] as never)).toEqual({ changed: true, state: {} });
   });
 });

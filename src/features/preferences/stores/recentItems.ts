@@ -2,8 +2,8 @@ import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
 import { isSamePath } from "@/lib/path";
-import { createPersistedTauriStore, type PersistedTauriStoreKey } from "@/lib/persistedTauriStore";
-import { isStringArray } from "@/lib/predicates";
+import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
+import { boundedList, listOf, numberValue, stringValue } from "@/lib/valueContract";
 
 export const RECENT_ITEM_LIMIT = 10;
 export const RECENT_ITEMS_VERSION = 1;
@@ -21,44 +21,19 @@ export interface RecentItemsStore extends RecentItemsState {
   reset: () => void;
 }
 
-const RECENT_ITEMS_PERSISTED_KEYS = [
-  "recentFiles",
-  "recentFolders",
-] satisfies PersistedTauriStoreKey<RecentItemsState>[];
-const RECENT_ITEMS_PERSISTED_KEY_SET = new Set<string>([...RECENT_ITEMS_PERSISTED_KEYS, "version"]);
-
 const createDefaultRecentItemsState = (): RecentItemsState => ({
   recentFiles: [],
   recentFolders: [],
   version: RECENT_ITEMS_VERSION,
 });
 
-export const sanitizeRecentItemsPersistedState = (state: Partial<RecentItemsState>) => {
-  const sanitizedState: Partial<RecentItemsState> = {};
-  let changed = Object.keys(state).some((key) => !RECENT_ITEMS_PERSISTED_KEY_SET.has(key));
+const RECENT_ITEMS_CONTRACT = definePersistedState({
+  recentFiles: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  recentFolders: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  version: numberValue,
+} satisfies Record<keyof RecentItemsState, unknown>);
 
-  if (typeof state.version === "number") {
-    sanitizedState.version = state.version;
-  } else if ("version" in state) {
-    changed = true;
-  }
-
-  for (const key of RECENT_ITEMS_PERSISTED_KEYS) {
-    const value = state[key];
-
-    if (isStringArray(value)) {
-      sanitizedState[key] = value.slice(0, RECENT_ITEM_LIMIT);
-      changed ||= value.length > RECENT_ITEM_LIMIT;
-    } else if (key in state) {
-      changed = true;
-    }
-  }
-
-  return {
-    changed,
-    state: changed ? sanitizedState : state,
-  };
-};
+export const sanitizeRecentItemsPersistedState = RECENT_ITEMS_CONTRACT.sanitize;
 
 const addRecentPath = (items: string[], path: string) =>
   path
@@ -89,8 +64,7 @@ export const recentItemsStoreTauriHandler = createPersistedTauriStore<RecentItem
   "recent-items",
   useRecentItemsStore,
   {
-    keys: RECENT_ITEMS_PERSISTED_KEYS,
-    sanitize: sanitizeRecentItemsPersistedState,
+    ...RECENT_ITEMS_CONTRACT,
     version: RECENT_ITEMS_VERSION,
   },
 );

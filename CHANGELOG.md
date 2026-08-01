@@ -21,6 +21,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Fixed
 
 - Announce recent files and recent folders under their own headings in the `Open recent` menu.
+- Disable a submenu instead of opening it empty when every command inside it is unavailable.
 - Keep the window controls out of the keyboard tab order, matching native title bar buttons.
 - Show a visible focus indicator on menu bar menus and article navigator entries.
 - Show the window even when startup initialization fails instead of leaving an invisible process running.

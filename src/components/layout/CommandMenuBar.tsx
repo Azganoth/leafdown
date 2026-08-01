@@ -249,6 +249,11 @@ interface CommandItemsProps {
   commandIds: readonly AppCommandId[];
 }
 
+const areAllDisabled = (
+  commandState: CommandMenuContextValue["commandState"],
+  commandIds: readonly AppCommandId[],
+) => commandIds.every((commandId) => !commandState(commandId).enabled);
+
 function CommandItems({ commandIds }: CommandItemsProps) {
   return commandIds.map((commandId) => <CommandMenuItem commandId={commandId} key={commandId} />);
 }
@@ -346,9 +351,13 @@ interface CommandSubmenuProps extends CommandItemsProps {
 }
 
 function CommandSubmenu({ commandIds, label }: CommandSubmenuProps) {
+  const { commandState } = useCommandMenu();
+
   return (
     <MenubarSub>
-      <MenubarSubTrigger>{label}</MenubarSubTrigger>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+        {label}
+      </MenubarSubTrigger>
       <MenubarSubContent>
         <CommandItems commandIds={commandIds} />
       </MenubarSubContent>
@@ -413,7 +422,9 @@ function RadioSubmenu({ commandIds, label }: RadioSubmenuProps) {
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger>{label}</MenubarSubTrigger>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+        {label}
+      </MenubarSubTrigger>
       <MenubarSubContent>
         <MenubarRadioGroup
           value={checkedId}

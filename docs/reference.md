@@ -253,6 +253,8 @@ The context popup is a contextual menu triggered by selection or right-click wit
 
 Availability rules apply to implemented commands across menus, keyboard shortcuts, and the context popup. Implemented commands are active by default unless disabled by context or build constraints; inactive commands are disabled rather than hidden.
 
+A submenu trigger carries the same state as the commands behind it: it is disabled when every one of them is disabled, and enabled while at least one remains available. A submenu that would open with nothing to act on does not open.
+
 ### Contextual Availability
 
 #### Document State

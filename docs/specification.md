@@ -159,7 +159,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `ArrowUp` and `ArrowDown`: Move between rows at the nearest available column, wrapping at either end and skipping a row whose commands are all unavailable. On a submenu, `ArrowDown` opens it instead.
   - `Home` and `End`: Move to the first or last available command.
   - `Enter` and `Space`: Run the focused command, or open the focused submenu.
-  - `Escape`: Closes the popup.
+  - `Escape`: Closes the popup, or an open submenu first, returning focus to the submenu it came from.
   - `Tab`: Closes the popup as well, rather than moving to another control, since the text is where the keyboard belongs next.
 - Closing a popup that holds focus returns focus to the editor with its selection intact, whichever path closed it.
 - A scroll closes the popup while focus is in the editor. While focus is inside the popup it stays open and may drift from the text it anchors to, since interrupting an interaction costs more than the drift.

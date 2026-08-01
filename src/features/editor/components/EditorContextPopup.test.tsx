@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { createActiveEditorCommandState, createEditorCommandState } from "@/test/factories/editor";
@@ -7,9 +8,34 @@ import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import { EditorContextPopup } from "./EditorContextPopup";
 
+const noop = () => {};
+
 const ANCHOR = { x: 40, top: 60, bottom: 80 };
 const POINTER_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "pointer" };
 const KEYBOARD_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "keyboard" };
+
+interface ClosingPopupHostProps {
+  onReturnFocus?: () => void;
+}
+
+// Close paths only show through a parent that really closes: a mock `onClose` leaves the popup
+// mounted, and every assertion that it survived a close then passes for the wrong reason.
+function ClosingPopupHost({ onReturnFocus = noop }: ClosingPopupHostProps) {
+  const [request, setRequest] = useState<ContextPopupRequest | null>(KEYBOARD_REQUEST);
+
+  return (
+    <>
+      <button type="button">Outside</button>
+      <EditorContextPopup
+        request={request}
+        commandState={enabledPopupCommandState}
+        onClose={() => setRequest(null)}
+        onExecute={noop}
+        onReturnFocus={onReturnFocus}
+      />
+    </>
+  );
+}
 
 const enabledPopupCommandState = createActiveEditorCommandState({
   enabledCommandIds: [
@@ -239,6 +265,40 @@ describe("EditorContextPopup", () => {
       expect(document.body).toHaveFocus();
     });
 
+    it("leaves focus where a click outside put it", async () => {
+      const onReturnFocus = vi.fn();
+      const { user } = renderWithUser(<ClosingPopupHost onReturnFocus={onReturnFocus} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      const outside = screen.getByRole("button", { name: "Outside" });
+      await user.click(outside);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("editor-context-popup")).not.toBeInTheDocument();
+      });
+      expect(onReturnFocus).not.toHaveBeenCalled();
+      expect(outside).toHaveFocus();
+    });
+
+    it("returns focus to the editor when Escape closes it from the toolbar", async () => {
+      const onReturnFocus = vi.fn();
+      const { user } = renderWithUser(<ClosingPopupHost onReturnFocus={onReturnFocus} />);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("editor-context-popup")).not.toBeInTheDocument();
+      });
+      expect(onReturnFocus).toHaveBeenCalledTimes(1);
+    });
+
     it("leaves focus alone when it closes without ever holding it", async () => {
       const onReturnFocus = vi.fn();
       const { rerender } = render(
@@ -464,8 +524,8 @@ describe("EditorContextPopup", () => {
       expect(onClose).toHaveBeenCalled();
     });
 
-    it("returns focus to the submenu trigger when only the submenu closes", async () => {
-      const { user } = renderToolbar(KEYBOARD_REQUEST);
+    it("closes only the submenu when Escape comes from inside it", async () => {
+      const { user } = renderWithUser(<ClosingPopupHost />);
       const trigger = screen.getByRole("button", { name: "Block type" });
 
       await user.click(trigger);
@@ -476,9 +536,10 @@ describe("EditorContextPopup", () => {
       await user.keyboard("{Escape}");
 
       await waitFor(() => {
-        expect(trigger).toHaveFocus();
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
       });
       expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
+      expect(trigger).toHaveFocus();
     });
   });
 

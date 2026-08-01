@@ -198,6 +198,12 @@ export function EditorContextPopup({
   }, [isOpen, source]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // An open submenu renders in its own portal while staying a child here, so its keys reach
+    // this handler. They belong to the menu: Escape has a submenu to close before it has a popup.
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) {
+      return;
+    }
+
     // A focused control shows its tooltip, and that tooltip is the dismissable layer Radix gives
     // the first Escape to, so waiting for the popup's own layer would cost a second press. This
     // can therefore close a popup the layer just closed, which asks nothing of an already closed
@@ -272,6 +278,11 @@ export function EditorContextPopup({
         }}
         onFocus={() => {
           hasHeldFocusRef.current = true;
+        }}
+        onInteractOutside={() => {
+          // Whatever was interacted with owns focus now. Radix defers this dismissal until after
+          // the click, so returning focus here would take it back from wherever it just landed.
+          hasHeldFocusRef.current = false;
         }}
         onOpenAutoFocus={(event) => {
           // Radix would focus the first tab stop on every open. Only a keyboard open should take

@@ -3,7 +3,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { afterEach } from "vitest";
 
 import {
-  type ContextPopupAnchor,
+  type ContextPopupRequest,
   createMilkdownEditor,
   type EditorCommandState,
   getMilkdownEditorMarkdown,
@@ -28,7 +28,7 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onContextPopupClosed?: () => void;
-  onContextPopupRequested?: (anchor: ContextPopupAnchor) => void;
+  onContextPopupRequested?: (request: ContextPopupRequest) => void;
   getContextPopupOpen?: () => boolean;
 }
 

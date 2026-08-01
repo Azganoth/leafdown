@@ -23,7 +23,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -38,7 +38,7 @@ import { cn } from "@/lib/cn";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
-import type { ContextPopupAnchor } from "../plugins/contextPopup";
+import type { ContextPopupRequest } from "../plugins/contextPopup";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -101,20 +101,31 @@ const INSERT_COMMANDS = [
 const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorCommandState) =>
   commandState.status === "ready" && commandState.enabledCommands[commandId];
 
+const focusFirstControl = (content: HTMLElement | null) => {
+  content?.querySelector<HTMLElement>("button:not([disabled])")?.focus();
+};
+
 interface EditorContextPopupProps {
-  anchor: ContextPopupAnchor | null;
   commandState: EditorCommandState;
   onClose: () => void;
   onExecute: (commandId: EditorCommandId) => void;
+  onReturnFocus: () => void;
+  request: ContextPopupRequest | null;
 }
 
 export function EditorContextPopup({
-  anchor,
   commandState,
   onClose,
   onExecute,
+  onReturnFocus,
+  request,
 }: EditorContextPopupProps) {
-  const isOpen = anchor !== null;
+  const isOpen = request !== null;
+  const source = request?.source;
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Sticky for the lifetime of one open popup: it decides whether closing owes the editor its
+  // focus back, and it survives focus moving into a submenu, which renders in its own portal.
+  const hasHeldFocusRef = useRef(false);
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
 
   useEffect(() => {
@@ -122,7 +133,13 @@ export function EditorContextPopup({
       return undefined;
     }
 
-    const handleScroll = () => onClose();
+    // Scrolling the popup away from an in-progress keyboard interaction would interrupt focus,
+    // which costs more than the popup drifting from the text it anchors to.
+    const handleScroll = () => {
+      if (!hasHeldFocusRef.current) {
+        onClose();
+      }
+    };
 
     document.addEventListener("scroll", handleScroll, true);
     return () => {
@@ -130,9 +147,20 @@ export function EditorContextPopup({
     };
   }, [onClose, isOpen]);
 
-  if (!anchor) {
+  // Covers a keyboard request landing on a popup a pointer already opened, where the content is
+  // mounted and Radix has no reason to fire its open-focus event again. The mount case cannot be
+  // served here: the content ref is still empty this early, so it runs from that event instead.
+  useEffect(() => {
+    if (isOpen && source === "keyboard") {
+      focusFirstControl(contentRef.current);
+    }
+  }, [isOpen, source]);
+
+  if (!request) {
     return null;
   }
+
+  const { anchor } = request;
 
   return (
     <Popover open={isOpen} onOpenChange={(nextIsOpen) => !nextIsOpen && onClose()}>
@@ -151,8 +179,30 @@ export function EditorContextPopup({
         align="center"
         className="leafdown-context-popup w-auto gap-1 rounded-md p-1"
         data-testid="editor-context-popup"
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => {
+          // Radix restores focus to a trigger, and this popup anchors instead of triggering, so
+          // its restore is a no-op that would leave focus on the body. Return it here instead.
+          event.preventDefault();
+
+          if (hasHeldFocusRef.current) {
+            hasHeldFocusRef.current = false;
+            onReturnFocus();
+          }
+        }}
+        onFocus={() => {
+          hasHeldFocusRef.current = true;
+        }}
+        onOpenAutoFocus={(event) => {
+          // Radix would focus the first tab stop on every open. Only a keyboard open should take
+          // focus, so the default is always suppressed and the keyboard case focuses explicitly.
+          event.preventDefault();
+          hasHeldFocusRef.current = false;
+
+          if (source === "keyboard" && event.currentTarget instanceof HTMLElement) {
+            focusFirstControl(event.currentTarget);
+          }
+        }}
+        ref={contentRef}
         side="bottom"
         sideOffset={8}
       >

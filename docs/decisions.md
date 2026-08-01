@@ -230,6 +230,23 @@
 - Replacing a file requires delete access to the target, so a process holding the document open without delete sharing blocks a save that a truncating write would have completed.
 - Every save costs one fsync of the document contents.
 
+### Own persisted state contracts instead of a schema library
+
+**Decision:** Persisted state is validated by a Leafdown-owned contract layer rather than Zod, Valibot, or a comparable library. A contract reports one of three outcomes for a value — valid, repaired, or invalid — and a store declares its persisted shape as a map of contracts that the `{ changed, state }` sanitizer is derived from.
+
+**Rationale:** Schema libraries model parsing: input to output, success or failure. Persisted state needs repair with provenance, because the sanitizer has to distinguish a value it accepted from one it rewrote in order to know the file on disk is stale. Rebuilding that third outcome on top of a two-outcome parse fails in both available directions. Zod and Valibot clone arrays and objects, so change detection by identity fires on every valid load and would rewrite both preference files at every launch; detecting a rewrite through parse issues instead misses transforms entirely, so a bounded list truncated during load reports no change and the file is never repaired. Using a schema purely as a predicate avoids both faults and reduces to the predicate table it was meant to replace. Neither library's headline advantage reaches this project: bundle size is immaterial to a WebView loading from local disk, and the ecosystem is unused without a form library or a network boundary.
+
+**Consequences:**
+
+- Persisted state declares a contract shape, and `satisfies Record<keyof State, unknown>` makes an undeclared field a build error rather than a silently unvalidated one.
+- A store's persisted key list and its sanitizer are derived from that one shape, so a field cannot be validated without also being persisted.
+- A contract returns the value it was given when it accepts one, so an unchanged load neither copies state nor triggers a file rewrite.
+- Nested persisted objects salvage field by field, so one corrupt sub-field costs only itself. Whether that is right for a given setting is a per-call-site choice, and an all-or-nothing variant is added when a setting needs one.
+- Nested persisted state additionally needs a deep merge against store defaults before it can be used, because the persistence plugin applies loaded state through Zustand's shallow merge, which reaches only the top level.
+- The layer covers persisted state only. Tauri command results stay validated at the Rust boundary.
+- Extending validation is a local change with no dependency surface, and its type-checking cost stays proportional to the shapes actually declared.
+- The salvage and repair behavior is Leafdown's to maintain and test.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

@@ -268,6 +268,220 @@ describe("EditorContextPopup", () => {
     });
   });
 
+  describe("toolbar semantics", () => {
+    const renderToolbar = (
+      request: ContextPopupRequest,
+      overrides: Partial<Parameters<typeof EditorContextPopup>[0]> = {},
+    ) =>
+      renderWithUser(
+        <EditorContextPopup
+          request={request}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+          {...overrides}
+        />,
+      );
+
+    it("exposes a labeled toolbar rather than an unnamed dialog", () => {
+      renderToolbar(POINTER_REQUEST);
+
+      expect(screen.getByRole("toolbar", { name: "Context actions" })).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group")).not.toBeInTheDocument();
+    });
+
+    it("holds every control outside the tab sequence", () => {
+      renderToolbar(POINTER_REQUEST);
+
+      const controls = screen.getAllByRole("button");
+
+      expect(controls).toHaveLength(14);
+      controls.forEach((control) => {
+        expect(control).toHaveAttribute("tabindex", "-1");
+      });
+    });
+
+    it("moves along a row with the horizontal arrows", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowRight}");
+      await waitFor(() => {
+        expect(screen.getByLabelText("Copy")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowLeft}");
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+    });
+
+    it("moves between rows with the vertical arrows, keeping the column", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowRight}{ArrowRight}");
+      await waitFor(() => {
+        expect(screen.getByLabelText("Paste")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Inline code")).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByLabelText("Paste")).toHaveFocus();
+    });
+
+    it("clamps to the nearest column when the next row is shorter", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowRight}{ArrowDown}{ArrowDown}");
+      expect(screen.getByLabelText("Ordered list")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
+    });
+
+    it("wraps from the first row back to the last", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByRole("button", { name: "Insert" })).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
+    });
+
+    it("opens a submenu with ArrowDown instead of leaving its row", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowUp}{ArrowUp}{ArrowDown}");
+
+      await waitFor(() => {
+        expect(screen.getByRole("menu")).toBeInTheDocument();
+      });
+      expect(screen.getByRole("menuitem", { name: "Paragraph" })).toBeInTheDocument();
+    });
+
+    it("skips a row whose commands are all unavailable", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST, {
+        commandState: {
+          ...enabledPopupCommandState,
+          enabledCommands: {
+            ...enabledPopupCommandState.enabledCommands,
+            "format.strong": false,
+            "format.emphasis": false,
+            "format.inlineCode": false,
+            "insert.link": false,
+          },
+        },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+    });
+
+    it("leaves the toolbar to the editor on Tab", async () => {
+      const onClose = vi.fn();
+      const { user } = renderToolbar(KEYBOARD_REQUEST, { onClose });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.tab();
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+      // Focus stays put until the popup unmounts, which is what returns it to the editor.
+      expect(screen.getByLabelText("Cut")).toHaveFocus();
+    });
+
+    it("runs a focused command with Enter", async () => {
+      const onExecute = vi.fn();
+      const { user } = renderToolbar(KEYBOARD_REQUEST, { onExecute });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowRight}{Enter}");
+
+      expect(onExecute).toHaveBeenCalledWith("edit.copy");
+    });
+
+    it("runs a submenu command from the keyboard", async () => {
+      const onExecute = vi.fn();
+      const { user } = renderToolbar(KEYBOARD_REQUEST, { onExecute });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowUp}{ArrowUp}{Enter}");
+      await waitFor(() => {
+        expect(screen.getByRole("menuitem", { name: "Paragraph" })).toHaveFocus();
+      });
+
+      await user.keyboard("{Enter}");
+
+      expect(onExecute).toHaveBeenCalledWith("format.paragraph");
+    });
+
+    it("closes on Escape from inside the toolbar", async () => {
+      const onClose = vi.fn();
+      const { user } = renderToolbar(KEYBOARD_REQUEST, { onClose });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{Escape}");
+
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("returns focus to the submenu trigger when only the submenu closes", async () => {
+      const { user } = renderToolbar(KEYBOARD_REQUEST);
+      const trigger = screen.getByRole("button", { name: "Block type" });
+
+      await user.click(trigger);
+      await waitFor(() => {
+        expect(screen.getByRole("menu")).toBeInTheDocument();
+      });
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(trigger).toHaveFocus();
+      });
+      expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
+    });
+  });
+
   describe("scroll", () => {
     it("closes on a scroll while focus is still in the editor", () => {
       const onClose = vi.fn();

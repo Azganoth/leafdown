@@ -20,6 +20,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep the window controls out of the keyboard tab order, matching native title bar buttons.
+- Show a visible focus indicator on menu bar menus and article navigator entries.
 - Show the window even when startup initialization fails instead of leaving an invisible process running.
 - Close the window on the next close request when the app stops answering, instead of leaving a process that only Task Manager can end.
 - Replace saved documents in one step so an interrupted or failed save cannot destroy the previous contents.

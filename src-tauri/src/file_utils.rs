@@ -37,10 +37,23 @@ pub(crate) fn read_utf8_file_with_size_limit(
 /// A truncating write would leave the previous contents unrecoverable if the process died
 /// mid-write, and the file on disk is the only copy Leafdown keeps.
 pub(crate) fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<()> {
-    let staging_file = StagingFile::create_beside(path)?;
+    let target_path = resolve_symlinked_target(path);
+    let staging_file = StagingFile::create_beside(target_path.as_path())?;
 
     write_staged_contents(staging_file.path.as_path(), content)?;
-    staging_file.persist(path)
+    staging_file.persist(target_path.as_path())
+}
+
+/// A rename replaces a symlink instead of writing through it, which would silently turn a
+/// linked document into a regular file.
+fn resolve_symlinked_target(path: &Path) -> PathBuf {
+    if !fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+        return path.to_path_buf();
+    }
+
+    fs::canonicalize(path)
+        .map(|canonical| dunce::simplified(canonical.as_path()).to_path_buf())
+        .unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn write_staged_contents(path: &Path, content: &[u8]) -> io::Result<()> {
@@ -205,6 +218,42 @@ mod tests {
 
         assert!(path.is_dir());
         assert!(staging_file_names(folder.path.as_path()).is_empty());
+    }
+
+    #[test]
+    fn writes_through_symlinked_targets() {
+        let folder = TestDirectory::new("write-atomically-symlink");
+        let target_path = folder.write_file_with_content("target.md", "old content");
+        let link_path = folder.path("link.md");
+
+        if create_file_symlink(target_path.as_path(), link_path.as_path()).is_err() {
+            return;
+        }
+
+        write_file_atomically(link_path.as_path(), b"# Leafdown\n")
+            .expect("symlinked file should be replaced");
+
+        assert!(
+            fs::symlink_metadata(link_path.as_path())
+                .expect("symlink should still exist")
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(
+            fs::read_to_string(target_path.as_path()).unwrap(),
+            "# Leafdown\n"
+        );
+        assert!(staging_file_names(folder.path.as_path()).is_empty());
+    }
+
+    #[cfg(unix)]
+    fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
+        std::os::unix::fs::symlink(target, symlink_path)
+    }
+
+    #[cfg(windows)]
+    fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
+        std::os::windows::fs::symlink_file(target, symlink_path)
     }
 
     #[cfg(windows)]

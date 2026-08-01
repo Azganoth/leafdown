@@ -240,7 +240,8 @@ The context popup is a contextual menu triggered by selection, right-click, or `
 - Right-click inside an existing selection keeps the selection.
 - Right-click outside a selection uses the editor's normal pointer handling to place the caret at the clicked location; the popup does not perform a second coordinate-based caret move.
 - `Shift+F10` and the `Menu` key open the popup around the caret or selection and move focus into it. Pointer-opened popups leave focus in the editor.
-- `Escape`, typing, or clicking outside closes it. Scrolling the popup out of view closes it only while focus is in the editor; a popup holding focus stays open.
+- The popup is a command toolbar. Arrow keys move between its commands, `Home` and `End` reach the first and last, and unavailable commands are skipped.
+- `Escape`, typing, or clicking outside closes it, as does `Tab` while focus is inside it. Scrolling the popup out of view closes it only while focus is in the editor; a popup holding focus stays open.
 
 #### Popup Command Groups
 

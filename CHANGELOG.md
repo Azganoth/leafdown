@@ -20,6 +20,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.
+- Announce the editor context popup as a named toolbar instead of an unnamed dialog.
 - Announce recent files and recent folders under their own headings in the `Open recent` menu.
 - Disable a submenu instead of opening it empty when every command inside it is unavailable.
 - Keep the window controls out of the keyboard tab order, matching native title bar buttons.

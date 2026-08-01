@@ -154,6 +154,13 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `ArrowDown` (in the bottom row of a table): Exits the table downwards and moves the caret to the block below (creating a new empty paragraph block if none exists).
 - `Shift+F10` and the `Menu` key open the context popup around the caret or selection and move focus into it, behaving the same in a paragraph, a list, and a table.
 - A popup opened by right-click or by a mouse selection leaves focus in the editor, keeping the caret with the text being edited. Only the keyboard, which has no other route in, takes focus.
+- The popup is one command toolbar rather than a dozen separate stops, and focus enters it on its first available command:
+  - `ArrowLeft` and `ArrowRight`: Move between commands in order, wrapping at either end.
+  - `ArrowUp` and `ArrowDown`: Move between rows at the nearest available column, wrapping at either end and skipping a row whose commands are all unavailable. On a submenu, `ArrowDown` opens it instead.
+  - `Home` and `End`: Move to the first or last available command.
+  - `Enter` and `Space`: Run the focused command, or open the focused submenu.
+  - `Escape`: Closes the popup.
+  - `Tab`: Closes the popup as well, rather than moving to another control, since the text is where the keyboard belongs next.
 - Closing a popup that holds focus returns focus to the editor with its selection intact, whichever path closed it.
 - A scroll closes the popup while focus is in the editor. While focus is inside the popup it stays open and may drift from the text it anchors to, since interrupting an interaction costs more than the drift.
 - Structural editing and native text gestures retain their normal editor behavior. Leafdown commands provide the same semantic operations across menus, keyboard shortcuts, and the context popup.

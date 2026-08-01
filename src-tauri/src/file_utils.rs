@@ -89,7 +89,7 @@ impl Drop for StagingFile {
 /// The suffix must leave a non-Markdown extension in place: `folder::watch` treats an event path
 /// it cannot stat as relevant when the path has no extension, so an extension-less staging name
 /// would refresh the article navigator on every save.
-fn staging_path(target_path: &Path) -> PathBuf {
+pub(crate) fn staging_path(target_path: &Path) -> PathBuf {
     let staging_file_id = NEXT_STAGING_FILE_ID.fetch_add(1, Ordering::Relaxed);
     let mut file_name = target_path.file_name().unwrap_or_default().to_os_string();
 

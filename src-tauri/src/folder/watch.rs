@@ -434,7 +434,7 @@ mod tests {
         WatchMarkdownFolderError, relevant_event_paths, watch_folder_metadata_error,
         watch_mode_for_depth,
     };
-    use crate::{folder::ScanDepth, test_utils::TestDirectory};
+    use crate::{file_utils::staging_path, folder::ScanDepth, test_utils::TestDirectory};
 
     #[test]
     fn maps_scan_depth_to_matching_watch_mode() {
@@ -563,6 +563,45 @@ mod tests {
         );
 
         assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn ignores_save_staging_files_while_they_exist() {
+        let root = TestDirectory::new("watch-staging-create");
+        let document_path = root.write_file("notes.md");
+        let path = root.write_file_with_content(
+            staging_path(document_path.as_path())
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .as_ref(),
+            "staged",
+        );
+
+        let paths = relevant_event_paths(
+            &event(EventKind::Create(CreateKind::File), path.as_path()),
+            root.path.as_path(),
+            &[],
+        );
+
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn ignores_save_staging_files_that_no_longer_exist() {
+        let root = TestDirectory::new("watch-staging-renamed");
+        let path = staging_path(root.path("notes.md").as_path());
+
+        for kind in [
+            EventKind::Modify(ModifyKind::Any),
+            EventKind::Remove(RemoveKind::Any),
+            EventKind::Create(CreateKind::Any),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert!(paths.is_empty(), "{kind:?} should not be relevant");
+        }
     }
 
     #[test]

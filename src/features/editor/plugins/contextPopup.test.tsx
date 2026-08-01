@@ -181,6 +181,44 @@ describe("context popup plugin", () => {
     expect(onContextPopupClosed).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the popup open and the selection intact while focus leaves the editor", async () => {
+    let popupOpen = false;
+    const onContextPopupClosed = vi.fn(() => {
+      popupOpen = false;
+    });
+    const onContextPopupRequested = vi.fn(() => {
+      popupOpen = true;
+    });
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, {
+      getContextPopupOpen: () => popupOpen,
+      onContextPopupClosed,
+      onContextPopupRequested,
+    });
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    runKeyDownHandlers(mounted.view, "ContextMenu");
+
+    expect(popupOpen).toBe(true);
+
+    // Standing in for the popup taking focus, which is what a keyboard open does next.
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+
+    try {
+      elsewhere.focus();
+
+      expect(onContextPopupClosed).not.toHaveBeenCalled();
+
+      mounted.view.focus();
+    } finally {
+      elsewhere.remove();
+    }
+
+    expect(mounted.view.state.selection.from).toBe(1);
+    expect(mounted.view.state.selection.to).toBe(6);
+  });
+
   it("keeps a keyboard-opened popup keyboard-sourced when its selection moves", async () => {
     let popupOpen = false;
     const onContextPopupRequested = vi.fn(() => {

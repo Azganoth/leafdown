@@ -473,6 +473,7 @@ fn save_missing_write_target_error(path: &Path, serialized_path: &str) -> SaveMa
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::{
         fs,
         io::ErrorKind,
@@ -541,7 +542,7 @@ mod tests {
 
         let error = read_markdown_file(&file.path).expect_err("missing file should be rejected");
 
-        assert!(matches!(error, OpenMarkdownFileError::MissingFile { .. }));
+        assert_matches!(error, OpenMarkdownFileError::MissingFile { .. });
     }
 
     #[test]
@@ -551,7 +552,7 @@ mod tests {
 
         let error = read_markdown_file(&file.path).expect_err("oversized file should be rejected");
 
-        assert!(matches!(
+        assert_matches!(
             error,
             OpenMarkdownFileError::OversizedFile {
                 size_bytes,
@@ -559,7 +560,7 @@ mod tests {
                 ..
             } if size_bytes == MAX_MARKDOWN_FILE_SIZE_BYTES + 1
                 && max_size_bytes == MAX_MARKDOWN_FILE_SIZE_BYTES
-        ));
+        );
     }
 
     #[test]
@@ -568,10 +569,7 @@ mod tests {
 
         let error = read_markdown_file(&file.path).expect_err("invalid UTF-8 should be rejected");
 
-        assert!(matches!(
-            error,
-            OpenMarkdownFileError::InvalidEncoding { .. }
-        ));
+        assert_matches!(error, OpenMarkdownFileError::InvalidEncoding { .. });
     }
 
     #[test]
@@ -580,22 +578,19 @@ mod tests {
 
         let error = read_markdown_file(&file.path).expect_err("text file should be rejected");
 
-        assert!(matches!(
-            error,
-            OpenMarkdownFileError::UnsupportedFileType { .. }
-        ));
+        assert_matches!(error, OpenMarkdownFileError::UnsupportedFileType { .. });
     }
 
     #[test]
     fn maps_invalid_path_open_errors() {
-        assert!(matches!(
+        assert_matches!(
             open_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
             OpenMarkdownFileError::InvalidPath { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             open_read_error(std::io::Error::from(ErrorKind::InvalidInput), "bad:path"),
             OpenMarkdownFileError::InvalidPath { .. }
-        ));
+        );
     }
 
     #[test]
@@ -633,14 +628,14 @@ mod tests {
         let error = write_markdown_file(&path, "New document\n", None, false)
             .expect_err("missing parent folder should be reported separately");
 
-        assert!(matches!(
+        assert_matches!(
             error,
             SaveMarkdownFileError::MissingParentFolder {
                 path: error_path,
                 parent_folder_path: error_parent_folder_path,
             } if error_path == path.to_string_lossy()
                 && error_parent_folder_path == parent_folder_path
-        ));
+        );
     }
 
     #[test]
@@ -651,27 +646,24 @@ mod tests {
         let error = write_markdown_file(&unsupported_path, "not Markdown", None, false)
             .expect_err("text file should be rejected");
 
-        assert!(matches!(
-            error,
-            SaveMarkdownFileError::UnsupportedFileType { .. }
-        ));
+        assert_matches!(error, SaveMarkdownFileError::UnsupportedFileType { .. });
         assert!(!unsupported_path.exists());
     }
 
     #[test]
     fn maps_invalid_path_save_errors() {
-        assert!(matches!(
+        assert_matches!(
             save_metadata_error(FileMetadataReadError::InvalidPath, "bad:path"),
             SaveMarkdownFileError::InvalidPath { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             save_write_error(
                 std::io::Error::from(ErrorKind::InvalidInput),
                 Path::new("bad:path"),
                 "bad:path"
             ),
             SaveMarkdownFileError::InvalidPath { .. }
-        ));
+        );
     }
 
     #[test]
@@ -695,7 +687,7 @@ mod tests {
         let error = write_markdown_file(&file.path, "updated", Some(opened.metadata), false)
             .expect_err("missing saved file should not be recreated");
 
-        assert!(matches!(error, SaveMarkdownFileError::MissingFile { .. }));
+        assert_matches!(error, SaveMarkdownFileError::MissingFile { .. });
         assert!(!file.path.exists());
     }
 
@@ -708,10 +700,7 @@ mod tests {
         let error = write_markdown_file(&file.path, "updated", Some(opened.metadata), false)
             .expect_err("changed saved file should not be overwritten");
 
-        assert!(matches!(
-            error,
-            SaveMarkdownFileError::ExternalModification { .. }
-        ));
+        assert_matches!(error, SaveMarkdownFileError::ExternalModification { .. });
         assert_eq!(fs::read_to_string(&file.path).unwrap(), "external change");
     }
 

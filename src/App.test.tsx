@@ -174,6 +174,7 @@ describe("App", () => {
       });
     });
     await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());
+    expect(appWindow.emit).not.toHaveBeenCalledWith("leafdown://window-close-declined");
   });
 
   it("keeps the native window open when dirty document close is cancelled", async () => {
@@ -201,6 +202,45 @@ describe("App", () => {
       expect.objectContaining({ kind: "warning" }),
     );
     expect(appWindow.destroy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(appWindow.emit).toHaveBeenCalledWith("leafdown://window-close-declined");
+    });
+  });
+
+  it("leaves a failed close request unanswered so the backend fallback can close the window", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(confirm).mockRejectedValue(new Error("Dialog unavailable."));
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true }),
+    });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.listen).toHaveBeenCalledWith(
+          "leafdown://window-close-requested",
+          expect.any(Function),
+        );
+      });
+
+      const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+        "leafdown://window-close-requested",
+      );
+      await handleCloseRequested({ payload: undefined });
+
+      await waitFor(() => {
+        expect(consoleError).toHaveBeenCalledWith(
+          "Unexpected error (windowCloseRequested).",
+          expect.any(Error),
+        );
+      });
+      expect(appWindow.emit).not.toHaveBeenCalled();
+      expect(appWindow.destroy).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("unlistens backend close request events when setup resolves after unmount", async () => {

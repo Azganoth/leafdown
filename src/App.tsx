@@ -41,6 +41,7 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
 };
 
 const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
+const WINDOW_CLOSE_DECLINED_EVENT = "leafdown://window-close-declined";
 
 export function App() {
   const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
@@ -73,14 +74,20 @@ export function App() {
     async () => {
       const appWindow = getCurrentWindow();
 
-      if (await confirmDiscardActiveDocumentChanges()) {
-        await writeDiagnosticOperationLifecycle({
-          feature: "app",
-          operation: "window",
-          phase: "closing",
-        });
-        await appWindow.destroy();
+      // The backend keeps a close request pending until the window is destroyed or the request is
+      // declined, and lets the next request through while one is still pending. Answering only
+      // deliberate decisions is what makes that fallback reach a close handler that keeps failing.
+      if (!(await confirmDiscardActiveDocumentChanges())) {
+        await appWindow.emit(WINDOW_CLOSE_DECLINED_EVENT);
+        return;
       }
+
+      await writeDiagnosticOperationLifecycle({
+        feature: "app",
+        operation: "window",
+        phase: "closing",
+      });
+      await appWindow.destroy();
     },
     "windowCloseRequested",
   );

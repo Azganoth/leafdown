@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Replace saved documents in one step so an interrupted or failed save cannot destroy the previous contents.
 - Fall back to default preferences and repair persisted settings or recent items that hold invalid values.
 - Follow operating system appearance changes while the system theme is selected.
 - Restore monospace glyphs that were missing from bundled builds.

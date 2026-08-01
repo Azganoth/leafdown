@@ -9,7 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_utils::{ReadUtf8FileError, read_utf8_file_with_size_limit},
+    file_utils::{ReadUtf8FileError, read_utf8_file_with_size_limit, write_file_atomically},
     path_utils::path_to_string,
 };
 
@@ -231,7 +231,7 @@ pub(crate) fn write_markdown_file(
 
     verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
 
-    fs::write(path, content)
+    write_file_atomically(path, content.as_bytes())
         .map_err(|error| save_write_error(error, path, serialized_path.as_str()))?;
 
     let metadata = read_file_metadata(path)

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useId } from "react";
 
 import {
   COMMAND_DEFINITIONS,
@@ -11,6 +11,7 @@ import {
   Menubar,
   MenubarCheckboxItem,
   MenubarContent,
+  MenubarGroup,
   MenubarItem,
   MenubarLabel,
   MenubarMenu,
@@ -248,6 +249,11 @@ interface CommandItemsProps {
   commandIds: readonly AppCommandId[];
 }
 
+const areAllDisabled = (
+  commandState: CommandMenuContextValue["commandState"],
+  commandIds: readonly AppCommandId[],
+) => commandIds.every((commandId) => !commandState(commandId).enabled);
+
 function CommandItems({ commandIds }: CommandItemsProps) {
   return commandIds.map((commandId) => <CommandMenuItem commandId={commandId} key={commandId} />);
 }
@@ -322,9 +328,11 @@ interface RecentItemsProps {
 }
 
 function RecentItems({ label, items, onOpen }: RecentItemsProps) {
+  const labelId = useId();
+
   return (
-    <>
-      <MenubarLabel>{label}</MenubarLabel>
+    <MenubarGroup aria-labelledby={labelId}>
+      <MenubarLabel id={labelId}>{label}</MenubarLabel>
       {items.length === 0 ? (
         <MenubarItem disabled>No recent {label.toLowerCase().replace("recent ", "")}.</MenubarItem>
       ) : (
@@ -334,7 +342,7 @@ function RecentItems({ label, items, onOpen }: RecentItemsProps) {
           </MenubarItem>
         ))
       )}
-    </>
+    </MenubarGroup>
   );
 }
 
@@ -343,9 +351,13 @@ interface CommandSubmenuProps extends CommandItemsProps {
 }
 
 function CommandSubmenu({ commandIds, label }: CommandSubmenuProps) {
+  const { commandState } = useCommandMenu();
+
   return (
     <MenubarSub>
-      <MenubarSubTrigger>{label}</MenubarSubTrigger>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+        {label}
+      </MenubarSubTrigger>
       <MenubarSubContent>
         <CommandItems commandIds={commandIds} />
       </MenubarSubContent>
@@ -410,7 +422,9 @@ function RadioSubmenu({ commandIds, label }: RadioSubmenuProps) {
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger>{label}</MenubarSubTrigger>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+        {label}
+      </MenubarSubTrigger>
       <MenubarSubContent>
         <MenubarRadioGroup
           value={checkedId}

@@ -20,6 +20,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Show the window even when startup initialization fails instead of leaving an invisible process running.
+- Close the window on the next close request when the app stops answering, instead of leaving a process that only Task Manager can end.
 - Replace saved documents in one step so an interrupted or failed save cannot destroy the previous contents.
 - Fall back to default preferences and repair persisted settings or recent items that hold invalid values.
 - Follow operating system appearance changes while the system theme is selected.

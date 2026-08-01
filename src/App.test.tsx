@@ -1,6 +1,7 @@
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "./App";
@@ -40,6 +41,29 @@ describe("App", () => {
       expect(document.documentElement).toHaveClass("dark");
     } finally {
       startRecentItemsStore.mockRestore();
+      startSettingsStore.mockRestore();
+    }
+  });
+
+  it("shows the window and reports the failure when a persisted store fails to start", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockRejectedValue(new Error("Persisted settings are unreadable."));
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.show).toHaveBeenCalled();
+      });
+
+      expect(toast.error).toHaveBeenCalledWith("Could not load preferences.", {
+        description: "Persisted settings are unreadable.",
+      });
+    } finally {
+      consoleError.mockRestore();
       startSettingsStore.mockRestore();
     }
   });
@@ -150,6 +174,7 @@ describe("App", () => {
       });
     });
     await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());
+    expect(appWindow.emit).not.toHaveBeenCalledWith("leafdown://window-close-declined");
   });
 
   it("keeps the native window open when dirty document close is cancelled", async () => {
@@ -177,6 +202,45 @@ describe("App", () => {
       expect.objectContaining({ kind: "warning" }),
     );
     expect(appWindow.destroy).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(appWindow.emit).toHaveBeenCalledWith("leafdown://window-close-declined");
+    });
+  });
+
+  it("leaves a failed close request unanswered so the backend fallback can close the window", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(confirm).mockRejectedValue(new Error("Dialog unavailable."));
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true }),
+    });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.listen).toHaveBeenCalledWith(
+          "leafdown://window-close-requested",
+          expect.any(Function),
+        );
+      });
+
+      const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+        "leafdown://window-close-requested",
+      );
+      await handleCloseRequested({ payload: undefined });
+
+      await waitFor(() => {
+        expect(consoleError).toHaveBeenCalledWith(
+          "Unexpected error (windowCloseRequested).",
+          expect.any(Error),
+        );
+      });
+      expect(appWindow.emit).not.toHaveBeenCalled();
+      expect(appWindow.destroy).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("unlistens backend close request events when setup resolves after unmount", async () => {

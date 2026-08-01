@@ -30,6 +30,7 @@ export const createTauriAppMock = () => ({
 const currentWindowMock = {
   close: vi.fn(async () => undefined),
   destroy: vi.fn(async () => undefined),
+  emit: vi.fn(async () => undefined),
   isFullscreen: vi.fn(async () => false),
   listen: vi.fn(async () => vi.fn()),
   onThemeChanged: vi.fn(async () => vi.fn()),

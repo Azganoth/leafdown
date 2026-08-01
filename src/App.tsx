@@ -16,7 +16,7 @@ import {
   type SettingsState,
 } from "@/features/preferences";
 import { confirmDiscardActiveDocumentChanges } from "@/features/session";
-import { handleUnexpectedError } from "@/lib/errors";
+import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
 
@@ -41,20 +41,31 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
 };
 
 const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
+const WINDOW_CLOSE_DECLINED_EVENT = "leafdown://window-close-declined";
 
 export function App() {
   const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
 
   useEffect(() => {
     const initializeApp = async () => {
-      await Promise.all([settingsStoreTauriHandler.start(), recentItemsStoreTauriHandler.start()]);
+      try {
+        await Promise.all([
+          settingsStoreTauriHandler.start(),
+          recentItemsStoreTauriHandler.start(),
+        ]);
 
-      await updateTheme(useSettingsStore.getState().theme);
-
-      await getCurrentWindow().show();
+        await updateTheme(useSettingsStore.getState().theme);
+      } finally {
+        // A hidden window has no chrome, focus, or taskbar entry, so it cannot be asked to close.
+        await getCurrentWindow()
+          .show()
+          .catch((error) => handleUnexpectedError(error, "showWindow"));
+      }
     };
 
-    void initializeApp().catch((error) => handleUnexpectedError(error, "initializeApp"));
+    void initializeApp().catch((error) =>
+      notifyOperationFailure("Could not load preferences.", error, "initializeApp"),
+    );
   }, []);
 
   useTauriEvent<void>(
@@ -62,14 +73,19 @@ export function App() {
     async () => {
       const appWindow = getCurrentWindow();
 
-      if (await confirmDiscardActiveDocumentChanges()) {
-        await writeDiagnosticOperationLifecycle({
-          feature: "app",
-          operation: "window",
-          phase: "closing",
-        });
-        await appWindow.destroy();
+      // The backend closes on the next request while one is pending, so only a deliberate
+      // decision answers it: a handler that keeps failing must stay silent to stay closable.
+      if (!(await confirmDiscardActiveDocumentChanges())) {
+        await appWindow.emit(WINDOW_CLOSE_DECLINED_EVENT);
+        return;
       }
+
+      await writeDiagnosticOperationLifecycle({
+        feature: "app",
+        operation: "window",
+        phase: "closing",
+      });
+      await appWindow.destroy();
     },
     "windowCloseRequested",
   );

@@ -1,4 +1,4 @@
-use tauri::{Emitter, WindowEvent};
+use tauri::WindowEvent;
 use tauri_plugin_frame::FramePluginBuilder;
 use tauri_plugin_window_state::StateFlags;
 
@@ -15,8 +15,8 @@ mod navigation;
 mod path_utils;
 #[cfg(test)]
 mod test_utils;
+mod window;
 
-const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
 const TITLEBAR_HEIGHT: u32 = 32;
 const TITLEBAR_BUTTON_WIDTH: u32 = 52;
 const TITLEBAR_BUTTON_HOVER_BACKGROUND: &str = "color-mix(in srgb, currentColor 12%, transparent)";
@@ -49,6 +49,7 @@ pub fn run() {
         .plugin(tauri_plugin_zustand::init())
         .manage(diagnostics_runtime)
         .manage(folder::FolderWatcherState::default())
+        .manage(window::CloseRequestGuard::default())
         .setup(|app| {
             let package_info = app.package_info();
             let app_version = package_info.version.to_string();
@@ -62,15 +63,13 @@ pub fn run() {
                 )
             );
 
+            window::register_close_decline_listener(app.handle());
+
             Ok(())
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-
-                if let Err(error) = window.emit(WINDOW_CLOSE_REQUESTED_EVENT, ()) {
-                    log::error!("failed to emit close-requested event: {error}");
-                }
+                window::handle_close_requested(window, api);
             }
         })
         .invoke_handler(tauri::generate_handler![

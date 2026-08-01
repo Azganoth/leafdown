@@ -101,7 +101,7 @@ The Rust backend manages:
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
-- Intercepting window close requests to prompt for unsaved changes before exit.
+- Intercepting window close requests to prompt for unsaved changes before exit, and closing the window on the next request when the frontend leaves one unanswered.
 - Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
 - Mapping permission and IO errors.
 - Writing bounded JSONL local diagnostic logs, owning diagnostic log envelope fields, and reporting the app log directory.
@@ -118,6 +118,7 @@ The React frontend manages:
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Marker visibility rules, thematic styling, and error presentation.
 - Mirroring shared unexpected-error reports and feature-owned operational diagnostics into local logs as event-specific payloads, and exposing the Help diagnostics dialog.
+- Showing the window once startup initialization finishes or fails, and answering intercepted close requests by destroying the window or declining the request.
 - Suppressing default webview context menus and standard window-level drag-and-drop navigation.
 
 The frontend calls feature-owned Rust commands only through feature-owned Tauri API modules. See [Engineering Patterns](./patterns.md#tauri-api-modules) for the implementation rules for that boundary.

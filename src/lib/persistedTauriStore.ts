@@ -1,5 +1,7 @@
 import { createTauriStore } from "@tauri-store/zustand";
 
+import { salvagedRecord, type ContractShape, type ShapeValue } from "@/lib/valueContract";
+
 interface VersionedState {
   version: number;
 }
@@ -117,4 +119,39 @@ export const createPersistedTauriStore = <State extends VersionedState>(
   };
 
   return handler;
+};
+
+interface PersistedStateContract<Shape extends ContractShape> {
+  // Mirrors PersistedTauriStoreKey, which cannot apply here because a contracted
+  // shape makes every field optional and so never satisfies VersionedState.
+  keys: Exclude<Extract<keyof Shape, string>, "version">[];
+  sanitize: (state: ShapeValue<Shape>) => {
+    changed: boolean;
+    state: ShapeValue<Shape>;
+  };
+}
+
+// Deriving both from one shape keeps a field from being validated but not persisted:
+// the persisted key list is not checked for exhaustiveness anywhere else.
+export const definePersistedState = <Shape extends ContractShape>(
+  shape: Shape,
+): PersistedStateContract<Shape> => {
+  const contract = salvagedRecord(shape);
+
+  return {
+    keys: Object.keys(shape).filter(
+      (key) => key !== "version",
+    ) as PersistedStateContract<Shape>["keys"],
+
+    sanitize: (state) => {
+      const checked = contract.check(state);
+
+      if (checked.outcome === "valid") {
+        // Returning the original keeps the untouched path free of a needless copy.
+        return { changed: false, state };
+      }
+
+      return { changed: true, state: checked.outcome === "repaired" ? checked.value : {} };
+    },
+  };
 };

@@ -301,6 +301,8 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - `Mod+Shift+S` opens `Save as`.
 - If the active document is untitled, `Mod+S` opens `Save as`.
 - Save actions write the active document as ordinary Markdown.
+- A save either fully replaces the file contents or leaves the previous contents in place. An interrupted or failed save never leaves a partially written document or a stray file beside it.
+- Saving a document that is a symlink writes through to the link target and leaves the link in place.
 - `Insert final newline on save` controls whether Leafdown writes a final newline when saving.
 - `Line ending` actions affect the active document's save output, not the rendered editor surface.
 - If the active saved file no longer exists when saving, Leafdown shows a missing-file error and offers `Save as` or `Cancel`.

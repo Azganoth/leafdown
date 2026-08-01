@@ -217,6 +217,19 @@
 - The pre-commit hook formats but does not apply lint fixes, so a commit cannot differ from the diff its author read.
 - Rust import grouping is a convention rather than a check. The rustfmt options that would enforce it are nightly-only, and stable rustfmt warns, ignores them, and exits 0, so configuring them without a second toolchain would leave a passing check that enforces nothing.
 
+### Replace saved files through a staged rename
+
+**Decision:** Saves write the contents to a staging file beside the target, sync it, and rename it over the target. Symlinked targets are resolved first so the write goes through to the link target. Windows attributes and ACLs are not copied onto the staging file.
+
+**Rationale:** Leafdown edits ordinary files with no vault, sidecar, or cloud copy, so the file on disk is the only copy and a truncating write leaves it destroyed for the length of the write. Replacing a symlink rather than writing through it would silently detach a linked document from wherever it points; the folder-scan rule that skips symlinked entries governs listing, not writing. Carrying the target's attributes and ACLs across would need `ReplaceFileW`, which is Windows-only and outside `std`.
+
+**Consequences:**
+
+- The guarantee is atomic replacement, not crash-proof persistence: the rename's durability rests on filesystem metadata journaling.
+- A save replaces the file rather than rewriting it, so non-inherited ACLs, the hidden attribute, alternate data streams, and hardlink identity do not survive it.
+- Replacing a file requires delete access to the target, so a process holding the document open without delete sharing blocks a save that a truncating write would have completed.
+- Every save costs one fsync of the document contents.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

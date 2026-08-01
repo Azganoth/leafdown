@@ -313,6 +313,7 @@ fn scan_folder_with_depth(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::{
         fs,
         io::{self, ErrorKind},
@@ -559,10 +560,10 @@ mod tests {
 
         assert!(!result.folder.is_empty);
         assert!(result.index_document.is_none());
-        assert!(matches!(
+        assert_matches!(
             result.index_error,
             Some(OpenMarkdownFileError::InvalidEncoding { .. })
-        ));
+        );
     }
 
     #[test]
@@ -577,11 +578,11 @@ mod tests {
         )
         .expect_err("missing folder should fail");
 
-        assert!(matches!(
+        assert_matches!(
             error,
             ScanMarkdownFolderError::MissingFolder { path }
                 if path == missing_path.to_string_lossy()
-        ));
+        );
     }
 
     #[test]
@@ -596,54 +597,54 @@ mod tests {
         )
         .expect_err("file path should fail as a folder context");
 
-        assert!(matches!(
+        assert_matches!(
             error,
             ScanMarkdownFolderError::NotDirectory { path } if path == file_path.to_string_lossy()
-        ));
+        );
     }
 
     #[test]
     fn classifies_scan_folder_metadata_errors() {
         let path = Path::new("bad:path");
 
-        assert!(matches!(
+        assert_matches!(
             scan_folder_metadata_error(io::Error::from(ErrorKind::InvalidInput), path),
             ScanMarkdownFolderError::InvalidPath { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_metadata_error(io::Error::from(ErrorKind::NotFound), path),
             ScanMarkdownFolderError::MissingFolder { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_metadata_error(io::Error::from(ErrorKind::PermissionDenied), path),
             ScanMarkdownFolderError::PermissionDenied { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_metadata_error(io::Error::from(ErrorKind::Other), path),
             ScanMarkdownFolderError::MetadataFailed { .. }
-        ));
+        );
     }
 
     #[test]
     fn classifies_scan_folder_read_errors() {
         let path = Path::new("bad:path");
 
-        assert!(matches!(
+        assert_matches!(
             scan_folder_read_error(io::Error::from(ErrorKind::InvalidInput), path),
             ScanMarkdownFolderError::InvalidPath { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_read_error(io::Error::from(ErrorKind::NotFound), path),
             ScanMarkdownFolderError::MissingFolder { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_read_error(io::Error::from(ErrorKind::PermissionDenied), path),
             ScanMarkdownFolderError::PermissionDenied { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             scan_folder_read_error(io::Error::from(ErrorKind::Other), path),
             ScanMarkdownFolderError::ReadDirectoryFailed { .. }
-        ));
+        );
     }
 
     fn tree_has_directory(tree: &MarkdownFolderTree, name: &str) -> bool {

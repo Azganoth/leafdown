@@ -29,6 +29,7 @@ pub(crate) fn read_utf8_file_with_size_limit(
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::fs;
 
     use super::{ReadUtf8FileError, read_utf8_file_with_size_limit};
@@ -67,9 +68,9 @@ mod tests {
         let path = folder.path("invalid.md");
         fs::write(path.as_path(), [0xff, 0xfe]).unwrap();
 
-        assert!(matches!(
+        assert_matches!(
             read_utf8_file_with_size_limit(path.as_path(), 1024),
             Err(ReadUtf8FileError::InvalidEncoding),
-        ));
+        );
     }
 }

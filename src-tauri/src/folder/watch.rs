@@ -418,6 +418,7 @@ impl FolderWatcherScopeTracker {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
     use std::{
         io::{self, ErrorKind},
         path::Path,
@@ -665,22 +666,22 @@ mod tests {
     fn classifies_watch_folder_metadata_errors() {
         let path = Path::new("bad:path");
 
-        assert!(matches!(
+        assert_matches!(
             watch_folder_metadata_error(io::Error::from(ErrorKind::InvalidInput), path),
             WatchMarkdownFolderError::InvalidPath { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             watch_folder_metadata_error(io::Error::from(ErrorKind::NotFound), path),
             WatchMarkdownFolderError::MissingFolder { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             watch_folder_metadata_error(io::Error::from(ErrorKind::PermissionDenied), path),
             WatchMarkdownFolderError::PermissionDenied { .. }
-        ));
-        assert!(matches!(
+        );
+        assert_matches!(
             watch_folder_metadata_error(io::Error::from(ErrorKind::Other), path),
             WatchMarkdownFolderError::MetadataFailed { .. }
-        ));
+        );
     }
 
     fn event(kind: EventKind, path: &Path) -> Event {

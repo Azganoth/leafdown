@@ -56,8 +56,7 @@ export function App() {
 
         await updateTheme(useSettingsStore.getState().theme);
       } finally {
-        // A window that is never shown has no chrome, focus, or taskbar entry, so it cannot even
-        // be asked to close. Showing it regardless keeps a failed startup reportable and exitable.
+        // A hidden window has no chrome, focus, or taskbar entry, so it cannot be asked to close.
         await getCurrentWindow()
           .show()
           .catch((error) => handleUnexpectedError(error, "showWindow"));
@@ -74,9 +73,8 @@ export function App() {
     async () => {
       const appWindow = getCurrentWindow();
 
-      // The backend keeps a close request pending until the window is destroyed or the request is
-      // declined, and lets the next request through while one is still pending. Answering only
-      // deliberate decisions is what makes that fallback reach a close handler that keeps failing.
+      // The backend closes on the next request while one is pending, so only a deliberate
+      // decision answers it: a handler that keeps failing must stay silent to stay closable.
       if (!(await confirmDiscardActiveDocumentChanges())) {
         await appWindow.emit(WINDOW_CLOSE_DECLINED_EVENT);
         return;

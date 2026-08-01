@@ -5,7 +5,7 @@ use tauri::{AppHandle, CloseRequestApi, Emitter, Listener, Manager, Runtime, Win
 const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
 const WINDOW_CLOSE_DECLINED_EVENT: &str = "leafdown://window-close-declined";
 
-/// Leafdown runs a single window, so one guard tracks the only close conversation in flight.
+/// Leafdown runs a single window, so one guard tracks the only close request in flight.
 #[derive(Debug, Default)]
 pub(crate) struct CloseRequestGuard {
     pending: AtomicBool,
@@ -13,9 +13,7 @@ pub(crate) struct CloseRequestGuard {
 
 #[derive(Debug, PartialEq, Eq)]
 enum CloseRequestDecision {
-    /// Hand the request to the frontend and keep the window open until it answers.
     AskFrontend,
-    /// The frontend left the previous request unanswered, so stop asking.
     Close,
 }
 

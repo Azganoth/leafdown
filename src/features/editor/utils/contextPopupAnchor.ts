@@ -4,6 +4,10 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 // measuring the real thing would buy nothing.
 const POPUP_CLEARANCE = 200;
 
+// Floating UI reads a rect of no height resting on the clipping edge as fully clipped, which
+// would hide a popup meant to be visible.
+const MINIMUM_ANCHOR_HEIGHT = 1;
+
 // Floating UI's own overflow test, so the popup is clamped to the element it listens on.
 const OVERFLOW_PATTERN = /auto|scroll|overlay|hidden|clip/u;
 
@@ -77,7 +81,22 @@ const isOutsideViewport = (selection: DOMRect, viewport: DOMRect) =>
   selection.right < viewport.left ||
   selection.left > viewport.right;
 
-/** Resolves the rect the popup positions against, beside the visible part of the selection. */
+const hasRoomBeside = (top: number, bottom: number, viewport: DOMRect) =>
+  viewport.bottom - bottom >= POPUP_CLEARANCE || top - viewport.top >= POPUP_CLEARANCE;
+
+const withMinimumHeight = (
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+  viewport: DOMRect,
+): DOMRect => {
+  const anchorTop = Math.min(top, viewport.bottom - MINIMUM_ANCHOR_HEIGHT);
+
+  return createRect(left, anchorTop, right, Math.max(bottom, anchorTop + MINIMUM_ANCHOR_HEIGHT));
+};
+
+/** Resolves the rect the popup positions against: beside the visible selection, or inside it. */
 export const resolveContextPopupAnchorRect = (
   selection: DOMRect,
   viewport: DOMRect,
@@ -94,13 +113,14 @@ export const resolveContextPopupAnchorRect = (
   const bottom = clamp(selection.bottom, top, viewport.bottom);
   const right = clamp(selection.right, left, viewport.right);
 
-  // Collision handling cannot rescue a selection that fills the visible area: both sides
-  // overflow, and Radix shifts along the alignment axis only.
-  if (viewport.bottom - bottom < POPUP_CLEARANCE && top - viewport.top < POPUP_CLEARANCE) {
-    return createRect(left, top, right, top);
+  // A selection taller than the visible area has no outside within reach, and one that fills the
+  // area leaves no room either side. Both anchor to its first visible line, which puts the popup
+  // inside the selection; collision handling would only push it further out.
+  if (selection.height > viewport.height || !hasRoomBeside(top, bottom, viewport)) {
+    return withMinimumHeight(left, top, right, top, viewport);
   }
 
-  return createRect(left, top, right, bottom);
+  return withMinimumHeight(left, top, right, bottom, viewport);
 };
 
 export const createContextPopupAnchor = (view: EditorView): ContextPopupAnchor => {

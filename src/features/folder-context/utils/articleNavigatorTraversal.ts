@@ -70,6 +70,45 @@ export const getArticleNavigatorTraversalAction = ({
   }
 };
 
+export const ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS = 1000;
+
+// Space activates the focused row, except mid-search, where it is an ordinary
+// character in a file name.
+export const isArticleNavigatorTypeaheadKey = (key: string, typeaheadBuffer: string) =>
+  key.length === 1 && (key !== " " || typeaheadBuffer !== "");
+
+interface GetArticleNavigatorTypeaheadIndexOptions {
+  focusedIndex: number;
+  rows: ArticleNavigatorRow[];
+  typeaheadBuffer: string;
+}
+
+export const getArticleNavigatorTypeaheadIndex = ({
+  focusedIndex,
+  rows,
+  typeaheadBuffer,
+}: GetArticleNavigatorTypeaheadIndexOptions) => {
+  // A repeated character cycles through the rows starting with it, rather than
+  // searching for a name made of it.
+  const query = (
+    isRepeatedCharacter(typeaheadBuffer) ? typeaheadBuffer[0] : typeaheadBuffer
+  ).toLowerCase();
+
+  if (!query) {
+    return null;
+  }
+
+  const searchOrder = rows
+    .map((_, offset) => (focusedIndex + offset) % rows.length)
+    // A single character always advances, so the row already focused cannot answer it.
+    .filter((index) => query.length > 1 || index !== focusedIndex);
+
+  return searchOrder.find((index) => rows[index].name.toLowerCase().startsWith(query)) ?? null;
+};
+
+const isRepeatedCharacter = (value: string) =>
+  value.length > 1 && value === value[0].repeat(value.length);
+
 export const getArticleNavigatorFocusedIndex = (
   rows: ArticleNavigatorRow[],
   focusedPath: string | null,

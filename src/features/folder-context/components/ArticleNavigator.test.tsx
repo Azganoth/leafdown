@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createEmptyFolderContext,
@@ -6,9 +6,10 @@ import {
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { act, render, renderWithUser, screen } from "@/test/utils/react";
+import { act, render, renderWithUser, screen, setupUser } from "@/test/utils/react";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
+import { ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS } from "../utils/articleNavigatorTraversal";
 import { ArticleNavigator } from "./ArticleNavigator";
 
 const folderContext = createFolderContext();
@@ -247,6 +248,72 @@ describe("ArticleNavigator", () => {
 
     expect(screen.getByRole("treeitem", { name: "docs" }).tabIndex).toBe(0);
     expect(screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0)).toHaveLength(1);
+  });
+
+  describe("typeahead", () => {
+    // Only the clock is faked: user-event's own waits still need real timers.
+    beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
+    afterEach(() => vi.useRealTimers());
+
+    it("jumps to a row by name and forgets the search after a pause", async () => {
+      const user = setupUser({ delay: null });
+      render(
+        <ArticleNavigator
+          activeArticlePath={null}
+          folderContext={nestedFolderContext}
+          onOpenArticle={vi.fn()}
+        />,
+      );
+
+      screen.getByRole("treeitem", { name: "readme.md" }).focus();
+      await user.keyboard("d");
+
+      expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toHaveFocus();
+
+      await user.keyboard("o");
+
+      expect(screen.getByRole("treeitem", { name: "docs" })).toHaveFocus();
+
+      vi.setSystemTime(Date.now() + ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS + 1);
+      await user.keyboard("d");
+
+      expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toHaveFocus();
+    });
+
+    it("does not open a document while searching", async () => {
+      const onOpenArticle = vi.fn();
+      const user = setupUser({ delay: null });
+      render(
+        <ArticleNavigator
+          activeArticlePath={null}
+          folderContext={nestedFolderContext}
+          onOpenArticle={onOpenArticle}
+        />,
+      );
+
+      screen.getByRole("treeitem", { name: "readme.md" }).focus();
+      await user.keyboard("dra t");
+
+      expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toHaveFocus();
+      expect(onOpenArticle).not.toHaveBeenCalled();
+    });
+
+    it("opens the focused article on space when no search is running", async () => {
+      const onOpenArticle = vi.fn();
+      const user = setupUser({ delay: null });
+      render(
+        <ArticleNavigator
+          activeArticlePath={null}
+          folderContext={nestedFolderContext}
+          onOpenArticle={onOpenArticle}
+        />,
+      );
+
+      screen.getByRole("treeitem", { name: "readme.md" }).focus();
+      await user.keyboard(" ");
+
+      expect(onOpenArticle).toHaveBeenCalledWith("C:/Notes/readme.md");
+    });
   });
 
   it("shows when the active document is outside the current folder context", () => {

@@ -7,7 +7,9 @@ import { buildArticleNavigatorRows } from "./articleNavigatorRows";
 import {
   getArticleNavigatorFocusedIndex,
   getArticleNavigatorTraversalAction,
+  getArticleNavigatorTypeaheadIndex,
   isArticleNavigatorTraversalKey,
+  isArticleNavigatorTypeaheadKey,
 } from "./articleNavigatorTraversal";
 
 const tree = createNestedArticleTree();
@@ -28,6 +30,9 @@ const collapsedRows = buildArticleNavigatorRows({
 
 const actionFor = (key: string, focusedIndex: number, rows = expandedRows) =>
   getArticleNavigatorTraversalAction({ focusedIndex, key, rows });
+
+const typeaheadIndexFor = (typeaheadBuffer: string, focusedIndex: number) =>
+  getArticleNavigatorTypeaheadIndex({ focusedIndex, rows: expandedRows, typeaheadBuffer });
 
 describe("article navigator traversal", () => {
   it("claims only the keys the tree operates on", () => {
@@ -86,6 +91,36 @@ describe("article navigator traversal", () => {
   it("activates the focused row on enter and space", () => {
     expect(actionFor("Enter", 3)).toEqual({ type: "activateRow", index: 3 });
     expect(actionFor(" ", 2)).toEqual({ type: "activateRow", index: 2 });
+  });
+
+  it("takes printable keys as a search, and space only while one is running", () => {
+    expect(isArticleNavigatorTypeaheadKey("d", "")).toBe(true);
+    expect(isArticleNavigatorTypeaheadKey("2", "")).toBe(true);
+    expect(isArticleNavigatorTypeaheadKey(" ", "")).toBe(false);
+    expect(isArticleNavigatorTypeaheadKey(" ", "my")).toBe(true);
+    expect(isArticleNavigatorTypeaheadKey("ArrowDown", "")).toBe(false);
+  });
+
+  it("jumps to the next row whose name starts with the search", () => {
+    expect(typeaheadIndexFor("d", 0)).toBe(1);
+    expect(typeaheadIndexFor("DR", 0)).toBe(1);
+    expect(typeaheadIndexFor("e", 0)).toBe(4);
+  });
+
+  it("keeps a growing search on the row it already matched", () => {
+    expect(typeaheadIndexFor("dr", 1)).toBe(1);
+    expect(typeaheadIndexFor("d", 1)).toBe(2);
+  });
+
+  it("cycles through the rows sharing a first character when it repeats", () => {
+    expect(typeaheadIndexFor("d", 1)).toBe(2);
+    expect(typeaheadIndexFor("dd", 2)).toBe(1);
+  });
+
+  it("wraps around and reports no match", () => {
+    expect(typeaheadIndexFor("r", 3)).toBe(0);
+    expect(typeaheadIndexFor("z", 0)).toBeNull();
+    expect(typeaheadIndexFor("", 0)).toBeNull();
   });
 
   it("starts on the open document and otherwise on the first row", () => {

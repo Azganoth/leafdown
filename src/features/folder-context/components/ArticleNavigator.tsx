@@ -34,9 +34,12 @@ import {
   type ArticleNavigatorRow,
 } from "../utils/articleNavigatorRows";
 import {
+  ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS,
   getArticleNavigatorFocusedIndex,
   getArticleNavigatorTraversalAction,
+  getArticleNavigatorTypeaheadIndex,
   isArticleNavigatorTraversalKey,
+  isArticleNavigatorTypeaheadKey,
 } from "../utils/articleNavigatorTraversal";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
@@ -212,6 +215,7 @@ function ArticleNavigatorRows({
   const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const pendingFocusPathRef = useRef<string | null>(null);
   const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
+  const typeaheadRef = useRef({ buffer: "", lastKeyAtMs: 0 });
   const focusedIndex = getArticleNavigatorFocusedIndex(rows, focusedPath);
 
   useEffect(() => {
@@ -252,8 +256,37 @@ function ArticleNavigatorRows({
     }
   };
 
+  // Nothing reads the buffer between keystrokes, so it expires by elapsed time
+  // rather than on a timer.
+  const readTypeaheadBuffer = () =>
+    Date.now() - typeaheadRef.current.lastKeyAtMs > ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS
+      ? ""
+      : typeaheadRef.current.buffer;
+
+  const searchByTypeahead = (character: string) => {
+    const typeaheadBuffer = readTypeaheadBuffer() + character;
+    typeaheadRef.current = { buffer: typeaheadBuffer, lastKeyAtMs: Date.now() };
+
+    const matchIndex = getArticleNavigatorTypeaheadIndex({ focusedIndex, rows, typeaheadBuffer });
+
+    if (matchIndex !== null) {
+      focusRow(matchIndex);
+    }
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
-    if (!isArticleNavigatorTraversalKey(event.key) || !hasNoShortcutModifier(event.nativeEvent)) {
+    if (!hasNoShortcutModifier(event.nativeEvent)) {
+      return;
+    }
+
+    if (isArticleNavigatorTypeaheadKey(event.key, readTypeaheadBuffer())) {
+      event.preventDefault();
+      searchByTypeahead(event.key);
+
+      return;
+    }
+
+    if (!isArticleNavigatorTraversalKey(event.key)) {
       return;
     }
 

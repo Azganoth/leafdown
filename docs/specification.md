@@ -58,7 +58,8 @@ The article navigator is a tree and takes a single tab stop. Focus enters on the
 - `ArrowRight`: Expand the focused directory, or move into it when it is already expanded.
 - `ArrowLeft`: Collapse the focused directory, or move to the parent directory when it is already collapsed.
 - `Home` and `End`: Move to the first or last visible row.
-- `Enter` and `Space`: Open the focused article, or expand and collapse the focused directory. Clicking a row does the same.
+- Printable characters: Move to the next visible row whose name starts with what was typed, wrapping around. The search clears after a short pause, and one character repeated cycles through the rows that start with it.
+- `Enter` and `Space`: Open the focused article, or expand and collapse the focused directory. Clicking a row does the same. `Space` extends a running search instead, since a space can appear in a file name.
 
 Moving focus never opens a document, so the focused row and the open document are routinely different rows. An empty directory is an ordinary row that can be focused and read, with nothing to expand. Collapsing a directory that contains the focused row moves focus to the nearest row that survives.
 

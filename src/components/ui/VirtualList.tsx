@@ -1,4 +1,9 @@
-import { useVirtualizer, type ScrollToOptions, type VirtualItem } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  useVirtualizer,
+  type ScrollToOptions,
+  type VirtualItem,
+} from "@tanstack/react-virtual";
 import { Slot } from "radix-ui";
 import {
   createContext,
@@ -39,6 +44,7 @@ interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "v
   getItemKey?: (item: T, index: number) => Key;
   initialViewportHeight?: number;
   overscan?: number;
+  pinnedIndexes?: number[];
   virtualListRef?: Ref<VirtualListHandle>;
 }
 
@@ -53,11 +59,14 @@ function VirtualList<T>({
   getItemKey,
   initialViewportHeight = estimateHeight * 16,
   overscan = 8,
+  pinnedIndexes,
   virtualListRef,
   children,
   ...props
 }: VirtualListProps<T>) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
+  const renderedPinnedIndexes =
+    pinnedIndexes?.filter((index) => index >= 0 && index < items.length) ?? [];
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -69,6 +78,8 @@ function VirtualList<T>({
       width: 0,
     },
     overscan,
+    rangeExtractor: (range) =>
+      withPinnedIndexes(defaultRangeExtractor(range), renderedPinnedIndexes),
   });
 
   useImperativeHandle(
@@ -112,6 +123,18 @@ function VirtualList<T>({
     </VirtualListContext.Provider>
   );
 }
+
+// Unmounting the row that holds focus drops focus to the document body, and takes
+// the collection out of the tab sequence when that row is its only tab stop.
+const withPinnedIndexes = (indexes: number[], pinnedIndexes: number[]) => {
+  const missingIndexes = Array.from(new Set(pinnedIndexes)).filter(
+    (pinnedIndex) => !indexes.includes(pinnedIndex),
+  );
+
+  return missingIndexes.length === 0
+    ? indexes
+    : [...indexes, ...missingIndexes].sort((left, right) => left - right);
+};
 
 function VirtualListContent({
   asChild = false,
@@ -186,4 +209,12 @@ function VirtualListEmpty({ children }: { children: ReactNode }) {
   return children;
 }
 
-export { VirtualList, VirtualListContent, VirtualListEmpty, VirtualListItem, VirtualListItems };
+export {
+  VirtualList,
+  VirtualListContent,
+  VirtualListEmpty,
+  VirtualListItem,
+  VirtualListItems,
+  withPinnedIndexes,
+  type VirtualItem,
+};

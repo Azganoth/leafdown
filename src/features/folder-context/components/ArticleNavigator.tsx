@@ -8,18 +8,20 @@ import {
   InfoIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useEffect, useRef, type Ref } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import {
   VirtualList,
   VirtualListContent,
   VirtualListItem,
   VirtualListItems,
+  type VirtualItem,
   type VirtualListHandle,
 } from "@/components/ui/VirtualList";
 import { cn } from "@/lib/cn";
+import { hasNoShortcutModifier } from "@/lib/input";
 import { isSameOrParentPath, isSamePath } from "@/lib/path";
 
 import type { FolderContextState } from "../services/folderContext";
@@ -31,6 +33,14 @@ import {
   type ArticleNavigatorDirectoryRow,
   type ArticleNavigatorRow,
 } from "../utils/articleNavigatorRows";
+import {
+  ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS,
+  getArticleNavigatorFocusedIndex,
+  getArticleNavigatorTraversalAction,
+  getArticleNavigatorTypeaheadIndex,
+  isArticleNavigatorTraversalKey,
+  isArticleNavigatorTypeaheadKey,
+} from "../utils/articleNavigatorTraversal";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
 const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
@@ -48,10 +58,7 @@ export function ArticleNavigator({
 }: ArticleNavigatorProps) {
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
   const expandDirectories = useArticleNavigatorStore((state) => state.expandDirectories);
-  const revealArticlePath = useArticleNavigatorStore((state) => state.revealArticlePath);
-  const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
   const toggleDirectory = useArticleNavigatorStore((state) => state.toggleDirectory);
-  const virtualListRef = useRef<VirtualListHandle>(null);
   const activeFileAncestorDirectoryPaths =
     folderContext && activeArticlePath
       ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
@@ -75,10 +82,6 @@ export function ArticleNavigator({
       })
     : [];
   const hasRows = rows.length > 0;
-  const revealRowIndex = rows.findIndex(
-    (row) =>
-      row.kind === "file" && revealArticlePath !== null && isSamePath(row.path, revealArticlePath),
-  );
 
   useEffect(() => {
     if (!activeFileAncestorDirectoryPathSignature) {
@@ -87,14 +90,6 @@ export function ArticleNavigator({
 
     expandDirectories(activeFileAncestorDirectoryPathSignature.split(PATH_SIGNATURE_SEPARATOR));
   }, [activeFileAncestorDirectoryPathSignature, expandDirectories]);
-
-  useEffect(() => {
-    if (revealRequestId === 0 || revealRowIndex < 0) {
-      return;
-    }
-
-    virtualListRef.current?.scrollToIndex(revealRowIndex, { align: "center" });
-  }, [revealRequestId, revealRowIndex]);
 
   const handleOpenArticle = (path: string) => {
     if (activeArticlePath && isSamePath(path, activeArticlePath)) {
@@ -132,7 +127,6 @@ export function ArticleNavigator({
               onOpenArticle={handleOpenArticle}
               onToggleDirectory={toggleDirectory}
               rows={rows}
-              virtualListRef={virtualListRef}
             />
           )}
           {!folderContext.isEmpty && !hasRows && (
@@ -193,32 +187,158 @@ interface ArticleNavigatorRowsProps {
   onOpenArticle: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   rows: ArticleNavigatorRow[];
-  virtualListRef: Ref<VirtualListHandle>;
+}
+
+interface ArticleNavigatorFocus {
+  path: string | null;
+  requestId: number;
 }
 
 function ArticleNavigatorRows({
   onOpenArticle,
   onToggleDirectory,
   rows,
-  virtualListRef,
 }: ArticleNavigatorRowsProps) {
+  const virtualListRef = useRef<VirtualListHandle>(null);
+  const revealArticlePath = useArticleNavigatorStore((state) => state.revealArticlePath);
+  const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
+  const [focus, setFocus] = useState<ArticleNavigatorFocus>({ path: null, requestId: 0 });
+  const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
+  const typeaheadRef = useRef({ buffer: "", lastKeyAtMs: 0 });
+  const focusedIndex = getArticleNavigatorFocusedIndex(rows, focus.path);
+  const handledRevealRequestIdRef = useRef(0);
+  const revealRowIndex = rows.findIndex(
+    (row) =>
+      row.kind === "file" && revealArticlePath !== null && isSamePath(row.path, revealArticlePath),
+  );
+  const revealRowPath = revealRowIndex < 0 ? null : rows[revealRowIndex].path;
+
+  // A requested row may sit outside the rendered window, so it is pinned first and
+  // focused once that render commits.
+  useEffect(() => {
+    if (focus.requestId === 0 || focus.path === null) {
+      return;
+    }
+
+    rowElementsRef.current.get(focus.path)?.focus();
+  }, [focus]);
+
+  // The revealed row is pinned, so it is mounted by the time this reaches for it.
+  useEffect(() => {
+    // Expanding a directory renumbers the revealed row and re-runs this, which
+    // must not pull focus back a second time.
+    if (revealRequestId === handledRevealRequestIdRef.current || revealRowPath === null) {
+      return;
+    }
+
+    handledRevealRequestIdRef.current = revealRequestId;
+    virtualListRef.current?.scrollToIndex(revealRowIndex, { align: "center" });
+    rowElementsRef.current.get(revealRowPath)?.focus();
+  }, [revealRequestId, revealRowIndex, revealRowPath]);
+
+  const focusRow = (index: number) => {
+    const path = rows[index]?.path;
+
+    if (path === undefined) {
+      return;
+    }
+
+    setFocus((currentFocus) => ({ path, requestId: currentFocus.requestId + 1 }));
+  };
+
+  const activateRow = (index: number) => {
+    const row = rows[index];
+
+    if (!row) {
+      return;
+    }
+
+    if (row.kind === "directory") {
+      onToggleDirectory(row.path);
+    } else {
+      onOpenArticle(row.path);
+    }
+  };
+
+  // Nothing reads the buffer between keystrokes, so it expires by elapsed time
+  // rather than on a timer.
+  const readTypeaheadBuffer = () =>
+    Date.now() - typeaheadRef.current.lastKeyAtMs > ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS
+      ? ""
+      : typeaheadRef.current.buffer;
+
+  const searchByTypeahead = (character: string) => {
+    const typeaheadBuffer = readTypeaheadBuffer() + character;
+    typeaheadRef.current = { buffer: typeaheadBuffer, lastKeyAtMs: Date.now() };
+
+    const matchIndex = getArticleNavigatorTypeaheadIndex({ focusedIndex, rows, typeaheadBuffer });
+
+    if (matchIndex !== null) {
+      focusRow(matchIndex);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+    if (!hasNoShortcutModifier(event.nativeEvent)) {
+      return;
+    }
+
+    if (isArticleNavigatorTypeaheadKey(event.key, readTypeaheadBuffer())) {
+      event.preventDefault();
+      searchByTypeahead(event.key);
+
+      return;
+    }
+
+    if (!isArticleNavigatorTraversalKey(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const action = getArticleNavigatorTraversalAction({ focusedIndex, key: event.key, rows });
+
+    switch (action?.type) {
+      case "activateRow":
+        activateRow(action.index);
+        break;
+      case "focusRow":
+        focusRow(action.index);
+        break;
+      case "toggleDirectory":
+        onToggleDirectory(action.path);
+        break;
+    }
+  };
+
   return (
     <VirtualList
       className="min-h-0 flex-1"
       estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
       getItemKey={(row) => row.path}
       items={rows}
+      pinnedIndexes={[focusedIndex, revealRowIndex]}
       virtualListRef={virtualListRef}
     >
-      <VirtualListContent aria-label="Article navigator" className="mx-1" role="list">
+      <VirtualListContent
+        aria-label="Articles"
+        className="mx-1"
+        onKeyDown={handleKeyDown}
+        role="tree"
+      >
         <VirtualListItems<ArticleNavigatorRow>>
-          {(row, virtualRow) => (
-            <VirtualListItem key={row.path} virtualRow={virtualRow}>
-              {row.kind === "directory" && (
-                <DirectoryRow row={row} onToggleDirectory={onToggleDirectory} />
-              )}
-              {row.kind === "file" && <ArticleRow row={row} onOpenArticle={onOpenArticle} />}
-            </VirtualListItem>
+          {(row, virtualRow, index) => (
+            <ArticleNavigatorTreeItem
+              key={row.path}
+              isTabStop={index === focusedIndex}
+              onActivate={() => activateRow(index)}
+              onFocus={() => setFocus((currentFocus) => ({ ...currentFocus, path: row.path }))}
+              registerElement={(element) =>
+                registerRowElement(rowElementsRef.current, row, element)
+              }
+              row={row}
+              virtualRow={virtualRow}
+            />
           )}
         </VirtualListItems>
       </VirtualListContent>
@@ -226,25 +346,71 @@ function ArticleNavigatorRows({
   );
 }
 
-interface DirectoryRowProps {
-  row: ArticleNavigatorDirectoryRow;
-  onToggleDirectory: (path: string) => void;
+const registerRowElement = (
+  rowElements: Map<string, HTMLLIElement>,
+  row: ArticleNavigatorRow,
+  element: HTMLLIElement | null,
+) => {
+  if (element) {
+    rowElements.set(row.path, element);
+  } else {
+    rowElements.delete(row.path);
+  }
+};
+
+interface ArticleNavigatorTreeItemProps {
+  isTabStop: boolean;
+  onActivate: () => void;
+  onFocus: () => void;
+  registerElement: (element: HTMLLIElement | null) => void;
+  row: ArticleNavigatorRow;
+  virtualRow: VirtualItem;
 }
 
-function DirectoryRow({ row, onToggleDirectory }: DirectoryRowProps) {
+function ArticleNavigatorTreeItem({
+  isTabStop,
+  onActivate,
+  onFocus,
+  registerElement,
+  row,
+  virtualRow,
+}: ArticleNavigatorTreeItemProps) {
+  return (
+    <VirtualListItem
+      aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
+      aria-level={row.depth + 1}
+      aria-posinset={row.posInSet}
+      aria-selected={row.kind === "file" && row.isActive}
+      aria-setsize={row.setSize}
+      className={cn(
+        buttonVariants({ variant: "ghost" }),
+        "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal",
+        "data-active:bg-accent data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)]",
+      )}
+      data-active={row.kind === "file" ? row.isActive : undefined}
+      onClick={onActivate}
+      onFocus={onFocus}
+      ref={registerElement}
+      role="treeitem"
+      style={{ paddingLeft: `${row.depth * 14 + (row.kind === "directory" ? 6 : 23)}px` }}
+      tabIndex={isTabStop ? 0 : -1}
+      title={row.path}
+      virtualRow={virtualRow}
+    >
+      {row.kind === "directory" ? (
+        <DirectoryRowContent row={row} />
+      ) : (
+        <ArticleRowContent row={row} />
+      )}
+    </VirtualListItem>
+  );
+}
+
+function DirectoryRowContent({ row }: { row: ArticleNavigatorDirectoryRow }) {
   const Icon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
 
   return (
-    <Button
-      aria-expanded={row.hasChildren ? row.isExpanded : undefined}
-      className="h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal"
-      disabled={!row.hasChildren}
-      onClick={() => onToggleDirectory(row.path)}
-      style={{ paddingLeft: `${row.depth * 14 + 6}px` }}
-      title={row.path}
-      type="button"
-      variant="ghost"
-    >
+    <>
       {row.hasChildren ? (
         <Icon className="size-3 text-muted-foreground" />
       ) : (
@@ -252,32 +418,15 @@ function DirectoryRow({ row, onToggleDirectory }: DirectoryRowProps) {
       )}
       <FolderIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
-    </Button>
+    </>
   );
 }
 
-interface ArticleRowProps {
-  row: ArticleNavigatorArticleRow;
-  onOpenArticle: (path: string) => void;
-}
-
-function ArticleRow({ row, onOpenArticle }: ArticleRowProps) {
+function ArticleRowContent({ row }: { row: ArticleNavigatorArticleRow }) {
   return (
-    <Button
-      aria-current={row.isActive ? "page" : undefined}
-      className={cn(
-        "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal",
-        "data-active:bg-accent data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)]",
-      )}
-      data-active={row.isActive}
-      onClick={() => onOpenArticle(row.path)}
-      style={{ paddingLeft: `${row.depth * 14 + 23}px` }}
-      title={row.path}
-      type="button"
-      variant="ghost"
-    >
+    <>
       <FileTextIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
-    </Button>
+    </>
   );
 }

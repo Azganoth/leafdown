@@ -8,7 +8,7 @@
 - [Decisions](./decisions.md): accepted product and technical decisions.
 - [Reference](./reference.md): settings, menus, shortcuts, contextual availability, and checked state.
 
-If product documents overlap or appear to conflict, prefer them in this order: Decisions, Specification, Architecture. Reference owns the detailed settings and command inventory.
+If product documents overlap or appear to conflict, prefer them in this order: Decisions, Specification, Architecture. Reference owns the detailed settings and command inventory: it lists what exists, while Specification states how it behaves. A surface's keyboard behavior belongs to Specification even though Reference inventories its shortcuts.
 
 Engineering Patterns provides implementation guidance rather than product direction. It yields to Architecture for ownership and dependency boundaries.
 

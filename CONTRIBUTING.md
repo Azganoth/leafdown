@@ -92,6 +92,7 @@ For substantial work, start from an accepted issue. For a small, self-contained 
 - Format pull request titles according to the Conventional Commits specification without the scope part (e.g., `feat: add markdown component`, `fix: handle missing file path`).
 - Keep intermediate commit messages clear and meaningful, and do not prefix them according to Conventional Commits. Branches are squash merged, so only the pull request title reaches `main` and the prefix is discarded.
 - Give an intermediate commit a body only when the diff does not carry the reasoning: rationale, a constraint, a rejected alternative, or a non-obvious consequence. Verification evidence, commands run, and per-file summaries belong in the pull request body, not here.
+- Leave out how the work unfolded. A body that refers to a sibling commit, or to what an earlier attempt got wrong, describes a sequence the squash merge discards. A commit that exists only because of staging order, such as documentation held back until its code lands, tends to produce such a body; commit the documentation with the change it describes instead.
 
 1. Fork the repository if needed, then create a focused branch for the change.
 2. Implement the change, including relevant tests and documentation.

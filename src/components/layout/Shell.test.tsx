@@ -117,6 +117,23 @@ describe("Shell", () => {
     expect(screen.getByTestId("active-document-host")).toHaveTextContent("# Spec");
   });
 
+  it("leaves focus on the revealed row after revealing from the File menu", async () => {
+    setDefaultSession({
+      folderContext: nestedFolderContext,
+      activeDocument: createSavedDocument({
+        path: SPEC_MARKDOWN_PATH,
+        content: "# Spec",
+      }),
+    });
+
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("menuitem", { name: "File" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^Reveal in sidebar/u }));
+
+    expect(screen.getByRole("treeitem", { name: "spec.md" })).toHaveFocus();
+  });
+
   it("shows the empty folder state while preserving empty directories", () => {
     setDefaultSession({
       folderContext: emptyFolderContext,

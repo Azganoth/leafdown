@@ -22,6 +22,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Traverse the article navigator with the arrow keys, `Home`, and `End`, and pass it with a single `Tab` instead of one per article.
 - Jump to an article by typing the start of its name while the navigator has focus.
+- Leave focus on the revealed row after `Reveal in sidebar`, instead of scrolling to it and leaving focus behind.
 - Announce the article navigator as a tree, with the nesting depth, sibling position, and expanded state of every row.
 - Keep empty folders in the article navigator reachable instead of skipping them.
 - Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.

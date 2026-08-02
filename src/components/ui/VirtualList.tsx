@@ -44,7 +44,7 @@ interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "v
   getItemKey?: (item: T, index: number) => Key;
   initialViewportHeight?: number;
   overscan?: number;
-  pinnedIndex?: number;
+  pinnedIndexes?: number[];
   virtualListRef?: Ref<VirtualListHandle>;
 }
 
@@ -59,16 +59,14 @@ function VirtualList<T>({
   getItemKey,
   initialViewportHeight = estimateHeight * 16,
   overscan = 8,
-  pinnedIndex,
+  pinnedIndexes,
   virtualListRef,
   children,
   ...props
 }: VirtualListProps<T>) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
-  const renderedPinnedIndex =
-    pinnedIndex !== undefined && pinnedIndex >= 0 && pinnedIndex < items.length
-      ? pinnedIndex
-      : undefined;
+  const renderedPinnedIndexes =
+    pinnedIndexes?.filter((index) => index >= 0 && index < items.length) ?? [];
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -80,7 +78,8 @@ function VirtualList<T>({
       width: 0,
     },
     overscan,
-    rangeExtractor: (range) => withPinnedIndex(defaultRangeExtractor(range), renderedPinnedIndex),
+    rangeExtractor: (range) =>
+      withPinnedIndexes(defaultRangeExtractor(range), renderedPinnedIndexes),
   });
 
   useImperativeHandle(
@@ -127,10 +126,15 @@ function VirtualList<T>({
 
 // Unmounting the row that holds focus drops focus to the document body, and takes
 // the collection out of the tab sequence when that row is its only tab stop.
-const withPinnedIndex = (indexes: number[], pinnedIndex: number | undefined) =>
-  pinnedIndex === undefined || indexes.includes(pinnedIndex)
+const withPinnedIndexes = (indexes: number[], pinnedIndexes: number[]) => {
+  const missingIndexes = Array.from(new Set(pinnedIndexes)).filter(
+    (pinnedIndex) => !indexes.includes(pinnedIndex),
+  );
+
+  return missingIndexes.length === 0
     ? indexes
-    : [...indexes, pinnedIndex].sort((left, right) => left - right);
+    : [...indexes, ...missingIndexes].sort((left, right) => left - right);
+};
 
 function VirtualListContent({
   asChild = false,
@@ -211,6 +215,6 @@ export {
   VirtualListEmpty,
   VirtualListItem,
   VirtualListItems,
-  withPinnedIndex,
+  withPinnedIndexes,
   type VirtualItem,
 };

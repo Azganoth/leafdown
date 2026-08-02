@@ -250,6 +250,54 @@ describe("ArticleNavigator", () => {
     expect(screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0)).toHaveLength(1);
   });
 
+  it("focuses the revealed row and hands it the tab stop", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    act(() =>
+      useArticleNavigatorStore
+        .getState()
+        .requestRevealArticle(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [
+          TEST_NESTED_DIRECTORY_PATH,
+        ]),
+    );
+
+    const revealedRow = screen.getByRole("treeitem", { name: "spec.md" });
+
+    expect(revealedRow).toHaveFocus();
+    expect(revealedRow.tabIndex).toBe(0);
+  });
+
+  it("leaves focus alone when an unrelated directory expands after a reveal", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    act(() =>
+      useArticleNavigatorStore
+        .getState()
+        .requestRevealArticle(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [
+          TEST_NESTED_DIRECTORY_PATH,
+        ]),
+    );
+    await user.keyboard("{Home}");
+
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toHaveFocus();
+
+    act(() => useArticleNavigatorStore.getState().expandDirectories(["C:/Notes/empty"]));
+
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toHaveFocus();
+  });
+
   describe("typeahead", () => {
     // Only the clock is faked: user-event's own waits still need real timers.
     beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));

@@ -8,7 +8,7 @@ import {
   InfoIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
@@ -58,10 +58,7 @@ export function ArticleNavigator({
 }: ArticleNavigatorProps) {
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
   const expandDirectories = useArticleNavigatorStore((state) => state.expandDirectories);
-  const revealArticlePath = useArticleNavigatorStore((state) => state.revealArticlePath);
-  const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
   const toggleDirectory = useArticleNavigatorStore((state) => state.toggleDirectory);
-  const virtualListRef = useRef<VirtualListHandle>(null);
   const activeFileAncestorDirectoryPaths =
     folderContext && activeArticlePath
       ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
@@ -85,10 +82,6 @@ export function ArticleNavigator({
       })
     : [];
   const hasRows = rows.length > 0;
-  const revealRowIndex = rows.findIndex(
-    (row) =>
-      row.kind === "file" && revealArticlePath !== null && isSamePath(row.path, revealArticlePath),
-  );
 
   useEffect(() => {
     if (!activeFileAncestorDirectoryPathSignature) {
@@ -97,14 +90,6 @@ export function ArticleNavigator({
 
     expandDirectories(activeFileAncestorDirectoryPathSignature.split(PATH_SIGNATURE_SEPARATOR));
   }, [activeFileAncestorDirectoryPathSignature, expandDirectories]);
-
-  useEffect(() => {
-    if (revealRequestId === 0 || revealRowIndex < 0) {
-      return;
-    }
-
-    virtualListRef.current?.scrollToIndex(revealRowIndex, { align: "center" });
-  }, [revealRequestId, revealRowIndex]);
 
   const handleOpenArticle = (path: string) => {
     if (activeArticlePath && isSamePath(path, activeArticlePath)) {
@@ -142,7 +127,6 @@ export function ArticleNavigator({
               onOpenArticle={handleOpenArticle}
               onToggleDirectory={toggleDirectory}
               rows={rows}
-              virtualListRef={virtualListRef}
             />
           )}
           {!folderContext.isEmpty && !hasRows && (
@@ -203,31 +187,54 @@ interface ArticleNavigatorRowsProps {
   onOpenArticle: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   rows: ArticleNavigatorRow[];
-  virtualListRef: Ref<VirtualListHandle>;
+}
+
+interface ArticleNavigatorFocus {
+  path: string | null;
+  requestId: number;
 }
 
 function ArticleNavigatorRows({
   onOpenArticle,
   onToggleDirectory,
   rows,
-  virtualListRef,
 }: ArticleNavigatorRowsProps) {
-  const [focusedPath, setFocusedPath] = useState<string | null>(null);
-  const pendingFocusPathRef = useRef<string | null>(null);
+  const virtualListRef = useRef<VirtualListHandle>(null);
+  const revealArticlePath = useArticleNavigatorStore((state) => state.revealArticlePath);
+  const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
+  const [focus, setFocus] = useState<ArticleNavigatorFocus>({ path: null, requestId: 0 });
   const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
   const typeaheadRef = useRef({ buffer: "", lastKeyAtMs: 0 });
-  const focusedIndex = getArticleNavigatorFocusedIndex(rows, focusedPath);
+  const focusedIndex = getArticleNavigatorFocusedIndex(rows, focus.path);
+  const handledRevealRequestIdRef = useRef(0);
+  const revealRowIndex = rows.findIndex(
+    (row) =>
+      row.kind === "file" && revealArticlePath !== null && isSamePath(row.path, revealArticlePath),
+  );
+  const revealRowPath = revealRowIndex < 0 ? null : rows[revealRowIndex].path;
 
+  // A requested row may sit outside the rendered window, so it is pinned first and
+  // focused once that render commits.
   useEffect(() => {
-    const pendingFocusPath = pendingFocusPathRef.current;
-
-    if (pendingFocusPath === null) {
+    if (focus.requestId === 0 || focus.path === null) {
       return;
     }
 
-    pendingFocusPathRef.current = null;
-    rowElementsRef.current.get(pendingFocusPath)?.focus();
-  });
+    rowElementsRef.current.get(focus.path)?.focus();
+  }, [focus]);
+
+  // The revealed row is pinned, so it is mounted by the time this reaches for it.
+  useEffect(() => {
+    // Expanding a directory renumbers the revealed row and re-runs this, which
+    // must not pull focus back a second time.
+    if (revealRequestId === handledRevealRequestIdRef.current || revealRowPath === null) {
+      return;
+    }
+
+    handledRevealRequestIdRef.current = revealRequestId;
+    virtualListRef.current?.scrollToIndex(revealRowIndex, { align: "center" });
+    rowElementsRef.current.get(revealRowPath)?.focus();
+  }, [revealRequestId, revealRowIndex, revealRowPath]);
 
   const focusRow = (index: number) => {
     const path = rows[index]?.path;
@@ -236,10 +243,7 @@ function ArticleNavigatorRows({
       return;
     }
 
-    // The row may sit outside the rendered window, so it is pinned first and
-    // focused once that render commits.
-    pendingFocusPathRef.current = path;
-    setFocusedPath(path);
+    setFocus((currentFocus) => ({ path, requestId: currentFocus.requestId + 1 }));
   };
 
   const activateRow = (index: number) => {
@@ -313,7 +317,7 @@ function ArticleNavigatorRows({
       estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
       getItemKey={(row) => row.path}
       items={rows}
-      pinnedIndex={focusedIndex}
+      pinnedIndexes={[focusedIndex, revealRowIndex]}
       virtualListRef={virtualListRef}
     >
       <VirtualListContent
@@ -328,7 +332,7 @@ function ArticleNavigatorRows({
               key={row.path}
               isTabStop={index === focusedIndex}
               onActivate={() => activateRow(index)}
-              onFocus={() => setFocusedPath(row.path)}
+              onFocus={() => setFocus((currentFocus) => ({ ...currentFocus, path: row.path }))}
               registerElement={(element) =>
                 registerRowElement(rowElementsRef.current, row, element)
               }

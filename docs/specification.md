@@ -63,6 +63,8 @@ The article navigator is a tree and takes a single tab stop. Focus enters on the
 
 Moving focus never opens a document, so the focused row and the open document are routinely different rows. An empty directory is an ordinary row that can be focused and read, with nothing to expand. Collapsing a directory that contains the focused row moves focus to the nearest row that survives.
 
+`Reveal in sidebar` expands the ancestors of the active document, scrolls its row into view, and leaves focus on that row.
+
 ## State Model
 
 These state axes compose. A document session, for example, can have a folder context and be saved and clean or dirty.

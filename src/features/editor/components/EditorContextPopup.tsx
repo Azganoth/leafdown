@@ -23,7 +23,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -33,12 +33,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/DropdownMenu";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/Popover";
+import { Toolbar, ToolbarButton } from "@/components/ui/Toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
-import type { ContextPopupAnchor } from "../plugins/contextPopup";
+import type { ContextPopupRequest } from "../plugins/contextPopup";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -101,20 +102,69 @@ const INSERT_COMMANDS = [
 const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorCommandState) =>
   commandState.status === "ready" && commandState.enabledCommands[commandId];
 
+const CONTEXT_POPUP_LABEL = "Context actions";
+
+// Radix's roving focus only walks controls in document order, so vertical movement across the
+// wrapped rows is worked out from these.
+const toolbarPosition = (row: number, column: number) => ({
+  "data-toolbar-row": row,
+  "data-toolbar-column": column,
+});
+
+const ENABLED_CONTROL_SELECTOR = "[data-toolbar-row]:not([disabled])";
+
+const readPosition = (control: HTMLElement, axis: "toolbarRow" | "toolbarColumn") =>
+  Number(control.dataset[axis]);
+
+const focusFirstControl = (toolbar: HTMLElement | null) => {
+  toolbar?.querySelector<HTMLElement>(ENABLED_CONTROL_SELECTOR)?.focus();
+};
+
+const focusAdjacentRow = (toolbar: HTMLElement, control: HTMLElement, step: 1 | -1) => {
+  const controls = [...toolbar.querySelectorAll<HTMLElement>(ENABLED_CONTROL_SELECTOR)];
+  // A row with nothing available drops out here, which is what skips it.
+  const rows = [...new Set(controls.map((candidate) => readPosition(candidate, "toolbarRow")))];
+  const rowIndex = rows.indexOf(readPosition(control, "toolbarRow"));
+
+  if (rowIndex === -1 || rows.length < 2) {
+    return false;
+  }
+
+  const column = readPosition(control, "toolbarColumn");
+  const nextRow = rows[(rowIndex + step + rows.length) % rows.length];
+  const distanceToColumn = (candidate: HTMLElement) =>
+    Math.abs(readPosition(candidate, "toolbarColumn") - column);
+
+  controls
+    .filter((candidate) => readPosition(candidate, "toolbarRow") === nextRow)
+    .reduce((closest, candidate) =>
+      distanceToColumn(candidate) < distanceToColumn(closest) ? candidate : closest,
+    )
+    .focus();
+
+  return true;
+};
+
 interface EditorContextPopupProps {
-  anchor: ContextPopupAnchor | null;
   commandState: EditorCommandState;
   onClose: () => void;
   onExecute: (commandId: EditorCommandId) => void;
+  onReturnFocus: () => void;
+  request: ContextPopupRequest | null;
 }
 
 export function EditorContextPopup({
-  anchor,
   commandState,
   onClose,
   onExecute,
+  onReturnFocus,
+  request,
 }: EditorContextPopupProps) {
-  const isOpen = anchor !== null;
+  const isOpen = request !== null;
+  const source = request?.source;
+  const contentRef = useRef<HTMLDivElement>(null);
+  // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
+  const hasHeldFocusRef = useRef(false);
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
 
   useEffect(() => {
@@ -122,7 +172,11 @@ export function EditorContextPopup({
       return undefined;
     }
 
-    const handleScroll = () => onClose();
+    const handleScroll = () => {
+      if (!hasHeldFocusRef.current) {
+        onClose();
+      }
+    };
 
     document.addEventListener("scroll", handleScroll, true);
     return () => {
@@ -130,9 +184,60 @@ export function EditorContextPopup({
     };
   }, [onClose, isOpen]);
 
-  if (!anchor) {
+  // Only for a keyboard request landing on an already open popup. A fresh open cannot be served
+  // here, because the content ref fills a microtask after this runs.
+  useEffect(() => {
+    if (isOpen && source === "keyboard") {
+      focusFirstControl(contentRef.current);
+    }
+  }, [isOpen, source]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // A submenu keeps its keys despite reaching here through its portal: its Escape closes it.
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) {
+      return;
+    }
+
+    // The focused control's tooltip is the layer Radix offers Escape to first, so leaving this
+    // to the popup's own layer would cost a second press. Closing twice asks nothing of a closed
+    // popup, and the two cases cannot be told apart: both mark the event as handled.
+    if (event.key === "Escape") {
+      onClose();
+      return;
+    }
+
+    if (event.key === "Tab") {
+      // Tabbing on would land after the portal rather than back in the text.
+      event.preventDefault();
+      onClose();
+      return;
+    }
+
+    // Left to Radix: the horizontal arrows to roving focus, ArrowDown to a submenu trigger.
+    if (event.defaultPrevented) {
+      return;
+    }
+
+    const step = event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : null;
+    const control = document.activeElement;
+
+    if (
+      step === null ||
+      !(control instanceof HTMLElement) ||
+      !event.currentTarget.contains(control)
+    )
+      return;
+
+    if (focusAdjacentRow(event.currentTarget, control, step)) {
+      event.preventDefault();
+    }
+  };
+
+  if (!request) {
     return null;
   }
+
+  const { anchor } = request;
 
   return (
     <Popover open={isOpen} onOpenChange={(nextIsOpen) => !nextIsOpen && onClose()}>
@@ -149,40 +254,79 @@ export function EditorContextPopup({
       </PopoverAnchor>
       <PopoverContent
         align="center"
+        asChild
         className="leafdown-context-popup w-auto gap-1 rounded-md p-1"
         data-testid="editor-context-popup"
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        onOpenAutoFocus={(event) => event.preventDefault()}
+        onCloseAutoFocus={(event) => {
+          // Radix restores focus to a trigger, and this popup only has an anchor, so its restore
+          // is a no-op that leaves focus on the body.
+          event.preventDefault();
+
+          if (hasHeldFocusRef.current) {
+            hasHeldFocusRef.current = false;
+            onReturnFocus();
+          }
+        }}
+        onFocus={() => {
+          hasHeldFocusRef.current = true;
+        }}
+        onInteractOutside={() => {
+          // Radix defers this dismissal past the click, so returning focus would take it back
+          // from whatever was just clicked.
+          hasHeldFocusRef.current = false;
+        }}
+        onOpenAutoFocus={(event) => {
+          // Radix would take focus on every open, including the pointer ones that must not.
+          event.preventDefault();
+          hasHeldFocusRef.current = false;
+
+          if (source === "keyboard" && event.currentTarget instanceof HTMLElement) {
+            focusFirstControl(event.currentTarget);
+          }
+        }}
+        ref={contentRef}
         side="bottom"
         sideOffset={8}
       >
-        <ContextCommandRow
-          commands={QUICK_ACTION_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-        />
-        <ContextCommandRow
-          commands={INLINE_ACTION_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-        />
-        <ContextCommandRow
-          commands={BLOCK_FORMATTING_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-        />
-        <ContextCommandSubmenu
-          label="Block type"
-          commands={BLOCK_TYPE_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-        />
-        <ContextCommandSubmenu
-          commands={INSERT_COMMANDS}
-          label="Insert"
-          onExecute={onExecute}
-          canExecute={canExecute}
-        />
+        <Toolbar
+          aria-label={CONTEXT_POPUP_LABEL}
+          onKeyDown={handleKeyDown}
+          // Overrides the popover's role="dialog", which arrives through asChild.
+          role="toolbar"
+        >
+          <ContextCommandRow
+            commands={QUICK_ACTION_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={0}
+          />
+          <ContextCommandRow
+            commands={INLINE_ACTION_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={1}
+          />
+          <ContextCommandRow
+            commands={BLOCK_FORMATTING_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={2}
+          />
+          <ContextCommandSubmenu
+            label="Block type"
+            commands={BLOCK_TYPE_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={3}
+          />
+          <ContextCommandSubmenu
+            commands={INSERT_COMMANDS}
+            label="Insert"
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={4}
+          />
+        </Toolbar>
       </PopoverContent>
     </Popover>
   );
@@ -192,30 +336,33 @@ interface ContextCommandRowProps {
   commands: readonly ContextButtonCommand[];
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
+  row: number;
 }
 
-function ContextCommandRow({ commands, onExecute, canExecute }: ContextCommandRowProps) {
+function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextCommandRowProps) {
   return (
-    <div className="flex items-center gap-1" role="group">
-      {commands.map(({ commandId, icon: Icon }) => {
+    <div className="flex items-center gap-1">
+      {commands.map(({ commandId, icon: Icon }, column) => {
         const label = EDITOR_COMMAND_LABELS[commandId];
         const enabled = canExecute(commandId);
 
         return (
           <Tooltip key={commandId}>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={label}
-                className="size-8 rounded-sm"
-                disabled={!enabled}
-                onClick={() => onExecute(commandId)}
-                size="icon"
-                type="button"
-                variant="ghost"
-              >
-                <Icon className="size-5" />
-              </Button>
-            </TooltipTrigger>
+            <ToolbarButton asChild disabled={!enabled} {...toolbarPosition(row, column)}>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={label}
+                  className="size-8 rounded-sm"
+                  disabled={!enabled}
+                  onClick={() => onExecute(commandId)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Icon className="size-5" />
+                </Button>
+              </TooltipTrigger>
+            </ToolbarButton>
             <TooltipContent side="right" sideOffset={8}>
               {label}
             </TooltipContent>
@@ -231,6 +378,7 @@ interface ContextCommandSubmenuProps {
   commands: readonly ContextSubmenuCommand[];
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
+  row: number;
 }
 
 function ContextCommandSubmenu({
@@ -238,26 +386,23 @@ function ContextCommandSubmenu({
   commands,
   onExecute,
   canExecute,
+  row,
 }: ContextCommandSubmenuProps) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          className="h-8 w-full justify-start gap-2 rounded-sm px-2"
-          type="button"
-          variant="ghost"
-        >
-          <span className="min-w-24 flex-1 text-left">{label}</span>
-          <ChevronRightIcon className="size-4 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className="w-44"
-        side="right"
-        sideOffset={8}
-        onCloseAutoFocus={(event) => event.preventDefault()}
-      >
+      <ToolbarButton asChild {...toolbarPosition(row, 0)}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            className="h-8 w-full justify-start gap-2 rounded-sm px-2"
+            type="button"
+            variant="ghost"
+          >
+            <span className="min-w-24 flex-1 text-left">{label}</span>
+            <ChevronRightIcon className="size-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+      </ToolbarButton>
+      <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
         {commands.map(({ commandId, icon: CommandIcon }) => {
           const label = EDITOR_COMMAND_LABELS[commandId];
           const enabled = canExecute(commandId);

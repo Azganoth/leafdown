@@ -10,10 +10,17 @@ export interface ContextPopupAnchor {
   bottom: number;
 }
 
+export type ContextPopupSource = "keyboard" | "pointer";
+
+export interface ContextPopupRequest {
+  anchor: ContextPopupAnchor;
+  source: ContextPopupSource;
+}
+
 export interface LeafdownContextPopupPluginOptions {
   isOpen?: () => boolean;
   onClose?: () => void;
-  onRequest?: (anchor: ContextPopupAnchor) => void;
+  onRequest?: (request: ContextPopupRequest) => void;
 }
 
 const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
@@ -33,21 +40,6 @@ const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
   }
 };
 
-const requestSelectionPopup = (
-  view: EditorView,
-  onRequest: LeafdownContextPopupPluginOptions["onRequest"],
-) => {
-  const anchor = getSelectionAnchor(view);
-
-  if (!anchor) {
-    return false;
-  }
-
-  onRequest?.(anchor);
-
-  return true;
-};
-
 const closePopup = ({ isOpen, onClose }: LeafdownContextPopupPluginOptions) => {
   if (!isOpen?.()) {
     return false;
@@ -58,97 +50,123 @@ const closePopup = ({ isOpen, onClose }: LeafdownContextPopupPluginOptions) => {
   return true;
 };
 
-const syncPopupToSelection = (
-  view: EditorView,
-  previousState: EditorView["state"],
-  options: LeafdownContextPopupPluginOptions,
-) => {
-  if (!options.isOpen?.()) {
-    return;
-  }
-
-  const selectionChanged = !view.state.selection.eq(previousState.selection);
-  const documentChanged = view.state.doc !== previousState.doc;
-
-  if (!selectionChanged && !documentChanged) {
-    return;
-  }
-
-  if (view.state.selection.empty || !requestSelectionPopup(view, options.onRequest)) {
-    options.onClose?.();
-  }
-};
-
 const isEditablePopupTarget = (event: MouseEvent) =>
   event.target instanceof HTMLElement && event.target.closest("input, textarea, select") !== null;
 
+const isContextMenuKey = (event: KeyboardEvent) =>
+  event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+
 export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPluginOptions = {}) =>
-  $prose(
-    () =>
-      new Plugin({
-        key: leafdownContextPopupPluginKey,
-        view: () => ({
-          update: (view, previousState) => {
-            syncPopupToSelection(view, previousState, options);
-          },
-        }),
-        props: {
-          handleDOMEvents: {
-            contextmenu: (view, event) => {
-              if (!(event instanceof MouseEvent) || isEditablePopupTarget(event)) {
-                return false;
-              }
+  $prose(() => {
+    // Held so that refreshing an open popup's anchor cannot downgrade it to a pointer open.
+    let openSource: ContextPopupSource = "pointer";
 
-              event.preventDefault();
-              view.focus();
+    const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
+      const anchor = getSelectionAnchor(view);
 
-              if (!requestSelectionPopup(view, options.onRequest)) {
-                options.onClose?.();
-              }
+      if (!anchor) {
+        return false;
+      }
 
-              return true;
-            },
-            mouseup: (view, event) => {
-              if (!(event instanceof MouseEvent) || event.button !== 0) {
-                return false;
-              }
+      openSource = source;
+      options.onRequest?.({ anchor, source });
 
-              window.requestAnimationFrame(() => {
-                if (view.isDestroyed) {
-                  return;
-                }
+      return true;
+    };
 
-                if (view.state.selection.empty) {
-                  closePopup(options);
-                  return;
-                }
+    const syncPopupToSelection = (view: EditorView, previousState: EditorView["state"]) => {
+      if (!options.isOpen?.()) {
+        return;
+      }
 
-                if (!requestSelectionPopup(view, options.onRequest)) {
-                  options.onClose?.();
-                }
-              });
+      const selectionChanged = !view.state.selection.eq(previousState.selection);
+      const documentChanged = view.state.doc !== previousState.doc;
 
-              return false;
-            },
-          },
-          handleKeyDown: (_view, event) => {
-            if (event.key !== "Escape") {
-              return false;
-            }
+      if (!selectionChanged && !documentChanged) {
+        return;
+      }
 
-            if (!closePopup(options)) {
+      if (view.state.selection.empty || !requestSelectionPopup(view, openSource)) {
+        options.onClose?.();
+      }
+    };
+
+    return new Plugin({
+      key: leafdownContextPopupPluginKey,
+      view: () => ({
+        update: (view, previousState) => {
+          syncPopupToSelection(view, previousState);
+        },
+      }),
+      props: {
+        handleDOMEvents: {
+          contextmenu: (view, event) => {
+            if (!(event instanceof MouseEvent) || isEditablePopupTarget(event)) {
               return false;
             }
 
             event.preventDefault();
+            view.focus();
+
+            if (!requestSelectionPopup(view, "pointer")) {
+              options.onClose?.();
+            }
 
             return true;
           },
-          handleTextInput: () => {
-            closePopup(options);
+          mouseup: (view, event) => {
+            if (!(event instanceof MouseEvent) || event.button !== 0) {
+              return false;
+            }
+
+            window.requestAnimationFrame(() => {
+              if (view.isDestroyed) {
+                return;
+              }
+
+              if (view.state.selection.empty) {
+                closePopup(options);
+                return;
+              }
+
+              if (!requestSelectionPopup(view, "pointer")) {
+                options.onClose?.();
+              }
+            });
 
             return false;
           },
         },
-      }),
-  );
+        handleKeyDown: (view, event) => {
+          if (isContextMenuKey(event)) {
+            // Also suppresses the contextmenu event the key would produce, which would reopen
+            // this popup through the pointer path.
+            event.preventDefault();
+
+            if (!requestSelectionPopup(view, "keyboard")) {
+              options.onClose?.();
+            }
+
+            return true;
+          }
+
+          if (event.key !== "Escape") {
+            return false;
+          }
+
+          if (!closePopup(options)) {
+            return false;
+          }
+
+          event.preventDefault();
+
+          return true;
+        },
+        handleTextInput: () => {
+          closePopup(options);
+
+          return false;
+        },
+      },
+    });
+  });

@@ -41,18 +41,24 @@ export function MilkdownEditor({
   autoPairBracketsAndQuotes = true,
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
-  const { closeContextPopup, commandState, contextPopupAnchor, executeContextCommand, rootRef } =
-    useMilkdownEditorInstance({
-      autoPairBracketsAndQuotes,
-      documentPath,
-      folderContextPath,
-      initialMarkdown,
-      onMarkdownUpdated,
-      onContentChanged,
-      onCommandStateChanged,
-      onOpenMarkdownPath,
-      ref,
-    });
+  const {
+    closeContextPopup,
+    commandState,
+    contextPopupRequest,
+    executeContextCommand,
+    focusEditor,
+    rootRef,
+  } = useMilkdownEditorInstance({
+    autoPairBracketsAndQuotes,
+    documentPath,
+    folderContextPath,
+    initialMarkdown,
+    onMarkdownUpdated,
+    onContentChanged,
+    onCommandStateChanged,
+    onOpenMarkdownPath,
+    ref,
+  });
 
   return (
     <div
@@ -62,10 +68,11 @@ export function MilkdownEditor({
     >
       <div ref={rootRef} className="min-h-full w-full" />
       <EditorContextPopup
-        anchor={contextPopupAnchor}
         commandState={commandState}
         onClose={closeContextPopup}
         onExecute={executeContextCommand}
+        onReturnFocus={focusEditor}
+        request={contextPopupRequest}
       />
     </div>
   );

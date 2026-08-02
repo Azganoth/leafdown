@@ -72,6 +72,8 @@ Leafdown's editor integration uses Milkdown Kit directly through a Leafdown-owne
 
 Shortcut execution follows the layer that owns the interaction. The window-level application listener routes only application command IDs and reserved webview suppression. Leafdown's editor keymap routes semantic editor commands and projection-aware history while the editor has focus. Milkdown, ProseMirror, and the browser retain structural editing and native clipboard gesture ownership. The shared command metadata describes labels and displayed shortcuts across these surfaces; it is not itself a global executable shortcut registry.
 
+Focus ownership follows the same layering. A pointer-opened context popup leaves focus with the editor, which still owns the selection the popup acts on; a keyboard-opened popup takes focus, having no other route in, and returns it to the editor on close rather than leaving it on the document body. ProseMirror keeps its selection across a blur, so restoring the editor's focus restores the selection with it, and the popup holds no selection state of its own.
+
 Syntax highlighting uses bundled Shiki assets through Milkdown highlighting plugins. Raw Markdown HTML is preserved as text-like editor content instead of being rendered as browser DOM.
 
 ### Clipboard Ownership

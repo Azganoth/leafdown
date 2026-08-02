@@ -95,6 +95,7 @@ These state axes compose. A document session, for example, can have a folder con
 - **Closed:** no popup is visible.
 - **Open from selection:** commands act on the selected text or blocks.
 - **Open from right-click:** commands act on the editor selection established by the right-click.
+- **Open from keyboard:** commands act on the caret or selection the request was made from, and the popup holds focus.
 
 ## Editor Model
 
@@ -151,6 +152,16 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `Shift+Tab`: Moves focus to the cell to the left.
   - `Enter`: Moves focus to the cell directly below. If pressed in the bottom row, inserts a new row below and focuses it.
   - `ArrowDown` (in the bottom row of a table): Exits the table downwards and moves the caret to the block below (creating a new empty paragraph block if none exists).
+- `Shift+F10` and the `Menu` key open the context popup around the caret or selection and move focus into it. A popup opened by right-click or by a mouse selection leaves focus in the editor.
+- The popup is one command toolbar, and focus enters it on its first available command:
+  - `ArrowLeft` and `ArrowRight`: Move between commands in order, wrapping at either end.
+  - `ArrowUp` and `ArrowDown`: Move between rows at the nearest available column, wrapping at either end and skipping a row whose commands are all unavailable. On a submenu, `ArrowDown` opens it instead.
+  - `Home` and `End`: Move to the first or last available command.
+  - `Enter` and `Space`: Run the focused command, or open the focused submenu.
+  - `Escape`: Closes the popup, or an open submenu first, returning focus to the command that opened it.
+  - `Tab`: Closes the popup as well, rather than moving to another control.
+- Closing a popup that holds focus returns focus to the editor with its selection intact, whichever path closed it.
+- A scroll closes the popup while focus is in the editor. While focus is inside it the popup stays open and may drift from the text it anchors to.
 - Structural editing and native text gestures retain their normal editor behavior. Leafdown commands provide the same semantic operations across menus, keyboard shortcuts, and the context popup.
 - The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
 

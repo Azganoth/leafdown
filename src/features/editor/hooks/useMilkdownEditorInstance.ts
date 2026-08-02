@@ -19,7 +19,7 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "../commands";
-import type { ContextPopupAnchor } from "../plugins/contextPopup";
+import type { ContextPopupRequest } from "../plugins/contextPopup";
 import {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,
@@ -63,7 +63,7 @@ export const useMilkdownEditorInstance = ({
   const [commandState, setCommandState] = useState<EditorCommandState>(
     INACTIVE_EDITOR_COMMAND_STATE,
   );
-  const [contextPopupAnchor, setContextPopupAnchor] = useState<ContextPopupAnchor | null>(null);
+  const [contextPopupRequest, setContextPopupRequest] = useState<ContextPopupRequest | null>(null);
 
   const commandStateRef = useRef<EditorCommandState>(INACTIVE_EDITOR_COMMAND_STATE);
   const liveOptionsRef = useRef({
@@ -122,12 +122,26 @@ export const useMilkdownEditorInstance = ({
 
   const closeContextPopup = useCallback(() => {
     contextPopupOpenRef.current = false;
-    setContextPopupAnchor(null);
+    setContextPopupRequest(null);
   }, []);
 
-  const requestContextPopup = useCallback((anchor: ContextPopupAnchor) => {
+  const requestContextPopup = useCallback((request: ContextPopupRequest) => {
     contextPopupOpenRef.current = true;
-    setContextPopupAnchor(anchor);
+    setContextPopupRequest(request);
+  }, []);
+
+  const focusEditor = useCallback(() => {
+    const editor = editorRef.current;
+
+    if (!editor?.ctx) {
+      return;
+    }
+
+    try {
+      editor.ctx.get(editorViewCtx).focus();
+    } catch (error) {
+      handleUnexpectedError(error, "focusEditor");
+    }
   }, []);
 
   const updateCommandState = useCallback((nextCommandState: EditorCommandState) => {
@@ -239,8 +253,9 @@ export const useMilkdownEditorInstance = ({
   return {
     closeContextPopup,
     commandState,
-    contextPopupAnchor,
+    contextPopupRequest,
     executeContextCommand,
+    focusEditor,
     rootRef,
   };
 };

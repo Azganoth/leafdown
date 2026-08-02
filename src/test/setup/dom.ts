@@ -32,3 +32,17 @@ if (typeof Text !== "undefined") {
 
   textPrototype.getClientRects ??= createTestDomRectList;
 }
+
+// happy-dom performs no layout, so the document element measures 0x0 and anything clipping
+// against the viewport reads every element as fully off screen. A browser reports the layout
+// viewport here.
+if (typeof document !== "undefined") {
+  Object.defineProperty(document.documentElement, "clientWidth", {
+    configurable: true,
+    get: () => window.innerWidth,
+  });
+  Object.defineProperty(document.documentElement, "clientHeight", {
+    configurable: true,
+    get: () => window.innerHeight,
+  });
+}

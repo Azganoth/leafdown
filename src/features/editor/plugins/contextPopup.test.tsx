@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ContextPopupRequest, ContextPopupSource } from "@/features/editor";
 import { HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
 import { dispatchContextMenu, dispatchMouseUp } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
@@ -16,6 +17,22 @@ const mockCoordinates = (mounted: MountedMilkdownEditor) =>
     top: 30 + pos,
   }));
 
+const popupRequest = (source: ContextPopupSource) => ({
+  anchor: expect.objectContaining({ getRect: expect.any(Function) }),
+  source,
+});
+
+const collectRequests = () => {
+  const requests: ContextPopupRequest[] = [];
+
+  return {
+    onContextPopupRequested: vi.fn((request: ContextPopupRequest) => {
+      requests.push(request);
+    }),
+    lastRequest: () => requests[requests.length - 1],
+  };
+};
+
 describe("context popup plugin", () => {
   it("opens below the selected visual range without exposing markers through selection state", async () => {
     const onContextPopupRequested = vi.fn();
@@ -26,13 +43,52 @@ describe("context popup plugin", () => {
     dispatchMouseUp(mounted.view.dom, { button: 0 });
 
     await waitFor(() => {
-      expect(onContextPopupRequested).toHaveBeenCalledWith({
-        anchor: { x: 19, top: 31, bottom: 46 },
-        source: "pointer",
-      });
+      expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
     });
     expect(coordsAtPos).toHaveBeenNthCalledWith(1, 1, 1);
     expect(coordsAtPos).toHaveBeenNthCalledWith(2, 6, -1);
+  });
+
+  it("anchors to the box spanning the selection's visible ends", async () => {
+    const { onContextPopupRequested, lastRequest } = collectRequests();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    runKeyDownHandlers(mounted.view, "ContextMenu");
+
+    expect(lastRequest().anchor.getRect("live")).toMatchObject({
+      left: 11,
+      top: 31,
+      right: 26,
+      bottom: 46,
+    });
+  });
+
+  it("measures the selection as it stands rather than as it stood when the popup opened", async () => {
+    const { onContextPopupRequested, lastRequest } = collectRequests();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    runKeyDownHandlers(mounted.view, "ContextMenu");
+
+    const { anchor } = lastRequest();
+
+    setTextSelection(mounted.view, 3, 8);
+
+    expect(anchor.getRect("live")).toMatchObject({ top: 33, bottom: 48 });
+  });
+
+  it("anchors against the editor it belongs to", async () => {
+    const { onContextPopupRequested, lastRequest } = collectRequests();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    runKeyDownHandlers(mounted.view, "ContextMenu");
+
+    expect(lastRequest().anchor.contextElement).toBe(mounted.view.dom);
   });
 
   it("opens from the existing selection instead of the right-click pointer coordinates", async () => {
@@ -44,10 +100,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 1, 6);
     dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith({
-      anchor: { x: 19, top: 31, bottom: 46 },
-      source: "pointer",
-    });
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
     expect(posAtCoords).not.toHaveBeenCalled();
     expect(mounted.view.state.selection.empty).toBe(false);
     expect(mounted.view.state.selection.from).toBe(1);
@@ -62,10 +115,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 8);
     dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith({
-      anchor: { x: 23, top: 38, bottom: 48 },
-      source: "pointer",
-    });
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
     expect(mounted.view.state.selection.empty).toBe(true);
     expect(mounted.view.state.selection.from).toBe(8);
   });
@@ -83,10 +133,7 @@ describe("context popup plugin", () => {
 
     expect(handled).toBe(true);
     expect(event.defaultPrevented).toBe(true);
-    expect(onContextPopupRequested).toHaveBeenCalledWith({
-      anchor: { x: 19, top: 31, bottom: 46 },
-      source: "keyboard",
-    });
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("keyboard"));
   });
 
   it("opens from the keyboard around a caret with no selection", async () => {
@@ -97,10 +144,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 8);
     runKeyDownHandlers(mounted.view, "ContextMenu");
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith({
-      anchor: { x: 23, top: 38, bottom: 48 },
-      source: "keyboard",
-    });
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("keyboard"));
   });
 
   it("leaves an unmodified F10 to the rest of the editor", async () => {
@@ -168,10 +212,7 @@ describe("context popup plugin", () => {
     popupOpen = true;
     setTextSelection(mounted.view, 1, 6);
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith({
-      anchor: { x: 19, top: 31, bottom: 46 },
-      source: "pointer",
-    });
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
     expect(onContextPopupClosed).not.toHaveBeenCalled();
 
     setTextSelection(mounted.view, 3);
@@ -232,9 +273,6 @@ describe("context popup plugin", () => {
     runKeyDownHandlers(mounted.view, "ContextMenu");
     setTextSelection(mounted.view, 2, 7);
 
-    expect(onContextPopupRequested).toHaveBeenLastCalledWith({
-      anchor: { x: 20, top: 32, bottom: 47 },
-      source: "keyboard",
-    });
+    expect(onContextPopupRequested).toHaveBeenLastCalledWith(popupRequest("keyboard"));
   });
 });

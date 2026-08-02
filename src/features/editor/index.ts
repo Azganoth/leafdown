@@ -14,11 +14,8 @@ export {
   type MilkdownEditorBridge,
   type MilkdownEditorProps,
 } from "./components/MilkdownEditor";
-export type {
-  ContextPopupAnchor,
-  ContextPopupRequest,
-  ContextPopupSource,
-} from "./plugins/contextPopup";
+export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextPopup";
+export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
 export {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,

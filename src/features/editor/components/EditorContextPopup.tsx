@@ -23,7 +23,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -145,6 +145,13 @@ const focusAdjacentRow = (toolbar: HTMLElement, control: HTMLElement, step: 1 | 
   return true;
 };
 
+// Radix's `Measurable`, plus the element Floating UI resolves scroll ancestors and clipping
+// through for a virtual reference.
+interface VirtualAnchor {
+  contextElement: Element | undefined;
+  getBoundingClientRect: () => DOMRect;
+}
+
 interface EditorContextPopupProps {
   commandState: EditorCommandState;
   onClose: () => void;
@@ -165,24 +172,48 @@ export function EditorContextPopup({
   const contentRef = useRef<HTMLDivElement>(null);
   // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
-  const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
+  const requestRef = useRef<ContextPopupRequest | null>(null);
+  const pinnedRectRef = useRef<DOMRect | null>(null);
+  // Radix reads the virtual anchor on every render and re-registers it whenever its identity
+  // changes, which would re-render this component in turn. It has to be created once.
+  const virtualRef = useRef<VirtualAnchor>({
+    get contextElement() {
+      return requestRef.current?.anchor.contextElement;
+    },
+    getBoundingClientRect: () => {
+      const currentRequest = requestRef.current;
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
-    const handleScroll = () => {
-      if (!hasHeldFocusRef.current) {
-        onClose();
+      if (!currentRequest) {
+        return new DOMRect();
       }
-    };
 
-    document.addEventListener("scroll", handleScroll, true);
-    return () => {
-      document.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [onClose, isOpen]);
+      // A keyboard popup pins from the start rather than from the focus it is about to take,
+      // so it cannot hide in the moment between the two.
+      if (!hasHeldFocusRef.current && currentRequest.source !== "keyboard") {
+        return currentRequest.anchor.getRect("live");
+      }
+
+      pinnedRectRef.current ??= currentRequest.anchor.getRect("pinned");
+
+      return pinnedRectRef.current;
+    },
+  });
+  const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
+  const releaseHeldFocus = () => {
+    hasHeldFocusRef.current = false;
+    pinnedRectRef.current = null;
+  };
+
+  // Layout is early enough: Radix registers the anchor from a passive effect, and Floating UI
+  // measures later still.
+  useLayoutEffect(() => {
+    requestRef.current = request;
+
+    // A popup the user is working in keeps the rect it was pinned to.
+    if (!hasHeldFocusRef.current) {
+      pinnedRectRef.current = null;
+    }
+  }, [request]);
 
   // Only for a keyboard request landing on an already open popup. A fresh open cannot be served
   // here, because the content ref fills a microtask after this runs.
@@ -237,33 +268,22 @@ export function EditorContextPopup({
     return null;
   }
 
-  const { anchor } = request;
-
   return (
     <Popover open={isOpen} onOpenChange={(nextIsOpen) => !nextIsOpen && onClose()}>
-      <PopoverAnchor asChild>
-        <span
-          aria-hidden
-          className="pointer-events-none fixed w-px"
-          style={{
-            left: anchor.x,
-            top: anchor.top,
-            height: Math.max(1, anchor.bottom - anchor.top),
-          }}
-        />
-      </PopoverAnchor>
+      <PopoverAnchor virtualRef={virtualRef} />
       <PopoverContent
         align="center"
         asChild
         className="leafdown-context-popup w-auto gap-1 rounded-md p-1"
         data-testid="editor-context-popup"
+        hideWhenDetached
         onCloseAutoFocus={(event) => {
           // Radix restores focus to a trigger, and this popup only has an anchor, so its restore
           // is a no-op that leaves focus on the body.
           event.preventDefault();
 
           if (hasHeldFocusRef.current) {
-            hasHeldFocusRef.current = false;
+            releaseHeldFocus();
             onReturnFocus();
           }
         }}
@@ -273,12 +293,12 @@ export function EditorContextPopup({
         onInteractOutside={() => {
           // Radix defers this dismissal past the click, so returning focus would take it back
           // from whatever was just clicked.
-          hasHeldFocusRef.current = false;
+          releaseHeldFocus();
         }}
         onOpenAutoFocus={(event) => {
           // Radix would take focus on every open, including the pointer ones that must not.
           event.preventDefault();
-          hasHeldFocusRef.current = false;
+          releaseHeldFocus();
 
           if (source === "keyboard" && event.currentTarget instanceof HTMLElement) {
             focusFirstControl(event.currentTarget);

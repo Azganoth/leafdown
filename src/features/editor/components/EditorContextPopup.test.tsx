@@ -1,16 +1,26 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { createActiveEditorCommandState, createEditorCommandState } from "@/test/factories/editor";
 import { dispatchDOMEvent } from "@/test/utils/events";
 import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
 import type { ContextPopupRequest } from "../plugins/contextPopup";
+import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
 import { EditorContextPopup } from "./EditorContextPopup";
 
 const noop = () => {};
 
-const ANCHOR = { x: 40, top: 60, bottom: 80 };
+const createAnchorRect = (top = 60): DOMRect => {
+  const rect = { bottom: top + 20, height: 20, left: 40, right: 41, top, width: 1, x: 40, y: top };
+
+  return { ...rect, toJSON: () => rect };
+};
+
+const popperWrapper = () =>
+  document.querySelector<HTMLElement>("[data-radix-popper-content-wrapper]");
+
+const ANCHOR = { contextElement: document.body, getRect: () => createAnchorRect() };
 const POINTER_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "pointer" };
 const KEYBOARD_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "keyboard" };
 
@@ -57,10 +67,12 @@ const enabledPopupCommandState = createActiveEditorCommandState({
 });
 
 describe("EditorContextPopup", () => {
-  it("uses the selection range as the collision-aware popup anchor", () => {
+  it("positions against the measured selection instead of a rendered anchor element", async () => {
+    const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
+
     render(
       <EditorContextPopup
-        request={POINTER_REQUEST}
+        request={{ anchor: { contextElement: document.body, getRect }, source: "pointer" }}
         commandState={enabledPopupCommandState}
         onClose={vi.fn()}
         onExecute={vi.fn()}
@@ -68,9 +80,10 @@ describe("EditorContextPopup", () => {
       />,
     );
 
-    const anchor = document.querySelector('[data-slot="popover-anchor"]');
-
-    expect(anchor).toHaveStyle({ height: "20px", left: "40px", top: "60px" });
+    await waitFor(() => {
+      expect(getRect).toHaveBeenCalled();
+    });
+    expect(document.querySelector('[data-slot="popover-anchor"]')).toBeNull();
   });
 
   it("renders the initial five-row context UI", () => {
@@ -541,8 +554,127 @@ describe("EditorContextPopup", () => {
     });
   });
 
+  describe("anchor mode", () => {
+    const renderWithSpiedAnchor = (source: ContextPopupRequest["source"]) => {
+      const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
+      const request = { anchor: { contextElement: document.body, getRect }, source };
+      const view = render(
+        <EditorContextPopup
+          request={request}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />,
+      );
+
+      return { getRect, request, view };
+    };
+
+    const modesUsed = (getRect: Mock<(mode: ContextPopupAnchorMode) => DOMRect>) =>
+      new Set(getRect.mock.calls.map(([mode]) => mode));
+
+    it("follows the selection out of view for a popup focus is not in", async () => {
+      const { getRect } = renderWithSpiedAnchor("pointer");
+
+      await waitFor(() => {
+        expect(getRect).toHaveBeenCalled();
+      });
+      expect(modesUsed(getRect)).toEqual(new Set(["live"]));
+    });
+
+    it("pins a keyboard popup from the moment it opens", async () => {
+      const { getRect } = renderWithSpiedAnchor("keyboard");
+
+      await waitFor(() => {
+        expect(getRect).toHaveBeenCalled();
+      });
+      expect(modesUsed(getRect)).toEqual(new Set(["pinned"]));
+    });
+
+    it("holds one rect for as long as focus stays inside the popup", async () => {
+      const { getRect, request, view } = renderWithSpiedAnchor("keyboard");
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      // A fresh request would otherwise re-measure; a popup being worked in must not move.
+      view.rerender(
+        <EditorContextPopup
+          request={{ ...request, source: "pointer" }}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />,
+      );
+
+      expect(modesUsed(getRect)).toEqual(new Set(["pinned"]));
+      expect(getRect).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("visibility", () => {
+    it("hides while none of the selection is visible and returns when it scrolls back", async () => {
+      let rect = createAnchorRect(-5000);
+      const onClose = vi.fn();
+
+      render(
+        <EditorContextPopup
+          request={{
+            anchor: { contextElement: document.body, getRect: () => rect },
+            source: "pointer",
+          }}
+          commandState={enabledPopupCommandState}
+          onClose={onClose}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(popperWrapper()).toHaveStyle({ visibility: "hidden" });
+      });
+      expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
+      expect(onClose).not.toHaveBeenCalled();
+
+      rect = createAnchorRect();
+      dispatchDOMEvent(window, "resize");
+
+      await waitFor(() => {
+        expect(popperWrapper()).not.toHaveStyle({ visibility: "hidden" });
+      });
+    });
+
+    it("keeps a popup holding focus visible when its selection leaves the viewport", async () => {
+      render(
+        <EditorContextPopup
+          request={{
+            anchor: {
+              contextElement: document.body,
+              // Mirrors the resolver: a pinned anchor stays inside the viewport, a live one
+              // follows the selection out of it.
+              getRect: (mode) => createAnchorRect(mode === "pinned" ? 0 : -5000),
+            },
+            source: "keyboard",
+          }}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+      expect(popperWrapper()).not.toHaveStyle({ visibility: "hidden" });
+    });
+  });
+
   describe("scroll", () => {
-    it("closes on a scroll while focus is still in the editor", () => {
+    it("stays open on a scroll while focus is still in the editor", () => {
       const onClose = vi.fn();
 
       render(
@@ -557,7 +689,8 @@ describe("EditorContextPopup", () => {
 
       dispatchDOMEvent(document, "scroll");
 
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
     });
 
     it("stays open on a scroll while focus is inside it", async () => {

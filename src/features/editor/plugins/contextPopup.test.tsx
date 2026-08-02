@@ -57,7 +57,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 1, 6);
     runKeyDownHandlers(mounted.view, "ContextMenu");
 
-    expect(lastRequest().anchor.getRect()).toMatchObject({
+    expect(lastRequest().anchor.getRect("live")).toMatchObject({
       left: 11,
       top: 31,
       right: 26,
@@ -77,7 +77,7 @@ describe("context popup plugin", () => {
 
     setTextSelection(mounted.view, 3, 8);
 
-    expect(anchor.getRect()).toMatchObject({ top: 33, bottom: 48 });
+    expect(anchor.getRect("live")).toMatchObject({ top: 33, bottom: 48 });
   });
 
   it("anchors against the editor it belongs to", async () => {

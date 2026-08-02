@@ -7,9 +7,15 @@ const POPUP_CLEARANCE = 200;
 // Floating UI's own overflow test, so the popup is clamped to the element it listens on.
 const OVERFLOW_PATTERN = /auto|scroll|overlay|hidden|clip/u;
 
+/**
+ * `live` leaves the viewport with the selection, so the popup hides once none of it is visible.
+ * `pinned` never leaves it, so a popup the user is working in stays visible and still.
+ */
+export type ContextPopupAnchorMode = "live" | "pinned";
+
 export interface ContextPopupAnchor {
   contextElement: Element;
-  getRect: () => DOMRect;
+  getRect: (mode: ContextPopupAnchorMode) => DOMRect;
 }
 
 const createRect = (left: number, top: number, right: number, bottom: number): DOMRect => {
@@ -65,8 +71,24 @@ const findScrollViewport = (element: Element) => {
 
 export const canMeasureSelection = (view: EditorView) => getSelectionRect(view) !== null;
 
+const isOutsideViewport = (selection: DOMRect, viewport: DOMRect) =>
+  selection.bottom < viewport.top ||
+  selection.top > viewport.bottom ||
+  selection.right < viewport.left ||
+  selection.left > viewport.right;
+
 /** Resolves the rect the popup positions against, beside the visible part of the selection. */
-export const resolveContextPopupAnchorRect = (selection: DOMRect, viewport: DOMRect): DOMRect => {
+export const resolveContextPopupAnchorRect = (
+  selection: DOMRect,
+  viewport: DOMRect,
+  mode: ContextPopupAnchorMode,
+): DOMRect => {
+  // Floating UI calls a reference hidden only once it is fully clipped, which a clamped rect
+  // never is, so an invisible selection has to be reported where it actually is.
+  if (mode === "live" && isOutsideViewport(selection, viewport)) {
+    return selection;
+  }
+
   const top = clamp(selection.top, viewport.top, viewport.bottom);
   const left = clamp(selection.left, viewport.left, viewport.right);
   const bottom = clamp(selection.bottom, top, viewport.bottom);
@@ -90,11 +112,11 @@ export const createContextPopupAnchor = (view: EditorView): ContextPopupAnchor =
 
   return {
     contextElement: view.dom,
-    getRect: () => {
+    getRect: (mode) => {
       const selection = view.isDestroyed ? null : getSelectionRect(view);
 
       return selection
-        ? resolveContextPopupAnchorRect(selection, getViewportRect())
+        ? resolveContextPopupAnchorRect(selection, getViewportRect(), mode)
         : createRect(0, 0, 0, 0);
     },
   };

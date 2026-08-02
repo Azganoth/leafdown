@@ -27,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Keep empty folders in the article navigator reachable instead of skipping them.
 - Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.
 - Keep the editor context popup beside the text it acts on while the document scrolls, and inside the editor for a selection taller than the visible area.
+- Hide the editor context popup while its selection is scrolled out of view instead of closing it, and bring it back with the selection.
 - Announce the editor context popup as a named toolbar instead of an unnamed dialog.
 - Announce recent files and recent folders under their own headings in the `Open recent` menu.
 - Disable a submenu instead of opening it empty when every command inside it is unavailable.

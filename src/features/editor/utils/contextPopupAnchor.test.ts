@@ -20,7 +20,10 @@ const createRect = (left: number, top: number, right: number, bottom: number): D
 // Tall enough that both ends of a selection can clear the popup.
 const VIEWPORT = createRect(0, 100, 800, 1100);
 
-const resolve = (selection: DOMRect) => resolveContextPopupAnchorRect(selection, VIEWPORT);
+const resolve = (selection: DOMRect) => resolveContextPopupAnchorRect(selection, VIEWPORT, "live");
+
+const resolvePinned = (selection: DOMRect) =>
+  resolveContextPopupAnchorRect(selection, VIEWPORT, "pinned");
 
 describe("resolveContextPopupAnchorRect", () => {
   it("anchors to a fully visible selection unchanged", () => {
@@ -56,15 +59,37 @@ describe("resolveContextPopupAnchorRect", () => {
     expect(anchor).toMatchObject({ top: 150, bottom: 150 });
   });
 
-  it("pins a selection scrolled off the top to the viewport's top edge", () => {
-    expect(resolve(createRect(120, -400, 260, -300))).toMatchObject({ top: 100, bottom: 100 });
-  });
-
-  it("pins a selection scrolled off the bottom to the viewport's bottom edge", () => {
-    expect(resolve(createRect(120, 3000, 260, 3100))).toMatchObject({ top: 1100, bottom: 1100 });
-  });
-
   it("clamps a selection wider than the viewport to its horizontal bounds", () => {
     expect(resolve(createRect(-50, 400, 900, 420))).toMatchObject({ left: 0, right: 800 });
+  });
+
+  describe("a selection with no visible part", () => {
+    it.each([
+      ["above", createRect(120, -400, 260, -300)],
+      ["below", createRect(120, 3000, 260, 3100)],
+    ])("reports a live anchor beyond the viewport when the selection is %s it", (_where, off) => {
+      expect(resolve(off)).toBe(off);
+    });
+
+    it("keeps a pinned anchor at the viewport's top edge for a selection above it", () => {
+      expect(resolvePinned(createRect(120, -400, 260, -300))).toMatchObject({
+        top: 100,
+        bottom: 100,
+      });
+    });
+
+    it("keeps a pinned anchor at the viewport's bottom edge for a selection below it", () => {
+      expect(resolvePinned(createRect(120, 3000, 260, 3100))).toMatchObject({
+        top: 1100,
+        bottom: 1100,
+      });
+    });
+  });
+
+  it("clamps a pinned anchor for a selection that is still partly visible", () => {
+    expect(resolvePinned(createRect(120, 600, 260, 4000))).toMatchObject({
+      top: 600,
+      bottom: 1100,
+    });
   });
 });

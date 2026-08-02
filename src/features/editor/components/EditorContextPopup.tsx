@@ -23,7 +23,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -40,6 +40,7 @@ import { cn } from "@/lib/cn";
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
+import type { ContextPopupAnchor } from "../utils/contextPopupAnchor";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -145,6 +146,13 @@ const focusAdjacentRow = (toolbar: HTMLElement, control: HTMLElement, step: 1 | 
   return true;
 };
 
+// Radix's `Measurable`, plus the element Floating UI resolves scroll ancestors and clipping
+// through for a virtual reference.
+interface VirtualAnchor {
+  contextElement: Element | undefined;
+  getBoundingClientRect: () => DOMRect;
+}
+
 interface EditorContextPopupProps {
   commandState: EditorCommandState;
   onClose: () => void;
@@ -165,24 +173,22 @@ export function EditorContextPopup({
   const contentRef = useRef<HTMLDivElement>(null);
   // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
+  const anchorRef = useRef<ContextPopupAnchor | null>(null);
+  // Radix reads the virtual anchor on every render and re-registers it whenever its identity
+  // changes, which would re-render this component in turn. It has to be created once.
+  const virtualRef = useRef<VirtualAnchor>({
+    get contextElement() {
+      return anchorRef.current?.contextElement;
+    },
+    getBoundingClientRect: () => anchorRef.current?.getRect() ?? new DOMRect(),
+  });
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return undefined;
-    }
-
-    const handleScroll = () => {
-      if (!hasHeldFocusRef.current) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("scroll", handleScroll, true);
-    return () => {
-      document.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [onClose, isOpen]);
+  // Layout is early enough: Radix registers the anchor from a passive effect, and Floating UI
+  // measures later still.
+  useLayoutEffect(() => {
+    anchorRef.current = request?.anchor ?? null;
+  }, [request]);
 
   // Only for a keyboard request landing on an already open popup. A fresh open cannot be served
   // here, because the content ref fills a microtask after this runs.
@@ -237,21 +243,9 @@ export function EditorContextPopup({
     return null;
   }
 
-  const { anchor } = request;
-
   return (
     <Popover open={isOpen} onOpenChange={(nextIsOpen) => !nextIsOpen && onClose()}>
-      <PopoverAnchor asChild>
-        <span
-          aria-hidden
-          className="pointer-events-none fixed w-px"
-          style={{
-            left: anchor.x,
-            top: anchor.top,
-            height: Math.max(1, anchor.bottom - anchor.top),
-          }}
-        />
-      </PopoverAnchor>
+      <PopoverAnchor virtualRef={virtualRef} />
       <PopoverContent
         align="center"
         asChild

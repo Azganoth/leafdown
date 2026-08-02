@@ -176,7 +176,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `Escape`: Closes the popup, or an open submenu first, returning focus to the command that opened it.
   - `Tab`: Closes the popup as well, rather than moving to another control.
 - Closing a popup that holds focus returns focus to the editor with its selection intact, whichever path closed it.
-- A scroll closes the popup while focus is in the editor. While focus is inside it the popup stays open and may drift from the text it anchors to.
+- The popup anchors to the part of its selection that is visible in the document surface and follows that text as the document scrolls. A selection taller than the visible area anchors the popup inside it rather than past its edge. Scrolling does not close the popup.
 - Structural editing and native text gestures retain their normal editor behavior. Leafdown commands provide the same semantic operations across menus, keyboard shortcuts, and the context popup.
 - The app intercepts and disables default webview reload and navigation shortcuts, including `Mod+R` and `Mod+Shift+R`, to prevent accidental state resets.
 

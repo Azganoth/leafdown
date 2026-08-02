@@ -2,13 +2,13 @@ import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
-export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
+import {
+  canMeasureSelection,
+  createContextPopupAnchor,
+  type ContextPopupAnchor,
+} from "../utils/contextPopupAnchor";
 
-export interface ContextPopupAnchor {
-  x: number;
-  top: number;
-  bottom: number;
-}
+export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
 export type ContextPopupSource = "keyboard" | "pointer";
 
@@ -22,23 +22,6 @@ export interface LeafdownContextPopupPluginOptions {
   onClose?: () => void;
   onRequest?: (request: ContextPopupRequest) => void;
 }
-
-const getSelectionAnchor = (view: EditorView): ContextPopupAnchor | null => {
-  const { selection } = view.state;
-
-  try {
-    const from = view.coordsAtPos(selection.from, 1);
-    const to = selection.empty ? from : view.coordsAtPos(selection.to, -1);
-
-    return {
-      x: Math.round((from.left + to.right) / 2),
-      top: Math.round(from.top),
-      bottom: Math.round(to.bottom),
-    };
-  } catch {
-    return null;
-  }
-};
 
 const closePopup = ({ isOpen, onClose }: LeafdownContextPopupPluginOptions) => {
   if (!isOpen?.()) {
@@ -60,14 +43,15 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
   $prose(() => {
     // Held so that refreshing an open popup's anchor cannot downgrade it to a pointer open.
     let openSource: ContextPopupSource = "pointer";
+    // The anchor measures the live selection, so one per editor serves every request.
+    let anchor: ContextPopupAnchor | null = null;
 
     const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
-      const anchor = getSelectionAnchor(view);
-
-      if (!anchor) {
+      if (!canMeasureSelection(view)) {
         return false;
       }
 
+      anchor ??= createContextPopupAnchor(view);
       openSource = source;
       options.onRequest?.({ anchor, source });
 

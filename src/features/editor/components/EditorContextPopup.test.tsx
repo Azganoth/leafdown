@@ -10,7 +10,13 @@ import { EditorContextPopup } from "./EditorContextPopup";
 
 const noop = () => {};
 
-const ANCHOR = { x: 40, top: 60, bottom: 80 };
+const createAnchorRect = (): DOMRect => {
+  const rect = { bottom: 80, height: 20, left: 40, right: 41, top: 60, width: 1, x: 40, y: 60 };
+
+  return { ...rect, toJSON: () => rect };
+};
+
+const ANCHOR = { contextElement: document.body, getRect: createAnchorRect };
 const POINTER_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "pointer" };
 const KEYBOARD_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "keyboard" };
 
@@ -57,10 +63,12 @@ const enabledPopupCommandState = createActiveEditorCommandState({
 });
 
 describe("EditorContextPopup", () => {
-  it("uses the selection range as the collision-aware popup anchor", () => {
+  it("positions against the measured selection instead of a rendered anchor element", async () => {
+    const getRect = vi.fn(createAnchorRect);
+
     render(
       <EditorContextPopup
-        request={POINTER_REQUEST}
+        request={{ anchor: { contextElement: document.body, getRect }, source: "pointer" }}
         commandState={enabledPopupCommandState}
         onClose={vi.fn()}
         onExecute={vi.fn()}
@@ -68,9 +76,10 @@ describe("EditorContextPopup", () => {
       />,
     );
 
-    const anchor = document.querySelector('[data-slot="popover-anchor"]');
-
-    expect(anchor).toHaveStyle({ height: "20px", left: "40px", top: "60px" });
+    await waitFor(() => {
+      expect(getRect).toHaveBeenCalled();
+    });
+    expect(document.querySelector('[data-slot="popover-anchor"]')).toBeNull();
   });
 
   it("renders the initial five-row context UI", () => {
@@ -542,7 +551,7 @@ describe("EditorContextPopup", () => {
   });
 
   describe("scroll", () => {
-    it("closes on a scroll while focus is still in the editor", () => {
+    it("stays open on a scroll while focus is still in the editor", () => {
       const onClose = vi.fn();
 
       render(
@@ -557,7 +566,8 @@ describe("EditorContextPopup", () => {
 
       dispatchDOMEvent(document, "scroll");
 
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
     });
 
     it("stays open on a scroll while focus is inside it", async () => {

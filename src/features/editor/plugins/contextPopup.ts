@@ -10,7 +10,6 @@ export interface ContextPopupAnchor {
   bottom: number;
 }
 
-/** How the popup was opened. Only a keyboard open moves focus into it. */
 export type ContextPopupSource = "keyboard" | "pointer";
 
 export interface ContextPopupRequest {
@@ -54,16 +53,12 @@ const closePopup = ({ isOpen, onClose }: LeafdownContextPopupPluginOptions) => {
 const isEditablePopupTarget = (event: MouseEvent) =>
   event.target instanceof HTMLElement && event.target.closest("input, textarea, select") !== null;
 
-// The platform keys that ask for a context menu. Handling them here rather than reading the
-// contextmenu event they would produce keeps the two open paths distinguishable without
-// inspecting a synthesized MouseEvent, which reports no button for a keyboard invocation.
 const isContextMenuKey = (event: KeyboardEvent) =>
   event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
 
 export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPluginOptions = {}) =>
   $prose(() => {
-    // An open popup keeps the source it was opened with, so refreshing its anchor against a
-    // moved selection cannot downgrade a keyboard-opened popup to one that never took focus.
+    // Held so that refreshing an open popup's anchor cannot downgrade it to a pointer open.
     let openSource: ContextPopupSource = "pointer";
 
     const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
@@ -144,8 +139,8 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
         },
         handleKeyDown: (view, event) => {
           if (isContextMenuKey(event)) {
-            // Also suppresses the contextmenu event the key would otherwise produce, so the
-            // pointer path cannot reopen the popup underneath the keyboard one.
+            // Also suppresses the contextmenu event the key would produce, which would reopen
+            // this popup through the pointer path.
             event.preventDefault();
 
             if (!requestSelectionPopup(view, "keyboard")) {

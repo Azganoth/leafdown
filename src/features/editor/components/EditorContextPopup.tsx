@@ -104,8 +104,8 @@ const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorComman
 
 const CONTEXT_POPUP_LABEL = "Context actions";
 
-// The toolbar wraps into rows, so its controls carry their grid position. Radix's roving focus
-// only walks them in document order, which is the row-wise half of the traversal.
+// Radix's roving focus only walks controls in document order, so vertical movement across the
+// wrapped rows is worked out from these.
 const toolbarPosition = (row: number, column: number) => ({
   "data-toolbar-row": row,
   "data-toolbar-column": column,
@@ -120,10 +120,9 @@ const focusFirstControl = (toolbar: HTMLElement | null) => {
   toolbar?.querySelector<HTMLElement>(ENABLED_CONTROL_SELECTOR)?.focus();
 };
 
-/** Moves focus one row up or down, staying as close to the current column as that row allows. */
 const focusAdjacentRow = (toolbar: HTMLElement, control: HTMLElement, step: 1 | -1) => {
   const controls = [...toolbar.querySelectorAll<HTMLElement>(ENABLED_CONTROL_SELECTOR)];
-  // A row whose every control is unavailable is absent here, and so is skipped over.
+  // A row with nothing available drops out here, which is what skips it.
   const rows = [...new Set(controls.map((candidate) => readPosition(candidate, "toolbarRow")))];
   const rowIndex = rows.indexOf(readPosition(control, "toolbarRow"));
 
@@ -164,8 +163,7 @@ export function EditorContextPopup({
   const isOpen = request !== null;
   const source = request?.source;
   const contentRef = useRef<HTMLDivElement>(null);
-  // Sticky for the lifetime of one open popup: it decides whether closing owes the editor its
-  // focus back, and it survives focus moving into a submenu, which renders in its own portal.
+  // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
 
@@ -174,8 +172,6 @@ export function EditorContextPopup({
       return undefined;
     }
 
-    // Scrolling the popup away from an in-progress keyboard interaction would interrupt focus,
-    // which costs more than the popup drifting from the text it anchors to.
     const handleScroll = () => {
       if (!hasHeldFocusRef.current) {
         onClose();
@@ -188,9 +184,8 @@ export function EditorContextPopup({
     };
   }, [onClose, isOpen]);
 
-  // Covers a keyboard request landing on a popup a pointer already opened, where the content is
-  // mounted and Radix has no reason to fire its open-focus event again. The mount case cannot be
-  // served here: the content ref is still empty this early, so it runs from that event instead.
+  // Only for a keyboard request landing on an already open popup. A fresh open cannot be served
+  // here, because the content ref fills a microtask after this runs.
   useEffect(() => {
     if (isOpen && source === "keyboard") {
       focusFirstControl(contentRef.current);
@@ -198,31 +193,27 @@ export function EditorContextPopup({
   }, [isOpen, source]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    // An open submenu renders in its own portal while staying a child here, so its keys reach
-    // this handler. They belong to the menu: Escape has a submenu to close before it has a popup.
+    // A submenu keeps its keys despite reaching here through its portal: its Escape closes it.
     if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) {
       return;
     }
 
-    // A focused control shows its tooltip, and that tooltip is the dismissable layer Radix gives
-    // the first Escape to, so waiting for the popup's own layer would cost a second press. This
-    // can therefore close a popup the layer just closed, which asks nothing of an already closed
-    // popup. It cannot be resolved by looking at the event: both paths mark it as handled.
+    // The focused control's tooltip is the layer Radix offers Escape to first, so leaving this
+    // to the popup's own layer would cost a second press. Closing twice asks nothing of a closed
+    // popup, and the two cases cannot be told apart: both mark the event as handled.
     if (event.key === "Escape") {
       onClose();
       return;
     }
 
     if (event.key === "Tab") {
-      // Leaving by Tab would land on whatever follows the portal in the document rather than
-      // back in the text, so the popup treats it as a way out to the editor.
+      // Tabbing on would land after the portal rather than back in the text.
       event.preventDefault();
       onClose();
       return;
     }
 
-    // A submenu trigger answers ArrowDown by opening, and Radix's roving focus answers the
-    // horizontal arrows. Both mark the event, and neither wants a second interpretation here.
+    // Left to Radix: the horizontal arrows to roving focus, ArrowDown to a submenu trigger.
     if (event.defaultPrevented) {
       return;
     }
@@ -267,8 +258,8 @@ export function EditorContextPopup({
         className="leafdown-context-popup w-auto gap-1 rounded-md p-1"
         data-testid="editor-context-popup"
         onCloseAutoFocus={(event) => {
-          // Radix restores focus to a trigger, and this popup anchors instead of triggering, so
-          // its restore is a no-op that would leave focus on the body. Return it here instead.
+          // Radix restores focus to a trigger, and this popup only has an anchor, so its restore
+          // is a no-op that leaves focus on the body.
           event.preventDefault();
 
           if (hasHeldFocusRef.current) {
@@ -280,13 +271,12 @@ export function EditorContextPopup({
           hasHeldFocusRef.current = true;
         }}
         onInteractOutside={() => {
-          // Whatever was interacted with owns focus now. Radix defers this dismissal until after
-          // the click, so returning focus here would take it back from wherever it just landed.
+          // Radix defers this dismissal past the click, so returning focus would take it back
+          // from whatever was just clicked.
           hasHeldFocusRef.current = false;
         }}
         onOpenAutoFocus={(event) => {
-          // Radix would focus the first tab stop on every open. Only a keyboard open should take
-          // focus, so the default is always suppressed and the keyboard case focuses explicitly.
+          // Radix would take focus on every open, including the pointer ones that must not.
           event.preventDefault();
           hasHeldFocusRef.current = false;
 
@@ -301,8 +291,7 @@ export function EditorContextPopup({
         <Toolbar
           aria-label={CONTEXT_POPUP_LABEL}
           onKeyDown={handleKeyDown}
-          // The popover's own role="dialog" arrives through asChild and would otherwise win over
-          // the one the toolbar sets for itself.
+          // Overrides the popover's role="dialog", which arrives through asChild.
           role="toolbar"
         >
           <ContextCommandRow

@@ -82,8 +82,6 @@ describe("context popup plugin", () => {
     const { event, handled } = runKeyDownHandlers(mounted.view, key, modifiers);
 
     expect(handled).toBe(true);
-    // The suppressed default is the contextmenu event the key would produce, which would
-    // otherwise reopen the same popup through the pointer path and leave focus behind.
     expect(event.defaultPrevented).toBe(true);
     expect(onContextPopupRequested).toHaveBeenCalledWith({
       anchor: { x: 19, top: 31, bottom: 46 },
@@ -201,7 +199,7 @@ describe("context popup plugin", () => {
 
     expect(popupOpen).toBe(true);
 
-    // Standing in for the popup taking focus, which is what a keyboard open does next.
+    // Stands in for the popup taking focus.
     const elsewhere = document.createElement("button");
     document.body.append(elsewhere);
 

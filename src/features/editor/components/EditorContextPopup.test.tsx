@@ -18,8 +18,7 @@ interface ClosingPopupHostProps {
   onReturnFocus?: () => void;
 }
 
-// Close paths only show through a parent that really closes: a mock `onClose` leaves the popup
-// mounted, and every assertion that it survived a close then passes for the wrong reason.
+// A mock `onClose` leaves the popup mounted, so close paths asserted against one pass either way.
 function ClosingPopupHost({ onReturnFocus = noop }: ClosingPopupHostProps) {
   const [request, setRequest] = useState<ContextPopupRequest | null>(KEYBOARD_REQUEST);
 
@@ -476,7 +475,6 @@ describe("EditorContextPopup", () => {
       await user.tab();
 
       expect(onClose).toHaveBeenCalledTimes(1);
-      // Focus stays put until the popup unmounts, which is what returns it to the editor.
       expect(screen.getByLabelText("Cut")).toHaveFocus();
     });
 

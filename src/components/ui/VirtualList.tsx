@@ -186,4 +186,11 @@ function VirtualListEmpty({ children }: { children: ReactNode }) {
   return children;
 }
 
-export { VirtualList, VirtualListContent, VirtualListEmpty, VirtualListItem, VirtualListItems };
+export {
+  VirtualList,
+  VirtualListContent,
+  VirtualListEmpty,
+  VirtualListItem,
+  VirtualListItems,
+  type VirtualItem,
+};

@@ -77,10 +77,16 @@ describe("Shell", () => {
 
     render(<Shell />);
 
-    expect(screen.getByRole("button", { name: "readme.md" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "draft.markdown" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "docs" })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: "spec.md" })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("treeitem", { name: "spec.md" })).not.toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Article navigator" })).toContainElement(
+      screen.getByRole("tree", { name: "Articles" }),
+    );
     expect(screen.getByText("No document open")).toBeInTheDocument();
     expect(
       screen.getByText("Select a Markdown file from the sidebar or create a new document."),
@@ -100,14 +106,14 @@ describe("Shell", () => {
     render(<Shell />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "spec.md" })).toHaveAttribute(
-        "aria-current",
-        "page",
+      expect(screen.getByRole("treeitem", { name: "spec.md" })).toHaveAttribute(
+        "aria-selected",
+        "true",
       );
     });
 
-    expect(screen.getByRole("button", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("button", { name: "empty" })).toBeDisabled();
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: "empty" })).not.toHaveAttribute("aria-expanded");
     expect(screen.getByTestId("active-document-host")).toHaveTextContent("# Spec");
   });
 
@@ -120,7 +126,7 @@ describe("Shell", () => {
 
     expect(screen.getByText("No Markdown files found")).toBeInTheDocument();
     expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "nested" })).toBeDisabled();
+    expect(screen.getByRole("treeitem", { name: "nested" })).not.toHaveAttribute("aria-expanded");
   });
 
   it("hides the sidebar when the persisted sidebar setting is off", () => {
@@ -144,7 +150,7 @@ describe("Shell", () => {
     );
 
     const { user } = renderWithUser(<Shell />);
-    await user.click(screen.getByRole("button", { name: "readme.md" }));
+    await user.click(screen.getByRole("treeitem", { name: "readme.md" }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Could not read Markdown file.", {
@@ -162,7 +168,7 @@ describe("Shell", () => {
     mockTauriApiCommand("openMarkdownFile", () => Promise.reject(OVERSIZED_MARKDOWN_FILE_ERROR));
 
     const { user } = renderWithUser(<Shell />);
-    await user.click(screen.getByRole("button", { name: "draft.markdown" }));
+    await user.click(screen.getByRole("treeitem", { name: "draft.markdown" }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Markdown file is too large.", {

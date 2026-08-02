@@ -20,6 +20,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Announce the article navigator as a tree, with the nesting depth, sibling position, and expanded state of every row.
+- Keep empty folders in the article navigator reachable instead of skipping them.
 - Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.
 - Announce the editor context popup as a named toolbar instead of an unnamed dialog.
 - Announce recent files and recent folders under their own headings in the `Open recent` menu.

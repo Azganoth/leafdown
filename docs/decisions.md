@@ -249,6 +249,20 @@
 - Extending validation is a local change with no dependency surface, and its type-checking cost stays proportional to the shapes actually declared.
 - The salvage and repair behavior is Leafdown's to maintain and test.
 
+### Expose the article navigator as a flattened tree
+
+**Decision:** The article navigator is an ARIA `tree`, flattened rather than nested: the scrolling list carries `role="tree"`, every row is a `treeitem` child of it, and depth travels on `aria-level` with `role="group"` omitted. Selection does not follow focus — `aria-selected` marks the open document, and only `Enter`, `Space`, and click open one.
+
+**Rationale:** Hierarchy has to be announced, not just indented, and a flat list of buttons has nowhere to put nesting, position, or expanded state. The nested `role="group"` markup the pattern usually shows cannot be produced here, because virtualization keeps only a window of rows in the DOM and a group wrapper would have to enclose children that do not exist; `aria-level` carries the same relationship without the DOM nesting. Selection following focus would open every document arrowed past, thrashing the editor.
+
+**Consequences:**
+
+- `aria-setsize` and `aria-posinset` are scoped to siblings under the same parent and computed in the row model, because a flat row index answers a different question and the DOM holds only a window of rows.
+- Every `treeitem` carries `aria-selected`, including directory rows that can never be selected. A tree where only some items carry it has the rest announced as "not selected".
+- `aria-current` no longer marks the open document. The `data-active` visual treatment is unchanged.
+- The focused row and the selected row are routinely different, which is what file-explorer users expect.
+- Rows are `treeitem`s rather than buttons, so their keyboard behavior is the tree's to implement rather than something the platform supplies.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

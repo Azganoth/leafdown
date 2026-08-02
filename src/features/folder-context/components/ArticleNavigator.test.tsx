@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createEmptyFolderContext, createFolderContext } from "@/test/factories/folderContext";
+import {
+  createEmptyFolderContext,
+  createFolderContext,
+  createNestedArticleTree,
+} from "@/test/factories/folderContext";
+import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
 import { render, renderWithUser, screen } from "@/test/utils/react";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ArticleNavigator } from "./ArticleNavigator";
 
 const folderContext = createFolderContext();
+
+const nestedFolderContext = createFolderContext({ tree: createNestedArticleTree() });
 
 const emptyFolderContext = createEmptyFolderContext();
 
@@ -33,7 +40,23 @@ describe("ArticleNavigator", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "readme.md" }));
+    await user.click(screen.getByRole("treeitem", { name: "readme.md" }));
+
+    expect(onOpenArticle).toHaveBeenCalledWith("C:/Notes/readme.md");
+  });
+
+  it("opens an article from the keyboard", async () => {
+    const onOpenArticle = vi.fn();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={folderContext}
+        onOpenArticle={onOpenArticle}
+      />,
+    );
+
+    screen.getByRole("treeitem", { name: "readme.md" }).focus();
+    await user.keyboard("{Enter}");
 
     expect(onOpenArticle).toHaveBeenCalledWith("C:/Notes/readme.md");
   });
@@ -48,9 +71,90 @@ describe("ArticleNavigator", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "readme.md" }));
+    await user.click(screen.getByRole("treeitem", { name: "readme.md" }));
 
     expect(onOpenArticle).not.toHaveBeenCalled();
+  });
+
+  it("exposes the articles as a tree named apart from the surrounding landmark", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={folderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("tree", { name: "Articles" })).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("reports nesting depth, sibling position, and expanded state on every row", () => {
+    useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
+
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByRole("treeitem")
+        .map((row) => [
+          row.textContent,
+          row.getAttribute("aria-level"),
+          row.getAttribute("aria-posinset"),
+          row.getAttribute("aria-setsize"),
+          row.getAttribute("aria-expanded"),
+        ]),
+    ).toEqual([
+      ["readme.md", "1", "1", "4", null],
+      ["draft.markdown", "1", "2", "4", null],
+      ["docs", "1", "3", "4", "true"],
+      ["spec.md", "2", "1", "1", null],
+      ["empty", "1", "4", "4", null],
+    ]);
+  });
+
+  it("keeps an empty directory reachable instead of disabling it", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const emptyDirectory = screen.getByRole("treeitem", { name: "empty" });
+    emptyDirectory.focus();
+
+    expect(emptyDirectory).toHaveFocus();
+    expect(emptyDirectory).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("marks the open document as the selected row", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath="C:/Notes/readme.md"
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByRole("treeitem")
+        .map((row) => [row.textContent, row.getAttribute("aria-selected")]),
+    ).toEqual([
+      ["readme.md", "true"],
+      ["draft.markdown", "false"],
+      ["docs", "false"],
+      ["empty", "false"],
+    ]);
+    expect(screen.queryByRole("treeitem", { current: "page" })).not.toBeInTheDocument();
   });
 
   it("shows when the active document is outside the current folder context", () => {

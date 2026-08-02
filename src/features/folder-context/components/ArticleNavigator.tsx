@@ -8,18 +8,20 @@ import {
   InfoIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useEffect, useRef, type Ref } from "react";
+import { useEffect, useRef, type KeyboardEvent, type Ref } from "react";
 
-import { Button } from "@/components/ui/Button";
+import { buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import {
   VirtualList,
   VirtualListContent,
   VirtualListItem,
   VirtualListItems,
+  type VirtualItem,
   type VirtualListHandle,
 } from "@/components/ui/VirtualList";
 import { cn } from "@/lib/cn";
+import { hasNoShortcutModifier } from "@/lib/input";
 import { isSameOrParentPath, isSamePath } from "@/lib/path";
 
 import type { FolderContextState } from "../services/folderContext";
@@ -210,15 +212,16 @@ function ArticleNavigatorRows({
       items={rows}
       virtualListRef={virtualListRef}
     >
-      <VirtualListContent aria-label="Article navigator" className="mx-1" role="list">
+      <VirtualListContent aria-label="Articles" className="mx-1" role="tree">
         <VirtualListItems<ArticleNavigatorRow>>
           {(row, virtualRow) => (
-            <VirtualListItem key={row.path} virtualRow={virtualRow}>
-              {row.kind === "directory" && (
-                <DirectoryRow row={row} onToggleDirectory={onToggleDirectory} />
-              )}
-              {row.kind === "file" && <ArticleRow row={row} onOpenArticle={onOpenArticle} />}
-            </VirtualListItem>
+            <ArticleNavigatorTreeItem
+              key={row.path}
+              onOpenArticle={onOpenArticle}
+              onToggleDirectory={onToggleDirectory}
+              row={row}
+              virtualRow={virtualRow}
+            />
           )}
         </VirtualListItems>
       </VirtualListContent>
@@ -226,25 +229,66 @@ function ArticleNavigatorRows({
   );
 }
 
-interface DirectoryRowProps {
-  row: ArticleNavigatorDirectoryRow;
+interface ArticleNavigatorTreeItemProps {
+  onOpenArticle: (path: string) => void;
   onToggleDirectory: (path: string) => void;
+  row: ArticleNavigatorRow;
+  virtualRow: VirtualItem;
 }
 
-function DirectoryRow({ row, onToggleDirectory }: DirectoryRowProps) {
+function ArticleNavigatorTreeItem({
+  onOpenArticle,
+  onToggleDirectory,
+  row,
+  virtualRow,
+}: ArticleNavigatorTreeItemProps) {
+  const activate = () =>
+    row.kind === "directory" ? onToggleDirectory(row.path) : onOpenArticle(row.path);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+    if ((event.key !== "Enter" && event.key !== " ") || !hasNoShortcutModifier(event.nativeEvent)) {
+      return;
+    }
+
+    event.preventDefault();
+    activate();
+  };
+
+  return (
+    <VirtualListItem
+      aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
+      aria-level={row.depth + 1}
+      aria-posinset={row.posInSet}
+      aria-selected={row.kind === "file" && row.isActive}
+      aria-setsize={row.setSize}
+      className={cn(
+        buttonVariants({ variant: "ghost" }),
+        "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal",
+        "data-active:bg-accent data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)]",
+      )}
+      data-active={row.kind === "file" ? row.isActive : undefined}
+      onClick={activate}
+      onKeyDown={handleKeyDown}
+      role="treeitem"
+      style={{ paddingLeft: `${row.depth * 14 + (row.kind === "directory" ? 6 : 23)}px` }}
+      tabIndex={0}
+      title={row.path}
+      virtualRow={virtualRow}
+    >
+      {row.kind === "directory" ? (
+        <DirectoryRowContent row={row} />
+      ) : (
+        <ArticleRowContent row={row} />
+      )}
+    </VirtualListItem>
+  );
+}
+
+function DirectoryRowContent({ row }: { row: ArticleNavigatorDirectoryRow }) {
   const Icon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
 
   return (
-    <Button
-      aria-expanded={row.hasChildren ? row.isExpanded : undefined}
-      className="h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal"
-      disabled={!row.hasChildren}
-      onClick={() => onToggleDirectory(row.path)}
-      style={{ paddingLeft: `${row.depth * 14 + 6}px` }}
-      title={row.path}
-      type="button"
-      variant="ghost"
-    >
+    <>
       {row.hasChildren ? (
         <Icon className="size-3 text-muted-foreground" />
       ) : (
@@ -252,32 +296,15 @@ function DirectoryRow({ row, onToggleDirectory }: DirectoryRowProps) {
       )}
       <FolderIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
-    </Button>
+    </>
   );
 }
 
-interface ArticleRowProps {
-  row: ArticleNavigatorArticleRow;
-  onOpenArticle: (path: string) => void;
-}
-
-function ArticleRow({ row, onOpenArticle }: ArticleRowProps) {
+function ArticleRowContent({ row }: { row: ArticleNavigatorArticleRow }) {
   return (
-    <Button
-      aria-current={row.isActive ? "page" : undefined}
-      className={cn(
-        "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal",
-        "data-active:bg-accent data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)]",
-      )}
-      data-active={row.isActive}
-      onClick={() => onOpenArticle(row.path)}
-      style={{ paddingLeft: `${row.depth * 14 + 23}px` }}
-      title={row.path}
-      type="button"
-      variant="ghost"
-    >
+    <>
       <FileTextIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
-    </Button>
+    </>
   );
 }

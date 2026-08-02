@@ -8,7 +8,7 @@ import {
   InfoIcon,
   TriangleAlertIcon,
 } from "lucide-react";
-import { useEffect, useRef, type KeyboardEvent, type Ref } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type Ref } from "react";
 
 import { buttonVariants } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
@@ -33,6 +33,11 @@ import {
   type ArticleNavigatorDirectoryRow,
   type ArticleNavigatorRow,
 } from "../utils/articleNavigatorRows";
+import {
+  getArticleNavigatorFocusedIndex,
+  getArticleNavigatorTraversalAction,
+  isArticleNavigatorTraversalKey,
+} from "../utils/articleNavigatorTraversal";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
 const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
@@ -204,21 +209,96 @@ function ArticleNavigatorRows({
   rows,
   virtualListRef,
 }: ArticleNavigatorRowsProps) {
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
+  const pendingFocusPathRef = useRef<string | null>(null);
+  const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
+  const focusedIndex = getArticleNavigatorFocusedIndex(rows, focusedPath);
+
+  useEffect(() => {
+    const pendingFocusPath = pendingFocusPathRef.current;
+
+    if (pendingFocusPath === null) {
+      return;
+    }
+
+    pendingFocusPathRef.current = null;
+    rowElementsRef.current.get(pendingFocusPath)?.focus();
+  });
+
+  const focusRow = (index: number) => {
+    const path = rows[index]?.path;
+
+    if (path === undefined) {
+      return;
+    }
+
+    // The row may sit outside the rendered window, so it is pinned first and
+    // focused once that render commits.
+    pendingFocusPathRef.current = path;
+    setFocusedPath(path);
+  };
+
+  const activateRow = (index: number) => {
+    const row = rows[index];
+
+    if (!row) {
+      return;
+    }
+
+    if (row.kind === "directory") {
+      onToggleDirectory(row.path);
+    } else {
+      onOpenArticle(row.path);
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
+    if (!isArticleNavigatorTraversalKey(event.key) || !hasNoShortcutModifier(event.nativeEvent)) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const action = getArticleNavigatorTraversalAction({ focusedIndex, key: event.key, rows });
+
+    switch (action?.type) {
+      case "activateRow":
+        activateRow(action.index);
+        break;
+      case "focusRow":
+        focusRow(action.index);
+        break;
+      case "toggleDirectory":
+        onToggleDirectory(action.path);
+        break;
+    }
+  };
+
   return (
     <VirtualList
       className="min-h-0 flex-1"
       estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
       getItemKey={(row) => row.path}
       items={rows}
+      pinnedIndex={focusedIndex}
       virtualListRef={virtualListRef}
     >
-      <VirtualListContent aria-label="Articles" className="mx-1" role="tree">
+      <VirtualListContent
+        aria-label="Articles"
+        className="mx-1"
+        onKeyDown={handleKeyDown}
+        role="tree"
+      >
         <VirtualListItems<ArticleNavigatorRow>>
-          {(row, virtualRow) => (
+          {(row, virtualRow, index) => (
             <ArticleNavigatorTreeItem
               key={row.path}
-              onOpenArticle={onOpenArticle}
-              onToggleDirectory={onToggleDirectory}
+              isTabStop={index === focusedIndex}
+              onActivate={() => activateRow(index)}
+              onFocus={() => setFocusedPath(row.path)}
+              registerElement={(element) =>
+                registerRowElement(rowElementsRef.current, row, element)
+              }
               row={row}
               virtualRow={virtualRow}
             />
@@ -229,31 +309,35 @@ function ArticleNavigatorRows({
   );
 }
 
+const registerRowElement = (
+  rowElements: Map<string, HTMLLIElement>,
+  row: ArticleNavigatorRow,
+  element: HTMLLIElement | null,
+) => {
+  if (element) {
+    rowElements.set(row.path, element);
+  } else {
+    rowElements.delete(row.path);
+  }
+};
+
 interface ArticleNavigatorTreeItemProps {
-  onOpenArticle: (path: string) => void;
-  onToggleDirectory: (path: string) => void;
+  isTabStop: boolean;
+  onActivate: () => void;
+  onFocus: () => void;
+  registerElement: (element: HTMLLIElement | null) => void;
   row: ArticleNavigatorRow;
   virtualRow: VirtualItem;
 }
 
 function ArticleNavigatorTreeItem({
-  onOpenArticle,
-  onToggleDirectory,
+  isTabStop,
+  onActivate,
+  onFocus,
+  registerElement,
   row,
   virtualRow,
 }: ArticleNavigatorTreeItemProps) {
-  const activate = () =>
-    row.kind === "directory" ? onToggleDirectory(row.path) : onOpenArticle(row.path);
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
-    if ((event.key !== "Enter" && event.key !== " ") || !hasNoShortcutModifier(event.nativeEvent)) {
-      return;
-    }
-
-    event.preventDefault();
-    activate();
-  };
-
   return (
     <VirtualListItem
       aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
@@ -267,11 +351,12 @@ function ArticleNavigatorTreeItem({
         "data-active:bg-accent data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)]",
       )}
       data-active={row.kind === "file" ? row.isActive : undefined}
-      onClick={activate}
-      onKeyDown={handleKeyDown}
+      onClick={onActivate}
+      onFocus={onFocus}
+      ref={registerElement}
       role="treeitem"
       style={{ paddingLeft: `${row.depth * 14 + (row.kind === "directory" ? 6 : 23)}px` }}
-      tabIndex={0}
+      tabIndex={isTabStop ? 0 : -1}
       title={row.path}
       virtualRow={virtualRow}
     >

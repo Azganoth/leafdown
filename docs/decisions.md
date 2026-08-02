@@ -251,9 +251,9 @@
 
 ### Expose the article navigator as a flattened tree
 
-**Decision:** The article navigator is an ARIA `tree`, flattened rather than nested: the scrolling list carries `role="tree"`, every row is a `treeitem` child of it, and depth travels on `aria-level` with `role="group"` omitted. Selection does not follow focus — `aria-selected` marks the open document, and only `Enter`, `Space`, and click open one.
+**Decision:** The article navigator is an ARIA `tree`, flattened rather than nested: the scrolling list carries `role="tree"`, every row is a `treeitem` child of it, one row at a time holds the tab stop, and depth travels on `aria-level` with `role="group"` omitted. Selection does not follow focus — `aria-selected` marks the open document, and only `Enter`, `Space`, and click open one.
 
-**Rationale:** Hierarchy has to be announced, not just indented, and a flat list of buttons has nowhere to put nesting, position, or expanded state. The nested `role="group"` markup the pattern usually shows cannot be produced here, because virtualization keeps only a window of rows in the DOM and a group wrapper would have to enclose children that do not exist; `aria-level` carries the same relationship without the DOM nesting. Selection following focus would open every document arrowed past, thrashing the editor.
+**Rationale:** Hierarchy has to be announced, not just indented, and a flat list of buttons has nowhere to put nesting, position, or expanded state. The nested `role="group"` markup the pattern usually shows cannot be produced here, because virtualization keeps only a window of rows in the DOM and a group wrapper would have to enclose children that do not exist; `aria-level` carries the same relationship without the DOM nesting. Selection following focus would open every document arrowed past, thrashing the editor. The tab stop roves across rows rather than resting on the container with `aria-activedescendant`: the active descendant still has to be a rendered row, so that model does not avoid keeping the focused row alive, and it gives up the native focus ring the rows already carry.
 
 **Consequences:**
 
@@ -262,6 +262,7 @@
 - `aria-current` no longer marks the open document. The `data-active` visual treatment is unchanged.
 - The focused row and the selected row are routinely different, which is what file-explorer users expect.
 - Rows are `treeitem`s rather than buttons, so their keyboard behavior is the tree's to implement rather than something the platform supplies.
+- The row holding the tab stop has to stay rendered even when it scrolls out of the virtualized window. Unmounting it drops focus to the document body and leaves the navigator with no tab stop at all, which would take the scroll region out of the tab sequence.
 
 ## Platform Decisions
 

@@ -50,6 +50,18 @@ Primary user interface surfaces:
 - **Context popup:** provides quick document actions from selection or right-click.
 - **Modal layer:** presents secondary screens and blocking dialogs outside the main editor surface.
 
+### Article Navigator Traversal
+
+The article navigator is a tree and takes a single tab stop. Focus enters on the open document, or on the first row when no document is open.
+
+- `ArrowDown` and `ArrowUp`: Move to the next or previous visible row, stopping at either end.
+- `ArrowRight`: Expand the focused directory, or move into it when it is already expanded.
+- `ArrowLeft`: Collapse the focused directory, or move to the parent directory when it is already collapsed.
+- `Home` and `End`: Move to the first or last visible row.
+- `Enter` and `Space`: Open the focused article, or expand and collapse the focused directory. Clicking a row does the same.
+
+Moving focus never opens a document, so the focused row and the open document are routinely different rows. An empty directory is an ordinary row that can be focused and read, with nothing to expand. Collapsing a directory that contains the focused row moves focus to the nearest row that survives.
+
 ## State Model
 
 These state axes compose. A document session, for example, can have a folder context and be saved and clean or dirty.

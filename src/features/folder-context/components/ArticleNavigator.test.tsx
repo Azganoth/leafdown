@@ -6,7 +6,7 @@ import {
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { render, renderWithUser, screen } from "@/test/utils/react";
+import { act, render, renderWithUser, screen } from "@/test/utils/react";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ArticleNavigator } from "./ArticleNavigator";
@@ -155,6 +155,98 @@ describe("ArticleNavigator", () => {
       ["empty", "false"],
     ]);
     expect(screen.queryByRole("treeitem", { current: "page" })).not.toBeInTheDocument();
+  });
+
+  it("holds a single tab stop that follows the focused row", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole("treeitem").map((row) => row.tabIndex)).toEqual([0, -1, -1, -1]);
+
+    screen.getByRole("treeitem", { name: "readme.md" }).focus();
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getAllByRole("treeitem").map((row) => row.tabIndex)).toEqual([-1, 0, -1, -1]);
+  });
+
+  it("moves focus with the arrow keys without opening a document", async () => {
+    const onOpenArticle = vi.fn();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={onOpenArticle}
+      />,
+    );
+
+    screen.getByRole("treeitem", { name: "readme.md" }).focus();
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toHaveFocus();
+
+    await user.keyboard("{End}");
+
+    expect(screen.getByRole("treeitem", { name: "empty" })).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}{Home}");
+
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toHaveFocus();
+    expect(onOpenArticle).not.toHaveBeenCalled();
+  });
+
+  it("expands, descends, and collapses a directory with the horizontal arrows", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const directory = screen.getByRole("treeitem", { name: "docs" });
+    directory.focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(directory).toHaveAttribute("aria-expanded", "true");
+    expect(directory).toHaveFocus();
+
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByRole("treeitem", { name: "spec.md" })).toHaveFocus();
+
+    await user.keyboard("{ArrowLeft}");
+
+    expect(directory).toHaveFocus();
+
+    await user.keyboard("{ArrowLeft}");
+
+    expect(directory).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("treeitem", { name: "spec.md" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the tab stop on the nearest surviving row when a directory collapses", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    screen.getByRole("treeitem", { name: "docs" }).focus();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+
+    expect(screen.getByRole("treeitem", { name: "spec.md" })).toHaveFocus();
+
+    act(() => useArticleNavigatorStore.getState().toggleDirectory(TEST_NESTED_DIRECTORY_PATH));
+
+    expect(screen.getByRole("treeitem", { name: "docs" }).tabIndex).toBe(0);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0)).toHaveLength(1);
   });
 
   it("shows when the active document is outside the current folder context", () => {

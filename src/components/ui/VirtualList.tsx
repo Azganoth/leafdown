@@ -1,4 +1,9 @@
-import { useVirtualizer, type ScrollToOptions, type VirtualItem } from "@tanstack/react-virtual";
+import {
+  defaultRangeExtractor,
+  useVirtualizer,
+  type ScrollToOptions,
+  type VirtualItem,
+} from "@tanstack/react-virtual";
 import { Slot } from "radix-ui";
 import {
   createContext,
@@ -39,6 +44,7 @@ interface VirtualListProps<T> extends Omit<ComponentProps<typeof ScrollArea>, "v
   getItemKey?: (item: T, index: number) => Key;
   initialViewportHeight?: number;
   overscan?: number;
+  pinnedIndex?: number;
   virtualListRef?: Ref<VirtualListHandle>;
 }
 
@@ -53,11 +59,16 @@ function VirtualList<T>({
   getItemKey,
   initialViewportHeight = estimateHeight * 16,
   overscan = 8,
+  pinnedIndex,
   virtualListRef,
   children,
   ...props
 }: VirtualListProps<T>) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
+  const renderedPinnedIndex =
+    pinnedIndex !== undefined && pinnedIndex >= 0 && pinnedIndex < items.length
+      ? pinnedIndex
+      : undefined;
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -69,6 +80,7 @@ function VirtualList<T>({
       width: 0,
     },
     overscan,
+    rangeExtractor: (range) => withPinnedIndex(defaultRangeExtractor(range), renderedPinnedIndex),
   });
 
   useImperativeHandle(
@@ -112,6 +124,13 @@ function VirtualList<T>({
     </VirtualListContext.Provider>
   );
 }
+
+// Unmounting the row that holds focus drops focus to the document body, and takes
+// the collection out of the tab sequence when that row is its only tab stop.
+const withPinnedIndex = (indexes: number[], pinnedIndex: number | undefined) =>
+  pinnedIndex === undefined || indexes.includes(pinnedIndex)
+    ? indexes
+    : [...indexes, pinnedIndex].sort((left, right) => left - right);
 
 function VirtualListContent({
   asChild = false,
@@ -192,5 +211,6 @@ export {
   VirtualListEmpty,
   VirtualListItem,
   VirtualListItems,
+  withPinnedIndex,
   type VirtualItem,
 };

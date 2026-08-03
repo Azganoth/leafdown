@@ -19,6 +19,7 @@ Domain code lives in `src/features/`. Each feature exposes a root `index.ts` pub
 
 - `components/` and `hooks/` contain feature-owned React code.
 - `commands/`, `services/`, and `stores/` contain domain behavior, workflows, integrations, and state.
+- `plugins/` contains editor-runtime ProseMirror and Milkdown plugins, currently only in the `editor` feature.
 - `utils/` contains focused code with no stronger subsystem owner.
 - `tests/` contains behavior spanning multiple implementation modules.
 
@@ -32,7 +33,7 @@ The `session` feature owns the relationship between the active document and fold
 
 `application components -> commands -> session -> domain features -> shared UI/lib`
 
-Arrows define direction, not required intermediate dependencies: a layer may import any layer to its right. Leaf features (`document`, `editor`, `folder-context`, and `preferences`) do not import session, commands, or application components. Cross-feature imports use feature-root public APIs. When these layers or feature groups change, update the matching boundary lists in `oxlint.config.ts`.
+Arrows define direction, not required intermediate dependencies: a layer may import any layer to its right. Leaf features (`diagnostics`, `document`, `editor`, `folder-context`, and `preferences`) do not import session, commands, or application components. Cross-feature imports use feature-root public APIs. When these layers or feature groups change, update the matching boundary lists in `oxlint.config.ts`.
 
 Global scope does not make code shared. Domain-owned global behavior stays in its feature; only domain-agnostic reuse belongs in shared UI or `lib`.
 

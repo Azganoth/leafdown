@@ -3,7 +3,7 @@
 ## Architecture And Organization
 
 - Organize domain-owned frontend code by feature under `src/features/<feature-name>/`.
-- Use standard feature subdirectories such as `components/`, `hooks/`, `stores/`, `utils/`, and `types/`.
+- Use standard feature subdirectories such as `components/`, `hooks/`, `commands/`, `services/`, `stores/`, `plugins/`, `utils/`, and `tests/`.
 - Colocate types with the module that owns the concept. Use a `types/` directory only for a coherent set of shared domain contracts without a clearer owner.
 - Keep feature roots limited to their public `index.ts` API and standard subdirectories unless an established local structure provides a clear reason otherwise.
 - Keep application composition in `src/components/layout/` and `src/components/screens/`. These components may compose multiple feature APIs but must not own domain workflows.

@@ -45,6 +45,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
     let openSource: ContextPopupSource = "pointer";
     // The anchor measures the live selection, so one per editor serves every request.
     let anchor: ContextPopupAnchor | null = null;
+    // `Escape` leaves the selection standing, so without this the next keystroke that extends it
+    // would reopen what was just dismissed.
+    let dismissed = false;
+    // The pointer path opens on release, so the selection a drag builds must not open the popup.
+    let pointerSelecting = false;
 
     const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
       if (!canMeasureSelection(view)) {
@@ -53,16 +58,13 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
       anchor ??= createContextPopupAnchor(view);
       openSource = source;
+      dismissed = false;
       options.onRequest?.({ anchor, source });
 
       return true;
     };
 
     const syncPopupToSelection = (view: EditorView, previousState: EditorView["state"]) => {
-      if (!options.isOpen?.()) {
-        return;
-      }
-
       const selectionChanged = !view.state.selection.eq(previousState.selection);
       const documentChanged = view.state.doc !== previousState.doc;
 
@@ -70,8 +72,30 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
         return;
       }
 
-      if (view.state.selection.empty || !requestSelectionPopup(view, openSource)) {
-        options.onClose?.();
+      if (view.state.selection.empty) {
+        // The only release: an extension never collapses, and `Select all` has no gesture whose
+        // end could serve instead.
+        dismissed = false;
+
+        if (options.isOpen?.()) {
+          options.onClose?.();
+        }
+
+        return;
+      }
+
+      if (options.isOpen?.()) {
+        if (!requestSelectionPopup(view, openSource)) {
+          options.onClose?.();
+        }
+
+        return;
+      }
+
+      // A keyboard request would move focus into the popup and end the gesture that opened it,
+      // so this stays a pointer one. An edit that leaves a selection standing is not one made.
+      if (!documentChanged && !dismissed && !pointerSelecting) {
+        requestSelectionPopup(view, "pointer");
       }
     };
 
@@ -98,12 +122,21 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
             return true;
           },
+          mousedown: (_view, event) => {
+            if (event instanceof MouseEvent && event.button === 0) {
+              pointerSelecting = true;
+            }
+
+            return false;
+          },
           mouseup: (view, event) => {
             if (!(event instanceof MouseEvent) || event.button !== 0) {
               return false;
             }
 
             window.requestAnimationFrame(() => {
+              pointerSelecting = false;
+
               if (view.isDestroyed) {
                 return;
               }
@@ -122,6 +155,10 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
           },
         },
         handleKeyDown: (view, event) => {
+          // A keystroke means the drag is over, including one whose release the handler above
+          // never saw because it landed outside the editor.
+          pointerSelecting = false;
+
           if (isContextMenuKey(event)) {
             // Also suppresses the contextmenu event the key would produce, which would reopen
             // this popup through the pointer path.
@@ -142,6 +179,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
             return false;
           }
 
+          dismissed = true;
           event.preventDefault();
 
           return true;

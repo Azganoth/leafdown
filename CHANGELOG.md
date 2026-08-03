@@ -26,6 +26,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Announce the article navigator as a tree, with the nesting depth, sibling position, and expanded state of every row.
 - Keep empty folders in the article navigator reachable instead of skipping them.
 - Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.
+- Open the editor context popup from a selection made with the keyboard, `Select all` included, instead of only from a pointer selection.
 - Keep the editor context popup beside the text it acts on while the document scrolls, and inside a selection too tall to sit beside.
 - Hide the editor context popup while its selection is scrolled out of view instead of closing it, and bring it back with the selection.
 - Announce the editor context popup as a named toolbar instead of an unnamed dialog.

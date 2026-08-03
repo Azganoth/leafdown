@@ -29,5 +29,6 @@
 - For documentation-only or repository-metadata changes, run targeted formatting or validation rather than the full application suite unless executable configuration is affected.
 - Do not start browser or application verification for trivial UI or copy-only changes unless requested or the behavior depends on rendered interaction.
 - Reread prose before committing it — code comments, documentation, commit bodies, and pull request text — as a reader who has only the diff, and cut what depends on having been in the session. Rationale a reader cannot recover stays; the account of how it was reached goes.
+- Do not weaken or delete tests, fixtures, snapshots, coverage floors, lint rules, specifications, or acceptance criteria merely to obtain passing checks. Treat a necessary change to the verification oracle as a separate decision and support it with evidence.
 - Terminate any development server or temporary verification process before finishing.
 - Report the checks actually run, their results, and any remaining manual verification in the final response.

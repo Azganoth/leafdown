@@ -242,6 +242,35 @@ Example:
 <MenubarPrimitive.Trigger className="outline-hidden hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted" />
 ```
 
+### Keyboard Traversal
+
+Use when a hand-built surface groups controls the user moves between: a toolbar, a tree, a menu, a row of window controls.
+
+Use:
+
+- One tab stop for the surface, roving to the control that last held focus, with every other control at `tabIndex={-1}`.
+- Arrow keys, `Home`, and `End` for movement inside the surface, leaving `Tab` to leave it.
+- A traversal model derived from the data when the surface owns its own movement, as `articleNavigatorTraversal.ts` does for the navigator's rows.
+- Position data attributes read back off the DOM when a primitive already owns one axis, as the context popup does for vertical movement across Radix's horizontal roving focus.
+- An explicit focus return when a surface that took focus closes.
+
+Avoid:
+
+- Giving every item in a composite surface its own tab stop.
+- Opening a document, running a command, or otherwise acting on focus movement alone.
+- Unmounting the control that holds the tab stop.
+- Leaving focus on the document body after a surface closes.
+
+Why:
+
+Leafdown builds its own titlebar, menu bar, context popup, and navigator, so traversal is not inherited from a platform control and every part of it is Leafdown's to implement. A composite surface should cost one stop in the tab sequence rather than one per item, which is also what makes `Tab` a reliable way out. Moving focus and acting are separate: focus that selects would open every document arrowed past. Under virtualization the two rules meet, because the control holding the tab stop has to stay rendered even when it scrolls out of the window — unmounting it drops focus to the document body and leaves the surface with no tab stop at all. [Decisions](./decisions.md#expose-the-article-navigator-as-a-flattened-tree) records how the navigator resolves this, including why window controls stay out of the sequence entirely.
+
+Example:
+
+```tsx
+<div role="treeitem" tabIndex={isTabStop ? 0 : -1} aria-level={depth} aria-selected={isActive} />
+```
+
 ### Stores And Persistence
 
 Stores own UI or feature state. Persistence should be explicit about keys, versions, defaults, and migrations.

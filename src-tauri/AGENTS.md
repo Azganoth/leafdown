@@ -13,6 +13,10 @@
 - Do not use `unwrap` or `expect` with user-controlled input, filesystem results, or other runtime failures in production code. They are acceptable in tests and for genuinely infallible invariants when the reason is evident.
 - Use the narrowest appropriate visibility. Prefer private items, `pub(super)` for parent-module internals, and `pub(crate)` for crate-wide APIs. Use bare `pub` only for intentional cross-crate APIs, such as the library entry point used by `src/main.rs`.
 
+## Code Conventions
+
+- Group imports as std, then external crates, then `super`/`crate`, separated by blank lines. `cargo fmt` sorts within a group but will not create or merge them, so place new imports yourself.
+
 ## Testing
 
 - Co-locate focused unit tests with their Rust module and reuse `crate::test_utils`, including `TestDirectory`, for temporary filesystem setup.

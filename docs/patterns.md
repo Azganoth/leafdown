@@ -2,7 +2,7 @@
 
 This document records recurring implementation practices: when to use them, what to avoid, and the failure modes they prevent. It does not define product behavior, architecture boundaries, or repository rules.
 
-Use `AGENTS.md` for hard repository rules and [Architecture](./architecture.md) for ownership and dependency direction. Use this document for the reasoning behind local patterns.
+Use [Architecture](./architecture.md) for ownership and dependency direction, and this document for the reasoning behind local patterns.
 
 ## Foundations
 
@@ -313,7 +313,9 @@ Use:
 
 - `src/test/mocks/` for shared external API mocks.
 - `src/test/utils/` for store setup, Tauri helpers, React rendering, events, and editor helpers.
-- `src/test/factories/` for reusable domain fixtures.
+- `src/test/factories/` for reusable domain object builders.
+- `src/test/fixtures/` for literal sample data such as Markdown, clipboard HTML, and paths.
+- `src/test/setup/` for the Vitest setup files each project loads.
 - Co-located tests for single modules.
 - Feature-level `tests/` directories only for broader integration behavior.
 - The `.test.tsx` extension for any test needing a DOM. The Vitest projects select the environment by extension: `.test.ts` runs under `node` and `.test.tsx` runs under `happy-dom`, regardless of whether the file contains JSX.

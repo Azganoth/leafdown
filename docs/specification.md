@@ -167,7 +167,9 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
   - `Shift+Tab`: Moves focus to the cell to the left.
   - `Enter`: Moves focus to the cell directly below. If pressed in the bottom row, inserts a new row below and focuses it.
   - `ArrowDown` (in the bottom row of a table): Exits the table downwards and moves the caret to the block below (creating a new empty paragraph block if none exists).
-- `Shift+F10` and the `Menu` key open the context popup around the caret or selection and move focus into it. A popup opened by right-click or by a mouse selection leaves focus in the editor.
+- Making a selection opens the context popup, whether it was made with the pointer, extended with `Shift+Arrow` or `Mod+Shift+Arrow`, or made whole by `Select all`. A pointer selection opens it on release, a keyboard one as the selection changes; extending further keeps the open popup rather than reopening it.
+- `Escape` dismisses a popup that does not hold focus and leaves the selection standing. It stays dismissed for the rest of that selection gesture, and until the selection collapses when there is no gesture to end.
+- `Shift+F10` and the `Menu` key open the context popup around the caret or selection and move focus into it. A popup opened by right-click or by a selection leaves focus in the editor.
 - The popup is one command toolbar, and focus enters it on its first available command:
   - `ArrowLeft` and `ArrowRight`: Move between commands in order, wrapping at either end.
   - `ArrowUp` and `ArrowDown`: Move between rows at the nearest available column, wrapping at either end and skipping a row whose commands are all unavailable. On a submenu, `ArrowDown` opens it instead.

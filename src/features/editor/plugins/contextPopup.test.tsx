@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ContextPopupRequest, ContextPopupSource } from "@/features/editor";
 import { HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
-import { dispatchContextMenu, dispatchMouseUp } from "@/test/utils/events";
+import {
+  dispatchContextMenu,
+  dispatchMouseDown,
+  dispatchMouseUp,
+  type TestKeyboardEventOptions,
+} from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { runKeyDownHandlers, setTextSelection, typeText } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
@@ -16,6 +21,34 @@ const mockCoordinates = (mounted: MountedMilkdownEditor) =>
     right: 20 + pos,
     top: 30 + pos,
   }));
+
+// The browser moves the selection for these keys, so the movement is dispatched beside the
+// keydown rather than produced by it.
+const extendSelection = (
+  mounted: MountedMilkdownEditor,
+  head: number,
+  modifiers: TestKeyboardEventOptions = {},
+) => {
+  runKeyDownHandlers(mounted.view, "ArrowRight", { shift: true, ...modifiers });
+  setTextSelection(mounted.view, 1, head);
+};
+
+const selectAll = (mounted: MountedMilkdownEditor) =>
+  runKeyDownHandlers(mounted.view, "a", { ctrl: true, keyCode: 65 });
+
+const trackPopupOpenState = () => {
+  let popupOpen = false;
+
+  return {
+    getContextPopupOpen: () => popupOpen,
+    onContextPopupClosed: vi.fn(() => {
+      popupOpen = false;
+    }),
+    onContextPopupRequested: vi.fn(() => {
+      popupOpen = true;
+    }),
+  };
+};
 
 const popupRequest = (source: ContextPopupSource) => ({
   anchor: expect.objectContaining({ getRect: expect.any(Function) }),
@@ -152,6 +185,8 @@ describe("context popup plugin", () => {
     const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
 
     setTextSelection(mounted.view, 1, 6);
+    // The selection opens the popup on its own, so only what F10 adds is under test here.
+    onContextPopupRequested.mockClear();
     const { event, handled } = runKeyDownHandlers(mounted.view, "F10");
 
     expect(handled).toBe(false);
@@ -171,6 +206,99 @@ describe("context popup plugin", () => {
     });
 
     expect(onContextPopupRequested).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["Shift+Arrow", {}],
+    ["Mod+Shift+Arrow", { ctrl: true }],
+  ])(
+    "opens from a selection extended with %s, leaving focus in the editor",
+    async (_label, modifiers) => {
+      const onContextPopupRequested = vi.fn();
+      const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+      mockCoordinates(mounted);
+      mounted.view.focus();
+      extendSelection(mounted, 6, modifiers);
+
+      expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+      expect(document.activeElement).toBe(mounted.view.dom);
+    },
+  );
+
+  it("opens from Select all, leaving focus in the editor", async () => {
+    const onContextPopupRequested = vi.fn();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    mounted.view.focus();
+    selectAll(mounted);
+
+    expect(mounted.view.state.selection.empty).toBe(false);
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+    expect(document.activeElement).toBe(mounted.view.dom);
+  });
+
+  it("keeps one popup open while the selection grows", async () => {
+    const popupState = trackPopupOpenState();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);
+
+    mockCoordinates(mounted);
+    mounted.view.focus();
+    extendSelection(mounted, 6);
+    extendSelection(mounted, 7);
+
+    expect(popupState.onContextPopupRequested).toHaveBeenLastCalledWith(popupRequest("pointer"));
+    expect(popupState.onContextPopupClosed).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(mounted.view.dom);
+  });
+
+  it("stays dismissed for the rest of the selection gesture", async () => {
+    const popupState = trackPopupOpenState();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);
+
+    mockCoordinates(mounted);
+    extendSelection(mounted, 6);
+    runKeyDownHandlers(mounted.view, "Escape");
+    popupState.onContextPopupRequested.mockClear();
+    extendSelection(mounted, 7);
+
+    expect(popupState.onContextPopupRequested).not.toHaveBeenCalled();
+  });
+
+  it("stays dismissed after Select all until the selection collapses", async () => {
+    const popupState = trackPopupOpenState();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);
+
+    mockCoordinates(mounted);
+    selectAll(mounted);
+    runKeyDownHandlers(mounted.view, "Escape");
+    popupState.onContextPopupRequested.mockClear();
+    extendSelection(mounted, 7);
+
+    expect(popupState.onContextPopupRequested).not.toHaveBeenCalled();
+
+    setTextSelection(mounted.view, 3);
+    extendSelection(mounted, 6);
+
+    expect(popupState.onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+  });
+
+  it("holds a pointer selection back until the button is released", async () => {
+    const onContextPopupRequested = vi.fn();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
+    setTextSelection(mounted.view, 1, 6);
+
+    expect(onContextPopupRequested).not.toHaveBeenCalled();
+
+    dispatchMouseUp(mounted.view.dom, { button: 0 });
+
+    await waitFor(() => {
+      expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+    });
   });
 
   it("closes on Escape and typing", async () => {

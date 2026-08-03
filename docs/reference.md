@@ -235,7 +235,7 @@ For diagnostic log format and ownership, see [Architecture](./architecture.md#ba
 
 ### Context Popup
 
-The context popup is a contextual menu triggered by selection, right-click, or `Shift+F10` and the `Menu` key within the editor.
+The context popup is a contextual menu triggered by a pointer or keyboard selection, right-click, or `Shift+F10` and the `Menu` key within the editor.
 
 - Right-click inside an existing selection keeps the selection.
 - Right-click outside a selection uses the editor's normal pointer handling to place the caret at the clicked location; the popup does not perform a second coordinate-based caret move.

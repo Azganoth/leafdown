@@ -273,32 +273,36 @@ Example:
 
 ### Stores And Persistence
 
-Stores own UI or feature state. Persistence should be explicit about keys, versions, defaults, and migrations.
+Stores own UI or feature state. Persisted state additionally declares a contract shape that validates and repairs whatever it loads from disk.
 
 Use:
 
 - Store-local defaults for state owned by that store.
-- Persisted key lists for fields that should cross app restarts.
-- Versioned migrations for persisted state shape changes.
+- `definePersistedState` with one contract per field, closed by `satisfies Record<keyof State, unknown>`, so the sanitizer and the persisted key list both derive from that shape.
+- The contracts in `src/lib/valueContract.ts` — `booleanValue`, `numberValue`, `stringValue`, `oneOf`, `listOf`, `boundedList`, and `salvagedRecord` — before writing a bespoke check.
+- Versioned migrations for persisted state shape changes. They run before sanitizing, so a migration may leave a value the contracts then repair.
 - Test helpers from `src/test/` for store setup.
 
 Avoid:
 
 - Persisting every store field by default.
+- Writing a persisted key list by hand, or validating a field without declaring it in the shape.
+- Inferring whether a load changed anything by comparing or cloning state. A contract reports `valid`, `repaired`, or `invalid` directly.
 - Hiding domain workflows inside stores when a service/workflow module is the clearer owner.
 - Duplicating default values in tests instead of importing the default constants when those constants are part of the contract.
 
 Why:
 
-Zustand stores are easy to mutate from anywhere. Clear ownership and persistence contracts keep app state predictable as settings and session workflows grow.
+Zustand stores are easy to mutate from anywhere, and persisted state arrives from a user-writable file. The sanitizer has to distinguish a value it accepted from one it rewrote, because that is what tells it the file on disk is stale; [Decisions](./decisions.md#own-persisted-state-contracts-instead-of-a-schema-library) records why a parse-style schema library cannot express that third outcome. Deriving the key list from the same shape closes what a hand-written list left open: `satisfies PersistedTauriStoreKey<State>[]` checked that each listed key was valid, never that every field was listed, so a new field could be validated and then silently never persisted.
 
 Example:
 
 ```ts
-const SETTINGS_PERSISTED_KEYS = [
-  "theme",
-  "sidebarVisible",
-] satisfies PersistedTauriStoreKey<SettingsPersistedState>[];
+const RECENT_ITEMS_CONTRACT = definePersistedState({
+  recentFiles: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  recentFolders: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  version: numberValue,
+} satisfies Record<keyof RecentItemsState, unknown>);
 ```
 
 ### Testing

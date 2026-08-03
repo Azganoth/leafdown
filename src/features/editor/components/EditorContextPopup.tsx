@@ -23,7 +23,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/Button";
 import {
@@ -172,32 +172,34 @@ export function EditorContextPopup({
   const contentRef = useRef<HTMLDivElement>(null);
   // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
-  const requestRef = useRef<ContextPopupRequest | null>(null);
   const pinnedRectRef = useRef<DOMRect | null>(null);
-  // Radix reads the virtual anchor on every render and re-registers it whenever its identity
-  // changes, which would re-render this component in turn. It has to be created once.
-  const virtualRef = useRef<VirtualAnchor>({
-    get contextElement() {
-      return requestRef.current?.anchor.contextElement;
-    },
-    getBoundingClientRect: () => {
-      const currentRequest = requestRef.current;
+  // Radix registers the anchor once per object identity and Floating UI measures only when it
+  // does, so scroll and resize aside, a fresh identity is the one thing that moves the popup
+  // onto a selection that has changed. Held against the render rather than created during one,
+  // or every unrelated render would re-register it.
+  const virtualRef = useMemo<{ current: VirtualAnchor }>(
+    () => ({
+      current: {
+        contextElement: request?.anchor.contextElement,
+        getBoundingClientRect: () => {
+          if (!request) {
+            return new DOMRect();
+          }
 
-      if (!currentRequest) {
-        return new DOMRect();
-      }
+          // A keyboard popup pins from the start rather than from the focus it is about to take,
+          // so it cannot hide in the moment between the two.
+          if (!hasHeldFocusRef.current && request.source !== "keyboard") {
+            return request.anchor.getRect("live");
+          }
 
-      // A keyboard popup pins from the start rather than from the focus it is about to take,
-      // so it cannot hide in the moment between the two.
-      if (!hasHeldFocusRef.current && currentRequest.source !== "keyboard") {
-        return currentRequest.anchor.getRect("live");
-      }
+          pinnedRectRef.current ??= request.anchor.getRect("pinned");
 
-      pinnedRectRef.current ??= currentRequest.anchor.getRect("pinned");
-
-      return pinnedRectRef.current;
-    },
-  });
+          return pinnedRectRef.current;
+        },
+      },
+    }),
+    [request],
+  );
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
   const releaseHeldFocus = () => {
     hasHeldFocusRef.current = false;
@@ -207,8 +209,6 @@ export function EditorContextPopup({
   // Layout is early enough: Radix registers the anchor from a passive effect, and Floating UI
   // measures later still.
   useLayoutEffect(() => {
-    requestRef.current = request;
-
     // A popup the user is working in keeps the rect it was pinned to.
     if (!hasHeldFocusRef.current) {
       pinnedRectRef.current = null;

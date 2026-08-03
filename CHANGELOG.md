@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Open the editor context popup with `Shift+F10` or the `Menu` key and operate every command in it from the keyboard.
 - Open the editor context popup from a selection made with the keyboard, `Select all` included, instead of only from a pointer selection.
 - Keep the editor context popup beside the text it acts on while the document scrolls, and inside a selection too tall to sit beside.
+- Move the editor context popup onto the selection as it changes, instead of leaving it where it opened.
 - Hide the editor context popup while its selection is scrolled out of view instead of closing it, and bring it back with the selection.
 - Announce the editor context popup as a named toolbar instead of an unnamed dialog.
 - Announce recent files and recent folders under their own headings in the `Open recent` menu.

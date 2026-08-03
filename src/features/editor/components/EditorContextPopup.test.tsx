@@ -3,7 +3,7 @@ import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { createActiveEditorCommandState, createEditorCommandState } from "@/test/factories/editor";
 import { dispatchDOMEvent } from "@/test/utils/events";
-import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { act, render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
@@ -19,6 +19,27 @@ const createAnchorRect = (top = 60): DOMRect => {
 
 const popperWrapper = () =>
   document.querySelector<HTMLElement>("[data-radix-popper-content-wrapper]");
+
+// Radix parks the wrapper at a percentage translate until Floating UI has placed it, so a pixel
+// offset is also the signal that a placement has happened.
+const wrapperTranslateY = () => {
+  const transform = popperWrapper()?.style.transform ?? "";
+  const placed = /translate\([^,]+,\s*(-?[\d.]+)px\)/u.exec(transform);
+
+  if (!placed) {
+    throw new Error(`Expected a placed popper wrapper, got: ${transform || "no transform"}`);
+  }
+
+  return Number(placed[1]);
+};
+
+const flushPlacement = () =>
+  act(
+    () =>
+      new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      }),
+  );
 
 const ANCHOR = { contextElement: document.body, getRect: () => createAnchorRect() };
 const POINTER_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "pointer" };
@@ -555,8 +576,11 @@ describe("EditorContextPopup", () => {
   });
 
   describe("anchor mode", () => {
-    const renderWithSpiedAnchor = (source: ContextPopupRequest["source"]) => {
-      const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
+    const renderWithSpiedAnchor = (
+      source: ContextPopupRequest["source"],
+      measure: () => DOMRect = () => createAnchorRect(),
+    ) => {
+      const getRect = vi.fn((_mode: ContextPopupAnchorMode) => measure());
       const request = { anchor: { contextElement: document.body, getRect }, source };
       const view = render(
         <EditorContextPopup
@@ -592,12 +616,50 @@ describe("EditorContextPopup", () => {
       expect(modesUsed(getRect)).toEqual(new Set(["pinned"]));
     });
 
+    it("moves onto the selection when a fresh request measures it elsewhere", async () => {
+      const openedAt = 60;
+      const movedTo = 400;
+      let rect = createAnchorRect(openedAt);
+      const request: ContextPopupRequest = {
+        anchor: { contextElement: document.body, getRect: () => rect },
+        source: "pointer",
+      };
+      const renderPopup = () => (
+        <EditorContextPopup
+          request={{ ...request }}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />
+      );
+      const view = render(renderPopup());
+
+      await waitFor(() => {
+        expect(wrapperTranslateY()).toEqual(expect.any(Number));
+      });
+
+      const placedAt = wrapperTranslateY();
+
+      rect = createAnchorRect(movedTo);
+      view.rerender(renderPopup());
+
+      await waitFor(() => {
+        expect(wrapperTranslateY()).toBe(placedAt + movedTo - openedAt);
+      });
+    });
+
     it("holds one rect for as long as focus stays inside the popup", async () => {
-      const { getRect, request, view } = renderWithSpiedAnchor("keyboard");
+      let rect = createAnchorRect(60);
+      const { getRect, request, view } = renderWithSpiedAnchor("keyboard", () => rect);
 
       await waitFor(() => {
         expect(screen.getByLabelText("Cut")).toHaveFocus();
       });
+
+      const placedAt = wrapperTranslateY();
+
+      rect = createAnchorRect(400);
 
       // A fresh request would otherwise re-measure; a popup being worked in must not move.
       view.rerender(
@@ -609,9 +671,11 @@ describe("EditorContextPopup", () => {
           onReturnFocus={vi.fn()}
         />,
       );
+      await flushPlacement();
 
       expect(modesUsed(getRect)).toEqual(new Set(["pinned"]));
       expect(getRect).toHaveBeenCalledTimes(1);
+      expect(wrapperTranslateY()).toBe(placedAt);
     });
   });
 

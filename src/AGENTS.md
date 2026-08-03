@@ -34,7 +34,13 @@
 - Use interfaces for object shapes and React props. Use type aliases for unions, primitives, tuples, mapped types, and complex utility types.
 - Rely on React Compiler for routine memoization. Use `useMemo`, `useCallback`, or `React.memo` only when measured performance or a stable-identity contract requires explicit control.
 - Prefer composition or an existing feature store over deep prop drilling. Do not introduce global state solely to avoid passing a small number of props.
+- Read a store through a selector, one field at a time, as `useStore((state) => state.field)`. Use `useStore.getState()` for one-shot reads outside React. Calling a store hook with no selector subscribes the component to every field it holds.
 - Name reusable configuration values, thresholds, timeouts, and other non-obvious constants. Use `UPPER_SNAKE_CASE` for immutable module-level constants and constant manifest arrays.
+
+## Shared Foundations
+
+- Compare, store, and key native paths through the [path identity helpers](../docs/patterns.md#path-identity) rather than `===`, `Set<string>`, or `Map<string, T>`. Windows casing and slash style make raw string equality wrong.
+- Classify a failure before handling it, following the [error handling patterns](../docs/patterns.md#error-handling) for expected domain errors, silent control-flow errors, operation failures without a feature-owned contract, and unexpected internal errors.
 
 ## Resource Lifecycles
 

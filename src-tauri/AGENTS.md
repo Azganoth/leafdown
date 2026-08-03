@@ -5,7 +5,9 @@
 - Keep Tauri commands thin. Delegate reusable filesystem, parsing, validation, and domain behavior to testable Rust functions or modules.
 - Treat all frontend command arguments as untrusted input. Validate paths, identifiers, options, and other payload values before processing them.
 - Use explicit serializable command payload and error types. Keep internal implementation errors behind stable boundary contracts.
-- Keep synchronous commands short and non-blocking. For potentially slow filesystem or CPU work, prefer an async command and offload blocking operations with `tauri::async_runtime::spawn_blocking`; handle task-join failures explicitly.
+- Give payload structs `#[serde(rename_all = "camelCase")]`, and boundary error enums `#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]`. No check covers these attributes, so an omission reaches the frontend as field names its contracts do not match.
+- Follow the [Tauri boundary error patterns](../docs/patterns.md#tauri-boundary-errors) for command-boundary validation, stable `kind` tags, and the recoverable IO variants the frontend maps to user-facing messages.
+- Keep synchronous commands short and non-blocking. When an async command performs blocking filesystem or CPU work, offload that work with `tauri::async_runtime::spawn_blocking` and handle task-join failures explicitly.
 
 ## Error Handling And Visibility
 
@@ -13,8 +15,17 @@
 - Do not use `unwrap` or `expect` with user-controlled input, filesystem results, or other runtime failures in production code. They are acceptable in tests and for genuinely infallible invariants when the reason is evident.
 - Use the narrowest appropriate visibility. Prefer private items, `pub(super)` for parent-module internals, and `pub(crate)` for crate-wide APIs. Use bare `pub` only for intentional cross-crate APIs, such as the library entry point used by `src/main.rs`.
 
+## Code Conventions
+
+- Group imports as std, then external crates, then `super`/`crate`, separated by blank lines. `cargo fmt` sorts within a group but will not create or merge them, so place new imports yourself.
+
 ## Testing
 
 - Co-locate focused unit tests with their Rust module and reuse `crate::test_utils`, including `TestDirectory`, for temporary filesystem setup.
 - Update `command_contract_tests.rs` when command payloads, serialized errors, or cross-command workflows change.
 - Follow the backend-relevant cases in the [`docs/architecture.md` verification strategy](../docs/architecture.md#verification-strategy), especially filesystem failures, path handling, encoding, size limits, symlinks, and security boundaries.
+
+## Filesystem And Side Effects
+
+- Design file-changing operations to leave existing user data intact on failure wherever practical. Preserve the documented behavior for symlinks, path boundaries, encoding, size limits, metadata freshness, and watcher interactions rather than treating an apparently successful write as sufficient.
+- Verify filesystem semantics with real temporary files and operating-system failure paths when mocks would remove the behavior under test.

@@ -213,5 +213,3 @@ The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains th
 | Build the desktop app       | `pnpm tauri build`    |
 
 Treat [`package.json`](./package.json) as the source of truth for individual lint, test, formatting, and build scripts. Backend checks and formatting use the pinned Rust toolchain.
-
-Group Rust imports as std, then external crates, then `super`/`crate`, separated by blank lines. `cargo fmt` sorts within a group but will not create or merge them, so place new imports yourself.

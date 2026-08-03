@@ -2,7 +2,7 @@
 
 This document records recurring implementation practices: when to use them, what to avoid, and the failure modes they prevent. It does not define product behavior, architecture boundaries, or repository rules.
 
-Use `AGENTS.md` for hard repository rules and [Architecture](./architecture.md) for ownership and dependency direction. Use this document for the reasoning behind local patterns.
+Use [Architecture](./architecture.md) for ownership and dependency direction, and this document for the reasoning behind local patterns.
 
 ## Foundations
 
@@ -242,34 +242,67 @@ Example:
 <MenubarPrimitive.Trigger className="outline-hidden hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted" />
 ```
 
+### Keyboard Traversal
+
+Use when a hand-built surface groups controls the user moves between: a toolbar, a tree, a menu, a row of window controls.
+
+Use:
+
+- One tab stop for the surface, roving to the control that last held focus, with every other control at `tabIndex={-1}`.
+- Arrow keys, `Home`, and `End` for movement inside the surface, leaving `Tab` to leave it.
+- A traversal model derived from the data when the surface owns its own movement, as `articleNavigatorTraversal.ts` does for the navigator's rows.
+- Position data attributes read back off the DOM when a primitive already owns one axis, as the context popup does for vertical movement across Radix's horizontal roving focus.
+- An explicit focus return when a surface that took focus closes.
+
+Avoid:
+
+- Giving every item in a composite surface its own tab stop.
+- Opening a document, running a command, or otherwise acting on focus movement alone.
+- Unmounting the control that holds the tab stop.
+- Leaving focus on the document body after a surface closes.
+
+Why:
+
+Leafdown builds its own titlebar, menu bar, context popup, and navigator, so traversal is not inherited from a platform control and every part of it is Leafdown's to implement. A composite surface should cost one stop in the tab sequence rather than one per item, which is also what makes `Tab` a reliable way out. Moving focus and acting are separate: focus that selects would open every document arrowed past. Under virtualization the two rules meet, because the control holding the tab stop has to stay rendered even when it scrolls out of the window — unmounting it drops focus to the document body and leaves the surface with no tab stop at all. [Decisions](./decisions.md#expose-the-article-navigator-as-a-flattened-tree) records how the navigator resolves this, including why window controls stay out of the sequence entirely.
+
+Example:
+
+```tsx
+<div role="treeitem" tabIndex={isTabStop ? 0 : -1} aria-level={depth} aria-selected={isActive} />
+```
+
 ### Stores And Persistence
 
-Stores own UI or feature state. Persistence should be explicit about keys, versions, defaults, and migrations.
+Stores own UI or feature state. Persisted state additionally declares a contract shape that validates and repairs whatever it loads from disk.
 
 Use:
 
 - Store-local defaults for state owned by that store.
-- Persisted key lists for fields that should cross app restarts.
-- Versioned migrations for persisted state shape changes.
+- `definePersistedState` with one contract per field, closed by `satisfies Record<keyof State, unknown>`, so the sanitizer and the persisted key list both derive from that shape.
+- The contracts in `src/lib/valueContract.ts` — `booleanValue`, `numberValue`, `stringValue`, `oneOf`, `listOf`, `boundedList`, and `salvagedRecord` — before writing a bespoke check.
+- Versioned migrations for persisted state shape changes. They run before sanitizing, so a migration may leave a value the contracts then repair.
 - Test helpers from `src/test/` for store setup.
 
 Avoid:
 
 - Persisting every store field by default.
+- Writing a persisted key list by hand, or validating a field without declaring it in the shape.
+- Inferring whether a load changed anything by comparing or cloning state. A contract reports `valid`, `repaired`, or `invalid` directly.
 - Hiding domain workflows inside stores when a service/workflow module is the clearer owner.
 - Duplicating default values in tests instead of importing the default constants when those constants are part of the contract.
 
 Why:
 
-Zustand stores are easy to mutate from anywhere. Clear ownership and persistence contracts keep app state predictable as settings and session workflows grow.
+Zustand stores are easy to mutate from anywhere, and persisted state arrives from a user-writable file. The sanitizer has to distinguish a value it accepted from one it rewrote, because that is what tells it the file on disk is stale; [Decisions](./decisions.md#own-persisted-state-contracts-instead-of-a-schema-library) records why a parse-style schema library cannot express that third outcome. Deriving the key list from the same shape closes what a hand-written list left open: `satisfies PersistedTauriStoreKey<State>[]` checked that each listed key was valid, never that every field was listed, so a new field could be validated and then silently never persisted.
 
 Example:
 
 ```ts
-const SETTINGS_PERSISTED_KEYS = [
-  "theme",
-  "sidebarVisible",
-] satisfies PersistedTauriStoreKey<SettingsPersistedState>[];
+const RECENT_ITEMS_CONTRACT = definePersistedState({
+  recentFiles: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  recentFolders: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  version: numberValue,
+} satisfies Record<keyof RecentItemsState, unknown>);
 ```
 
 ### Testing
@@ -280,7 +313,9 @@ Use:
 
 - `src/test/mocks/` for shared external API mocks.
 - `src/test/utils/` for store setup, Tauri helpers, React rendering, events, and editor helpers.
-- `src/test/factories/` for reusable domain fixtures.
+- `src/test/factories/` for reusable domain object builders.
+- `src/test/fixtures/` for literal sample data such as Markdown, clipboard HTML, and paths.
+- `src/test/setup/` for the Vitest setup files each project loads.
 - Co-located tests for single modules.
 - Feature-level `tests/` directories only for broader integration behavior.
 - The `.test.tsx` extension for any test needing a DOM. The Vitest projects select the environment by extension: `.test.ts` runs under `node` and `.test.tsx` runs under `happy-dom`, regardless of whether the file contains JSX.

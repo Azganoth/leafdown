@@ -3,7 +3,7 @@
 ## Architecture And Organization
 
 - Organize domain-owned frontend code by feature under `src/features/<feature-name>/`.
-- Use standard feature subdirectories such as `components/`, `hooks/`, `stores/`, `utils/`, and `types/`.
+- Use standard feature subdirectories such as `components/`, `hooks/`, `commands/`, `services/`, `stores/`, `plugins/`, `utils/`, and `tests/`.
 - Colocate types with the module that owns the concept. Use a `types/` directory only for a coherent set of shared domain contracts without a clearer owner.
 - Keep feature roots limited to their public `index.ts` API and standard subdirectories unless an established local structure provides a clear reason otherwise.
 - Keep application composition in `src/components/layout/` and `src/components/screens/`. These components may compose multiple feature APIs but must not own domain workflows.
@@ -20,6 +20,11 @@
 - When behavior-rich accessible primitives are needed, prefer the installed Radix primitives over recreating interaction, focus, or accessibility behavior.
 - If a change requires a new generic UI primitive that has not already been authorized, explain the required primitive and request direction before implementing it.
 
+## Interaction And Accessibility
+
+- Preserve semantic roles and names, keyboard and pointer reachability, focus ownership and return, disabled-state behavior, selection behavior, and established dismissal rules when changing interactive surfaces.
+- Test behavior through the public interaction rather than component internals. Use manual Tauri verification for accessibility-tree output, focus behavior, virtualization, native window interaction, or layout that the automated DOM environment cannot observe.
+
 ## React And TypeScript Conventions
 
 - Keep components and hooks pure, with side effects outside render.
@@ -29,7 +34,13 @@
 - Use interfaces for object shapes and React props. Use type aliases for unions, primitives, tuples, mapped types, and complex utility types.
 - Rely on React Compiler for routine memoization. Use `useMemo`, `useCallback`, or `React.memo` only when measured performance or a stable-identity contract requires explicit control.
 - Prefer composition or an existing feature store over deep prop drilling. Do not introduce global state solely to avoid passing a small number of props.
-- Use `UPPER_SNAKE_CASE` for true constants, including hardcoded configuration values, magic values, and constant manifest arrays.
+- Read a store through a selector, one field at a time, as `useStore((state) => state.field)`. Use `useStore.getState()` for one-shot reads outside React. Calling a store hook with no selector subscribes the component to every field it holds.
+- Name reusable configuration values, thresholds, timeouts, and other non-obvious constants. Use `UPPER_SNAKE_CASE` for immutable module-level constants and constant manifest arrays.
+
+## Shared Foundations
+
+- Compare, store, and key native paths through the [path identity helpers](../docs/patterns.md#path-identity) rather than `===`, `Set<string>`, or `Map<string, T>`. Windows casing and slash style make raw string equality wrong.
+- Classify a failure before handling it, following the [error handling patterns](../docs/patterns.md#error-handling) for expected domain errors, silent control-flow errors, operation failures without a feature-owned contract, and unexpected internal errors.
 
 ## Resource Lifecycles
 

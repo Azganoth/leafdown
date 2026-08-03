@@ -5,6 +5,8 @@
 - Keep Tauri commands thin. Delegate reusable filesystem, parsing, validation, and domain behavior to testable Rust functions or modules.
 - Treat all frontend command arguments as untrusted input. Validate paths, identifiers, options, and other payload values before processing them.
 - Use explicit serializable command payload and error types. Keep internal implementation errors behind stable boundary contracts.
+- Give payload structs `#[serde(rename_all = "camelCase")]`, and boundary error enums `#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]`. No check covers these attributes, so an omission reaches the frontend as field names its contracts do not match.
+- Follow the [Tauri boundary error patterns](../docs/patterns.md#tauri-boundary-errors) for command-boundary validation, stable `kind` tags, and the recoverable IO variants the frontend maps to user-facing messages.
 - Keep synchronous commands short and non-blocking. When an async command performs blocking filesystem or CPU work, offload that work with `tauri::async_runtime::spawn_blocking` and handle task-join failures explicitly.
 
 ## Error Handling And Visibility

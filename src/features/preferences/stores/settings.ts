@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
 
 import {
   LINE_ENDINGS,
@@ -90,24 +89,22 @@ const SETTINGS_CONTRACT = definePersistedState({
 
 export const sanitizeSettingsPersistedState = SETTINGS_CONTRACT.sanitize;
 
-export const useSettingsStore = create<SettingsStore>()(
-  immer((set) => ({
-    ...createDefaultSettingsState(),
-    version: SETTINGS_VERSION,
+export const useSettingsStore = create<SettingsStore>()((set) => ({
+  ...createDefaultSettingsState(),
+  version: SETTINGS_VERSION,
 
-    updateSetting: (key, value) =>
-      set((state) => {
-        (state as SettingsState)[key] = value;
-      }),
+  updateSetting: (key, value) =>
+    set((state) => ({
+      ...state,
+      [key]: value,
+    })),
 
-    reset: () => {
-      set(() => ({
-        ...createDefaultSettingsState(),
-        version: SETTINGS_VERSION,
-      }));
-    },
-  })),
-);
+  reset: () =>
+    set({
+      ...createDefaultSettingsState(),
+      version: SETTINGS_VERSION,
+    }),
+}));
 
 export const settingsStoreTauriHandler = createPersistedTauriStore<SettingsPersistedState>(
   "settings",

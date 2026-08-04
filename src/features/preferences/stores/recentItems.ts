@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { immer } from "zustand/middleware/immer";
 
 import { isSamePath } from "@/lib/path";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
@@ -40,25 +39,15 @@ const addRecentPath = (items: string[], path: string) =>
     ? [path, ...items.filter((item) => !isSamePath(item, path))].slice(0, RECENT_ITEM_LIMIT)
     : items;
 
-export const useRecentItemsStore = create<RecentItemsStore>()(
-  immer((set) => ({
-    ...createDefaultRecentItemsState(),
-    clearRecentItems: () =>
-      set((state) => {
-        state.recentFiles = [];
-        state.recentFolders = [];
-      }),
-    recordRecentFile: (path) =>
-      set((state) => {
-        state.recentFiles = addRecentPath(state.recentFiles, path);
-      }),
-    recordRecentFolder: (path) =>
-      set((state) => {
-        state.recentFolders = addRecentPath(state.recentFolders, path);
-      }),
-    reset: () => set(createDefaultRecentItemsState()),
-  })),
-);
+export const useRecentItemsStore = create<RecentItemsStore>()((set) => ({
+  ...createDefaultRecentItemsState(),
+  clearRecentItems: () => set({ recentFiles: [], recentFolders: [] }),
+  recordRecentFile: (path) =>
+    set((state) => ({ recentFiles: addRecentPath(state.recentFiles, path) })),
+  recordRecentFolder: (path) =>
+    set((state) => ({ recentFolders: addRecentPath(state.recentFolders, path) })),
+  reset: () => set(createDefaultRecentItemsState()),
+}));
 
 export const recentItemsStoreTauriHandler = createPersistedTauriStore<RecentItemsState>(
   "recent-items",

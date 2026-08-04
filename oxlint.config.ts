@@ -6,7 +6,6 @@ const restrictedImportRoots = [
   "@/commands",
   "@/components/layout",
   "@/components/screens",
-  "@/components/dialogs",
 ];
 
 const restrictedImportPatterns = restrictedImportRoots.flatMap((root) => [root, `${root}/**`]);

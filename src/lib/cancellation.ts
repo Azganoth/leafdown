@@ -1,6 +1,5 @@
 import type { Disposable } from "./lifecycle";
 import { Signal, SignalSource } from "./signal";
-import { runTaskAsPromise } from "./task";
 
 export interface CancellationToken {
   readonly isCancellationRequested: boolean;
@@ -80,7 +79,7 @@ export const raceWithCancellation = async <T>(
   });
 
   try {
-    return await Promise.race([runTaskAsPromise(task), promise]);
+    return await Promise.race([Promise.try(task), promise]);
   } finally {
     listenerDisposable.dispose();
   }

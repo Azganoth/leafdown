@@ -14,6 +14,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Changed
 
 - Sort article directories before articles in the article navigator.
+- Ease the editor context popup between selection-driven positions while keeping scroll tracking immediate.
 - Separate global application shortcuts, focused editor command shortcuts, and native text-input and clipboard gestures by ownership.
 - Extend seamless in-document Markdown source projection to strikethrough, inline code, links, autolinks, and footnote references.
 - Present active mixed-format link labels as one coordinated source range.

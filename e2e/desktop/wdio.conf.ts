@@ -2,6 +2,8 @@ import type { TauriCapabilities } from "@wdio/tauri-service";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ARTIFACTS_DIR, captureFailureArtifacts } from "./support/artifacts.js";
+
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const appBinaryPath = path.join(
   repositoryRoot,
@@ -11,7 +13,6 @@ const appBinaryPath = path.join(
   "debug",
   "leafdown-e2e.exe",
 );
-const logDirectory = path.join(repositoryRoot, "src-tauri", "target", "desktop-e2e", "wdio-logs");
 const webdriverPort = 4445;
 
 const capabilities: TauriCapabilities[] = [
@@ -39,11 +40,11 @@ export const config: WebdriverIO.Config = {
         captureFrontendLogs: true,
         backendLogLevel: "info",
         frontendLogLevel: "info",
-        logDir: logDirectory,
+        logDir: ARTIFACTS_DIR,
       },
     ],
   ],
-  outputDir: logDirectory,
+  outputDir: ARTIFACTS_DIR,
   logLevel: "info",
   framework: "mocha",
   reporters: ["spec"],
@@ -55,5 +56,14 @@ export const config: WebdriverIO.Config = {
   },
   before: async (_capabilities, _specs, browser: WebdriverIO.Browser) => {
     await browser.setWindowSize(1024, 768);
+  },
+  afterTest: async (_test, _context, { error, passed }) => {
+    if (!passed) {
+      try {
+        await captureFailureArtifacts(error);
+      } catch (captureError) {
+        console.error("Desktop E2E failure artifact capture failed.", captureError);
+      }
+    }
   },
 };

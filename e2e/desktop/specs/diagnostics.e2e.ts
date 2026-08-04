@@ -31,5 +31,9 @@ describe("desktop diagnostics", () => {
     await browser.execute((runId) => {
       console.info(JSON.stringify({ event: "desktopE2eFrontendMarker", runId }));
     }, summary.runId);
+
+    if (process.env.LEAFDOWN_E2E_FORCE_FAILURE === "1") {
+      throw new Error("Forced desktop E2E failure for artifact verification.");
+    }
   });
 });

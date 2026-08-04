@@ -82,6 +82,10 @@ pnpm test:e2e:desktop
 
 This explicit smoke test is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, starts one embedded WebDriver worker on port 4445, and exercises the real Tauri application and IPC boundary. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier and target directory are separate from ordinary Leafdown builds.
 
+Each run writes ignored runner, frontend, and backend logs under `e2e/desktop/artifacts/<run>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
+
+To verify the failure-evidence path, temporarily set `LEAFDOWN_E2E_FORCE_FAILURE=1` in `.env`, and run the smoke test. The test should fail and retain its evidence.
+
 Before substantial implementation, read the relevant sections of [`docs/architecture.md`](./docs/architecture.md) and [`docs/patterns.md`](./docs/patterns.md).
 
 For documentation-only or repository-metadata changes, run targeted formatting or validation instead of the full application suite unless executable configuration is affected. For example:

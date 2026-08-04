@@ -1,6 +1,11 @@
 # dependencies
 node_modules/
 
+# local environment
+.env
+.env.*
+!.env.example
+
 # build output
 dist/
 target/
@@ -8,6 +13,7 @@ target/
 *.tsbuildinfo
 
 coverage/
+/e2e/desktop/artifacts/
 
 # logs
 logs

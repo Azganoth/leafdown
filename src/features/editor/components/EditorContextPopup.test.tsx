@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { createActiveEditorCommandState, createEditorCommandState } from "@/test/factories/editor";
@@ -19,6 +19,14 @@ const createAnchorRect = (top = 60): DOMRect => {
 
 const popperWrapper = () =>
   document.querySelector<HTMLElement>("[data-radix-popper-content-wrapper]");
+
+const expectRepositioning = (expected: boolean) => {
+  if (expected) {
+    expect(popperWrapper()).toHaveAttribute("data-leafdown-context-popup-repositioning", "");
+  } else {
+    expect(popperWrapper()).not.toHaveAttribute("data-leafdown-context-popup-repositioning");
+  }
+};
 
 // Radix parks the wrapper at a percentage translate until Floating UI has placed it, so a pixel
 // offset is also the signal that a placement has happened.
@@ -92,15 +100,18 @@ describe("EditorContextPopup", () => {
     const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
 
     render(
-      <EditorContextPopup
-        request={{ anchor: { contextElement: document.body, getRect }, source: "pointer" }}
-        commandState={enabledPopupCommandState}
-        onClose={vi.fn()}
-        onExecute={vi.fn()}
-        onReturnFocus={vi.fn()}
-      />,
+      <StrictMode>
+        <EditorContextPopup
+          request={{ anchor: { contextElement: document.body, getRect }, source: "pointer" }}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />
+      </StrictMode>,
     );
 
+    expectRepositioning(false);
     await waitFor(() => {
       expect(getRect).toHaveBeenCalled();
     });
@@ -643,6 +654,7 @@ describe("EditorContextPopup", () => {
 
       rect = createAnchorRect(movedTo);
       view.rerender(renderPopup());
+      expectRepositioning(true);
 
       await waitFor(() => {
         expect(wrapperTranslateY()).toBe(placedAt + movedTo - openedAt);
@@ -676,6 +688,7 @@ describe("EditorContextPopup", () => {
       expect(modesUsed(getRect)).toEqual(new Set(["pinned"]));
       expect(getRect).toHaveBeenCalledTimes(1);
       expect(wrapperTranslateY()).toBe(placedAt);
+      expectRepositioning(false);
     });
   });
 
@@ -738,6 +751,34 @@ describe("EditorContextPopup", () => {
   });
 
   describe("scroll", () => {
+    it("cancels selection easing before a scroll is positioned", async () => {
+      const request: ContextPopupRequest = {
+        anchor: ANCHOR,
+        source: "pointer",
+      };
+      const renderPopup = () => (
+        <EditorContextPopup
+          request={{ ...request }}
+          commandState={enabledPopupCommandState}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+        />
+      );
+      const view = render(renderPopup());
+
+      await waitFor(() => {
+        expect(wrapperTranslateY()).toEqual(expect.any(Number));
+      });
+
+      view.rerender(renderPopup());
+      expectRepositioning(true);
+
+      dispatchDOMEvent(document, "scroll");
+
+      expectRepositioning(false);
+    });
+
     it("stays open on a scroll while focus is still in the editor", () => {
       const onClose = vi.fn();
 

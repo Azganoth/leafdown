@@ -339,3 +339,9 @@
 .leafdown-context-popup {
   @apply border border-border/70 bg-popover text-popover-foreground shadow-lg;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-radix-popper-content-wrapper][data-leafdown-context-popup-repositioning] {
+    @apply transition-transform duration-100 ease-out;
+  }
+}

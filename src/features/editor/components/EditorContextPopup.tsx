@@ -103,6 +103,9 @@ const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorComman
   commandState.status === "ready" && commandState.enabledCommands[commandId];
 
 const CONTEXT_POPUP_LABEL = "Context actions";
+const POPPER_WRAPPER_SELECTOR = "[data-radix-popper-content-wrapper]";
+const REPOSITIONING_ATTRIBUTE = "data-leafdown-context-popup-repositioning";
+const REPOSITIONING_SETTLE_MS = 150;
 
 // Radix's roving focus only walks controls in document order, so vertical movement across the
 // wrapped rows is worked out from these.
@@ -173,6 +176,7 @@ export function EditorContextPopup({
   // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
   const pinnedRectRef = useRef<DOMRect | null>(null);
+  const previousRequestRef = useRef<ContextPopupRequest | null>(null);
   // Radix registers the anchor once per object identity and Floating UI measures only when it
   // does, so scroll and resize aside, a fresh identity is the one thing that moves the popup
   // onto a selection that has changed. Held against the render rather than created during one,
@@ -206,13 +210,62 @@ export function EditorContextPopup({
     pinnedRectRef.current = null;
   };
 
+  // Strict Mode must not mistake an opening placement for a later selection request.
+  useEffect(() => {
+    previousRequestRef.current = request;
+
+    return () => {
+      if (previousRequestRef.current === request) {
+        previousRequestRef.current = null;
+      }
+    };
+  }, [request]);
+
   // Layout is early enough: Radix registers the anchor from a passive effect, and Floating UI
   // measures later still.
   useLayoutEffect(() => {
+    const previousRequest = previousRequestRef.current;
+
     // A popup the user is working in keeps the rect it was pinned to.
     if (!hasHeldFocusRef.current) {
       pinnedRectRef.current = null;
     }
+
+    // Opening from Radix's parked position must remain immediate, and held popups must stay pinned.
+    if (!previousRequest || !request || hasHeldFocusRef.current) {
+      return undefined;
+    }
+
+    const wrapper = contentRef.current?.closest<HTMLElement>(POPPER_WRAPPER_SELECTOR);
+
+    if (!wrapper) {
+      return undefined;
+    }
+
+    let settleTimeout: number | undefined;
+    const stopRepositioning = () => {
+      wrapper.removeAttribute(REPOSITIONING_ATTRIBUTE);
+      wrapper.removeEventListener("transitionend", handleTransitionEnd);
+      window.removeEventListener("scroll", stopRepositioning, true);
+
+      if (settleTimeout !== undefined) {
+        window.clearTimeout(settleTimeout);
+        settleTimeout = undefined;
+      }
+    };
+    const handleTransitionEnd = (event: TransitionEvent) => {
+      if (event.target === wrapper && event.propertyName === "transform") {
+        stopRepositioning();
+      }
+    };
+
+    wrapper.setAttribute(REPOSITIONING_ATTRIBUTE, "");
+    wrapper.addEventListener("transitionend", handleTransitionEnd);
+    // Scrolling must not inherit selection easing while a transition is settling.
+    window.addEventListener("scroll", stopRepositioning, true);
+    settleTimeout = window.setTimeout(stopRepositioning, REPOSITIONING_SETTLE_MS);
+
+    return stopRepositioning;
   }, [request]);
 
   // Only for a keyboard request landing on an already open popup. A fresh open cannot be served

@@ -14,6 +14,7 @@
 - Treat package and crate manifests as the source of truth for dependency versions and available APIs.
 - Prefer features supported by the installed versions and established local patterns. Modernize code being changed when appropriate, but do not modernize unrelated code without an explicit request or agreed scope.
 - Consult current official documentation when API behavior is uncertain.
+- Keep code comments for non-obvious rationale, constraints, or consequences. Do not narrate what the following code does or how it does it when the code already makes that clear.
 
 ## Architecture Boundaries
 
@@ -28,7 +29,7 @@
 - Use `pnpm check:frontend` for frontend-only changes, `pnpm check:backend` for Rust/Tauri-only changes, and `pnpm check` for cross-cutting changes.
 - For documentation-only or repository-metadata changes, run targeted formatting or validation rather than the full application suite unless executable configuration is affected.
 - Do not start browser or application verification for trivial UI or copy-only changes unless requested or the behavior depends on rendered interaction.
-- Reread prose before committing it — code comments, documentation, commit bodies, and pull request text — as a reader who has only the diff, and cut what depends on having been in the session. Rationale a reader cannot recover stays; the account of how it was reached goes.
-- Do not weaken or delete tests, fixtures, snapshots, coverage floors, lint rules, specifications, or acceptance criteria merely to obtain passing checks. Treat a necessary change to the verification oracle as a separate decision and support it with evidence.
+- Reread documentation, commit bodies, and pull request text as durable project records. Keep rationale and constraints a reader cannot recover from the diff; remove session history and accounts of how the work unfolded.
+- When an accepted change supersedes existing behavior or architecture, update or replace the tests, fixtures, snapshots, and specifications that describe it while preserving coverage of behavior that remains required. Treat lower coverage floors, disabled lint rules, or reduced acceptance criteria as separate decisions supported by evidence rather than ways to make checks pass.
 - Terminate any development server or temporary verification process before finishing.
 - Report the checks actually run, their results, and any remaining manual verification in the final response.

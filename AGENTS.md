@@ -2,12 +2,13 @@
 
 ## Workflow And Authorization
 
-- Follow [`CONTRIBUTING.md`](./CONTRIBUTING.md) for documentation authority, issues, project management, branches, commits, pull requests, and releases. Read the relevant sections before acting.
-- Creating an issue or pull request includes triaging it. Read `Maintainer Project Management` and `Pull Requests` before creating either.
+- Use [`CONTRIBUTING.md`](./CONTRIBUTING.md) as the workflow authority. Read [Documentation And Change Authority](./CONTRIBUTING.md#documentation-and-change-authority) before durable documentation or product-behavior changes, [Branches And Commits](./CONTRIBUTING.md#branches-and-commits) before committing, [Pull Requests](./CONTRIBUTING.md#pull-requests) before opening or updating a pull request, and [Maintainer Project Management](./CONTRIBUTING.md#maintainer-project-management) before creating or triaging issues or Project items.
+- Use [Documentation](./docs/README.md#documents) to identify the owning product or engineering document and its precedence before editing durable project guidance.
+- Creating an issue or pull request includes its required triage; do not treat triage as a later step.
 - Treat planning, review, investigation, and diagnosis requests as read-only unless the user explicitly requests implementation or changes.
 - When multiple commits have been agreed, complete and verify each stage before committing it.
 - Never push, create or modify issues or Project items, open or merge pull requests, create tags or releases, or otherwise mutate remote GitHub state without explicit authorization.
-- For release work, also read `.github/workflows/release.yml` and the Release issue reference; `CONTRIBUTING.md` covers release coordination, not automation.
+- For release work, also read the [release workflow](./.github/workflows/release.yml) and [Release issue template](./.github/maintainer-issue-templates/release.md); `CONTRIBUTING.md` covers release coordination, not automation.
 
 ## Core Implementation Rules
 

@@ -1,6 +1,5 @@
 import { CancellationError, CancellationToken, CancellationTokenSource } from "./cancellation";
 import { type Disposable, MutableDisposable } from "./lifecycle";
-import { runTaskAsPromise } from "./task";
 
 export interface AsyncLazyOptions {
   retryOnFailure?: boolean;
@@ -29,7 +28,7 @@ export class AsyncLazy<T> {
 
   get value() {
     if (!this.valuePromise) {
-      const nextValuePromise = runTaskAsPromise(this.task);
+      const nextValuePromise = Promise.try(this.task);
       this.valuePromise = nextValuePromise;
 
       if (this.options.retryOnFailure) {
@@ -111,7 +110,7 @@ export class TaskLimiter {
     this.activeTaskCount += 1;
 
     try {
-      const result = await runTaskAsPromise(task);
+      const result = await Promise.try(task);
       this.finishTask();
       resolve(result);
     } catch (error) {
@@ -142,9 +141,7 @@ export class SequentialTaskQueue {
   private tail: Promise<void> | null = null;
 
   run<T>(task: () => T | PromiseLike<T>) {
-    const queuedTask = this.tail
-      ? this.tail.then(() => runTaskAsPromise(task))
-      : runTaskAsPromise(task);
+    const queuedTask = this.tail ? this.tail.then(() => Promise.try(task)) : Promise.try(task);
     const nextTail = queuedTask.then(ignorePromiseResult, ignorePromiseResult);
     this.tail = nextTail;
 
@@ -258,7 +255,7 @@ export class DebouncedTaskRunner<T> implements Disposable {
     this.activeRun = activeRun;
 
     try {
-      const result = await runTaskAsPromise(() => this.runner(activeRun.cancellation.token));
+      const result = await Promise.try(() => this.runner(activeRun.cancellation.token));
 
       if (this.activeRun === activeRun) {
         activeRun.deferred.resolve(result);

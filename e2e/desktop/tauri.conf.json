@@ -14,7 +14,12 @@
           "identifier": "desktop-e2e",
           "description": "Test-only WebdriverIO access for the Windows desktop smoke harness",
           "windows": ["main"],
-          "permissions": ["wdio:allow-execute", "wdio:allow-log-frontend", "wdio-webdriver:default"]
+          "permissions": [
+            "wdio:allow-execute",
+            "wdio:allow-get-window-states",
+            "wdio:allow-log-frontend",
+            "wdio-webdriver:default"
+          ]
         }
       ]
     }

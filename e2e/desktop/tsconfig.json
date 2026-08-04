@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.node.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2024",
+      "ESNext.Array",
+      "ESNext.Collection",
+      "ESNext.Iterator",
+      "ESNext.Promise",
+      "DOM"
+    ],
+    "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "@wdio/tauri-service"]
+  },
+  "include": ["./**/*.ts"]
+}

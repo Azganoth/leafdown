@@ -74,6 +74,14 @@ Verify a fresh development environment with:
 pnpm check
 ```
 
+Run the Windows-local assembled desktop smoke test with:
+
+```powershell
+pnpm test:e2e:desktop
+```
+
+This explicit smoke test is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, starts one embedded WebDriver worker on port 4445, and exercises the real Tauri application and IPC boundary. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier and target directory are separate from ordinary Leafdown builds.
+
 Before substantial implementation, read the relevant sections of [`docs/architecture.md`](./docs/architecture.md) and [`docs/patterns.md`](./docs/patterns.md).
 
 For documentation-only or repository-metadata changes, run targeted formatting or validation instead of the full application suite unless executable configuration is affected. For example:
@@ -202,14 +210,15 @@ The [Leafdown Project](https://github.com/users/Azganoth/projects/7) contains th
 
 ## Command Reference
 
-| Task                        | Command               |
-| --------------------------- | --------------------- |
-| Run the desktop application | `pnpm tauri dev`      |
-| Run the web frontend only   | `pnpm dev`            |
-| Check frontend changes      | `pnpm check:frontend` |
-| Check backend changes       | `pnpm check:backend`  |
-| Check the whole repository  | `pnpm check`          |
-| Format the repository       | `pnpm format`         |
-| Build the desktop app       | `pnpm tauri build`    |
+| Task                        | Command                 |
+| --------------------------- | ----------------------- |
+| Run the desktop application | `pnpm tauri dev`        |
+| Run the web frontend only   | `pnpm dev`              |
+| Run the desktop smoke test  | `pnpm test:e2e:desktop` |
+| Check frontend changes      | `pnpm check:frontend`   |
+| Check backend changes       | `pnpm check:backend`    |
+| Check the whole repository  | `pnpm check`            |
+| Format the repository       | `pnpm format`           |
+| Build the desktop app       | `pnpm tauri build`      |
 
 Treat [`package.json`](./package.json) as the source of truth for individual lint, test, formatting, and build scripts. Backend checks and formatting use the pinned Rust toolchain.

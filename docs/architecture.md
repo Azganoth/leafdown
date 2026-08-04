@@ -169,4 +169,6 @@ Automated tests focus on:
 - Literal HTML rendering and script-execution prevention.
 - Context popup layout and caret-based marker visibility.
 
+The Windows-local assembled desktop smoke test complements those component and boundary tests. It runs one worker against an isolated debug binary, uses semantic UI interactions to open Help → Diagnostics, and verifies the visible summary against the real Tauri diagnostics command. Direct bridge execution may corroborate setup or diagnostic state, but it is not a substitute for the user-visible acceptance path. WebDriver plugins, permissions, and frontend integration remain limited to the dedicated desktop E2E build and are excluded from ordinary application builds.
+
 The manual [Markdown corpus](../corpus/README.md) complements automated tests for parsing, rendering, editing, serialization, folder navigation, and local resources. Keep corpus scenarios aligned with the specification when supported behavior changes; use its README for fixture taxonomy and byte-sensitive handling.

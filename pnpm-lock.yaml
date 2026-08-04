@@ -53,9 +53,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      immer:
-        specifier: ^11.1.15
-        version: 11.1.15
       lucide-react:
         specifier: ^1.27.0
         version: 1.27.0(react@19.2.8)
@@ -5245,7 +5242,8 @@ snapshots:
 
   husky@9.1.7: {}
 
-  immer@11.1.15: {}
+  immer@11.1.15:
+    optional: true
 
   import-meta-resolve@4.2.0: {}
 

@@ -1,4 +1,3 @@
-import { enableArrayMethods, enableMapSet } from "immer";
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
@@ -7,8 +6,6 @@ import { installUnexpectedErrorDiagnostics } from "./features/diagnostics";
 import { installUnexpectedErrorHandlers, invariant } from "./lib/errors";
 import { Providers } from "./Providers";
 
-enableArrayMethods();
-enableMapSet();
 const cleanupUnexpectedErrorHandlers = installUnexpectedErrorHandlers();
 const cleanupUnexpectedErrorDiagnostics = installUnexpectedErrorDiagnostics();
 

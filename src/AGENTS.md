@@ -15,6 +15,7 @@
 ## Styling And UI Primitives
 
 - Reuse theme tokens from `src/App.css` for standard application surfaces, text, borders, focus states, and semantic colors.
+- In CSS files, prefer Tailwind utilities through `@apply` when an equivalent utility expresses the rule clearly. Use raw declarations for custom properties, generated content, unsupported values, or behavior that Tailwind cannot express precisely.
 - Reuse existing primitives from `src/components/ui/` before introducing another component or abstraction.
 - Use `cn` from `src/lib/cn.ts` for conditional Tailwind class composition.
 - When behavior-rich accessible primitives are needed, prefer the installed Radix primitives over recreating interaction, focus, or accessibility behavior.

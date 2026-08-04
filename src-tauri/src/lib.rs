@@ -27,8 +27,15 @@ pub fn run() {
     let diagnostics_runtime = diagnostics::DiagnosticsRuntime::new();
     let diagnostics_run_id = diagnostics_runtime.run_id().to_owned();
 
-    tauri::Builder::default()
-        .plugin(diagnostics::build_log_plugin(diagnostics_run_id))
+    let builder =
+        tauri::Builder::default().plugin(diagnostics::build_log_plugin(diagnostics_run_id));
+
+    #[cfg(feature = "desktop-e2e")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    builder
         .plugin(
             tauri_plugin_window_state::Builder::new()
                 // Prevent auto showing the window

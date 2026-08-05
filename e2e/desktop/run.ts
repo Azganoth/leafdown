@@ -138,6 +138,8 @@ const main = async () => {
       path: folderPath,
     },
     missingDocumentPath,
+    persistenceEvidencePath: path.join(artifactsRoot, "persistence-phase-one.json"),
+    settingsPath,
     temporaryRoot,
   };
 
@@ -172,6 +174,16 @@ const main = async () => {
       name: "missing-document-error",
       prepareState: ({ missingDocumentPath }) => resetPersistedState([missingDocumentPath]),
       spec: "e2e/desktop/specs/missing-document-error.e2e.ts",
+    },
+    {
+      name: "persistence-write",
+      prepareState: () => resetPersistedState(),
+      spec: "e2e/desktop/specs/persistence-write.e2e.ts",
+    },
+    {
+      name: "persistence-restart",
+      prepareState: () => Promise.resolve(),
+      spec: "e2e/desktop/specs/persistence-restart.e2e.ts",
     },
   ];
 

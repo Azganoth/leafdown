@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { ARTIFACTS_DIR } from "./artifacts.js";
 
-interface DiagnosticsSummary {
+export interface DiagnosticsSummary {
   logFilePath: string;
   runId: string;
 }

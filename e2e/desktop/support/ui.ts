@@ -14,7 +14,7 @@ export const findMenuItem = async (predicate: MenuItemPredicate) => {
     async () => {
       const items = await $$(
         '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
-      );
+      ).getElements();
 
       for (const item of items) {
         if (predicate((await item.getText()).trim())) {
@@ -57,7 +57,7 @@ export const findTreeItem = async (label: string) => {
 
   await browser.waitUntil(
     async () => {
-      const items = await $$('[role="treeitem"]');
+      const items = await $$('[role="treeitem"]').getElements();
 
       for (const item of items) {
         if ((await item.getText()).trim() === label) {

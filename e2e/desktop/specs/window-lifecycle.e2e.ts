@@ -66,11 +66,12 @@ describe("desktop window lifecycle", () => {
 
     expect(processId).toBeGreaterThan(0);
 
-    await browser.waitUntil(async () => (await $$("[data-tauri-frame-tb] > button").length) === 3, {
-      timeoutMsg: "The native frame controls were not injected.",
-    });
+    await browser.waitUntil(
+      async () => (await $$("[data-tauri-frame-tb] > button").getElements()).length === 3,
+      { timeoutMsg: "The native frame controls were not injected." },
+    );
 
-    const controls = await $$("[data-tauri-frame-tb] > button");
+    const controls = await $$("[data-tauri-frame-tb] > button").getElements();
     expect(await controls.map((control) => control.getAttribute("aria-label"))).toEqual(
       WINDOW_CONTROL_LABELS,
     );

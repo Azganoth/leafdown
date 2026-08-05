@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Leafdown E2E",
+  "mainBinaryName": "leafdown-e2e",
+  "identifier": "com.azganoth.leafdown.e2e",
+  "build": {
+    "beforeBuildCommand": "pnpm build:frontend:e2e"
+  },
+  "app": {
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "desktop-e2e",
+          "description": "Test-only WebdriverIO access for the Windows desktop smoke harness",
+          "windows": ["main"],
+          "permissions": [
+            "wdio:allow-execute",
+            "wdio:allow-get-window-states",
+            "wdio:allow-log-frontend",
+            "wdio-webdriver:default"
+          ]
+        }
+      ]
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

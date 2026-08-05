@@ -6,6 +6,10 @@ import { installUnexpectedErrorDiagnostics } from "./features/diagnostics";
 import { installUnexpectedErrorHandlers, invariant } from "./lib/errors";
 import { Providers } from "./Providers";
 
+if (import.meta.env.MODE === "desktop-e2e") {
+  await import("@wdio/tauri-plugin");
+}
+
 const cleanupUnexpectedErrorHandlers = installUnexpectedErrorHandlers();
 const cleanupUnexpectedErrorDiagnostics = installUnexpectedErrorDiagnostics();
 

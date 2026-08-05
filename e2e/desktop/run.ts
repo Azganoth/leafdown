@@ -185,6 +185,11 @@ const main = async () => {
       prepareState: () => Promise.resolve(),
       spec: "e2e/desktop/specs/persistence-restart.e2e.ts",
     },
+    {
+      name: "window-lifecycle",
+      prepareState: () => resetPersistedState(),
+      spec: "e2e/desktop/specs/window-lifecycle.e2e.ts",
+    },
   ];
 
   try {

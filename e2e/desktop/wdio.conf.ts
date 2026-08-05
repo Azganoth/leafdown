@@ -15,6 +15,8 @@ const appBinaryPath = path.join(
 );
 const webdriverPort = 4445;
 const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
+const closesApplicationUnderTest = process.env.LEAFDOWN_E2E_SCENARIO === "window-lifecycle";
+let activeBrowser: WebdriverIO.Browser | undefined;
 
 const capabilities: TauriCapabilities[] = [
   {
@@ -60,7 +62,15 @@ export const config: WebdriverIO.Config = {
     timeout: 60_000,
   },
   before: async (_capabilities, _specs, browser: WebdriverIO.Browser) => {
+    activeBrowser = browser;
     await browser.setWindowSize(1024, 768);
+  },
+  after: () => {
+    if (closesApplicationUnderTest && activeBrowser) {
+      // The terminal scenario already destroyed the embedded WebDriver with the app.
+      // Clear the local handle so WDIO does not issue a DELETE to a server that no longer exists.
+      activeBrowser.sessionId = "";
+    }
   },
   afterTest: async (_test, _context, { error, passed }) => {
     if (!passed) {

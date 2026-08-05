@@ -1,5 +1,6 @@
 import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
+import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { getSaveMenuItem, openRecentPath, selectFileMenuItem } from "../support/ui.js";
@@ -19,14 +20,16 @@ describe("desktop document lifecycle", () => {
     await browser.keys("Escape");
 
     await editor.click();
-    await browser.keys(["Control", "a"]);
+    await browser.keys([Key.Ctrl, "a"]);
+    await browser.keys(Key.NULL);
     await editor.addValue(document.savedMarker);
 
     const dirtySaveItem = await getSaveMenuItem();
     await expect(dirtySaveItem).not.toHaveAttribute("data-disabled");
     await browser.keys("Escape");
 
-    await browser.keys(["Control", "s"]);
+    await editor.click();
+    await browser.keys([Key.Ctrl, "s", Key.NULL]);
     await expect($('[data-sonner-toast][data-type="success"]')).toHaveText(
       expect.stringContaining("Document saved."),
     );

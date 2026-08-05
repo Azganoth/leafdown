@@ -114,6 +114,12 @@ const main = async () => {
 
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "leafdown-desktop-e2e-"));
   const documentPath = path.join(temporaryRoot, "document-lifecycle.md");
+  const folderPath = path.join(temporaryRoot, "folder-context");
+  const initialFolderFileName = "readme.md";
+  const initialFolderFilePath = path.join(folderPath, initialFolderFileName);
+  const addedFolderFileName = "watcher-added.md";
+  const addedFolderFilePath = path.join(folderPath, addedFolderFileName);
+  const missingDocumentPath = path.join(temporaryRoot, "missing-document.md");
   const savedMarker = "Saved fixture marker.";
   const context: DesktopE2ERunContext = {
     document: {
@@ -122,12 +128,27 @@ const main = async () => {
       savedMarkdown: `${savedMarker}\n`,
       savedMarker,
     },
+    folder: {
+      addedFileName: addedFolderFileName,
+      addedFilePath: addedFolderFilePath,
+      addedMarker: "Watcher-added fixture marker.",
+      initialFileName: initialFolderFileName,
+      initialFilePath: initialFolderFilePath,
+      initialMarker: "Folder index fixture marker.",
+      path: folderPath,
+    },
+    missingDocumentPath,
     temporaryRoot,
   };
 
+  await mkdir(folderPath, { recursive: true });
   await copyFile(
     path.join(repositoryRoot, "e2e", "desktop", "fixtures", "document-lifecycle.md"),
     documentPath,
+  );
+  await copyFile(
+    path.join(repositoryRoot, "e2e", "desktop", "fixtures", "folder-context", "readme.md"),
+    initialFolderFilePath,
   );
   await writeJson(contextPath, context);
 
@@ -142,6 +163,16 @@ const main = async () => {
       prepareState: ({ document }) => resetPersistedState([document.path]),
       spec: "e2e/desktop/specs/document-lifecycle.e2e.ts",
     },
+    {
+      name: "folder-watcher",
+      prepareState: ({ folder }) => resetPersistedState([], [folder.path]),
+      spec: "e2e/desktop/specs/folder-watcher.e2e.ts",
+    },
+    {
+      name: "missing-document-error",
+      prepareState: ({ missingDocumentPath }) => resetPersistedState([missingDocumentPath]),
+      spec: "e2e/desktop/specs/missing-document-error.e2e.ts",
+    },
   ];
 
   try {
@@ -152,6 +183,12 @@ const main = async () => {
   } finally {
     await writeJson(path.join(artifactsRoot, "fixture-manifest.json"), {
       document: await fileEvidence(documentPath),
+      folder: {
+        addedDocument: await fileEvidence(addedFolderFilePath),
+        initialDocument: await fileEvidence(initialFolderFilePath),
+        path: folderPath,
+      },
+      missingDocument: await fileEvidence(missingDocumentPath),
       temporaryRoot,
     });
     await Promise.all([

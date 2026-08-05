@@ -7,6 +7,16 @@ export interface DesktopE2ERunContext {
     savedMarkdown: string;
     savedMarker: string;
   };
+  folder: {
+    addedFileName: string;
+    addedFilePath: string;
+    addedMarker: string;
+    initialFileName: string;
+    initialFilePath: string;
+    initialMarker: string;
+    path: string;
+  };
+  missingDocumentPath: string;
   temporaryRoot: string;
 }
 

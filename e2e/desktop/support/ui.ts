@@ -51,3 +51,29 @@ export const selectFileMenuItem = async (label: string) => {
   await openMenu("File");
   await (await findMenuItem((text) => text.startsWith(label))).click();
 };
+
+export const findTreeItem = async (label: string) => {
+  const result: { item?: WebdriverIO.Element } = {};
+
+  await browser.waitUntil(
+    async () => {
+      const items = await $$('[role="treeitem"]');
+
+      for (const item of items) {
+        if ((await item.getText()).trim() === label) {
+          result.item = item;
+          return true;
+        }
+      }
+
+      return false;
+    },
+    { timeoutMsg: `Tree item ${label} did not appear.` },
+  );
+
+  if (!result.item) {
+    throw new Error(`Tree item ${label} did not appear.`);
+  }
+
+  return result.item;
+};

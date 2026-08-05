@@ -21,10 +21,18 @@ const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const runLabel =
   process.env.LEAFDOWN_E2E_ARTIFACT_RUN ??
   `${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}-${process.pid}`;
+const scenarioLabel = process.env.LEAFDOWN_E2E_SCENARIO;
 
 process.env.LEAFDOWN_E2E_ARTIFACT_RUN = runLabel;
 
-export const ARTIFACTS_DIR = path.join(repositoryRoot, "e2e", "desktop", "artifacts", runLabel);
+export const ARTIFACTS_DIR = path.join(
+  repositoryRoot,
+  "e2e",
+  "desktop",
+  "artifacts",
+  runLabel,
+  ...(scenarioLabel ? [scenarioLabel] : []),
+);
 
 const writeJson = async (fileName: string, value: unknown) => {
   await writeFile(path.join(ARTIFACTS_DIR, fileName), `${JSON.stringify(value, null, 2)}\n`);

@@ -10,7 +10,7 @@
     "build:frontend": "tsc -b && vite build",
     "build:frontend:e2e": "tsc -b && vite build --mode desktop-e2e",
     "build:e2e:desktop": "tauri build --debug --no-bundle --features desktop-e2e --config e2e/desktop/tauri.conf.json -- --target-dir target/desktop-e2e",
-    "test:e2e:desktop": "pnpm build:e2e:desktop && wdio run e2e/desktop/wdio.conf.ts",
+    "test:e2e:desktop": "pnpm build:e2e:desktop && tsx e2e/desktop/run.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "pnpm lint:frontend && pnpm lint:backend",

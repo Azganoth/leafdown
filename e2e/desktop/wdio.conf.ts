@@ -14,6 +14,7 @@ const appBinaryPath = path.join(
   "leafdown-e2e.exe",
 );
 const webdriverPort = 4445;
+const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
 
 const capabilities: TauriCapabilities[] = [
   {
@@ -26,7 +27,11 @@ const capabilities: TauriCapabilities[] = [
 
 export const config: WebdriverIO.Config = {
   runner: "local",
-  specs: [path.join(repositoryRoot, "e2e", "desktop", "specs", "diagnostics.e2e.ts")],
+  specs: [
+    requestedSpec
+      ? path.resolve(repositoryRoot, requestedSpec)
+      : path.join(repositoryRoot, "e2e", "desktop", "specs", "diagnostics.e2e.ts"),
+  ],
   maxInstances: 1,
   capabilities,
   services: [

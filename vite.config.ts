@@ -44,7 +44,7 @@ export default defineConfig({
         "src/**/*.test.{ts,tsx}",
         "src/main.tsx",
         "src/vite-env.d.ts",
-        "src/components/ui/!(VirtualList).tsx",
+        "src/components/ui/!(virtual-list).tsx",
       ],
       thresholds: {
         statements: 88,

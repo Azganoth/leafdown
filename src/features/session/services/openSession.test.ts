@@ -1,12 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
-import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenedMarkdownDocument } from "@/features/document";
 import type { FolderContextState } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
+import { toastManager } from "@/lib/toast";
 import {
   createOpenedMarkdownDocument,
   createSavedDocument,
@@ -130,8 +130,10 @@ describe("open session workflows", () => {
       folderContext: { path: TEST_NOTES_FOLDER_PATH },
       activeDocument: null,
     });
-    expect(toast.error).toHaveBeenCalledWith("Could not open folder index file.", {
+    expect(toastManager.add).toHaveBeenCalledWith({
       description: `${TEST_NOTES_FOLDER_PATH}/readme.md`,
+      title: "Could not open folder index file.",
+      type: "error",
     });
   });
 

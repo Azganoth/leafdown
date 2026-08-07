@@ -1,4 +1,4 @@
-export { ArticleNavigator } from "./components/ArticleNavigator";
+export { ArticleNavigator } from "./components/article-navigator";
 export {
   openFolderContext,
   scanFolderContext,

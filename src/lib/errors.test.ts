@@ -1,5 +1,6 @@
-import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
+
+import { toastManager } from "@/lib/toast";
 
 import { CancellationError } from "./cancellation";
 import {
@@ -112,7 +113,7 @@ describe("error helpers", () => {
     notifyOperationFailure("Could not run task.", new CancellationError(), "test");
 
     expect(consoleError).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(toastManager.add).not.toHaveBeenCalled();
   });
 
   it("shows and logs operation failures", () => {
@@ -121,8 +122,10 @@ describe("error helpers", () => {
 
     notifyOperationFailure("Could not run task.", error, "test");
 
-    expect(toast.error).toHaveBeenCalledWith("Could not run task.", {
+    expect(toastManager.add).toHaveBeenCalledWith({
       description: "failed",
+      title: "Could not run task.",
+      type: "error",
     });
     expect(consoleError).toHaveBeenCalledWith("Unexpected error (test).", error);
   });

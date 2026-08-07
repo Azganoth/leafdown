@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { confirm } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { toastManager } from "@/lib/toast";
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import {
   countTauriApiCalls,
@@ -172,7 +172,7 @@ describe("Markdown link activation", () => {
         ),
       ).resolves.toBe(false);
 
-      expect(vi.mocked(toast.warning).mock.calls.at(-1)?.[0]).toBe(title);
+      expect(vi.mocked(toastManager.add).mock.calls.at(-1)?.[0]?.title).toBe(title);
       expect(confirm).not.toHaveBeenCalled();
       expect(countTauriApiCalls("openMarkdownLinkTarget")).toBe(0);
       expect(openUrl).not.toHaveBeenCalled();

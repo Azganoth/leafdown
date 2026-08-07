@@ -10,7 +10,7 @@ import { waitFor } from "@/test/utils/react";
 const mountStyledEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
-const editorCssPath = resolve(process.cwd(), "src/features/editor/components/MilkdownEditor.css");
+const editorCssPath = resolve(process.cwd(), "src/features/editor/components/milkdown-editor.css");
 
 describe("Editor presentation", () => {
   it("renders supported editor blocks with styleable ProseMirror structure", async () => {

@@ -278,7 +278,7 @@
 - Separators are always semantic, so decorative separators need explicit handling.
 - Toolbar controls remain focusable while disabled unless that default is overridden.
 - Base UI Toast supplies no default styling and no fixed set of toast types, so toast presentation, types, and announcement behavior are Leafdown's to own.
-- State-driven styling reads Base UI's boolean attributes; the shared variants in `src/App.css` match both those and the older `data-state` form.
+- State-driven styling reads Base UI's boolean attributes; the shared variants in `src/app.css` match both those and the older `data-state` form.
 
 ## Platform Decisions
 

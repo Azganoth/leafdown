@@ -1,10 +1,10 @@
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import { useArticleNavigatorStore } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
+import { toastManager } from "@/lib/toast";
 import { createAppCommandContext } from "@/test/factories/commands";
 import { createFolderContextWithNestedReadme } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
@@ -70,8 +70,10 @@ describe("view actions", () => {
     zoomOut();
 
     await vi.waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Could not update zoom.", {
+      expect(toastManager.add).toHaveBeenCalledWith({
         description: "webview unavailable",
+        title: "Could not update zoom.",
+        type: "error",
       });
       expect(consoleError).toHaveBeenCalledWith(
         "Unexpected error (updateZoom).",
@@ -123,8 +125,10 @@ describe("view actions", () => {
     void toggleFullscreen();
 
     await vi.waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Could not update fullscreen mode.", {
+      expect(toastManager.add).toHaveBeenCalledWith({
         description: "window unavailable",
+        title: "Could not update fullscreen mode.",
+        type: "error",
       });
       expect(consoleError).toHaveBeenCalledWith(
         "Unexpected error (toggleFullscreen).",

@@ -221,7 +221,7 @@ Every control that can hold focus must render a visible focus indicator. Suppres
 
 Use:
 
-- `focus-visible:` for controls a pointer can also activate, so a click does not leave a ring behind. Radix menu items are the exception and use `focus:`, because their focus is roving and follows the pointer.
+- `focus-visible:` for controls a pointer can also activate, so a click does not leave a ring behind. Menu items are the exception and use `focus:`, because their focus is roving and follows the pointer.
 - The `Button` treatment, `focus-visible:border-ring` with `focus-visible:ring-3 focus-visible:ring-ring/50`, as the reference for hand-built surfaces.
 - `outline-hidden` rather than `outline-none` when suppressing the native outline.
 - Room for the ring wherever a control sits inside a clipping box. `overflow` and `contain: paint` both cut a `ring-*` box-shadow off at the boundary.
@@ -229,7 +229,7 @@ Use:
 Avoid:
 
 - `outline-hidden` or `outline-none` with no paired `focus-visible:` rule.
-- Relying on `outline-ring/50` in `App.css` for the indicator. It sets outline color only, so it renders nothing until a style and width exist.
+- Relying on `outline-ring/50` in `app.css` for the indicator. It sets outline color only, so it renders nothing until a style and width exist.
 - Treating an open or active state as the focus indicator. They answer different questions and a keyboard user needs both.
 
 Why:
@@ -239,7 +239,7 @@ Leafdown builds its own titlebar, menu shell, and navigator, so focus presentati
 Example:
 
 ```tsx
-<MenubarPrimitive.Trigger className="outline-hidden hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted" />
+<MenuPrimitive.Trigger className="outline-hidden select-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:bg-muted" />
 ```
 
 ### Keyboard Traversal
@@ -251,7 +251,7 @@ Use:
 - One tab stop for the surface, roving to the control that last held focus, with every other control at `tabIndex={-1}`.
 - Arrow keys, `Home`, and `End` for movement inside the surface, leaving `Tab` to leave it.
 - A traversal model derived from the data when the surface owns its own movement, as `articleNavigatorTraversal.ts` does for the navigator's rows.
-- Position data attributes read back off the DOM when a primitive already owns one axis, as the context popup does for vertical movement across Radix's horizontal roving focus.
+- Position data attributes read back off the DOM when a primitive already owns one axis, as the context popup does for vertical movement across the toolbar's horizontal roving focus.
 - An explicit focus return when a surface that took focus closes.
 
 Avoid:

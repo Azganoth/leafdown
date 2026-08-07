@@ -1,6 +1,4 @@
 import "@/App.css";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect, useState } from "react";

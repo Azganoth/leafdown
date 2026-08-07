@@ -1,7 +1,7 @@
 import { ScrollArea as ScrollAreaPrimitive } from "radix-ui";
 import type { ComponentProps, Ref } from "react";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 interface ScrollAreaProps extends ComponentProps<typeof ScrollAreaPrimitive.Root> {
   viewportRef?: Ref<HTMLDivElement>;

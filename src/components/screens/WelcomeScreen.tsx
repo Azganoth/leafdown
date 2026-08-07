@@ -64,7 +64,7 @@ export function WelcomeScreen() {
       className="flex min-h-full items-center justify-center px-8 py-10"
     >
       <div className="w-full max-w-3xl">
-        <h2 id="welcome-title" className="font-display text-4xl font-semibold">
+        <h2 id="welcome-title" className="font-heading text-4xl font-semibold">
           Leafdown
         </h2>
         <p className="mt-3 max-w-lg text-base text-muted-foreground">

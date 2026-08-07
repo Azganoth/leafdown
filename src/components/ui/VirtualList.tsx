@@ -16,8 +16,8 @@ import {
   type Ref,
 } from "react";
 
-import { cn } from "@/lib/cn";
 import { invariant } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 import { ScrollArea } from "./ScrollArea";
 

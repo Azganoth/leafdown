@@ -20,9 +20,9 @@ import {
   type VirtualItem,
   type VirtualListHandle,
 } from "@/components/ui/VirtualList";
-import { cn } from "@/lib/cn";
 import { hasNoShortcutModifier } from "@/lib/input";
 import { isSameOrParentPath, isSamePath } from "@/lib/path";
+import { cn } from "@/lib/utils";
 
 import type { FolderContextState } from "../services/folderContext";
 import { useArticleNavigatorStore } from "../stores/articleNavigator";

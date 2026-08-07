@@ -33,7 +33,7 @@
     h4,
     h5,
     h6 {
-      @apply mt-8 mb-3 scroll-m-20 font-display font-semibold text-foreground;
+      @apply mt-8 mb-3 scroll-m-20 font-heading font-semibold text-foreground;
     }
 
     h1 {

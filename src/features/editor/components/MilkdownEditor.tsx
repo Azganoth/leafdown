@@ -3,7 +3,7 @@ import "@milkdown/kit/prose/view/style/prosemirror.css";
 import "./MilkdownEditor.css";
 import type { Ref } from "react";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 import {
   useMilkdownEditorInstance,

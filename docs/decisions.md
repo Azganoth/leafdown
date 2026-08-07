@@ -264,6 +264,22 @@
 - Rows are `treeitem`s rather than buttons, so their keyboard behavior is the tree's to implement rather than something the platform supplies.
 - The row holding the tab stop has to stay rendered even when it scrolls out of the virtualized window. Unmounting it drops focus to the document body and leaves the navigator with no tab stop at all, which would take the scroll region out of the tab sequence.
 
+### Build UI primitives on Base UI
+
+**Decision:** The primitives in `src/components/ui/` are built on `@base-ui/react`, and the project is managed through the shadcn CLI with `components.json`. Toast notifications use Base UI Toast rather than a separate toast dependency. The wrappers remain hand-owned; the CLI is not used to regenerate them.
+
+**Rationale:** Radix remains maintained and unblocking, so the move is elective rather than forced. It follows the base library shadcn made the default for new projects, and it ends Leafdown's reliance on Radix positioning internals: the editor context popup drove its repositioning transition off `[data-radix-popper-content-wrapper]`, an undocumented wrapper element, from a component, a stylesheet, and a test at once. Base UI positions through an element the application owns. Keeping a separate toast dependency alongside it would leave two interaction vocabularies in the same layer.
+
+**Consequences:**
+
+- Popup surfaces compose as `Portal`, `Positioner`, `Popup`, and positioning props belong to the positioner rather than the content.
+- Composition uses `render` and `useRender` in place of `asChild` and `Slot`.
+- Menu items act on `onClick` with an explicit `closeOnClick`, and radio items do not close the menu by default.
+- Separators are always semantic, so decorative separators need explicit handling.
+- Toolbar controls remain focusable while disabled unless that default is overridden.
+- Base UI Toast supplies no default styling and no fixed set of toast types, so toast presentation, types, and announcement behavior are Leafdown's to own.
+- State-driven styling reads Base UI's boolean attributes; the shared variants in `src/App.css` match both those and the older `data-state` form.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

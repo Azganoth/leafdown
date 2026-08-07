@@ -35,7 +35,7 @@ import {
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/Popover";
 import { Toolbar, ToolbarButton } from "@/components/ui/Toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/Tooltip";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { EDITOR_COMMAND_LABELS } from "../commands/metadata";

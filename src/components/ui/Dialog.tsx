@@ -3,7 +3,7 @@ import { Dialog as DialogPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
 
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils";
 
 const isWindowDragOrControlTarget = (target: EventTarget | null) =>
   target instanceof Element &&

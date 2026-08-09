@@ -1,5 +1,7 @@
 import { $, browser, expect } from "@wdio/globals";
 
+import { openMenu } from "../support/ui.js";
+
 interface DiagnosticsSummary {
   appIdentifier: string;
   runId: string;
@@ -7,9 +9,7 @@ interface DiagnosticsSummary {
 
 describe("desktop diagnostics", () => {
   it("opens Diagnostics through Help and corroborates the summary through real IPC", async () => {
-    const helpMenu = $("aria/Help");
-    await helpMenu.click();
-    await browser.keys("Enter");
+    await openMenu("Help");
     await $("aria/Diagnostics...").click();
 
     const dialog = $("aria/Diagnostics");

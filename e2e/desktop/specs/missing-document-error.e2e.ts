@@ -10,7 +10,7 @@ describe("desktop backend error propagation", () => {
 
     await openRecentPath(missingDocumentPath);
 
-    const toast = $('[data-sonner-toast][data-type="error"]');
+    const toast = $('[data-slot="toast"][data-type="error"]');
     await expect(toast).toHaveText(expect.stringContaining("Markdown file not found."));
     await expect(toast).toHaveText(expect.stringContaining(missingDocumentPath));
 

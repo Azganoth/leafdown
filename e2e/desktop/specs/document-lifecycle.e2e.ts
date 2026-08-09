@@ -30,7 +30,7 @@ describe("desktop document lifecycle", () => {
 
     await editor.click();
     await browser.keys([Key.Ctrl, "s", Key.NULL]);
-    await expect($('[data-sonner-toast][data-type="success"]')).toHaveText(
+    await expect($('[data-slot="toast"][data-type="success"]')).toHaveText(
       expect.stringContaining("Document saved."),
     );
 

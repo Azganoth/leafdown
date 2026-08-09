@@ -4,7 +4,6 @@ type MenuItemPredicate = (text: string) => boolean;
 
 export const openMenu = async (label: string) => {
   await $(`aria/${label}`).click();
-  await browser.keys("Enter");
 };
 
 export const findMenuItem = async (predicate: MenuItemPredicate) => {

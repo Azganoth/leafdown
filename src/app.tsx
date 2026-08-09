@@ -26,6 +26,8 @@ const DeveloperTools = import.meta.env.DEV
     })
   : null;
 
+const TOAST_TIMEOUT_MS = import.meta.env.MODE === "desktop-e2e" ? 0 : undefined;
+
 const setDarkAppearance = (isDark: boolean) => {
   window.document.documentElement.classList.toggle("dark", isDark);
 };
@@ -138,7 +140,7 @@ export function App() {
           />
         </Suspense>
       )}
-      <Toaster />
+      <Toaster timeout={TOAST_TIMEOUT_MS} />
     </div>
   );
 }

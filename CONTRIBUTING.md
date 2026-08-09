@@ -80,11 +80,17 @@ Run the Windows-local assembled desktop E2E suite with:
 pnpm test:e2e:desktop
 ```
 
-This explicit suite is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The suite retains the Diagnostics smoke test and narrowly covers document open/edit/save/reopen, folder navigation and native watcher refresh, missing-file error propagation, settings persistence across a process restart, injected frame controls, and the clean window-close handshake. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
+This explicit suite is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
 
-The runner seeds only the isolated E2E persisted store, creates temporary filesystem fixtures, and removes both after the suite. Each run writes shared fixture evidence under `e2e/desktop/artifacts/<run>/` and ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
+The runner seeds only the isolated E2E persisted store, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
 
-To verify the failure-evidence path, temporarily set `LEAFDOWN_E2E_FORCE_FAILURE=1` in the shell and run the suite. The Diagnostics scenario should fail, retain its evidence, clean its fixture and store state, and return a nonzero exit code.
+To verify the failure-evidence path, run the suite with the forced-failure flag:
+
+```powershell
+$env:LEAFDOWN_E2E_FORCE_FAILURE=1; pnpm test:e2e:desktop; $env:LEAFDOWN_E2E_FORCE_FAILURE=$null
+```
+
+The Diagnostics scenario should fail, retain its evidence, clean its fixture and store state, and return a nonzero exit code.
 
 Before substantial implementation, read the relevant sections of [`docs/architecture.md`](./docs/architecture.md) and [`docs/patterns.md`](./docs/patterns.md).
 

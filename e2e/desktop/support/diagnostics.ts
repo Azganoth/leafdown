@@ -25,7 +25,7 @@ export const getDiagnosticsSummary = () =>
     ({ core }) => core.invoke("get_diagnostics_summary") as Promise<DiagnosticsSummary>,
   );
 
-const readRunDiagnostics = async ({ logFilePath, runId }: DiagnosticsSummary) => {
+export const readRunDiagnostics = async ({ logFilePath, runId }: DiagnosticsSummary) => {
   const contents = await readFile(logFilePath, "utf8");
 
   return contents
@@ -56,15 +56,11 @@ export const waitForDiagnosticRecord = async (
     { timeoutMsg: "Expected structured application diagnostic did not appear." },
   );
 
-  if (!result.record) {
-    throw new Error("Expected structured application diagnostic did not appear.");
-  }
-
   await mkdir(ARTIFACTS_DIR, { recursive: true });
   await writeFile(
     path.join(ARTIFACTS_DIR, evidenceFileName),
     `${JSON.stringify(result.record, null, 2)}\n`,
   );
 
-  return result.record;
+  return result.record!;
 };

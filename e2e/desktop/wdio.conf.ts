@@ -15,7 +15,11 @@ const appBinaryPath = path.join(
   "leafdown-e2e.exe",
 );
 const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
-const closesApplicationUnderTest = process.env.LEAFDOWN_E2E_SCENARIO === "window-lifecycle";
+
+if (!requestedSpec) {
+  throw new Error("LEAFDOWN_E2E_SPEC is required. Run the suite with pnpm test:e2e:desktop.");
+}
+
 let activeBrowser: WebdriverIO.Browser | undefined;
 
 const capabilities: TauriCapabilities[] = [
@@ -29,11 +33,7 @@ const capabilities: TauriCapabilities[] = [
 
 export const config: WebdriverIO.Config = {
   runner: "local",
-  specs: [
-    requestedSpec
-      ? path.resolve(repositoryRoot, requestedSpec)
-      : path.join(repositoryRoot, "e2e", "desktop", "specs", "diagnostics.e2e.ts"),
-  ],
+  specs: [path.resolve(repositoryRoot, requestedSpec)],
   maxInstances: 1,
   capabilities,
   services: [
@@ -65,10 +65,14 @@ export const config: WebdriverIO.Config = {
     activeBrowser = browser;
     await browser.setWindowSize(1024, 768);
   },
-  after: () => {
-    if (closesApplicationUnderTest && activeBrowser) {
-      // The terminal scenario already destroyed the embedded WebDriver with the app.
-      // Clear the local handle so WDIO does not issue a DELETE to a server that no longer exists.
+  after: async () => {
+    if (!activeBrowser) {
+      return;
+    }
+
+    try {
+      await activeBrowser.getTitle();
+    } catch {
       activeBrowser.sessionId = "";
     }
   },

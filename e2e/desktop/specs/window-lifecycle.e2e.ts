@@ -1,9 +1,7 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
-import { ARTIFACTS_DIR } from "../support/artifacts.js";
-import { type DiagnosticRecord, getDiagnosticsSummary } from "../support/diagnostics.js";
+import { getDiagnosticsSummary, readRunDiagnostics } from "../support/diagnostics.js";
 
 const WINDOW_CONTROL_LABELS = ["Minimize window", "Maximize window", "Close window"];
 
@@ -18,9 +16,7 @@ const waitForNodeCondition = async (
       return;
     }
 
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 100);
-    });
+    await delay(100);
   }
 
   throw new Error(timeoutMessage);
@@ -33,30 +29,6 @@ const isProcessRunning = (processId: number) => {
   } catch {
     return false;
   }
-};
-
-const readClosingDiagnostic = async (logFilePath: string, runId: string) => {
-  const contents = await readFile(logFilePath, "utf8");
-
-  for (const line of contents.split(/\r?\n/u)) {
-    try {
-      const record = JSON.parse(line) as DiagnosticRecord;
-
-      if (
-        record.runId === runId &&
-        record.event === "operationLifecycle" &&
-        record.feature === "app" &&
-        record.operation === "window" &&
-        record.phase === "closing"
-      ) {
-        return record;
-      }
-    } catch {
-      // The app log can contain an incomplete final line while it is being flushed.
-    }
-  }
-
-  return undefined;
 };
 
 describe("desktop window lifecycle", () => {
@@ -88,25 +60,16 @@ describe("desktop window lifecycle", () => {
       `The packaged application process ${processId} did not exit after Close window.`,
     );
 
-    let closingDiagnostic: DiagnosticRecord | undefined;
-    await waitForNodeCondition(async () => {
-      closingDiagnostic = await readClosingDiagnostic(diagnostics.logFilePath, diagnostics.runId);
-      return Boolean(closingDiagnostic);
-    }, "The clean window-closing diagnostic was not flushed before process exit.");
-
-    await mkdir(ARTIFACTS_DIR, { recursive: true });
-    await writeFile(
-      path.join(ARTIFACTS_DIR, "window-close-evidence.json"),
-      `${JSON.stringify(
-        {
-          closingDiagnostic,
-          controls: WINDOW_CONTROL_LABELS,
-          processExited: true,
-          processId,
-        },
-        null,
-        2,
-      )}\n`,
+    await waitForNodeCondition(
+      async () =>
+        (await readRunDiagnostics(diagnostics)).some(
+          (record) =>
+            record.event === "operationLifecycle" &&
+            record.feature === "app" &&
+            record.operation === "window" &&
+            record.phase === "closing",
+        ),
+      "The clean window-closing diagnostic was not flushed before process exit.",
     );
   });
 });

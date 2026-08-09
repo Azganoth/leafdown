@@ -1,21 +1,17 @@
 import { $, $$, browser } from "@wdio/globals";
 
-type MenuItemPredicate = (text: string) => boolean;
+const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
 
-export const openMenu = async (label: string) => {
-  await $(`aria/${label}`).click();
-};
-
-export const findMenuItem = async (predicate: MenuItemPredicate) => {
+const findByText = async (
+  selector: string,
+  predicate: (text: string) => boolean,
+  timeoutMsg: string,
+) => {
   const result: { item?: WebdriverIO.Element } = {};
 
   await browser.waitUntil(
     async () => {
-      const items = await $$(
-        '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]',
-      ).getElements();
-
-      for (const item of items) {
+      for (const item of await $$(selector).getElements()) {
         if (predicate((await item.getText()).trim())) {
           result.item = item;
           return true;
@@ -24,15 +20,21 @@ export const findMenuItem = async (predicate: MenuItemPredicate) => {
 
       return false;
     },
-    { timeoutMsg: "Expected menu item did not appear." },
+    { timeoutMsg },
   );
 
-  if (!result.item) {
-    throw new Error("Expected menu item did not appear.");
-  }
-
-  return result.item;
+  return result.item!;
 };
+
+export const openMenu = async (label: string) => {
+  await $(`aria/${label}`).click();
+};
+
+export const findMenuItem = (predicate: (text: string) => boolean) =>
+  findByText(MENU_ITEM_SELECTOR, predicate, "Expected menu item did not appear.");
+
+export const findTreeItem = (label: string) =>
+  findByText('[role="treeitem"]', (text) => text === label, `Tree item ${label} did not appear.`);
 
 export const openRecentPath = async (path: string) => {
   await openMenu("File");
@@ -49,30 +51,4 @@ export const getSaveMenuItem = async () => {
 export const selectFileMenuItem = async (label: string) => {
   await openMenu("File");
   await (await findMenuItem((text) => text.startsWith(label))).click();
-};
-
-export const findTreeItem = async (label: string) => {
-  const result: { item?: WebdriverIO.Element } = {};
-
-  await browser.waitUntil(
-    async () => {
-      const items = await $$('[role="treeitem"]').getElements();
-
-      for (const item of items) {
-        if ((await item.getText()).trim() === label) {
-          result.item = item;
-          return true;
-        }
-      }
-
-      return false;
-    },
-    { timeoutMsg: `Tree item ${label} did not appear.` },
-  );
-
-  if (!result.item) {
-    throw new Error(`Tree item ${label} did not appear.`);
-  }
-
-  return result.item;
 };

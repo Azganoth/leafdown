@@ -1,6 +1,5 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -8,17 +7,17 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import type { DesktopE2ERunContext } from "./support/runContext.js";
-import { WEBDRIVER_PORT } from "./support/suite.js";
+import { RUN_LABEL, WEBDRIVER_PORT } from "./support/suite.js";
 
 interface Scenario {
   name: string;
-  prepareState: (context: DesktopE2ERunContext) => Promise<void>;
-  spec: string;
+  continues?: string;
+  recentFiles?: string[];
+  recentFolders?: string[];
 }
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
-const runLabel = `${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}-${process.pid}`;
-const artifactsRoot = path.join(repositoryRoot, "e2e", "desktop", "artifacts", runLabel);
+const artifactsRoot = path.join(repositoryRoot, "e2e", "desktop", "artifacts", RUN_LABEL);
 const contextPath = path.join(artifactsRoot, "run-context.json");
 const e2eStoreDirectory = path.join(
   process.env.APPDATA ?? "",
@@ -28,31 +27,13 @@ const e2eStoreDirectory = path.join(
 const recentItemsPath = path.join(e2eStoreDirectory, "recent-items.dev.json");
 const settingsPath = path.join(e2eStoreDirectory, "settings.dev.json");
 
-const initialSettings = {
-  articleSortOrder: "name",
-  autoPairBracketsAndQuotes: true,
-  defaultNewDocumentExtension: ".md",
-  defaultNewDocumentLineEnding: "crlf",
-  ignoredDirectories: [".git", ".hg", ".svn", "node_modules", "target", "dist", "build", ".cache"],
-  indexFileNames: ["readme", "index"],
-  insertFinalNewline: true,
-  recordRecentItems: true,
-  sidebarVisible: true,
-  softWrapCodeBlocks: false,
-  theme: "system",
-  version: 1,
-};
-
 const writeJson = (filePath: string, value: unknown) =>
   writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
 
 const resetPersistedState = async (recentFiles: string[] = [], recentFolders: string[] = []) => {
   await rm(e2eStoreDirectory, { force: true, recursive: true });
   await mkdir(e2eStoreDirectory, { recursive: true });
-  await Promise.all([
-    writeJson(recentItemsPath, { recentFiles, recentFolders, version: 1 }),
-    writeJson(settingsPath, initialSettings),
-  ]);
+  await writeJson(recentItemsPath, { recentFiles, recentFolders, version: 1 });
 };
 
 const runWdio = (scenario: Scenario) =>
@@ -70,10 +51,10 @@ const runWdio = (scenario: Scenario) =>
       cwd: repositoryRoot,
       env: {
         ...process.env,
-        LEAFDOWN_E2E_ARTIFACT_RUN: runLabel,
+        LEAFDOWN_E2E_ARTIFACT_RUN: RUN_LABEL,
         LEAFDOWN_E2E_CONTEXT_PATH: contextPath,
         LEAFDOWN_E2E_SCENARIO: scenario.name,
-        LEAFDOWN_E2E_SPEC: scenario.spec,
+        LEAFDOWN_E2E_SPEC: `e2e/desktop/specs/${scenario.name}.e2e.ts`,
       },
       stdio: "inherit",
     });
@@ -93,55 +74,28 @@ const runWdio = (scenario: Scenario) =>
     });
   });
 
-const sha256 = (contents: Buffer | string) => createHash("sha256").update(contents).digest("hex");
-
-const fileEvidence = async (filePath: string, expectedContents?: string) => {
-  const expected =
-    expectedContents === undefined
-      ? {}
-      : {
-          expectedSha256: sha256(expectedContents),
-          expectedSizeBytes: Buffer.byteLength(expectedContents),
-        };
-
-  try {
-    const contents = await readFile(filePath);
-    const metadata = await stat(filePath);
-
-    return {
-      ...expected,
-      modifiedAt: metadata.mtime.toISOString(),
-      path: filePath,
-      sha256: sha256(contents),
-      sizeBytes: metadata.size,
-    };
-  } catch (error) {
-    return { ...expected, error: String(error), path: filePath };
-  }
-};
-
-const isPortFree = (port: number) =>
+const isPortFree = () =>
   new Promise<boolean>((resolve) => {
     const server = createServer();
 
     server.once("error", () => resolve(false));
     server.once("listening", () => server.close(() => resolve(true)));
-    server.listen(port, "127.0.0.1");
+    server.listen(WEBDRIVER_PORT, "127.0.0.1");
   });
 
 // The embedded driver releases the port asynchronously as it shuts down.
-const waitForPortRelease = async (port: number, timeoutMs = 10_000) => {
+const waitForPortRelease = async (timeoutMs = 10_000) => {
   const deadline = Date.now() + timeoutMs;
 
-  while (Date.now() < deadline) {
-    if (await isPortFree(port)) {
-      return true;
+  while (!(await isPortFree())) {
+    if (Date.now() > deadline) {
+      return false;
     }
 
     await delay(250);
   }
 
-  return isPortFree(port);
+  return true;
 };
 
 const main = async () => {
@@ -177,7 +131,6 @@ const main = async () => {
       path: folderPath,
     },
     missingDocumentPath,
-    persistenceEvidencePath: path.join(artifactsRoot, "persistence-phase-one.json"),
     settingsPath,
     temporaryRoot,
   };
@@ -194,90 +147,40 @@ const main = async () => {
   await writeJson(contextPath, context);
 
   const scenarios: Scenario[] = [
-    {
-      name: "diagnostics",
-      prepareState: () => resetPersistedState(),
-      spec: "e2e/desktop/specs/diagnostics.e2e.ts",
-    },
-    {
-      name: "document-lifecycle",
-      prepareState: ({ document }) => resetPersistedState([document.path]),
-      spec: "e2e/desktop/specs/document-lifecycle.e2e.ts",
-    },
-    {
-      name: "folder-watcher",
-      prepareState: ({ folder }) => resetPersistedState([], [folder.path]),
-      spec: "e2e/desktop/specs/folder-watcher.e2e.ts",
-    },
-    {
-      name: "missing-document-error",
-      prepareState: ({ missingDocumentPath }) => resetPersistedState([missingDocumentPath]),
-      spec: "e2e/desktop/specs/missing-document-error.e2e.ts",
-    },
-    {
-      name: "persistence-write",
-      prepareState: () => resetPersistedState(),
-      spec: "e2e/desktop/specs/persistence-write.e2e.ts",
-    },
-    {
-      name: "persistence-restart",
-      prepareState: () => Promise.resolve(),
-      spec: "e2e/desktop/specs/persistence-restart.e2e.ts",
-    },
-    {
-      name: "window-lifecycle",
-      prepareState: () => resetPersistedState(),
-      spec: "e2e/desktop/specs/window-lifecycle.e2e.ts",
-    },
+    { name: "diagnostics" },
+    { name: "document-lifecycle", recentFiles: [documentPath] },
+    { name: "folder-watcher", recentFolders: [folderPath] },
+    { name: "missing-document-error", recentFiles: [missingDocumentPath] },
+    { name: "persistence-write" },
+    { name: "persistence-restart", continues: "persistence-write" },
+    { name: "window-lifecycle" },
   ];
 
-  let scenarioError: unknown;
-
   try {
-    for (const scenario of scenarios) {
-      await scenario.prepareState(context);
+    for (const [index, scenario] of scenarios.entries()) {
+      if (scenario.continues) {
+        if (scenario.continues !== scenarios[index - 1]?.name) {
+          throw new Error(
+            `Scenario ${scenario.name} must run directly after ${scenario.continues}.`,
+          );
+        }
+      } else {
+        await resetPersistedState(scenario.recentFiles, scenario.recentFolders);
+      }
+
       await runWdio(scenario);
+
+      if (!(await waitForPortRelease())) {
+        throw new Error(
+          `Scenario ${scenario.name} left a listener on port ${WEBDRIVER_PORT}. Stop it before the next run.`,
+        );
+      }
     }
-  } catch (error) {
-    scenarioError = error;
-  }
-
-  // Gather evidence before the fixtures are removed.
-  const fixtureEvidence = {
-    completedAt: new Date().toISOString(),
-    document: await fileEvidence(documentPath, context.document.savedMarkdown),
-    folder: {
-      addedDocument: await fileEvidence(addedFolderFilePath, `${context.folder.addedMarker}\n`),
-      initialDocument: await fileEvidence(
-        initialFolderFilePath,
-        `${context.folder.initialMarker}\n`,
-      ),
-      path: folderPath,
-    },
-    missingDocument: await fileEvidence(missingDocumentPath),
-    temporaryRoot,
-  };
-
-  await Promise.all([
-    rm(temporaryRoot, { force: true, recursive: true }),
-    rm(e2eStoreDirectory, { force: true, recursive: true }),
-  ]);
-
-  const webdriverPortReleased = await waitForPortRelease(WEBDRIVER_PORT);
-
-  await writeJson(path.join(artifactsRoot, "fixture-manifest.json"), {
-    ...fixtureEvidence,
-    webdriverPortReleased,
-  });
-
-  if (scenarioError) {
-    throw scenarioError;
-  }
-
-  if (!webdriverPortReleased) {
-    throw new Error(
-      `The desktop E2E suite left a listener on port ${WEBDRIVER_PORT}. Stop it before the next run.`,
-    );
+  } finally {
+    await Promise.all([
+      rm(temporaryRoot, { force: true, recursive: true }),
+      rm(e2eStoreDirectory, { force: true, recursive: true }),
+    ]);
   }
 };
 

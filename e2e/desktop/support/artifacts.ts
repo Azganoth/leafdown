@@ -3,6 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { RUN_LABEL } from "./suite.js";
+
 interface DiagnosticsSummary {
   appIdentifier: string;
   appName: string;
@@ -18,19 +20,16 @@ interface DiagnosticsSummary {
 }
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const runLabel =
-  process.env.LEAFDOWN_E2E_ARTIFACT_RUN ??
-  `${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}-${process.pid}`;
 const scenarioLabel = process.env.LEAFDOWN_E2E_SCENARIO;
 
-process.env.LEAFDOWN_E2E_ARTIFACT_RUN = runLabel;
+process.env.LEAFDOWN_E2E_ARTIFACT_RUN = RUN_LABEL;
 
 export const ARTIFACTS_DIR = path.join(
   repositoryRoot,
   "e2e",
   "desktop",
   "artifacts",
-  runLabel,
+  RUN_LABEL,
   ...(scenarioLabel ? [scenarioLabel] : []),
 );
 

@@ -3,28 +3,20 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-interface DiagnosticsSummary {
-  appIdentifier: string;
-  appName: string;
-  appVersion: string;
-  architecture: string;
-  logDirectoryPath: string;
-  logFileCount: number;
-  logFileName: string;
-  logFilePath: string;
-  logMaxFileSizeBytes: number;
-  operatingSystem: string;
-  runId: string;
-}
+import type { DiagnosticsSummary } from "./diagnostics.js";
+import { RUN_LABEL } from "./suite.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
-const runLabel =
-  process.env.LEAFDOWN_E2E_ARTIFACT_RUN ??
-  `${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}-${process.pid}`;
+const scenarioLabel = process.env.LEAFDOWN_E2E_SCENARIO;
 
-process.env.LEAFDOWN_E2E_ARTIFACT_RUN = runLabel;
-
-export const ARTIFACTS_DIR = path.join(repositoryRoot, "e2e", "desktop", "artifacts", runLabel);
+export const ARTIFACTS_DIR = path.join(
+  repositoryRoot,
+  "e2e",
+  "desktop",
+  "artifacts",
+  RUN_LABEL,
+  ...(scenarioLabel ? [scenarioLabel] : []),
+);
 
 const writeJson = async (fileName: string, value: unknown) => {
   await writeFile(path.join(ARTIFACTS_DIR, fileName), `${JSON.stringify(value, null, 2)}\n`);

@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ARTIFACTS_DIR, captureFailureArtifacts } from "./support/artifacts.js";
+import { WEBDRIVER_PORT } from "./support/suite.js";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const appBinaryPath = path.join(
@@ -13,7 +14,13 @@ const appBinaryPath = path.join(
   "debug",
   "leafdown-e2e.exe",
 );
-const webdriverPort = 4445;
+const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
+
+if (!requestedSpec) {
+  throw new Error("LEAFDOWN_E2E_SPEC is required. Run the suite with pnpm test:e2e:desktop.");
+}
+
+let activeBrowser: WebdriverIO.Browser | undefined;
 
 const capabilities: TauriCapabilities[] = [
   {
@@ -26,7 +33,7 @@ const capabilities: TauriCapabilities[] = [
 
 export const config: WebdriverIO.Config = {
   runner: "local",
-  specs: [path.join(repositoryRoot, "e2e", "desktop", "specs", "diagnostics.e2e.ts")],
+  specs: [path.resolve(repositoryRoot, requestedSpec)],
   maxInstances: 1,
   capabilities,
   services: [
@@ -35,7 +42,7 @@ export const config: WebdriverIO.Config = {
       {
         appBinaryPath,
         driverProvider: "embedded",
-        embeddedPort: webdriverPort,
+        embeddedPort: WEBDRIVER_PORT,
         captureBackendLogs: true,
         captureFrontendLogs: true,
         backendLogLevel: "info",
@@ -55,7 +62,19 @@ export const config: WebdriverIO.Config = {
     timeout: 60_000,
   },
   before: async (_capabilities, _specs, browser: WebdriverIO.Browser) => {
+    activeBrowser = browser;
     await browser.setWindowSize(1024, 768);
+  },
+  after: async () => {
+    if (!activeBrowser) {
+      return;
+    }
+
+    try {
+      await activeBrowser.getTitle();
+    } catch {
+      activeBrowser.sessionId = "";
+    }
   },
   afterTest: async (_test, _context, { error, passed }) => {
     if (!passed) {

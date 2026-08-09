@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -19,11 +20,8 @@ interface Scenario {
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const artifactsRoot = path.join(repositoryRoot, "e2e", "desktop", "artifacts", RUN_LABEL);
 const contextPath = path.join(artifactsRoot, "run-context.json");
-const e2eStoreDirectory = path.join(
-  process.env.APPDATA ?? "",
-  "com.azganoth.leafdown.e2e",
-  "tauri-plugin-zustand",
-);
+const e2eAppDataDirectory = path.join(process.env.APPDATA ?? "", "com.azganoth.leafdown.e2e");
+const e2eStoreDirectory = path.join(e2eAppDataDirectory, "tauri-plugin-zustand");
 const recentItemsPath = path.join(e2eStoreDirectory, "recent-items.dev.json");
 const settingsPath = path.join(e2eStoreDirectory, "settings.dev.json");
 
@@ -73,6 +71,33 @@ const runWdio = (scenario: Scenario) =>
       );
     });
   });
+
+const sha256 = (contents: Buffer | string) => createHash("sha256").update(contents).digest("hex");
+
+const fileEvidence = async (filePath: string, expectedContents?: string) => {
+  const expected =
+    expectedContents === undefined
+      ? {}
+      : {
+          expectedSha256: sha256(expectedContents),
+          expectedSizeBytes: Buffer.byteLength(expectedContents),
+        };
+
+  try {
+    const contents = await readFile(filePath);
+    const { mtime, size } = await stat(filePath);
+
+    return {
+      ...expected,
+      modifiedAt: mtime.toISOString(),
+      path: filePath,
+      sha256: sha256(contents),
+      sizeBytes: size,
+    };
+  } catch (error) {
+    return { ...expected, error: String(error), path: filePath };
+  }
+};
 
 const isPortFree = () =>
   new Promise<boolean>((resolve) => {
@@ -176,10 +201,27 @@ const main = async () => {
         );
       }
     }
+  } catch (error) {
+    await writeJson(path.join(artifactsRoot, "fixture-manifest.json"), {
+      document: await fileEvidence(documentPath, context.document.savedMarkdown),
+      failedAt: new Date().toISOString(),
+      folderAddedDocument: await fileEvidence(
+        addedFolderFilePath,
+        `${context.folder.addedMarker}\n`,
+      ),
+      folderInitialDocument: await fileEvidence(
+        initialFolderFilePath,
+        `${context.folder.initialMarker}\n`,
+      ),
+      missingDocument: await fileEvidence(missingDocumentPath),
+      temporaryRoot,
+    });
+
+    throw error;
   } finally {
     await Promise.all([
       rm(temporaryRoot, { force: true, recursive: true }),
-      rm(e2eStoreDirectory, { force: true, recursive: true }),
+      rm(e2eAppDataDirectory, { force: true, recursive: true }),
     ]);
   }
 };

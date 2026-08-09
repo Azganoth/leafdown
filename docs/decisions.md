@@ -272,13 +272,9 @@
 
 **Consequences:**
 
-- Popup surfaces compose as `Portal`, `Positioner`, `Popup`, and positioning props belong to the positioner rather than the content.
-- Composition uses `render` and `useRender` in place of `asChild` and `Slot`.
-- Menu items act on `onClick` with an explicit `closeOnClick`, and radio items do not close the menu by default.
-- Separators are always semantic, so decorative separators need explicit handling.
-- Toolbar controls remain focusable while disabled unless that default is overridden.
+- The CLI writes kebab-case files into `src/components/ui/`, which is why component file names follow that convention rather than React's `PascalCase`.
 - Base UI Toast supplies no default styling and no fixed set of toast types, so toast presentation, types, and announcement behavior are Leafdown's to own.
-- State-driven styling reads Base UI's boolean attributes; the shared variants in `src/app.css` match both those and the older `data-state` form.
+- Where a Base UI default disagrees with behavior Leafdown already had, the wrapper carries the override, so consult the wrapper rather than Base UI's documentation for what a primitive does here.
 
 ## Platform Decisions
 

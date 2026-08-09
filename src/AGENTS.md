@@ -11,7 +11,7 @@
 - Keep generic UI primitives in `src/components/ui/` and domain-agnostic utilities in `src/lib/`. Global use alone does not make domain-owned behavior generic.
 - Keep domain features independent of higher-level orchestration, command registration, and application-composition layers. Dependencies should flow from those layers toward domain features.
 - Import other features through their root `index.ts` public API rather than through deep feature paths.
-- Name a file that exports a React component in kebab-case, and every other module in camelCase.
+- Name a file that exports a React component in kebab-case, and every other module in camelCase. A test or stylesheet that belongs to one module takes that module's name.
 
 ## Styling And UI Primitives
 

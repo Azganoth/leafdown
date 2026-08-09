@@ -1,6 +1,7 @@
 import { beforeEach, vi } from "vitest";
 
-import { createSonnerMock } from "../mocks/sonner";
+import { toastManager } from "@/lib/toast";
+
 import {
   createTauriAppMock,
   createTauriCoreMock,
@@ -23,10 +24,11 @@ vi.mock("@tauri-apps/api/window", () => createTauriWindowMock());
 vi.mock("@tauri-apps/plugin-dialog", () => createTauriDialogMock());
 vi.mock("@tauri-apps/plugin-log", () => createTauriLogMock());
 vi.mock("@tauri-apps/plugin-opener", () => createTauriOpenerMock());
-vi.mock("sonner", () => createSonnerMock());
 
 beforeEach(async () => {
   const { resetAppStores } = await import("../utils/appStores");
+
+  vi.spyOn(toastManager, "add").mockReturnValue("test-toast");
 
   resetTauriMocks();
   resetAppStores();

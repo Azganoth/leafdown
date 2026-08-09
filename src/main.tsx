@@ -1,10 +1,10 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
 
-import { App } from "./App";
+import { App } from "./app";
 import { installUnexpectedErrorDiagnostics } from "./features/diagnostics";
 import { installUnexpectedErrorHandlers, invariant } from "./lib/errors";
-import { Providers } from "./Providers";
+import { Providers } from "./providers";
 
 if (import.meta.env.MODE === "desktop-e2e") {
   await import("@wdio/tauri-plugin");

@@ -1,4 +1,4 @@
-export { PreferencesDialog } from "./components/PreferencesDialog";
+export { PreferencesDialog } from "./components/preferences-dialog";
 export {
   RECENT_ITEM_LIMIT,
   RECENT_ITEMS_VERSION,

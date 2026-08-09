@@ -1,7 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
 import { describe, expect, it } from "vitest";
 
+import { toastManager } from "@/lib/toast";
 import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
@@ -117,7 +117,10 @@ describe("Markdown links", () => {
       dispatchClick(link, { ctrl: true });
 
       await waitFor(() => {
-        expect(toast.warning).toHaveBeenCalledWith("Save the document to resolve this link.");
+        expect(toastManager.add).toHaveBeenCalledWith({
+          title: "Save the document to resolve this link.",
+          type: "warning",
+        });
       });
       expect(mounted.getMarkdown()).toBe("[Guide](guide.md)\n");
     });

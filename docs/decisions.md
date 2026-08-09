@@ -264,6 +264,18 @@
 - Rows are `treeitem`s rather than buttons, so their keyboard behavior is the tree's to implement rather than something the platform supplies.
 - The row holding the tab stop has to stay rendered even when it scrolls out of the virtualized window. Unmounting it drops focus to the document body and leaves the navigator with no tab stop at all, which would take the scroll region out of the tab sequence.
 
+### Build UI primitives on Base UI
+
+**Decision:** The primitives in `src/components/ui/` are built on `@base-ui/react`, and the project is managed through the shadcn CLI with `components.json`. Toast notifications use Base UI Toast rather than a separate toast dependency. The wrappers remain hand-owned; the CLI is not used to regenerate them.
+
+**Rationale:** Radix remains maintained and unblocking, so the move is elective rather than forced. It follows the base library shadcn made the default for new projects, and it ends Leafdown's reliance on Radix positioning internals: the editor context popup drove its repositioning transition off `[data-radix-popper-content-wrapper]`, an undocumented wrapper element, from a component, a stylesheet, and a test at once. Base UI positions through an element the application owns. Keeping a separate toast dependency alongside it would leave two interaction vocabularies in the same layer.
+
+**Consequences:**
+
+- The CLI writes kebab-case files into `src/components/ui/`, which is why component file names follow that convention rather than React's `PascalCase`.
+- Base UI Toast supplies no default styling and no fixed set of toast types, so toast presentation, types, and announcement behavior are Leafdown's to own.
+- Where a Base UI default disagrees with behavior Leafdown already had, the wrapper carries the override, so consult the wrapper rather than Base UI's documentation for what a primitive does here.
+
 ## Platform Decisions
 
 ### Windows first, cross-platform aware

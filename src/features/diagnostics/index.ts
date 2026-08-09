@@ -1,4 +1,4 @@
-export { DiagnosticsDialog } from "./components/DiagnosticsDialog";
+export { DiagnosticsDialog } from "./components/diagnostics-dialog";
 export {
   installUnexpectedErrorDiagnostics,
   SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS,

@@ -1,9 +1,9 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getEditorCommandState, runEditorCommand, type EditorCommandId } from "@/features/editor";
 import { documentEditorBridge } from "@/features/session";
+import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
@@ -219,8 +219,10 @@ describe("useAppCommands shortcut routing", () => {
 
       expect(event.defaultPrevented).toBe(true);
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Command failed.", {
+        expect(toastManager.add).toHaveBeenCalledWith({
           description: "failed",
+          title: "Command failed.",
+          type: "error",
         });
         expect(consoleError).toHaveBeenCalledWith("Unexpected error (commands: file.new).", error);
       });

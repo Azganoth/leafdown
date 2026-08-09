@@ -33,6 +33,16 @@ if (typeof Text !== "undefined") {
   textPrototype.getClientRects ??= createTestDomRectList;
 }
 
+// happy-dom implements no Web Animations API. Base UI reads `getAnimations()` to wait out
+// transitions before it settles a popup or scroll area, and treats an empty list as "settled".
+if (typeof Element !== "undefined") {
+  const elementPrototype = Element.prototype as Element & {
+    getAnimations?: () => Animation[];
+  };
+
+  elementPrototype.getAnimations ??= () => [];
+}
+
 // happy-dom performs no layout, so the document element measures 0x0 and anything clipping
 // against the viewport reads every element as fully off screen. A browser reports the layout
 // viewport here.

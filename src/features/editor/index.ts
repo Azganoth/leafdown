@@ -13,7 +13,7 @@ export {
   MilkdownEditor,
   type MilkdownEditorBridge,
   type MilkdownEditorProps,
-} from "./components/MilkdownEditor";
+} from "./components/milkdown-editor";
 export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextPopup";
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
 export {

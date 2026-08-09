@@ -11,14 +11,15 @@
 - Keep generic UI primitives in `src/components/ui/` and domain-agnostic utilities in `src/lib/`. Global use alone does not make domain-owned behavior generic.
 - Keep domain features independent of higher-level orchestration, command registration, and application-composition layers. Dependencies should flow from those layers toward domain features.
 - Import other features through their root `index.ts` public API rather than through deep feature paths.
+- Name a file that exports a React component in kebab-case, and every other module in camelCase. A test or stylesheet that belongs to one module takes that module's name.
 
 ## Styling And UI Primitives
 
-- Reuse theme tokens from `src/App.css` for standard application surfaces, text, borders, focus states, and semantic colors.
+- Reuse theme tokens from `src/app.css` for standard application surfaces, text, borders, focus states, and semantic colors.
 - In CSS files, prefer Tailwind utilities through `@apply` when an equivalent utility expresses the rule clearly. Use raw declarations for custom properties, generated content, unsupported values, or behavior that Tailwind cannot express precisely.
 - Reuse existing primitives from `src/components/ui/` before introducing another component or abstraction.
-- Use `cn` from `src/lib/cn.ts` for conditional Tailwind class composition.
-- When behavior-rich accessible primitives are needed, prefer the installed Radix primitives over recreating interaction, focus, or accessibility behavior.
+- Use `cn` from `src/lib/utils.ts` for conditional Tailwind class composition.
+- When behavior-rich accessible primitives are needed, prefer the installed Base UI primitives over recreating interaction, focus, or accessibility behavior.
 - If a change requires a new generic UI primitive that has not already been authorized, explain the required primitive and request direction before implementing it.
 
 ## Interaction And Accessibility

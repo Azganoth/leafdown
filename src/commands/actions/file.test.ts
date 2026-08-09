@@ -1,10 +1,10 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import { useArticleNavigatorStore } from "@/features/folder-context";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
+import { toastManager } from "@/lib/toast";
 import { createAppCommandContext } from "@/test/factories/commands";
 import { createSavedDocument } from "@/test/factories/document";
 import { createFolderContextWithNestedReadme } from "@/test/factories/folderContext";
@@ -35,8 +35,10 @@ const OVERSIZED_MARKDOWN_FILE_ERROR = {
 } as const;
 
 const expectOversizedMarkdownFileToast = () => {
-  expect(toast.error).toHaveBeenCalledWith("Markdown file is too large.", {
+  expect(toastManager.add).toHaveBeenCalledWith({
     description: "5.0 MB selected. Files larger than 5 MB do not load.",
+    title: "Markdown file is too large.",
+    type: "error",
   });
 };
 
@@ -105,8 +107,10 @@ describe("file actions", () => {
     void openLocation(createAppCommandContext({ activeDocument: createSavedDocument() }));
 
     await vi.waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Could not open file location.", {
+      expect(toastManager.add).toHaveBeenCalledWith({
         description: "missing folder",
+        title: "Could not open file location.",
+        type: "error",
       });
       expect(consoleError).toHaveBeenCalledWith(
         "Unexpected error (openLocation).",

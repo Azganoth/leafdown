@@ -1,5 +1,4 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -8,6 +7,7 @@ import {
   type FolderContextChangedEventPayload,
   type FolderContextWatchErrorEventPayload,
 } from "@/features/folder-context";
+import { toastManager } from "@/lib/toast";
 import { createFolderContext } from "@/test/factories/folderContext";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { findDiagnosticPayload, type DiagnosticLogLevel } from "@/test/utils/diagnostics";
@@ -88,7 +88,7 @@ const advanceFolderRefreshTimer = async () => {
 
 describe("useFolderContextWatcher", () => {
   beforeEach(() => {
-    vi.mocked(toast.error).mockReset();
+    vi.mocked(toastManager.add).mockReset();
     resetFolderWatcherScopeGenerationForTests();
     mockTauriApi({
       watchMarkdownFolder: () => undefined,
@@ -260,8 +260,10 @@ describe("useFolderContextWatcher", () => {
         renderHook(() => useFolderContextWatcher());
 
         await waitFor(() => {
-          expect(toast.error).toHaveBeenCalledWith("Could not start folder watcher.", {
+          expect(toastManager.add).toHaveBeenCalledWith({
             description: "listen failed",
+            title: "Could not start folder watcher.",
+            type: "error",
           });
           expect(consoleError).toHaveBeenCalledWith(
             "Unexpected error (startFolderContextWatcher).",
@@ -289,8 +291,10 @@ describe("useFolderContextWatcher", () => {
       renderHook(() => useFolderContextWatcher());
 
       await waitFor(() => {
-        expect(toast.error).toHaveBeenCalledWith("Permission denied watching folder.", {
+        expect(toastManager.add).toHaveBeenCalledWith({
           description: "access denied",
+          title: "Permission denied watching folder.",
+          type: "error",
         });
       });
       await expect(
@@ -450,8 +454,10 @@ describe("useFolderContextWatcher", () => {
 
         await advanceFolderRefreshTimer();
 
-        expect(toast.error).toHaveBeenCalledWith("Could not read folder.", {
+        expect(toastManager.add).toHaveBeenCalledWith({
           description: "access failed",
+          title: "Could not read folder.",
+          type: "error",
         });
         expect(useSessionStore.getState().folderContext).toMatchObject({
           path: "C:/Notes",
@@ -476,8 +482,10 @@ describe("useFolderContextWatcher", () => {
 
           await advanceFolderRefreshTimer();
 
-          expect(toast.error).toHaveBeenCalledWith("Could not refresh folder.", {
+          expect(toastManager.add).toHaveBeenCalledWith({
             description: "scan crashed",
+            title: "Could not refresh folder.",
+            type: "error",
           });
           expect(consoleError).toHaveBeenCalledWith(
             "Unexpected error (refreshFolderContext).",
@@ -527,7 +535,7 @@ describe("useFolderContextWatcher", () => {
       handleFolderWatchError(createFolderContextWatchErrorEvent());
 
       expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
-      expect(toast.error).not.toHaveBeenCalled();
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
   });
 
@@ -545,8 +553,10 @@ describe("useFolderContextWatcher", () => {
       });
       getFolderWatchErrorHandler()(createFolderContextWatchErrorEvent());
 
-      expect(toast.error).toHaveBeenCalledWith("Could not watch folder.", {
+      expect(toastManager.add).toHaveBeenCalledWith({
         description: "watch failed",
+        title: "Could not watch folder.",
+        type: "error",
       });
       await expect(
         waitForDiagnosticPayload("warn", "operationWarning", { warningKind: "watchError" }),

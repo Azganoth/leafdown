@@ -1,6 +1,6 @@
-import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
+import { toastManager } from "@/lib/toast";
 import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
@@ -23,8 +23,10 @@ describe("help actions", () => {
 
     await openDevTools();
 
-    expect(toast.error).toHaveBeenCalledWith("Could not open DevTools.", {
+    expect(toastManager.add).toHaveBeenCalledWith({
       description: "DevTools unavailable",
+      title: "Could not open DevTools.",
+      type: "error",
     });
     expect(consoleError).toHaveBeenCalledWith(
       "Unexpected error (help.openDevTools).",

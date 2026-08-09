@@ -21,7 +21,6 @@ describe("desktop backend error propagation", () => {
         record.operation === "openMarkdownDocument" &&
         record.errorKind === "missingFile" &&
         record.path === missingDocumentPath,
-      "missing-document-diagnostic.json",
     );
   });
 });

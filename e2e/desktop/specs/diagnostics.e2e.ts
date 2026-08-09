@@ -1,11 +1,7 @@
 import { $, browser, expect } from "@wdio/globals";
 
+import { getDiagnosticsSummary } from "../support/diagnostics.js";
 import { openMenu } from "../support/ui.js";
-
-interface DiagnosticsSummary {
-  appIdentifier: string;
-  runId: string;
-}
 
 describe("desktop diagnostics", () => {
   it("opens Diagnostics through Help and corroborates the summary through real IPC", async () => {
@@ -18,9 +14,7 @@ describe("desktop diagnostics", () => {
     const summaryField = $("aria/Diagnostics summary");
     await expect(summaryField).toHaveValue(expect.stringContaining("Leafdown diagnostics"));
 
-    const summary = await browser.tauri.execute(
-      ({ core }) => core.invoke("get_diagnostics_summary") as Promise<DiagnosticsSummary>,
-    );
+    const summary = await getDiagnosticsSummary();
     const summaryText = await summaryField.getValue();
 
     expect(summary.appIdentifier).toBe("com.azganoth.leafdown.e2e");

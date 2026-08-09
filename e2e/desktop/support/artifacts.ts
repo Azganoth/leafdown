@@ -3,26 +3,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import type { DiagnosticsSummary } from "./diagnostics.js";
 import { RUN_LABEL } from "./suite.js";
-
-interface DiagnosticsSummary {
-  appIdentifier: string;
-  appName: string;
-  appVersion: string;
-  architecture: string;
-  logDirectoryPath: string;
-  logFileCount: number;
-  logFileName: string;
-  logFilePath: string;
-  logMaxFileSizeBytes: number;
-  operatingSystem: string;
-  runId: string;
-}
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const scenarioLabel = process.env.LEAFDOWN_E2E_SCENARIO;
-
-process.env.LEAFDOWN_E2E_ARTIFACT_RUN = RUN_LABEL;
 
 export const ARTIFACTS_DIR = path.join(
   repositoryRoot,

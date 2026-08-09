@@ -1,11 +1,17 @@
 import { browser } from "@wdio/globals";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-
-import { ARTIFACTS_DIR } from "./artifacts.js";
+import { readFile } from "node:fs/promises";
 
 export interface DiagnosticsSummary {
+  appIdentifier: string;
+  appName: string;
+  appVersion: string;
+  architecture: string;
+  logDirectoryPath: string;
+  logFileCount: number;
+  logFileName: string;
   logFilePath: string;
+  logMaxFileSizeBytes: number;
+  operatingSystem: string;
   runId: string;
 }
 
@@ -40,10 +46,7 @@ export const readRunDiagnostics = async ({ logFilePath, runId }: DiagnosticsSumm
     .filter((record) => record.runId === runId);
 };
 
-export const waitForDiagnosticRecord = async (
-  predicate: (record: DiagnosticRecord) => boolean,
-  evidenceFileName: string,
-) => {
+export const waitForDiagnosticRecord = async (predicate: (record: DiagnosticRecord) => boolean) => {
   const summary = await getDiagnosticsSummary();
   const result: { record?: DiagnosticRecord } = {};
 
@@ -54,12 +57,6 @@ export const waitForDiagnosticRecord = async (
       return Boolean(result.record);
     },
     { timeoutMsg: "Expected structured application diagnostic did not appear." },
-  );
-
-  await mkdir(ARTIFACTS_DIR, { recursive: true });
-  await writeFile(
-    path.join(ARTIFACTS_DIR, evidenceFileName),
-    `${JSON.stringify(result.record, null, 2)}\n`,
   );
 
   return result.record!;

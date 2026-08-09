@@ -82,7 +82,7 @@ pnpm test:e2e:desktop
 
 This explicit suite is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
 
-The runner seeds only the isolated E2E persisted store, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
+The runner resets only the isolated E2E persisted store, leaving the application to write its own defaults, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
 
 To verify the failure-evidence path, run the suite with the forced-failure flag:
 

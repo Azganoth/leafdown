@@ -24,7 +24,6 @@ describe("desktop folder context watcher", () => {
         record.feature === "folder-context" &&
         record.operation === "folderContextWatcher" &&
         record.phase === "started",
-      "watcher-started.json",
     );
 
     await writeFile(folder.addedFilePath, `${folder.addedMarker}\n`);

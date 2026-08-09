@@ -1,11 +1,14 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFile, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import type { DesktopE2ERunContext } from "./support/runContext.js";
+import { WEBDRIVER_PORT } from "./support/suite.js";
 
 interface Scenario {
   name: string;
@@ -90,19 +93,55 @@ const runWdio = (scenario: Scenario) =>
     });
   });
 
-const fileEvidence = async (filePath: string) => {
+const sha256 = (contents: Buffer | string) => createHash("sha256").update(contents).digest("hex");
+
+const fileEvidence = async (filePath: string, expectedContents?: string) => {
+  const expected =
+    expectedContents === undefined
+      ? {}
+      : {
+          expectedSha256: sha256(expectedContents),
+          expectedSizeBytes: Buffer.byteLength(expectedContents),
+        };
+
   try {
     const contents = await readFile(filePath);
     const metadata = await stat(filePath);
 
     return {
+      ...expected,
+      modifiedAt: metadata.mtime.toISOString(),
       path: filePath,
-      sha256: createHash("sha256").update(contents).digest("hex"),
+      sha256: sha256(contents),
       sizeBytes: metadata.size,
     };
   } catch (error) {
-    return { error: String(error), path: filePath };
+    return { ...expected, error: String(error), path: filePath };
   }
+};
+
+const isPortFree = (port: number) =>
+  new Promise<boolean>((resolve) => {
+    const server = createServer();
+
+    server.once("error", () => resolve(false));
+    server.once("listening", () => server.close(() => resolve(true)));
+    server.listen(port, "127.0.0.1");
+  });
+
+// The embedded driver releases the port asynchronously as it shuts down.
+const waitForPortRelease = async (port: number, timeoutMs = 10_000) => {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await isPortFree(port)) {
+      return true;
+    }
+
+    await delay(250);
+  }
+
+  return isPortFree(port);
 };
 
 const main = async () => {
@@ -192,26 +231,53 @@ const main = async () => {
     },
   ];
 
+  let scenarioError: unknown;
+
   try {
     for (const scenario of scenarios) {
       await scenario.prepareState(context);
       await runWdio(scenario);
     }
-  } finally {
-    await writeJson(path.join(artifactsRoot, "fixture-manifest.json"), {
-      document: await fileEvidence(documentPath),
-      folder: {
-        addedDocument: await fileEvidence(addedFolderFilePath),
-        initialDocument: await fileEvidence(initialFolderFilePath),
-        path: folderPath,
-      },
-      missingDocument: await fileEvidence(missingDocumentPath),
-      temporaryRoot,
-    });
-    await Promise.all([
-      rm(temporaryRoot, { force: true, recursive: true }),
-      rm(e2eStoreDirectory, { force: true, recursive: true }),
-    ]);
+  } catch (error) {
+    scenarioError = error;
+  }
+
+  // Gather evidence before the fixtures are removed.
+  const fixtureEvidence = {
+    completedAt: new Date().toISOString(),
+    document: await fileEvidence(documentPath, context.document.savedMarkdown),
+    folder: {
+      addedDocument: await fileEvidence(addedFolderFilePath, `${context.folder.addedMarker}\n`),
+      initialDocument: await fileEvidence(
+        initialFolderFilePath,
+        `${context.folder.initialMarker}\n`,
+      ),
+      path: folderPath,
+    },
+    missingDocument: await fileEvidence(missingDocumentPath),
+    temporaryRoot,
+  };
+
+  await Promise.all([
+    rm(temporaryRoot, { force: true, recursive: true }),
+    rm(e2eStoreDirectory, { force: true, recursive: true }),
+  ]);
+
+  const webdriverPortReleased = await waitForPortRelease(WEBDRIVER_PORT);
+
+  await writeJson(path.join(artifactsRoot, "fixture-manifest.json"), {
+    ...fixtureEvidence,
+    webdriverPortReleased,
+  });
+
+  if (scenarioError) {
+    throw scenarioError;
+  }
+
+  if (!webdriverPortReleased) {
+    throw new Error(
+      `The desktop E2E suite left a listener on port ${WEBDRIVER_PORT}. Stop it before the next run.`,
+    );
   }
 };
 

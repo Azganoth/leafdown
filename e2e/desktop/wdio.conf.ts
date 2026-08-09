@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ARTIFACTS_DIR, captureFailureArtifacts } from "./support/artifacts.js";
+import { WEBDRIVER_PORT } from "./support/suite.js";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const appBinaryPath = path.join(
@@ -13,7 +14,6 @@ const appBinaryPath = path.join(
   "debug",
   "leafdown-e2e.exe",
 );
-const webdriverPort = 4445;
 const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
 const closesApplicationUnderTest = process.env.LEAFDOWN_E2E_SCENARIO === "window-lifecycle";
 let activeBrowser: WebdriverIO.Browser | undefined;
@@ -42,7 +42,7 @@ export const config: WebdriverIO.Config = {
       {
         appBinaryPath,
         driverProvider: "embedded",
-        embeddedPort: webdriverPort,
+        embeddedPort: WEBDRIVER_PORT,
         captureBackendLogs: true,
         captureFrontendLogs: true,
         backendLogLevel: "info",

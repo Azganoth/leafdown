@@ -101,11 +101,42 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
     return new Plugin({
       key: leafdownContextPopupPluginKey,
-      view: () => ({
-        update: (view, previousState) => {
-          syncPopupToSelection(view, previousState);
-        },
-      }),
+      view: (editorView) => {
+        const handleRootMouseUp = (event: Event) => {
+          if (!(event instanceof MouseEvent) || event.button !== 0 || !pointerSelecting) {
+            return;
+          }
+
+          window.requestAnimationFrame(() => {
+            pointerSelecting = false;
+
+            if (editorView.isDestroyed) {
+              return;
+            }
+
+            if (editorView.state.selection.empty) {
+              closePopup(options);
+              return;
+            }
+
+            if (!requestSelectionPopup(editorView, "pointer")) {
+              options.onClose?.();
+            }
+          });
+        };
+
+        const root = editorView.root;
+        root.addEventListener("mouseup", handleRootMouseUp);
+
+        return {
+          update: (view, previousState) => {
+            syncPopupToSelection(view, previousState);
+          },
+          destroy: () => {
+            root.removeEventListener("mouseup", handleRootMouseUp);
+          },
+        };
+      },
       props: {
         handleDOMEvents: {
           contextmenu: (view, event) => {
@@ -129,34 +160,10 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
             return false;
           },
-          mouseup: (view, event) => {
-            if (!(event instanceof MouseEvent) || event.button !== 0) {
-              return false;
-            }
-
-            window.requestAnimationFrame(() => {
-              pointerSelecting = false;
-
-              if (view.isDestroyed) {
-                return;
-              }
-
-              if (view.state.selection.empty) {
-                closePopup(options);
-                return;
-              }
-
-              if (!requestSelectionPopup(view, "pointer")) {
-                options.onClose?.();
-              }
-            });
-
-            return false;
-          },
         },
         handleKeyDown: (view, event) => {
-          // A keystroke means the drag is over, including one whose release the handler above
-          // never saw because it landed outside the editor.
+          // A keystroke means the drag is over, including one whose release the page never
+          // received at all.
           pointerSelecting = false;
 
           if (isContextMenuKey(event)) {

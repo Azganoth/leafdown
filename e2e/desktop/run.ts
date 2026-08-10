@@ -125,7 +125,7 @@ const waitForPortRelease = async (timeoutMs = 10_000) => {
 
 const main = async () => {
   if (!process.env.APPDATA) {
-    throw new Error("APPDATA is required for the Windows-local desktop E2E suite.");
+    throw new Error("APPDATA is required for the Windows desktop E2E suite.");
   }
 
   await mkdir(artifactsRoot, { recursive: true });

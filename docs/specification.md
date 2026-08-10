@@ -52,7 +52,7 @@ Primary user interface surfaces:
 
 ### Article Navigator Traversal
 
-The article navigator is a tree and takes a single tab stop. Focus enters on the open document, or on the first row when no document is open.
+The article navigator is a tree and takes a single tab stop. Focus enters on the open document, or on the first row when no document is open. When a folder refresh removes the focused row, focus moves to the row that inherits the tab stop.
 
 - `ArrowDown` and `ArrowUp`: Move to the next or previous visible row, stopping at either end.
 - `ArrowRight`: Expand the focused directory, or move into it when it is already expanded.

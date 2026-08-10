@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { FolderContextState } from "@/features/folder-context";
 import {
   createEmptyFolderContext,
   createFolderContext,
@@ -15,6 +16,14 @@ import { ArticleNavigator } from "./article-navigator";
 const folderContext = createFolderContext();
 
 const nestedFolderContext = createFolderContext({ tree: createNestedArticleTree() });
+
+const nestedFolderContextWithoutSpec = createFolderContext({
+  tree: createNestedArticleTree({
+    children: createNestedArticleTree().children.map((child) =>
+      child.kind === "directory" ? { ...child, children: [] } : child,
+    ),
+  }),
+});
 
 const emptyFolderContext = createEmptyFolderContext();
 
@@ -248,6 +257,78 @@ describe("article-navigator", () => {
 
     expect(screen.getByRole("treeitem", { name: "docs" }).tabIndex).toBe(0);
     expect(screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0)).toHaveLength(1);
+  });
+
+  it("follows the tab stop when a rebuild removes the focused row", () => {
+    useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
+
+    const { rerender } = render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    act(() => screen.getByRole("treeitem", { name: "spec.md" }).focus());
+    rerender(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContextWithoutSpec}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const directory = screen.getByRole("treeitem", { name: "docs" });
+
+    expect(directory).toHaveFocus();
+    expect(directory.tabIndex).toBe(0);
+  });
+
+  it("leaves focus outside the navigator when a rebuild removes a row", () => {
+    useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
+
+    const renderTree = (folderContext: FolderContextState) => (
+      <>
+        <button type="button">Editor</button>
+        <ArticleNavigator
+          activeArticlePath={null}
+          folderContext={folderContext}
+          onOpenArticle={vi.fn()}
+        />
+      </>
+    );
+    const { rerender } = render(renderTree(nestedFolderContext));
+
+    act(() => screen.getByRole("treeitem", { name: "spec.md" }).focus());
+    act(() => screen.getByRole("button", { name: "Editor" }).focus());
+    rerender(renderTree(nestedFolderContextWithoutSpec));
+
+    expect(screen.getByRole("button", { name: "Editor" })).toHaveFocus();
+  });
+
+  it("does not claim focus from the document body when a rebuild removes a row", () => {
+    useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
+
+    const { rerender } = render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    act(() => screen.getByRole("treeitem", { name: "spec.md" }).focus());
+    act(() => screen.getByRole("treeitem", { name: "spec.md" }).blur());
+    rerender(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContextWithoutSpec}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(document.body).toHaveFocus();
   });
 
   it("focuses the revealed row and hands it the tab stop", () => {

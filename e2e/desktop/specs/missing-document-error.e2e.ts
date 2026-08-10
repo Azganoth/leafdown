@@ -22,5 +22,7 @@ describe("desktop backend error propagation", () => {
         record.errorKind === "missingFile" &&
         record.path === missingDocumentPath,
     );
+
+    await expect($('[contenteditable="true"]')).not.toExist();
   });
 });

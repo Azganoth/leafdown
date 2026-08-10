@@ -30,6 +30,7 @@ const showToast = (
   const message: MessageData =
     typeof messageOrTitle === "string" ? { title: messageOrTitle, description } : messageOrTitle;
 
+  // A per-toast timeout would override the provider default that holds toasts open in the E2E build.
   toastManager.add({
     description: message.description,
     title: message.title,

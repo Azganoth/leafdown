@@ -8,11 +8,20 @@ import {
   dispatchMouseUp,
   type TestKeyboardEventOptions,
 } from "@/test/utils/events";
-import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import {
+  mountMilkdownEditor,
+  setupMilkdownEditorMount,
+  type MountedMilkdownEditor,
+} from "@/test/utils/milkdown";
 import { runKeyDownHandlers, setTextSelection, typeText } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
 const mountEditor = setupMilkdownEditorMount();
+
+const settleAnimationFrame = () =>
+  new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve());
+  });
 
 const mockCoordinates = (mounted: MountedMilkdownEditor) =>
   vi.spyOn(mounted.view, "coordsAtPos").mockImplementation((pos) => ({
@@ -72,6 +81,7 @@ describe("context popup plugin", () => {
     const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
 
     const coordsAtPos = mockCoordinates(mounted);
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
     setTextSelection(mounted.view, 1, 6);
     dispatchMouseUp(mounted.view.dom, { button: 0 });
 
@@ -198,12 +208,66 @@ describe("context popup plugin", () => {
     const onContextPopupRequested = vi.fn();
     const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
 
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
     setTextSelection(mounted.view, 8);
     dispatchMouseUp(mounted.view.dom, { button: 0 });
 
-    await new Promise<void>((resolve) => {
-      window.requestAnimationFrame(() => resolve());
+    await settleAnimationFrame();
+
+    expect(onContextPopupRequested).not.toHaveBeenCalled();
+  });
+
+  it("opens from a selection released outside the editor", async () => {
+    const onContextPopupRequested = vi.fn();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
+    setTextSelection(mounted.view, 1, 6);
+    dispatchMouseUp(document.body, { button: 0 });
+
+    await waitFor(() => {
+      expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
     });
+  });
+
+  it("stays closed for a pointer gesture that begins outside the editor", async () => {
+    const popupState = trackPopupOpenState();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    runKeyDownHandlers(mounted.view, "Escape");
+    popupState.onContextPopupRequested.mockClear();
+
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+
+    try {
+      dispatchMouseDown(elsewhere, { button: 0 });
+      dispatchMouseUp(elsewhere, { button: 0 });
+
+      await settleAnimationFrame();
+    } finally {
+      elsewhere.remove();
+    }
+
+    expect(popupState.onContextPopupRequested).not.toHaveBeenCalled();
+  });
+
+  it("stops completing pointer gestures once the editor is gone", async () => {
+    const onContextPopupRequested = vi.fn();
+    const mounted = await mountMilkdownEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
+
+    mockCoordinates(mounted);
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
+    setTextSelection(mounted.view, 1, 6);
+    onContextPopupRequested.mockClear();
+    await mounted.destroy();
+
+    dispatchMouseUp(document.body, { button: 0 });
+
+    await settleAnimationFrame();
 
     expect(onContextPopupRequested).not.toHaveBeenCalled();
   });

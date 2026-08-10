@@ -204,8 +204,10 @@ function ArticleNavigatorRows({
   const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
   const [focus, setFocus] = useState<ArticleNavigatorFocus>({ path: null, requestId: 0 });
   const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
+  const hasRowFocusRef = useRef(false);
   const typeaheadRef = useRef({ buffer: "", lastKeyAtMs: 0 });
   const focusedIndex = getArticleNavigatorFocusedIndex(rows, focus.path);
+  const focusedRowPath = rows[focusedIndex]?.path;
   const handledRevealRequestIdRef = useRef(0);
   const revealRowIndex = rows.findIndex(
     (row) =>
@@ -235,6 +237,18 @@ function ArticleNavigatorRows({
     virtualListRef.current?.scrollToIndex(revealRowIndex, { align: "center" });
     rowElementsRef.current.get(revealRowPath)?.focus();
   }, [revealRequestId, revealRowIndex, revealRowPath]);
+
+  useEffect(() => {
+    if (
+      focusedRowPath === undefined ||
+      !hasRowFocusRef.current ||
+      document.activeElement !== document.body
+    ) {
+      return;
+    }
+
+    rowElementsRef.current.get(focusedRowPath)?.focus();
+  }, [focusedRowPath]);
 
   const focusRow = (index: number) => {
     const path = rows[index]?.path;
@@ -323,6 +337,9 @@ function ArticleNavigatorRows({
       <VirtualListContent
         aria-label="Articles"
         className="mx-1"
+        onBlur={() => {
+          hasRowFocusRef.current = false;
+        }}
         onKeyDown={handleKeyDown}
         role="tree"
       >
@@ -332,7 +349,10 @@ function ArticleNavigatorRows({
               key={row.path}
               isTabStop={index === focusedIndex}
               onActivate={() => activateRow(index)}
-              onFocus={() => setFocus((currentFocus) => ({ ...currentFocus, path: row.path }))}
+              onFocus={() => {
+                hasRowFocusRef.current = true;
+                setFocus((currentFocus) => ({ ...currentFocus, path: row.path }));
+              }}
               registerElement={(element) =>
                 registerRowElement(rowElementsRef.current, row, element)
               }

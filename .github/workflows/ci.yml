@@ -72,6 +72,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -86,3 +87,67 @@ jobs:
 
       - name: Audit Rust dependencies
         run: cargo audit --file src-tauri/Cargo.lock
+
+  test-e2e-desktop:
+    name: Desktop E2E
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 20
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup Rust
+        run: rustup toolchain install
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target/desktop-e2e"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build desktop E2E binary
+        run: pnpm build:e2e:desktop
+
+      - name: Run desktop E2E suite
+        run: pnpm test:e2e:desktop:run
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-e2e-artifacts
+          path: e2e/desktop/artifacts/
+          retention-days: 7
+
+      - name: Assert clean teardown
+        if: always()
+        shell: pwsh
+        run: |
+          # WebView2 host processes outlive the suite by a few seconds; they are
+          # not asserted on, but give them time to exit before sampling.
+          Start-Sleep -Seconds 10
+
+          $orphans = Get-Process -Name leafdown-e2e, msedgedriver -ErrorAction SilentlyContinue
+          $listeners = Get-NetTCPConnection -LocalPort 4445 -State Listen -ErrorAction SilentlyContinue
+
+          if ($orphans -or $listeners) {
+            $orphans | Format-Table -AutoSize Name, Id, StartTime
+            $listeners | Format-Table -AutoSize LocalAddress, LocalPort, OwningProcess
+            throw "Desktop E2E left an orphaned process or a listener on port 4445."
+          }

@@ -74,15 +74,15 @@ Verify a fresh development environment with:
 pnpm check
 ```
 
-Run the Windows-local assembled desktop E2E suite with:
+Run the assembled desktop E2E suite, which requires Windows, with:
 
 ```powershell
 pnpm test:e2e:desktop
 ```
 
-This explicit suite is not part of `pnpm check`. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
+This explicit suite is not part of `pnpm check`; CI runs it as its own job on every pull request and every push to `main`, so it is enforced without changing what you run locally. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
 
-The runner resets only the isolated E2E persisted store, leaving the application to write its own defaults, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. A failed run additionally writes `fixture-manifest.json` under `e2e/desktop/artifacts/<run>/`, recording each temporary fixture's path, expected and actual hash and size, and modification time before cleanup removes it. These artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths.
+The runner resets only the isolated E2E persisted store, leaving the application to write its own defaults, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. A failed run additionally writes `fixture-manifest.json` under `e2e/desktop/artifacts/<run>/`, recording each temporary fixture's path, expected and actual hash and size, and modification time before cleanup removes it. Local artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths. CI uploads the same evidence only when the job fails, retained for seven days; those artifacts contain runner paths rather than a contributor's.
 
 To verify the failure-evidence path, run the suite with the forced-failure flag:
 

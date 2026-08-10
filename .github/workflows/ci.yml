@@ -72,6 +72,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -115,6 +116,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target/desktop-e2e"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

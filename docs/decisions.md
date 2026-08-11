@@ -118,13 +118,15 @@
 
 **Decision:** Use Milkdown Kit as the hybrid WYSIWYG Markdown editor foundation.
 
-**Rationale:** Milkdown offers an extensible Markdown-first editor foundation with ProseMirror integration, reducing custom core development.
+**Rationale:** Milkdown offers an extensible Markdown-first editor foundation with ProseMirror integration, reducing custom core development. It was chosen over a source-first document model and over alternatives that leave that model unchanged. CodeMirror 6 inverts the problem rather than removing it: a source model makes local raw-source editing free and makes every structurally rendered object bespoke, which is the larger half of this specification. It also has no footnote support in `@lezer/markdown`, no maintained Shiki integration, and would require rendering the `text/html` clipboard payload and converting pasted HTML back to Markdown, all of which ProseMirror and Milkdown supply. Lexical keeps the same semantic document model while replacing a CommonMark parser with a transformer list that has no footnote support. TipTap and other ProseMirror abstractions cannot address a cause rooted in the document model, because the model is unchanged, and they move Markdown ownership out of an upstream Markdown-native stack into Leafdown. [Issue #152](https://github.com/Azganoth/leafdown/issues/152) records the evaluation and its evidence.
 
 **Consequences:**
 
 - Leverage Milkdown presets and official plugins before writing custom ProseMirror modules.
 - Evaluate default plugin behaviors before applying overrides.
 - Build the editor through a Leafdown-owned React wrapper around Milkdown Kit rather than depending on framework adapters that introduce unwanted editor UI packages.
+- The projection cost recorded in `Use temporary source projection` is accepted as the price of the objects ProseMirror renders and edits natively.
+- The commitment is to ProseMirror. Milkdown supplies the schema, the remark bridge, and the plugin framework over it, and most editor code imports its ProseMirror re-exports directly.
 
 ### Accept Milkdown GFM preset behavior
 

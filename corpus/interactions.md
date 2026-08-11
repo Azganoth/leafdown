@@ -35,9 +35,9 @@ Code: `\*asterisks\* &copy;`.
 >    fenced code inside the list
 >    ```
 >
-> [reference]: destination.md
+> [quoted leaf]: destination.md
 >
-> Use the [reference].
+> Use the [quoted leaf].
 
 ## Table cells can contain inline constructs
 

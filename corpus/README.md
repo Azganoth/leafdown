@@ -52,10 +52,10 @@ rules, links, images, autolinks, inline raw HTML, hard and soft breaks, and
 textual content.
 
 The [boundary fixtures](./boundaries/) preserve LF, CRLF, CR, mixed endings,
-missing final newlines, a UTF-8 BOM, representative ASCII controls, tabs, an
-empty document, and reference-label lengths. The [stress fixtures](./stress.md)
-include 32- and 33-level link-destination nesting without treating either depth
-as a CommonMark conformance cutoff.
+missing final newlines, a UTF-8 BOM, representative ASCII controls, an invalid
+UTF-8 byte, tabs, an empty document, reference-label lengths, and long lines.
+The [stress fixtures](./stress.md) include 32- and 33-level link-destination
+nesting without treating either depth as a CommonMark conformance cutoff.
 
 Formal GFM fixtures cover [tables](./gfm/tables.md),
 [task-list items](./gfm/task-lists.md), [strikethrough](./gfm/strikethrough.md),
@@ -67,8 +67,9 @@ The extension survey includes:
 - [Footnotes](./extensions/footnotes.md)
 - [YAML](./extensions/frontmatter/yaml.md),
   [TOML](./extensions/frontmatter/toml.md), and
-  [JSON](./extensions/frontmatter/json.md) frontmatter, plus a
-  [not-at-start](./extensions/frontmatter/not-at-start.md) boundary
+  [JSON](./extensions/frontmatter/json.md) frontmatter, plus
+  [not-at-start](./extensions/frontmatter/not-at-start.md) and
+  [unclosed](./extensions/frontmatter/unclosed.md) boundaries
 - [Dollar and LaTeX-style math](./extensions/math.md)
 - [Inline, leaf, and container directives](./extensions/directives.md)
 - [Definition lists](./extensions/definition-lists.md)
@@ -81,7 +82,6 @@ The extension survey includes:
 - [Block and inline attributes](./extensions/attributes.md)
 - [Highlight, subscript, superscript, insertion, and CriticMarkup-style deletion and addition](./extensions/typography.md)
 - [Emoji shortcodes](./extensions/emoji.md)
-- [Fenced diagrams](./extensions/fenced-diagrams.md)
 
 ## Practical Documents
 
@@ -90,5 +90,6 @@ The extension survey includes:
 - [Extension survey](./practical/extension-survey.md)
 - [Technical README](./practical/technical-readme.md)
 - [Multilingual field notes](./practical/multilingual-notes.md)
+- [Round-trip normalization walkthrough](./practical/round-trip.md)
 
 ![Corpus leaf](./assets/leaf.svg)

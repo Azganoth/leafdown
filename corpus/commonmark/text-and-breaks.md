@@ -54,6 +54,13 @@ This line follows the break.
 Three spaces follow this line.   
 This line follows the second break.
 
+## Trailing whitespace that does not create a hard break
+
+One space follows this line. 
+This line continues the same paragraph.
+
+Two spaces follow the end of this paragraph.  
+
 ## Hard breaks using a backslash
 
 A backslash follows this line.\

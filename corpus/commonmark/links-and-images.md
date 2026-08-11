@@ -32,7 +32,23 @@
 
 <foo.bar.baz>
 
+<data:text/html,<script>alert(1)</script>>
+
 <https://example.com
+
+## Script-like and data schemes are ordinary destinations
+
+<javascript:alert(1)>
+
+<data:text/plain,alert>
+
+[Inline script scheme](javascript:alert(1))
+
+[Data destination](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)
+
+[Entity-obfuscated scheme](&#106;avascript&#58;alert&lpar;1&rpar;)
+
+![Data image](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=)
 
 ## Inline and reference image forms
 

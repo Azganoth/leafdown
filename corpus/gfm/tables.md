@@ -35,6 +35,32 @@ South | 42% | Hold
 | --- |
 | one | two |
 
+## A header and delimiter row without body rows
+
+| Bed | Moisture |
+| --- | --- |
+
+## Pipe rows without a delimiter row
+
+| Bed | Moisture |
+| North | 31% |
+
+## Cell splitting precedes inline parsing
+
+| Form | Value |
+| --- | --- |
+| unescaped in code | `alpha|beta` |
+
+## Tables can appear inside containers
+
+- | Bed | Moisture |
+  | --- | --- |
+  | North | 31% |
+
+> | Bed | Moisture |
+> | --- | --- |
+> | South | 42% |
+
 ## Another block construct terminates the table
 
 | A | B |

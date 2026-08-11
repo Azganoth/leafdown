@@ -124,8 +124,10 @@ _**text**
 
 _**text**_
 
-*__text_
+## Mixed runs in intraword position
 
-*__text__
+foo*__bar_baz
 
-*__text__*
+foo*__bar__baz
+
+foo*__bar__*baz

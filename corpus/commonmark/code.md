@@ -38,6 +38,12 @@ valid backtick info string
 valid tilde info string
 ~~~
 
+## A backtick in a backtick info string does not open a fence
+
+``` language`with-backtick
+the preceding line stays paragraph text rather than opening a code block
+```
+
 ## Three leading spaces open a fence while four create indented code
 
    ```

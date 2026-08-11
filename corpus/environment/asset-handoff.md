@@ -24,3 +24,15 @@
 - ![Protocol-relative image](//example.com/image.png)
 - ![Unsupported bitmap](../assets/unsupported.bmp)
 - ![Outside icon](../../src-tauri/icons/128x128.png)
+
+## Raw HTML embeds
+
+<img src="../assets/leaf.svg" alt="Raw HTML image" />
+
+<video src="./missing-clip.mp4" controls></video>
+
+<audio src="./missing-tone.mp3" controls></audio>
+
+<iframe src="./article-navigator/01-overview.md"></iframe>
+
+<embed src="../../docs/specification.md" type="application/pdf" />

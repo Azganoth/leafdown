@@ -31,9 +31,35 @@ South | 42% | Hold
 
 ## Header and delimiter cell counts must match
 
-| A | B |
+| Header | Cells |
 | --- |
-| one | two |
+| the count mismatch prevents a table | so these lines stay paragraph text |
+
+## A header and delimiter row without body rows
+
+| Header only | No body rows |
+| --- | --- |
+
+## Pipe rows without a delimiter row
+
+| No delimiter row | so these lines |
+| stay paragraph text | with literal pipes |
+
+## Cell splitting precedes inline parsing
+
+| Form | First cell | Second cell |
+| --- | --- | --- |
+| an unescaped pipe splits first | `code opens | never closes` |
+
+## Tables can appear inside containers
+
+- | Bed | Moisture |
+  | --- | --- |
+  | North | 31% |
+
+> | Bed | Moisture |
+> | --- | --- |
+> | South | 42% |
 
 ## Another block construct terminates the table
 

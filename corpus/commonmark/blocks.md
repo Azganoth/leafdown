@@ -2,8 +2,8 @@
 
 ## Block structure takes precedence over inline parsing
 
-- `one
-- two`
+- `a code span does not
+- cross a list-item boundary`
 
 ## Asterisks, hyphens, and underscores form thematic breaks
 
@@ -56,6 +56,11 @@ Paragraph becomes a heading
 
 ---
 
+## An asterisk thematic break interrupts a paragraph instead
+
+Paragraph followed by asterisks
+***
+
 ## Definitions resolve full reference links
 
 [garden]: /plots/garden "Garden title"
@@ -63,6 +68,13 @@ Paragraph becomes a heading
     'Field report title'
 
 Open the [garden] and [field report].
+
+## Forward-referenced and unreferenced definitions
+
+Open the [forward reference] before its definition appears.
+
+[forward reference]: /forward "Forward title"
+[never referenced]: /unused "Unused title"
 
 ## Duplicate reference definitions
 

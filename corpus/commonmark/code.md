@@ -2,8 +2,8 @@
 
 ## Four spaces create an indented code block
 
-    alpha
-      beta
+    four spaces open the block
+      two further spaces stay in the content
 
 ## Indented code cannot interrupt a paragraph
 
@@ -37,6 +37,12 @@ valid backtick info string
 ~~~ language`with-backtick
 valid tilde info string
 ~~~
+
+## A backtick in a backtick info string does not open a fence
+
+``` language`with-backtick
+the preceding line stays paragraph text rather than opening a code block
+```
 
 ## Three leading spaces open a fence while four create indented code
 

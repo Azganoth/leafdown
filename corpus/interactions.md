@@ -2,7 +2,7 @@
 
 ## Links, emphasis, code spans, and autolinks
 
-*[a link*](destination.md) and [a backtick (`)](destination.md).
+*[the link wins over the emphasis run*](destination.md) and [a backtick (`)](destination.md).
 
 `[not a link](destination.md)` and <https://example.com/*not-emphasis*>.
 
@@ -35,9 +35,9 @@ Code: `\*asterisks\* &copy;`.
 >    fenced code inside the list
 >    ```
 >
-> [reference]: destination.md
+> [quoted leaf]: destination.md
 >
-> Use the [reference].
+> Use the [quoted leaf].
 
 ## Table cells can contain inline constructs
 

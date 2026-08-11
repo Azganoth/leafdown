@@ -7,6 +7,14 @@ lazy continuation without another marker
 >
 > Final quoted paragraph.
 
+## Lazy continuation cannot begin a new block
+
+> Quoted paragraph before a heading
+# heading outside the quote
+
+> Quoted paragraph before a list
+- list item outside the quote
+
 ## Nested blockquotes and lists
 
 > Outer quote
@@ -75,6 +83,17 @@ An ordered list beginning with two does not interrupt:
 * first
 *
 * third
+
+## A list item can begin with a blank line
+
+-
+  content on the line after the marker
+
+## An empty list item cannot interrupt a paragraph
+
+A paragraph that
+-
+continues instead of becoming a list.
 
 ## Marker-padding boundaries
 

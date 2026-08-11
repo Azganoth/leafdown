@@ -14,6 +14,18 @@ beginning-of-file position, or end-of-file position are significant remain
 isolated under descriptive filenames. Markdown input remains free of embedded
 expected HTML and parser-specific assertions.
 
+A fixture identifies its own expected state, so that a heading covering several
+cases never leaves the reader deriving which case is which. Where a construct
+has room for content, that content names the outcome, as in
+`*asterisk opens but underscore closes_`. Where the content is itself under
+test, a label outside the construct names the case, as in
+``Opening-only one: `code``. Where neither fits, such as thematic breaks,
+escape runs, and exact-byte fixtures, a section holds one case so its heading
+is unambiguous alone. Placeholder content such as `alpha`, `foo`, or `A` and
+`B` is reserved for sections where every case shares one outcome. Naming an
+outcome in prose is not the same as embedding expected HTML or a
+parser-specific assertion, which stay out of Markdown input.
+
 ## Dialect Boundaries
 
 - [`commonmark/`](./commonmark/) covers CommonMark 0.31.2 core syntax.

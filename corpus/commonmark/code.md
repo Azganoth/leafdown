@@ -2,8 +2,8 @@
 
 ## Four spaces create an indented code block
 
-    alpha
-      beta
+    four spaces open the block
+      two further spaces stay in the content
 
 ## Indented code cannot interrupt a paragraph
 

@@ -90,25 +90,25 @@ ___underscores open a combination but asterisks close***
 
 \*\*\*not combined emphasis and strong emphasis***
 
-## Rule of three
+## A three-delimiter run splits into nested strong and emphasis
 
-***alpha** beta*
+***strong closes first** and emphasis wraps both*
 
-*alpha **beta***
+*emphasis opens first **and strong closes first***
 
-**alpha *beta***
+**strong opens first *and emphasis closes first***
 
-___alpha__ beta_
+___strong closes first__ and emphasis wraps both_
 
-_alpha __beta___
+_emphasis opens first __and strong closes first___
 
-__alpha _beta___
+__strong opens first _and emphasis closes first___
 
 ## Unequal delimiter runs leave unused markers
 
-***text*
+***two markers stay literal*
 
-***text**
+***one marker stays literal**
 
 ## Matching delimiter characters can nest
 
@@ -118,16 +118,16 @@ __alpha _beta___
 
 ## Mixed asterisk and underscore runs
 
-_**text*
+_**underscore and one asterisk stay literal*
 
-_**text**
+_**underscore stays literal while strong pairs**
 
-_**text**_
+_**underscore and asterisks all pair**_
 
 ## Mixed runs in intraword position
 
-foo*__bar_baz
+foo*__nothing pairs intraword_baz
 
-foo*__bar__baz
+foo*__underscores stay literal intraword__baz
 
-foo*__bar__*baz
+foo*__asterisks pair, underscores stay literal__*baz

@@ -2,8 +2,8 @@
 
 ## Block structure takes precedence over inline parsing
 
-- `one
-- two`
+- `a code span does not
+- cross a list-item boundary`
 
 ## Asterisks, hyphens, and underscores form thematic breaks
 

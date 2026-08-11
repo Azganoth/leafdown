@@ -16,9 +16,15 @@ testing@example.com and first.last+tag@example.co.uk
 
 ## Left-context punctuation controls recognition
 
-(www.example.com) *https://example.com* _www.example.org_ ~www.example.net~
+Parenthesis before the link: (www.example.com)
 
-prefixwww.example.com
+Asterisk before the link: *https://example.com*
+
+Underscore before the link: _www.example.org_
+
+Tilde before the link: ~www.example.net~
+
+Word character before the link: prefixwww.example.com
 
 ## Trailing punctuation is excluded from the link
 

@@ -60,14 +60,6 @@ interface LinkProjectionTextEdit {
   to: number;
 }
 
-const getLinkTarget = (target: SourceProjectionTarget): LinkSourceProjectionTarget => {
-  if (target.adapterId !== LINK_ADAPTER_ID) {
-    throw new Error(`Expected a link source-projection target, received '${target.adapterId}'`);
-  }
-
-  return target as LinkSourceProjectionTarget;
-};
-
 const getLinkNodes = (state: EditorState, from: number, to: number, linkMark: Mark) => {
   const { $from } = state.selection;
   const parentStart = $from.start();
@@ -406,9 +398,9 @@ const createEnterLinkProjectionTransaction = (
 
 const createRestoreCleanLinkTransaction = (
   state: EditorState,
-  session: SourceProjectionSessionRange,
+  session: SourceProjectionSessionRange<LinkSourceProjectionTarget>,
 ) => {
-  const target = getLinkTarget(session.target);
+  const { target } = session;
   const { restore } = getLinkProjectionTextEdits(target);
   const transaction = applyLinkProjectionTextEdits(state.tr, session.from, restore);
 
@@ -529,14 +521,12 @@ export const createLinkSourceProjectionAdapter = ({
   parser,
   remark,
   serializer,
-}: LinkAdapterDependencies): SourceProjectionAdapter => ({
+}: LinkAdapterDependencies): SourceProjectionAdapter<LinkSourceProjectionTarget> => ({
   id: LINK_ADAPTER_ID,
-  createEnterTransaction: (state, target) =>
-    createEnterLinkProjectionTransaction(state, getLinkTarget(target)),
+  createEnterTransaction: createEnterLinkProjectionTransaction,
   findTarget: (state) => findLinkTarget(state, serializer, remark),
-  getPresentation: (target, source) => {
+  getPresentation: (linkTarget, source) => {
     const parsedMap = createLinkSourceMap(remark, source);
-    const linkTarget = getLinkTarget(target);
     const map = getLinkPresentationMap(parsedMap ?? linkTarget.sourceMap, linkTarget.ambientMarks);
 
     return {
@@ -552,8 +542,7 @@ export const createLinkSourceProjectionAdapter = ({
       head: mapSelectionPositionFromSource(selection.head, session, result.source, map),
     };
   },
-  mapSelectionToSource: (selection, target) => {
-    const linkTarget = getLinkTarget(target);
+  mapSelectionToSource: (selection, linkTarget) => {
     const isForwardSelection = selection.anchor <= selection.head;
     const anchorAssociation = selection.empty || isForwardSelection ? 1 : -1;
     const headAssociation = selection.empty || !isForwardSelection ? 1 : -1;
@@ -563,8 +552,7 @@ export const createLinkSourceProjectionAdapter = ({
       head: mapSelectionPositionToSource(selection.head, linkTarget, headAssociation),
     };
   },
-  parseSource: (state, source, target) => {
-    const ambientMarks = getLinkTarget(target).ambientMarks;
+  parseSource: (state, source, { ambientMarks }) => {
     const parsed = parseLinkSource(state, source, parser, remark, ambientMarks);
 
     return parsed

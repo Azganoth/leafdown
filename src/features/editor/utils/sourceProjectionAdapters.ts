@@ -34,8 +34,10 @@ import {
 } from "./sourceProjectionSyntax";
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
+export type SourceProjectionAdapterId = "footnote-reference" | "link" | "mark";
+
 export interface SourceProjectionTarget extends TextRange {
-  adapterId: string;
+  adapterId: SourceProjectionAdapterId;
   originalContent: Slice;
   originalContentSize: number;
   originalSource: string;
@@ -55,8 +57,10 @@ interface MarkSourceProjectionAdapterDependencies {
   serializer: Serializer;
 }
 
-export interface SourceProjectionSessionRange extends TextRange {
-  target: SourceProjectionTarget;
+export interface SourceProjectionSessionRange<
+  TTarget extends SourceProjectionTarget = SourceProjectionTarget,
+> extends TextRange {
+  target: TTarget;
 }
 
 export interface SourceProjectionParseResult {
@@ -83,42 +87,42 @@ export interface SourceProjectionPresentation {
   spans: SourceProjectionPresentationSpan[];
 }
 
-export interface SourceProjectionInsertionCandidate extends TextRange {
+export interface SourceProjectionInsertionCandidate<
+  TTarget extends SourceProjectionTarget = SourceProjectionTarget,
+> extends TextRange {
   selectionOffset: number;
-  target: SourceProjectionTarget;
+  target: TTarget;
 }
 
-export interface SourceProjectionAdapter {
-  id: string;
+export interface SourceProjectionAdapter<
+  TTarget extends SourceProjectionTarget = SourceProjectionTarget,
+> {
+  id: SourceProjectionAdapterId;
   applyEdit?: (source: string, edit: SourceProjectionEdit) => SourceProjectionEditResult;
-  canCopySelectionSemantically?: (
+  canCopySelectionSemantically?(
     selection: Selection,
-    session: SourceProjectionSessionRange,
+    session: SourceProjectionSessionRange<TTarget>,
     parsed: SourceProjectionParseResult,
-  ) => boolean;
-  createEnterTransaction: (state: EditorState, target: SourceProjectionTarget) => Transaction;
-  findInsertionCandidate?: (
+  ): boolean;
+  createEnterTransaction(state: EditorState, target: TTarget): Transaction;
+  findInsertionCandidate?(
     state: EditorState,
     position: number,
     text: string,
-  ) => SourceProjectionInsertionCandidate | null;
-  findTarget: (state: EditorState) => SourceProjectionTarget | null;
-  getPresentation: (target: SourceProjectionTarget, source: string) => SourceProjectionPresentation;
-  mapSelectionFromSource: (
+  ): SourceProjectionInsertionCandidate<TTarget> | null;
+  findTarget(state: EditorState): TTarget | null;
+  getPresentation(target: TTarget, source: string): SourceProjectionPresentation;
+  mapSelectionFromSource(
     selection: Selection,
-    session: SourceProjectionSessionRange,
+    session: SourceProjectionSessionRange<TTarget>,
     parsed: SourceProjectionParseResult,
-  ) => { anchor: number; head: number };
-  mapSelectionToSource: (
-    selection: Selection,
-    target: SourceProjectionTarget,
-  ) => { anchor: number; head: number };
-  parseSource: (
+  ): { anchor: number; head: number };
+  mapSelectionToSource(selection: Selection, target: TTarget): { anchor: number; head: number };
+  parseSource(state: EditorState, source: string, target: TTarget): SourceProjectionParseResult;
+  restoreCleanTarget(
     state: EditorState,
-    source: string,
-    target: SourceProjectionTarget,
-  ) => SourceProjectionParseResult;
-  restoreCleanTarget: (state: EditorState, session: SourceProjectionSessionRange) => Transaction;
+    session: SourceProjectionSessionRange<TTarget>,
+  ): Transaction;
   shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
 }
 
@@ -178,25 +182,26 @@ export const applyLiteralSourceProjectionEdit = (
 const createMarkSourceProjectionTarget = (
   state: EditorState,
   range: ActiveProjectionRange,
-  serializer?: Serializer,
+  serializer: Serializer,
 ): MarkSourceProjectionTarget => {
   const originalContent = state.doc.slice(range.from, range.to);
-  const originalText = getRangeText(state.doc, range);
-  const serialized = serializer
-    ? serializeMarkedFragmentSource(state, serializer, originalContent.content, range.marks)
-    : null;
-  const originalSource = serialized?.source ?? createProjectionSource(range.marks, originalText);
+  const serialized = serializeMarkedFragmentSource(
+    state,
+    serializer,
+    originalContent.content,
+    range.marks,
+  );
 
   return {
     adapterId: "mark",
     from: range.from,
-    hasFootnoteReferences: serialized?.hasFootnoteReferences ?? false,
+    hasFootnoteReferences: serialized.hasFootnoteReferences,
     marks: range.marks,
     originalContent,
     originalContentSize: range.to - range.from,
-    originalSource,
-    originalText,
-    sourceMap: serialized?.map ?? null,
+    originalSource: serialized.source,
+    originalText: getRangeText(state.doc, range),
+    sourceMap: serialized.map,
     to: range.to,
   };
 };
@@ -219,17 +224,14 @@ const createMarkSourceProjectionTargetFromSource = (
   to: from + source.length,
 });
 
-const getActiveProjectionMarkRange = (
-  state: EditorState,
-  includeFootnoteReferences = false,
-): ActiveProjectionRange | null => {
+const getActiveProjectionMarkRange = (state: EditorState): ActiveProjectionRange | null => {
   const { selection } = state;
 
   if (selection.$from.parent !== selection.$to.parent) {
     return null;
   }
 
-  const segments = getProjectionMarkSegments(state, includeFootnoteReferences);
+  const segments = getProjectionMarkSegments(state);
 
   if (selection instanceof NodeSelection) {
     const containingSegment = segments.find(
@@ -284,10 +286,7 @@ const getActiveProjectionRange = ({ from, marks, to }: ProjectionMarkSegment) =>
   to,
 });
 
-const getProjectionMarkSegments = (
-  state: EditorState,
-  includeFootnoteReferences = false,
-): ProjectionMarkSegment[] => {
+const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] => {
   const { $from } = state.selection;
 
   if (!$from.parent.isTextblock) {
@@ -298,7 +297,7 @@ const getProjectionMarkSegments = (
   const segments: ProjectionMarkSegment[] = [];
 
   $from.parent.forEach((node, offset) => {
-    const marks = getProjectionMarksFromInlineNode(node, includeFootnoteReferences);
+    const marks = getProjectionMarksFromInlineNode(node);
 
     if (!marks.length) {
       return;
@@ -334,13 +333,10 @@ const getProjectionMarkSegments = (
   });
 };
 
-const getProjectionMarksFromInlineNode = (
-  node: ProseMirrorNode,
-  includeFootnoteReferences: boolean,
-): ProjectionMarkDescriptor[] => {
+const getProjectionMarksFromInlineNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
   const isFootnoteReference = node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
-  if (!node.isText && !(includeFootnoteReferences && isFootnoteReference)) {
+  if (!node.isText && !isFootnoteReference) {
     return [];
   }
 
@@ -403,7 +399,7 @@ export const getSourceProjectionInsertionCandidate = (
   state: EditorState,
   position: number,
   markerText: string,
-): SourceProjectionInsertionCandidate | null => {
+): SourceProjectionInsertionCandidate<MarkSourceProjectionTarget> | null => {
   if (markerText.length !== 1) {
     return null;
   }
@@ -519,16 +515,6 @@ const getMarkedFragmentPresentation = (
     ],
     spans: spans.filter(({ from, to }) => from < to),
   };
-};
-
-const getMarkSourceProjectionTarget = (
-  target: SourceProjectionTarget,
-): MarkSourceProjectionTarget => {
-  if (target.adapterId !== "mark") {
-    throw new Error(`Expected a mark source-projection target, received '${target.adapterId}'`);
-  }
-
-  return target as MarkSourceProjectionTarget;
 };
 
 const mapSelectionToSourcePosition = (position: number, target: MarkSourceProjectionTarget) => {
@@ -794,21 +780,18 @@ const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourcePro
     (from === 0 || from === source.length)
   );
 
-export const createMarkSourceProjectionAdapter = (
-  dependencies?: MarkSourceProjectionAdapterDependencies,
-): SourceProjectionAdapter => {
-  const parser = dependencies?.parser;
-  const remark = dependencies?.remark;
-  const serializer = dependencies?.serializer;
-  const supportsMarkedFootnoteFragments = Boolean(parser && remark && serializer);
-
+export const createMarkSourceProjectionAdapter = ({
+  parser,
+  remark,
+  serializer,
+}: MarkSourceProjectionAdapterDependencies): SourceProjectionAdapter<MarkSourceProjectionTarget> => {
   return {
     id: "mark",
     applyEdit: applyMarkSourceProjectionEdit,
     canCopySelectionSemantically: (selection, session, parsed) => {
-      const markTarget = getMarkSourceProjectionTarget(session.target);
+      const markTarget = session.target;
 
-      if (!markTarget.hasFootnoteReferences || !parser || !remark) {
+      if (!markTarget.hasFootnoteReferences) {
         return true;
       }
 
@@ -835,9 +818,7 @@ export const createMarkSourceProjectionAdapter = (
         );
       });
     },
-    createEnterTransaction: (state, target) => {
-      const markTarget = getMarkSourceProjectionTarget(target);
-
+    createEnterTransaction: (state, markTarget) => {
       if (markTarget.hasFootnoteReferences) {
         return state.tr.replace(
           markTarget.from,
@@ -856,15 +837,13 @@ export const createMarkSourceProjectionAdapter = (
         .replaceWith(markTarget.from, markTarget.from, state.schema.text(openingSource));
     },
     findTarget: (state) => {
-      const range = getActiveProjectionMarkRange(state, supportsMarkedFootnoteFragments);
+      const range = getActiveProjectionMarkRange(state);
 
       return range ? createMarkSourceProjectionTarget(state, range, serializer) : null;
     },
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
-    getPresentation: (target, source) => {
-      const markTarget = getMarkSourceProjectionTarget(target);
-
-      if (markTarget.hasFootnoteReferences && parser && remark) {
+    getPresentation: (markTarget, source) => {
+      if (markTarget.hasFootnoteReferences) {
         const structure = createMarkedFragmentSourceStructure(source, parser, remark);
 
         if (structure) {
@@ -904,9 +883,7 @@ export const createMarkSourceProjectionAdapter = (
       };
     },
     mapSelectionFromSource: (selection, session, result) => {
-      const markTarget = getMarkSourceProjectionTarget(session.target);
-
-      if (markTarget.hasFootnoteReferences && parser && remark) {
+      if (session.target.hasFootnoteReferences) {
         const structure = createMarkedFragmentSourceStructure(result.source, parser, remark);
 
         if (structure) {
@@ -946,9 +923,7 @@ export const createMarkSourceProjectionAdapter = (
         ),
       };
     },
-    mapSelectionToSource: (selection, target) => {
-      const markTarget = getMarkSourceProjectionTarget(target);
-
+    mapSelectionToSource: (selection, markTarget) => {
       if (markTarget.hasFootnoteReferences && markTarget.sourceMap) {
         if (selection instanceof NodeSelection) {
           const documentOffset = selection.from - markTarget.from;
@@ -988,10 +963,8 @@ export const createMarkSourceProjectionAdapter = (
         head: mapSelectionToSourcePosition(selection.head, markTarget),
       };
     },
-    parseSource: (state, source, target) => {
-      const markTarget = getMarkSourceProjectionTarget(target);
-
-      if (markTarget.hasFootnoteReferences && parser && remark) {
+    parseSource: (state, source, markTarget) => {
+      if (markTarget.hasFootnoteReferences) {
         const richFragment = parseMarkedFragmentSource(state, source, parser, remark);
 
         if (richFragment) {
@@ -1017,7 +990,7 @@ export const createMarkSourceProjectionAdapter = (
       };
     },
     restoreCleanTarget: (state, session) => {
-      const target = getMarkSourceProjectionTarget(session.target);
+      const { target } = session;
 
       if (target.hasFootnoteReferences) {
         return state.tr.replace(session.from, session.to, target.originalContent);
@@ -1049,15 +1022,9 @@ export const createMarkSourceProjectionAdapter = (
   };
 };
 
-export const MARK_SOURCE_PROJECTION_ADAPTER = createMarkSourceProjectionAdapter();
-
-const SOURCE_PROJECTION_ADAPTERS: readonly SourceProjectionAdapter[] = [
-  MARK_SOURCE_PROJECTION_ADAPTER,
-];
-
 export const findSourceProjectionTarget = (
   state: EditorState,
-  adapters: readonly SourceProjectionAdapter[] = SOURCE_PROJECTION_ADAPTERS,
+  adapters: readonly SourceProjectionAdapter[],
 ): SourceProjectionTargetMatch | null => {
   for (const adapter of adapters) {
     const target = adapter.findTarget(state);
@@ -1074,7 +1041,7 @@ export const findSourceProjectionInsertionCandidate = (
   state: EditorState,
   position: number,
   text: string,
-  adapters: readonly SourceProjectionAdapter[] = SOURCE_PROJECTION_ADAPTERS,
+  adapters: readonly SourceProjectionAdapter[],
 ): SourceProjectionInsertionMatch | null => {
   for (const adapter of adapters) {
     const candidate = adapter.findInsertionCandidate?.(state, position, text) ?? null;

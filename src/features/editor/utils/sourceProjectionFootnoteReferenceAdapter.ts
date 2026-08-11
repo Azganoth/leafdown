@@ -40,18 +40,6 @@ interface FootnoteReferenceAdapterDependencies {
   serializer: Serializer;
 }
 
-const getFootnoteReferenceTarget = (
-  target: SourceProjectionTarget,
-): FootnoteReferenceSourceProjectionTarget => {
-  if (target.adapterId !== FOOTNOTE_REFERENCE_ADAPTER_ID) {
-    throw new Error(
-      `Expected a footnote-reference source-projection target, received '${target.adapterId}'`,
-    );
-  }
-
-  return target as FootnoteReferenceSourceProjectionTarget;
-};
-
 const createFootnoteReferenceTarget = (
   state: EditorState,
   serializer: Serializer,
@@ -214,7 +202,7 @@ const createMarkedLiteralSlice = (state: EditorState, source: string, marks: rea
 export const createFootnoteReferenceSourceProjectionAdapter = ({
   parser,
   serializer,
-}: FootnoteReferenceAdapterDependencies): SourceProjectionAdapter => ({
+}: FootnoteReferenceAdapterDependencies): SourceProjectionAdapter<FootnoteReferenceSourceProjectionTarget> => ({
   id: FOOTNOTE_REFERENCE_ADAPTER_ID,
   canCopySelectionSemantically: (selection, session, parsed) => {
     if (!parseFootnoteReferenceSource(parser, parsed.source)) {
@@ -230,9 +218,7 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
       createLiteralSourceProjectionSlice(state, target.originalSource),
     ),
   findTarget: (state) => findFootnoteReferenceTarget(state, serializer),
-  getPresentation: (target, source) => {
-    const { ambientMarks } = getFootnoteReferenceTarget(target);
-
+  getPresentation: ({ ambientMarks }, source) => {
     return {
       sourceTypes: [FOOTNOTE_REFERENCE_ADAPTER_ID, ...ambientMarks.map((mark) => mark.type.name)],
       spans: getFootnoteReferencePresentation(source, ambientMarks),
@@ -240,9 +226,7 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
   },
   mapSelectionFromSource: (selection, session, result) =>
     mapSelectionFromSource(parser, selection, session, result),
-  mapSelectionToSource: (selection, target) => {
-    const footnoteTarget = getFootnoteReferenceTarget(target);
-
+  mapSelectionToSource: (selection, footnoteTarget) => {
     if (selection instanceof NodeSelection) {
       const bounds = getFootnoteReferenceSourceBounds(footnoteTarget.originalSource);
 
@@ -264,9 +248,8 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
       head: mapSelectionPositionToSource(selection.head, footnoteTarget),
     };
   },
-  parseSource: (state, source, target) => {
+  parseSource: (state, source, { ambientMarks }) => {
     const reference = parseFootnoteReferenceSource(parser, source);
-    const { ambientMarks } = getFootnoteReferenceTarget(target);
 
     return reference
       ? {
@@ -281,9 +264,5 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
         };
   },
   restoreCleanTarget: (state, session) =>
-    state.tr.replace(
-      session.from,
-      session.to,
-      getFootnoteReferenceTarget(session.target).originalContent,
-    ),
+    state.tr.replace(session.from, session.to, session.target.originalContent),
 });

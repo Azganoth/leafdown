@@ -87,7 +87,7 @@ type ProjectionMeta =
       suppressedSelection: SuppressedProjectionSelection | null;
     };
 
-export const createSourceProjectionProsePlugin = (adapters?: readonly SourceProjectionAdapter[]) =>
+export const createSourceProjectionProsePlugin = (adapters: readonly SourceProjectionAdapter[]) =>
   new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
     appendTransaction: (transactions, _oldState, newState) =>
@@ -324,7 +324,7 @@ const getProjectionMeta = (transaction: Transaction) =>
 const appendProjectionTransaction = (
   transactions: readonly Transaction[],
   state: EditorState,
-  adapters?: readonly SourceProjectionAdapter[],
+  adapters: readonly SourceProjectionAdapter[],
 ) => {
   const projectionState = getSourceProjectionState(state);
 
@@ -587,7 +587,7 @@ const handleProjectionTextInput = (
   from: number,
   to: number,
   text: string,
-  adapters?: readonly SourceProjectionAdapter[],
+  adapters: readonly SourceProjectionAdapter[],
 ) => {
   const session = getSourceProjectionState(view.state).session;
 
@@ -618,7 +618,7 @@ const handleProjectionSourceTextInput = (
   from: number,
   to: number,
   text: string,
-  adapters?: readonly SourceProjectionAdapter[],
+  adapters: readonly SourceProjectionAdapter[],
 ) => {
   if (from !== to) {
     return false;

@@ -21,6 +21,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a link intact when undoing an edit made while its Markdown source was open, instead of dropping the link and its destination to plain text.
 - Keep an authored `<br>` in the document instead of deleting it on open and losing it on save.
 - Stop writing `<br />` into saved files to mark a blank paragraph, which other Markdown readers render as a visible line break.
 - Keep a footnote definition whose content begins with raw HTML, instead of dropping the definition.

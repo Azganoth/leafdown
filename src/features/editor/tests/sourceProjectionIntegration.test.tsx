@@ -134,6 +134,29 @@ describe("source projection integration", () => {
       expect(await runCommand(mounted, "edit.redo")).toBe(true);
       expect(mounted.getMarkdown()).toBe("[**Bolder** and *soft*](https://example.com) plain\n");
     });
+
+    it("survives history navigation after a write that bypasses the projection", async () => {
+      const initialMarkdown = "[first field walk](./doc.md) tail";
+      const editedMarkdown = "[first field Xwalk](./doc.md) tail\n";
+      const mounted = await mountProjectionEditor(initialMarkdown);
+
+      enterProjection(mounted, "a");
+
+      const walkFrom = getEditorTextPosition(mounted, "walk");
+
+      mounted.view.dispatch(mounted.view.state.tr.insertText("X", walkFrom, walkFrom));
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(editedMarkdown);
+
+      await runCommand(mounted, "edit.undo");
+      await runCommand(mounted, "edit.undo");
+      await runCommand(mounted, "edit.redo");
+      await runCommand(mounted, "edit.undo");
+
+      expect(mounted.getMarkdown()).toBe(`${initialMarkdown}\n`);
+      expect(getEditorDomElement(mounted, "a")).toHaveAttribute("href", "./doc.md");
+    });
   });
 
   describe("lifecycle integration", () => {

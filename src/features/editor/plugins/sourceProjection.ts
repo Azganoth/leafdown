@@ -1,8 +1,8 @@
 import {
   ParserReady,
+  SerializerReady,
   parserCtx,
   remarkCtx,
-  SerializerReady,
   serializerCtx,
 } from "@milkdown/kit/core";
 import { closeHistory } from "@milkdown/kit/prose/history";
@@ -92,6 +92,16 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     key: leafdownSourceProjectionPluginKey,
     appendTransaction: (transactions, _oldState, newState) =>
       appendProjectionTransaction(transactions, newState, adapters),
+    // A change captured in native history while the document holds projected source replays
+    // against coordinates the commit discards. `filterTransaction` is the only hook that runs
+    // before the history plugin reads the meta.
+    filterTransaction: (transaction, state) => {
+      if (transaction.docChanged && hasActiveSourceProjection(state)) {
+        transaction.setMeta("addToHistory", false);
+      }
+
+      return true;
+    },
     props: {
       decorations: (state) => createProjectionDecorations(state),
       handleDOMEvents: {

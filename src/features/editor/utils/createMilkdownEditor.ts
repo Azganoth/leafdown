@@ -85,6 +85,8 @@ export type MilkdownEditorInstance = Editor;
 
 type EditorViewAttributes = EditorProps["attributes"];
 
+// ProseMirror resolves attributes per state when given a function, so compose in whichever
+// form arrives instead of flattening one into the other.
 export const composeEditorViewAttributes = (
   previous: EditorViewAttributes,
   added: Record<string, string>,

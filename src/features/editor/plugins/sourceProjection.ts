@@ -609,6 +609,12 @@ const handleProjectionTextInput = (
     return false;
   }
 
+  // ProseMirror keeps the node an IME composes into alive only across a minimal change, and
+  // the projection's edit path replaces its whole range.
+  if (view.composing) {
+    return false;
+  }
+
   const edit = getRelativeProjectionEdit(session, from, to, text);
 
   if (

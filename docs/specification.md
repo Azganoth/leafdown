@@ -243,7 +243,9 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.
-- Save output trims trailing blank lines and writes at most one final line ending, controlled by `Insert final newline on save`.
+- Raw HTML is written back exactly as authored, including line-break tags.
+- A blank paragraph between blocks survives save and reopen.
+- Save output trims trailing blank lines and writes at most one final line ending, controlled by `Insert final newline on save`. Trailing blank paragraphs go with them.
 
 ## Commands And Settings
 

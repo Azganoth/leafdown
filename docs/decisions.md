@@ -137,6 +137,7 @@
 **Consequences:**
 
 - Defer to GFM preset defaults unless explicitly overridden by the specification.
+- The preset's empty-line mechanism is overridden. It encodes a blank paragraph as an emitted `<br />` and deletes every `<br>` it finds on parse, which consumes authored raw HTML as editor state and writes a visible line break into documents other readers render. Leafdown carries a blank paragraph in blank lines instead, decided in [issue #193](https://github.com/Azganoth/leafdown/issues/193).
 - Bare GFM URL literals and angle-bracket autolinks share Milkdown's canonical link representation. Milkdown serializes eligible bare URLs as `<https://…>`, so source projection exposes that canonical serialized form. Leafdown does not preserve bare-versus-angle source provenance or bypass projection for bare URLs.
 - Develop custom UI components only when required by the product specification.
 

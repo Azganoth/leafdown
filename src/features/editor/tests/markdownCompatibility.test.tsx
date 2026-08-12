@@ -216,3 +216,90 @@ describe("Markdown compatibility", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 });
+
+describe("Authored raw line breaks", () => {
+  it.each([
+    "a <br /> b",
+    "a<br>b",
+    "a <br/> b",
+    "a <br > b",
+    "a <BR> b",
+    "line<br>\nnext",
+    "<br />",
+    "<br>",
+    "# a <br /> b",
+    "* item <br /> tail",
+    "> quoted <br /> text",
+    "| left       | right |\n| ---------- | ----- |\n| x <br /> y | z     |",
+    "Reference[^1]\n\n[^1]: definition <br /> tail",
+    "`a <br /> b`",
+    "```\na <br /> b\n```",
+    "<div>\n<br />\n</div>",
+  ])("preserves an authored line break in %j", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("preserves an authored line break through an edit", async () => {
+    const mounted = await mountEditor("a <br /> b");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "!");
+
+    expect(mounted.getMarkdown()).toBe("a <br /> b!\n");
+  });
+
+  it("keeps a footnote definition whose content is raw HTML", async () => {
+    const source = "Reference[^1]\n\n[^1]: <div>x</div>";
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+});
+
+describe("Blank paragraphs", () => {
+  it.each([
+    "a\n\n\n\nb",
+    "a\n\n\n\n\n\nb",
+    "> a\n>\n>\n>\n> b",
+    "Reference[^1]\n\n[^1]: one\n\n\n\n    two",
+  ])("preserves the blank paragraphs in %j", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([1, 2, 3])(
+    "writes and restores %i blank paragraphs made in the editor",
+    async (count) => {
+      const mounted = await mountEditor("a\n\nb");
+      const { view } = mounted;
+      const blankParagraphs = Array.from({ length: count }, () =>
+        view.state.schema.nodes.paragraph.create(),
+      );
+
+      view.dispatch(view.state.tr.insert(view.state.doc.child(0).nodeSize, blankParagraphs));
+
+      const markdown = mounted.getMarkdown();
+      const reopened = await mountEditor(markdown);
+
+      expect(reopened.view.state.doc.childCount).toBe(count + 2);
+      expect(reopened.getMarkdown()).toBe(markdown);
+    },
+  );
+
+  it("does not write a line break to represent a blank paragraph", async () => {
+    const mounted = await mountEditor("a\n\nb");
+    const { view } = mounted;
+
+    view.dispatch(
+      view.state.tr.insert(
+        view.state.doc.child(0).nodeSize,
+        view.state.schema.nodes.paragraph.create(),
+      ),
+    );
+
+    expect(mounted.getMarkdown()).not.toContain("<br");
+  });
+});

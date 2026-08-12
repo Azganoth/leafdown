@@ -1827,6 +1827,25 @@ describe("source projection", () => {
       expect(mounted.view.dom.querySelector("strong")).not.toBeInTheDocument();
       expect(getEditorTextContent(mounted)).toBe("**Bold*_ plain");
     });
+
+    it("leaves composition input to the browser instead of rewriting the range", async () => {
+      const mounted = await mountProjectionEditor("[first field walk](./doc.md) tail");
+
+      enterProjection(mounted, "a");
+
+      const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+      setTextSelection(mounted.view, walkEnd);
+
+      expect(typeText(mounted.view, "!")).toBe(true);
+
+      mounted.view.dom.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+
+      expect(mounted.view.composing).toBe(true);
+      expect(typeText(mounted.view, "に")).toBe(false);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("[first field walk!に](./doc.md) tail");
+    });
   });
 
   describe("keyboard handoff", () => {

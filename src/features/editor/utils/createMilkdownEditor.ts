@@ -19,6 +19,7 @@ import {
   inlineCodeKeymap,
   orderedListKeymap,
   paragraphKeymap,
+  remarkPreserveEmptyLinePlugin,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
@@ -33,6 +34,7 @@ import {
   type EditorCommandState,
 } from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
@@ -83,8 +85,6 @@ export type MilkdownEditorInstance = Editor;
 
 type EditorViewAttributes = EditorProps["attributes"];
 
-// ProseMirror resolves attributes per state when given a function, so compose in whichever
-// form arrives instead of flattening one into the other. Exported for colocated tests.
 export const composeEditorViewAttributes = (
   previous: EditorViewAttributes,
   added: Record<string, string>,
@@ -133,7 +133,8 @@ export const createMilkdownEditor = async ({
     return typeof result === "boolean" ? result : false;
   };
 
-  return editor
+  const configuredEditor = editor
+    .use(createLeafdownBlockStructurePlugin())
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
     .use(gfm)
@@ -237,6 +238,13 @@ export const createMilkdownEditor = async ({
         });
       }
     });
+
+  // The preset pairs empty-paragraph serialization with a parse-time plugin that deletes every
+  // `<br>` it finds, authored ones included. Leafdown represents a blank paragraph with blank
+  // lines instead, so raw HTML stays document content.
+  await configuredEditor.remove(remarkPreserveEmptyLinePlugin);
+
+  return configuredEditor;
 };
 
 export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {

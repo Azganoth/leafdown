@@ -108,6 +108,15 @@ Text with <span class="leaf">raw *inline* HTML</span> after it.
 
 An empty tag <br /> and a custom tag <garden-plot data-bed="north" /> remain raw.
 
+## Line break tags remain raw in every spelling
+
+Spaced self-closing <br />, unspaced <br>, slash without space <br/>, space
+without slash <br >, and uppercase <BR>.
+
+## A line break tag alone in a paragraph remains raw
+
+<br />
+
 ## Comments and declarations may appear inline
 
 Text <!-- comment --> then <?garden inspect?> and <!GARDEN note> and <![CDATA[raw <leaf>]]>.

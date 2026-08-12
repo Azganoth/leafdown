@@ -21,6 +21,9 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep an authored `<br>` in the document instead of deleting it on open and losing it on save.
+- Stop writing `<br />` into saved files to mark a blank paragraph, which other Markdown readers render as a visible line break.
+- Keep a footnote definition whose content begins with raw HTML, instead of dropping the definition.
 - Traverse the article navigator with the arrow keys, `Home`, and `End`, and pass it with a single `Tab` instead of one per article.
 - Jump to an article by typing the start of its name while the navigator has focus.
 - Leave focus on the revealed row after `Reveal in sidebar`, instead of scrolling to it and leaving focus behind.

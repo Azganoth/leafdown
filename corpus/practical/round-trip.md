@@ -74,8 +74,9 @@ paste it into a new paragraph.
 
 ## Blank lines and final newline
 
-There are three blank lines after this paragraph and the file ends without a
-trailing blank run.
+There are three blank lines after this paragraph, which hold one blank
+paragraph that survives a save and reopen, and the file ends without a trailing
+blank run.
 
 
 

@@ -200,6 +200,29 @@ describe("source projection integration", () => {
       expect(onContentChanged).toHaveBeenCalledTimes(2);
     });
 
+    it("tracks a composed character as dirty even though it bypasses the projection", async () => {
+      const onContentChanged = vi.fn();
+      const mounted = await mountProjectionEditor("[first field walk](./doc.md) tail", {
+        onContentChanged,
+      });
+
+      enterProjection(mounted, "a");
+
+      const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+      setTextSelection(mounted.view, walkEnd);
+      mounted.view.dom.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+
+      expect(onContentChanged).not.toHaveBeenCalled();
+      expect(typeText(mounted.view, "に")).toBe(false);
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("[first field walkに](./doc.md) tail\n");
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+    });
+
     it("finalizes active projected source before Markdown serialization", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

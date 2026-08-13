@@ -1,6 +1,6 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isTruthy } from "@/lib/predicates";
@@ -460,6 +460,31 @@ const mapSelectionPositionFromSource = (
   return session.from + (map ? mapLinkSourcePositionToDocument(sourceOffset, map) : sourceOffset);
 };
 
+const isLinkSelectionSemantic = (
+  selection: Selection,
+  session: SourceProjectionSessionRange<LinkSourceProjectionTarget>,
+  map: LinkSourceMap | null,
+) => {
+  if (!map) {
+    return true;
+  }
+
+  const selectionFrom = selection.from - session.from;
+  const selectionTo = selection.to - session.from;
+
+  return map.segments.every((segment) => {
+    if (segment.type !== "image") {
+      return true;
+    }
+
+    const overlapsSelection = selectionFrom < segment.sourceTo && segment.sourceFrom < selectionTo;
+
+    return (
+      !overlapsSelection || (selectionFrom <= segment.sourceFrom && segment.sourceTo <= selectionTo)
+    );
+  });
+};
+
 const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
   const spans: SourceProjectionPresentationSpan[] = [
     {
@@ -530,6 +555,11 @@ export const createLinkSourceProjectionAdapter = ({
   serializer,
 }: LinkAdapterDependencies): SourceProjectionAdapter<LinkSourceProjectionTarget> => ({
   id: LINK_ADAPTER_ID,
+  // Part of an image's source has no semantic equivalent: whichever characters the selection
+  // covers, the rich payload can only carry the whole image or none of it. A partial soft
+  // break stays semantic, since the break and the characters it spans read the same.
+  canCopySelectionSemantically: (selection, session, parsed) =>
+    isLinkSelectionSemantic(selection, session, createLinkSourceMap(remark, parsed.source)),
   createEnterTransaction: createEnterLinkProjectionTransaction,
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (linkTarget, source) => {

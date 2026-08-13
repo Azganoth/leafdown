@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 
+import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { parseClipboardHtml } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   containsNodeType,
+  getEditorNodePosition,
   getEditorTextPosition,
   getMarkNames,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
 import { enterFootnoteReferenceProjection, enterProjection } from "@/test/utils/sourceProjection";
+import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import {
   getSourceProjectionClipboardSlice,
@@ -241,6 +244,33 @@ describe("source projection clipboard slices", () => {
       sourceStart + referenceFrom + 2,
       sourceStart + referenceFrom + "[^note]".length - 1,
     );
+    expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
+  it("maps a complete image label but declines a partial image selection", async () => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "renderable",
+      path: "C:/Notes/pic.png",
+    }));
+
+    const image = "![alt](./pic.png)";
+    const source = `[word ${image}](./doc.md)`;
+    const mounted = await mountEditor(`${source} tail`, createMarkdownReferenceContext());
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "image"));
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+    const imageFrom = sourceStart + source.indexOf(image);
+
+    setTextSelection(mounted.view, sourceStart + 1, imageFrom + image.length);
+
+    const slice = getSourceProjectionClipboardSlice(mounted.view.state);
+
+    expect(slice).not.toBeNull();
+    expect(containsNodeType(slice!.content, "image")).toBe(true);
+
+    setTextSelection(mounted.view, imageFrom + "![a".length, imageFrom + "![alt](./pic".length);
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
   });
 });

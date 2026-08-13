@@ -90,7 +90,7 @@ Copy/Cut shortcut metadata remains available for menu labels, but those native g
 
 Source projection temporarily exposes a supported Markdown object as unmarked, editable document text while the editor retains its canonical document model.
 
-The shared projection engine owns the active session, projected range, projection-local history, dirty-state integration, and finalization. A clean session restores its original content; an edited session rehydrates valid source or commits literal text so projected characters are not discarded.
+The shared projection engine owns the active session, projected range, projection-local history, dirty-state integration, and finalization. A clean session restores its original content; an edited session rehydrates valid source or commits literal text so projected characters are not discarded. A projected range holds flat text; a session whose range stops holding it ends without committing, leaving what landed there in the document.
 
 Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, then standalone footnote reference. Adapters that cannot preserve a semantic mapping fall back to literal text.
 

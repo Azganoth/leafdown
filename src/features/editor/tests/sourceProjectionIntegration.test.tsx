@@ -5,6 +5,7 @@ import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
+  getEditorNodePosition,
   getEditorTextContent,
   getEditorTextPosition,
   getSelectedEditorText,
@@ -30,6 +31,28 @@ const waitForMarkdownUpdateListener = async () => {
 
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
+
+const dropNode = (mounted: MountedMilkdownEditor, dropPosition: number, nodePosition: number) => {
+  const { view } = mounted;
+
+  view.posAtCoords = () => ({ inside: -1, pos: dropPosition });
+  view.dragging = {
+    move: false,
+    slice: view.state.doc.slice(nodePosition, nodePosition + 1),
+  };
+
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+
+  Object.assign(event, {
+    clientX: 0,
+    clientY: 0,
+    ctrlKey: false,
+    dataTransfer: { dropEffect: "copy", effectAllowed: "all", getData: () => "", types: [] },
+    metaKey: false,
+  });
+
+  view.dom.dispatchEvent(event);
+};
 
 describe("source projection integration", () => {
   describe("native history", () => {
@@ -309,6 +332,24 @@ describe("source projection integration", () => {
       expect(mounted.getMarkdown()).toBe("[**Bolder** and *soft*](https://example.com) plain\n");
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(onContentChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it("ends the session instead of committing a node dropped into projected source", async () => {
+      const mounted = await mountProjectionEditor("[word](./doc.md) ![alt](./pic.png)");
+
+      enterProjection(mounted, "a");
+
+      const imagePosition = getEditorNodePosition(mounted, "image");
+      const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
+
+      dropNode(mounted, labelPosition, imagePosition);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.state.doc.nodeAt(labelPosition)?.type.name).toBe("image");
+      expect(mounted.getMarkdown()).toBe("\\[wor![alt](./pic.png)d](./doc.md) ![alt](./pic.png)\n");
     });
   });
 

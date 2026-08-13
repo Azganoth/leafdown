@@ -18,6 +18,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Separate global application shortcuts, focused editor command shortcuts, and native text-input and clipboard gestures by ownership.
 - Extend seamless in-document Markdown source projection to strikethrough, inline code, links, autolinks, and footnote references.
 - Present active mixed-format link labels as one coordinated source range.
+- Extend link label source projection to labels that contain an image, such as badge links.
 
 ### Fixed
 

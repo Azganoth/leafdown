@@ -20,6 +20,7 @@ import {
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
+import { getTextBetween } from "./textRanges";
 
 const LINK_ADAPTER_ID = "link";
 const LINK_MARK_NAME = "link";
@@ -35,7 +36,8 @@ const OUTER_LINK_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 const isInlineSoftBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
 
-const isSupportedLinkNode = (node: ProseMirrorNode) => node.isText || isInlineSoftBreak(node);
+const isSupportedLinkNode = (node: ProseMirrorNode) =>
+  node.isText || isInlineSoftBreak(node) || node.type.name === "image";
 
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
@@ -246,8 +248,10 @@ const parseLinkSource = (
   };
 };
 
+// Every node in a label stands for one document position, so the text has to spend one
+// character on each of them to stay aligned with the source map's document offsets.
 const getLinkContentText = (target: LinkSourceProjectionTarget) =>
-  target.originalContent.content.textBetween(0, target.originalContent.content.size);
+  getTextBetween(target.originalContent.content, 0, target.originalContent.content.size);
 
 const mergeCoincidentInsertions = (edits: readonly LinkProjectionTextEdit[]) => {
   const merged: LinkProjectionTextEdit[] = [];
@@ -290,7 +294,10 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       restore.push({ from: previousSourceTo, text: "", to: segment.sourceFrom });
     }
 
-    if (segment.type === "inlineBreak") {
+    // A node maps as one span rather than character by character, and restoring it to the
+    // text the document reads there holds the size the original content needs;
+    // `createRestoreCleanLinkTransaction` swaps the node itself back in.
+    if (segment.type !== "text") {
       enter.push({
         from: segment.documentFrom,
         text: source.slice(segment.sourceFrom, segment.sourceTo),
@@ -298,7 +305,7 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       });
       restore.push({
         from: segment.sourceFrom,
-        text: "\n",
+        text: content.slice(segment.documentFrom, segment.documentTo),
         to: segment.sourceTo,
       });
       previousSourceTo = segment.sourceTo;

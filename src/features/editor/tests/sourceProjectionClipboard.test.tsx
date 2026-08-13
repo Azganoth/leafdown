@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
-import { parseClipboardHtml } from "@/test/utils/events";
+import { createClipboardData, parseClipboardHtml } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   containsNodeType,
   getEditorNodePosition,
+  getEditorTextContent,
   getEditorTextPosition,
   getMarkNames,
   setTextSelection,
@@ -272,5 +273,51 @@ describe("source projection clipboard slices", () => {
 
     setTextSelection(mounted.view, imageFrom + "![a".length, imageFrom + "![alt](./pic".length);
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
+  it("pastes a slice into projected source when the clipboard carries no plain text", async () => {
+    const mounted = await mountEditor("[word](./doc.md) tail");
+
+    enterProjection(mounted, "a");
+
+    const tailFrom = getEditorTextPosition(mounted, "tail");
+    const slice = mounted.view.state.doc.slice(tailFrom, tailFrom + "tail".length);
+    const event = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
+
+    Object.defineProperty(event, "clipboardData", { value: createClipboardData() });
+    setTextSelection(
+      mounted.view,
+      getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+    );
+
+    const handled = mounted.view.someProp("handlePaste", (handler) =>
+      handler(mounted.view, event, slice),
+    );
+
+    expect(handled).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("[wortaild](./doc.md) tail");
+  });
+
+  it("pastes no line break for a node the projected source cannot hold", async () => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+
+    const mounted = await mountEditor("[word](./doc.md) ![alt](https://example.com/pic.png)");
+
+    enterProjection(mounted, "a");
+
+    const imagePosition = getEditorNodePosition(mounted, "image");
+    const slice = mounted.view.state.doc.slice(imagePosition, imagePosition + 1);
+    const event = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
+
+    Object.defineProperty(event, "clipboardData", { value: createClipboardData() });
+    setTextSelection(
+      mounted.view,
+      getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+    );
+
+    expect(
+      mounted.view.someProp("handlePaste", (handler) => handler(mounted.view, event, slice)),
+    ).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("[word](./doc.md) ");
   });
 });

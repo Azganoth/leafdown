@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
-import { createClipboardData, parseClipboardHtml } from "@/test/utils/events";
+import {
+  createClipboardData,
+  dispatchClipboardEvent,
+  parseClipboardHtml,
+} from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   containsNodeType,
@@ -298,10 +302,52 @@ describe("source projection clipboard slices", () => {
     expect(getEditorTextContent(mounted)).toBe("[wortaild](./doc.md) tail");
   });
 
-  it("pastes no line break for a node the projected source cannot hold", async () => {
+  it("pastes an image into a projected link label through a clipboard event", async () => {
     mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
 
-    const mounted = await mountEditor("[word](./doc.md) ![alt](https://example.com/pic.png)");
+    const image = "![](https://example.com/pic.png)";
+    const mounted = await mountEditor("[word](./doc.md)");
+
+    enterProjection(mounted, "a");
+    setTextSelection(
+      mounted.view,
+      getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+    );
+    dispatchClipboardEvent(mounted.view.dom, "paste", {
+      "text/html": '<img src="https://example.com/pic.png">',
+    });
+
+    expect(containsNodeType(mounted.view.state.doc, "image")).toBe(false);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(`[wor${image}d](./doc.md)\n`);
+  });
+
+  it.each([
+    { expected: "*Paste*", html: "<p><em>Paste</em></p>", label: "emphasis" },
+    { expected: "a\\*b", html: "<p>a*b</p>", label: "characters that mean something in source" },
+    { expected: "", html: "<ul><li>one</li><li>two</li></ul>", label: "a list" },
+    { expected: "", html: "<p>one</p><p>two</p>", label: "two paragraphs" },
+  ])(
+    "pastes $label carrying no plain text into a projected link label",
+    async ({ expected, html }) => {
+      const mounted = await mountEditor("[word](./doc.md)");
+
+      enterProjection(mounted, "a");
+      setTextSelection(
+        mounted.view,
+        getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+      );
+      dispatchClipboardEvent(mounted.view.dom, "paste", { "text/html": html });
+
+      expect(getEditorTextContent(mounted)).toBe(`[wor${expected}d](./doc.md)`);
+    },
+  );
+
+  it("pastes an image into a projected link label as its Markdown source", async () => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+
+    const image = "![alt](https://example.com/pic.png)";
+    const mounted = await mountEditor(`[word](./doc.md) ${image}`);
 
     enterProjection(mounted, "a");
 
@@ -318,6 +364,30 @@ describe("source projection clipboard slices", () => {
     expect(
       mounted.view.someProp("handlePaste", (handler) => handler(mounted.view, event, slice)),
     ).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("[word](./doc.md) ");
+    expect(getEditorTextContent(mounted)).toBe(`[wor${image}d](./doc.md) `);
+    expect(mounted.getMarkdown()).toBe(`[wor${image}d](./doc.md) ${image}\n`);
+  });
+
+  it("pastes no line break for a node the projected source cannot hold", async () => {
+    const mounted = await mountEditor("[word](./doc.md) Text[^note]\n\n[^note]: Detail");
+
+    enterProjection(mounted, "a");
+
+    const referencePosition = getEditorNodePosition(mounted, "footnote_reference");
+    const slice = mounted.view.state.doc.slice(referencePosition, referencePosition + 1);
+    const event = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
+
+    Object.defineProperty(event, "clipboardData", { value: createClipboardData() });
+    setTextSelection(
+      mounted.view,
+      getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+    );
+
+    const before = getEditorTextContent(mounted);
+
+    expect(
+      mounted.view.someProp("handlePaste", (handler) => handler(mounted.view, event, slice)),
+    ).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(before);
   });
 });

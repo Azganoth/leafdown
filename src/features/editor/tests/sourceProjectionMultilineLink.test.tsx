@@ -6,6 +6,8 @@ import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
+  flushEditorDomObserver,
+  getEditorDomTextNode,
   getEditorNodePosition,
   getSelectedEditorText,
   getEditorTextContent,
@@ -256,6 +258,20 @@ describe("multiline logical-link source projection", () => {
         }),
       ]),
     );
+    expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
+  });
+
+  it("keeps the soft break when the browser rewrites the projected label", async () => {
+    const mounted = await mountProjectionEditor(`${PLAIN_LINK_SOURCE} plain`);
+    const breakPosition = getInlineBreakPosition(mounted.view.state.doc);
+
+    setTextSelection(mounted.view, breakPosition);
+
+    getEditorDomTextNode(mounted, "walk").data = "walkX";
+    flushEditorDomObserver(mounted.view);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(`${PLAIN_LINK_SOURCE.replace("walk", "walkX")} plain\n`);
     expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
   });
 

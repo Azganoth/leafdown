@@ -141,6 +141,39 @@ export function getEditorDomElement(mounted: MountedMilkdownEditor, selector: st
   return element;
 }
 
+const findDomTextNode = (node: Node, text: string): Text | null => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node as Text).data.includes(text) ? (node as Text) : null;
+  }
+
+  for (const child of Array.from(node.childNodes)) {
+    const found = findDomTextNode(child, text);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+};
+
+export const getEditorDomTextNode = (mounted: MountedMilkdownEditor, text: string) => {
+  const textNode = findDomTextNode(mounted.view.dom, text);
+
+  if (!textNode) {
+    throw new Error(`Expected editor DOM to contain a text node with: ${text}`);
+  }
+
+  return textNode;
+};
+
+// Mutating the DOM stands in for the browser rewriting it during composition, spellcheck, or a
+// drop. ProseMirror only notices through its observer, and only that path re-parses the DOM
+// back into the document, so a dispatched transaction cannot reproduce it.
+export const flushEditorDomObserver = (view: EditorView) => {
+  (view as unknown as { domObserver: { flush: () => void } }).domObserver.flush();
+};
+
 /* Input */
 
 // Returns whether every character was consumed by a `handleTextInput` handler, which

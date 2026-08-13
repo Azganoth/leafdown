@@ -15,6 +15,7 @@ import {
   codeBlockKeymap,
   commonmark,
   emphasisKeymap,
+  hardbreakSchema,
   headingKeymap,
   inlineCodeKeymap,
   orderedListKeymap,
@@ -177,6 +178,10 @@ export const createMilkdownEditor = async ({
             normalizeProseMirrorClipboardHtml(previousTransformPastedHTML?.(html, view) ?? html),
         };
       });
+      ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
+        ...getSchema(schemaCtx),
+        linebreakReplacement: true,
+      }));
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({

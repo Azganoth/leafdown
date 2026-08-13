@@ -21,6 +21,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a line break inside a link label when the browser rewrites the text around it, instead of silently replacing the break with a space and saving the label on one line.
 - Keep only the accepted candidate when typing with an IME while a Markdown source is open, instead of leaving every intermediate composition state behind.
 - Keep a link intact when undoing an edit made while its Markdown source was open, instead of dropping the link and its destination to plain text.
 - Keep an authored `<br>` in the document instead of deleting it on open and losing it on save.

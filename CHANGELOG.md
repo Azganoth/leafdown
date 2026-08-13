@@ -22,6 +22,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep formatting when text is composed with an IME between the markers of an open Markdown source, instead of splitting the markers and saving them as escaped characters.
 - Undo text composed with an IME inside an open Markdown source, instead of leaving undo enabled but inert until the source closes.
 - Mark the document as changed when text is composed with an IME inside an open Markdown source, instead of reporting it as clean so the composed text is discarded on close without a prompt.
 - Keep a link label that mixes formatted text with an image as one link, instead of saving it as two links.

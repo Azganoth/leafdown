@@ -90,8 +90,10 @@ type ProjectionMeta =
       suppressedSelection: SuppressedProjectionSelection | null;
     };
 
-export const createSourceProjectionProsePlugin = (adapters: readonly SourceProjectionAdapter[]) =>
-  new Plugin<SourceProjectionPluginState>({
+export const createSourceProjectionProsePlugin = (adapters: readonly SourceProjectionAdapter[]) => {
+  let compositionSource: string | null = null;
+
+  return new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
     appendTransaction: (transactions, _oldState, newState) =>
       appendProjectionTransaction(transactions, newState, adapters),
@@ -112,6 +114,24 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     props: {
       decorations: (state) => createProjectionDecorations(state),
       handleDOMEvents: {
+        compositionend: (view) => {
+          const previousSource = compositionSource;
+
+          compositionSource = null;
+
+          if (previousSource !== null) {
+            normalizeProjectionComposition(view, previousSource);
+          }
+
+          return false;
+        },
+        compositionstart: (view) => {
+          const { session } = getSourceProjectionState(view.state);
+
+          compositionSource = session ? getProjectionSource(view.state, session) : null;
+
+          return false;
+        },
         mouseout: (view, event) => handleProjectionLinkLabelMouseOut(view, event),
         mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
         paste: (view, event) => handleProjectionPaste(view, event as ClipboardEvent),
@@ -127,6 +147,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
         applyProjectionTransaction(transaction, pluginState, oldState, newState),
     },
   });
+};
 
 export const createLeafdownSourceProjectionPlugin = () =>
   $proseAsync(async (ctx) => {
@@ -795,6 +816,94 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     } satisfies ProjectionMeta);
 
   view.dispatch(transaction);
+};
+
+// `handleTextInput` declines while a composition is in flight, so a composed character misses the
+// remapping that keeps an insertion out of a delimiter. Correcting it before the browser finishes
+// ends the composition.
+const normalizeProjectionComposition = (view: EditorView, previousSource: string) => {
+  const session = getSourceProjectionState(view.state).session;
+
+  if (!session) {
+    return;
+  }
+
+  const composedSource = getProjectionSource(view.state, session);
+  const edit = getProjectionSourceEdit(previousSource, composedSource);
+
+  if (!edit || session.adapter.shouldHandleTextInput?.(previousSource, edit) === false) {
+    return;
+  }
+
+  const result = (session.adapter.applyEdit ?? applyLiteralSourceProjectionEdit)(
+    previousSource,
+    edit,
+  );
+
+  if (result.source === composedSource) {
+    return;
+  }
+
+  const transaction = replaceProjectionRange(
+    view.state.tr,
+    session.from,
+    session.to,
+    createLiteralSourceProjectionSlice(view.state, result.source),
+  );
+  const nextPosition = session.from + result.selectionOffset;
+
+  transaction
+    .setSelection(
+      TextSelection.create(
+        transaction.doc,
+        Math.min(Math.max(nextPosition, session.from), transaction.doc.content.size),
+      ),
+    )
+    .setStoredMarks([])
+    .setMeta("addToHistory", false)
+    .setMeta(leafdownSourceProjectionPluginKey, {
+      // The composed write already recorded the source it replaced, so this correction must not
+      // leave a second entry to undo.
+      previousSource: result.source,
+      type: "userEdit",
+    } satisfies ProjectionMeta);
+
+  view.dispatch(transaction);
+};
+
+const getProjectionSourceEdit = (
+  previousSource: string,
+  nextSource: string,
+): SourceProjectionEdit | null => {
+  if (previousSource === nextSource) {
+    return null;
+  }
+
+  let from = 0;
+
+  while (
+    from < previousSource.length &&
+    from < nextSource.length &&
+    previousSource[from] === nextSource[from]
+  ) {
+    from += 1;
+  }
+
+  let suffixLength = 0;
+
+  while (
+    suffixLength < previousSource.length - from &&
+    suffixLength < nextSource.length - from &&
+    previousSource.at(-1 - suffixLength) === nextSource.at(-1 - suffixLength)
+  ) {
+    suffixLength += 1;
+  }
+
+  return {
+    from,
+    text: nextSource.slice(from, nextSource.length - suffixLength),
+    to: previousSource.length - suffixLength,
+  };
 };
 
 const getRelativeProjectionEdit = (

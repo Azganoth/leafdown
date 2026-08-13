@@ -92,6 +92,8 @@ Source projection temporarily exposes a supported Markdown object as unmarked, e
 
 The shared projection engine owns the active session, projected range, projection-local history, dirty-state integration, and finalization. A clean session restores its original content; an edited session rehydrates valid source or commits literal text so projected characters are not discarded. A projected range holds flat text; a session whose range stops holding it ends without committing, leaving what landed there in the document.
 
+A change that reaches the projected range without passing through the engine's edit path is an unauthored write; composition input is the path that produces one. The engine keeps an unauthored write out of native history, where it would replay against coordinates the commit discards, and otherwise treats it as the content change it is: the document becomes dirty and projection-local history can step back over it.
+
 Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, then standalone footnote reference. Adapters that cannot preserve a semantic mapping fall back to literal text.
 
 Marker presentation remains separate from projection lifecycle. Decorations style active source, while projected Markdown remains document text rather than widget or NodeView input state.

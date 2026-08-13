@@ -76,6 +76,23 @@ describe("image link label source projection", () => {
     expect(getLabelPresentation(mounted)).toBe("word ![alt](./pic.png)");
   });
 
+  it("projects a label mixing formatted text and an image", async () => {
+    const source = "[**bold** ![alt](./pic.png)](./doc.md)";
+    const mounted = await mountProjectionEditor(`${source} tail`);
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "image"));
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(`${source} tail`);
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, source) + "[**bold".length);
+    typeText(mounted.view, "er");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(`${source.replace("bold", "bolder")} tail\n`);
+    expect(getLinkedImage(mounted)?.attrs.src).toBe("./pic.png");
+  });
+
   it("commits a label holding both a soft break and an image", async () => {
     const source = "[first\n![alt](./pic.png)](./doc.md)";
     const mounted = await mountProjectionEditor(`${source} tail`);

@@ -187,6 +187,22 @@ describe("Markdown compatibility", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  it.each([
+    "[**bold** ![alt](./pic.png)](./doc.md)",
+    "[![alt](./pic.png) **bold**](./doc.md)",
+    "[*soft* ![a](./a.png) `code`](./doc.md)",
+    "[**bold**\n![alt](./pic.png)](./doc.md)",
+  ])("preserves logical link wrappers around images in %s", async (source) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "renderable",
+      path: "C:/Notes/pic.png",
+    }));
+
+    const mounted = await mountEditor(source, createMarkdownReferenceContext());
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
   it("uses logical link serialization for Markdown update listeners", async () => {
     const onMarkdownUpdated = vi.fn();
     const mounted = await mountEditor("[plain **bold**](first)\n\nTail", { onMarkdownUpdated });

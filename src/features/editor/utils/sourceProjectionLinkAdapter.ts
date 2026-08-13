@@ -1,6 +1,6 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isTruthy } from "@/lib/predicates";
@@ -20,6 +20,7 @@ import {
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
+import { getTextBetween } from "./textRanges";
 
 const LINK_ADAPTER_ID = "link";
 const LINK_MARK_NAME = "link";
@@ -35,7 +36,8 @@ const OUTER_LINK_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 const isInlineSoftBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
 
-const isSupportedLinkNode = (node: ProseMirrorNode) => node.isText || isInlineSoftBreak(node);
+const isSupportedLinkNode = (node: ProseMirrorNode) =>
+  node.isText || isInlineSoftBreak(node) || node.type.name === "image";
 
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
@@ -246,8 +248,10 @@ const parseLinkSource = (
   };
 };
 
+// Every node in a label stands for one document position, so the text has to spend one
+// character on each of them to stay aligned with the source map's document offsets.
 const getLinkContentText = (target: LinkSourceProjectionTarget) =>
-  target.originalContent.content.textBetween(0, target.originalContent.content.size);
+  getTextBetween(target.originalContent.content, 0, target.originalContent.content.size);
 
 const mergeCoincidentInsertions = (edits: readonly LinkProjectionTextEdit[]) => {
   const merged: LinkProjectionTextEdit[] = [];
@@ -290,7 +294,10 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       restore.push({ from: previousSourceTo, text: "", to: segment.sourceFrom });
     }
 
-    if (segment.type === "inlineBreak") {
+    // A node maps as one span rather than character by character, and restoring it to the
+    // text the document reads there holds the size the original content needs;
+    // `createRestoreCleanLinkTransaction` swaps the node itself back in.
+    if (segment.type !== "text") {
       enter.push({
         from: segment.documentFrom,
         text: source.slice(segment.sourceFrom, segment.sourceTo),
@@ -298,7 +305,7 @@ const getLinkProjectionTextEdits = (target: LinkSourceProjectionTarget) => {
       });
       restore.push({
         from: segment.sourceFrom,
-        text: "\n",
+        text: content.slice(segment.documentFrom, segment.documentTo),
         to: segment.sourceTo,
       });
       previousSourceTo = segment.sourceTo;
@@ -453,6 +460,31 @@ const mapSelectionPositionFromSource = (
   return session.from + (map ? mapLinkSourcePositionToDocument(sourceOffset, map) : sourceOffset);
 };
 
+const isLinkSelectionSemantic = (
+  selection: Selection,
+  session: SourceProjectionSessionRange<LinkSourceProjectionTarget>,
+  map: LinkSourceMap | null,
+) => {
+  if (!map) {
+    return true;
+  }
+
+  const selectionFrom = selection.from - session.from;
+  const selectionTo = selection.to - session.from;
+
+  return map.segments.every((segment) => {
+    if (segment.type !== "image") {
+      return true;
+    }
+
+    const overlapsSelection = selectionFrom < segment.sourceTo && segment.sourceFrom < selectionTo;
+
+    return (
+      !overlapsSelection || (selectionFrom <= segment.sourceFrom && segment.sourceTo <= selectionTo)
+    );
+  });
+};
+
 const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
   const spans: SourceProjectionPresentationSpan[] = [
     {
@@ -523,6 +555,11 @@ export const createLinkSourceProjectionAdapter = ({
   serializer,
 }: LinkAdapterDependencies): SourceProjectionAdapter<LinkSourceProjectionTarget> => ({
   id: LINK_ADAPTER_ID,
+  // Part of an image's source has no semantic equivalent: whichever characters the selection
+  // covers, the rich payload can only carry the whole image or none of it. A partial soft
+  // break stays semantic, since the break and the characters it spans read the same.
+  canCopySelectionSemantically: (selection, session, parsed) =>
+    isLinkSelectionSemantic(selection, session, createLinkSourceMap(remark, parsed.source)),
   createEnterTransaction: createEnterLinkProjectionTransaction,
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (linkTarget, source) => {

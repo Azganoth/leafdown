@@ -27,8 +27,11 @@ const getInnerLinkMarks = (node: ProseMirrorNode, linkMark: Mark) =>
 const isInlineSoftBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
 
+const isSerializableLinkNode = (node: ProseMirrorNode) =>
+  node.isText || isInlineSoftBreak(node) || node.type.name === "image";
+
 const isMixedLinkRun = (nodes: readonly ProseMirrorNode[], linkMark: Mark) => {
-  if (!nodes.every((node) => node.isText || isInlineSoftBreak(node))) {
+  if (!nodes.every(isSerializableLinkNode)) {
     return false;
   }
 

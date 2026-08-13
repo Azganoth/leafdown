@@ -15,11 +15,18 @@ interface LinkTextSourceSegment extends LinkSourceSegmentBase {
   type: "text";
 }
 
+interface LinkImageSourceSegment extends LinkSourceSegmentBase {
+  type: "image";
+}
+
 interface LinkInlineBreakSourceSegment extends LinkSourceSegmentBase {
   type: "inlineBreak";
 }
 
-export type LinkSourceSegment = LinkInlineBreakSourceSegment | LinkTextSourceSegment;
+export type LinkSourceSegment =
+  | LinkImageSourceSegment
+  | LinkInlineBreakSourceSegment
+  | LinkTextSourceSegment;
 
 export interface LinkSourceMap {
   documentSize: number;
@@ -132,7 +139,7 @@ const isSupportedLinkChild = (node: MarkdownNode): boolean => {
     return typeof node.value === "string";
   }
 
-  if (isInlineSoftBreak(node)) {
+  if (node.type === "image" || isInlineSoftBreak(node)) {
     return true;
   }
 
@@ -275,6 +282,16 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
     }
   };
 
+  const addSourceTypes = (ancestorTypes: readonly string[]) => {
+    for (const type of ancestorTypes) {
+      if (type === "delete") {
+        sourceTypes.add("strike_through");
+      } else if (type === "strong" || type === "emphasis" || type === "inlineCode") {
+        sourceTypes.add(type);
+      }
+    }
+  };
+
   const visit = (node: MarkdownNode, ancestorTypes: readonly string[]): boolean => {
     const nextAncestorTypes = [...ancestorTypes, node.type];
 
@@ -289,15 +306,29 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
         return false;
       }
 
-      for (const type of nextAncestorTypes) {
-        if (type === "delete") {
-          sourceTypes.add("strike_through");
-        } else if (type === "strong" || type === "emphasis" || type === "inlineCode") {
-          sourceTypes.add(type);
-        }
+      addSourceTypes(nextAncestorTypes);
+      addTextSegments(value, position, getLinkContentClassName(nextAncestorTypes));
+
+      return true;
+    }
+
+    if (node.type === "image") {
+      const position = getMarkdownPosition(node);
+
+      if (!position) {
+        return false;
       }
 
-      addTextSegments(value, position, getLinkContentClassName(nextAncestorTypes));
+      addSourceTypes(nextAncestorTypes);
+      segments.push({
+        className: getLinkContentClassName(nextAncestorTypes),
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "image",
+      });
+      documentOffset += 1;
 
       return true;
     }
@@ -344,7 +375,7 @@ export const mapLinkDocumentPositionToSource = (
     return 0;
   }
 
-  if (segment.type === "inlineBreak") {
+  if (segment.type !== "text") {
     return offset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
   }
 

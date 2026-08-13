@@ -42,6 +42,24 @@ const waitForMarkdownUpdateListener = async () => {
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
 
+// ProseMirror finishes a composition on a timer and reconciles the DOM when it fires. Without the
+// wait that lands after the editor is gone.
+const PROSEMIRROR_COMPOSITION_END_MS = 20;
+
+const composeText = async (mounted: MountedMilkdownEditor, position: number, text: string) => {
+  vi.useFakeTimers();
+
+  try {
+    setTextSelection(mounted.view, position);
+    mounted.view.dom.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+    typeText(mounted.view, text);
+    mounted.view.dom.dispatchEvent(new Event("compositionend", { bubbles: true }));
+    await vi.advanceTimersByTimeAsync(PROSEMIRROR_COMPOSITION_END_MS);
+  } finally {
+    vi.useRealTimers();
+  }
+};
+
 describe("source projection", () => {
   describe("entry and rendering", () => {
     it("projects strong markers as real editable document text", async () => {
@@ -1845,6 +1863,43 @@ describe("source projection", () => {
       expect(typeText(mounted.view, "に")).toBe(false);
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe("[first field walk!に](./doc.md) tail");
+    });
+
+    it.each([
+      { expected: "**BoldX** plain", offset: 7, side: "closing" },
+      { expected: "**XBold** plain", offset: 1, side: "opening" },
+    ])("normalizes input composed inside the $side marker", async ({ expected, offset }) => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+      await composeText(mounted, getEditorTextPosition(mounted, BOLD_PLAIN_MARKDOWN) + offset, "X");
+
+      expect(getEditorTextContent(mounted)).toBe(expected);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${expected}\n`);
+    });
+
+    it("undoes normalized composed input in one step", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+      await composeText(mounted, getEditorTextPosition(mounted, BOLD_PLAIN_MARKDOWN) + 7, "X");
+
+      expect(getEditorTextContent(mounted)).toBe("**BoldX** plain");
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+    });
+
+    it("leaves input composed outside the markers literal, as typing there does", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+      await composeText(mounted, getEditorTextPosition(mounted, BOLD_PLAIN_MARKDOWN), "X");
+
+      expect(getEditorTextContent(mounted)).toBe("X**Bold** plain");
     });
   });
 

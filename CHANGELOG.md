@@ -21,6 +21,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Undo text composed with an IME inside an open Markdown source, instead of leaving undo enabled but inert until the source closes.
 - Mark the document as changed when text is composed with an IME inside an open Markdown source, instead of reporting it as clean so the composed text is discarded on close without a prompt.
 - Keep a line break inside a link label when the browser rewrites the text around it, instead of silently replacing the break with a space and saving the label on one line.
 - Keep only the accepted candidate when typing with an IME while a Markdown source is open, instead of leaving every intermediate composition state behind.

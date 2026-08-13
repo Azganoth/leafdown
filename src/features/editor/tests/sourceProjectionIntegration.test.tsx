@@ -223,6 +223,27 @@ describe("source projection integration", () => {
       expect(onContentChanged).toHaveBeenCalledTimes(1);
     });
 
+    it("steps projection-local history over a composed character", async () => {
+      const mounted = await mountProjectionEditor("[first field walk](./doc.md) tail");
+
+      enterProjection(mounted, "a");
+
+      const walkEnd = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+      setTextSelection(mounted.view, walkEnd);
+      mounted.view.dom.dispatchEvent(new Event("compositionstart", { bubbles: true }));
+      typeText(mounted.view, "に");
+
+      expect(getEditorTextContent(mounted)).toBe("[first field walkに](./doc.md) tail");
+
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("[first field walk](./doc.md) tail");
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("[first field walkに](./doc.md) tail");
+    });
+
     it("finalizes active projected source before Markdown serialization", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

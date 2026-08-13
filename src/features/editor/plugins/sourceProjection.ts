@@ -123,8 +123,8 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     },
     state: {
       init: () => EMPTY_PROJECTION_STATE,
-      apply: (transaction, pluginState, _oldState, newState) =>
-        applyProjectionTransaction(transaction, pluginState, newState),
+      apply: (transaction, pluginState, oldState, newState) =>
+        applyProjectionTransaction(transaction, pluginState, oldState, newState),
     },
   });
 
@@ -387,6 +387,7 @@ const appendProjectionTransaction = (
 const applyProjectionTransaction = (
   transaction: Transaction,
   pluginState: SourceProjectionPluginState,
+  oldState: EditorState,
   newState: EditorState,
 ): SourceProjectionPluginState => {
   const meta = getProjectionMeta(transaction);
@@ -492,6 +493,24 @@ const applyProjectionTransaction = (
       isLinkLabelHovered: false,
       pendingCommit: null,
       session: null,
+      suppressedSelection,
+    };
+  }
+
+  if (isSourceProjectionSuppressedHistoryTransaction(transaction)) {
+    const previousSource = getProjectionSource(oldState, pluginState.session);
+
+    return {
+      isLinkLabelHovered: false,
+      pendingCommit: null,
+      session: {
+        ...session,
+        redoStack: [],
+        undoStack:
+          previousSource === getProjectionSource(newState, session)
+            ? session.undoStack
+            : [...session.undoStack, previousSource],
+      },
       suppressedSelection,
     };
   }

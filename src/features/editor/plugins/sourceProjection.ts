@@ -735,8 +735,7 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
   }
 
   const text =
-    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ||
-    (slice ? getTextBetween(slice.content, 0, Number.MAX_SAFE_INTEGER) : "");
+    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) || (slice ? getSliceSourceText(slice) : "");
 
   if (!text && !event.clipboardData && !slice) {
     return false;
@@ -750,6 +749,14 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
 
   return true;
 };
+
+// A hard break is the only node whose source is the newline `getTextBetween` reads it as. Reading
+// any other node that way would paste a line break the author never copied, so it contributes
+// nothing until an adapter can serialize it.
+const getSliceSourceText = (slice: Slice) =>
+  slice.content.textBetween(0, slice.content.size, "\n", (node) =>
+    node.type.name === INLINE_BREAK_NODE_NAME ? "\n" : "",
+  );
 
 const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   const session = getSourceProjectionState(view.state).session;

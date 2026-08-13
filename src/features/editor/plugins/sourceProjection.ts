@@ -41,6 +41,7 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
   "leafdownSourceProjection",
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
+const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
 
@@ -100,6 +101,10 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     filterTransaction: (transaction, state) => {
       if (transaction.docChanged && hasActiveSourceProjection(state)) {
         transaction.setMeta("addToHistory", false);
+
+        if (!getProjectionMeta(transaction)) {
+          transaction.setMeta(SOURCE_PROJECTION_SUPPRESSED_HISTORY_META, true);
+        }
       }
 
       return true;
@@ -316,6 +321,12 @@ export const isSourceProjectionDirtyTransaction = (transaction: Transaction) => 
 
   return meta?.type === "userEdit";
 };
+
+// A write the projection did not author keeps its history capture suppressed, but it is still a
+// content change. Without this the dirty tracker reads the suppression as "nothing happened" and
+// the document reports itself clean.
+export const isSourceProjectionSuppressedHistoryTransaction = (transaction: Transaction) =>
+  transaction.getMeta(SOURCE_PROJECTION_SUPPRESSED_HISTORY_META) === true;
 
 export const isSourceProjectionHousekeepingTransaction = (transaction: Transaction) => {
   const meta = getProjectionMeta(transaction);

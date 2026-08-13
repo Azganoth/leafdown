@@ -5,6 +5,7 @@ import { $prose } from "@milkdown/kit/utils";
 import {
   isSourceProjectionDirtyTransaction,
   isSourceProjectionHousekeepingTransaction,
+  isSourceProjectionSuppressedHistoryTransaction,
 } from "./sourceProjection";
 
 interface DirtyTrackerPluginState {
@@ -25,7 +26,8 @@ const getDirtyTrackerState = (state: EditorState) =>
 const shouldTrackDirtyTransaction = (transaction: Transaction) =>
   transaction.docChanged &&
   (isSourceProjectionDirtyTransaction(transaction) ||
-    (transaction.getMeta("addToHistory") !== false &&
+    ((transaction.getMeta("addToHistory") !== false ||
+      isSourceProjectionSuppressedHistoryTransaction(transaction)) &&
       !isSourceProjectionHousekeepingTransaction(transaction)));
 
 export const createLeafdownDirtyTrackerPlugin = (onContentChanged: () => void) =>

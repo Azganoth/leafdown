@@ -42,6 +42,8 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
 
+const INLINE_BREAK_NODE_NAME = "hardbreak";
+
 interface ProjectionSession extends TextRange {
   adapter: SourceProjectionAdapter;
   redoStack: string[];
@@ -470,7 +472,11 @@ const applyProjectionTransaction = (
     };
   }
 
-  if (transaction.docChanged && !isRangeInsideProjection(newState.selection, session)) {
+  if (
+    transaction.docChanged &&
+    (!isRangeInsideProjection(newState.selection, session) ||
+      !isProjectionRangeFlatText(newState, session))
+  ) {
     return {
       isLinkLabelHovered: false,
       pendingCommit: null,
@@ -1060,6 +1066,24 @@ const replaceProjectionRange = (
 
 const isRangeInsideProjection = (range: TextRange, session: ProjectionSession) =>
   session.from <= range.from && range.to <= session.to;
+
+// The projected range is modelled as flat literal text, and `getTextBetween` reads every leaf
+// node back as a newline. A hard break is the only node that survives that reading, since it
+// already stands for the newline it reports; any other node would commit as a line break the
+// author never wrote.
+const isProjectionRangeFlatText = (state: EditorState, { from, to }: TextRange) => {
+  let isFlatText = state.doc.resolve(from).sameParent(state.doc.resolve(to));
+
+  state.doc.nodesBetween(from, to, (node) => {
+    if (node.isInline && !node.isText && node.type.name !== INLINE_BREAK_NODE_NAME) {
+      isFlatText = false;
+    }
+
+    return isFlatText;
+  });
+
+  return isFlatText;
+};
 
 const mapProjectionSession = (session: ProjectionSession, transaction: Transaction) => {
   if (!transaction.docChanged) {

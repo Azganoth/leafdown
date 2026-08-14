@@ -136,6 +136,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
         mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
         paste: (view, event) => handleProjectionPaste(view, event as ClipboardEvent),
       },
+      handleDrop: (view, event, slice, moved) => handleProjectionDrop(view, event, slice, moved),
       handleKeyDown: (view, event) => handleProjectionKeyDown(view, event),
       handlePaste: (view, event, slice) => handleProjectionPaste(view, event, slice),
       handleTextInput: (view, from, to, text) =>
@@ -722,6 +723,30 @@ const handleProjectionSourceTextInput = (
     .scrollIntoView();
 
   view.dispatch(transaction);
+
+  return true;
+};
+
+const handleProjectionDrop = (view: EditorView, event: DragEvent, slice: Slice, moved: boolean) => {
+  const session = getSourceProjectionState(view.state).session;
+
+  if (!session || moved) {
+    return false;
+  }
+
+  const dropPosition = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+
+  if (dropPosition === undefined || dropPosition < session.from || session.to < dropPosition) {
+    return false;
+  }
+
+  const text = getSliceSourceText(view.state, session.adapter, slice);
+
+  event.preventDefault();
+
+  if (text) {
+    dispatchProjectionEdit(view, dropPosition, dropPosition, text);
+  }
 
   return true;
 };

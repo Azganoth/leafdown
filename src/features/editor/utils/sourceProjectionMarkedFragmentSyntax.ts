@@ -15,6 +15,8 @@ import {
   type ProjectionMarkDescriptor,
 } from "./sourceProjectionSyntax";
 
+const INLINE_BREAK_NODE_NAME = "hardbreak";
+
 interface MarkedFragmentSourceSegmentBase {
   documentFrom: number;
   documentTo: number;
@@ -246,12 +248,15 @@ export const serializeMarkedFragmentSource = (
   let hasFootnoteReferences = false;
 
   content.forEach((node) => {
+    const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
     const nodeSource = node.isText
       ? (node.text ?? "")
-      : serializeFootnoteReference(state, serializer, node);
+      : isBreak
+        ? "\n"
+        : serializeFootnoteReference(state, serializer, node);
     const sourceTo = sourceOffset + nodeSource.length;
 
-    if (node.isText) {
+    if (node.isText || isBreak) {
       innerSegments.push({
         documentFrom: documentOffset,
         documentTo: documentOffset + node.nodeSize,

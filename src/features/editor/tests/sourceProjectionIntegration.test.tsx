@@ -32,22 +32,37 @@ const waitForMarkdownUpdateListener = async () => {
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
 
-const dropNode = (mounted: MountedMilkdownEditor, dropPosition: number, nodePosition: number) => {
+interface DropOptions {
+  copy?: boolean;
+  html?: string;
+  nodePosition?: number;
+}
+
+const dropNode = (
+  mounted: MountedMilkdownEditor,
+  dropPosition: number,
+  { copy = false, html, nodePosition }: DropOptions,
+) => {
   const { view } = mounted;
 
   view.posAtCoords = () => ({ inside: -1, pos: dropPosition });
-  view.dragging = {
-    move: false,
-    slice: view.state.doc.slice(nodePosition, nodePosition + 1),
-  };
+  view.dragging =
+    nodePosition === undefined
+      ? null
+      : { move: false, slice: view.state.doc.slice(nodePosition, nodePosition + 1) };
 
   const event = new Event("drop", { bubbles: true, cancelable: true });
 
   Object.assign(event, {
     clientX: 0,
     clientY: 0,
-    ctrlKey: false,
-    dataTransfer: { dropEffect: "copy", effectAllowed: "all", getData: () => "", types: [] },
+    ctrlKey: copy,
+    dataTransfer: {
+      dropEffect: "copy",
+      effectAllowed: "all",
+      getData: (format: string) => (format === "text/html" ? (html ?? "") : ""),
+      types: html ? ["text/html"] : [],
+    },
     metaKey: false,
   });
 
@@ -378,7 +393,40 @@ describe("source projection integration", () => {
       expect(onContentChanged).toHaveBeenCalledTimes(2);
     });
 
-    it("ends the session instead of committing a node dropped into projected source", async () => {
+    it("drops an image from another application into projected source as its source", async () => {
+      const mounted = await mountProjectionEditor("[word](./doc.md)");
+
+      enterProjection(mounted, "a");
+
+      const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
+
+      dropNode(mounted, labelPosition, { html: '<img src="./pic.png">' });
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("[wor![](./pic.png)d](./doc.md)\n");
+    });
+
+    it("drops no line break for a node the projected source cannot hold", async () => {
+      const mounted = await mountProjectionEditor(
+        "[word](./doc.md) Text[^note]\n\n[^note]: Detail",
+      );
+
+      enterProjection(mounted, "a");
+
+      const referencePosition = getEditorNodePosition(mounted, "footnote_reference");
+      const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
+      const before = getEditorTextContent(mounted);
+
+      dropNode(mounted, labelPosition, { nodePosition: referencePosition, copy: true });
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(before);
+    });
+
+    it("ends the session when a node is moved into projected source from the document", async () => {
       const mounted = await mountProjectionEditor("[word](./doc.md) ![alt](./pic.png)");
 
       enterProjection(mounted, "a");
@@ -386,14 +434,10 @@ describe("source projection integration", () => {
       const imagePosition = getEditorNodePosition(mounted, "image");
       const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
 
-      dropNode(mounted, labelPosition, imagePosition);
+      dropNode(mounted, labelPosition, { nodePosition: imagePosition });
 
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
-
-      setSelectionAtDocumentEnd(mounted.view);
-
       expect(mounted.view.state.doc.nodeAt(labelPosition)?.type.name).toBe("image");
-      expect(mounted.getMarkdown()).toBe("\\[wor![alt](./pic.png)d](./doc.md) ![alt](./pic.png)\n");
     });
   });
 

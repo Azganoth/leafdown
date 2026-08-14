@@ -6,14 +6,14 @@ import {
   serializerCtx,
 } from "@milkdown/kit/core";
 import { closeHistory } from "@milkdown/kit/prose/history";
-import type { Slice } from "@milkdown/kit/prose/model";
+import { DOMParser, type Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $proseAsync } from "@milkdown/kit/utils";
 
-import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
   applyLiteralSourceProjectionEdit,
@@ -734,8 +734,10 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
     return false;
   }
 
+  const pastedSlice = slice ?? parseProjectionPasteSlice(view, event);
   const text =
-    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) || (slice ? getSliceSourceText(slice) : "");
+    event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE) ||
+    (pastedSlice ? getSliceSourceText(view.state, session.adapter, pastedSlice) : "");
 
   if (!text && !event.clipboardData && !slice) {
     return false;
@@ -750,13 +752,36 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
   return true;
 };
 
-// A hard break is the only node whose source is the newline `getTextBetween` reads it as. Reading
-// any other node that way would paste a line break the author never copied, so it contributes
-// nothing until an adapter can serialize it.
-const getSliceSourceText = (slice: Slice) =>
-  slice.content.textBetween(0, slice.content.size, "\n", (node) =>
-    node.type.name === INLINE_BREAK_NODE_NAME ? "\n" : "",
-  );
+// Milkdown's clipboard plugin claims the paste at `handlePaste` before the projection sees a
+// slice there, and the DOM event, the only hook that runs earlier, arrives before ProseMirror
+// parses anything.
+const parseProjectionPasteSlice = (view: EditorView, event: ClipboardEvent) => {
+  const html = event.clipboardData?.getData(TEXT_HTML_MIME_TYPE);
+
+  if (!html) {
+    return null;
+  }
+
+  const transformed =
+    view.someProp("transformPastedHTML", (transform) => transform(html, view)) ?? html;
+  const template = document.createElement("template");
+
+  template.innerHTML = transformed;
+
+  return DOMParser.fromSchema(view.state.schema).parseSlice(template.content);
+};
+
+// A projected range holds one flat run of inline source, so only a slice that is itself one such
+// run has a faithful source form. An open textblock is how a parse delivers inline content rather
+// than block structure.
+const getSliceSourceText = (state: EditorState, adapter: SourceProjectionAdapter, slice: Slice) => {
+  const { content } = slice;
+  const wrapper = content.childCount === 1 ? content.firstChild : null;
+  const inlineContent =
+    wrapper?.isTextblock && slice.openStart > 0 && slice.openEnd > 0 ? wrapper.content : content;
+
+  return adapter.serializeInlineSource?.(state, inlineContent) ?? "";
+};
 
 const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   const session = getSourceProjectionState(view.state).session;

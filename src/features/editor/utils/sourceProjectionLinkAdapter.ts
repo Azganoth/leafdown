@@ -1,6 +1,6 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isTruthy } from "@/lib/predicates";
@@ -127,6 +127,34 @@ const serializeLinkTarget = (
   const document = state.schema.nodes.doc.create(null, paragraph);
 
   return createLogicalLinkMarkdownSerializer(serializer)(document).replace(/\n$/u, "");
+};
+
+// A link nested inside a projected label produces source the label cannot describe.
+const serializeInlineLinkSource = (
+  state: EditorState,
+  serializer: Serializer,
+  fragment: Fragment,
+) => {
+  const nodes: ProseMirrorNode[] = [];
+  let isSupported = fragment.childCount > 0;
+
+  fragment.forEach((node) => {
+    if (!isSupportedLinkNode(node)) {
+      isSupported = false;
+      return;
+    }
+
+    nodes.push(node.mark(node.marks.filter((mark) => mark.type.name !== LINK_MARK_NAME)));
+  });
+
+  if (!isSupported) {
+    return null;
+  }
+
+  const paragraph = state.schema.nodes.paragraph.create(null, Fragment.fromArray(nodes));
+  const document = state.schema.nodes.doc.create(null, paragraph);
+
+  return serializer(document).replace(/\n$/u, "");
 };
 
 const findLinkTarget = (
@@ -605,4 +633,6 @@ export const createLinkSourceProjectionAdapter = ({
         };
   },
   restoreCleanTarget: createRestoreCleanLinkTransaction,
+  serializeInlineSource: (state, fragment) =>
+    serializeInlineLinkSource(state, serializer, fragment),
 });

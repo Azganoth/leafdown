@@ -123,6 +123,7 @@ export interface SourceProjectionAdapter<
     state: EditorState,
     session: SourceProjectionSessionRange<TTarget>,
   ): Transaction;
+  serializeInlineSource?(state: EditorState, fragment: Fragment): string | null;
   shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
 }
 

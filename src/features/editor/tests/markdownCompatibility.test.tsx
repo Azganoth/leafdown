@@ -188,6 +188,20 @@ describe("Markdown compatibility", () => {
   });
 
   it.each([
+    { expected: "**[a b](./doc.md)**", source: "**[**a** b](./doc.md)**" },
+    { expected: "**[a b c](./doc.md)**", source: "**[a **b** c](./doc.md)**" },
+    { expected: "**bold [a b](./doc.md) tail**", source: "**bold [**a** b](./doc.md) tail**" },
+    { expected: "*[a b](./doc.md)*", source: "*[*a* b](./doc.md)*" },
+    { expected: "[~~a b~~](./doc.md)", source: "~~[~~a~~ b](./doc.md)~~" },
+    { expected: "**[a b](./doc.md)**", source: "**[a **b**](./doc.md)**" },
+    { expected: "**[*a* b](./doc.md)**", source: "**[*a* b](./doc.md)**" },
+  ])("keeps the wrapping mark of $source", async ({ expected, source }) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${expected}\n`);
+  });
+
+  it.each([
     "[**bold** ![alt](./pic.png)](./doc.md)",
     "[![alt](./pic.png) **bold**](./doc.md)",
     "[*soft* ![a](./a.png) `code`](./doc.md)",

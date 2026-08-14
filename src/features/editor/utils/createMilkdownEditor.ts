@@ -50,6 +50,7 @@ import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
+import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
 import {
   createLeafdownSourceProjectionPlugin,
   finalizeSourceProjection,
@@ -138,6 +139,7 @@ export const createMilkdownEditor = async ({
 
   const configuredEditor = editor
     .use(createLeafdownBlockStructurePlugin())
+    .use(createLeafdownMarkNestingPlugin())
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
     .use(gfm)

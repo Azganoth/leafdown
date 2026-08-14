@@ -147,6 +147,9 @@ interface ProjectionMarkSegment extends ActiveProjectionRange {
   trailingWhitespaceLength: number;
 }
 
+const isInlineBreak = (node: ProseMirrorNode) =>
+  node.type.name === "hardbreak" && node.attrs.isInline === true;
+
 const createTextSlice = (
   state: EditorState,
   text: string,
@@ -359,7 +362,7 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
 const getProjectionMarksFromInlineNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
   const isFootnoteReference = node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
-  if (!node.isText && !isFootnoteReference) {
+  if (!node.isText && !isFootnoteReference && !isInlineBreak(node)) {
     return [];
   }
 

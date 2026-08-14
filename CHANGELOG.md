@@ -22,6 +22,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep formatting when text spanning two lines is pasted into an open Markdown source, instead of splitting the markers and saving them as escaped characters.
 - Paste an image or formatted text into an open link label as its Markdown source, so the link keeps it instead of the paste doing nothing.
 - Paste content that carries no plain text into an open Markdown source, such as an image copied from a web page, instead of the paste doing nothing.
 - Keep formatting when text is composed with an IME between the markers of an open Markdown source, instead of splitting the markers and saving them as escaped characters.

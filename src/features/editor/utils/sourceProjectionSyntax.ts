@@ -257,7 +257,7 @@ const getSourceMarkersWithoutStrikethrough = (marks: ProjectionMarkDescriptor[])
 };
 
 const parseDelimitedProjectionSource = (source: string): ParsedProjectionSource | null => {
-  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/u.exec(source);
+  const match = /^(?<opening>\*{1,3}|_{1,3})(?<text>.+?)(?<closing>\*{1,3}|_{1,3})$/su.exec(source);
 
   if (!match?.groups) {
     return null;

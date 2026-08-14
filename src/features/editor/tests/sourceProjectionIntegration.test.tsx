@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
+import { dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -195,6 +196,36 @@ describe("source projection integration", () => {
       expect(mounted.getMarkdown()).toBe(`${initialMarkdown}\n`);
       expect(getEditorDomElement(mounted, "a")).toHaveAttribute("href", "./doc.md");
     });
+  });
+
+  describe("multi-line paste", () => {
+    it.each([
+      {
+        expected: "**Boone\ntwold**\n",
+        offset: 4,
+        selector: "strong" as const,
+        source: "**Bold**",
+      },
+      {
+        expected: "[woone\ntword](./doc.md)\n",
+        offset: 3,
+        selector: "a" as const,
+        source: "[word](./doc.md)",
+      },
+    ])(
+      "keeps $source describable when two lines are pasted into it",
+      async ({ expected, offset, selector, source }) => {
+        const mounted = await mountProjectionEditor(source);
+
+        enterProjection(mounted, selector);
+        setTextSelection(mounted.view, getEditorTextPosition(mounted, source) + offset);
+        dispatchClipboardEvent(mounted.view.dom, "paste", { "text/plain": "one\ntwo" });
+        setSelectionAtDocumentEnd(mounted.view);
+
+        expect(mounted.getMarkdown()).toBe(expected);
+        expect(getEditorNodePosition(mounted, "hardbreak")).toBeGreaterThan(0);
+      },
+    );
   });
 
   describe("lifecycle integration", () => {

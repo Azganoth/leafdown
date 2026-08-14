@@ -164,6 +164,28 @@ const createTextSlice = (
   return new Slice(Fragment.from(node), 0, 0);
 };
 
+const createMarkedContentSlice = (
+  state: EditorState,
+  text: string,
+  marks: ProjectionMarkDescriptor[],
+) => {
+  if (!text.includes("\n")) {
+    return createTextSlice(state, text, marks);
+  }
+
+  const markSet = marks.map((mark) => state.schema.marks[mark.markName].create(mark.attrs));
+  const nodes = text
+    .split("\n")
+    .flatMap((line, index) => [
+      ...(index > 0
+        ? [state.schema.nodes.hardbreak.create({ isInline: true }, null, markSet)]
+        : []),
+      ...(line ? [state.schema.text(line, markSet)] : []),
+    ]);
+
+  return new Slice(Fragment.fromArray(nodes), 0, 0);
+};
+
 export const createLiteralSourceProjectionSlice = (state: EditorState, text: string) =>
   createTextSlice(state, text);
 
@@ -981,7 +1003,7 @@ export const createMarkSourceProjectionAdapter = ({
       const replacement = getProjectionReplacement(parsed);
       const replacementSlice =
         replacement.type === "marked"
-          ? createTextSlice(state, replacement.text, replacement.marks)
+          ? createMarkedContentSlice(state, replacement.text, replacement.marks)
           : createTextSlice(state, replacement.text);
 
       return {

@@ -270,6 +270,61 @@ describe("Markdown compatibility", () => {
   });
 });
 
+describe("Typed link source", () => {
+  const typedLinkSourceFixtures = [
+    {
+      expected: "\\[test link]\\(./test.html)",
+      name: "inline link",
+      typed: "[test link](./test.html)",
+    },
+    { expected: "https\\://example.com", name: "autolink literal", typed: "https://example.com" },
+    { expected: "\\<https\\://example.com>", name: "URI autolink", typed: "<https://example.com>" },
+  ];
+
+  it.each(typedLinkSourceFixtures)(
+    "keeps a typed $name literal when it ends the paragraph",
+    async ({ expected, typed }) => {
+      const mounted = await mountEditor("");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, typed);
+
+      expect(mounted.getMarkdown()).toBe(`${expected}\n`);
+    },
+  );
+
+  it.each(typedLinkSourceFixtures)(
+    "keeps a typed $name literal when a space follows it",
+    async ({ expected, typed }) => {
+      const mounted = await mountEditor("");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, `${typed} `);
+
+      expect(mounted.getMarkdown()).toBe(`${expected} \n`);
+    },
+  );
+
+  it.each(["\\[test link]\\(./test.html)", "\\[test link]\\(./test.html) "])(
+    "reloads a typed inline link as the text the editor presented in %j",
+    async (source) => {
+      const mounted = await mountEditor(source);
+
+      expect(mounted.view.dom.querySelector("a")).toBeNull();
+      expect(mounted.view.dom).toHaveTextContent("[test link](./test.html)");
+    },
+  );
+
+  it("writes an ordinary trailing space as itself", async () => {
+    const mounted = await mountEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "plain tail ");
+
+    expect(mounted.getMarkdown()).toBe("plain tail \n");
+  });
+});
+
 describe("Authored raw line breaks", () => {
   it.each([
     "a <br /> b",

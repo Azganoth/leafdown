@@ -255,6 +255,7 @@ describe("multiline logical-link source projection", () => {
         JSON.stringify({
           href: "./article-navigator/01-overview.md",
           title: "Calibration review",
+          isBareAutolink: false,
         }),
       ]),
     );

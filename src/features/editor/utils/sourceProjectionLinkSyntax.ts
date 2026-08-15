@@ -205,20 +205,24 @@ const getLogicalLinkNode = (root: MarkdownNode, sourceLength: number) => {
 
 const getLinkLabelBounds = (link: MarkdownNode) => {
   const linkPosition = getMarkdownPosition(link);
+  const firstChild = link.children?.[0];
+  const firstChildPosition = firstChild ? getMarkdownPosition(firstChild) : null;
   const lastChild = link.children?.at(-1);
   const lastChildPosition = lastChild ? getMarkdownPosition(lastChild) : null;
 
   if (
     !linkPosition ||
+    !firstChildPosition ||
     !lastChildPosition ||
     lastChildPosition.to > linkPosition.to ||
-    linkPosition.from + 1 > lastChildPosition.to
+    firstChildPosition.from < linkPosition.from ||
+    firstChildPosition.from > lastChildPosition.to
   ) {
     return null;
   }
 
   return {
-    from: linkPosition.from + 1,
+    from: firstChildPosition.from,
     to: lastChildPosition.to,
   };
 };

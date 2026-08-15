@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import { dispatchClipboardEvent, dispatchKeyDown } from "@/test/utils/events";
+import { createClipboardData, dispatchClipboardEvent, dispatchKeyDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -39,6 +39,25 @@ describe("native editor clipboard events", () => {
     expect(event.defaultPrevented).toBe(true);
     expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Rich");
     expect(mounted.getMarkdown()).toBe("**Rich** text\n");
+  });
+
+  it.each([
+    { name: "bare", source: "https://example.com" },
+    { name: "angle-bracket", source: "<https://example.com>" },
+  ])("carries the $name autolink form through a copy and a paste", async ({ source }) => {
+    const copied = await mountEditor(source);
+    const clipboardData = createClipboardData();
+
+    setTextSelection(copied.view, 1, copied.view.state.doc.content.size - 1);
+    dispatchClipboardEvent(copied.view.dom, "copy", clipboardData);
+
+    const pasted = await mountEditor("");
+
+    dispatchClipboardEvent(pasted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: clipboardData.getData(TEXT_HTML_MIME_TYPE),
+    });
+
+    expect(pasted.getMarkdown()).toBe(`${source}\n`);
   });
 
   it("preserves semantic HTML-only content outside source projection", async () => {

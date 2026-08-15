@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Extend seamless in-document Markdown source projection to strikethrough, inline code, links, autolinks, and footnote references.
 - Present active mixed-format link labels as one coordinated source range.
 - Extend link label source projection to labels that contain an image, such as badge links.
+- Keep a URL written on its own as it was written, bare or between angle brackets, instead of putting angle brackets around every bare URL in the file on the first save.
 
 ### Fixed
 

@@ -195,6 +195,18 @@ describe("source projection", () => {
       ).toHaveTextContent("Link");
     });
 
+    it.each([
+      { name: "bare", source: "tail https://example.com" },
+      { name: "angle-bracket", source: "tail <https://example.com>" },
+    ])("projects a $name autolink as its authored source", async ({ source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      enterProjection(mounted, "a");
+
+      expect(getEditorTextContent(mounted)).toBe(source);
+      expect(mounted.getMarkdown()).toBe(`${source}\n`);
+    });
+
     it("projects only the exact mark combination around the caret", async () => {
       const mounted = await mountProjectionEditor("***Bold and italic***");
 

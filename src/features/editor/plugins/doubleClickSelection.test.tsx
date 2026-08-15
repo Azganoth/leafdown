@@ -23,10 +23,11 @@ const mountEditor = setupMilkdownEditorMount();
 const dispatchEditorDoubleClick = (view: EditorView, position: number, button = 0) => {
   const posAtCoords = vi.spyOn(view, "posAtCoords").mockReturnValue({ inside: -1, pos: position });
   const eventOptions = { button, clientX: 20, clientY: 20 };
+  const target = view.dom.firstElementChild ?? view.dom;
 
-  dispatchMouseEvent(view.dom, "mousedown", eventOptions);
-  dispatchMouseEvent(view.dom, "mouseup", eventOptions);
-  const secondMouseDown = dispatchMouseEvent(view.dom, "mousedown", eventOptions);
+  dispatchMouseEvent(target, "mousedown", eventOptions);
+  dispatchMouseEvent(target, "mouseup", eventOptions);
+  const secondMouseDown = dispatchMouseEvent(target, "mousedown", eventOptions);
 
   posAtCoords.mockRestore();
 

@@ -59,6 +59,7 @@ import {
 } from "../plugins/sourceProjection";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
+import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -164,6 +165,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
     .use(createLeafdownTaskListCheckboxPlugin())
+    .use(createLeafdownTrailingParagraphPlugin())
     .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);

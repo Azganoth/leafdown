@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Add a paragraph at the end of the document by clicking the empty space below it.
 - Close folder contexts from the File menu.
 - Add keyboard shortcuts for formatting task lists and toggling task items.
 

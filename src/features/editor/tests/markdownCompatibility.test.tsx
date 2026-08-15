@@ -188,13 +188,25 @@ describe("Markdown compatibility", () => {
   });
 
   it.each([
+    "**[a b](./doc.md)**",
+    "*[a b](./doc.md)*",
+    "~~[a b](./doc.md)~~",
+    "~~[`a b`](./doc.md)~~",
+  ])("keeps a mark wrapping a whole link outside the link in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
     { expected: "**[a b](./doc.md)**", source: "**[**a** b](./doc.md)**" },
     { expected: "**[a b c](./doc.md)**", source: "**[a **b** c](./doc.md)**" },
     { expected: "**bold [a b](./doc.md) tail**", source: "**bold [**a** b](./doc.md) tail**" },
     { expected: "*[a b](./doc.md)*", source: "*[*a* b](./doc.md)*" },
-    { expected: "[~~a b~~](./doc.md)", source: "~~[~~a~~ b](./doc.md)~~" },
+    { expected: "~~[a b](./doc.md)~~", source: "~~[~~a~~ b](./doc.md)~~" },
     { expected: "**[a b](./doc.md)**", source: "**[a **b**](./doc.md)**" },
     { expected: "**[*a* b](./doc.md)**", source: "**[*a* b](./doc.md)**" },
+    { expected: "**~~a b~~**", source: "~~**a b**~~" },
   ])("keeps the wrapping mark of $source", async ({ expected, source }) => {
     const mounted = await mountEditor(source);
 

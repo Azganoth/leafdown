@@ -18,6 +18,7 @@ import {
   hardbreakSchema,
   headingKeymap,
   inlineCodeKeymap,
+  linkSchema,
   orderedListKeymap,
   paragraphKeymap,
   remarkPreserveEmptyLinePlugin,
@@ -98,6 +99,9 @@ export const composeEditorViewAttributes = (
     : { ...previous, ...added };
 
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
+// Marks serialize in `spec.priority` order, 50 unless declared, and inline code declares 100 to
+// stay innermost.
+const LINK_MARK_PRIORITY = 75;
 const DISABLED_TEXT_ASSISTANCE_ATTRIBUTES = {
   spellcheck: "false",
   writingsuggestions: "false",
@@ -183,6 +187,10 @@ export const createMilkdownEditor = async ({
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,
+      }));
+      ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({
+        ...getSchema(schemaCtx),
+        priority: LINK_MARK_PRIORITY,
       }));
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });

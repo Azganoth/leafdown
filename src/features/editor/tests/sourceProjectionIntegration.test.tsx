@@ -441,17 +441,15 @@ describe("source projection integration", () => {
     });
 
     it("drops no line break for a node the projected source cannot hold", async () => {
-      const mounted = await mountProjectionEditor(
-        "[word](./doc.md) Text[^note]\n\n[^note]: Detail",
-      );
+      const mounted = await mountProjectionEditor("[word](./doc.md) Text\\\nmore");
 
       enterProjection(mounted, "a");
 
-      const referencePosition = getEditorNodePosition(mounted, "footnote_reference");
+      const breakPosition = getEditorNodePosition(mounted, "hardbreak");
       const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
       const before = getEditorTextContent(mounted);
 
-      dropNode(mounted, labelPosition, { nodePosition: referencePosition, copy: true });
+      dropNode(mounted, labelPosition, { nodePosition: breakPosition, copy: true });
 
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe(before);

@@ -2,6 +2,8 @@ import { Fragment, Mark, type Node as ProseMirrorNode } from "@milkdown/kit/pros
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
 
+import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
+
 interface LogicalLinkReplacement {
   source: string;
   token: string;
@@ -29,7 +31,10 @@ const isInlineSoftBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
 
 const isSerializableLinkNode = (node: ProseMirrorNode) =>
-  node.isText || isInlineSoftBreak(node) || node.type.name === "image";
+  node.isText ||
+  isInlineSoftBreak(node) ||
+  node.type.name === "image" ||
+  node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
 const isMixedLinkRun = (nodes: readonly ProseMirrorNode[], linkMark: Mark) => {
   if (!nodes.every(isSerializableLinkNode)) {

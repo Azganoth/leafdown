@@ -13,6 +13,7 @@ import {
   getEditorTextContent,
   getEditorTextPosition,
   getMarkNames,
+  setSelectionAtDocumentEnd,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
@@ -368,13 +369,38 @@ describe("source projection clipboard slices", () => {
     expect(mounted.getMarkdown()).toBe(`[wor${image}d](./doc.md) ${image}\n`);
   });
 
-  it("pastes no line break for a node the projected source cannot hold", async () => {
+  it("pastes a footnote reference into a projected link label as its Markdown source", async () => {
     const mounted = await mountEditor("[word](./doc.md) Text[^note]\n\n[^note]: Detail");
 
     enterProjection(mounted, "a");
 
     const referencePosition = getEditorNodePosition(mounted, "footnote_reference");
     const slice = mounted.view.state.doc.slice(referencePosition, referencePosition + 1);
+    const event = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
+
+    Object.defineProperty(event, "clipboardData", { value: createClipboardData() });
+    setTextSelection(
+      mounted.view,
+      getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length,
+    );
+
+    expect(
+      mounted.view.someProp("handlePaste", (handler) => handler(mounted.view, event, slice)),
+    ).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("[wor[^note]d](./doc.md) TextDetail");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("[wor[^note]d](./doc.md) Text[^note]\n\n[^note]: Detail\n");
+  });
+
+  it("pastes no line break for a node the projected source cannot hold", async () => {
+    const mounted = await mountEditor("[word](./doc.md) Text\\\nmore");
+
+    enterProjection(mounted, "a");
+
+    const breakPosition = getEditorNodePosition(mounted, "hardbreak");
+    const slice = mounted.view.state.doc.slice(breakPosition, breakPosition + 1);
     const event = new Event("paste", { bubbles: true, cancelable: true }) as ClipboardEvent;
 
     Object.defineProperty(event, "clipboardData", { value: createClipboardData() });

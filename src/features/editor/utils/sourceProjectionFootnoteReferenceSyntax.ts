@@ -7,6 +7,8 @@ export const FOOTNOTE_REFERENCE_OPENING = "[^";
 export const FOOTNOTE_REFERENCE_CLOSING = "]";
 
 const FOOTNOTE_DEFINITION_NODE_NAME = "footnote_definition";
+const FOOTNOTE_REFERENCE_CANDIDATE_PATTERN = /\[\^(?:\\.|[^[\]\\\r\n])+\]/gu;
+const PARAGRAPH_NODE_NAME = "paragraph";
 const VALIDATION_DEFINITION_CONTENT = "Leafdown";
 
 export interface FootnoteReferenceSourceBounds {
@@ -34,6 +36,28 @@ export const getFootnoteReferenceSourceBounds = (
 
 export const hasCompleteFootnoteReferenceWrapper = (source: string) =>
   getFootnoteReferenceSourceBounds(source) !== null;
+
+export const withFootnoteDefinitions = (source: string) => {
+  const definitions = new Set(
+    Array.from(
+      source.matchAll(FOOTNOTE_REFERENCE_CANDIDATE_PATTERN),
+      ([reference]) => `${reference}: ${VALIDATION_DEFINITION_CONTENT}`,
+    ),
+  );
+
+  return definitions.size ? `${source}\n\n${[...definitions].join("\n\n")}` : source;
+};
+
+export const getFootnoteAugmentedParagraph = (document: ProseMirrorNode) => {
+  const paragraph = document.firstChild;
+  let isValid = paragraph?.type.name === PARAGRAPH_NODE_NAME;
+
+  document.forEach((node, _offset, index) => {
+    isValid &&= index === 0 || node.type.name === FOOTNOTE_DEFINITION_NODE_NAME;
+  });
+
+  return isValid ? paragraph : null;
+};
 
 export const serializeFootnoteReference = (
   state: EditorState,
@@ -71,7 +95,7 @@ export const parseFootnoteReferenceSource = (
   const reference = paragraph?.childCount === 1 ? paragraph.firstChild : null;
 
   if (
-    paragraph?.type.name !== "paragraph" ||
+    paragraph?.type.name !== PARAGRAPH_NODE_NAME ||
     reference?.type.name !== FOOTNOTE_REFERENCE_NODE_NAME ||
     definition?.type.name !== FOOTNOTE_DEFINITION_NODE_NAME ||
     reference.attrs.label !== definition.attrs.label

@@ -23,6 +23,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Open the Markdown source of a link whose label holds a footnote reference, instead of leaving it closed everywhere in the label except on the reference itself.
+- Keep a link label that mixes formatted text with a footnote reference as one link, instead of saving it as two links.
 - Open bold, italic, or strikethrough that wraps a link as one Markdown source with the link inside it, instead of one side of the link at a time with markers that do not match the file.
 - Keep bold, italic, or strikethrough that wraps a link when the label repeats the same formatting inside it, instead of dropping the wrapper on save.
 - Keep a strikethrough that wraps a link outside the link on save, as bold and italic already are, instead of rewriting it inside the label.

@@ -9,6 +9,7 @@ import {
   mapFootnoteReferenceSourceOffsetToDocument,
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
+  withFootnoteDefinitions,
 } from "./sourceProjectionFootnoteReferenceSyntax";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -40,6 +41,24 @@ describe("footnote-reference source syntax", () => {
       expect(parseFootnoteReferenceSource(mounted.editor.ctx.get(parserCtx), source)).toBeNull();
     },
   );
+
+  it.each([
+    { description: "no reference", expected: [], source: "[label](./doc.md)" },
+    { description: "one reference", expected: ["[^note]"], source: "[a[^note]](./doc.md)" },
+    { description: "repeated labels", expected: ["[^note]"], source: "[^note] and [^note]" },
+    {
+      description: "an escaped bracket in the label",
+      expected: ["[^archive\\]]"],
+      source: "[^archive\\]]",
+    },
+    { description: "an unescaped bracket in the label", expected: [], source: "[^a[b] tail" },
+  ])("defines $description for a projected source", ({ expected, source }) => {
+    const definitions = expected.map((reference) => `${reference}: Leafdown`);
+
+    expect(withFootnoteDefinitions(source)).toBe(
+      definitions.length ? `${source}\n\n${definitions.join("\n\n")}` : source,
+    );
+  });
 
   it("maps between the atomic document node and its editable label", () => {
     const bounds = getFootnoteReferenceSourceBounds("[^archive]");

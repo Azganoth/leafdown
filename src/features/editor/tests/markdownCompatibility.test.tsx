@@ -229,6 +229,17 @@ describe("Markdown compatibility", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  it.each([
+    "[label[^note]](./doc.md)",
+    "[**bold** label[^note]](./doc.md)",
+    "[**bold**[^note]](./doc.md)",
+    "**[label[^note]](./doc.md)**",
+  ])("preserves logical link wrappers around footnote references in %s", async (source) => {
+    const mounted = await mountEditor(`${source}\n\n[^note]: Detail`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n\n[^note]: Detail\n`);
+  });
+
   it("uses logical link serialization for Markdown update listeners", async () => {
     const onMarkdownUpdated = vi.fn();
     const mounted = await mountEditor("[plain **bold**](first)\n\nTail", { onMarkdownUpdated });

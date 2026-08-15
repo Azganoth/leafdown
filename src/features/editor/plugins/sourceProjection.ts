@@ -20,7 +20,9 @@ import {
   createLiteralSourceProjectionSlice,
   createMarkSourceProjectionAdapter,
   findSourceProjectionInsertionCandidate,
+  findSourceProjectionLiteralSourceCommit,
   findSourceProjectionTarget,
+  type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
   type SourceProjectionTarget,
@@ -95,8 +97,8 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
 
   return new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
-    appendTransaction: (transactions, _oldState, newState) =>
-      appendProjectionTransaction(transactions, newState, adapters),
+    appendTransaction: (transactions, oldState, newState) =>
+      appendProjectionTransaction(transactions, oldState, newState, adapters),
     // A change captured in native history while the document holds projected source replays
     // against coordinates the commit discards. `filterTransaction` is the only hook that runs
     // before the history plugin reads the meta.
@@ -201,7 +203,7 @@ export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | n
   const { session } = getSourceProjectionState(state);
   const { selection } = state;
 
-  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+  if (!session || selection.empty || !isRangeInside(selection, session)) {
     return null;
   }
 
@@ -310,7 +312,7 @@ export const pasteIntoSourceProjection = (view: EditorView, text: string) => {
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || !isRangeInsideProjection(selection, session)) {
+  if (!session || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -328,7 +330,7 @@ export const deleteSourceProjectionSelection = (view: EditorView) => {
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+  if (!session || selection.empty || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -368,6 +370,7 @@ const getProjectionMeta = (transaction: Transaction) =>
 
 const appendProjectionTransaction = (
   transactions: readonly Transaction[],
+  oldState: EditorState,
   state: EditorState,
   adapters: readonly SourceProjectionAdapter[],
 ) => {
@@ -378,7 +381,7 @@ const appendProjectionTransaction = (
   }
 
   if (projectionState.session) {
-    if (isRangeInsideProjection(state.selection, projectionState.session)) {
+    if (isRangeInside(state.selection, projectionState.session)) {
       return null;
     }
 
@@ -397,6 +400,21 @@ const appendProjectionTransaction = (
     return null;
   }
 
+  const literalSourceCommit = findExitedLiteralSourceCommit(
+    transactions,
+    oldState,
+    state,
+    adapters,
+  );
+
+  if (literalSourceCommit) {
+    return state.tr.replace(
+      literalSourceCommit.from,
+      literalSourceCommit.to,
+      literalSourceCommit.replacement,
+    );
+  }
+
   const match = findSourceProjectionTarget(state, adapters);
 
   if (!match) {
@@ -404,6 +422,56 @@ const appendProjectionTransaction = (
   }
 
   return createEnterProjectionTransaction(state, match);
+};
+
+const mapRangeThroughTransactions = (
+  transactions: readonly Transaction[],
+  range: TextRange,
+): TextRange =>
+  transactions.reduce(
+    (mapped, transaction) => ({
+      from: transaction.mapping.map(mapped.from, -1),
+      to: transaction.mapping.map(mapped.to, -1),
+    }),
+    { from: range.from, to: range.to },
+  );
+
+// While nothing but more source characters stand between the caret and the run, the caret has not
+// left it: the next character can still move where the source ends, as every character a bare URL
+// absorbs does.
+const hasCaretLeftLiteralSource = (state: EditorState, range: TextRange) => {
+  const { selection } = state;
+
+  if (range.to <= selection.from) {
+    return /\s/u.test(getTextBetween(state.doc, range.to, selection.from));
+  }
+
+  if (selection.to <= range.from) {
+    return /\s/u.test(getTextBetween(state.doc, selection.to, range.from));
+  }
+
+  return false;
+};
+
+// Literal source is never projected, so the caret leaving it is the only signal that it is
+// finished. Reading the run out of both documents keeps an edit that replaces what surrounds the
+// previous selection from committing a run the caret was never in.
+const findExitedLiteralSourceCommit = (
+  transactions: readonly Transaction[],
+  oldState: EditorState,
+  state: EditorState,
+  adapters: readonly SourceProjectionAdapter[],
+): LiteralSourceCommit | null => {
+  const previousRange = mapRangeThroughTransactions(transactions, oldState.selection);
+  const commit = findSourceProjectionLiteralSourceCommit(state, previousRange, adapters);
+
+  if (!commit || !hasCaretLeftLiteralSource(state, commit)) {
+    return null;
+  }
+
+  return findSourceProjectionLiteralSourceCommit(oldState, oldState.selection, adapters)
+    ? commit
+    : null;
 };
 
 const applyProjectionTransaction = (
@@ -508,8 +576,7 @@ const applyProjectionTransaction = (
 
   if (
     transaction.docChanged &&
-    (!isRangeInsideProjection(newState.selection, session) ||
-      !isProjectionRangeFlatText(newState, session))
+    (!isRangeInside(newState.selection, session) || !isProjectionRangeFlatText(newState, session))
   ) {
     return {
       isLinkLabelHovered: false,
@@ -663,7 +730,7 @@ const handleProjectionTextInput = (
     return handleProjectionSourceTextInput(view, from, to, text, adapters);
   }
 
-  if (!isRangeInsideProjection({ from, to }, session)) {
+  if (!isRangeInside({ from, to }, session)) {
     return false;
   }
 
@@ -755,7 +822,7 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || !isRangeInsideProjection(selection, session)) {
+  if (!session || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -993,7 +1060,7 @@ const getDeletionRange = (
 ): TextRange | null => {
   const { selection } = state;
 
-  if (!isRangeInsideProjection(selection, session)) {
+  if (!isRangeInside(selection, session)) {
     return null;
   }
 
@@ -1085,7 +1152,7 @@ const createFinalizeProjectionTransaction = (
     replacement: session.target.originalContent,
     replacementSize: session.target.originalContentSize,
   };
-  const shouldSuppressProjectionAtSelection = isRangeInsideProjection(state.selection, session);
+  const shouldSuppressProjectionAtSelection = isRangeInside(state.selection, session);
   const shouldMapCrossingTextSelection =
     state.selection instanceof TextSelection &&
     state.selection.from < session.to &&
@@ -1260,8 +1327,8 @@ const replaceProjectionRange = (
   replacement: Slice,
 ) => transaction.replace(from, to, replacement);
 
-const isRangeInsideProjection = (range: TextRange, session: ProjectionSession) =>
-  session.from <= range.from && range.to <= session.to;
+const isRangeInside = (range: TextRange, bounds: TextRange) =>
+  bounds.from <= range.from && range.to <= bounds.to;
 
 // The projected range is modelled as flat literal text, and `getTextBetween` reads every leaf
 // node back as a newline. A hard break is the only node that survives that reading, since it

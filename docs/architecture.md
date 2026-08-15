@@ -92,7 +92,7 @@ Source projection temporarily exposes a supported Markdown object as unmarked, e
 
 The shared projection engine owns the active session, projected range, projection-local history, dirty-state integration, and finalization. A clean session restores its original content; an edited session rehydrates valid source or commits literal text so projected characters are not discarded. A projected range holds flat text; a session whose range stops holding it ends without committing, leaving what landed there in the document.
 
-Document text that already spells a supported object, rather than having been projected from one, commits through the same adapter validation when the caret leaves it.
+Document text that already spells a supported object, rather than having been projected from one, commits through the same adapter validation when the caret leaves it. The engine tracks the ranges the session has written and commits only within them, because the same characters can reach the document from source that escaped them, and history clears the record so an undone commit stays undone.
 
 A change that reaches the projected range without passing through the engine's edit path is an unauthored write; composition input is the path that produces one. The engine keeps an unauthored write out of native history, where it would replay against coordinates the commit discards, and otherwise treats it as the content change it is: the document becomes dirty and projection-local history can step back over it.
 

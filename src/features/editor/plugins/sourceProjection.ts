@@ -5,7 +5,7 @@ import {
   remarkCtx,
   serializerCtx,
 } from "@milkdown/kit/core";
-import { closeHistory } from "@milkdown/kit/prose/history";
+import { closeHistory, isHistoryTransaction } from "@milkdown/kit/prose/history";
 import { DOMParser, type Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
@@ -37,6 +37,7 @@ const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   pendingCommit: null,
   session: null,
   suppressedSelection: null,
+  writtenRanges: [],
 };
 
 export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionPluginState>(
@@ -71,7 +72,10 @@ interface SourceProjectionPluginState {
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
   suppressedSelection: SuppressedProjectionSelection | null;
+  writtenRanges: TextRange[];
 }
+
+type ProjectionSessionState = Omit<SourceProjectionPluginState, "writtenRanges">;
 
 type ProjectionHistoryDirection = "redo" | "undo";
 
@@ -436,10 +440,9 @@ const mapRangeThroughTransactions = (
     { from: range.from, to: range.to },
   );
 
-// While nothing but more source characters stand between the caret and the run, the caret has not
-// left it: the next character can still move where the source ends, as every character a bare URL
-// absorbs does.
-const hasCaretLeftLiteralSource = (state: EditorState, range: TextRange) => {
+// A character written against a run can still move where its source ends, as every character a
+// bare URL absorbs does, so only whitespace stands for the caret having left.
+const isSelectionSeparatedFrom = (state: EditorState, range: TextRange) => {
   const { selection } = state;
 
   if (range.to <= selection.from) {
@@ -453,23 +456,29 @@ const hasCaretLeftLiteralSource = (state: EditorState, range: TextRange) => {
   return false;
 };
 
-// Literal source is never projected, so the caret leaving it is the only signal that it is
-// finished. Reading the run out of both documents keeps an edit that replaces what surrounds the
-// previous selection from committing a run the caret was never in.
+const overlapsWrittenRange = (writtenRanges: readonly TextRange[], range: TextRange) =>
+  writtenRanges.some((written) => written.from < range.to && range.from < written.to);
+
+// The run holds the previous selection, so the separator measured here contains the run's own:
+// nothing that fails it can pass the check on the run.
 const findExitedLiteralSourceCommit = (
   transactions: readonly Transaction[],
   oldState: EditorState,
   state: EditorState,
   adapters: readonly SourceProjectionAdapter[],
 ): LiteralSourceCommit | null => {
+  const { writtenRanges } = getSourceProjectionState(state);
   const previousRange = mapRangeThroughTransactions(transactions, oldState.selection);
-  const commit = findSourceProjectionLiteralSourceCommit(state, previousRange, adapters);
 
-  if (!commit || !hasCaretLeftLiteralSource(state, commit)) {
+  if (!writtenRanges.length || !isSelectionSeparatedFrom(state, previousRange)) {
     return null;
   }
 
-  return findSourceProjectionLiteralSourceCommit(oldState, oldState.selection, adapters)
+  const commit = findSourceProjectionLiteralSourceCommit(state, previousRange, adapters);
+
+  return commit &&
+    isSelectionSeparatedFrom(state, commit) &&
+    overlapsWrittenRange(writtenRanges, commit)
     ? commit
     : null;
 };
@@ -479,7 +488,64 @@ const applyProjectionTransaction = (
   pluginState: SourceProjectionPluginState,
   oldState: EditorState,
   newState: EditorState,
-): SourceProjectionPluginState => {
+): SourceProjectionPluginState => ({
+  ...applyProjectionSessionState(transaction, pluginState, oldState, newState),
+  writtenRanges: getUpdatedWrittenRanges(pluginState.writtenRanges, transaction),
+});
+
+const mergeTextRanges = (ranges: TextRange[]) =>
+  ranges
+    .sort((left, right) => left.from - right.from || left.to - right.to)
+    .reduce<TextRange[]>((merged, range) => {
+      const previous = merged.at(-1);
+
+      if (previous && range.from <= previous.to) {
+        previous.to = Math.max(previous.to, range.to);
+      } else {
+        merged.push({ ...range });
+      }
+
+      return merged;
+    }, []);
+
+// Only text this session wrote may commit. The same characters can reach the document from a file
+// that escaped them, where the author asked for the source itself, and a caret passing through
+// must not spend that escape. History rewrites what a commit did, so the record goes with it and
+// an undone commit stays undone.
+const getUpdatedWrittenRanges = (ranges: TextRange[], transaction: Transaction) => {
+  if (isHistoryTransaction(transaction)) {
+    return [];
+  }
+
+  if (!transaction.docChanged) {
+    return ranges;
+  }
+
+  const { mapping } = transaction;
+  const written = ranges.map((range) => ({
+    from: mapping.map(range.from, -1),
+    to: mapping.map(range.to, 1),
+  }));
+
+  mapping.maps.forEach((stepMap, index) => {
+    const remaining = mapping.slice(index + 1);
+
+    stepMap.forEach((_from, _to, stepFrom, stepTo) => {
+      if (stepFrom < stepTo) {
+        written.push({ from: remaining.map(stepFrom, -1), to: remaining.map(stepTo, 1) });
+      }
+    });
+  });
+
+  return mergeTextRanges(written);
+};
+
+const applyProjectionSessionState = (
+  transaction: Transaction,
+  pluginState: SourceProjectionPluginState,
+  oldState: EditorState,
+  newState: EditorState,
+): ProjectionSessionState => {
   const meta = getProjectionMeta(transaction);
 
   if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {

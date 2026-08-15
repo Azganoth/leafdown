@@ -289,9 +289,10 @@ const parseLinkSource = (
   };
 };
 
-// Parsing every text block on every transaction is not worth what it finds, and link source
-// always carries one of these. A form this misses stays the literal text it already was.
+// Markers further from the caret than the radius, or in a form the pattern misses, leave their
+// source literal text.
 const LINK_SOURCE_HINT_PATTERN = /\]\(|<|:\/\/|www\.|@/u;
+const LINK_SOURCE_HINT_RADIUS = 1000;
 
 const findLiteralLinkSourceCommit = (
   state: EditorState,
@@ -308,14 +309,19 @@ const findLiteralLinkSourceCommit = (
   }
 
   const text = getTextBetween(textBlock, 0, textBlock.content.size);
+  const start = $position.start();
+  const offset = range.from - start;
 
-  if (!LINK_SOURCE_HINT_PATTERN.test(text)) {
+  if (
+    !LINK_SOURCE_HINT_PATTERN.test(
+      text.slice(Math.max(offset - LINK_SOURCE_HINT_RADIUS, 0), offset + LINK_SOURCE_HINT_RADIUS),
+    )
+  ) {
     return null;
   }
 
-  const start = $position.start();
   const bounds = findLinkSourceBounds(remark, text, {
-    from: range.from - start,
+    from: offset,
     to: range.to - start,
   });
 

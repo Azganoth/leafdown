@@ -12,6 +12,7 @@ import {
   typeText,
 } from "@/test/utils/prosemirror";
 
+import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 
 const mountProjectionEditor = setupMilkdownEditorMount({
@@ -101,6 +102,41 @@ describe("typed link source", () => {
 
     expect(getLinkTargets(mounted)).toEqual([]);
     expect(getEditorTextContent(mounted)).toBe(`start ${typed}`);
+  });
+
+  it("keeps source the file escaped literal when the caret visits it", async () => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+
+    setTextSelection(mounted.view, 12);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("\\[test link]\\(./test.html) tail\n");
+  });
+
+  it("keeps source the file escaped literal when the paragraph is edited elsewhere", async () => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+
+    setTextSelection(mounted.view, 1);
+    typeText(mounted.view, "edit ");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("edit \\[test link]\\(./test.html) tail\n");
+  });
+
+  it("reverts a commit through undo and leaves it reverted", async () => {
+    const mounted = await mountProjectionEditor("start");
+
+    typeAtDocumentEnd(mounted, " [test link](./test.html) tail");
+
+    expect(getLinkTargets(mounted)).toEqual(["./test.html"]);
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+
+    setTextSelection(mounted.view, 1);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("start \\[test link]\\(./test.html)\n");
   });
 
   it("leaves typed source in a code block literal", async () => {

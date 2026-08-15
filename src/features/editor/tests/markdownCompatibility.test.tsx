@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
-import { setSelectionAtDocumentEnd, typeText } from "@/test/utils/prosemirror";
+import {
+  getEditorTextPosition,
+  setSelectionAtDocumentEnd,
+  typeText,
+} from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
@@ -39,11 +43,11 @@ Footnote[^1]
 [^1]: Footnote text`;
 
 // Milkdown serializer defaults normalize several source markers:
-// unordered/task markers become `*`, thematic breaks become `***`, bare URLs
-// become autolink syntax, and serialized output includes a final newline.
+// unordered/task markers become `*`, thematic breaks become `***`, and
+// serialized output includes a final newline.
 const supportedMarkdownExpected = `# Heading
 
-Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, <https://example.com>, and [link](docs/readme.md).
+Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com, and [link](docs/readme.md).
 
 > Quote
 
@@ -175,6 +179,42 @@ describe("Markdown compatibility", () => {
     const mounted = await mountEditor(source);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    "https://example.com",
+    "<https://example.com>",
+    "<a@b.com>",
+    "www.example.com/path",
+    "testing@example.com and first.last+tag@example.co.uk",
+    "Mixed https://example.com and <https://leafdown.dev>",
+    "Parenthesis before the link: (www.example.com)",
+    "Visit https://example.com/one, https://example.com/two. and (https://example.com/three).",
+    "Balanced path: https://example.com/a(b)c and unmatched path: https://example.com/a(b)).",
+    "**https://example.com**",
+    "[https://example.com](https://leafdown.dev)",
+  ])("keeps the authored autolink form in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("writes a bare autolink as a full link once its text stops spelling its target", async () => {
+    const mounted = await mountEditor("https://example.com");
+    const textPosition = getEditorTextPosition(mounted, "example.com");
+
+    mounted.view.dispatch(mounted.view.state.tr.insertText(" ", textPosition));
+
+    expect(mounted.getMarkdown()).toBe("[https:// example.com](https://example.com)\n");
+  });
+
+  it("writes a bare autolink with angle brackets once an edit closes text in on it", async () => {
+    const mounted = await mountEditor("tail https://example.com");
+    const spacePosition = getEditorTextPosition(mounted, " https://example.com");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(spacePosition, spacePosition + 1));
+
+    expect(mounted.getMarkdown()).toBe("tail<https://example.com>\n");
   });
 
   it.each([

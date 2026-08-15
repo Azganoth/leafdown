@@ -61,6 +61,11 @@ import {
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
+import {
+  BARE_AUTOLINK_MARKDOWN_TYPE,
+  serializeBareAutolink,
+  withBareAutolinkForm,
+} from "./bareAutolinkMarkdown";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -190,14 +195,18 @@ export const createMilkdownEditor = async ({
       });
       ctx.update(remarkStringifyOptionsCtx, (options) => ({
         ...options,
-        handlers: { ...options.handlers, text: serializeMarkdownText },
+        handlers: {
+          ...options.handlers,
+          [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
+          text: serializeMarkdownText,
+        },
       }));
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,
       }));
       ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({
-        ...getSchema(schemaCtx),
+        ...withBareAutolinkForm(getSchema(schemaCtx)),
         priority: LINK_MARK_PRIORITY,
       }));
       ctx.set(defaultValueCtx, initialMarkdown);

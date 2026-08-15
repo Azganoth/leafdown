@@ -5,7 +5,7 @@ import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer
 
 import { isTruthy } from "@/lib/predicates";
 
-import { createLogicalLinkMarkdownSerializer } from "./logicalLinkMarkdown";
+import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
@@ -119,15 +119,12 @@ const serializeLinkTarget = (
   serializer: Serializer,
   nodes: readonly ProseMirrorNode[],
   ambientMarks: readonly Mark[],
-) => {
-  const content = Fragment.fromArray(
+) =>
+  serializeLinkRunSource(
+    state,
+    serializer,
     nodes.map((node) => node.mark(node.marks.filter((mark) => !mark.isInSet(ambientMarks)))),
   );
-  const paragraph = state.schema.nodes.paragraph.create(null, content);
-  const document = state.schema.nodes.doc.create(null, paragraph);
-
-  return createLogicalLinkMarkdownSerializer(serializer)(document).replace(/\n$/u, "");
-};
 
 // A link nested inside a projected label produces source the label cannot describe.
 const serializeInlineLinkSource = (

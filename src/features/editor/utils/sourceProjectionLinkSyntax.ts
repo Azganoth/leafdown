@@ -134,7 +134,7 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
 const isInlineSoftBreak = (node: MarkdownNode) =>
   node.type === "break" && (node.data as { isInline?: boolean } | undefined)?.isInline === true;
 
-const isSupportedLinkChild = (node: MarkdownNode): boolean => {
+export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
     return typeof node.value === "string";
   }

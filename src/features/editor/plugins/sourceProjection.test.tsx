@@ -614,6 +614,10 @@ describe("source projection", () => {
       { description: "text after the reference", source: "**left[^note]right**" },
       { description: "whitespace before the reference atom", source: "**left [^note]**" },
       { description: "whitespace after the reference atom", source: "**[^note] right**" },
+      {
+        description: "a link the mark wraps",
+        source: "**left[^note][link](https://example.com)right**",
+      },
     ])("keeps $description inside one marked fragment", async ({ source }) => {
       const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
 
@@ -623,10 +627,6 @@ describe("source projection", () => {
     });
 
     it.each([
-      {
-        boundary: "link",
-        markdown: "**left[^note][link](https://example.com)right**",
-      },
       {
         boundary: "inline code",
         markdown: "**left[^note]`code`right**",

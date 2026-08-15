@@ -1,13 +1,26 @@
-import { Fragment, Slice, type Mark } from "@milkdown/kit/prose/model";
+import {
+  Fragment,
+  Slice,
+  type Mark,
+  type Node as ProseMirrorNode,
+} from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { MarkdownNode, Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
+import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import {
   getFootnoteReferenceSourceBounds,
   mapFootnoteReferenceSourceOffsetToDocument,
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
 } from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  createLinkSourceMap,
+  isSupportedLinkChild,
+  mapLinkDocumentPositionToSource,
+  mapLinkSourcePositionToDocument,
+  type LinkSourceMap,
+} from "./sourceProjectionLinkSyntax";
 import {
   createProjectionSource,
   getProjectionSourceContentBounds,
@@ -16,6 +29,7 @@ import {
 } from "./sourceProjectionSyntax";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
+const LINK_MARK_NAME = "link";
 
 interface MarkedFragmentSourceSegmentBase {
   documentFrom: number;
@@ -30,11 +44,18 @@ interface MarkedFragmentReferenceSourceSegment extends MarkedFragmentSourceSegme
   type: "footnoteReference";
 }
 
+interface MarkedFragmentLinkSourceSegment extends MarkedFragmentSourceSegmentBase {
+  // Offsets are relative to the link's own source, which starts at `sourceFrom`.
+  map: LinkSourceMap | null;
+  type: "link";
+}
+
 interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBase {
   type: "text";
 }
 
 export type MarkedFragmentSourceSegment =
+  | MarkedFragmentLinkSourceSegment
   | MarkedFragmentReferenceSourceSegment
   | MarkedFragmentTextSourceSegment;
 
@@ -57,7 +78,7 @@ export interface MarkedFragmentSourceStructure {
 }
 
 interface SerializedMarkedFragmentSource {
-  hasFootnoteReferences: boolean;
+  hasInlineObjects: boolean;
   map: MarkedFragmentSourceMap;
   source: string;
 }
@@ -88,11 +109,54 @@ const getMarkdownPosition = (node: MarkdownNode) => {
   return typeof from === "number" && typeof to === "number" ? { from, to } : null;
 };
 
+const getLinkMark = (node: ProseMirrorNode) =>
+  node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
+
+const getLinkRunEnd = (nodes: readonly ProseMirrorNode[], from: number, linkMark: Mark) => {
+  let runEnd = from + 1;
+
+  while (runEnd < nodes.length && getLinkMark(nodes[runEnd])?.eq(linkMark)) {
+    runEnd += 1;
+  }
+
+  return runEnd;
+};
+
 const createDocumentMarks = (state: EditorState, marks: readonly ProjectionMarkDescriptor[]) =>
   marks.map((mark) => state.schema.marks[mark.markName].create(mark.attrs));
 
 const createTextNode = (state: EditorState, text: string, marks: readonly Mark[]) =>
   text ? state.schema.text(text, marks) : null;
+
+const parseLinkSourceNodes = (
+  state: EditorState,
+  parser: Parser,
+  source: string,
+  marks: readonly Mark[],
+  documentSize: number,
+) => {
+  let document: ProseMirrorNode;
+
+  try {
+    document = parser(source);
+  } catch {
+    return null;
+  }
+
+  const paragraph = document.childCount === 1 ? document.firstChild : null;
+
+  if (paragraph?.type !== state.schema.nodes.paragraph || paragraph.content.size !== documentSize) {
+    return null;
+  }
+
+  const nodes: ProseMirrorNode[] = [];
+
+  paragraph.forEach((node) =>
+    nodes.push(node.mark(marks.reduce((markSet, mark) => mark.addToSet(markSet), node.marks))),
+  );
+
+  return nodes;
+};
 
 const addTextMapSegment = (
   sourceFrom: number,
@@ -229,37 +293,78 @@ const getValidatedMarkdownChildren = (
     return { type: "invalidOuter" };
   }
 
-  return children.length &&
-    children.every((child) => child.type === "text" || child.type === "footnoteReference")
+  return children.length && children.every(isSupportedMarkedFragmentChild)
     ? { children, type: "structured" }
     : { type: "unsupportedInner" };
+};
+
+const isSupportedMarkedFragmentChild = (node: MarkdownNode): boolean => {
+  if (node.type === "text" || node.type === "footnoteReference") {
+    return true;
+  }
+
+  const children = node.children ?? [];
+
+  return node.type === "link" && children.length > 0 && children.every(isSupportedLinkChild);
 };
 
 export const serializeMarkedFragmentSource = (
   state: EditorState,
   serializer: Serializer,
+  remark: RemarkParser,
   content: Fragment,
   marks: ProjectionMarkDescriptor[],
 ): SerializedMarkedFragmentSource => {
+  const nodes: ProseMirrorNode[] = [];
+
+  content.forEach((node) => nodes.push(node));
+
+  const wrappingMarkNames = new Set<string>(marks.map((mark) => mark.markName));
   const innerSources: string[] = [];
   const innerSegments: MarkedFragmentSourceSegment[] = [];
   let documentOffset = 0;
   let sourceOffset = 0;
-  let hasFootnoteReferences = false;
+  let hasInlineObjects = false;
+  let index = 0;
 
-  content.forEach((node) => {
+  while (index < nodes.length) {
+    const node = nodes[index];
+    const linkMark = getLinkMark(node);
+    const runEnd = linkMark ? getLinkRunEnd(nodes, index, linkMark) : index + 1;
+    const runNodes = nodes.slice(index, runEnd);
+    const documentSize = runNodes.reduce((size, runNode) => size + runNode.nodeSize, 0);
     const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
-    const nodeSource = node.isText
-      ? (node.text ?? "")
-      : isBreak
-        ? "\n"
-        : serializeFootnoteReference(state, serializer, node);
+    const nodeSource = linkMark
+      ? serializeLinkRunSource(
+          state,
+          serializer,
+          runNodes.map((runNode) =>
+            runNode.mark(runNode.marks.filter((mark) => !wrappingMarkNames.has(mark.type.name))),
+          ),
+        )
+      : node.isText
+        ? (node.text ?? "")
+        : isBreak
+          ? "\n"
+          : serializeFootnoteReference(state, serializer, node);
     const sourceTo = sourceOffset + nodeSource.length;
 
-    if (node.isText || isBreak) {
+    if (linkMark) {
+      const map = createLinkSourceMap(remark, nodeSource);
+
+      hasInlineObjects = true;
       innerSegments.push({
         documentFrom: documentOffset,
-        documentTo: documentOffset + node.nodeSize,
+        documentTo: documentOffset + documentSize,
+        map: map?.documentSize === documentSize ? map : null,
+        sourceFrom: sourceOffset,
+        sourceTo,
+        type: "link",
+      });
+    } else if (node.isText || isBreak) {
+      innerSegments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + documentSize,
         sourceFrom: sourceOffset,
         sourceTo,
         type: "text",
@@ -271,10 +376,10 @@ export const serializeMarkedFragmentSource = (
         throw new Error(`Expected a serializable footnote reference, received '${node.type.name}'`);
       }
 
-      hasFootnoteReferences = true;
+      hasInlineObjects = true;
       innerSegments.push({
         documentFrom: documentOffset,
-        documentTo: documentOffset + node.nodeSize,
+        documentTo: documentOffset + documentSize,
         labelFrom: sourceOffset + bounds.labelFrom,
         labelTo: sourceOffset + bounds.labelTo,
         sourceFrom: sourceOffset,
@@ -283,10 +388,11 @@ export const serializeMarkedFragmentSource = (
       });
     }
 
-    documentOffset += node.nodeSize;
+    documentOffset += documentSize;
     sourceOffset = sourceTo;
     innerSources.push(nodeSource);
-  });
+    index = runEnd;
+  }
 
   const source = createProjectionSource(marks, innerSources.join(""));
   const { from, to } = getProjectionSourceContentBounds(source);
@@ -300,7 +406,7 @@ export const serializeMarkedFragmentSource = (
   }));
 
   return {
-    hasFootnoteReferences,
+    hasInlineObjects,
     map: {
       contentFrom: from,
       contentTo: to,
@@ -348,7 +454,23 @@ export const createMarkedFragmentSourceStructure = (
 
     documentOffset = addTextMapSegment(sourceOffset, position.from, segments, documentOffset);
 
-    if (child.type === "footnoteReference") {
+    if (child.type === "link") {
+      const map = createLinkSourceMap(remark, source.slice(position.from, position.to));
+
+      if (!map) {
+        return createMarkedLiteralStructure(source, parsed.marks);
+      }
+
+      segments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + map.documentSize,
+        map,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "link",
+      });
+      documentOffset += map.documentSize;
+    } else if (child.type === "footnoteReference") {
       const referenceSource = source.slice(position.from, position.to);
       const reference = parseFootnoteReferenceSource(parser, referenceSource);
       const bounds = getFootnoteReferenceSourceBounds(referenceSource);
@@ -400,6 +522,7 @@ export const parseMarkedFragmentSource = (
   }
 
   const documentMarks = createDocumentMarks(state, structure.marks);
+  let isValid = true;
   const nodes = structure.map.segments.flatMap((segment) => {
     const segmentSource = source.slice(segment.sourceFrom, segment.sourceTo);
 
@@ -409,10 +532,28 @@ export const parseMarkedFragmentSource = (
       return node ? [node] : [];
     }
 
+    if (segment.type === "link") {
+      const linkNodes = parseLinkSourceNodes(
+        state,
+        parser,
+        segmentSource,
+        documentMarks,
+        segment.documentTo - segment.documentFrom,
+      );
+
+      isValid &&= linkNodes !== null;
+
+      return linkNodes ?? [];
+    }
+
     const reference = parseFootnoteReferenceSource(parser, segmentSource);
 
     return reference ? [reference.mark(documentMarks)] : [];
   });
+
+  if (!isValid) {
+    return null;
+  }
 
   return {
     ...structure,
@@ -435,6 +576,19 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
 
   if (!segment) {
     return map.contentFrom;
+  }
+
+  if (segment.type === "link") {
+    return segment.map
+      ? segment.sourceFrom +
+          mapLinkDocumentPositionToSource(
+            normalizedOffset - segment.documentFrom,
+            segment.map,
+            association,
+          )
+      : normalizedOffset <= segment.documentFrom
+        ? segment.sourceFrom
+        : segment.sourceTo;
   }
 
   if (segment.type === "footnoteReference") {
@@ -462,6 +616,15 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
 
   if (!segment) {
     return offset - map.contentFrom;
+  }
+
+  if (segment.type === "link") {
+    return segment.map
+      ? segment.documentFrom +
+          mapLinkSourcePositionToDocument(offset - segment.sourceFrom, segment.map)
+      : offset - segment.sourceFrom < segment.sourceTo - offset
+        ? segment.documentFrom
+        : segment.documentTo;
   }
 
   if (segment.type === "footnoteReference") {

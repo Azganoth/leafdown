@@ -3,6 +3,7 @@ import {
   defaultValueCtx,
   editorViewCtx,
   editorViewOptionsCtx,
+  remarkStringifyOptionsCtx,
   rootAttrsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
@@ -67,6 +68,7 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "./markdownReferences";
+import { serializeMarkdownText } from "./markdownText";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -186,6 +188,10 @@ export const createMilkdownEditor = async ({
             normalizeProseMirrorClipboardHtml(previousTransformPastedHTML?.(html, view) ?? html),
         };
       });
+      ctx.update(remarkStringifyOptionsCtx, (options) => ({
+        ...options,
+        handlers: { ...options.handlers, text: serializeMarkdownText },
+      }));
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,

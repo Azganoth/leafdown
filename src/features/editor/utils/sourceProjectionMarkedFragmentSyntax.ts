@@ -9,10 +9,12 @@ import type { MarkdownNode, Parser, RemarkParser, Serializer } from "@milkdown/k
 
 import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import {
+  getFootnoteAugmentedParagraph,
   getFootnoteReferenceSourceBounds,
   mapFootnoteReferenceSourceOffsetToDocument,
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
+  withFootnoteDefinitions,
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createLinkSourceMap,
@@ -93,8 +95,6 @@ type MarkdownValidationResult =
   | { type: "invalidOuter" }
   | { type: "unsupportedInner" };
 
-const FOOTNOTE_REFERENCE_CANDIDATE_PATTERN = /\[\^(?:\\.|[^\]\\\r\n])+\]/gu;
-const VALIDATION_DEFINITION_CONTENT = "Leafdown";
 const MARKDOWN_MARK_TYPES = new Map<string, string>([
   ["emphasis", "emphasis"],
   ["strike_through", "delete"],
@@ -138,12 +138,12 @@ const parseLinkSourceNodes = (
   let document: ProseMirrorNode;
 
   try {
-    document = parser(source);
+    document = parser(withFootnoteDefinitions(source));
   } catch {
     return null;
   }
 
-  const paragraph = document.childCount === 1 ? document.firstChild : null;
+  const paragraph = getFootnoteAugmentedParagraph(document);
 
   if (paragraph?.type !== state.schema.nodes.paragraph || paragraph.content.size !== documentSize) {
     return null;
@@ -229,26 +229,10 @@ const createUnmarkedLiteralStructure = (source: string): MarkedFragmentSourceStr
 
 const getValidatedMarkdownChildren = (
   source: string,
-  parser: Parser,
   remark: RemarkParser,
   marks: readonly ProjectionMarkDescriptor[],
 ): MarkdownValidationResult => {
-  const definitions = new Map<string, string>();
-
-  for (const match of source.matchAll(FOOTNOTE_REFERENCE_CANDIDATE_PATTERN)) {
-    const reference = parseFootnoteReferenceSource(parser, match[0]);
-
-    if (reference) {
-      definitions.set(
-        String(reference.attrs.label),
-        `${match[0]}: ${VALIDATION_DEFINITION_CONTENT}`,
-      );
-    }
-  }
-
-  const validationSource = definitions.size
-    ? `${source}\n\n${[...definitions.values()].join("\n\n")}`
-    : source;
+  const validationSource = withFootnoteDefinitions(source);
   let root: MarkdownNode;
 
   try {
@@ -428,7 +412,7 @@ export const createMarkedFragmentSourceStructure = (
     return null;
   }
 
-  const validation = getValidatedMarkdownChildren(source, parser, remark, parsed.marks);
+  const validation = getValidatedMarkdownChildren(source, remark, parsed.marks);
 
   if (validation.type === "invalidOuter") {
     return createUnmarkedLiteralStructure(source);

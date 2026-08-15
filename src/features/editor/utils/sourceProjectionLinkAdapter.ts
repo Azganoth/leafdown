@@ -15,7 +15,13 @@ import {
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
 import {
+  FOOTNOTE_REFERENCE_NODE_NAME,
+  getFootnoteAugmentedParagraph,
+  withFootnoteDefinitions,
+} from "./sourceProjectionFootnoteReferenceSyntax";
+import {
   createLinkSourceMap,
+  isAtomicLinkSegment,
   mapLinkDocumentPositionToSource,
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
@@ -37,7 +43,10 @@ const isInlineSoftBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
 
 const isSupportedLinkNode = (node: ProseMirrorNode) =>
-  node.isText || isInlineSoftBreak(node) || node.type.name === "image";
+  node.isText ||
+  isInlineSoftBreak(node) ||
+  node.type.name === "image" ||
+  node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
@@ -231,12 +240,12 @@ const parseLinkSource = (
   let document: ProseMirrorNode;
 
   try {
-    document = parser(source);
+    document = parser(withFootnoteDefinitions(source));
   } catch {
     return null;
   }
 
-  const paragraph = document.childCount === 1 ? document.firstChild : null;
+  const paragraph = getFootnoteAugmentedParagraph(document);
 
   if (!paragraph?.isTextblock || paragraph.type !== state.schema.nodes.paragraph) {
     return null;
@@ -498,7 +507,7 @@ const isLinkSelectionSemantic = (
   const selectionTo = selection.to - session.from;
 
   return map.segments.every((segment) => {
-    if (segment.type !== "image") {
+    if (!isAtomicLinkSegment(segment)) {
       return true;
     }
 
@@ -580,9 +589,8 @@ export const createLinkSourceProjectionAdapter = ({
   serializer,
 }: LinkAdapterDependencies): SourceProjectionAdapter<LinkSourceProjectionTarget> => ({
   id: LINK_ADAPTER_ID,
-  // Part of an image's source has no semantic equivalent: whichever characters the selection
-  // covers, the rich payload can only carry the whole image or none of it. A partial soft
-  // break stays semantic, since the break and the characters it spans read the same.
+  // A partial soft break stays semantic, since the break and the characters it spans read the
+  // same.
   canCopySelectionSemantically: (selection, session, parsed) =>
     isLinkSelectionSemantic(selection, session, createLinkSourceMap(remark, parsed.source)),
   createEnterTransaction: createEnterLinkProjectionTransaction,

@@ -7,6 +7,7 @@ import { isNonNullish } from "@/lib/predicates";
 
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
+import { isAtomicLinkSegment } from "./sourceProjectionLinkSyntax";
 import {
   createMarkedFragmentSourceStructure,
   mapMarkedFragmentDocumentOffsetToSource,
@@ -868,12 +869,10 @@ const getAtomicSourceRanges = (map: MarkedFragmentSourceMap): TextRange[] =>
       return [];
     }
 
-    return segment.map.segments
-      .filter((linkSegment) => linkSegment.type === "image")
-      .map((linkSegment) => ({
-        from: segment.sourceFrom + linkSegment.sourceFrom,
-        to: segment.sourceFrom + linkSegment.sourceTo,
-      }));
+    return segment.map.segments.filter(isAtomicLinkSegment).map((linkSegment) => ({
+      from: segment.sourceFrom + linkSegment.sourceFrom,
+      to: segment.sourceFrom + linkSegment.sourceTo,
+    }));
   });
 
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>

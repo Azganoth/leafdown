@@ -2,6 +2,11 @@ import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
 
 import { isTruthy } from "@/lib/predicates";
 
+import {
+  getFootnoteReferenceSourceBounds,
+  withFootnoteDefinitions,
+} from "./sourceProjectionFootnoteReferenceSyntax";
+
 interface LinkSourceSegmentBase {
   className: string;
   documentFrom: number;
@@ -19,11 +24,16 @@ interface LinkImageSourceSegment extends LinkSourceSegmentBase {
   type: "image";
 }
 
+interface LinkFootnoteReferenceSourceSegment extends LinkSourceSegmentBase {
+  type: "footnoteReference";
+}
+
 interface LinkInlineBreakSourceSegment extends LinkSourceSegmentBase {
   type: "inlineBreak";
 }
 
 export type LinkSourceSegment =
+  | LinkFootnoteReferenceSourceSegment
   | LinkImageSourceSegment
   | LinkInlineBreakSourceSegment
   | LinkTextSourceSegment;
@@ -42,6 +52,9 @@ interface MarkdownPosition {
 }
 
 const LINK_MARK_NAME = "link";
+const FOOTNOTE_REFERENCE_SOURCE_TYPE = "footnote-reference";
+const FOOTNOTE_REFERENCE_CONTENT_CLASS_NAME =
+  "leafdown-source-projection__content--footnote-reference";
 const INLINE_BREAK_PATTERN = /\r\n?|\n/gu;
 const SOURCE_INLINE_BREAK_PATTERN = /^[\t ]*(?:\r\n?|\n)/u;
 
@@ -134,12 +147,15 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
 const isInlineSoftBreak = (node: MarkdownNode) =>
   node.type === "break" && (node.data as { isInline?: boolean } | undefined)?.isInline === true;
 
+export const isAtomicLinkSegment = (segment: LinkSourceSegment) =>
+  segment.type === "image" || segment.type === "footnoteReference";
+
 export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
     return typeof node.value === "string";
   }
 
-  if (node.type === "image" || isInlineSoftBreak(node)) {
+  if (node.type === "image" || node.type === "footnoteReference" || isInlineSoftBreak(node)) {
     return true;
   }
 
@@ -150,8 +166,12 @@ export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   return Boolean(node.children?.length) && node.children!.every(isSupportedLinkChild);
 };
 
-const getLogicalLinkNode = (root: MarkdownNode) => {
-  if (root.type !== "root" || root.children?.length !== 1) {
+const getLogicalLinkNode = (root: MarkdownNode, sourceLength: number) => {
+  if (
+    root.type !== "root" ||
+    !root.children?.length ||
+    root.children.slice(1).some((node) => (getMarkdownPosition(node)?.from ?? -1) < sourceLength)
+  ) {
     return null;
   }
 
@@ -204,15 +224,16 @@ const getLinkLabelBounds = (link: MarkdownNode) => {
 };
 
 export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkSourceMap | null => {
+  const parseSource = withFootnoteDefinitions(source);
   let root: MarkdownNode;
 
   try {
-    root = remark.parse(source) as MarkdownNode;
+    root = remark.parse(parseSource) as MarkdownNode;
   } catch {
     return null;
   }
 
-  const logicalLink = getLogicalLinkNode(root);
+  const logicalLink = getLogicalLinkNode(root, source.length);
 
   if (!logicalLink) {
     return null;
@@ -333,6 +354,31 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
       return true;
     }
 
+    if (node.type === "footnoteReference") {
+      const position = getMarkdownPosition(node);
+
+      if (
+        !position ||
+        !getFootnoteReferenceSourceBounds(source.slice(position.from, position.to))
+      ) {
+        return false;
+      }
+
+      addSourceTypes(nextAncestorTypes);
+      sourceTypes.add(FOOTNOTE_REFERENCE_SOURCE_TYPE);
+      segments.push({
+        className: `${getLinkContentClassName(nextAncestorTypes)} ${FOOTNOTE_REFERENCE_CONTENT_CLASS_NAME}`,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "footnoteReference",
+      });
+      documentOffset += 1;
+
+      return true;
+    }
+
     return node.children?.every((child) => visit(child, nextAncestorTypes)) ?? false;
   };
 
@@ -341,12 +387,12 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   }
 
   try {
-    root = remark.runSync(root, source) as MarkdownNode;
+    root = remark.runSync(root, parseSource) as MarkdownNode;
   } catch {
     return null;
   }
 
-  if (!getLogicalLinkNode(root)) {
+  if (!getLogicalLinkNode(root, source.length)) {
     return null;
   }
 

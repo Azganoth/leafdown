@@ -491,6 +491,63 @@ describe("source projection", () => {
       expect(getSelectedEditorText(mounted)).toBe("bold");
     });
 
+    it("projects a link label holding a footnote reference", async () => {
+      const source = "[Link containing a reference[^follow-up]](./field-report.md)";
+      const mounted = await mountProjectionEditor(`${source}\n\n[^follow-up]: Detail`);
+      const originalDocument = mounted.view.state.doc;
+      const labelStart = getEditorTextPosition(mounted, "Link containing a reference");
+
+      setTextSelection(mounted.view, labelStart + "Link".length);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toContain(source);
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe("Link containing a reference[^follow-up]");
+      expect(
+        mounted.view.dom.querySelector(".leafdown-source-projection__content--footnote-reference"),
+      ).toHaveTextContent("[^follow-up]");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+
+      const selectionFrom = getEditorTextPosition(mounted, "containing");
+
+      setTextSelection(mounted.view, selectionFrom, selectionFrom + "containing".length);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getSelectedEditorText(mounted)).toBe("containing");
+    });
+
+    it.each([
+      { offset: 0, side: "before", sourceOffset: "[Link containing a reference".length },
+      {
+        offset: 1,
+        side: "after",
+        sourceOffset: "[Link containing a reference[^follow-up]".length,
+      },
+    ])(
+      "projects a link label from the caret $side its footnote reference",
+      async ({ offset, sourceOffset }) => {
+        const source = "[Link containing a reference[^follow-up]](./field-report.md)";
+        const mounted = await mountProjectionEditor(`${source}\n\n[^follow-up]: Detail`);
+
+        setTextSelection(
+          mounted.view,
+          getEditorNodePosition(mounted, "footnote_reference") + offset,
+        );
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(mounted.view.state.selection.from).toBe(
+          getEditorTextPosition(mounted, source) + sourceOffset,
+        );
+      },
+    );
+
     it("restores the exact original document after a clean projection", async () => {
       const mounted = await mountProjectionEditor(
         '**[Strong Link](https://example.com "Title")** plain',
@@ -898,7 +955,7 @@ describe("source projection", () => {
 
     it("keeps a valid outer wrapper when marked reference content becomes unsupported", async () => {
       const source = "**Text[^note]**";
-      const linkLikeSource = "[Text[^note]](https://example.com)";
+      const imageSource = "![Text[^note]](./pic.png)";
       const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
 
       selectFootnoteReference(mounted);
@@ -906,18 +963,42 @@ describe("source projection", () => {
       const sourceStart = getEditorTextPosition(mounted, source);
 
       setTextSelection(mounted.view, sourceStart + 2, sourceStart + source.length - 2);
-      typeText(mounted.view, linkLikeSource);
+      typeText(mounted.view, imageSource);
       setSelectionAtDocumentEnd(mounted.view);
 
       const strongMark = mounted.view.state.schema.marks.strong;
-      const literalNode = findEditorTextNode(mounted, linkLikeSource);
+      const literalNode = findEditorTextNode(mounted, imageSource);
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeDefined();
       expect(() => getEditorNodePosition(mounted, "footnote_reference")).toThrow(
         "Could not find footnote_reference node.",
       );
-      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+      expect(mounted.view.dom.querySelector("img")).not.toBeInTheDocument();
+    });
+
+    it("rehydrates an edited marked link label holding a reference", async () => {
+      const source = "**left[^note][link[^other]](https://example.com)right**";
+      const mounted = await mountProjectionEditor(`${source}\n\n[^note]: D\n\n[^other]: O`);
+
+      selectFootnoteReference(mounted);
+
+      expect(getProjectedFootnoteSource(mounted)).toBe(source);
+
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart + "**left[^note][link".length);
+      typeText(mounted.view, "ed");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toContain(source.replace("[link", "[linked"));
+      expect(
+        getEditorNodePosition(
+          mounted,
+          "footnote_reference",
+          (node) => node.attrs.label === "other",
+        ),
+      ).toBeGreaterThan(0);
     });
 
     it("commits incomplete footnote source as exact literal document text", async () => {
@@ -1549,6 +1630,32 @@ describe("source projection", () => {
         expect(getEditorDomElement(mounted, selector)).toHaveTextContent(expectedContent);
       },
     );
+
+    it("commits an edited label holding a footnote reference", async () => {
+      const source = "[Link containing a reference[^follow-up]](./field-report.md)";
+      const mounted = await mountProjectionEditor(`${source}\n\n[^follow-up]: Detail`);
+      const labelStart = getEditorTextPosition(mounted, "Link containing a reference");
+
+      setTextSelection(mounted.view, labelStart + "Link".length);
+
+      const sourceStart = getEditorTextPosition(mounted, source);
+
+      setTextSelection(mounted.view, sourceStart + "[Link".length);
+      typeText(mounted.view, "ed");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.getMarkdown()).toBe(
+        `${source.replace("[Link", "[Linked")}\n\n[^follow-up]: Detail\n`,
+      );
+
+      const reference = mounted.view.state.doc.nodeAt(
+        getEditorNodePosition(mounted, "footnote_reference"),
+      );
+
+      expect(getMarkNames(reference!)).toEqual(["link"]);
+      expect(reference?.marks[0].attrs.href).toBe("./field-report.md");
+    });
 
     it("commits destination edits while preserving a mixed-format label", async () => {
       const mounted = await mountProjectionEditor("[**Bold** and *soft*](https://example.com)");

@@ -28,6 +28,25 @@ const typedLinkSourceFixtures = [
 const getLinkTargets = (mounted: MountedMilkdownEditor) =>
   Array.from(mounted.view.dom.querySelectorAll("a"), (link) => link.getAttribute("href"));
 
+const dispatchDropEvent = (target: EventTarget, moved: boolean) => {
+  const event = new Event("drop", { bubbles: true, cancelable: true });
+
+  Object.assign(event, {
+    clientX: 0,
+    clientY: 0,
+    ctrlKey: !moved,
+    dataTransfer: {
+      dropEffect: moved ? "move" : "copy",
+      effectAllowed: "all",
+      getData: () => "",
+      types: [],
+    },
+    metaKey: false,
+  });
+
+  target.dispatchEvent(event);
+};
+
 const typeAtDocumentEnd = (mounted: MountedMilkdownEditor, text: string) => {
   setSelectionAtDocumentEnd(mounted.view);
   typeText(mounted.view, text);
@@ -123,6 +142,74 @@ describe("typed link source", () => {
 
     expect(getLinkTargets(mounted)).toEqual([]);
     expect(mounted.getMarkdown()).toBe("edit \\[test link]\\(./test.html) tail\n");
+  });
+
+  it("keeps source the file escaped literal when it is edited inside", async () => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+
+    setTextSelection(mounted.view, 6);
+    typeText(mounted.view, "ed");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("\\[tested link]\\(./test.html) tail\n");
+  });
+
+  // Auto-pairing around a selection is one change that writes on both sides of it.
+  it("keeps source the file escaped literal when one change writes into it twice", async () => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+
+    mounted.view.dispatch(mounted.view.state.tr.insertText("(", 6).insertText(")", 11));
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("\\[test( lin)k]\\(./test.html) tail\n");
+  });
+
+  it.each([
+    { moved: true, name: "moved" },
+    { moved: false, name: "copied" },
+  ])("keeps source the file escaped literal when a word is $name into it", async ({ moved }) => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+    const { view } = mounted;
+
+    setTextSelection(view, 26, 30);
+    view.posAtCoords = () => ({ inside: -1, pos: 7 });
+    view.dragging = { move: moved, slice: view.state.doc.slice(26, 30) };
+    dispatchDropEvent(view.dom, moved);
+    setSelectionAtDocumentEnd(view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe(
+      moved ? "\\[test taillink]\\(./test.html) \n" : "\\[test taillink]\\(./test.html) tail\n",
+    );
+  });
+
+  it("commits source the file escaped once it is replaced outright", async () => {
+    const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(1, 25));
+    setTextSelection(mounted.view, 1);
+    typeText(mounted.view, "[test link](./test.html)");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual(["./test.html"]);
+    expect(mounted.getMarkdown()).toBe("[test link](./test.html) tail\n");
+  });
+
+  it("commits source written by hand around words the file already held", async () => {
+    const mounted = await mountProjectionEditor("test link tail", {
+      autoPairBracketsAndQuotes: false,
+    });
+
+    setTextSelection(mounted.view, 1);
+    typeText(mounted.view, "[");
+    setTextSelection(mounted.view, 11);
+    typeText(mounted.view, "](./test.html)");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual(["./test.html"]);
+    expect(mounted.getMarkdown()).toBe("[test link](./test.html) tail\n");
   });
 
   it("reverts a commit through undo and leaves it reverted", async () => {

@@ -35,6 +35,7 @@ import { getRangeText, getTextBetween, type TextRange } from "../utils/textRange
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   isLinkLabelHovered: false,
   pendingCommit: null,
+  protectedRanges: [],
   session: null,
   suppressedSelection: null,
   writtenRanges: [],
@@ -67,15 +68,19 @@ interface SuppressedProjectionSelection {
   head: number;
 }
 
-interface SourceProjectionPluginState {
+interface SourceProvenance {
+  protectedRanges: TextRange[];
+  writtenRanges: TextRange[];
+}
+
+interface SourceProjectionPluginState extends SourceProvenance {
   isLinkLabelHovered: boolean;
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
   suppressedSelection: SuppressedProjectionSelection | null;
-  writtenRanges: TextRange[];
 }
 
-type ProjectionSessionState = Omit<SourceProjectionPluginState, "writtenRanges">;
+type ProjectionSessionState = Omit<SourceProjectionPluginState, keyof SourceProvenance>;
 
 type ProjectionHistoryDirection = "redo" | "undo";
 
@@ -151,7 +156,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     state: {
       init: () => EMPTY_PROJECTION_STATE,
       apply: (transaction, pluginState, oldState, newState) =>
-        applyProjectionTransaction(transaction, pluginState, oldState, newState),
+        applyProjectionTransaction(transaction, pluginState, oldState, newState, adapters),
     },
   });
 };
@@ -456,8 +461,8 @@ const isSelectionSeparatedFrom = (state: EditorState, range: TextRange) => {
   return false;
 };
 
-const overlapsWrittenRange = (writtenRanges: readonly TextRange[], range: TextRange) =>
-  writtenRanges.some((written) => written.from < range.to && range.from < written.to);
+const overlapsRange = (ranges: readonly TextRange[], range: TextRange) =>
+  ranges.some((candidate) => candidate.from < range.to && range.from < candidate.to);
 
 // The run holds the previous selection, so the separator measured here contains the run's own:
 // nothing that fails it can pass the check on the run.
@@ -467,7 +472,7 @@ const findExitedLiteralSourceCommit = (
   state: EditorState,
   adapters: readonly SourceProjectionAdapter[],
 ): LiteralSourceCommit | null => {
-  const { writtenRanges } = getSourceProjectionState(state);
+  const { protectedRanges, writtenRanges } = getSourceProjectionState(state);
   const previousRange = mapRangeThroughTransactions(transactions, oldState.selection);
 
   if (!writtenRanges.length || !isSelectionSeparatedFrom(state, previousRange)) {
@@ -478,7 +483,8 @@ const findExitedLiteralSourceCommit = (
 
   return commit &&
     isSelectionSeparatedFrom(state, commit) &&
-    overlapsWrittenRange(writtenRanges, commit)
+    overlapsRange(writtenRanges, commit) &&
+    !overlapsRange(protectedRanges, commit)
     ? commit
     : null;
 };
@@ -488,9 +494,10 @@ const applyProjectionTransaction = (
   pluginState: SourceProjectionPluginState,
   oldState: EditorState,
   newState: EditorState,
+  adapters: readonly SourceProjectionAdapter[],
 ): SourceProjectionPluginState => ({
   ...applyProjectionSessionState(transaction, pluginState, oldState, newState),
-  writtenRanges: getUpdatedWrittenRanges(pluginState.writtenRanges, transaction),
+  ...getUpdatedSourceProvenance(pluginState, transaction, oldState, adapters),
 });
 
 const mergeTextRanges = (ranges: TextRange[]) =>
@@ -508,36 +515,87 @@ const mergeTextRanges = (ranges: TextRange[]) =>
       return merged;
     }, []);
 
-// Only text this session wrote may commit. The same characters can reach the document from a file
-// that escaped them, where the author asked for the source itself, and a caret passing through
-// must not spend that escape. History rewrites what a commit did, so the record goes with it and
-// an undone commit stays undone.
-const getUpdatedWrittenRanges = (ranges: TextRange[], transaction: Transaction) => {
-  if (isHistoryTransaction(transaction)) {
+// A region reads as the file wrote it only until the first write lands in it.
+const findLoadedSourceRanges = (
+  oldState: EditorState,
+  transaction: Transaction,
+  writtenRanges: readonly TextRange[],
+  adapters: readonly SourceProjectionAdapter[],
+) => {
+  const changedFrom = oldState.doc.content.findDiffStart(transaction.doc.content);
+
+  if (changedFrom === null) {
     return [];
   }
 
+  const changedTo = oldState.doc.content.findDiffEnd(transaction.doc.content)?.a;
+  const positions =
+    changedTo === undefined || changedTo === changedFrom ? [changedFrom] : [changedFrom, changedTo];
+
+  return positions.flatMap((position) => {
+    if (writtenRanges.some((range) => range.from <= position && position <= range.to)) {
+      return [];
+    }
+
+    const loadedSource = findSourceProjectionLiteralSourceCommit(
+      oldState,
+      { from: position, to: position },
+      adapters,
+    );
+
+    return loadedSource ? [loadedSource] : [];
+  });
+};
+
+// Protected ranges map inward, so a deletion drops them and the escape can be spent deliberately,
+// while written ranges map outward to take in what extends them.
+const getUpdatedSourceProvenance = (
+  { protectedRanges, session, writtenRanges }: SourceProjectionPluginState,
+  transaction: Transaction,
+  oldState: EditorState,
+  adapters: readonly SourceProjectionAdapter[],
+): SourceProvenance => {
+  if (isHistoryTransaction(transaction)) {
+    return { protectedRanges: [], writtenRanges: [] };
+  }
+
   if (!transaction.docChanged) {
-    return ranges;
+    return { protectedRanges, writtenRanges };
   }
 
   const { mapping } = transaction;
-  const written = ranges.map((range) => ({
+  const written = writtenRanges.map((range) => ({
     from: mapping.map(range.from, -1),
     to: mapping.map(range.to, 1),
+  }));
+  const loaded = protectedRanges.map((range) => ({
+    from: mapping.map(range.from, 1),
+    to: mapping.map(range.to, -1),
   }));
 
   mapping.maps.forEach((stepMap, index) => {
     const remaining = mapping.slice(index + 1);
 
-    stepMap.forEach((_from, _to, stepFrom, stepTo) => {
-      if (stepFrom < stepTo) {
-        written.push({ from: remaining.map(stepFrom, -1), to: remaining.map(stepTo, 1) });
+    stepMap.forEach((_stepFrom, _stepTo, insertedFrom, insertedTo) => {
+      if (insertedFrom < insertedTo) {
+        written.push({ from: remaining.map(insertedFrom, -1), to: remaining.map(insertedTo, 1) });
       }
     });
   });
 
-  return mergeTextRanges(written);
+  // Text under an active projection is source the engine placed there, not source the file holds.
+  const loadedSources = session
+    ? []
+    : findLoadedSourceRanges(oldState, transaction, writtenRanges, adapters);
+
+  for (const loadedSource of loadedSources) {
+    loaded.push({ from: mapping.map(loadedSource.from, 1), to: mapping.map(loadedSource.to, -1) });
+  }
+
+  return {
+    protectedRanges: mergeTextRanges(loaded.filter((range) => range.from < range.to)),
+    writtenRanges: mergeTextRanges(written),
+  };
 };
 
 const applyProjectionSessionState = (

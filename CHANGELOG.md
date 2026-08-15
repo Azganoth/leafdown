@@ -22,6 +22,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Open bold, italic, or strikethrough that wraps a link as one Markdown source with the link inside it, instead of one side of the link at a time with markers that do not match the file.
 - Keep bold, italic, or strikethrough that wraps a link when the label repeats the same formatting inside it, instead of dropping the wrapper on save.
 - Keep a strikethrough that wraps a link outside the link on save, as bold and italic already are, instead of rewriting it inside the label.
 - Open a bold, italic, or struck-through span that continues after a line break as one Markdown source, instead of one line at a time with markers that do not match the file.

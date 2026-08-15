@@ -5,7 +5,7 @@ import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer
 
 import { isNonNullish } from "@/lib/predicates";
 
-import { getCandidateMarksAtSelection } from "./marks";
+import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createMarkedFragmentSourceStructure,
@@ -45,7 +45,7 @@ export interface SourceProjectionTarget extends TextRange {
 
 interface MarkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "mark";
-  hasFootnoteReferences: boolean;
+  hasInlineObjects: boolean;
   marks: ProjectionMarkDescriptor[];
   originalText: string;
   sourceMap: MarkedFragmentSourceMap | null;
@@ -147,8 +147,13 @@ interface ProjectionMarkSegment extends ActiveProjectionRange {
   trailingWhitespaceLength: number;
 }
 
+const LINK_MARK_NAME = "link";
+
 const isInlineBreak = (node: ProseMirrorNode) =>
   node.type.name === "hardbreak" && node.attrs.isInline === true;
+
+const isLinkImage = (node: ProseMirrorNode) =>
+  node.type.name === "image" && node.marks.some((mark) => mark.type.name === LINK_MARK_NAME);
 
 const createTextSlice = (
   state: EditorState,
@@ -209,11 +214,13 @@ const createMarkSourceProjectionTarget = (
   state: EditorState,
   range: ActiveProjectionRange,
   serializer: Serializer,
+  remark: RemarkParser,
 ): MarkSourceProjectionTarget => {
   const originalContent = state.doc.slice(range.from, range.to);
   const serialized = serializeMarkedFragmentSource(
     state,
     serializer,
+    remark,
     originalContent.content,
     range.marks,
   );
@@ -221,7 +228,7 @@ const createMarkSourceProjectionTarget = (
   return {
     adapterId: "mark",
     from: range.from,
-    hasFootnoteReferences: serialized.hasFootnoteReferences,
+    hasInlineObjects: serialized.hasInlineObjects,
     marks: range.marks,
     originalContent,
     originalContentSize: range.to - range.from,
@@ -240,7 +247,7 @@ const createMarkSourceProjectionTargetFromSource = (
 ): MarkSourceProjectionTarget => ({
   adapterId: "mark",
   from,
-  hasFootnoteReferences: false,
+  hasInlineObjects: false,
   marks: parsed.marks,
   originalContent: createTextSlice(state, parsed.text, parsed.marks),
   originalContentSize: parsed.text.length,
@@ -323,7 +330,9 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
   const segments: ProjectionMarkSegment[] = [];
 
   $from.parent.forEach((node, offset) => {
-    const marks = getProjectionMarksFromInlineNode(node);
+    const from = parentStart + offset;
+    const documentMarks = getWrappingMarks(state, node, from);
+    const marks = getProjectionMarksFromInlineNode(node, documentMarks);
 
     if (!marks.length) {
       return;
@@ -332,17 +341,19 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
     const text = node.isText ? (node.text ?? "") : "";
     const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
     const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
-    const from = parentStart + offset;
     const previousSegment = segments.at(-1);
 
-    if (previousSegment?.to === from && Mark.sameSet(previousSegment.documentMarks, node.marks)) {
+    if (
+      previousSegment?.to === from &&
+      Mark.sameSet(previousSegment.documentMarks, documentMarks)
+    ) {
       previousSegment.to = from + node.nodeSize;
       previousSegment.trailingWhitespaceLength = trailingWhitespaceLength;
       return;
     }
 
     segments.push({
-      documentMarks: node.marks,
+      documentMarks,
       from,
       leadingWhitespaceLength,
       marks,
@@ -359,27 +370,54 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
   });
 };
 
-const getProjectionMarksFromInlineNode = (node: ProseMirrorNode): ProjectionMarkDescriptor[] => {
+const getWrappingMarks = (state: EditorState, node: ProseMirrorNode, from: number) => {
+  const linkMark = node.marks.find((mark) => mark.type.name === LINK_MARK_NAME);
+
+  if (!linkMark) {
+    return node.marks;
+  }
+
+  const linkRange = getMarkRangeAtPosition(state, from, linkMark);
+
+  if (!linkRange) {
+    return [];
+  }
+
+  return node.marks.filter((mark) => {
+    if (mark.type.name === LINK_MARK_NAME) {
+      return false;
+    }
+
+    const range = getMarkRangeAtPosition(state, from, mark);
+
+    return range !== null && (range.from < linkRange.from || linkRange.to < range.to);
+  });
+};
+
+const getProjectionMarksFromInlineNode = (
+  node: ProseMirrorNode,
+  wrappingMarks: readonly Mark[],
+): ProjectionMarkDescriptor[] => {
   const isFootnoteReference = node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
-  if (!node.isText && !isFootnoteReference && !isInlineBreak(node)) {
+  if (!node.isText && !isFootnoteReference && !isInlineBreak(node) && !isLinkImage(node)) {
     return [];
   }
 
-  if (node.marks.some((mark) => mark.type.name === "link")) {
+  if (
+    node.marks.some(
+      (mark) => mark.type.name !== LINK_MARK_NAME && !isProjectionMarkName(mark.type.name),
+    )
+  ) {
     return [];
   }
 
-  const inlineCode = node.marks.find((mark) => mark.type.name === "inlineCode");
+  const inlineCode = wrappingMarks.find((mark) => mark.type.name === "inlineCode");
 
   if (inlineCode) {
-    return node.isText && node.marks.length === 1
+    return node.isText && wrappingMarks.length === 1
       ? [createProjectionMarkDescriptor("inlineCode", inlineCode.attrs)]
       : [];
-  }
-
-  if (node.marks.some((mark) => !isProjectionMarkName(mark.type.name))) {
-    return [];
   }
 
   return SUPPORTED_PROJECTION_MARK_NAMES.flatMap((markName) => {
@@ -387,7 +425,7 @@ const getProjectionMarksFromInlineNode = (node: ProseMirrorNode): ProjectionMark
       return [];
     }
 
-    const mark = node.marks.find((candidateMark) => candidateMark.type.name === markName);
+    const mark = wrappingMarks.find((candidateMark) => candidateMark.type.name === markName);
 
     if (!mark) {
       return [];
@@ -496,7 +534,7 @@ const getMarkedFragmentPresentation = (
       to: map.contentFrom,
     },
   ];
-  let hasFootnoteReference = false;
+  const objectTypes = new Set<string>();
 
   for (const segment of map.segments) {
     if (segment.type === "text") {
@@ -508,7 +546,32 @@ const getMarkedFragmentPresentation = (
       continue;
     }
 
-    hasFootnoteReference = true;
+    if (segment.type === "link") {
+      const labelFrom = segment.sourceFrom + (segment.map?.labelFrom ?? 0);
+      const labelTo = segment.sourceFrom + (segment.map?.labelTo ?? 0);
+
+      objectTypes.add(LINK_MARK_NAME);
+      spans.push(
+        {
+          className: "leafdown-source-projection__marker",
+          from: segment.sourceFrom,
+          to: labelFrom,
+        },
+        {
+          className: `${contentClassName} leafdown-source-projection__content--link-label`,
+          from: labelFrom,
+          to: labelTo,
+        },
+        {
+          className: "leafdown-source-projection__marker",
+          from: labelTo,
+          to: segment.sourceTo,
+        },
+      );
+      continue;
+    }
+
+    objectTypes.add("footnote-reference");
     spans.push(
       {
         className: "leafdown-source-projection__marker",
@@ -535,10 +598,7 @@ const getMarkedFragmentPresentation = (
   });
 
   return {
-    sourceTypes: [
-      ...marks.map((mark) => mark.markName),
-      ...(hasFootnoteReference ? ["footnote-reference"] : []),
-    ],
+    sourceTypes: [...marks.map((mark) => mark.markName), ...objectTypes],
     spans: spans.filter(({ from, to }) => from < to),
   };
 };
@@ -798,6 +858,24 @@ const getProjectionEditSelectionOffset = (
   return Math.min(nextContentBounds.from + contentOffset + edit.text.length, nextContentBounds.to);
 };
 
+const getAtomicSourceRanges = (map: MarkedFragmentSourceMap): TextRange[] =>
+  map.segments.flatMap((segment) => {
+    if (segment.type === "footnoteReference") {
+      return [{ from: segment.sourceFrom, to: segment.sourceTo }];
+    }
+
+    if (segment.type !== "link" || !segment.map) {
+      return [];
+    }
+
+    return segment.map.segments
+      .filter((linkSegment) => linkSegment.type === "image")
+      .map((linkSegment) => ({
+        from: segment.sourceFrom + linkSegment.sourceFrom,
+        to: segment.sourceFrom + linkSegment.sourceTo,
+      }));
+  });
+
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>
   !(
     from === to &&
@@ -817,7 +895,7 @@ export const createMarkSourceProjectionAdapter = ({
     canCopySelectionSemantically: (selection, session, parsed) => {
       const markTarget = session.target;
 
-      if (!markTarget.hasFootnoteReferences) {
+      if (!markTarget.hasInlineObjects) {
         return true;
       }
 
@@ -830,22 +908,14 @@ export const createMarkSourceProjectionAdapter = ({
       const selectionFrom = selection.from - session.from;
       const selectionTo = selection.to - session.from;
 
-      return structure.map.segments.every((segment) => {
-        if (segment.type !== "footnoteReference") {
-          return true;
-        }
+      return getAtomicSourceRanges(structure.map).every(({ from, to }) => {
+        const overlapsSelection = selectionFrom < to && from < selectionTo;
 
-        const overlapsSelection =
-          selectionFrom < segment.sourceTo && segment.sourceFrom < selectionTo;
-
-        return (
-          !overlapsSelection ||
-          (selectionFrom <= segment.sourceFrom && segment.sourceTo <= selectionTo)
-        );
+        return !overlapsSelection || (selectionFrom <= from && to <= selectionTo);
       });
     },
     createEnterTransaction: (state, markTarget) => {
-      if (markTarget.hasFootnoteReferences) {
+      if (markTarget.hasInlineObjects) {
         return state.tr.replace(
           markTarget.from,
           markTarget.to,
@@ -865,11 +935,11 @@ export const createMarkSourceProjectionAdapter = ({
     findTarget: (state) => {
       const range = getActiveProjectionMarkRange(state);
 
-      return range ? createMarkSourceProjectionTarget(state, range, serializer) : null;
+      return range ? createMarkSourceProjectionTarget(state, range, serializer, remark) : null;
     },
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
     getPresentation: (markTarget, source) => {
-      if (markTarget.hasFootnoteReferences) {
+      if (markTarget.hasInlineObjects) {
         const structure = createMarkedFragmentSourceStructure(source, parser, remark);
 
         if (structure) {
@@ -909,7 +979,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     mapSelectionFromSource: (selection, session, result) => {
-      if (session.target.hasFootnoteReferences) {
+      if (session.target.hasInlineObjects) {
         const structure = createMarkedFragmentSourceStructure(result.source, parser, remark);
 
         if (structure) {
@@ -950,7 +1020,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     mapSelectionToSource: (selection, markTarget) => {
-      if (markTarget.hasFootnoteReferences && markTarget.sourceMap) {
+      if (markTarget.hasInlineObjects && markTarget.sourceMap) {
         if (selection instanceof NodeSelection) {
           const documentOffset = selection.from - markTarget.from;
           const segment = markTarget.sourceMap.segments.find(
@@ -990,7 +1060,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     parseSource: (state, source, markTarget) => {
-      if (markTarget.hasFootnoteReferences) {
+      if (markTarget.hasInlineObjects) {
         const richFragment = parseMarkedFragmentSource(state, source, parser, remark);
 
         if (richFragment) {
@@ -1018,7 +1088,7 @@ export const createMarkSourceProjectionAdapter = ({
     restoreCleanTarget: (state, session) => {
       const { target } = session;
 
-      if (target.hasFootnoteReferences) {
+      if (target.hasInlineObjects) {
         return state.tr.replace(session.from, session.to, target.originalContent);
       }
 

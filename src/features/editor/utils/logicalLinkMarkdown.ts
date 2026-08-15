@@ -1,4 +1,5 @@
 import { Fragment, Mark, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
 
 interface LogicalLinkReplacement {
@@ -237,3 +238,14 @@ export const createLogicalLinkMarkdownSerializer =
       serializer(transformedDocument),
     );
   };
+
+export const serializeLinkRunSource = (
+  state: EditorState,
+  serializer: Serializer,
+  nodes: readonly ProseMirrorNode[],
+) => {
+  const paragraph = state.schema.nodes.paragraph.create(null, Fragment.fromArray([...nodes]));
+  const document = state.schema.nodes.doc.create(null, paragraph);
+
+  return createLogicalLinkMarkdownSerializer(serializer)(document).replace(/\n$/u, "");
+};

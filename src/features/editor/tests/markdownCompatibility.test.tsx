@@ -169,7 +169,7 @@ describe("Markdown compatibility", () => {
     "[**bold** plain](https://example.com)",
     "[plain *soft* and ~~strike~~](https://example.com)",
     "[plain `code` and **bold**](https://example.com)",
-    "[plain \\* literal and **bold**](https://example.com)",
+    "[plain \\*literal\\* and **bold**](https://example.com)",
     '**[plain *soft*](https://example.com "Title")**',
     "[plain **bold**]()",
     "[a](https://example.com) [b](https://example.com)",
@@ -347,10 +347,61 @@ describe("Markdown compatibility", () => {
   });
 });
 
+// Each fixture is the source that produces the document, so a case that must lose an escape is
+// written with the one it loses.
+describe("Escape precision", () => {
+  it.each([
+    { saved: "garden_sensor_name", source: "garden\\_sensor\\_name" },
+    { saved: "sensor.reading_value", source: "sensor.reading\\_value" },
+    { saved: "foo__bar__baz", source: "foo\\_\\_bar\\_\\_baz" },
+    { saved: "snake_case_ trailing", source: "snake\\_case\\_ trailing" },
+    { saved: "*opening-only asterisk emphasis", source: "\\*opening-only asterisk emphasis" },
+    { saved: "closing-only asterisk emphasis*", source: "closing-only asterisk emphasis\\*" },
+    { saved: "a * b * c", source: "a \\* b \\* c" },
+    { saved: "text with [ bracket", source: "text with \\[ bracket" },
+    { saved: "text with ] bracket", source: "text with ] bracket" },
+    {
+      saved: "\\[intentionally literal](garden.md)",
+      source: "\\[intentionally literal]\\(garden.md)",
+    },
+  ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  it.each([
+    "\\*not emphasis\\*",
+    "\\*\\*not strong emphasis\\*\\*",
+    "\\_not emphasis\\_",
+    "\\_\\_not strong emphasis\\_\\_",
+    "\\* not a list item",
+    "\\*\\*\\*",
+    "\\_\\_\\_",
+    "\\# not a heading",
+    "\\> not a quote",
+    "\\- not a list item",
+    "\\[reference]\\[label]",
+    "\\[intentionally literal](garden.md)",
+    "!\\[intentionally literal](garden.png)",
+    "\\`not code\\`",
+    "\\~\\~not strikethrough\\~\\~",
+    "\\<span>not html\\</span>",
+    "a \\ b",
+    "C:\\Users\\me",
+    "\\\\#",
+    "\\\\[",
+  ])("keeps the escape the document needs in %j", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+});
+
 describe("Typed link source", () => {
   const typedLinkSourceFixtures = [
     {
-      expected: "\\[test link]\\(./test.html)",
+      expected: "\\[test link](./test.html)",
       name: "inline link",
       typed: "[test link](./test.html)",
     },
@@ -382,7 +433,7 @@ describe("Typed link source", () => {
     },
   );
 
-  it.each(["\\[test link]\\(./test.html)", "\\[test link]\\(./test.html) "])(
+  it.each(["\\[test link](./test.html)", "\\[test link](./test.html) "])(
     "reloads a typed inline link as the text the editor presented in %j",
     async (source) => {
       const mounted = await mountEditor(source);

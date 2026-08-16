@@ -45,6 +45,7 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
   "leafdownSourceProjection",
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
+export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
 const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
@@ -564,6 +565,9 @@ const getUpdatedSourceProvenance = (
   }
 
   const { mapping } = transaction;
+  // A change that only moves content the document already held authors nothing, but its steps
+  // re-insert what they took, which the step maps alone read as text the session wrote.
+  const isRestructure = transaction.getMeta(SOURCE_PROJECTION_RESTRUCTURE_META) === true;
   const written = writtenRanges.map((range) => ({
     from: mapping.map(range.from, -1),
     to: mapping.map(range.to, 1),
@@ -573,20 +577,23 @@ const getUpdatedSourceProvenance = (
     to: mapping.map(range.to, -1),
   }));
 
-  mapping.maps.forEach((stepMap, index) => {
-    const remaining = mapping.slice(index + 1);
+  if (!isRestructure) {
+    mapping.maps.forEach((stepMap, index) => {
+      const remaining = mapping.slice(index + 1);
 
-    stepMap.forEach((_stepFrom, _stepTo, insertedFrom, insertedTo) => {
-      if (insertedFrom < insertedTo) {
-        written.push({ from: remaining.map(insertedFrom, -1), to: remaining.map(insertedTo, 1) });
-      }
+      stepMap.forEach((_stepFrom, _stepTo, insertedFrom, insertedTo) => {
+        if (insertedFrom < insertedTo) {
+          written.push({ from: remaining.map(insertedFrom, -1), to: remaining.map(insertedTo, 1) });
+        }
+      });
     });
-  });
+  }
 
   // Text under an active projection is source the engine placed there, not source the file holds.
-  const loadedSources = session
-    ? []
-    : findLoadedSourceRanges(oldState, transaction, writtenRanges, adapters);
+  const loadedSources =
+    session || isRestructure
+      ? []
+      : findLoadedSourceRanges(oldState, transaction, writtenRanges, adapters);
 
   for (const loadedSource of loadedSources) {
     loaded.push({ from: mapping.map(loadedSource.from, 1), to: mapping.map(loadedSource.to, -1) });

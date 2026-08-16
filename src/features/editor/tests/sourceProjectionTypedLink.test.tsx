@@ -185,6 +185,64 @@ describe("typed link source", () => {
     );
   });
 
+  // Restructuring a table rebuilds every cell in it, including the ones the session never touched.
+  describe("with source the file escaped in a table cell", () => {
+    const mountTableEditor = () =>
+      mountProjectionEditor(
+        "| a | b |\n| --- | --- |\n| \\[test link](./test.html) tail | c |\n| d | e |\n| f | g |",
+      );
+    const escapedCellRow = "| \\[test link]\\(./test.html) tail | c |";
+
+    it.each(["format.table.moveRowDown", "format.table.moveColumnRight"] as const)(
+      "keeps it literal through %s from the cell",
+      async (commandId) => {
+        const mounted = await mountTableEditor();
+
+        setTextSelection(mounted.view, 20);
+        await runEditorCommand(mounted.editor, commandId);
+        setSelectionAtDocumentEnd(mounted.view);
+
+        expect(getLinkTargets(mounted)).toEqual([]);
+      },
+    );
+
+    it("keeps it literal when the caret returns to the cell later", async () => {
+      const mounted = await mountTableEditor();
+
+      setTextSelection(mounted.view, 20);
+      await runEditorCommand(mounted.editor, "format.table.addRowBelow");
+      setSelectionAtDocumentEnd(mounted.view);
+      setTextSelection(mounted.view, 20);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(getLinkTargets(mounted)).toEqual([]);
+      expect(mounted.getMarkdown()).toContain(escapedCellRow);
+    });
+
+    it("keeps it literal when another row is moved", async () => {
+      const mounted = await mountTableEditor();
+
+      setSelectionAtDocumentEnd(mounted.view);
+      await runEditorCommand(mounted.editor, "format.table.moveRowUp");
+      setTextSelection(mounted.view, 20);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(getLinkTargets(mounted)).toEqual([]);
+      expect(mounted.getMarkdown()).toContain(escapedCellRow);
+    });
+
+    it("still commits source typed into a cell after the table is restructured", async () => {
+      const mounted = await mountTableEditor();
+
+      setTextSelection(mounted.view, 20);
+      await runEditorCommand(mounted.editor, "format.table.addRowBelow");
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, " [typed](./typed.html) ");
+
+      expect(getLinkTargets(mounted)).toEqual(["./typed.html"]);
+    });
+  });
+
   it("commits source the file escaped once it is replaced outright", async () => {
     const mounted = await mountProjectionEditor("\\[test link](./test.html) tail");
 

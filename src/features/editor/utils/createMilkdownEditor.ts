@@ -25,7 +25,8 @@ import {
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
-import { gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import { extendListItemSchemaForTask, gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
@@ -105,6 +106,27 @@ export const composeEditorViewAttributes = (
   typeof previous === "function"
     ? (state) => ({ ...previous(state), ...added })
     : { ...previous, ...added };
+
+// The list item schema requires a leading paragraph, so an item whose source starts with any other
+// block parses with an empty one filled in ahead of it. Written out it becomes a blank line, and
+// CommonMark ends the item at the second one.
+const withoutFilledLeadingParagraph = (node: ProseNode) => {
+  const firstChild = node.firstChild;
+
+  if (
+    node.childCount < 2 ||
+    !firstChild ||
+    firstChild.type.name !== "paragraph" ||
+    firstChild.content.size > 0 ||
+    // GFM writes the checkbox into the item's first paragraph and drops it when that paragraph is
+    // not there to hold it.
+    node.attrs.checked != null
+  ) {
+    return node;
+  }
+
+  return node.copy(node.content.cut(firstChild.nodeSize));
+};
 
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
 // Marks serialize in `spec.priority` order, 50 unless declared, and inline code declares 100 to
@@ -209,6 +231,20 @@ export const createMilkdownEditor = async ({
         ...withBareAutolinkForm(getSchema(schemaCtx)),
         priority: LINK_MARK_PRIORITY,
       }));
+      // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the
+      // schema the editor holds.
+      ctx.update(extendListItemSchemaForTask.key, (getSchema) => (schemaCtx) => {
+        const schema = getSchema(schemaCtx);
+
+        return {
+          ...schema,
+          toMarkdown: {
+            ...schema.toMarkdown,
+            runner: (state, node) =>
+              schema.toMarkdown.runner(state, withoutFilledLeadingParagraph(node)),
+          },
+        };
+      });
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({

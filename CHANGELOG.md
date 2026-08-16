@@ -24,6 +24,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a list item that starts with a code block, table, quote, nested list, heading, or thematic break nested in the saved file, instead of writing an empty item and leaving the block outside the list the next time the document is opened.
 - Keep typed link and autolink source literal in the saved file when a space follows it, instead of writing it as live Markdown that turns into a link the next time the document is opened.
 - Open the Markdown source of a link whose label holds a footnote reference, instead of leaving it closed everywhere in the label except on the reference itself.
 - Keep a link label that mixes formatted text with a footnote reference as one link, instead of saving it as two links.

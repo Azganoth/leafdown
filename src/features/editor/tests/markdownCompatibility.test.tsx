@@ -218,6 +218,43 @@ describe("Markdown compatibility", () => {
   });
 
   it.each([
+    "* ```\n  code\n  ```",
+    "1. ```\n   code\n   ```",
+    "* | A | B |\n  | - | - |\n  | 1 | 2 |",
+    "1. | A | B |\n   | - | - |\n   | 1 | 2 |",
+    "* > quoted",
+    "1. > quoted",
+    "* * child",
+    "1. * child",
+    "* ## Title",
+    "1. ## Title",
+    "- ***",
+    "1. ***",
+  ])("keeps a non-paragraph first child inside its list item in %s", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    { expected: "* ```\n  code\n  ```\n", source: "*     code" },
+    { expected: "1. ```\n   code\n   ```\n", source: "1.     code" },
+  ])(
+    "keeps an indented-code first child inside its list item in $source",
+    async ({ expected, source }) => {
+      const mounted = await mountEditor(source);
+
+      expect(mounted.getMarkdown()).toBe(expected);
+    },
+  );
+
+  it("keeps an empty list item empty", async () => {
+    const mounted = await mountEditor("* first\n*\n* third");
+
+    expect(mounted.getMarkdown()).toBe("* first\n\n*\n\n* third\n");
+  });
+
+  it.each([
     "[plain\nlabel](docs/readme.md)",
     '[**bold** and\n*soft*](docs/readme.md "Title")',
     "**[plain *soft*\nlabel](docs/readme.md)**",

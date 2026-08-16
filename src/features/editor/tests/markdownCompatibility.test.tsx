@@ -364,6 +364,11 @@ describe("Escape precision", () => {
       saved: "\\[intentionally literal](garden.md)",
       source: "\\[intentionally literal]\\(garden.md)",
     },
+    {
+      saved: "!\"#$%&'()*+,-./:;<=>?@\\[\\\\]^_\\`{|}\\~",
+      source:
+        "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
+    },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -384,9 +389,11 @@ describe("Escape precision", () => {
     "\\[reference]\\[label]",
     "\\[intentionally literal](garden.md)",
     "!\\[intentionally literal](garden.png)",
+    "\\![literal bang before a live link](garden.png)",
     "\\`not code\\`",
     "\\~\\~not strikethrough\\~\\~",
     "\\<span>not html\\</span>",
+    "| bed         |\n| ----------- |\n| alpha\\|beta |",
     "a \\ b",
     "C:\\Users\\me",
     "\\\\#",

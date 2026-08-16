@@ -492,14 +492,16 @@ describe("source projection", () => {
 
     it("maps a selection through escaped text in a mixed-format link label", async () => {
       const mounted = await mountProjectionEditor(
-        "[literal \\* and **bold**](https://example.com)",
+        "[\\*literal\\* and **bold**](https://example.com)",
       );
       const selectionFrom = getEditorTextPosition(mounted, "bold");
 
       setTextSelection(mounted.view, selectionFrom, selectionFrom + "bold".length);
 
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-      expect(getEditorTextContent(mounted)).toBe("[literal \\* and **bold**](https://example.com)");
+      expect(getEditorTextContent(mounted)).toBe(
+        "[\\*literal\\* and **bold**](https://example.com)",
+      );
       expect(getSelectedEditorText(mounted)).toBe("bold");
     });
 
@@ -1030,7 +1032,7 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
 
       expect(getEditorTextContent(mounted)).toContain("Text[^note");
-      expect(mounted.getMarkdown()).toContain("Text\\[^note");
+      expect(mounted.getMarkdown()).toBe("Text[^note\n\n[^note]: Detail\n");
     });
 
     it.each([
@@ -1171,7 +1173,7 @@ describe("source projection", () => {
 
       const literal = "[^note";
 
-      expect(mounted.getMarkdown()).toContain("Text\\[^note");
+      expect(mounted.getMarkdown()).toBe("Text[^note\n\n[^note]: Detail\n");
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.view.state.selection.from).toBe(
         getEditorTextPosition(mounted, literal) + literal.length,

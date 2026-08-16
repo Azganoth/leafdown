@@ -325,7 +325,7 @@ describe("source projection clipboard slices", () => {
 
   it.each([
     { expected: "*Paste*", html: "<p><em>Paste</em></p>", label: "emphasis" },
-    { expected: "a\\*b", html: "<p>a*b</p>", label: "characters that mean something in source" },
+    { expected: "\\*a\\*", html: "<p>*a*</p>", label: "characters that mean something in source" },
     { expected: "", html: "<ul><li>one</li><li>two</li></ul>", label: "a list" },
     { expected: "", html: "<p>one</p><p>two</p>", label: "two paragraphs" },
   ])(

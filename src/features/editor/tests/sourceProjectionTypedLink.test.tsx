@@ -236,6 +236,17 @@ describe("typed link source", () => {
     expect(mounted.getMarkdown()).toBe("```\ncode [test link](./test.html)\n```\n");
   });
 
+  it("leaves typed source split by a line ending literal", async () => {
+    const mounted = await mountProjectionEditor("start");
+
+    typeAtDocumentEnd(mounted, " [test link");
+    runKeyDownHandlers(mounted.view, "Enter", { shiftKey: true });
+    typeText(mounted.view, "](./test.html) tail");
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("start \\[test link\\\n]\\(./test.html) tail\n");
+  });
+
   it.each(typedLinkSourceFixtures)(
     "reaches the same document typing or pasting a $name",
     async ({ typed }) => {

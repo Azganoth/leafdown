@@ -24,6 +24,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a link or footnote reference whole when a character is typed at the start of its open Markdown source, instead of turning the whole construct into literal text that saves with escapes.
 - Write a backslash on save only where the character it precedes would otherwise be read as Markdown, so text such as `garden_sensor_name` keeps its underscores bare, instead of escaping every character that could be syntax somewhere else.
 - Keep a list item that starts with a code block, table, quote, nested list, heading, or thematic break nested in the saved file, instead of writing an empty item and leaving the block outside the list the next time the document is opened.
 - Keep typed link and autolink source literal in the saved file when a space follows it, instead of writing it as live Markdown that turns into a link the next time the document is opened.

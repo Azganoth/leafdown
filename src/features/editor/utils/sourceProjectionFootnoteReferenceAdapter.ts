@@ -10,6 +10,8 @@ import type { Parser, Serializer } from "@milkdown/kit/transformer";
 
 import {
   createLiteralSourceProjectionSlice,
+  decodeSourceProjectionEscapes,
+  mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
   type SourceProjectionParseResult,
@@ -119,7 +121,7 @@ const mapLiteralSelectionPositionFromSource = (
     return session.from + result.replacementSize + (position - session.to);
   }
 
-  return position;
+  return session.from + mapLiteralSourceOffsetToDocument(result.source, position - session.from);
 };
 
 const mapAtomicSelectionPositionFromSource = (
@@ -252,17 +254,21 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
   parseSource: (state, source, { ambientMarks }) => {
     const reference = parseFootnoteReferenceSource(parser, source);
 
-    return reference
-      ? {
-          replacement: new Slice(Fragment.from(reference.mark(ambientMarks)), 0, 0),
-          replacementSize: reference.nodeSize,
-          source,
-        }
-      : {
-          replacement: createMarkedLiteralSlice(state, source, ambientMarks),
-          replacementSize: source.length,
-          source,
-        };
+    if (reference) {
+      return {
+        replacement: new Slice(Fragment.from(reference.mark(ambientMarks)), 0, 0),
+        replacementSize: reference.nodeSize,
+        source,
+      };
+    }
+
+    const literal = decodeSourceProjectionEscapes(source);
+
+    return {
+      replacement: createMarkedLiteralSlice(state, literal, ambientMarks),
+      replacementSize: literal.length,
+      source,
+    };
   },
   restoreCleanTarget: (state, session) =>
     state.tr.replace(session.from, session.to, session.target.originalContent),

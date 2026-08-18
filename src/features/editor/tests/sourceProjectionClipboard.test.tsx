@@ -208,6 +208,24 @@ describe("source projection clipboard slices", () => {
     expect(fragment.textContent).toBe(invalidSource);
   });
 
+  it("carries the text an escaped link source spells in its editor flavor", async () => {
+    const source = "[Label](https://example.com)";
+    const mounted = await mountEditor(source);
+
+    enterProjection(mounted, "a");
+
+    const sourceStart = getEditorTextPosition(mounted, source);
+
+    setTextSelection(mounted.view, sourceStart);
+    typeText(mounted.view, "\\");
+    setTextSelection(mounted.view, sourceStart, sourceStart + `\\${source}`.length);
+
+    const fragment = parseClipboardHtml(getClipboardHtml(mounted));
+
+    expect(fragment.querySelector("a")).not.toBeInTheDocument();
+    expect(fragment.textContent).toBe(source);
+  });
+
   it("maps complete atomic references but declines partial labels", async () => {
     const source = "[^note]";
     const mounted = await mountEditor(`Before${source} after\n\n[^note]: Detail`);

@@ -9,8 +9,11 @@ import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
+  decodeSourceProjectionEscapes,
+  mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
+  type SourceProjectionParseResult,
   type SourceProjectionPresentationSpan,
   type SourceProjectionSessionRange,
   type SourceProjectionTarget,
@@ -479,7 +482,7 @@ const mapSelectionPositionToSource = (
 const mapSelectionPositionFromSource = (
   position: number,
   session: SourceProjectionSessionRange,
-  source: string,
+  result: SourceProjectionParseResult,
   map: LinkSourceMap | null,
 ) => {
   if (position <= session.from) {
@@ -487,12 +490,17 @@ const mapSelectionPositionFromSource = (
   }
 
   if (position >= session.to) {
-    return session.from + (map?.documentSize ?? source.length) + (position - session.to);
+    return session.from + result.replacementSize + (position - session.to);
   }
 
   const sourceOffset = position - session.from;
 
-  return session.from + (map ? mapLinkSourcePositionToDocument(sourceOffset, map) : sourceOffset);
+  return (
+    session.from +
+    (map
+      ? mapLinkSourcePositionToDocument(sourceOffset, map)
+      : mapLiteralSourceOffsetToDocument(result.source, sourceOffset))
+  );
 };
 
 const isLinkSelectionSemantic = (
@@ -609,8 +617,8 @@ export const createLinkSourceProjectionAdapter = ({
     const map = createLinkSourceMap(remark, result.source);
 
     return {
-      anchor: mapSelectionPositionFromSource(selection.anchor, session, result.source, map),
-      head: mapSelectionPositionFromSource(selection.head, session, result.source, map),
+      anchor: mapSelectionPositionFromSource(selection.anchor, session, result, map),
+      head: mapSelectionPositionFromSource(selection.head, session, result, map),
     };
   },
   mapSelectionToSource: (selection, linkTarget) => {
@@ -626,17 +634,21 @@ export const createLinkSourceProjectionAdapter = ({
   parseSource: (state, source, { ambientMarks }) => {
     const parsed = parseLinkSource(state, source, parser, remark, ambientMarks);
 
-    return parsed
-      ? {
-          replacement: parsed.replacement,
-          replacementSize: parsed.map.documentSize,
-          source,
-        }
-      : {
-          replacement: createLiteralSourceProjectionSlice(state, source),
-          replacementSize: source.length,
-          source,
-        };
+    if (parsed) {
+      return {
+        replacement: parsed.replacement,
+        replacementSize: parsed.map.documentSize,
+        source,
+      };
+    }
+
+    const literal = decodeSourceProjectionEscapes(source);
+
+    return {
+      replacement: createLiteralSourceProjectionSlice(state, literal),
+      replacementSize: literal.length,
+      source,
+    };
   },
   restoreCleanTarget: createRestoreCleanLinkTransaction,
   serializeInlineSource: (state, fragment) =>

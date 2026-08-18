@@ -165,7 +165,7 @@
 - Milkdown's canonical model remains the default; projected source is transient and never becomes saved semantic content.
 - Active marker characters are ordinary unmarked document text rather than widget content.
 - A clean session restores its original target exactly. Projection entry and exit are housekeeping, while user edits remain ordinary editor changes managed through an explicit projection-session history bridge.
-- Projection finalizes before serialization. Valid source rehydrates semantic content; invalid source becomes literal text so no projected character is lost.
+- Projection finalizes before serialization. Valid source rehydrates semantic content; invalid source becomes the literal text it spells, so no projected character is lost except a backslash that escapes the character after it, which the file writes back.
 - Marker presentation remains separate from projection lifecycle.
 - Architecture owns projection lifecycle and adapter boundaries; Specification owns supported objects and observable editing behavior.
 

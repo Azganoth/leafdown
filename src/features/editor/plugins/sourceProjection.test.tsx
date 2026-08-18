@@ -1960,6 +1960,64 @@ describe("source projection", () => {
       },
     );
 
+    it.each([
+      { markdown: "[a](b) tail", offset: 0, side: "the source start" },
+      { markdown: "[a](b) tail", offset: "[a]".length, side: "the destination" },
+    ])("escapes a link with a backslash typed at $side", async ({ markdown, offset }) => {
+      const mounted = await mountProjectionEditor(markdown);
+
+      enterProjection(mounted, "a");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[a](b)") + offset);
+      typeText(mounted.view, "\\");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const authored = await mountProjectionEditor("\\[a](b) tail");
+
+      expect(getEditorTextContent(mounted)).toBe("[a](b) tail");
+      expect(mounted.view.state.doc.toJSON()).toEqual(authored.view.state.doc.toJSON());
+      expect(mounted.getMarkdown()).toBe("\\[a](b) tail\n");
+    });
+
+    it("escapes a footnote reference with a backslash typed at its source start", async () => {
+      const mounted = await mountProjectionEditor("text[^a] tail\n\n[^a]: note");
+
+      selectFootnoteReference(mounted);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[^a]"));
+      typeText(mounted.view, "\\");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const authored = await mountProjectionEditor("text\\[^a] tail\n\n[^a]: note");
+
+      expect(mounted.view.state.doc.toJSON()).toEqual(authored.view.state.doc.toJSON());
+      expect(mounted.getMarkdown()).toBe("text\\[^a] tail\n\n[^a]: note\n");
+    });
+
+    it("keeps a backslash the author means as text", async () => {
+      const mounted = await mountProjectionEditor("[a](b) tail");
+
+      enterProjection(mounted, "a");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[a](b)"));
+      typeText(mounted.view, "\\ ");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(getEditorTextContent(mounted)).toBe("\\ [a](b) tail");
+    });
+
+    it("spells an escaped backslash as one character", async () => {
+      const mounted = await mountProjectionEditor("[a](b) tail");
+
+      enterProjection(mounted, "a");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[a](b)"));
+      typeText(mounted.view, "\\\\");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(getEditorTextContent(mounted)).toBe("\\[a](b) tail");
+    });
+
     it("inserts delimiter-interior text inside the projected content", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

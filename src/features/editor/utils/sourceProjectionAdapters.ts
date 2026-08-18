@@ -198,6 +198,14 @@ const createMarkedContentSlice = (
 export const createLiteralSourceProjectionSlice = (state: EditorState, text: string) =>
   createTextSlice(state, text);
 
+const ESCAPED_PUNCTUATION_PATTERN = /\\([!-/:-@[-`{-~])/gu;
+
+export const decodeSourceProjectionEscapes = (source: string) =>
+  source.replace(ESCAPED_PUNCTUATION_PATTERN, "$1");
+
+export const mapLiteralSourceOffsetToDocument = (source: string, offset: number) =>
+  decodeSourceProjectionEscapes(source.slice(0, offset)).length;
+
 export const applyLiteralSourceProjectionEdit = (
   source: string,
   { from, text, to }: SourceProjectionEdit,
@@ -211,8 +219,6 @@ export const applyLiteralSourceProjectionEdit = (
   };
 };
 
-// Only the opening delimiter is guarded; what an edit at the closing delimiter should do is a
-// separate open question.
 export const shouldHandleInlineObjectTextInput = (
   _source: string,
   { from, text, to }: SourceProjectionEdit,

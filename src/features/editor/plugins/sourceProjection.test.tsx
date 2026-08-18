@@ -1885,6 +1885,81 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe(`\\${marker}${BOLD_PLAIN_MARKDOWN}\n`);
     });
 
+    it("keeps text typed at a link's opening delimiter outside its source", async () => {
+      const mounted = await mountProjectionEditor("[a](b) tail");
+
+      enterProjection(mounted, "a");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[a](b)"));
+      typeText(mounted.view, "x");
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("x[a](b) tail");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.dom.querySelector("a")).toBeInTheDocument();
+      expect(mounted.getMarkdown()).toBe("x[a](b) tail\n");
+    });
+
+    it("applies a space typed at a link's opening delimiter", async () => {
+      const mounted = await mountProjectionEditor("see [a](b) tail");
+
+      enterProjection(mounted, "a");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[a](b)"));
+      typeText(mounted.view, " ");
+
+      expect(getEditorTextContent(mounted)).toBe("see  [a](b) tail");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.dom.querySelector("a")).toBeInTheDocument();
+      expect(getEditorTextContent(mounted)).toBe("see  a tail");
+    });
+
+    it("keeps text typed at a footnote reference's opening delimiter outside its source", async () => {
+      const mounted = await mountProjectionEditor("text[^a] tail\n\n[^a]: note");
+
+      selectFootnoteReference(mounted);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "[^a]"));
+      typeText(mounted.view, "x");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("textx[^a] tail\n\n[^a]: note\n");
+    });
+
+    it.each([
+      { markdown: "[a](b) tail", name: "link", source: "[a](b)", tagName: "a" },
+      {
+        markdown: "text[^a] tail\n\n[^a]: note",
+        name: "footnote reference",
+        source: "[^a]",
+        tagName: "sup",
+      },
+    ])(
+      "commits a $name as literal text when a backslash opens its source",
+      async ({ markdown, source, tagName }) => {
+        const mounted = await mountProjectionEditor(markdown);
+
+        if (tagName === "a") {
+          enterProjection(mounted, "a");
+        } else {
+          selectFootnoteReference(mounted);
+        }
+
+        setTextSelection(mounted.view, getEditorTextPosition(mounted, source));
+        typeText(mounted.view, "\\");
+        setSelectionAtDocumentEnd(mounted.view);
+
+        expect(mounted.view.dom.querySelector(tagName)).not.toBeInTheDocument();
+      },
+    );
+
     it("inserts delimiter-interior text inside the projected content", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

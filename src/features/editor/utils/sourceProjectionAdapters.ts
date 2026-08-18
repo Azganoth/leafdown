@@ -211,6 +211,13 @@ export const applyLiteralSourceProjectionEdit = (
   };
 };
 
+// Only the opening delimiter is guarded; what an edit at the closing delimiter should do is a
+// separate open question.
+export const shouldHandleInlineObjectTextInput = (
+  _source: string,
+  { from, text, to }: SourceProjectionEdit,
+) => !(from === to && from === 0 && text.length > 0 && text !== "\\");
+
 const createMarkSourceProjectionTarget = (
   state: EditorState,
   range: ActiveProjectionRange,

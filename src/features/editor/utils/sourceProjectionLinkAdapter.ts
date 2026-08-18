@@ -9,6 +9,7 @@ import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
+  shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
   type SourceProjectionPresentationSpan,
   type SourceProjectionSessionRange,
@@ -640,4 +641,5 @@ export const createLinkSourceProjectionAdapter = ({
   restoreCleanTarget: createRestoreCleanLinkTransaction,
   serializeInlineSource: (state, fragment) =>
     serializeInlineLinkSource(state, serializer, fragment),
+  shouldHandleTextInput: shouldHandleInlineObjectTextInput,
 });

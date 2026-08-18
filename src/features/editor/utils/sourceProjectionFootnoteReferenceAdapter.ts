@@ -10,6 +10,7 @@ import type { Parser, Serializer } from "@milkdown/kit/transformer";
 
 import {
   createLiteralSourceProjectionSlice,
+  shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
   type SourceProjectionParseResult,
   type SourceProjectionSessionRange,
@@ -265,4 +266,5 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
   },
   restoreCleanTarget: (state, session) =>
     state.tr.replace(session.from, session.to, session.target.originalContent),
+  shouldHandleTextInput: shouldHandleInlineObjectTextInput,
 });

@@ -6,11 +6,13 @@ import { dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorTextContent,
+  getEditorTextPosition,
   runKeyDownHandlers,
   setSelectionAtDocumentEnd,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
+import { enterProjection } from "@/test/utils/sourceProjection";
 
 import { runEditorCommand } from "../commands";
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
@@ -121,6 +123,41 @@ describe("typed link source", () => {
 
     expect(getLinkTargets(mounted)).toEqual([]);
     expect(getEditorTextContent(mounted)).toBe(`start ${typed}`);
+  });
+
+  it("keeps source an escape in projection wrote literal through later caret moves", async () => {
+    const mounted = await mountProjectionEditor("[test link](./test.html) tail");
+
+    enterProjection(mounted, "a");
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "[test link](./test.html)"));
+    typeText(mounted.view, "\\");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+
+    setTextSelection(mounted.view, 3);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(mounted.getMarkdown()).toBe("\\[test link](./test.html) tail\n");
+  });
+
+  it("keeps source an escape in projection wrote literal when it is edited inside", async () => {
+    const mounted = await mountProjectionEditor("[test link](./test.html) tail");
+
+    enterProjection(mounted, "a");
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "[test link](./test.html)"));
+    typeText(mounted.view, "\\");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const linkStart = getEditorTextPosition(mounted, "[test link](./test.html)");
+
+    setTextSelection(mounted.view, linkStart + 1);
+    typeText(mounted.view, "X");
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getEditorTextContent(mounted)).toBe("[Xtest link](./test.html) tail");
+    expect(getLinkTargets(mounted)).toEqual([]);
   });
 
   it("keeps source the file escaped literal when the caret visits it", async () => {

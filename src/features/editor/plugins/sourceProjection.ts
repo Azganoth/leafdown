@@ -19,6 +19,7 @@ import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
   createMarkSourceProjectionAdapter,
+  decodeSourceProjectionEscapes,
   findSourceProjectionInsertionCandidate,
   findSourceProjectionLiteralSourceCommit,
   findSourceProjectionTarget,
@@ -58,6 +59,7 @@ interface ProjectionSession extends TextRange {
 }
 
 interface PendingProjectionCommit extends TextRange {
+  consumedEscape: boolean;
   replacement: Slice;
   selectionAnchor: number | null;
   selectionHead: number | null;
@@ -99,6 +101,7 @@ type ProjectionMeta =
     }
   | {
       type: "commitAfterRestore";
+      escapedRange: TextRange | null;
       suppressedSelection: SuppressedProjectionSelection | null;
     };
 
@@ -587,6 +590,12 @@ const getUpdatedSourceProvenance = (
         }
       });
     });
+  }
+
+  const meta = getProjectionMeta(transaction);
+
+  if (meta?.type === "commitAfterRestore" && meta.escapedRange) {
+    loaded.push(meta.escapedRange);
   }
 
   // Text under an active projection is source the engine placed there, not source the file holds.
@@ -1308,6 +1317,7 @@ const createFinalizeProjectionTransaction = (
 
   return createRestoreBeforeCommitTransaction({
     commitSelection,
+    consumedEscape: decodeSourceProjectionEscapes(source) !== source,
     replacement: parsed.replacement,
     restoreSelection,
     session,
@@ -1319,6 +1329,7 @@ const createFinalizeProjectionTransaction = (
 
 interface RestoreBeforeCommitTransactionInput {
   commitSelection: { anchor: number; head: number } | null;
+  consumedEscape: boolean;
   replacement: Slice;
   restoreSelection: { anchor: number; head: number } | null;
   session: ProjectionSession;
@@ -1329,6 +1340,7 @@ interface RestoreBeforeCommitTransactionInput {
 
 const createRestoreBeforeCommitTransaction = ({
   commitSelection,
+  consumedEscape,
   replacement,
   restoreSelection,
   session,
@@ -1340,6 +1352,7 @@ const createRestoreBeforeCommitTransaction = ({
     source === session.target.originalSource
       ? null
       : {
+          consumedEscape,
           from: session.from,
           replacement,
           selectionAnchor: commitSelection?.anchor ?? null,
@@ -1424,6 +1437,9 @@ const createCommitAfterRestoreTransaction = (
   transaction
     .setStoredMarks([])
     .setMeta(leafdownSourceProjectionPluginKey, {
+      escapedRange: pendingCommit.consumedEscape
+        ? { from: pendingCommit.from, to: pendingCommit.from + pendingCommit.replacement.size }
+        : null,
       suppressedSelection: pendingCommit.suppressedSelection,
       type: "commitAfterRestore",
     } satisfies ProjectionMeta)

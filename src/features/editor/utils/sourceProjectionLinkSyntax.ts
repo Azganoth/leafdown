@@ -6,6 +6,7 @@ import {
   getFootnoteReferenceSourceBounds,
   withFootnoteDefinitions,
 } from "./sourceProjectionFootnoteReferenceSyntax";
+import type { TextRange } from "./textRanges";
 
 interface LinkSourceSegmentBase {
   className: string;
@@ -407,6 +408,37 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
     segments,
     sourceTypes: [...sourceTypes],
   };
+};
+
+const findLinkNodeBounds = (node: MarkdownNode, range: TextRange): TextRange | null => {
+  const position = getMarkdownPosition(node);
+
+  if (node.type === "link" && position && position.from <= range.from && range.to <= position.to) {
+    return position;
+  }
+
+  for (const child of node.children ?? []) {
+    const bounds = findLinkNodeBounds(child, range);
+
+    if (bounds) {
+      return bounds;
+    }
+  }
+
+  return null;
+};
+
+// Text that was never a link carries no mark whose range could bound it.
+export const findLinkSourceBounds = (
+  remark: RemarkParser,
+  text: string,
+  range: TextRange,
+): TextRange | null => {
+  try {
+    return findLinkNodeBounds(remark.parse(text) as MarkdownNode, range);
+  } catch {
+    return null;
+  }
 };
 
 export const mapLinkDocumentPositionToSource = (

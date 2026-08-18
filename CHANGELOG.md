@@ -21,6 +21,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Present active mixed-format link labels as one coordinated source range.
 - Extend link label source projection to labels that contain an image, such as badge links.
 - Keep a URL written on its own as it was written, bare or between angle brackets, instead of putting angle brackets around every bare URL in the file on the first save.
+- Turn a typed link, URL, or angle-bracket URL into the link it describes once the caret leaves it, as pasting the same text already did.
 
 ### Fixed
 
@@ -28,7 +29,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Keep a link or footnote reference whole when a character is typed at the start of its open Markdown source, instead of turning the whole construct into literal text that saves with escapes.
 - Write a backslash on save only where the character it precedes would otherwise be read as Markdown, so text such as `garden_sensor_name` keeps its underscores bare, instead of escaping every character that could be syntax somewhere else.
 - Keep a list item that starts with a code block, table, quote, nested list, heading, or thematic break nested in the saved file, instead of writing an empty item and leaving the block outside the list the next time the document is opened.
-- Keep typed link and autolink source literal in the saved file when a space follows it, instead of writing it as live Markdown that turns into a link the next time the document is opened.
+- Escape text the editor keeps literal even when a space follows it, instead of writing it as live Markdown that turns into something else the next time the document is opened.
 - Open the Markdown source of a link whose label holds a footnote reference, instead of leaving it closed everywhere in the label except on the reference itself.
 - Keep a link label that mixes formatted text with a footnote reference as one link, instead of saving it as two links.
 - Open bold, italic, or strikethrough that wraps a link as one Markdown source with the link inside it, instead of one side of the link at a time with markers that do not match the file.

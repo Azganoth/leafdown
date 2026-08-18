@@ -5,7 +5,7 @@ import {
   remarkCtx,
   serializerCtx,
 } from "@milkdown/kit/core";
-import { closeHistory } from "@milkdown/kit/prose/history";
+import { closeHistory, isHistoryTransaction } from "@milkdown/kit/prose/history";
 import { DOMParser, type Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
@@ -19,8 +19,11 @@ import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
   createMarkSourceProjectionAdapter,
+  decodeSourceProjectionEscapes,
   findSourceProjectionInsertionCandidate,
+  findSourceProjectionLiteralSourceCommit,
   findSourceProjectionTarget,
+  type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
   type SourceProjectionTarget,
@@ -33,14 +36,17 @@ import { getRangeText, getTextBetween, type TextRange } from "../utils/textRange
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
   isLinkLabelHovered: false,
   pendingCommit: null,
+  protectedRanges: [],
   session: null,
   suppressedSelection: null,
+  writtenRanges: [],
 };
 
 export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionPluginState>(
   "leafdownSourceProjection",
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
+export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
 const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
@@ -53,6 +59,7 @@ interface ProjectionSession extends TextRange {
 }
 
 interface PendingProjectionCommit extends TextRange {
+  consumedEscape: boolean;
   replacement: Slice;
   selectionAnchor: number | null;
   selectionHead: number | null;
@@ -64,12 +71,19 @@ interface SuppressedProjectionSelection {
   head: number;
 }
 
-interface SourceProjectionPluginState {
+interface SourceProvenance {
+  protectedRanges: TextRange[];
+  writtenRanges: TextRange[];
+}
+
+interface SourceProjectionPluginState extends SourceProvenance {
   isLinkLabelHovered: boolean;
   pendingCommit: PendingProjectionCommit | null;
   session: ProjectionSession | null;
   suppressedSelection: SuppressedProjectionSelection | null;
 }
+
+type ProjectionSessionState = Omit<SourceProjectionPluginState, keyof SourceProvenance>;
 
 type ProjectionHistoryDirection = "redo" | "undo";
 
@@ -87,6 +101,7 @@ type ProjectionMeta =
     }
   | {
       type: "commitAfterRestore";
+      escapedRange: TextRange | null;
       suppressedSelection: SuppressedProjectionSelection | null;
     };
 
@@ -95,8 +110,8 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
 
   return new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
-    appendTransaction: (transactions, _oldState, newState) =>
-      appendProjectionTransaction(transactions, newState, adapters),
+    appendTransaction: (transactions, oldState, newState) =>
+      appendProjectionTransaction(transactions, oldState, newState, adapters),
     // A change captured in native history while the document holds projected source replays
     // against coordinates the commit discards. `filterTransaction` is the only hook that runs
     // before the history plugin reads the meta.
@@ -145,7 +160,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     state: {
       init: () => EMPTY_PROJECTION_STATE,
       apply: (transaction, pluginState, oldState, newState) =>
-        applyProjectionTransaction(transaction, pluginState, oldState, newState),
+        applyProjectionTransaction(transaction, pluginState, oldState, newState, adapters),
     },
   });
 };
@@ -201,7 +216,7 @@ export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | n
   const { session } = getSourceProjectionState(state);
   const { selection } = state;
 
-  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+  if (!session || selection.empty || !isRangeInside(selection, session)) {
     return null;
   }
 
@@ -310,7 +325,7 @@ export const pasteIntoSourceProjection = (view: EditorView, text: string) => {
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || !isRangeInsideProjection(selection, session)) {
+  if (!session || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -328,7 +343,7 @@ export const deleteSourceProjectionSelection = (view: EditorView) => {
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || selection.empty || !isRangeInsideProjection(selection, session)) {
+  if (!session || selection.empty || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -368,6 +383,7 @@ const getProjectionMeta = (transaction: Transaction) =>
 
 const appendProjectionTransaction = (
   transactions: readonly Transaction[],
+  oldState: EditorState,
   state: EditorState,
   adapters: readonly SourceProjectionAdapter[],
 ) => {
@@ -378,7 +394,7 @@ const appendProjectionTransaction = (
   }
 
   if (projectionState.session) {
-    if (isRangeInsideProjection(state.selection, projectionState.session)) {
+    if (isRangeInside(state.selection, projectionState.session)) {
       return null;
     }
 
@@ -397,6 +413,21 @@ const appendProjectionTransaction = (
     return null;
   }
 
+  const literalSourceCommit = findExitedLiteralSourceCommit(
+    transactions,
+    oldState,
+    state,
+    adapters,
+  );
+
+  if (literalSourceCommit) {
+    return state.tr.replace(
+      literalSourceCommit.from,
+      literalSourceCommit.to,
+      literalSourceCommit.replacement,
+    );
+  }
+
   const match = findSourceProjectionTarget(state, adapters);
 
   if (!match) {
@@ -406,12 +437,189 @@ const appendProjectionTransaction = (
   return createEnterProjectionTransaction(state, match);
 };
 
+const mapRangeThroughTransactions = (
+  transactions: readonly Transaction[],
+  range: TextRange,
+): TextRange =>
+  transactions.reduce(
+    (mapped, transaction) => ({
+      from: transaction.mapping.map(mapped.from, -1),
+      to: transaction.mapping.map(mapped.to, -1),
+    }),
+    { from: range.from, to: range.to },
+  );
+
+// A character written against a run can still move where its source ends, as every character a
+// bare URL absorbs does, so only whitespace stands for the caret having left.
+const isSelectionSeparatedFrom = (state: EditorState, range: TextRange) => {
+  const { selection } = state;
+
+  if (range.to <= selection.from) {
+    return /\s/u.test(getTextBetween(state.doc, range.to, selection.from));
+  }
+
+  if (selection.to <= range.from) {
+    return /\s/u.test(getTextBetween(state.doc, selection.to, range.from));
+  }
+
+  return false;
+};
+
+const overlapsRange = (ranges: readonly TextRange[], range: TextRange) =>
+  ranges.some((candidate) => candidate.from < range.to && range.from < candidate.to);
+
+// The run holds the previous selection, so the separator measured here contains the run's own:
+// nothing that fails it can pass the check on the run.
+const findExitedLiteralSourceCommit = (
+  transactions: readonly Transaction[],
+  oldState: EditorState,
+  state: EditorState,
+  adapters: readonly SourceProjectionAdapter[],
+): LiteralSourceCommit | null => {
+  const { protectedRanges, writtenRanges } = getSourceProjectionState(state);
+  const previousRange = mapRangeThroughTransactions(transactions, oldState.selection);
+
+  if (!writtenRanges.length || !isSelectionSeparatedFrom(state, previousRange)) {
+    return null;
+  }
+
+  const commit = findSourceProjectionLiteralSourceCommit(state, previousRange, adapters);
+
+  return commit &&
+    isSelectionSeparatedFrom(state, commit) &&
+    overlapsRange(writtenRanges, commit) &&
+    !overlapsRange(protectedRanges, commit)
+    ? commit
+    : null;
+};
+
 const applyProjectionTransaction = (
   transaction: Transaction,
   pluginState: SourceProjectionPluginState,
   oldState: EditorState,
   newState: EditorState,
-): SourceProjectionPluginState => {
+  adapters: readonly SourceProjectionAdapter[],
+): SourceProjectionPluginState => ({
+  ...applyProjectionSessionState(transaction, pluginState, oldState, newState),
+  ...getUpdatedSourceProvenance(pluginState, transaction, oldState, adapters),
+});
+
+const mergeTextRanges = (ranges: TextRange[]) =>
+  ranges
+    .sort((left, right) => left.from - right.from || left.to - right.to)
+    .reduce<TextRange[]>((merged, range) => {
+      const previous = merged.at(-1);
+
+      if (previous && range.from <= previous.to) {
+        previous.to = Math.max(previous.to, range.to);
+      } else {
+        merged.push({ ...range });
+      }
+
+      return merged;
+    }, []);
+
+// A region reads as the file wrote it only until the first write lands in it.
+const findLoadedSourceRanges = (
+  oldState: EditorState,
+  transaction: Transaction,
+  writtenRanges: readonly TextRange[],
+  adapters: readonly SourceProjectionAdapter[],
+) => {
+  const changedFrom = oldState.doc.content.findDiffStart(transaction.doc.content);
+
+  if (changedFrom === null) {
+    return [];
+  }
+
+  const changedTo = oldState.doc.content.findDiffEnd(transaction.doc.content)?.a;
+  const positions =
+    changedTo === undefined || changedTo === changedFrom ? [changedFrom] : [changedFrom, changedTo];
+
+  return positions.flatMap((position) => {
+    if (writtenRanges.some((range) => range.from <= position && position <= range.to)) {
+      return [];
+    }
+
+    const loadedSource = findSourceProjectionLiteralSourceCommit(
+      oldState,
+      { from: position, to: position },
+      adapters,
+    );
+
+    return loadedSource ? [loadedSource] : [];
+  });
+};
+
+// Protected ranges map inward, so a deletion drops them and the escape can be spent deliberately,
+// while written ranges map outward to take in what extends them.
+const getUpdatedSourceProvenance = (
+  { protectedRanges, session, writtenRanges }: SourceProjectionPluginState,
+  transaction: Transaction,
+  oldState: EditorState,
+  adapters: readonly SourceProjectionAdapter[],
+): SourceProvenance => {
+  if (isHistoryTransaction(transaction)) {
+    return { protectedRanges: [], writtenRanges: [] };
+  }
+
+  if (!transaction.docChanged) {
+    return { protectedRanges, writtenRanges };
+  }
+
+  const { mapping } = transaction;
+  // A change that only moves content the document already held authors nothing, but its steps
+  // re-insert what they took, which the step maps alone read as text the session wrote.
+  const isRestructure = transaction.getMeta(SOURCE_PROJECTION_RESTRUCTURE_META) === true;
+  const written = writtenRanges.map((range) => ({
+    from: mapping.map(range.from, -1),
+    to: mapping.map(range.to, 1),
+  }));
+  const loaded = protectedRanges.map((range) => ({
+    from: mapping.map(range.from, 1),
+    to: mapping.map(range.to, -1),
+  }));
+
+  if (!isRestructure) {
+    mapping.maps.forEach((stepMap, index) => {
+      const remaining = mapping.slice(index + 1);
+
+      stepMap.forEach((_stepFrom, _stepTo, insertedFrom, insertedTo) => {
+        if (insertedFrom < insertedTo) {
+          written.push({ from: remaining.map(insertedFrom, -1), to: remaining.map(insertedTo, 1) });
+        }
+      });
+    });
+  }
+
+  const meta = getProjectionMeta(transaction);
+
+  if (meta?.type === "commitAfterRestore" && meta.escapedRange) {
+    loaded.push(meta.escapedRange);
+  }
+
+  // Text under an active projection is source the engine placed there, not source the file holds.
+  const loadedSources =
+    session || isRestructure
+      ? []
+      : findLoadedSourceRanges(oldState, transaction, writtenRanges, adapters);
+
+  for (const loadedSource of loadedSources) {
+    loaded.push({ from: mapping.map(loadedSource.from, 1), to: mapping.map(loadedSource.to, -1) });
+  }
+
+  return {
+    protectedRanges: mergeTextRanges(loaded.filter((range) => range.from < range.to)),
+    writtenRanges: mergeTextRanges(written),
+  };
+};
+
+const applyProjectionSessionState = (
+  transaction: Transaction,
+  pluginState: SourceProjectionPluginState,
+  oldState: EditorState,
+  newState: EditorState,
+): ProjectionSessionState => {
   const meta = getProjectionMeta(transaction);
 
   if (meta?.type === "enter" || meta?.type === "enterFromUserEdit") {
@@ -508,8 +716,7 @@ const applyProjectionTransaction = (
 
   if (
     transaction.docChanged &&
-    (!isRangeInsideProjection(newState.selection, session) ||
-      !isProjectionRangeFlatText(newState, session))
+    (!isRangeInside(newState.selection, session) || !isProjectionRangeFlatText(newState, session))
   ) {
     return {
       isLinkLabelHovered: false,
@@ -663,7 +870,7 @@ const handleProjectionTextInput = (
     return handleProjectionSourceTextInput(view, from, to, text, adapters);
   }
 
-  if (!isRangeInsideProjection({ from, to }, session)) {
+  if (!isRangeInside({ from, to }, session)) {
     return false;
   }
 
@@ -755,7 +962,7 @@ const handleProjectionPaste = (view: EditorView, event: ClipboardEvent, slice?: 
   const session = getSourceProjectionState(view.state).session;
   const { selection } = view.state;
 
-  if (!session || !isRangeInsideProjection(selection, session)) {
+  if (!session || !isRangeInside(selection, session)) {
     return false;
   }
 
@@ -993,7 +1200,7 @@ const getDeletionRange = (
 ): TextRange | null => {
   const { selection } = state;
 
-  if (!isRangeInsideProjection(selection, session)) {
+  if (!isRangeInside(selection, session)) {
     return null;
   }
 
@@ -1085,7 +1292,7 @@ const createFinalizeProjectionTransaction = (
     replacement: session.target.originalContent,
     replacementSize: session.target.originalContentSize,
   };
-  const shouldSuppressProjectionAtSelection = isRangeInsideProjection(state.selection, session);
+  const shouldSuppressProjectionAtSelection = isRangeInside(state.selection, session);
   const shouldMapCrossingTextSelection =
     state.selection instanceof TextSelection &&
     state.selection.from < session.to &&
@@ -1110,6 +1317,7 @@ const createFinalizeProjectionTransaction = (
 
   return createRestoreBeforeCommitTransaction({
     commitSelection,
+    consumedEscape: decodeSourceProjectionEscapes(source) !== source,
     replacement: parsed.replacement,
     restoreSelection,
     session,
@@ -1121,6 +1329,7 @@ const createFinalizeProjectionTransaction = (
 
 interface RestoreBeforeCommitTransactionInput {
   commitSelection: { anchor: number; head: number } | null;
+  consumedEscape: boolean;
   replacement: Slice;
   restoreSelection: { anchor: number; head: number } | null;
   session: ProjectionSession;
@@ -1131,6 +1340,7 @@ interface RestoreBeforeCommitTransactionInput {
 
 const createRestoreBeforeCommitTransaction = ({
   commitSelection,
+  consumedEscape,
   replacement,
   restoreSelection,
   session,
@@ -1142,6 +1352,7 @@ const createRestoreBeforeCommitTransaction = ({
     source === session.target.originalSource
       ? null
       : {
+          consumedEscape,
           from: session.from,
           replacement,
           selectionAnchor: commitSelection?.anchor ?? null,
@@ -1226,6 +1437,9 @@ const createCommitAfterRestoreTransaction = (
   transaction
     .setStoredMarks([])
     .setMeta(leafdownSourceProjectionPluginKey, {
+      escapedRange: pendingCommit.consumedEscape
+        ? { from: pendingCommit.from, to: pendingCommit.from + pendingCommit.replacement.size }
+        : null,
       suppressedSelection: pendingCommit.suppressedSelection,
       type: "commitAfterRestore",
     } satisfies ProjectionMeta)
@@ -1260,8 +1474,8 @@ const replaceProjectionRange = (
   replacement: Slice,
 ) => transaction.replace(from, to, replacement);
 
-const isRangeInsideProjection = (range: TextRange, session: ProjectionSession) =>
-  session.from <= range.from && range.to <= session.to;
+const isRangeInside = (range: TextRange, bounds: TextRange) =>
+  bounds.from <= range.from && range.to <= bounds.to;
 
 // The projected range is modelled as flat literal text, and `getTextBetween` reads every leaf
 // node back as a newline. A hard break is the only node that survives that reading, since it

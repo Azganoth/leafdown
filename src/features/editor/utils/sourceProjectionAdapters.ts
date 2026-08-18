@@ -95,6 +95,10 @@ export interface SourceProjectionInsertionCandidate<
   target: TTarget;
 }
 
+export interface LiteralSourceCommit extends TextRange {
+  replacement: Slice;
+}
+
 export interface SourceProjectionAdapter<
   TTarget extends SourceProjectionTarget = SourceProjectionTarget,
 > {
@@ -111,6 +115,7 @@ export interface SourceProjectionAdapter<
     position: number,
     text: string,
   ): SourceProjectionInsertionCandidate<TTarget> | null;
+  findLiteralSourceCommit?(state: EditorState, range: TextRange): LiteralSourceCommit | null;
   findTarget(state: EditorState): TTarget | null;
   getPresentation(target: TTarget, source: string): SourceProjectionPresentation;
   mapSelectionFromSource(
@@ -449,7 +454,7 @@ const getProjectionMarksFromInlineNode = (
   });
 };
 
-const isPlainTextRange = (state: EditorState, from: number, to: number) => {
+export const isPlainTextRange = (state: EditorState, from: number, to: number) => {
   let isPlain = true;
 
   state.doc.nodesBetween(from, to, (node) => {
@@ -1156,6 +1161,22 @@ export const findSourceProjectionInsertionCandidate = (
 
     if (candidate) {
       return { adapter, candidate };
+    }
+  }
+
+  return null;
+};
+
+export const findSourceProjectionLiteralSourceCommit = (
+  state: EditorState,
+  range: TextRange,
+  adapters: readonly SourceProjectionAdapter[],
+): LiteralSourceCommit | null => {
+  for (const adapter of adapters) {
+    const commit = adapter.findLiteralSourceCommit?.(state, range) ?? null;
+
+    if (commit) {
+      return commit;
     }
   }
 

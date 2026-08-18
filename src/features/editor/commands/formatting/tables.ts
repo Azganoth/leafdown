@@ -9,6 +9,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { areNonNullish } from "@/lib/predicates";
 
+import { SOURCE_PROJECTION_RESTRUCTURE_META } from "../../plugins/sourceProjection";
 import { getNodeType, runProseMirrorCommand, setSelectionNear } from "../../utils/milkdown";
 import {
   getSelectedTableRect,
@@ -58,7 +59,9 @@ const dispatchTableReplacement = (
 ) => {
   const tablePos = getTablePosition(rect);
   const tableStart = tablePos + 1;
-  const tr = view.state.tr.replaceWith(tablePos, tablePos + rect.table.nodeSize, table);
+  const tr = view.state.tr
+    .replaceWith(tablePos, tablePos + rect.table.nodeSize, table)
+    .setMeta(SOURCE_PROJECTION_RESTRUCTURE_META, true);
 
   if (selectionCell) {
     setTableCellSelection(tr, tableStart, table, selectionCell);

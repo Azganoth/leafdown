@@ -10,8 +10,10 @@ import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
+  isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
+  type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionParseResult,
   type SourceProjectionPresentationSpan,
@@ -25,12 +27,13 @@ import {
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createLinkSourceMap,
+  findLinkSourceBounds,
   isAtomicLinkSegment,
   mapLinkDocumentPositionToSource,
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
-import { getTextBetween } from "./textRanges";
+import { getTextBetween, type TextRange } from "./textRanges";
 
 const LINK_ADAPTER_ID = "link";
 const LINK_MARK_NAME = "link";
@@ -284,6 +287,57 @@ const parseLinkSource = (
     map,
     replacement: new Slice(content, 0, 0),
   };
+};
+
+// Markers further from the caret than the radius, or in a form the pattern misses, leave their
+// source literal text.
+const LINK_SOURCE_HINT_PATTERN = /\]\(|<|:\/\/|www\.|@/u;
+const LINK_SOURCE_HINT_RADIUS = 1000;
+
+const findLiteralLinkSourceCommit = (
+  state: EditorState,
+  range: TextRange,
+  parser: Parser,
+  remark: RemarkParser,
+): LiteralSourceCommit | null => {
+  const linkType = state.schema.marks[LINK_MARK_NAME];
+  const $position = state.doc.resolve(range.from);
+  const textBlock = $position.parent;
+
+  if (!linkType || !textBlock.isTextblock || !textBlock.type.allowsMarkType(linkType)) {
+    return null;
+  }
+
+  const text = getTextBetween(textBlock, 0, textBlock.content.size);
+  const start = $position.start();
+  const offset = range.from - start;
+
+  if (
+    !LINK_SOURCE_HINT_PATTERN.test(
+      text.slice(Math.max(offset - LINK_SOURCE_HINT_RADIUS, 0), offset + LINK_SOURCE_HINT_RADIUS),
+    )
+  ) {
+    return null;
+  }
+
+  const bounds = findLinkSourceBounds(remark, text, {
+    from: offset,
+    to: range.to - start,
+  });
+
+  if (!bounds) {
+    return null;
+  }
+
+  const commitRange = { from: start + bounds.from, to: start + bounds.to };
+
+  if (!isPlainTextRange(state, commitRange.from, commitRange.to)) {
+    return null;
+  }
+
+  const parsed = parseLinkSource(state, text.slice(bounds.from, bounds.to), parser, remark, []);
+
+  return parsed ? { ...commitRange, replacement: parsed.replacement } : null;
 };
 
 // Every node in a label stands for one document position, so the text has to spend one
@@ -603,6 +657,8 @@ export const createLinkSourceProjectionAdapter = ({
   canCopySelectionSemantically: (selection, session, parsed) =>
     isLinkSelectionSemantic(selection, session, createLinkSourceMap(remark, parsed.source)),
   createEnterTransaction: createEnterLinkProjectionTransaction,
+  findLiteralSourceCommit: (state, range) =>
+    findLiteralLinkSourceCommit(state, range, parser, remark),
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (linkTarget, source) => {
     const parsedMap = createLinkSourceMap(remark, source);

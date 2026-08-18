@@ -417,7 +417,7 @@ describe("Typed link source", () => {
   ];
 
   it.each(typedLinkSourceFixtures)(
-    "keeps a typed $name literal when it ends the paragraph",
+    "keeps a typed $name literal while the caret is still on it",
     async ({ expected, typed }) => {
       const mounted = await mountEditor("");
 
@@ -429,14 +429,14 @@ describe("Typed link source", () => {
   );
 
   it.each(typedLinkSourceFixtures)(
-    "keeps a typed $name literal when a space follows it",
-    async ({ expected, typed }) => {
+    "writes a typed $name as the link it describes once a space follows it",
+    async ({ typed }) => {
       const mounted = await mountEditor("");
 
       setSelectionAtDocumentEnd(mounted.view);
       typeText(mounted.view, `${typed} `);
 
-      expect(mounted.getMarkdown()).toBe(`${expected} \n`);
+      expect(mounted.getMarkdown()).toBe(`${typed} \n`);
     },
   );
 

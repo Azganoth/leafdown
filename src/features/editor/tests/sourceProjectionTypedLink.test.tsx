@@ -130,7 +130,7 @@ describe("typed link source", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("\\[test link]\\(./test.html) tail\n");
+    expect(mounted.getMarkdown()).toBe("\\[test link](./test.html) tail\n");
   });
 
   it("keeps source the file escaped literal when the paragraph is edited elsewhere", async () => {
@@ -141,7 +141,7 @@ describe("typed link source", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("edit \\[test link]\\(./test.html) tail\n");
+    expect(mounted.getMarkdown()).toBe("edit \\[test link](./test.html) tail\n");
   });
 
   it("keeps source the file escaped literal when it is edited inside", async () => {
@@ -152,7 +152,7 @@ describe("typed link source", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("\\[tested link]\\(./test.html) tail\n");
+    expect(mounted.getMarkdown()).toBe("\\[tested link](./test.html) tail\n");
   });
 
   // Auto-pairing around a selection is one change that writes on both sides of it.
@@ -163,7 +163,7 @@ describe("typed link source", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("\\[test( lin)k]\\(./test.html) tail\n");
+    expect(mounted.getMarkdown()).toBe("\\[test( lin)k](./test.html) tail\n");
   });
 
   it.each([
@@ -181,7 +181,7 @@ describe("typed link source", () => {
 
     expect(getLinkTargets(mounted)).toEqual([]);
     expect(mounted.getMarkdown()).toBe(
-      moved ? "\\[test taillink]\\(./test.html) \n" : "\\[test taillink]\\(./test.html) tail\n",
+      moved ? "\\[test taillink](./test.html) \n" : "\\[test taillink](./test.html) tail\n",
     );
   });
 
@@ -191,7 +191,7 @@ describe("typed link source", () => {
       mountProjectionEditor(
         "| a | b |\n| --- | --- |\n| \\[test link](./test.html) tail | c |\n| d | e |\n| f | g |",
       );
-    const escapedCellRow = "| \\[test link]\\(./test.html) tail | c |";
+    const escapedCellRow = "| \\[test link](./test.html) tail | c |";
 
     it.each(["format.table.moveRowDown", "format.table.moveColumnRight"] as const)(
       "keeps it literal through %s from the cell",
@@ -281,7 +281,7 @@ describe("typed link source", () => {
     setTextSelection(mounted.view, 1);
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("start \\[test link]\\(./test.html)\n");
+    expect(mounted.getMarkdown()).toBe("start \\[test link](./test.html)\n");
   });
 
   it("leaves typed source in a code block literal", async () => {

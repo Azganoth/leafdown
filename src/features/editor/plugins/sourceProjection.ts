@@ -29,6 +29,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
@@ -173,7 +174,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
     const remark = ctx.get(remarkCtx);
     const serializer = ctx.get(serializerCtx);
 
-    return createSourceProjectionProsePlugin([
+    const objectAdapters = [
       createLinkSourceProjectionAdapter({
         parser,
         remark,
@@ -186,6 +187,15 @@ export const createLeafdownSourceProjectionPlugin = () =>
       }),
       createFootnoteReferenceSourceProjectionAdapter({
         parser,
+        serializer,
+      }),
+    ];
+
+    return createSourceProjectionProsePlugin([
+      ...objectAdapters,
+      createEscapeSourceProjectionAdapter({
+        findLiteralSourceCommit: (state, range) =>
+          findSourceProjectionLiteralSourceCommit(state, range, objectAdapters),
         serializer,
       }),
     ]);
@@ -430,12 +440,17 @@ const appendProjectionTransaction = (
 
   const match = findSourceProjectionTarget(state, adapters);
 
-  if (!match) {
+  if (!match || !isProjectableTarget(match, projectionState)) {
     return null;
   }
 
   return createEnterProjectionTransaction(state, match);
 };
+
+const isProjectableTarget = (
+  { adapter, target }: SourceProjectionTargetMatch,
+  { writtenRanges }: SourceProjectionPluginState,
+) => adapter.id !== "escape" || !overlapsRange(writtenRanges, target);
 
 const mapRangeThroughTransactions = (
   transactions: readonly Transaction[],
@@ -568,9 +583,12 @@ const getUpdatedSourceProvenance = (
   }
 
   const { mapping } = transaction;
+  const meta = getProjectionMeta(transaction);
   // A change that only moves content the document already held authors nothing, but its steps
   // re-insert what they took, which the step maps alone read as text the session wrote.
   const isRestructure = transaction.getMeta(SOURCE_PROJECTION_RESTRUCTURE_META) === true;
+  const isEscapeSession =
+    (meta?.type === "enter" ? meta.session : session)?.adapter.id === "escape";
   const written = writtenRanges.map((range) => ({
     from: mapping.map(range.from, -1),
     to: mapping.map(range.to, 1),
@@ -580,7 +598,7 @@ const getUpdatedSourceProvenance = (
     to: mapping.map(range.to, -1),
   }));
 
-  if (!isRestructure) {
+  if (!isRestructure && !isEscapeSession) {
     mapping.maps.forEach((stepMap, index) => {
       const remaining = mapping.slice(index + 1);
 
@@ -591,8 +609,6 @@ const getUpdatedSourceProvenance = (
       });
     });
   }
-
-  const meta = getProjectionMeta(transaction);
 
   if (meta?.type === "commitAfterRestore" && meta.escapedRange) {
     loaded.push(meta.escapedRange);

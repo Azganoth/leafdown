@@ -169,6 +169,19 @@
 - Marker presentation remains separate from projection lifecycle.
 - Architecture owns projection lifecycle and adapter boundaries; Specification owns supported objects and observable editing behavior.
 
+### Offer the escape gesture only where the conversion exists
+
+**Decision:** A caret reaching text the file keeps literal by escaping projects that escape only where deleting it converts the run to an object the editor can commit. Today that is one inline link or image; every other escaped form shows nothing.
+
+**Rationale:** Deleting an escape has to change something. An escape with no conversion behind it would be spelled as one deletion whose first half is silent and whose backslash returns on the next save, which is the defect [issue #245](https://github.com/Azganoth/leafdown/issues/245) blocked the gesture on rather than a smaller version of the feature. Restricting targets to plain text also keeps the gesture clear of contexts where escaping is not yet precise, so a projection never shows an escape the file will not write.
+
+**Consequences:**
+
+- Escaped emphasis, strikethrough, inline code, heading markers, and list markers are kept literal without a reversal gesture until a conversion exists for them.
+- An escape flush against a live object, such as the `!` in `\![alt](x.png)`, is not a target, because it sits in no convertible run. Adapter precedence at that boundary is settled by scope rather than by ordering.
+- Neither autolink form has a literal state, so neither has an escape to project.
+- The projected source is the serializer's own output for the run, so the gesture stays honest without a second placement rule to keep in step with it.
+
 ## Technical Decisions
 
 ### Use Tauri

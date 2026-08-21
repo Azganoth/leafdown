@@ -22,6 +22,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Extend link label source projection to labels that contain an image, such as badge links.
 - Keep a URL written on its own as it was written, bare or between angle brackets, instead of putting angle brackets around every bare URL in the file on the first save.
 - Turn a typed link, URL, or angle-bracket URL into the link it describes once the caret leaves it, as pasting the same text already did.
+- Show the backslash that keeps link or image text literal when the caret reaches it, so deleting the backslash turns the text into the link or image it describes.
+- Turn typed image text into the image it describes once the caret leaves it, as typed link text already did.
 
 ### Fixed
 

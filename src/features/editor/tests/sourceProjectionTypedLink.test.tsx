@@ -5,6 +5,7 @@ import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
+  containsNodeType,
   getEditorTextContent,
   getEditorTextPosition,
   runKeyDownHandlers,
@@ -82,6 +83,19 @@ describe("typed link source", () => {
       expect(mounted.getMarkdown()).toBe(`start ${typed} tail\n`);
     },
   );
+
+  it("commits typed image source when the caret leaves it", async () => {
+    const mounted = await mountProjectionEditor("start");
+
+    typeAtDocumentEnd(mounted, " ![alt](x.png)");
+
+    expect(containsNodeType(mounted, "image")).toBe(false);
+
+    setTextSelection(mounted.view, 1);
+
+    expect(containsNodeType(mounted, "image")).toBe(true);
+    expect(mounted.getMarkdown()).toBe("start ![alt](x.png)\n");
+  });
 
   // The parser reads `https://example.com/path.` as a link that stops before the dot.
   it("commits a typed URL once, at its full length", async () => {

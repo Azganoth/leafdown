@@ -37,6 +37,7 @@ import { getTextBetween, type TextRange } from "./textRanges";
 
 const LINK_ADAPTER_ID = "link";
 const LINK_MARK_NAME = "link";
+const IMAGE_NODE_NAME = "image";
 const SUPPORTED_LINK_MARK_NAMES = new Set([
   "emphasis",
   "inlineCode",
@@ -335,9 +336,42 @@ const findLiteralLinkSourceCommit = (
     return null;
   }
 
-  const parsed = parseLinkSource(state, text.slice(bounds.from, bounds.to), parser, remark, []);
+  const source = text.slice(bounds.from, bounds.to);
+  const parsed = parseLinkSource(state, source, parser, remark, []);
 
-  return parsed ? { ...commitRange, replacement: parsed.replacement } : null;
+  if (parsed) {
+    return { ...commitRange, replacement: parsed.replacement };
+  }
+
+  const image = parseImageSource(state, source, parser);
+
+  return image ? { ...commitRange, replacement: image } : null;
+};
+
+const parseImageSource = (state: EditorState, source: string, parser: Parser) => {
+  let document: ProseMirrorNode;
+
+  try {
+    document = parser(source);
+  } catch {
+    return null;
+  }
+
+  const paragraph = document.firstChild;
+
+  if (
+    document.childCount !== 1 ||
+    paragraph?.type !== state.schema.nodes.paragraph ||
+    paragraph.childCount !== 1
+  ) {
+    return null;
+  }
+
+  const image = paragraph.firstChild;
+
+  return image?.type.name === IMAGE_NODE_NAME && image.marks.length === 0
+    ? new Slice(Fragment.from(image), 0, 0)
+    : null;
 };
 
 // Every node in a label stands for one document position, so the text has to spend one

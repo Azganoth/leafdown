@@ -100,6 +100,8 @@ A change that reaches the projected range without passing through the engine's e
 
 Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, standalone footnote reference, then escaped literal run. Adapters that cannot preserve a semantic mapping fall back to literal text.
 
+An adapter may declare that its session is finished while the caret is still inside it, rather than on the caret leaving. The commit is dispatched on its own rather than appended to the edit that completed it, because native history drops a transaction appended to one that opted out of it and a projected edit always opts out. What the commit produces then projects in the session's place, so the caret keeps its position.
+
 The escape adapter owns no object of its own. Its target is a run of literal text the object adapters can convert, its source is what the serializer writes for that run on its own, and its commit is the object the edited run spells, so it reads the same validation the object adapters already own rather than repeating it. Its targets carry no mark, which is where the object adapters find theirs, so precedence between them never has to be resolved.
 
 Marker presentation remains separate from projection lifecycle. Decorations style active source, while projected Markdown remains document text rather than widget or NodeView input state.

@@ -10,6 +10,7 @@ import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
+  findSourceProjectionEscapeOffsets,
   isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
@@ -700,7 +701,13 @@ export const createLinkSourceProjectionAdapter = ({
 
     return {
       sourceTypes: map.sourceTypes,
-      spans: parsedMap ? getLinkPresentationSpans(source, map) : [],
+      spans: parsedMap
+        ? getLinkPresentationSpans(source, map)
+        : findSourceProjectionEscapeOffsets(source).map((offset) => ({
+            className: "leafdown-source-projection__marker",
+            from: offset,
+            to: offset + 1,
+          })),
     };
   },
   mapSelectionFromSource: (selection, session, result) => {

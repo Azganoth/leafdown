@@ -156,4 +156,9 @@ export const createEscapeSourceProjectionAdapter = ({
   },
   restoreCleanTarget: (state, session) =>
     state.tr.replace(session.from, session.to, session.target.originalContent),
+  shouldFinalizeInPlace: (state, session) => {
+    const commit = findLiteralSourceCommit(state, { from: session.from, to: session.from });
+
+    return commit?.from === session.from && commit.to === session.to;
+  },
 });

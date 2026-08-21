@@ -11,7 +11,10 @@ import {
 } from "@/test/utils/prosemirror";
 
 import { runEditorCommand } from "../commands";
-import { hasActiveSourceProjection } from "../plugins/sourceProjection";
+import {
+  hasActiveSourceProjection,
+  leafdownSourceProjectionPluginKey,
+} from "../plugins/sourceProjection";
 
 const mountProjectionEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
@@ -19,6 +22,15 @@ const mountProjectionEditor = setupMilkdownEditorMount({
 
 const getLinkTargets = (mounted: MountedMilkdownEditor) =>
   Array.from(mounted.view.dom.querySelectorAll("a"), (link) => link.getAttribute("href"));
+
+const getProjectionAdapterId = (mounted: MountedMilkdownEditor) =>
+  leafdownSourceProjectionPluginKey.getState(mounted.view.state)?.session?.adapter.id ?? null;
+
+const getMarkerTexts = (mounted: MountedMilkdownEditor) =>
+  Array.from(
+    mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+    (node) => node.textContent,
+  );
 
 const pressBackspace = (mounted: MountedMilkdownEditor) => {
   runKeyDownHandlers(mounted.view, "Backspace");
@@ -56,11 +68,32 @@ describe("escaped source projection", () => {
     pressBackspace(mounted);
 
     expect(getEditorTextContent(mounted)).toBe("See [a](b) here.");
+    expect(getProjectionAdapterId(mounted)).toBe("link");
+    expect(mounted.getMarkdown()).toBe("See [a](b) here.\n");
 
     setTextSelection(mounted.view, 1);
 
     expect(getLinkTargets(mounted)).toEqual(["b"]);
     expect(mounted.getMarkdown()).toBe("See [a](b) here.\n");
+  });
+
+  it("offers the gesture again on a run an edit turned literal", async () => {
+    const mounted = await mountProjectionEditor("See [a](b) here.");
+
+    setTextSelection(mounted.view, 6);
+    typeText(mounted.view, "\\");
+
+    expect(getMarkerTexts(mounted)).toEqual(["\\"]);
+
+    setTextSelection(mounted.view, 1);
+
+    expect(getLinkTargets(mounted)).toEqual([]);
+    expect(getEditorTextContent(mounted)).toBe("See [a](b) here.");
+
+    setTextSelection(mounted.view, 7);
+
+    expect(getProjectionAdapterId(mounted)).toBe("escape");
+    expect(getEditorTextContent(mounted)).toBe(String.raw`See \[a](b) here.`);
   });
 
   it("converts an escaped image run when the backslash is deleted", async () => {
@@ -121,9 +154,7 @@ describe("escaped source projection", () => {
 
     setTextSelection(mounted.view, 7);
 
-    const marker = mounted.view.dom.querySelector(".leafdown-source-projection__marker");
-
-    expect(marker?.textContent).toBe("\\");
+    expect(getMarkerTexts(mounted)).toEqual(["\\"]);
   });
 
   it("leaves a run this session typed to the caret-leave commit", async () => {

@@ -130,6 +130,10 @@ export interface SourceProjectionAdapter<
     session: SourceProjectionSessionRange<TTarget>,
   ): Transaction;
   serializeInlineSource?(state: EditorState, fragment: Fragment): string | null;
+  shouldFinalizeInPlace?(
+    state: EditorState,
+    session: SourceProjectionSessionRange<TTarget>,
+  ): boolean;
   shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
 }
 

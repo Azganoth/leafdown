@@ -214,8 +214,6 @@ export const mapLiteralSourceOffsetToDocument = (source: string, offset: number)
 export const findSourceProjectionEscapeOffsets = (source: string) =>
   [...source.matchAll(ESCAPED_PUNCTUATION_PATTERN)].map((match) => match.index);
 
-// A backslash spends a source position without spending a document one, so the offsets diverge
-// only after one.
 export const mapLiteralDocumentOffsetToSource = (source: string, offset: number) => {
   const escapeOffsets = findSourceProjectionEscapeOffsets(source);
   let sourceOffset = Math.min(Math.max(offset, 0), source.length);

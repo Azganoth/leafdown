@@ -9,7 +9,10 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { areNonNullish } from "@/lib/predicates";
 
-import { SOURCE_PROJECTION_RESTRUCTURE_META } from "../../plugins/sourceProjection";
+import {
+  finalizeSourceProjection,
+  SOURCE_PROJECTION_RESTRUCTURE_META,
+} from "../../plugins/sourceProjection";
 import { getNodeType, runProseMirrorCommand, setSelectionNear } from "../../utils/milkdown";
 import {
   getSelectedTableRect,
@@ -247,7 +250,7 @@ const convertRowToBody = (state: EditorState, row: ProseMirrorNode) => {
   return createRow(rowType, cellType, row, getCells(row));
 };
 
-export const deleteRows = (view: EditorView) => {
+const removeRows = (view: EditorView) => {
   const rect = getSelectedTableRect(view.state);
 
   if (!rect || selectionIncludesHeaderRow(rect)) {
@@ -280,7 +283,7 @@ export const deleteRows = (view: EditorView) => {
   return true;
 };
 
-export const deleteColumns = (view: EditorView) => {
+const removeColumns = (view: EditorView) => {
   const rect = getSelectedTableRect(view.state);
 
   if (!rect) {
@@ -320,23 +323,35 @@ export const deleteColumns = (view: EditorView) => {
 
 /* Commands */
 
-export const deleteTable = (view: EditorView) => runProseMirrorCommand(view, milkdownDeleteTable);
+const restructuring = (command: (view: EditorView) => boolean) => (view: EditorView) => {
+  finalizeSourceProjection(view);
 
-export const addRowAbove = (view: EditorView) => addRow(view, "above");
+  return command(view);
+};
 
-export const addRowBelow = (view: EditorView) => addRow(view, "below");
+export const deleteTable = restructuring((view) =>
+  runProseMirrorCommand(view, milkdownDeleteTable),
+);
 
-export const addColumnBefore = (view: EditorView) => addColumn(view, "before");
+export const deleteRows = restructuring(removeRows);
 
-export const addColumnAfter = (view: EditorView) => addColumn(view, "after");
+export const deleteColumns = restructuring(removeColumns);
 
-export const moveRowUp = (view: EditorView) => moveRows(view, -1);
+export const addRowAbove = restructuring((view) => addRow(view, "above"));
 
-export const moveRowDown = (view: EditorView) => moveRows(view, 1);
+export const addRowBelow = restructuring((view) => addRow(view, "below"));
 
-export const moveColumnLeft = (view: EditorView) => moveColumns(view, -1);
+export const addColumnBefore = restructuring((view) => addColumn(view, "before"));
 
-export const moveColumnRight = (view: EditorView) => moveColumns(view, 1);
+export const addColumnAfter = restructuring((view) => addColumn(view, "after"));
+
+export const moveRowUp = restructuring((view) => moveRows(view, -1));
+
+export const moveRowDown = restructuring((view) => moveRows(view, 1));
+
+export const moveColumnLeft = restructuring((view) => moveColumns(view, -1));
+
+export const moveColumnRight = restructuring((view) => moveColumns(view, 1));
 
 /* State */
 

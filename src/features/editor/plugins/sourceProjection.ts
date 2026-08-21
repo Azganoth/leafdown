@@ -29,6 +29,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
@@ -48,6 +49,7 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
 export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
 const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
+const SOURCE_PROJECTION_DEFERRED_COMMIT_META = "leafdownSourceProjectionDeferredCommit";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
 
@@ -173,7 +175,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
     const remark = ctx.get(remarkCtx);
     const serializer = ctx.get(serializerCtx);
 
-    return createSourceProjectionProsePlugin([
+    const objectAdapters = [
       createLinkSourceProjectionAdapter({
         parser,
         remark,
@@ -188,8 +190,44 @@ export const createLeafdownSourceProjectionPlugin = () =>
         parser,
         serializer,
       }),
+    ];
+
+    return createSourceProjectionProsePlugin([
+      ...objectAdapters,
+      createEscapeSourceProjectionAdapter({
+        findLiteralSourceCommit: (state, range) =>
+          findSourceProjectionLiteralSourceCommit(state, range, objectAdapters),
+        serializer,
+      }),
     ]);
   });
+
+const hasDeferredProjectionCommit = (transactions: readonly Transaction[]) =>
+  transactions.some(
+    (transaction) => transaction.getMeta(SOURCE_PROJECTION_DEFERRED_COMMIT_META) === true,
+  );
+
+const finalizeProjectionInPlace = (view: EditorView) => {
+  const { session } = getSourceProjectionState(view.state);
+
+  if (!session?.adapter.shouldFinalizeInPlace?.(view.state, session)) {
+    return;
+  }
+
+  const restore = createFinalizeProjectionTransaction(view.state, session, true);
+
+  if (!restore) {
+    return;
+  }
+
+  view.dispatch(restore.setMeta(SOURCE_PROJECTION_DEFERRED_COMMIT_META, true));
+
+  const { pendingCommit } = getSourceProjectionState(view.state);
+
+  if (pendingCommit) {
+    view.dispatch(createCommitAfterRestoreTransaction(view.state, pendingCommit));
+  }
+};
 
 export const finalizeSourceProjection = (view: EditorView) => {
   const projectionState = getSourceProjectionState(view.state);
@@ -390,7 +428,9 @@ const appendProjectionTransaction = (
   const projectionState = getSourceProjectionState(state);
 
   if (projectionState.pendingCommit) {
-    return createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
+    return hasDeferredProjectionCommit(transactions)
+      ? null
+      : createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
   }
 
   if (projectionState.session) {
@@ -430,12 +470,20 @@ const appendProjectionTransaction = (
 
   const match = findSourceProjectionTarget(state, adapters);
 
-  if (!match) {
+  if (!match || !isProjectableTarget(match, projectionState)) {
     return null;
   }
 
   return createEnterProjectionTransaction(state, match);
 };
+
+const isProjectableTarget = (
+  { adapter, target }: SourceProjectionTargetMatch,
+  { protectedRanges, writtenRanges }: SourceProjectionPluginState,
+) =>
+  adapter.id !== "escape" ||
+  !overlapsRange(writtenRanges, target) ||
+  overlapsRange(protectedRanges, target);
 
 const mapRangeThroughTransactions = (
   transactions: readonly Transaction[],
@@ -568,9 +616,12 @@ const getUpdatedSourceProvenance = (
   }
 
   const { mapping } = transaction;
+  const meta = getProjectionMeta(transaction);
   // A change that only moves content the document already held authors nothing, but its steps
   // re-insert what they took, which the step maps alone read as text the session wrote.
   const isRestructure = transaction.getMeta(SOURCE_PROJECTION_RESTRUCTURE_META) === true;
+  const isEscapeSession =
+    (meta?.type === "enter" ? meta.session : session)?.adapter.id === "escape";
   const written = writtenRanges.map((range) => ({
     from: mapping.map(range.from, -1),
     to: mapping.map(range.to, 1),
@@ -580,7 +631,7 @@ const getUpdatedSourceProvenance = (
     to: mapping.map(range.to, -1),
   }));
 
-  if (!isRestructure) {
+  if (!isRestructure && !isEscapeSession) {
     mapping.maps.forEach((stepMap, index) => {
       const remaining = mapping.slice(index + 1);
 
@@ -591,8 +642,6 @@ const getUpdatedSourceProvenance = (
       });
     });
   }
-
-  const meta = getProjectionMeta(transaction);
 
   if (meta?.type === "commitAfterRestore" && meta.escapedRange) {
     loaded.push(meta.escapedRange);
@@ -1080,6 +1129,7 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     } satisfies ProjectionMeta);
 
   view.dispatch(transaction);
+  finalizeProjectionInPlace(view);
 };
 
 // `handleTextInput` declines while a composition is in flight, so a composed character misses the
@@ -1283,6 +1333,7 @@ const createEnterProjectionTransaction = (
 const createFinalizeProjectionTransaction = (
   state: EditorState,
   session: ProjectionSession,
+  isInPlace = false,
 ): Transaction | null => {
   const source = getProjectionSource(state, session);
   const { adapter } = session;
@@ -1304,7 +1355,8 @@ const createFinalizeProjectionTransaction = (
   const commitSelection = shouldMapSelection
     ? adapter.mapSelectionFromSource(state.selection, session, parsed)
     : null;
-  const suppressedSelection = shouldSuppressProjectionAtSelection ? restoreSelection : null;
+  const suppressedSelection =
+    shouldSuppressProjectionAtSelection && !isInPlace ? restoreSelection : null;
 
   if (source === session.target.originalSource) {
     return createCleanFinalizeProjectionTransaction(
@@ -1318,6 +1370,7 @@ const createFinalizeProjectionTransaction = (
   return createRestoreBeforeCommitTransaction({
     commitSelection,
     consumedEscape: decodeSourceProjectionEscapes(source) !== source,
+    isInPlace,
     replacement: parsed.replacement,
     restoreSelection,
     session,
@@ -1330,6 +1383,7 @@ const createFinalizeProjectionTransaction = (
 interface RestoreBeforeCommitTransactionInput {
   commitSelection: { anchor: number; head: number } | null;
   consumedEscape: boolean;
+  isInPlace: boolean;
   replacement: Slice;
   restoreSelection: { anchor: number; head: number } | null;
   session: ProjectionSession;
@@ -1341,6 +1395,7 @@ interface RestoreBeforeCommitTransactionInput {
 const createRestoreBeforeCommitTransaction = ({
   commitSelection,
   consumedEscape,
+  isInPlace,
   replacement,
   restoreSelection,
   session,
@@ -1357,7 +1412,7 @@ const createRestoreBeforeCommitTransaction = ({
           replacement,
           selectionAnchor: commitSelection?.anchor ?? null,
           selectionHead: commitSelection?.head ?? null,
-          suppressedSelection: commitSelection,
+          suppressedSelection: isInPlace ? null : commitSelection,
           to: session.from + session.target.originalContentSize,
         };
   const transaction = replaceProjectionRange(

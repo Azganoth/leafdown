@@ -35,7 +35,7 @@ import {
 } from "./sourceProjectionSyntax";
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
-export type SourceProjectionAdapterId = "footnote-reference" | "link" | "mark";
+export type SourceProjectionAdapterId = "escape" | "footnote-reference" | "link" | "mark";
 
 export interface SourceProjectionTarget extends TextRange {
   adapterId: SourceProjectionAdapterId;
@@ -130,6 +130,10 @@ export interface SourceProjectionAdapter<
     session: SourceProjectionSessionRange<TTarget>,
   ): Transaction;
   serializeInlineSource?(state: EditorState, fragment: Fragment): string | null;
+  shouldFinalizeInPlace?(
+    state: EditorState,
+    session: SourceProjectionSessionRange<TTarget>,
+  ): boolean;
   shouldHandleTextInput?: (source: string, edit: SourceProjectionEdit) => boolean;
 }
 
@@ -210,6 +214,24 @@ export const decodeSourceProjectionEscapes = (source: string) =>
 
 export const mapLiteralSourceOffsetToDocument = (source: string, offset: number) =>
   decodeSourceProjectionEscapes(source.slice(0, offset)).length;
+
+export const findSourceProjectionEscapeOffsets = (source: string) =>
+  [...source.matchAll(ESCAPED_PUNCTUATION_PATTERN)].map((match) => match.index);
+
+export const mapLiteralDocumentOffsetToSource = (source: string, offset: number) => {
+  const escapeOffsets = findSourceProjectionEscapeOffsets(source);
+  let sourceOffset = Math.min(Math.max(offset, 0), source.length);
+
+  for (const escapeOffset of escapeOffsets) {
+    if (escapeOffset >= sourceOffset) {
+      break;
+    }
+
+    sourceOffset += 1;
+  }
+
+  return Math.min(sourceOffset, source.length);
+};
 
 export const applyLiteralSourceProjectionEdit = (
   source: string,

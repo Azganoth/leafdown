@@ -410,10 +410,17 @@ export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkS
   };
 };
 
+const LITERAL_SOURCE_NODE_TYPES = new Set(["image", "link"]);
+
 const findLinkNodeBounds = (node: MarkdownNode, range: TextRange): TextRange | null => {
   const position = getMarkdownPosition(node);
 
-  if (node.type === "link" && position && position.from <= range.from && range.to <= position.to) {
+  if (
+    LITERAL_SOURCE_NODE_TYPES.has(node.type) &&
+    position &&
+    position.from <= range.from &&
+    range.to <= position.to
+  ) {
     return position;
   }
 

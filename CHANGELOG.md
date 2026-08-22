@@ -27,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a bullet list written without blank lines between its items tight on save, as ordered lists already were, instead of spacing every item apart and changing how the list renders.
 - Keep a line break written immediately before raw HTML, instead of merging the two lines into one on save and, where the break was a hard one, leaving a backslash behind in the text.
 - Fit a table row holding more or fewer cells than its header to the header's columns, whether the table is opened from a file or pasted in, instead of writing every row at the widest row's width on the next save and, in a pasted table, moving cell content into other columns.
 - Read a backslash typed into an open link or footnote-reference source as the escape it spells, so the run turns into the text it describes and saves with one backslash, instead of keeping the backslash as a character and saving three.

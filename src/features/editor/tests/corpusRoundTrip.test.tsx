@@ -27,24 +27,8 @@ const corpusFiles = [
   "isolated/end-of-file/unclosed-html-block.md",
 ];
 
-const documentDrift: Record<string, string> = {
-  "commonmark/blocks.md": "tight bullet lists saved loose",
-  "commonmark/lists-and-blockquotes.md": "tight bullet lists saved loose",
-  "gfm/task-lists.md": "tight bullet lists saved loose",
-};
-
 const readCorpusFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), "corpus", relativePath), "utf8");
-
-const saveAndReopen = async (relativePath: string) => {
-  const before = await mountEditor(readCorpusFile(relativePath));
-  const beforeDoc: unknown = before.view.state.doc.toJSON();
-
-  const after = await mountEditor(before.getMarkdown());
-  const afterDoc: unknown = after.view.state.doc.toJSON();
-
-  return [beforeDoc, afterDoc];
-};
 
 // The editor is allowed to normalize on first open, so the baseline is the first
 // serialization rather than the corpus file.
@@ -65,18 +49,13 @@ describe("Corpus round trip", () => {
     expect(second).toBe(first);
   });
 
-  it.each(corpusFiles.filter((relativePath) => !(relativePath in documentDrift)))(
-    "preserves the document across a save for %s",
-    async (relativePath) => {
-      const [beforeDoc, afterDoc] = await saveAndReopen(relativePath);
+  it.each(corpusFiles)("preserves the document across a save for %s", async (relativePath) => {
+    const before = await mountEditor(readCorpusFile(relativePath));
+    const beforeDoc: unknown = before.view.state.doc.toJSON();
 
-      expect(afterDoc).toEqual(beforeDoc);
-    },
-  );
+    const after = await mountEditor(before.getMarkdown());
+    const afterDoc: unknown = after.view.state.doc.toJSON();
 
-  it.each(Object.keys(documentDrift))("still drifts across a save for %s", async (relativePath) => {
-    const [beforeDoc, afterDoc] = await saveAndReopen(relativePath);
-
-    expect(afterDoc).not.toEqual(beforeDoc);
+    expect(afterDoc).toEqual(beforeDoc);
   });
 });

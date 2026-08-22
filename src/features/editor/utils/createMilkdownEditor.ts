@@ -61,6 +61,10 @@ import {
   hasTransientSourceProjection,
 } from "../plugins/sourceProjection";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
+import {
+  createLeafdownTableShapeGuardPlugin,
+  createLeafdownTableShapePlugin,
+} from "../plugins/tableShape";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
 import {
@@ -180,8 +184,10 @@ export const createMilkdownEditor = async ({
   const configuredEditor = editor
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
+    .use(createLeafdownTableShapePlugin())
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
+    .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))

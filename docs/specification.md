@@ -139,7 +139,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - List items and blockquotes may contain other block-level elements.
 - Ordered lists render with visual continuation.
 - Clicking a task-list checkbox toggles it checked or unchecked.
-- Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface.
+- Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface. A row holding more or fewer cells than the header is read as the columns the header declares, which is what a Markdown reader shows; cells beyond the header are dropped and missing cells are filled at the end of the row.
 - Code blocks render as styled monospace blocks with syntax highlighting when available. Focused code blocks edit code content directly. Language metadata controls are deferred.
 - Footnote definitions render as editable definition blocks with a persistent subtle definition marker.
 - Clicking the empty space below the document appends an empty paragraph and places the caret in it, unless the document already ends with one.

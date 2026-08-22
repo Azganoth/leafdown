@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Fixed
 
 - Keep a line break written immediately before raw HTML, instead of merging the two lines into one on save and, where the break was a hard one, leaving a backslash behind in the text.
+- Fit a table row holding more or fewer cells than its header to the header's columns, whether the table is opened from a file or pasted in, instead of writing every row at the widest row's width on the next save and, in a pasted table, moving cell content into other columns.
 - Read a backslash typed into an open link or footnote-reference source as the escape it spells, so the run turns into the text it describes and saves with one backslash, instead of keeping the backslash as a character and saving three.
 - Keep a link or footnote reference whole when a character is typed at the start of its open Markdown source, instead of turning the whole construct into literal text that saves with escapes.
 - Write a backslash on save only where the character it precedes would otherwise be read as Markdown, so text such as `garden_sensor_name` keeps its underscores bare, instead of escaping every character that could be syntax somewhere else.

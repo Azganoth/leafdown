@@ -15,7 +15,7 @@
 - Treat package and crate manifests as the source of truth for dependency versions and available APIs.
 - Prefer features supported by the installed versions and established local patterns. Modernize code being changed when appropriate, but do not modernize unrelated code without an explicit request or agreed scope.
 - Consult current official documentation when API behavior is uncertain.
-- Keep code comments for non-obvious rationale, constraints, or consequences. Do not narrate what the following code does or how it does it when the code already makes that clear.
+- Do not add code comments by default. Only comment non-obvious intent, constraints, invariants, or external quirks that cannot be reasonably inferred from the code. Never add comments that restate the code, explain obvious control flow, narrate the current task or changes made, or contain information that belongs in documentation, issues, commits, or PRs.
 
 ## Architecture Boundaries
 

@@ -30,7 +30,6 @@ const corpusFiles = [
 const documentDrift: Record<string, string> = {
   "commonmark/blocks.md": "tight bullet lists saved loose",
   "commonmark/lists-and-blockquotes.md": "tight bullet lists saved loose",
-  "gfm/tables.md": "ragged table row padded into new cells",
   "gfm/task-lists.md": "tight bullet lists saved loose",
 };
 

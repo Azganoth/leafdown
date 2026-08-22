@@ -56,7 +56,6 @@ Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com
 2. Two
 
 * A
-
 * B
 
 \`\`\`ts
@@ -70,7 +69,6 @@ const value = 1;
 ${BASIC_TABLE_MARKDOWN}
 
 * [ ] todo
-
 * [x] done
 
 Footnote[^1]
@@ -249,10 +247,26 @@ describe("Markdown compatibility", () => {
     },
   );
 
+  it.each([
+    "* A\n* B",
+    "* A\n\n* B",
+    "1. A\n2. B",
+    "1. A\n\n2. B",
+    "* A\n  ```\n  code\n  ```\n* B",
+    "* A\n\n  ```\n  code\n  ```\n\n* B",
+    "* [ ] todo\n* [x] done",
+    "* [ ] todo\n\n* [x] done",
+    "* A\n  * B\n  * C\n* D",
+  ])("keeps the authored list tightness in %j", async (source) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
   it("keeps an empty list item empty", async () => {
     const mounted = await mountEditor("* first\n*\n* third");
 
-    expect(mounted.getMarkdown()).toBe("* first\n\n*\n\n* third\n");
+    expect(mounted.getMarkdown()).toBe("* first\n*\n* third\n");
   });
 
   it.each([

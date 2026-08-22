@@ -13,6 +13,7 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
   blockquoteKeymap,
   bulletListKeymap,
+  bulletListSchema,
   codeBlockKeymap,
   commonmark,
   emphasisKeymap,
@@ -138,6 +139,18 @@ const withoutFilledLeadingParagraph = (node: ProseNode) => {
   return node.copy(node.content.cut(firstChild.nodeSize));
 };
 
+// `parseMarkdown` builds `spread` with a template literal, so the attribute holds the string
+// "false" where mdast expects a boolean. Forwarded raw, it reads as spread and writes every tight
+// list loose.
+const withBooleanSpread = (node: ProseNode) =>
+  typeof node.attrs.spread === "boolean"
+    ? node
+    : node.type.create(
+        { ...node.attrs, spread: node.attrs.spread === "true" },
+        node.content,
+        node.marks,
+      );
+
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
 // Marks serialize in `spec.priority` order, 50 unless declared, and inline code declares 100 to
 // stay innermost.
@@ -251,6 +264,17 @@ export const createMilkdownEditor = async ({
           },
         };
       });
+      ctx.update(bulletListSchema.key, (getSchema) => (schemaCtx) => {
+        const schema = getSchema(schemaCtx);
+
+        return {
+          ...schema,
+          toMarkdown: {
+            ...schema.toMarkdown,
+            runner: (state, node) => schema.toMarkdown.runner(state, withBooleanSpread(node)),
+          },
+        };
+      });
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,
@@ -269,7 +293,10 @@ export const createMilkdownEditor = async ({
           toMarkdown: {
             ...schema.toMarkdown,
             runner: (state, node) =>
-              schema.toMarkdown.runner(state, withoutFilledLeadingParagraph(node)),
+              schema.toMarkdown.runner(
+                state,
+                withBooleanSpread(withoutFilledLeadingParagraph(node)),
+              ),
           },
         };
       });

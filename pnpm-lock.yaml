@@ -59,6 +59,9 @@ importers:
       lucide-react:
         specifier: ^1.27.0
         version: 1.27.0(react@19.2.8)
+      micromark-util-html-tag-name:
+        specifier: 2.0.1
+        version: 2.0.1
       react:
         specifier: ^19.2.8
         version: 19.2.8

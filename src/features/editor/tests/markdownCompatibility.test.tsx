@@ -4,6 +4,7 @@ import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
+  getEditorNodePosition,
   getEditorTextPosition,
   setSelectionAtDocumentEnd,
   typeText,
@@ -498,6 +499,42 @@ describe("Authored raw line breaks", () => {
     const mounted = await mountEditor(source);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+});
+
+// Serialization used to write these as a space, so a byte round trip converges on a document that
+// has already lost the break.
+describe("Line breaks before raw HTML", () => {
+  it.each([
+    'Text before.\n<garden-card data-bed="north">',
+    'Text before.\n<span class="leaf">x</span> tail',
+    "Text before.\n<br />",
+    "Text before.  \n<br />",
+    "Text before.\\\n<br />",
+    "> Text before.\n> <br />",
+    "- Text before.\n  <br />",
+    "Reference[^1]\n\n[^1]: Text before.\n    <br />",
+  ])("keeps the break and adds no backslash in %j", async (source) => {
+    const before = await mountEditor(source);
+    const after = await mountEditor(before.getMarkdown());
+
+    expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
+  });
+
+  it("still writes a space before raw HTML that would interrupt the paragraph", async () => {
+    const mounted = await mountEditor("Text <div> more");
+    const { view } = mounted;
+
+    view.dispatch(
+      view.state.tr.insert(
+        getEditorNodePosition(mounted, "html"),
+        view.state.schema.nodes.hardbreak.create({ isInline: true }),
+      ),
+    );
+
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(reopened.view.state.doc.childCount).toBe(1);
   });
 });
 

@@ -18,6 +18,7 @@ import {
   emphasisKeymap,
   hardbreakSchema,
   headingKeymap,
+  htmlSchema,
   inlineCodeKeymap,
   linkSchema,
   orderedListKeymap,
@@ -75,6 +76,11 @@ import {
   type MarkdownReferenceContext,
 } from "./markdownReferences";
 import { serializeMarkdownText } from "./markdownText";
+import {
+  getRawHtmlMarkdownType,
+  RAW_HTML_MARKDOWN_TYPE,
+  serializeRawHtml,
+} from "./rawHtmlMarkdown";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -220,9 +226,25 @@ export const createMilkdownEditor = async ({
         handlers: {
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
+          [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           text: serializeMarkdownText,
         },
       }));
+      ctx.update(htmlSchema.key, (getSchema) => (schemaCtx) => {
+        const schema = getSchema(schemaCtx);
+
+        return {
+          ...schema,
+          toMarkdown: {
+            ...schema.toMarkdown,
+            runner: (state, node) => {
+              const value = node.attrs.value as string;
+
+              state.addNode(getRawHtmlMarkdownType(value), undefined, value);
+            },
+          },
+        };
+      });
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,

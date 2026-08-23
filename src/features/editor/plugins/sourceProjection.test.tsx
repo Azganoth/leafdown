@@ -1871,6 +1871,146 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe(`A${BOLD_PLAIN_MARKDOWN}\n`);
     });
 
+    it.each([
+      {
+        content: "text",
+        input: " ",
+        markdown: "_text_ tail",
+        selector: "em" as const,
+        source: "_text_",
+      },
+      {
+        content: "text",
+        input: "x",
+        markdown: "_text_ tail",
+        selector: "em" as const,
+        source: "_text_",
+      },
+      {
+        content: "text",
+        input: " ",
+        markdown: "~~text~~ tail",
+        selector: "del" as const,
+        source: "~~text~~",
+      },
+      {
+        content: "text",
+        input: "x",
+        markdown: "~~text~~ tail",
+        selector: "del" as const,
+        source: "~~text~~",
+      },
+      {
+        content: "text",
+        input: " ",
+        markdown: "**text** tail",
+        selector: "strong" as const,
+        source: "**text**",
+      },
+      {
+        content: "text",
+        input: "x",
+        markdown: "**text** tail",
+        selector: "strong" as const,
+        source: "**text**",
+      },
+      {
+        content: "text",
+        input: " ",
+        markdown: "`text` tail",
+        selector: "code" as const,
+        source: "`text`",
+      },
+      {
+        content: "text",
+        input: "x",
+        markdown: "`text` tail",
+        selector: "code" as const,
+        source: "`text`",
+      },
+      {
+        content: "a",
+        input: " ",
+        markdown: "[a](b) tail",
+        selector: "a" as const,
+        source: "[a](b)",
+      },
+      {
+        content: "a",
+        input: "x",
+        markdown: "[a](b) tail",
+        selector: "a" as const,
+        source: "[a](b)",
+      },
+    ])(
+      "applies $input typed after the closing delimiter of $markdown outside the construct",
+      async ({ content, input, markdown, selector, source }) => {
+        const mounted = await mountProjectionEditor(markdown);
+
+        enterProjection(mounted, selector);
+
+        const sourceStart = getEditorTextPosition(mounted, source);
+
+        setTextSelection(mounted.view, sourceStart + source.length);
+        typeText(mounted.view, input);
+
+        expect(getEditorTextContent(mounted)).toBe(`${content}${input} tail`);
+
+        setSelectionAtDocumentEnd(mounted.view);
+
+        expect(mounted.view.dom.querySelector(selector)).toBeInTheDocument();
+        expect(mounted.getMarkdown()).toBe(`${source}${input} tail\n`);
+      },
+    );
+
+    it("commits edited source before applying text typed after its closing delimiter", async () => {
+      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+
+      setTextSelection(mounted.view, sourceStart + "**Bold".length);
+      typeText(mounted.view, "er");
+      setTextSelection(mounted.view, sourceStart + "**Bolder**".length);
+      typeText(mounted.view, "x");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Bolder");
+      expect(mounted.getMarkdown()).toBe("**Bolder**x plain\n");
+    });
+
+    it("applies text typed after a footnote reference's closing delimiter outside its source", async () => {
+      const mounted = await mountProjectionEditor("text[^a] tail\n\n[^a]: note");
+
+      selectFootnoteReference(mounted);
+
+      const sourceStart = getEditorTextPosition(mounted, "[^a]");
+
+      setTextSelection(mounted.view, sourceStart + "[^a]".length);
+      typeText(mounted.view, "x");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.dom.querySelector("sup")).toBeInTheDocument();
+      expect(mounted.getMarkdown()).toBe("text[^a]x tail\n\n[^a]: note\n");
+    });
+
+    it("keeps a literal marker beside a projection out of an input rule", async () => {
+      const mounted = await mountProjectionEditor("*__text__");
+
+      enterProjection(mounted, "strong");
+
+      const sourceStart = getEditorTextPosition(mounted, "__text__");
+
+      setTextSelection(mounted.view, sourceStart + "__text__".length);
+      typeText(mounted.view, "*");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("text");
+      expect(getEditorTextContent(mounted)).toBe("*text*");
+      expect(mounted.getMarkdown()).toBe("\\*__text__\\*\n");
+    });
+
     it.each(["~", "`"])("keeps a foreign marker %s outside a strong projection", async (marker) => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 

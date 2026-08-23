@@ -930,15 +930,32 @@ const handleProjectionTextInput = (
   }
 
   const edit = getRelativeProjectionEdit(session, from, to, text);
+  const source = getProjectionSource(view.state, session);
 
-  if (
-    session.adapter.shouldHandleTextInput?.(getProjectionSource(view.state, session), edit) ===
-    false
-  ) {
-    return false;
+  if (session.adapter.shouldHandleTextInput?.(source, edit) === false) {
+    return applyProjectionInputAfterSource(view, edit, text, source);
   }
 
   dispatchProjectionEdit(view, from, to, text);
+
+  return true;
+};
+
+const applyProjectionInputAfterSource = (
+  view: EditorView,
+  edit: SourceProjectionEdit,
+  text: string,
+  source: string,
+) => {
+  if (edit.from !== source.length || edit.to !== source.length) {
+    return false;
+  }
+
+  if (!finalizeSourceProjection(view)) {
+    return false;
+  }
+
+  view.dispatch(view.state.tr.insertText(text).scrollIntoView());
 
   return true;
 };

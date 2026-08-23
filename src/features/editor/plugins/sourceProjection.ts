@@ -5,6 +5,7 @@ import {
   remarkCtx,
   serializerCtx,
 } from "@milkdown/kit/core";
+import { customInputRulesKey } from "@milkdown/kit/prose";
 import { closeHistory, isHistoryTransaction } from "@milkdown/kit/prose/history";
 import { DOMParser, type Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
@@ -450,6 +451,13 @@ const appendProjectionTransaction = (
       (transaction) => transaction.getMeta(SOURCE_PROJECTION_ENTRY_SUPPRESSION_META) === true,
     )
   ) {
+    return null;
+  }
+
+  // An input rule leaves the caret against the mark it just built, which reads the same as a caret
+  // moved there. Projecting it would take the author's next character into the construct they just
+  // closed, so the run they typed stands as the object it produced until they go back to it.
+  if (transactions.some((transaction) => transaction.getMeta(customInputRulesKey) != null)) {
     return null;
   }
 

@@ -4,8 +4,10 @@ import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
+  findEditorTextNode,
   getEditorNodePosition,
   getEditorTextPosition,
+  getMarkNames,
   setSelectionAtDocumentEnd,
   typeText,
 } from "@/test/utils/prosemirror";
@@ -473,6 +475,63 @@ describe("Typed link source", () => {
 
     expect(mounted.getMarkdown()).toBe("plain tail \n");
   });
+});
+
+describe("Typed inline mark source", () => {
+  const typeInto = async (initial: string, typed: string) => {
+    const mounted = await mountEditor(initial);
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, typed);
+
+    return mounted.getMarkdown();
+  };
+
+  it.each([
+    { expected: "~~text~~", name: "double-tilde strikethrough", typed: "~~text~~" },
+    { expected: "~~text~~", name: "single-tilde strikethrough", typed: "~text~" },
+    { expected: "~~a\\~b~~", name: "strikethrough holding a tilde", typed: "~~a~b~~" },
+    { expected: "*text*", name: "emphasis", typed: "*text*" },
+    { expected: "**text**", name: "strong emphasis", typed: "**text**" },
+    { expected: "_text_", name: "underscore emphasis", typed: "_text_" },
+    { expected: "__text__", name: "underscore strong emphasis", typed: "__text__" },
+    { expected: "`text`", name: "inline code", typed: "`text`" },
+  ])("writes a typed $name as the construct it spells", async ({ expected, typed }) => {
+    expect(await typeInto("", typed)).toBe(`${expected}\n`);
+  });
+
+  // GFM reads a strikethrough only where the closing delimiter run matches the opening one.
+  it.each([
+    { expected: "\\~\\~", typed: "~~" },
+    { expected: "\\~\\~text", typed: "~~text" },
+    { expected: "\\~\\~text\\~", typed: "~~text~" },
+    { expected: "\\~\\~ \\~\\~", typed: "~~ ~~" },
+  ])("keeps an unclosed tilde run in %j literal", async ({ expected, typed }) => {
+    expect(await typeInto("", typed)).toBe(`${expected}\n`);
+  });
+
+  it.each([
+    { expected: "* item ~~text~~", initial: "- item", name: "a list item" },
+    { expected: "> quote ~~text~~", initial: "> quote", name: "a blockquote" },
+  ])("writes a strikethrough typed in $name", async ({ expected, initial }) => {
+    expect(await typeInto(initial, " ~~text~~")).toBe(`${expected}\n`);
+  });
+
+  it.each(["~~text~~", "~text~"])(
+    "types %j into the document that loading its source produces",
+    async (typed) => {
+      const typedEditor = await mountEditor("");
+
+      setSelectionAtDocumentEnd(typedEditor.view);
+      typeText(typedEditor.view, typed);
+
+      const reloaded = await mountEditor(typedEditor.getMarkdown());
+      const loaded = await mountEditor("~~text~~");
+
+      expect(reloaded.view.state.doc.toJSON()).toEqual(loaded.view.state.doc.toJSON());
+      expect(getMarkNames(findEditorTextNode(reloaded, "text")!)).toContain("strike_through");
+    },
+  );
 });
 
 describe("Authored raw line breaks", () => {

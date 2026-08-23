@@ -27,7 +27,12 @@ import {
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
-import { extendListItemSchemaForTask, gfm, strikethroughKeymap } from "@milkdown/kit/preset/gfm";
+import {
+  extendListItemSchemaForTask,
+  gfm,
+  strikethroughInputRule,
+  strikethroughKeymap,
+} from "@milkdown/kit/preset/gfm";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
@@ -61,6 +66,7 @@ import {
   finalizeSourceProjection,
   hasTransientSourceProjection,
 } from "../plugins/sourceProjection";
+import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import {
   createLeafdownTableShapeGuardPlugin,
@@ -202,6 +208,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableKeyboardPlugin())
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
+    .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
     .use(history)
@@ -368,6 +375,8 @@ export const createMilkdownEditor = async ({
   // `<br>` it finds, authored ones included. Leafdown represents a blank paragraph with blank
   // lines instead, so raw HTML stays document content.
   await configuredEditor.remove(remarkPreserveEmptyLinePlugin);
+
+  await configuredEditor.remove(strikethroughInputRule);
 
   return configuredEditor;
 };

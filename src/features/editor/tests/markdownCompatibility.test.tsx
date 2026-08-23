@@ -9,6 +9,7 @@ import {
   getEditorTextPosition,
   getMarkNames,
   setSelectionAtDocumentEnd,
+  setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
@@ -515,6 +516,35 @@ describe("Typed inline mark source", () => {
     { expected: "> quote ~~text~~", initial: "> quote", name: "a blockquote" },
   ])("writes a strikethrough typed in $name", async ({ expected, initial }) => {
     expect(await typeInto(initial, " ~~text~~")).toBe(`${expected}\n`);
+  });
+
+  it.each([
+    { expected: "*text* tail", name: "emphasis", typed: "*text* tail" },
+    { expected: "**text** tail", name: "strong emphasis", typed: "**text** tail" },
+    { expected: "_text_ tail", name: "underscore emphasis", typed: "_text_ tail" },
+    { expected: "__text__ tail", name: "underscore strong emphasis", typed: "__text__ tail" },
+    { expected: "`text` tail", name: "inline code", typed: "`text` tail" },
+    { expected: "~~text~~ tail", name: "strikethrough", typed: "~~text~~ tail" },
+    { expected: "~~text~~ tail", name: "single-tilde strikethrough", typed: "~text~ tail" },
+  ])("writes text typed after a completed $name outside it", async ({ expected, typed }) => {
+    expect(await typeInto("", typed)).toBe(`${expected}\n`);
+  });
+
+  // The outer run only composes once the inner construct stops claiming what follows it.
+  it.each([
+    { expected: "**~~text~~**", typed: "**~~text~~**" },
+    { expected: "**~~text~~**", typed: "~~**text**~~" },
+  ])("writes %j nested with strong emphasis", async ({ expected, typed }) => {
+    expect(await typeInto("", typed)).toBe(`${expected}\n`);
+  });
+
+  it("keeps typing at the end of an existing construct inside it", async () => {
+    const mounted = await mountEditor("**text** plain");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "text") + "text".length);
+    typeText(mounted.view, "X");
+
+    expect(mounted.getMarkdown()).toBe("**textX** plain\n");
   });
 
   it.each(["~~text~~", "~text~"])(

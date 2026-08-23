@@ -29,6 +29,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Keep bold, italic, strikethrough, inline code, a link, or a footnote reference whole when a character is typed immediately after its open Markdown source, placing the character after the construct, instead of losing a letter from the text or turning the construct into literal text that saves with escapes.
 - Write a typed `~~strikethrough~~` as the strikethrough it spells, instead of adding a stray tilde on each side that stayed in the text and saved with escapes. A tilde run that has not been closed yet now stays plain text, as it already did when the same source was opened from a file.
+- Keep typing after a bold, italic, strikethrough, or inline-code construct you just finished outside it, instead of pulling the rest of the sentence into the formatting. Nesting one construct in another, such as `**~~text~~**`, now works as typed.
 - Keep a bullet list written without blank lines between its items tight on save, as ordered lists already were, instead of spacing every item apart and changing how the list renders.
 - Keep a line break written immediately before raw HTML, instead of merging the two lines into one on save and, where the break was a hard one, leaving a backslash behind in the text.
 - Fit a table row holding more or fewer cells than its header to the header's columns, whether the table is opened from a file or pasted in, instead of writing every row at the widest row's width on the next save and, in a pasted table, moving cell content into other columns.

@@ -247,9 +247,9 @@ export const applyLiteralSourceProjectionEdit = (
 };
 
 export const shouldHandleInlineObjectTextInput = (
-  _source: string,
+  source: string,
   { from, text, to }: SourceProjectionEdit,
-) => !(from === to && from === 0 && text.length > 0 && text !== "\\");
+) => !(from === to && text.length > 0 && (from === source.length || (from === 0 && text !== "\\")));
 
 const createMarkSourceProjectionTarget = (
   state: EditorState,

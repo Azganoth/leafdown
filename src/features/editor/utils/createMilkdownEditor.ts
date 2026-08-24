@@ -79,6 +79,7 @@ import {
   serializeBareAutolink,
   withBareAutolinkForm,
 } from "./bareAutolinkMarkdown";
+import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -243,6 +244,7 @@ export const createMilkdownEditor = async ({
             options.attributes,
             DISABLED_TEXT_ASSISTANCE_ATTRIBUTES,
           ),
+          clipboardTextSerializer: createClipboardTextSerializer(ctx),
           transformPastedHTML: (html, view) =>
             normalizeProseMirrorClipboardHtml(previousTransformPastedHTML?.(html, view) ?? html),
         };

@@ -38,6 +38,41 @@ describe("native editor clipboard events", () => {
     expect(fragment.querySelector("[data-pm-slice]")).not.toBeNull();
   });
 
+  it.each([
+    { source: String.raw`\# not a heading`, copied: String.raw`\# not a heading` },
+    { source: String.raw`\*not emphasis\* tail`, copied: String.raw`\*not emphasis\* tail` },
+    {
+      source: String.raw`\[test link](./test.html) tail`,
+      copied: String.raw`\[test link](./test.html) tail`,
+    },
+    {
+      source: `${String.raw`\# not a heading`}\n\nSecond`,
+      copied: `${String.raw`\# not a heading`}\n\nSecond\n`,
+    },
+    { source: String.raw`\# not a *heading*`, copied: `${String.raw`\# not a *heading*`}\n` },
+  ])("copies $source as the Markdown the save path writes", async ({ source, copied }) => {
+    const mounted = await mountEditor(source);
+    const clipboardData = createClipboardData();
+
+    setTextSelection(mounted.view, 1, mounted.view.state.doc.content.size - 1);
+
+    dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
+
+    expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe(copied);
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("copies code block text as its own characters", async () => {
+    const mounted = await mountEditor("```\n# code\n```");
+    const clipboardData = createClipboardData();
+
+    setTextSelection(mounted.view, 1, mounted.view.state.doc.content.size - 1);
+
+    dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
+
+    expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe("# code");
+  });
+
   it.each(["forward", "backward"] as const)(
     "copies a %s projected selection as exact source and semantic HTML",
     async (direction) => {

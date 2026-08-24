@@ -80,7 +80,7 @@ Syntax highlighting uses bundled Shiki assets through Milkdown highlighting plug
 
 ### Clipboard Ownership
 
-Leafdown resolves one default Copy/Cut payload from the current editor selection. For regular selections, Milkdown's ProseMirror clipboard serializer provides the Markdown plain text and semantic HTML fragment. Source projection may replace only the rich slice through its read-only semantic resolver while preserving the exact transient source selection as plain text.
+Leafdown resolves one default Copy/Cut payload from the current editor selection. For regular selections, Milkdown's ProseMirror clipboard serializer provides the Markdown plain text and semantic HTML fragment, except that Leafdown serializes a slice holding one unmarked text node itself, because Milkdown's serializer writes those characters as they are and the save path escapes them. Source projection may replace only the rich slice through its read-only semantic resolver while preserving the exact transient source selection as plain text.
 
 Two adapters apply that shared policy. A ProseMirror plugin owns native `copy` and `cut` events inside the Milkdown editor and writes both formats synchronously through `ClipboardEvent.clipboardData`. Edit-menu and context-popup commands use the asynchronous system Clipboard API. Both adapters delete through the same regular-or-projected Cut policy only after a successful write; asynchronous Cut also verifies that its document, selection, and projection mode have not changed while the write was pending.
 

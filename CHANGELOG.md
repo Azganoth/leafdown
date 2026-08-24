@@ -27,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Copy text the editor keeps literal with the backslashes the file is saved with, so pasting it elsewhere keeps it literal instead of turning it into a heading, a link, or emphasis.
 - Keep bold, italic, strikethrough, inline code, a link, or a footnote reference whole when a character is typed immediately after its open Markdown source, placing the character after the construct, instead of losing a letter from the text or turning the construct into literal text that saves with escapes.
 - Write a typed `~~strikethrough~~` as the strikethrough it spells, instead of adding a stray tilde on each side that stayed in the text and saved with escapes. A tilde run that has not been closed yet now stays plain text, as it already did when the same source was opened from a file.
 - Keep typing after a bold, italic, strikethrough, or inline-code construct you just finished outside it, instead of pulling the rest of the sentence into the formatting. Nesting one construct in another, such as `**~~text~~**`, now works as typed.

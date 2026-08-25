@@ -33,6 +33,14 @@ const UNICODE_PUNCTUATION_PATTERN = /[\p{P}\p{S}]/u;
 const ATTENTION_CHARACTERS = "*_";
 const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = { "*": /^[*\t ]*$/u, _: /^[_\t ]*$/u };
 const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"]);
+// `mdast-util-gfm-autolink-literal` escapes these to keep text from reading as an autolink
+// target, but its `fromMarkdown` transform matches already-decoded text and never sees the
+// escape, so the backslash never changes what a reload produces.
+const AUTOLINK_LITERAL_ESCAPES: Record<string, { after: RegExp; before: RegExp }> = {
+  ".": { after: /[-.\w]/u, before: /[Ww]/u },
+  ":": { after: /\//u, before: /[ps]/u },
+  "@": { after: /[-.\w]/u, before: /[+.\w-]/u },
+};
 
 const decodeEscapes = (serialized: string): EscapeSlot[] => {
   const slots: EscapeSlot[] = [];
@@ -215,6 +223,24 @@ const relaxBracketEscapes = (slots: EscapeSlot[], neighbors: PhrasingNeighbors |
   }
 };
 
+const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after: string) => {
+  const characterAt = (index: number) =>
+    index < 0 ? before.slice(-1) : index < slots.length ? slots[index].character : after.charAt(0);
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+    const rule = AUTOLINK_LITERAL_ESCAPES[slot.character];
+
+    if (
+      slot.escaped &&
+      rule?.before.test(characterAt(index - 1)) &&
+      rule.after.test(characterAt(index + 1))
+    ) {
+      slot.escaped = false;
+    }
+  }
+};
+
 const readPhrasingNeighbors = (
   parent: { type: string; children: readonly { type: string; value?: string }[] } | undefined,
   index: number,
@@ -261,6 +287,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
 
   relaxAttentionEscapes(slots, info.before, after, neighbors);
   relaxBracketEscapes(slots, neighbors);
+  relaxAutolinkLiteralEscapes(slots, info.before, after);
 
   return encodeEscapes(slots) + trailingWhitespace;
 };

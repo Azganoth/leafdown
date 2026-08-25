@@ -27,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Leave a URL, email address, or `www` address held as ordinary text without a backslash before its `:`, `@`, or `.`, so a saved file no longer carries an escape such as `https\://example.com`, instead of writing one that other Markdown tools read as a stray backslash and that turned back into a link on the next open regardless.
 - Copy text the editor keeps literal with the backslashes the file is saved with, so pasting it elsewhere keeps it literal instead of turning it into a heading, a link, or emphasis.
 - Keep bold, italic, strikethrough, inline code, a link, or a footnote reference whole when a character is typed immediately after its open Markdown source, placing the character after the construct, instead of losing a letter from the text or turning the construct into literal text that saves with escapes.
 - Write a typed `~~strikethrough~~` as the strikethrough it spells, instead of adding a stray tilde on each side that stayed in the text and saved with escapes. A tilde run that has not been closed yet now stays plain text, as it already did when the same source was opened from a file.

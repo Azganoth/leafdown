@@ -387,6 +387,12 @@ describe("Escape precision", () => {
       source:
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
     },
+    // `mdast-util-gfm-autolink-literal` escapes `.` and `@` around any word-shaped run beside a
+    // `www` or protocol lead, even where the run cannot pass its own domain check and can never
+    // read as a link, so the escape guards against a risk that is not present.
+    { saved: "name@example", source: "name\\@example" },
+    { saved: "a@b", source: "a\\@b" },
+    { saved: "www.example_.com", source: "www\\.example\\_.com" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -399,6 +405,7 @@ describe("Escape precision", () => {
     "\\_not emphasis\\_",
     "\\_\\_not strong emphasis\\_\\_",
     "\\* not a list item",
+    "1\\. not a list item",
     "\\*\\*\\*",
     "\\_\\_\\_",
     "\\# not a heading",
@@ -430,8 +437,8 @@ describe("Typed link source", () => {
       name: "inline link",
       typed: "[test link](./test.html)",
     },
-    { expected: "https\\://example.com", name: "autolink literal", typed: "https://example.com" },
-    { expected: "\\<https\\://example.com>", name: "URI autolink", typed: "<https://example.com>" },
+    { expected: "https://example.com", name: "autolink literal", typed: "https://example.com" },
+    { expected: "\\<https://example.com>", name: "URI autolink", typed: "<https://example.com>" },
   ];
 
   it.each(typedLinkSourceFixtures)(

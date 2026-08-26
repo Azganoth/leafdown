@@ -605,6 +605,49 @@ describe("Escape precision", () => {
   });
 });
 
+describe("Raw link destination parentheses", () => {
+  it.each([
+    {
+      saved: "[Balanced](garden(section(one)).md)",
+      source: "[Balanced](garden\\(section\\(one\\)\\).md)",
+    },
+    { saved: "[Escaped](garden(section).md)", source: "[Escaped](garden\\(section\\).md)" },
+    {
+      saved: "[Inline script scheme](javascript:alert(1))",
+      source: "[Inline script scheme](javascript:alert(1))",
+    },
+    { saved: '[Titled](garden(one).md "Garden")', source: '[Titled](garden(one).md "Garden")' },
+    { saved: "![Image](garden(one).png)", source: "![Image](garden(one).png)" },
+  ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  // An unbalanced parenthesis cannot be written raw at all, so the angle-bracket form is the only
+  // source that carries one into the document.
+  it.each([
+    {
+      saved: "[Unbalanced open](garden\\(section.md)",
+      source: "[Unbalanced open](<garden(section.md>)",
+    },
+    {
+      saved: "[Unbalanced close](garden\\)section.md)",
+      source: "[Unbalanced close](<garden)section.md>)",
+    },
+    // The image serializes inside the link handler, which has already relaxed the escapes its own
+    // balanced destination does not need.
+    {
+      saved: "[![alt](img\\(1.png)](target(2).md)",
+      source: "[![alt](<img(1.png>)](target(2).md)",
+    },
+  ])("keeps the escape $saved needs", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+});
+
 describe("Typed link source", () => {
   const typedLinkSourceFixtures = [
     {

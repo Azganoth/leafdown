@@ -83,6 +83,7 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
+import { serializeMarkdownImage, serializeMarkdownLink } from "./markdownDestination";
 import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
@@ -255,6 +256,8 @@ export const createMilkdownEditor = async ({
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
+          image: serializeMarkdownImage,
+          link: serializeMarkdownLink,
           root: serializeMarkdownRoot,
           text: serializeMarkdownText,
         },

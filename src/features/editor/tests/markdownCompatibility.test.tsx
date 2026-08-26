@@ -464,6 +464,20 @@ describe("Escape precision", () => {
     { saved: "[missing destination]", source: "\\[missing destination]" },
     { saved: "[reference][label]", source: "\\[reference]\\[label]" },
     { saved: "**[reference][label]**", source: "**\\[reference]\\[label]**" },
+    // The line decides a construct a sibling interrupts. A bare autolink leaves the `<` alone in
+    // its own node, and raw HTML does the same, so neither is decidable from that node.
+    { saved: "<https://example.com path>", source: "\\<https://example.com path>" },
+    { saved: "<https://example.com", source: "\\<https://example.com" },
+    {
+      saved: "<data:text/html,<script>alert(1)</script>>",
+      source: "\\<data:text/html,<script>alert(1)</script>>",
+    },
+    // The `]` on the far side of the mark closes nothing, since no definition resolves the label
+    // it would spell.
+    {
+      saved: "**text with [ bracket** and ] after",
+      source: "**text with \\[ bracket** and ] after",
+    },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -495,8 +509,10 @@ describe("Escape precision", () => {
     "\\\\[",
     // A `]` later on the line still closes a `[` inside a mark, wherever the two sit.
     "**\\[a** b](c)",
-    "**text with \\[ bracket** and ] after",
     "*a \\[ b* [link](u)",
+    // A mark inside the candidate does not put the rest of the tag out of reach.
+    '\\<a href="**x**">',
+    "\\<https://example.com/**a**>",
     "**\\[intentionally literal](garden.md)**",
     // A well-formed construct held as literal text keeps the escape that holds it there.
     "\\<https://example.com>",

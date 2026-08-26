@@ -83,7 +83,7 @@ const unusualMarkdownFixtures = [
   {
     name: "wiki-link-like text",
     source: "Keep [[Wiki Link]] as ordinary text.",
-    expected: "Keep \\[\\[Wiki Link]] as ordinary text.\n",
+    expected: "Keep [[Wiki Link]] as ordinary text.\n",
   },
   {
     name: "directive-like text",
@@ -93,7 +93,7 @@ const unusualMarkdownFixtures = [
   {
     name: "malformed HTML-like text",
     source: "<custom broken",
-    expected: "\\<custom broken\n",
+    expected: "<custom broken\n",
   },
 ];
 
@@ -383,7 +383,7 @@ describe("Escape precision", () => {
       source: "\\[intentionally literal]\\(garden.md)",
     },
     {
-      saved: "!\"#$%&'()*+,-./:;<=>?@\\[\\\\]^_\\`{|}~",
+      saved: "!\"#$%&'()*+,-./:;<=>?@[\\\\]^_\\`{|}~",
       source:
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
     },
@@ -447,6 +447,23 @@ describe("Escape precision", () => {
       saved: "This ~~does not cross\n\na paragraph boundary~~.",
       source: "This \\~\\~does not cross\n\na paragraph boundary\\~\\~.",
     },
+    // An autolink needs a scheme of two to thirty-two characters, and a tag name admits neither a
+    // `.` nor a `:`, so neither construct can open where the angle brackets sit.
+    { saved: "<a:too-short>", source: "\\<a:too-short>" },
+    { saved: "<foo.bar.baz>", source: "\\<foo.bar.baz>" },
+    { saved: "<a.b>", source: "\\<a.b>" },
+    {
+      saved: "<abcdefghijklmnopqrstuvwxyzabcdefg:thirty-three>",
+      source: "\\<abcdefghijklmnopqrstuvwxyzabcdefg:thirty-three>",
+    },
+    // A bracket run closes no link when the destination is never closed, the reference label is
+    // never closed, or no definition resolves the label.
+    { saved: "[missing destination](", source: "\\[missing destination]\\(" },
+    { saved: "[full reference][unclosed", source: "\\[full reference]\\[unclosed" },
+    { saved: "[collapsed reference][", source: "\\[collapsed reference]\\[" },
+    { saved: "[missing destination]", source: "\\[missing destination]" },
+    { saved: "[reference][label]", source: "\\[reference]\\[label]" },
+    { saved: "**[reference][label]**", source: "**\\[reference]\\[label]**" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -465,7 +482,6 @@ describe("Escape precision", () => {
     "\\# not a heading",
     "\\> not a quote",
     "\\- not a list item",
-    "\\[reference]\\[label]",
     "\\[intentionally literal](garden.md)",
     "!\\[intentionally literal](garden.png)",
     "\\![literal bang before a live link](garden.png)",
@@ -481,8 +497,17 @@ describe("Escape precision", () => {
     "**\\[a** b](c)",
     "**text with \\[ bracket** and ] after",
     "*a \\[ b* [link](u)",
-    "**\\[reference]\\[label]**",
     "**\\[intentionally literal](garden.md)**",
+    // A well-formed construct held as literal text keeps the escape that holds it there.
+    "\\<https://example.com>",
+    "\\<div>",
+    '\\<a href="garden.md">',
+    "\\<!-- comment -->",
+    "\\[label](target.md)",
+    "!\\[label](target.png)",
+    // No link-reference definition survives the editor, so a footnote definition is the one
+    // resolvable label a document can still hold.
+    "\\[^1] literal\n\n[^1]: Footnote text",
     // The enclosing delimiters remain available counterparts for a run of the same character.
     "**\\*a**",
     "**\\*opening-only asterisk**",

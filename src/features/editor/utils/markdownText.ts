@@ -264,8 +264,16 @@ const relaxAttentionEscapes = (
       neighbors.later.includes(run.character) ||
       (run.canOpen &&
         runs.some((other) => counterpart(other) && other.start > run.start && other.canClose)) ||
+      // An earlier opener that kept its escape is no longer a delimiter, so it leaves nothing here
+      // to close. Runs are decided in order, so an earlier run's slot already holds its answer.
       (run.canClose &&
-        runs.some((other) => counterpart(other) && other.start < run.start && other.canOpen));
+        runs.some(
+          (other) =>
+            counterpart(other) &&
+            other.start < run.start &&
+            other.canOpen &&
+            !slots[other.start].escaped,
+        ));
 
     if ((run.canOpen || run.canClose) && pairable) {
       continue;

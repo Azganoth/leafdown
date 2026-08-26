@@ -404,6 +404,14 @@ describe("Escape precision", () => {
       saved: "| bed         |\n| ----------- |\n| **\\[a](b)** |",
       source: "| bed |\n| --- |\n| **\\[a]\\(b)** |",
     },
+    // The enclosing delimiters pair only with a run of their own character, so the other
+    // attention character has no counterpart to reach and keeps no escape.
+    { saved: "**_a**", source: "**\\_a**" },
+    { saved: "**a_**", source: "**a\\_**" },
+    { saved: "*_a*", source: "*\\_a*" },
+    { saved: "~~_a~~", source: "~~\\_a~~" },
+    { saved: "[_a](u)", source: "[\\_a](u)" },
+    { saved: "__*a__", source: "__\\*a__" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 

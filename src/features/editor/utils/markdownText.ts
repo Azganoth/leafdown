@@ -23,7 +23,6 @@ interface PhrasingNeighbors {
   earlier: string;
   later: string;
   laterHasMarkup: boolean;
-  partialLine: boolean;
 }
 
 const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
@@ -38,6 +37,7 @@ const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"
 // Every `[` in the fragment keeps its escape, which is also what makes an unescaped `[` from
 // earlier in the line impossible: any text before a mark sees the mark as later markup.
 const FRAGMENT_PHRASING_PARENTS = new Set(["delete", "emphasis", "link", "strong"]);
+const ATTENTION_CONSTRUCTS = new Set(["emphasis", "strong"]);
 // `mdast-util-gfm-autolink-literal` escapes these to keep text from reading as an autolink
 // target, but its `fromMarkdown` transform matches already-decoded text and never sees the
 // escape, so the backslash never changes what a reload produces.
@@ -156,11 +156,28 @@ const opensBlockConstruct = (
   return thematicBreak || bulletMarker;
 };
 
+// A run inside a mark can always pair with the mark's own delimiters, so those count as reachable
+// counterparts. Only the innermost marker is readable from the parent, and `delete` and a link
+// label carry none, so deeper nesting falls back to treating both characters as reachable.
+const readEnclosingMarkers = (
+  parent: { type: string; marker?: string } | undefined,
+  stack: readonly string[],
+): string => {
+  const enclosing = stack.filter((construct) => ATTENTION_CONSTRUCTS.has(construct));
+
+  if (enclosing.length === 0) {
+    return "";
+  }
+
+  return enclosing.length === 1 && parent?.marker ? parent.marker : ATTENTION_CHARACTERS;
+};
+
 const relaxAttentionEscapes = (
   slots: EscapeSlot[],
   before: string,
   after: string,
   neighbors: PhrasingNeighbors | undefined,
+  enclosingMarkers: string,
 ) => {
   const runs = findAttentionRuns(
     slots,
@@ -176,7 +193,7 @@ const relaxAttentionEscapes = (
     const counterpart = (other: AttentionRun) => other.character === run.character;
     const pairable =
       neighbors === undefined ||
-      neighbors.partialLine ||
+      enclosingMarkers.includes(run.character) ||
       !neighbors.textOnly ||
       neighbors.earlier.includes(run.character) ||
       neighbors.later.includes(run.character) ||
@@ -272,7 +289,6 @@ const readPhrasingNeighbors = (
     earlier: textValues(earlier),
     later: textValues(later),
     laterHasMarkup: partialLine || later.some((child) => child.type !== "text"),
-    partialLine,
   };
 };
 
@@ -295,7 +311,13 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     state.indexStack[state.indexStack.length - 1] ?? -1,
   );
 
-  relaxAttentionEscapes(slots, info.before, after, neighbors);
+  relaxAttentionEscapes(
+    slots,
+    info.before,
+    after,
+    neighbors,
+    readEnclosingMarkers(parent, state.stack),
+  );
   relaxBracketEscapes(slots, neighbors);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
 

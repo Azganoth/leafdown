@@ -40,7 +40,7 @@ describe("native editor clipboard events", () => {
 
   it.each([
     { source: String.raw`\# not a heading`, copied: String.raw`\# not a heading` },
-    { source: String.raw`\*not emphasis\* tail`, copied: String.raw`\*not emphasis\* tail` },
+    { source: String.raw`\*not emphasis* tail`, copied: String.raw`\*not emphasis* tail` },
     {
       source: String.raw`\[test link](./test.html) tail`,
       copied: String.raw`\[test link](./test.html) tail`,

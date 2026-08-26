@@ -447,6 +447,20 @@ describe("Escape precision", () => {
       saved: "This ~~does not cross\n\na paragraph boundary~~.",
       source: "This \\~\\~does not cross\n\na paragraph boundary\\~\\~.",
     },
+    // Escaping the opener already breaks the pair, so the run it can no longer reach drops its own
+    // escape. The third run below reaches neither escaped run before it.
+    {
+      saved: "\\~not single-tilde strikethrough~",
+      source: "\\~not single-tilde strikethrough\\~",
+    },
+    {
+      saved: "\\~\\~not double-tilde strikethrough~~",
+      source: "\\~\\~not double-tilde strikethrough\\~\\~",
+    },
+    { saved: "\\*not emphasis*", source: "\\*not emphasis\\*" },
+    { saved: "\\_\\_not strong emphasis__", source: "\\_\\_not strong emphasis\\_\\_" },
+    { saved: "[\\*a*](u)", source: "[\\*a\\*](u)" },
+    { saved: "\\~a\\~b~", source: "\\~a\\~b\\~" },
     // An autolink needs a scheme of two to thirty-two characters, and a tag name admits neither a
     // `.` nor a `:`, so neither construct can open where the angle brackets sit.
     { saved: "<a:too-short>", source: "\\<a:too-short>" },
@@ -521,10 +535,10 @@ describe("Escape precision", () => {
   });
 
   it.each([
-    "\\*not emphasis\\*",
-    "\\*\\*not strong emphasis\\*\\*",
-    "\\_not emphasis\\_",
-    "\\_\\_not strong emphasis\\_\\_",
+    "\\*not emphasis*",
+    "\\*\\*not strong emphasis**",
+    "\\_not emphasis_",
+    "\\_\\_not strong emphasis__",
     "\\* not a list item",
     "1\\. not a list item",
     "\\*\\*\\*",
@@ -536,7 +550,7 @@ describe("Escape precision", () => {
     "!\\[intentionally literal](garden.png)",
     "\\![literal bang before a live link](garden.png)",
     "\\`not code\\`",
-    "\\~\\~not strikethrough\\~\\~",
+    "\\~\\~not strikethrough~~",
     "\\<span>not html\\</span>",
     "| bed         |\n| ----------- |\n| alpha\\|beta |",
     "a \\ b",
@@ -571,15 +585,17 @@ describe("Escape precision", () => {
     "**\\*a**",
     "**\\*opening-only asterisk**",
     "**text \\*mid asterisk**",
-    "[\\*a\\*](u)",
+    "[\\*a*](u)",
     // A link label is closed by its own `](`, which no relaxation may assume away.
     "[x \\[ y](u)",
     "[x \\] y](u)",
     // Equal-length tilde runs reach each other, and a strikethrough's own delimiters stay reachable
     // from the text it wraps.
-    "\\~not single-tilde strikethrough\\~",
-    "\\~\\~not double-tilde strikethrough\\~\\~",
+    "\\~not single-tilde strikethrough~",
+    "\\~\\~not double-tilde strikethrough~~",
     "~~a\\~b~~",
+    // The third run reaches neither escaped run before it, so two escapes hold the whole line.
+    "\\~a\\~b~",
     // Three tildes at the start of a line open a code fence.
     "\\~\\~\\~",
   ])("keeps the escape the document needs in %j", async (source) => {

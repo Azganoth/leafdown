@@ -383,7 +383,7 @@ describe("Escape precision", () => {
       source: "\\[intentionally literal]\\(garden.md)",
     },
     {
-      saved: "!\"#$%&'()*+,-./:;<=>?@\\[\\\\]^_\\`{|}\\~",
+      saved: "!\"#$%&'()*+,-./:;<=>?@\\[\\\\]^_\\`{|}~",
       source:
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
     },
@@ -417,6 +417,36 @@ describe("Escape precision", () => {
     { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },
     { saved: "~~text with [ bracket~~", source: "~~text with \\[ bracket~~" },
     { saved: "*a **b** [ c*", source: "*a **b** \\[ c*" },
+    // A tilde run reaches a counterpart only through a run of its own length, so an opener with no
+    // closer, a closer with no opener, and a mismatched pair all stay literal where they sit.
+    {
+      saved: "~opening-only single-tilde strikethrough",
+      source: "\\~opening-only single-tilde strikethrough",
+    },
+    {
+      saved: "closing-only double-tilde strikethrough~~",
+      source: "closing-only double-tilde strikethrough\\~\\~",
+    },
+    {
+      saved: "~single tilde opens but double tildes close~~",
+      source: "\\~single tilde opens but double tildes close\\~\\~",
+    },
+    {
+      saved: "~ opening space~ and ~closing space ~ remain literal.",
+      source: "\\~ opening space\\~ and \\~closing space \\~ remain literal.",
+    },
+    {
+      saved: "Inline ~~~three tildes do not strike~~~ remains literal.",
+      source: "Inline \\~\\~\\~three tildes do not strike\\~\\~\\~ remains literal.",
+    },
+    {
+      saved: "Empty candidates: ~~ and ~~~~ remain literal inline text.",
+      source: "Empty candidates: \\~\\~ and \\~\\~\\~\\~ remain literal inline text.",
+    },
+    {
+      saved: "This ~~does not cross\n\na paragraph boundary~~.",
+      source: "This \\~\\~does not cross\n\na paragraph boundary\\~\\~.",
+    },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -461,6 +491,13 @@ describe("Escape precision", () => {
     // A link label is closed by its own `](`, which no relaxation may assume away.
     "[x \\[ y](u)",
     "[x \\] y](u)",
+    // Equal-length tilde runs reach each other, and a strikethrough's own delimiters stay reachable
+    // from the text it wraps.
+    "\\~not single-tilde strikethrough\\~",
+    "\\~\\~not double-tilde strikethrough\\~\\~",
+    "~~a\\~b~~",
+    // Three tildes at the start of a line open a code fence.
+    "\\~\\~\\~",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -548,10 +585,10 @@ describe("Typed inline mark source", () => {
 
   // GFM reads a strikethrough only where the closing delimiter run matches the opening one.
   it.each([
-    { expected: "\\~\\~", typed: "~~" },
-    { expected: "\\~\\~text", typed: "~~text" },
-    { expected: "\\~\\~text\\~", typed: "~~text~" },
-    { expected: "\\~\\~ \\~\\~", typed: "~~ ~~" },
+    { expected: "~~", typed: "~~" },
+    { expected: "~~text", typed: "~~text" },
+    { expected: "~~text~", typed: "~~text~" },
+    { expected: "~~ ~~", typed: "~~ ~~" },
   ])("keeps an unclosed tilde run in %j literal", async ({ expected, typed }) => {
     expect(await typeInto("", typed)).toBe(`${expected}\n`);
   });

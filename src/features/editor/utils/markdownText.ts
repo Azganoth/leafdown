@@ -277,32 +277,131 @@ const relaxAttentionEscapes = (
   }
 };
 
-// A destination or title may hold anything a `)` can follow, so the closing parenthesis is the
-// whole test: everything finer would have to be certain, and being wrong here writes a link into
-// text that was literal.
-const closesLink = (line: string, index: number, tail: string, labels: ReadonlySet<string>) => {
+const TAIL_WHITESPACE_PATTERN = /[\t\n\f\r ]/u;
+const DESTINATION_END_PATTERN = /\s/u;
+
+// A raw destination ends at whitespace or at the parenthesis that closes the tail, so its own
+// parentheses have to balance; an angle destination ends at its `>` and admits no bare `<`.
+const scanDestination = (text: string, start: number) => {
+  let index = start;
+
+  if (text[index] === "<") {
+    for (index += 1; index < text.length; index += 1) {
+      if (text[index] === "\\") {
+        index += 1;
+      } else if (text[index] === ">") {
+        return index + 1;
+      } else if (text[index] === "<" || text[index] === "\n" || text[index] === "\r") {
+        return -1;
+      }
+    }
+
+    return -1;
+  }
+
+  let depth = 0;
+
+  while (index < text.length) {
+    const character = text[index];
+
+    if (character === "\\") {
+      index += 2;
+    } else if (character === "(") {
+      depth += 1;
+      index += 1;
+    } else if (character === ")") {
+      if (depth === 0) {
+        break;
+      }
+
+      depth -= 1;
+      index += 1;
+    } else if (DESTINATION_END_PATTERN.test(character)) {
+      break;
+    } else {
+      index += 1;
+    }
+  }
+
+  return depth === 0 ? index : -1;
+};
+
+const scanTitle = (text: string, start: number) => {
+  const opener = text[start];
+
+  if (opener !== '"' && opener !== "'" && opener !== "(") {
+    return -1;
+  }
+
+  const closer = opener === "(" ? ")" : opener;
+
+  for (let index = start + 1; index < text.length; index += 1) {
+    if (text[index] === "\\") {
+      index += 1;
+    } else if (text[index] === closer) {
+      return index + 1;
+    } else if (opener === "(" && text[index] === "(") {
+      return -1;
+    }
+  }
+
+  return -1;
+};
+
+const skipTailWhitespace = (text: string, start: number) => {
+  let index = start;
+
+  while (index < text.length && TAIL_WHITESPACE_PATTERN.test(text[index])) {
+    index += 1;
+  }
+
+  return index;
+};
+
+const scanInlineTail = (text: string, start: number) => {
+  const destination = scanDestination(text, skipTailWhitespace(text, start + 1));
+
+  if (destination < 0) {
+    return -1;
+  }
+
+  const separated = skipTailWhitespace(text, destination);
+  const title = separated > destination ? scanTitle(text, separated) : -1;
+  const index = skipTailWhitespace(text, title < 0 ? separated : title);
+
+  return text[index] === ")" ? index + 1 : -1;
+};
+
+// Where a link tail ends, or -1 where the run closes no link. The end is what lets a caller step
+// over a destination or a label, whose own brackets belong to the tail rather than to the text.
+const measureLinkTail = (line: string, index: number, labels: ReadonlySet<string>) => {
+  const tail = line.slice(index + 1);
+
   if (tail.startsWith("(")) {
-    return tail.includes(")");
+    return scanInlineTail(line, index + 1);
   }
 
   if (labels.size === 0) {
-    return false;
+    return -1;
   }
 
-  const reference = REFERENCE_TAIL_PATTERN.exec(tail)?.[1];
+  const reference = REFERENCE_TAIL_PATTERN.exec(tail);
 
-  if (reference !== undefined && reference !== "" && labels.has(normalizeLabel(reference))) {
-    return true;
+  if (reference && reference[1] !== "" && labels.has(normalizeLabel(reference[1]))) {
+    return index + 1 + reference[0].length;
   }
 
   for (let start = index - 1; start >= 0; start -= 1) {
     if (line[start] === "[" && labels.has(normalizeLabel(line.slice(start + 1, index)))) {
-      return true;
+      return tail.startsWith("[]") ? index + 3 : index + 1;
     }
   }
 
-  return false;
+  return -1;
 };
+
+const closesLink = (line: string, index: number, labels: ReadonlySet<string>) =>
+  measureLinkTail(line, index, labels) >= 0;
 
 const relaxBracketEscapes = (
   slots: EscapeSlot[],
@@ -315,7 +414,7 @@ const relaxBracketEscapes = (
   // Sibling markup hides both what closes a run and whether an earlier `[` kept its own escape.
   const unknown = neighbors === undefined || neighbors.laterHasMarkup;
   const scan = line + later;
-  const closes = (index: number) => closesLink(scan, index, scan.slice(index + 1), labels);
+  const closes = (index: number) => closesLink(scan, index, labels);
   let closerAhead = false;
 
   for (let index = scan.length - 1; index >= 0; index -= 1) {
@@ -388,93 +487,174 @@ const relaxAngleEscapes = (
   }
 };
 
-const isEscapedAt = (text: string, index: number) => {
-  let backslashes = 0;
-
-  while (index - backslashes > 0 && text[index - backslashes - 1] === "\\") {
-    backslashes += 1;
-  }
-
-  return backslashes % 2 === 1;
-};
-
 // An inline construct never crosses a blank line, so the block around a deferred escape holds
 // everything that can close it.
-const findBlockRange = (text: string, index: number) => {
+const findBlockRanges = (text: string) => {
+  const ranges: { end: number; start: number }[] = [];
   let start = 0;
 
   for (const match of text.matchAll(/\n[\t ]*\n/gu)) {
-    if (match.index >= index) {
-      return { end: match.index, start };
-    }
-
+    ranges.push({ end: match.index, start });
     start = match.index + match[0].length;
   }
 
-  return { end: text.length, start };
+  ranges.push({ end: text.length, start });
+
+  return ranges;
 };
 
-const needsDeferredEscape = (bare: string, index: number, labels: ReadonlySet<string>) => {
-  const { end, start } = findBlockRange(bare, index);
-  const block = bare.slice(start, end);
-  const position = index - start;
+// A code span binds tighter than the brackets around it, so its content is not text this walk can
+// pair. Backticks that never close are ordinary characters.
+const skipCodeSpan = (block: string, start: number) => {
+  let opening = start;
 
-  if (block[position] === "<") {
-    return ANGLE_CONSTRUCT_PATTERN.test(block.slice(position));
+  while (block[opening] === "`") {
+    opening += 1;
   }
 
-  if (block[position] === "[") {
-    for (let closer = position + 1; closer < block.length; closer += 1) {
-      if (
-        block[closer] === "]" &&
-        !isEscapedAt(block, closer) &&
-        closesLink(block, closer, block.slice(closer + 1), labels)
-      ) {
-        return true;
+  for (let index = opening; index < block.length; index += 1) {
+    if (block[index] !== "`") {
+      continue;
+    }
+
+    let closing = index;
+
+    while (block[closing] === "`") {
+      closing += 1;
+    }
+
+    if (closing - index === opening - start) {
+      return closing;
+    }
+
+    index = closing - 1;
+  }
+
+  return opening;
+};
+
+interface BracketLinks {
+  closers: ReadonlySet<number>;
+  openers: ReadonlySet<number>;
+}
+
+// CommonMark's delimiter stack: a `]` takes the nearest opener still unmatched, an opener is spent
+// whether or not it matched, and a link that forms leaves every opener before it inactive, which is
+// what keeps a bracket run around a link from becoming one.
+const findBracketLinks = (block: string, labels: ReadonlySet<string>): BracketLinks => {
+  const closers = new Set<number>();
+  const openers = new Set<number>();
+  const stack: number[] = [];
+
+  for (let index = 0; index < block.length; index += 1) {
+    const character = block[index];
+
+    if (character === "\\") {
+      index += 1;
+    } else if (character === "`") {
+      index = skipCodeSpan(block, index) - 1;
+    } else if (character === "<") {
+      const construct = ANGLE_CONSTRUCT_PATTERN.exec(block.slice(index));
+
+      if (construct) {
+        index += construct[0].length - 1;
+      }
+    } else if (character === "[") {
+      stack.push(index);
+    } else if (character === "]") {
+      const opener = stack.pop();
+
+      if (opener === undefined) {
+        continue;
+      }
+
+      const end = measureLinkTail(block, index, labels);
+
+      if (end < 0) {
+        continue;
+      }
+
+      closers.add(index);
+      openers.add(opener);
+      index = end - 1;
+
+      if (block[opener - 1] !== "!") {
+        stack.length = 0;
       }
     }
-
-    return false;
   }
 
-  if (
-    block[position - 1] !== "]" ||
-    !closesLink(block, position - 1, block.slice(position), labels)
-  ) {
-    return false;
-  }
+  return { closers, openers };
+};
 
-  for (let opener = position - 2; opener >= 0; opener -= 1) {
-    if (block[opener] === "[" && !isEscapedAt(block, opener)) {
-      return true;
+// Every marker in a pass is answered against the same string, so the blocks and the links inside
+// them are found once rather than once per marker.
+const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
+  const bracketLinks = new Map<number, BracketLinks>();
+  let ranges: { end: number; start: number }[] | undefined;
+
+  return (bare: string, index: number) => {
+    ranges ??= findBlockRanges(bare);
+
+    const { end, start } = ranges.find((range) => index <= range.end) ?? ranges[ranges.length - 1];
+    const block = bare.slice(start, end);
+    const position = index - start;
+
+    if (block[position] === "<") {
+      return ANGLE_CONSTRUCT_PATTERN.test(block.slice(position));
     }
+
+    let links = bracketLinks.get(start);
+
+    if (!links) {
+      links = findBracketLinks(block, labels);
+      bracketLinks.set(start, links);
+    }
+
+    return block[position] === "[" ? links.openers.has(position) : links.closers.has(position - 1);
+  };
+};
+
+const replaceDeferredEscapes = (
+  text: string,
+  decide: (bare: string, index: number) => boolean | undefined,
+) => {
+  const bare = text.replaceAll(DEFERRED_ESCAPE, "");
+  let bareIndex = 0;
+  let resolved = "";
+
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] !== DEFERRED_ESCAPE) {
+      resolved += text[index];
+      bareIndex += 1;
+      continue;
+    }
+
+    const keep = decide(bare, bareIndex);
+
+    resolved += keep === undefined ? DEFERRED_ESCAPE : keep ? "\\" : "";
   }
 
-  return false;
+  return resolved;
 };
 
 // The escape passes see one text node; a construct closed by a later sibling needs the line. The
 // root handler is the one hook that runs after every handler has written its part.
+//
+// A `(` is answered last. Whether it needs its escape depends on the `[` before it keeping one, so
+// the openers have to be settled before the parenthesis that would follow them is.
 const resolveDeferredEscapes = (document: string, labels: ReadonlySet<string>) => {
   if (!document.includes(DEFERRED_ESCAPE)) {
     return document;
   }
 
-  const bare = document.replaceAll(DEFERRED_ESCAPE, "");
-  const decisions: boolean[] = [];
-  let bareIndex = 0;
+  const decideOpener = createDeferredEscapeDecider(labels);
+  const brackets = replaceDeferredEscapes(document, (bare, index) =>
+    bare[index] === "(" ? undefined : decideOpener(bare, index),
+  );
+  const decideCloser = createDeferredEscapeDecider(labels);
 
-  for (let index = 0; index < document.length; index += 1) {
-    if (document[index] === DEFERRED_ESCAPE) {
-      decisions.push(needsDeferredEscape(bare, bareIndex, labels));
-    } else {
-      bareIndex += 1;
-    }
-  }
-
-  let decided = 0;
-
-  return document.replaceAll(DEFERRED_ESCAPE, () => (decisions[decided++] ? "\\" : ""));
+  return replaceDeferredEscapes(brackets, decideCloser);
 };
 
 const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after: string) => {

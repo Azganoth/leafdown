@@ -353,7 +353,7 @@ describe("typed link source", () => {
     typeText(mounted.view, "](./test.html) tail");
 
     expect(getLinkTargets(mounted)).toEqual([]);
-    expect(mounted.getMarkdown()).toBe("start \\[test link\\\n]\\(./test.html) tail\n");
+    expect(mounted.getMarkdown()).toBe("start \\[test link\\\n](./test.html) tail\n");
   });
 
   it.each(typedLinkSourceFixtures)(

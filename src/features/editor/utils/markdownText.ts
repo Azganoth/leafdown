@@ -18,11 +18,21 @@ interface AttentionRun {
   atLineStart: boolean;
 }
 
-interface PhrasingNeighbors {
-  textOnly: boolean;
+interface BracketNeighbors {
   earlier: string;
   later: string;
   laterHasMarkup: boolean;
+}
+
+interface PhrasingNeighbors extends BracketNeighbors {
+  textOnly: boolean;
+}
+
+interface PhrasingNode {
+  type: string;
+  value?: string;
+  marker?: string;
+  children?: readonly PhrasingNode[];
 }
 
 const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
@@ -38,6 +48,10 @@ const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"
 // earlier in the line impossible: any text before a mark sees the mark as later markup.
 const FRAGMENT_PHRASING_PARENTS = new Set(["delete", "emphasis", "link", "strong"]);
 const ATTENTION_CONSTRUCTS = new Set(["emphasis", "strong"]);
+// A mark contributes only delimiters around text that stays on the line, so a `[` inside one can
+// still be closed by a `]` outside it. Every other construct is opaque: a link or an image is
+// bracket-balanced on its own and never leaves an opener behind.
+const TRANSPARENT_MARKS = new Set(["delete", "emphasis", "strong"]);
 // `mdast-util-gfm-autolink-literal` escapes these to keep text from reading as an autolink
 // target, but its `fromMarkdown` transform matches already-decoded text and never sees the
 // escape, so the backslash never changes what a reload produces.
@@ -212,7 +226,7 @@ const relaxAttentionEscapes = (
   }
 };
 
-const relaxBracketEscapes = (slots: EscapeSlot[], neighbors: PhrasingNeighbors | undefined) => {
+const relaxBracketEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | undefined) => {
   if (!neighbors) {
     return;
   }
@@ -262,6 +276,94 @@ const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after:
     ) {
       slot.escaped = false;
     }
+  }
+};
+
+// A handler receives only its own node and immediate parent, and `state.indexStack` is a path of
+// numbers with no node to walk it from, so the line a marked run sits on is otherwise unreachable.
+// The root handler is the one hook that runs before any of them.
+let lineParents: Map<PhrasingNode, PhrasingNode> | undefined;
+
+const mapLineParents = (root: PhrasingNode) => {
+  const parents = new Map<PhrasingNode, PhrasingNode>();
+  const visit = (node: PhrasingNode) => {
+    for (const child of node.children ?? []) {
+      parents.set(child, node);
+      visit(child);
+    }
+  };
+
+  visit(root);
+
+  return parents;
+};
+
+const findLineAncestor = (parent: PhrasingNode | undefined): PhrasingNode | undefined => {
+  let ancestor = parent;
+
+  while (ancestor && !WHOLE_LINE_PHRASING_PARENTS.has(ancestor.type)) {
+    ancestor = TRANSPARENT_MARKS.has(ancestor.type) ? lineParents?.get(ancestor) : undefined;
+  }
+
+  return ancestor;
+};
+
+const readLineBrackets = (
+  target: object,
+  parent: PhrasingNode | undefined,
+): BracketNeighbors | undefined => {
+  const ancestor = lineParents && findLineAncestor(parent);
+
+  if (!ancestor) {
+    return undefined;
+  }
+
+  const earlier: string[] = [];
+  const later: string[] = [];
+  let seen = false;
+  let laterHasMarkup = false;
+  // Only a `]` needs the whole line. A `[` inside an earlier mark is always still escaped, since
+  // relaxing it would have required no `]` after it, and reading it as an opener would keep the
+  // `(` escape this pass exists to drop.
+  const visit = (nodes: readonly PhrasingNode[], ownLine: boolean) => {
+    for (const child of nodes) {
+      if (child === target) {
+        seen = true;
+      } else if (child.type === "text") {
+        if (seen) {
+          later.push(child.value ?? "");
+        } else if (ownLine) {
+          earlier.push(child.value ?? "");
+        }
+      } else if (TRANSPARENT_MARKS.has(child.type)) {
+        visit(child.children ?? [], false);
+      } else if (seen) {
+        laterHasMarkup = true;
+      }
+    }
+  };
+
+  visit(ancestor.children ?? [], true);
+
+  return { earlier: earlier.join(" "), later: later.join(" "), laterHasMarkup };
+};
+
+type StringifyState = Parameters<NonNullable<RemarkStringifyHandlers["root"]>>[2];
+
+// Milkdown builds the root from a ProseMirror document, whose direct children are always blocks,
+// so the phrasing branch the default handler chooses between is unreachable here.
+export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]> = (
+  node: Parameters<StringifyState["containerFlow"]>[0],
+  _parent,
+  state,
+  info,
+) => {
+  lineParents = mapLineParents(node as PhrasingNode);
+
+  try {
+    return state.containerFlow(node, info);
+  } finally {
+    lineParents = undefined;
   }
 };
 
@@ -318,7 +420,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     neighbors,
     readEnclosingMarkers(parent, state.stack),
   );
-  relaxBracketEscapes(slots, neighbors);
+  relaxBracketEscapes(slots, readLineBrackets(node, parent) ?? neighbors);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
 
   return encodeEscapes(slots) + trailingWhitespace;

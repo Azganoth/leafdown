@@ -412,6 +412,11 @@ describe("Escape precision", () => {
     { saved: "~~_a~~", source: "~~\\_a~~" },
     { saved: "[_a](u)", source: "[\\_a](u)" },
     { saved: "__*a__", source: "__\\*a__" },
+    // The line a mark sits on decides the bracket, so a `[` no `]` can reach loses its escape
+    // inside the mark exactly as it does outside one.
+    { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },
+    { saved: "~~text with [ bracket~~", source: "~~text with \\[ bracket~~" },
+    { saved: "*a **b** [ c*", source: "*a **b** \\[ c*" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -442,8 +447,10 @@ describe("Escape precision", () => {
     "C:\\Users\\me",
     "\\\\#",
     "\\\\[",
-    // A `]` after the mark still closes a `[` inside it, so the fragment cannot relax its own `[`.
+    // A `]` later on the line still closes a `[` inside a mark, wherever the two sit.
     "**\\[a** b](c)",
+    "**text with \\[ bracket** and ] after",
+    "*a \\[ b* [link](u)",
     "**\\[reference]\\[label]**",
     "**\\[intentionally literal](garden.md)**",
     // The enclosing delimiters remain available counterparts for a run of the same character.

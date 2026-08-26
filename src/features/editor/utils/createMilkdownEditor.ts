@@ -87,7 +87,7 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "./markdownReferences";
-import { serializeMarkdownText } from "./markdownText";
+import { serializeMarkdownRoot, serializeMarkdownText } from "./markdownText";
 import {
   getRawHtmlMarkdownType,
   RAW_HTML_MARKDOWN_TYPE,
@@ -255,6 +255,7 @@ export const createMilkdownEditor = async ({
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
+          root: serializeMarkdownRoot,
           text: serializeMarkdownText,
         },
       }));

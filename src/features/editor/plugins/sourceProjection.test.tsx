@@ -868,7 +868,7 @@ describe("source projection", () => {
       );
 
       expect(strongLiteral).not.toBeNull();
-      expect(mounted.getMarkdown()).toContain("**Text\\[^note**");
+      expect(mounted.getMarkdown()).toContain("**Text[^note**");
     });
 
     it("commits an invalid outer wrapper as complete unmarked literal text", async () => {

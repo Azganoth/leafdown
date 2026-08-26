@@ -186,10 +186,10 @@ Inline <span onmouseover="window.${executionFlag} = true">HTML</span> text.`;
     expect(getExecutionFlag()).toBe(false);
   });
 
-  it("escapes malformed HTML-like text instead of treating it as live HTML", async () => {
+  it("keeps malformed HTML-like text out of live HTML", async () => {
     const mounted = await mountStyledEditor("<custom broken");
 
-    expect(mounted.getMarkdown()).toBe("\\<custom broken\n");
+    expect(mounted.getMarkdown()).toBe("<custom broken\n");
     expect(mounted.view.dom).toHaveTextContent("<custom broken");
     expect(mounted.view.dom.querySelector('[data-type="html"]')).not.toBeInTheDocument();
     expect(mounted.view.dom.querySelector("custom")).not.toBeInTheDocument();

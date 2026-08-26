@@ -32,6 +32,7 @@ interface PhrasingNode {
   type: string;
   value?: string;
   marker?: string;
+  identifier?: string;
   children?: readonly PhrasingNode[];
 }
 
@@ -60,6 +61,24 @@ const AUTOLINK_LITERAL_ESCAPES: Record<string, { after: RegExp; before: RegExp }
   ":": { after: /\//u, before: /[ps]/u },
   "@": { after: /[-.\w]/u, before: /[+.\w-]/u },
 };
+
+const HTML_SPACE = String.raw`[\t\n\f\r ]`;
+const HTML_TAG_NAME = String.raw`[A-Za-z][A-Za-z0-9-]*`;
+const HTML_ATTRIBUTE_VALUE = String.raw`[^\t\n\f\r "'=<>\x60]+|'[^']*'|"[^"]*"`;
+const HTML_ATTRIBUTE = String.raw`${HTML_SPACE}+[A-Za-z_:][A-Za-z0-9_.:-]*(?:${HTML_SPACE}*=${HTML_SPACE}*(?:${HTML_ATTRIBUTE_VALUE}))?`;
+const AUTOLINK_URI = String.raw`[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\u0000-\u0020<>\u007F]*`;
+const AUTOLINK_EMAIL = String.raw`[A-Za-z0-9.!#$%&'*+/=?^_\x60{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*`;
+// CommonMark decides an autolink and inline raw HTML from the candidate alone, so a `<` that opens
+// neither cannot become one on reload however the rest of the document changes.
+const ANGLE_CONSTRUCT_PATTERN = new RegExp(
+  String.raw`^<(?:${AUTOLINK_URI}>|${AUTOLINK_EMAIL}>|${HTML_TAG_NAME}(?:${HTML_ATTRIBUTE})*${HTML_SPACE}*/?>|/${HTML_TAG_NAME}${HTML_SPACE}*>|!(?:--(?:>|->|[\s\S]*?-->)|\[CDATA\[[\s\S]*?\]\]>|[A-Za-z][^>]*>)|\?[\s\S]*?\?>)`,
+  "u",
+);
+const REFERENCE_TAIL_PATTERN = /^\[([^[\]]*)\]/u;
+const LABEL_WHITESPACE_PATTERN = /[\t\n\r ]+/gu;
+
+const normalizeLabel = (label: string) =>
+  label.replace(LABEL_WHITESPACE_PATTERN, " ").trim().toLowerCase();
 
 const decodeEscapes = (serialized: string): EscapeSlot[] => {
   const slots: EscapeSlot[] = [];
@@ -245,18 +264,53 @@ const relaxAttentionEscapes = (
   }
 };
 
-const relaxBracketEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | undefined) => {
+// A destination or title may hold anything a `)` can follow, so the closing parenthesis is the
+// whole test: everything finer would have to be certain, and being wrong here writes a link into
+// text that was literal.
+const closesLink = (line: string, index: number, tail: string, labels: ReadonlySet<string>) => {
+  if (tail.startsWith("(")) {
+    return tail.includes(")");
+  }
+
+  if (labels.size === 0) {
+    return false;
+  }
+
+  const reference = REFERENCE_TAIL_PATTERN.exec(tail)?.[1];
+
+  if (reference !== undefined && reference !== "" && labels.has(normalizeLabel(reference))) {
+    return true;
+  }
+
+  for (let start = index - 1; start >= 0; start -= 1) {
+    if (line[start] === "[" && labels.has(normalizeLabel(line.slice(start + 1, index)))) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const relaxBracketEscapes = (
+  slots: EscapeSlot[],
+  neighbors: BracketNeighbors | undefined,
+  labels: ReadonlySet<string>,
+) => {
   if (!neighbors) {
     return;
   }
 
+  const line = slots.map((slot) => slot.character).join("");
+  const closes = (index: number) =>
+    closesLink(line, index, line.slice(index + 1) + neighbors.later, labels);
+  // A `]` this pass cannot see the tail of counts as one that closes.
   let closerAhead = neighbors.laterHasMarkup || neighbors.later.includes("]");
 
   for (let index = slots.length - 1; index >= 0; index -= 1) {
     const slot = slots[index];
 
     if (slot.character === "]") {
-      closerAhead = true;
+      closerAhead ||= closes(index);
     } else if (slot.character === "[" && slot.escaped && !closerAhead) {
       slot.escaped = false;
     }
@@ -272,9 +326,34 @@ const relaxBracketEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | 
     } else if (
       slot.character === "(" &&
       slot.escaped &&
-      !openerBehind &&
-      slots[index - 1]?.character === "]"
+      slots[index - 1]?.character === "]" &&
+      (!openerBehind || (!neighbors.laterHasMarkup && !closes(index - 1)))
     ) {
+      slot.escaped = false;
+    }
+  }
+};
+
+const relaxAngleEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | undefined) => {
+  if (!neighbors) {
+    return;
+  }
+
+  const line = slots.map((slot) => slot.character).join("");
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+
+    if (slot.character !== "<" || !slot.escaped) {
+      continue;
+    }
+
+    const tail = line.slice(index);
+    // Without the `>` in hand the candidate can still be closed further along the line, where a
+    // mark or a sibling puts it out of reach.
+    const decidable = tail.includes(">") || (!neighbors.laterHasMarkup && neighbors.later === "");
+
+    if (decidable && !ANGLE_CONSTRUCT_PATTERN.test(tail)) {
       slot.escaped = false;
     }
   }
@@ -302,19 +381,32 @@ const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after:
 // numbers with no node to walk it from, so the line a marked run sits on is otherwise unreachable.
 // The root handler is the one hook that runs before any of them.
 let lineParents: Map<PhrasingNode, PhrasingNode> | undefined;
+// A reference resolves against the whole document, so a bracket run that matches no definition
+// here can never become a link. Footnote definitions share the space under a `^` prefix.
+let documentLabels: ReadonlySet<string> = new Set();
 
-const mapLineParents = (root: PhrasingNode) => {
+const mapDocument = (root: PhrasingNode) => {
   const parents = new Map<PhrasingNode, PhrasingNode>();
+  const labels = new Set<string>();
   const visit = (node: PhrasingNode) => {
     for (const child of node.children ?? []) {
       parents.set(child, node);
+
+      if (child.identifier !== undefined) {
+        if (child.type === "definition") {
+          labels.add(normalizeLabel(child.identifier));
+        } else if (child.type === "footnoteDefinition") {
+          labels.add(`^${normalizeLabel(child.identifier)}`);
+        }
+      }
+
       visit(child);
     }
   };
 
   visit(root);
 
-  return parents;
+  return { labels, parents };
 };
 
 const findLineAncestor = (parent: PhrasingNode | undefined): PhrasingNode | undefined => {
@@ -377,12 +469,16 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   state,
   info,
 ) => {
-  lineParents = mapLineParents(node as PhrasingNode);
+  const { labels, parents } = mapDocument(node as PhrasingNode);
+
+  lineParents = parents;
+  documentLabels = labels;
 
   try {
     return state.containerFlow(node, info);
   } finally {
     lineParents = undefined;
+    documentLabels = new Set();
   }
 };
 
@@ -439,7 +535,10 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     neighbors,
     readEnclosingMarkers(parent, state.stack),
   );
-  relaxBracketEscapes(slots, readLineBrackets(node, parent) ?? neighbors);
+  const lineNeighbors = readLineBrackets(node, parent) ?? neighbors;
+
+  relaxBracketEscapes(slots, lineNeighbors, documentLabels);
+  relaxAngleEscapes(slots, lineNeighbors);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
 
   return encodeEscapes(slots) + trailingWhitespace;

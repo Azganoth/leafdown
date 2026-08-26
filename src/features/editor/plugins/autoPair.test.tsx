@@ -43,7 +43,7 @@ describe("Leafdown auto-pair plugin", () => {
     typeText(mounted.view, "[");
 
     expect(mounted.view.dom).toHaveTextContent("[Hello]");
-    expect(mounted.getMarkdown()).toBe("\\[Hello]\n");
+    expect(mounted.getMarkdown()).toBe("[Hello]\n");
   });
 
   it("lets normal text insertion handle delimiters when disabled", async () => {

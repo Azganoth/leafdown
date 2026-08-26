@@ -40,14 +40,14 @@ const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
 // backslash before ordinary text as an escape.
 const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
 const UNICODE_PUNCTUATION_PATTERN = /[\p{P}\p{S}]/u;
-const ATTENTION_CHARACTERS = "*_";
+const ATTENTION_CHARACTERS = "*_~";
 const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = { "*": /^[*\t ]*$/u, _: /^[_\t ]*$/u };
 const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"]);
 // A mark holds only a fragment of its line, so its siblings cannot answer what follows the mark.
 // Every `[` in the fragment keeps its escape, which is also what makes an unescaped `[` from
 // earlier in the line impossible: any text before a mark sees the mark as later markup.
 const FRAGMENT_PHRASING_PARENTS = new Set(["delete", "emphasis", "link", "strong"]);
-const ATTENTION_CONSTRUCTS = new Set(["emphasis", "strong"]);
+const ATTENTION_CONSTRUCTS = new Set(["emphasis", "strikethrough", "strong"]);
 // A mark contributes only delimiters around text that stays on the line, so a `[` inside one can
 // still be closed by a `]` outside it. Every other construct is opaque: a link or an image is
 // bracket-balanced on its own and never leaves an opener behind.
@@ -120,19 +120,18 @@ const findAttentionRuns = (
     const leftFlanking = next !== "whitespace" && (next !== "punctuation" || previous !== "other");
     const rightFlanking =
       previous !== "whitespace" && (previous !== "punctuation" || next !== "other");
+    const intraword = character === "_";
+    // A third tilde makes the sequence fail to tokenize, so only one or two can delimit.
+    const delimits = character !== "~" || end - index < 3;
 
     runs.push({
       character,
       start: index,
       end,
       canOpen:
-        character === "*"
-          ? leftFlanking
-          : leftFlanking && (!rightFlanking || previous === "punctuation"),
+        delimits && leftFlanking && (!intraword || !rightFlanking || previous === "punctuation"),
       canClose:
-        character === "*"
-          ? rightFlanking
-          : rightFlanking && (!leftFlanking || next === "punctuation"),
+        delimits && rightFlanking && (!intraword || !leftFlanking || next === "punctuation"),
       atLineStart:
         previousCharacter === undefined || previousCharacter === "\n" || previousCharacter === "\r",
     });
@@ -149,6 +148,11 @@ const opensBlockConstruct = (
 ): boolean => {
   if (!run.atLineStart) {
     return false;
+  }
+
+  // A tilde opens no block shorter than the three a code fence needs.
+  if (run.character === "~") {
+    return run.end - run.start >= 3;
   }
 
   let end = run.start;
@@ -171,8 +175,8 @@ const opensBlockConstruct = (
 };
 
 // A run inside a mark can always pair with the mark's own delimiters, so those count as reachable
-// counterparts. Only the innermost marker is readable from the parent, and `delete` and a link
-// label carry none, so deeper nesting falls back to treating both characters as reachable.
+// counterparts. Only the innermost marker is readable from the parent, and a link label carries
+// none, so deeper nesting falls back to treating every attention character as reachable.
 const readEnclosingMarkers = (
   parent: { type: string; marker?: string } | undefined,
   stack: readonly string[],
@@ -183,7 +187,18 @@ const readEnclosingMarkers = (
     return "";
   }
 
-  return enclosing.length === 1 && parent?.marker ? parent.marker : ATTENTION_CHARACTERS;
+  if (enclosing.length === 1) {
+    // A `delete` node carries no marker, but its delimiters are tildes and nothing else.
+    if (enclosing[0] === "strikethrough") {
+      return "~";
+    }
+
+    if (parent?.marker) {
+      return parent.marker;
+    }
+  }
+
+  return ATTENTION_CHARACTERS;
 };
 
 const relaxAttentionEscapes = (
@@ -204,7 +219,11 @@ const relaxAttentionEscapes = (
       continue;
     }
 
-    const counterpart = (other: AttentionRun) => other.character === run.character;
+    const size = run.end - run.start;
+    // GFM closes a tilde run only with a run of the same length.
+    const counterpart = (other: AttentionRun) =>
+      other.character === run.character &&
+      (run.character !== "~" || other.end - other.start === size);
     const pairable =
       neighbors === undefined ||
       enclosingMarkers.includes(run.character) ||

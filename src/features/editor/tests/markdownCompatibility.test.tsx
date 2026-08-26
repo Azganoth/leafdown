@@ -393,6 +393,30 @@ describe("Escape precision", () => {
     { saved: "name@example", source: "name\\@example" },
     { saved: "a@b", source: "a\\@b" },
     { saved: "www.example_.com", source: "www\\.example\\_.com" },
+    // A mark holds only a fragment of its line, so the `[` escapes stay while the `(` relaxes:
+    // the `\[` alone already keeps the run literal.
+    { saved: "**\\[a](b)**", source: "**\\[a]\\(b)**" },
+    { saved: "*text \\[a](b) more*", source: "*text \\[a]\\(b) more*" },
+    { saved: "**a \\[x](y) b**", source: "**a \\[x]\\(y) b**" },
+    { saved: "~~\\[a](b)~~", source: "~~\\[a]\\(b)~~" },
+    { saved: "***\\[a](b)***", source: "***\\[a]\\(b)***" },
+    {
+      saved: "| bed         |\n| ----------- |\n| **\\[a](b)** |",
+      source: "| bed |\n| --- |\n| **\\[a]\\(b)** |",
+    },
+    // The enclosing delimiters pair only with a run of their own character, so the other
+    // attention character has no counterpart to reach and keeps no escape.
+    { saved: "**_a**", source: "**\\_a**" },
+    { saved: "**a_**", source: "**a\\_**" },
+    { saved: "*_a*", source: "*\\_a*" },
+    { saved: "~~_a~~", source: "~~\\_a~~" },
+    { saved: "[_a](u)", source: "[\\_a](u)" },
+    { saved: "__*a__", source: "__\\*a__" },
+    // The line a mark sits on decides the bracket, so a `[` no `]` can reach loses its escape
+    // inside the mark exactly as it does outside one.
+    { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },
+    { saved: "~~text with [ bracket~~", source: "~~text with \\[ bracket~~" },
+    { saved: "*a **b** [ c*", source: "*a **b** \\[ c*" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -423,6 +447,20 @@ describe("Escape precision", () => {
     "C:\\Users\\me",
     "\\\\#",
     "\\\\[",
+    // A `]` later on the line still closes a `[` inside a mark, wherever the two sit.
+    "**\\[a** b](c)",
+    "**text with \\[ bracket** and ] after",
+    "*a \\[ b* [link](u)",
+    "**\\[reference]\\[label]**",
+    "**\\[intentionally literal](garden.md)**",
+    // The enclosing delimiters remain available counterparts for a run of the same character.
+    "**\\*a**",
+    "**\\*opening-only asterisk**",
+    "**text \\*mid asterisk**",
+    "[\\*a\\*](u)",
+    // A link label is closed by its own `](`, which no relaxation may assume away.
+    "[x \\[ y](u)",
+    "[x \\] y](u)",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 

@@ -868,7 +868,7 @@ describe("source projection", () => {
       );
 
       expect(strongLiteral).not.toBeNull();
-      expect(mounted.getMarkdown()).toContain("**Text\\[^note**");
+      expect(mounted.getMarkdown()).toContain("**Text[^note**");
     });
 
     it("commits an invalid outer wrapper as complete unmarked literal text", async () => {
@@ -1413,7 +1413,7 @@ describe("source projection", () => {
       );
       setSelectionAtDocumentEnd(mounted.view);
 
-      expect(mounted.getMarkdown()).toBe("**\\[Links]\\(https://example.com)** plain\n");
+      expect(mounted.getMarkdown()).toBe("**\\[Links](https://example.com)** plain\n");
       expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
       expect(getEditorDomElement(mounted, "strong")).toHaveTextContent(
         "[Links](https://example.com)",

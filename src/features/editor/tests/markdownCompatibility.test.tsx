@@ -478,6 +478,42 @@ describe("Escape precision", () => {
       saved: "**text with [ bracket** and ] after",
       source: "**text with \\[ bracket** and ] after",
     },
+    // A tail that never closes its destination or its title closes no link either.
+    {
+      saved: "[Unbalanced](garden(section.md)",
+      source: "\\[Unbalanced](garden(section.md)",
+    },
+    {
+      saved: "[angle destination](<destination.md)",
+      source: "\\[angle destination](<destination.md)",
+    },
+    {
+      saved: "![angle image destination](<image.png)",
+      source: "!\\[angle image destination](<image.png)",
+    },
+    {
+      saved: '[double-quoted title](garden.md "unclosed)',
+      source: '\\[double-quoted title](garden.md "unclosed)',
+    },
+    {
+      saved: "[single-quoted title](garden.md 'unclosed)",
+      source: "\\[single-quoted title](garden.md 'unclosed)",
+    },
+    {
+      saved: "[parenthesized title](garden.md (unclosed)",
+      source: "\\[parenthesized title](garden.md (unclosed)",
+    },
+    {
+      saved: '![unclosed image title](garden.png "unclosed)',
+      source: '!\\[unclosed image title](garden.png "unclosed)',
+    },
+    // A link that forms leaves every opener before it inactive, so a bracket run wrapping one can
+    // never become a link of its own.
+    {
+      saved: "[outer [inner](inner.md) text](outer.md)",
+      source: "\\[outer [inner](inner.md) text]\\(outer.md)",
+    },
+    { saved: "*a [ b* [link](u)", source: "*a \\[ b* [link](u)" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -509,7 +545,6 @@ describe("Escape precision", () => {
     "\\\\[",
     // A `]` later on the line still closes a `[` inside a mark, wherever the two sit.
     "**\\[a** b](c)",
-    "*a \\[ b* [link](u)",
     // A mark inside the candidate does not put the rest of the tag out of reach.
     '\\<a href="**x**">',
     "\\<https://example.com/**a**>",
@@ -521,6 +556,14 @@ describe("Escape precision", () => {
     "\\<!-- comment -->",
     "\\[label](target.md)",
     "!\\[label](target.png)",
+    // The same tails, closed. A destination may balance its own parentheses, may be empty, and may
+    // hold a space inside angle brackets; a title closes in any of its three forms.
+    "\\[Balanced](garden(section(one)).md)",
+    "\\[Empty destination]()",
+    "\\[angle destination](<folder name/file.md>)",
+    '\\[Double quote](garden.md "Garden")',
+    "\\[Single quote](garden.md 'Garden')",
+    "\\[Parentheses](garden.md (Garden))",
     // No link-reference definition survives the editor, so a footnote definition is the one
     // resolvable label a document can still hold.
     "\\[^1] literal\n\n[^1]: Footnote text",

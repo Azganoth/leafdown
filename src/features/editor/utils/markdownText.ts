@@ -7,6 +7,7 @@ type RemarkStringifyHandlers = NonNullable<
 interface EscapeSlot {
   character: string;
   escaped: boolean;
+  deferred?: boolean;
 }
 
 interface AttentionRun {
@@ -98,8 +99,20 @@ const decodeEscapes = (serialized: string): EscapeSlot[] => {
   return slots;
 };
 
+// CommonMark replaces U+0000 with U+FFFD while parsing, so no text node can carry one and a
+// deferred escape cannot collide with document content.
+const DEFERRED_ESCAPE = "\u0000";
+
 const encodeEscapes = (slots: readonly EscapeSlot[]) =>
-  slots.map((slot) => (slot.escaped ? `\\${slot.character}` : slot.character)).join("");
+  slots
+    .map((slot) => {
+      if (slot.deferred) {
+        return `${DEFERRED_ESCAPE}${slot.character}`;
+      }
+
+      return slot.escaped ? `\\${slot.character}` : slot.character;
+    })
+    .join("");
 
 type CharacterClass = "whitespace" | "punctuation" | "other";
 
@@ -295,50 +308,62 @@ const relaxBracketEscapes = (
   slots: EscapeSlot[],
   neighbors: BracketNeighbors | undefined,
   labels: ReadonlySet<string>,
+  deferrable: boolean,
 ) => {
-  if (!neighbors) {
-    return;
-  }
-
   const line = slots.map((slot) => slot.character).join("");
-  const closes = (index: number) =>
-    closesLink(line, index, line.slice(index + 1) + neighbors.later, labels);
-  // A `]` this pass cannot see the tail of counts as one that closes.
-  let closerAhead = neighbors.laterHasMarkup || neighbors.later.includes("]");
+  const later = neighbors?.later ?? "";
+  // Sibling markup hides both what closes a run and whether an earlier `[` kept its own escape.
+  const unknown = neighbors === undefined || neighbors.laterHasMarkup;
+  const scan = line + later;
+  const closes = (index: number) => closesLink(scan, index, scan.slice(index + 1), labels);
+  let closerAhead = false;
 
-  for (let index = slots.length - 1; index >= 0; index -= 1) {
-    const slot = slots[index];
-
-    if (slot.character === "]") {
+  for (let index = scan.length - 1; index >= 0; index -= 1) {
+    if (scan[index] === "]") {
       closerAhead ||= closes(index);
-    } else if (slot.character === "[" && slot.escaped && !closerAhead) {
-      slot.escaped = false;
+      continue;
+    }
+
+    const slot = slots[index] as EscapeSlot | undefined;
+
+    if (slot?.character === "[" && slot.escaped) {
+      if (unknown) {
+        slot.deferred = deferrable;
+      } else if (!closerAhead) {
+        slot.escaped = false;
+      }
     }
   }
 
-  let openerBehind = neighbors.earlier.includes("[");
+  let openerBehind = false;
+  let unknownOpener = (neighbors?.earlier ?? "").includes("[");
 
   for (let index = 0; index < slots.length; index += 1) {
     const slot = slots[index];
 
-    if (slot.character === "[" && !slot.escaped) {
-      openerBehind = true;
-    } else if (
-      slot.character === "(" &&
-      slot.escaped &&
-      slots[index - 1]?.character === "]" &&
-      (!openerBehind || (!neighbors.laterHasMarkup && !closes(index - 1)))
-    ) {
-      slot.escaped = false;
+    if (slot.character === "[") {
+      if (slot.deferred) {
+        unknownOpener = true;
+      } else if (!slot.escaped) {
+        openerBehind = true;
+      }
+    } else if (slot.character === "(" && slot.escaped && slots[index - 1]?.character === "]") {
+      if (!openerBehind && !unknownOpener) {
+        slot.escaped = false;
+      } else if (unknown || unknownOpener) {
+        slot.deferred = deferrable;
+      } else if (!closes(index - 1)) {
+        slot.escaped = false;
+      }
     }
   }
 };
 
-const relaxAngleEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | undefined) => {
-  if (!neighbors) {
-    return;
-  }
-
+const relaxAngleEscapes = (
+  slots: EscapeSlot[],
+  neighbors: BracketNeighbors | undefined,
+  deferrable: boolean,
+) => {
   const line = slots.map((slot) => slot.character).join("");
 
   for (let index = 0; index < slots.length; index += 1) {
@@ -351,12 +376,105 @@ const relaxAngleEscapes = (slots: EscapeSlot[], neighbors: BracketNeighbors | un
     const tail = line.slice(index);
     // Without the `>` in hand the candidate can still be closed further along the line, where a
     // mark or a sibling puts it out of reach.
-    const decidable = tail.includes(">") || (!neighbors.laterHasMarkup && neighbors.later === "");
+    const decidable =
+      tail.includes(">") ||
+      (neighbors !== undefined && !neighbors.laterHasMarkup && neighbors.later === "");
 
-    if (decidable && !ANGLE_CONSTRUCT_PATTERN.test(tail)) {
+    if (!decidable) {
+      slot.deferred = deferrable;
+    } else if (!ANGLE_CONSTRUCT_PATTERN.test(tail)) {
       slot.escaped = false;
     }
   }
+};
+
+const isEscapedAt = (text: string, index: number) => {
+  let backslashes = 0;
+
+  while (index - backslashes > 0 && text[index - backslashes - 1] === "\\") {
+    backslashes += 1;
+  }
+
+  return backslashes % 2 === 1;
+};
+
+// An inline construct never crosses a blank line, so the block around a deferred escape holds
+// everything that can close it.
+const findBlockRange = (text: string, index: number) => {
+  let start = 0;
+
+  for (const match of text.matchAll(/\n[\t ]*\n/gu)) {
+    if (match.index >= index) {
+      return { end: match.index, start };
+    }
+
+    start = match.index + match[0].length;
+  }
+
+  return { end: text.length, start };
+};
+
+const needsDeferredEscape = (bare: string, index: number, labels: ReadonlySet<string>) => {
+  const { end, start } = findBlockRange(bare, index);
+  const block = bare.slice(start, end);
+  const position = index - start;
+
+  if (block[position] === "<") {
+    return ANGLE_CONSTRUCT_PATTERN.test(block.slice(position));
+  }
+
+  if (block[position] === "[") {
+    for (let closer = position + 1; closer < block.length; closer += 1) {
+      if (
+        block[closer] === "]" &&
+        !isEscapedAt(block, closer) &&
+        closesLink(block, closer, block.slice(closer + 1), labels)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  if (
+    block[position - 1] !== "]" ||
+    !closesLink(block, position - 1, block.slice(position), labels)
+  ) {
+    return false;
+  }
+
+  for (let opener = position - 2; opener >= 0; opener -= 1) {
+    if (block[opener] === "[" && !isEscapedAt(block, opener)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+// The escape passes see one text node; a construct closed by a later sibling needs the line. The
+// root handler is the one hook that runs after every handler has written its part.
+const resolveDeferredEscapes = (document: string, labels: ReadonlySet<string>) => {
+  if (!document.includes(DEFERRED_ESCAPE)) {
+    return document;
+  }
+
+  const bare = document.replaceAll(DEFERRED_ESCAPE, "");
+  const decisions: boolean[] = [];
+  let bareIndex = 0;
+
+  for (let index = 0; index < document.length; index += 1) {
+    if (document[index] === DEFERRED_ESCAPE) {
+      decisions.push(needsDeferredEscape(bare, bareIndex, labels));
+    } else {
+      bareIndex += 1;
+    }
+  }
+
+  let decided = 0;
+
+  return document.replaceAll(DEFERRED_ESCAPE, () => (decisions[decided++] ? "\\" : ""));
 };
 
 const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after: string) => {
@@ -475,7 +593,7 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   documentLabels = labels;
 
   try {
-    return state.containerFlow(node, info);
+    return resolveDeferredEscapes(state.containerFlow(node, info), labels);
   } finally {
     lineParents = undefined;
     documentLabels = new Set();
@@ -536,9 +654,12 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     readEnclosingMarkers(parent, state.stack),
   );
   const lineNeighbors = readLineBrackets(node, parent) ?? neighbors;
+  // A table measures its columns from the serialized cell, so a cell resolved after the fact would
+  // be padded to a width it no longer has.
+  const deferrable = !state.stack.includes("tableCell");
 
-  relaxBracketEscapes(slots, lineNeighbors, documentLabels);
-  relaxAngleEscapes(slots, lineNeighbors);
+  relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
+  relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
 
   return encodeEscapes(slots) + trailingWhitespace;

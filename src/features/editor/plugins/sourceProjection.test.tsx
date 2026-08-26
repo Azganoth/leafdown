@@ -1413,7 +1413,7 @@ describe("source projection", () => {
       );
       setSelectionAtDocumentEnd(mounted.view);
 
-      expect(mounted.getMarkdown()).toBe("**\\[Links]\\(https://example.com)** plain\n");
+      expect(mounted.getMarkdown()).toBe("**\\[Links](https://example.com)** plain\n");
       expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
       expect(getEditorDomElement(mounted, "strong")).toHaveTextContent(
         "[Links](https://example.com)",

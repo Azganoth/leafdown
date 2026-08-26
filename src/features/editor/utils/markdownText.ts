@@ -23,6 +23,7 @@ interface PhrasingNeighbors {
   earlier: string;
   later: string;
   laterHasMarkup: boolean;
+  partialLine: boolean;
 }
 
 const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
@@ -33,6 +34,10 @@ const UNICODE_PUNCTUATION_PATTERN = /[\p{P}\p{S}]/u;
 const ATTENTION_CHARACTERS = "*_";
 const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = { "*": /^[*\t ]*$/u, _: /^[_\t ]*$/u };
 const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"]);
+// A mark holds only a fragment of its line, so its siblings cannot answer what follows the mark.
+// Every `[` in the fragment keeps its escape, which is also what makes an unescaped `[` from
+// earlier in the line impossible: any text before a mark sees the mark as later markup.
+const FRAGMENT_PHRASING_PARENTS = new Set(["delete", "emphasis", "link", "strong"]);
 // `mdast-util-gfm-autolink-literal` escapes these to keep text from reading as an autolink
 // target, but its `fromMarkdown` transform matches already-decoded text and never sees the
 // escape, so the backslash never changes what a reload produces.
@@ -170,7 +175,9 @@ const relaxAttentionEscapes = (
 
     const counterpart = (other: AttentionRun) => other.character === run.character;
     const pairable =
-      !neighbors?.textOnly ||
+      neighbors === undefined ||
+      neighbors.partialLine ||
+      !neighbors.textOnly ||
       neighbors.earlier.includes(run.character) ||
       neighbors.later.includes(run.character) ||
       (run.canOpen &&
@@ -245,7 +252,9 @@ const readPhrasingNeighbors = (
   parent: { type: string; children: readonly { type: string; value?: string }[] } | undefined,
   index: number,
 ): PhrasingNeighbors | undefined => {
-  if (!parent || !WHOLE_LINE_PHRASING_PARENTS.has(parent.type) || index < 0) {
+  const partialLine = parent !== undefined && FRAGMENT_PHRASING_PARENTS.has(parent.type);
+
+  if (!parent || (!WHOLE_LINE_PHRASING_PARENTS.has(parent.type) && !partialLine) || index < 0) {
     return undefined;
   }
 
@@ -262,7 +271,8 @@ const readPhrasingNeighbors = (
     textOnly: children.every((child) => child.type === "text"),
     earlier: textValues(earlier),
     later: textValues(later),
-    laterHasMarkup: later.some((child) => child.type !== "text"),
+    laterHasMarkup: partialLine || later.some((child) => child.type !== "text"),
+    partialLine,
   };
 };
 

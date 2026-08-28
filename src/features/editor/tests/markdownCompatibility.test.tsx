@@ -664,6 +664,64 @@ describe("Raw link destination parentheses", () => {
   });
 });
 
+describe("Character references", () => {
+  it.each([
+    "&copy; &#169; &#xA9; &AElig;",
+    // CommonMark decodes this to U+FFFD, and the reference writes back as the reference.
+    "&#0;",
+    // The decoded character is invisible, which is the form an author is most likely to want back.
+    "&nbsp;x",
+    "&#8212; em dash",
+    // A reference is not syntax, so the run needs no escape and the marker stays where it was
+    // authored rather than moving onto a backslash.
+    "&#35; not a heading",
+    "&#42;not emphasis&#42;",
+    "&#42; not a list item",
+    "&#124; pipe",
+    // An escaped ampersand is a reference the file spells out, and stays one.
+    "&amp;copy;",
+    "[&copy; label](/uri)",
+    "# Heading with &copy;",
+    "> quote &copy;",
+  ])("writes %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A reference contributes the characters it will be written as, so neither it nor its neighbours
+  // gain an escape from sitting next to one.
+  it.each([
+    "&copy; text with *star",
+    "&copy; text with [ bracket",
+    "&copy; garden_sensor_name",
+    "&copy; *emphasis* and &#42;literal&#42;",
+  ])("leaves %j unescaped beside a reference", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("writes the character rather than the reference once an edit replaces it", async () => {
+    const mounted = await mountEditor("&copy;\n");
+    const start = getEditorTextPosition(mounted, "©");
+
+    setTextSelection(mounted.view, start, start + 1);
+    typeText(mounted.view, "z");
+
+    expect(mounted.getMarkdown()).toBe("z\n");
+  });
+
+  it("does not carry the reference onto text typed after it", async () => {
+    const mounted = await mountEditor("&copy;\n");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "x");
+
+    expect(mounted.getMarkdown()).toBe("&copy;x\n");
+  });
+});
+
 describe("Typed link source", () => {
   const typedLinkSourceFixtures = [
     {

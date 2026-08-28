@@ -1,6 +1,8 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 
+import { CHARACTER_REFERENCE_MARKDOWN_TYPE } from "./characterReferenceMarkdown";
+
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
@@ -33,6 +35,7 @@ interface PhrasingNeighbors extends BracketNeighbors {
 interface PhrasingNode {
   type: string;
   value?: string;
+  source?: string;
   marker?: string;
   identifier?: string;
   children?: readonly PhrasingNode[];
@@ -78,6 +81,20 @@ const ANGLE_CONSTRUCT_PATTERN = new RegExp(
 );
 const REFERENCE_TAIL_PATTERN = /^\[([^[\]]*)\]/u;
 const LABEL_WHITESPACE_PATTERN = /[\t\n\r ]+/gu;
+
+// A preserved character reference writes its own source, so it contributes those characters to the
+// line and none of what they decode to. It opens no construct and closes none, which leaves it
+// ordinary text for every pass that reads a run's neighbours.
+const isInertPhrasing = (child: { type: string }) =>
+  child.type === "text" || child.type === CHARACTER_REFERENCE_MARKDOWN_TYPE;
+
+const readInertValue = (child: { source?: unknown; type: string; value?: string }) => {
+  if (child.type !== CHARACTER_REFERENCE_MARKDOWN_TYPE) {
+    return child.value ?? "";
+  }
+
+  return typeof child.source === "string" ? child.source : "";
+};
 
 const normalizeLabel = (label: string) =>
   label.replace(LABEL_WHITESPACE_PATTERN, " ").trim().toLowerCase();
@@ -777,11 +794,11 @@ const readLineBrackets = (
     for (const child of nodes) {
       if (child === target) {
         seen = true;
-      } else if (child.type === "text") {
+      } else if (isInertPhrasing(child)) {
         if (seen) {
-          later.push(child.value ?? "");
+          later.push(readInertValue(child));
         } else if (ownLine) {
-          earlier.push(child.value ?? "");
+          earlier.push(readInertValue(child));
         }
       } else if (TRANSPARENT_MARKS.has(child.type)) {
         visit(child.children ?? [], false);
@@ -832,17 +849,14 @@ const readPhrasingNeighbors = (
   const children = parent.children;
   const earlier = children.slice(0, index);
   const later = children.slice(index + 1);
-  const textValues = (nodes: readonly { type: string; value?: string }[]) =>
-    nodes
-      .filter((child) => child.type === "text")
-      .map((child) => child.value ?? "")
-      .join(" ");
+  const textValues = (nodes: readonly { source?: unknown; type: string; value?: string }[]) =>
+    nodes.filter(isInertPhrasing).map(readInertValue).join(" ");
 
   return {
-    textOnly: children.every((child) => child.type === "text"),
+    textOnly: children.every(isInertPhrasing),
     earlier: textValues(earlier),
     later: textValues(later),
-    laterHasMarkup: partialLine || later.some((child) => child.type !== "text"),
+    laterHasMarkup: partialLine || !later.every(isInertPhrasing),
   };
 };
 

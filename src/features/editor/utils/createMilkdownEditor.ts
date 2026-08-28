@@ -18,6 +18,7 @@ import {
   commonmark,
   emphasisKeymap,
   hardbreakSchema,
+  imageSchema,
   headingKeymap,
   htmlSchema,
   inlineCodeKeymap,
@@ -86,6 +87,7 @@ import {
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   serializeCharacterReference,
+  withAuthoredDestination,
 } from "./characterReferenceMarkdown";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
@@ -299,6 +301,10 @@ export const createMilkdownEditor = async ({
           },
         };
       });
+      ctx.update(
+        imageSchema.key,
+        (getSchema) => (schemaCtx) => withAuthoredDestination(getSchema(schemaCtx)),
+      );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,

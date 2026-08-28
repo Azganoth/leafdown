@@ -4,6 +4,7 @@ import { $markSchema, $remark } from "@milkdown/kit/utils";
 import {
   CHARACTER_REFERENCE_MARK_NAME,
   characterReferenceMarkSchema,
+  findAuthoredDestination,
   splitCharacterReferences,
 } from "../utils/characterReferenceMarkdown";
 
@@ -29,18 +30,24 @@ const markCharacterReferences = (node: MarkdownNode, source: string) => {
     const start = child.position?.start.offset;
     const end = child.position?.end.offset;
 
-    if (
-      child.type === "text" &&
-      typeof child.value === "string" &&
-      start !== undefined &&
-      end !== undefined
-    ) {
-      const parts = splitCharacterReferences(child.value, source.slice(start, end));
+    if (start !== undefined && end !== undefined) {
+      if (child.type === "text" && typeof child.value === "string") {
+        const parts = splitCharacterReferences(child.value, source.slice(start, end));
 
-      if (parts) {
-        next.push(...parts);
-        split = true;
-        continue;
+        if (parts) {
+          next.push(...parts);
+          split = true;
+          continue;
+        }
+      } else if (
+        (child.type === "link" || child.type === "image") &&
+        typeof child.url === "string"
+      ) {
+        const authored = findAuthoredDestination(source.slice(start, end), child.url);
+
+        if (authored !== null) {
+          (child as { authoredUrl?: string }).authoredUrl = authored;
+        }
       }
     }
 

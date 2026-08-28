@@ -702,6 +702,25 @@ describe("Character references", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  // A destination carries its authored form on the link and the image, so a reference there is
+  // written back rather than resolved into the target it names.
+  it.each([
+    "[Entity-obfuscated scheme](&#106;avascript&#58;alert&lpar;1&rpar;)",
+    "[Destination](folder/f&ouml;&ouml;.md)",
+    "[Angle](<f&ouml;&ouml; one.md>)",
+    "[Query](a.md?x=1&amp;y=2)",
+    "![Image](f&ouml;&ouml;.png)",
+  ])("writes the destination in %j as it was authored", async (source) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
   it("writes the character rather than the reference once an edit replaces it", async () => {
     const mounted = await mountEditor("&copy;\n");
     const start = getEditorTextPosition(mounted, "©");

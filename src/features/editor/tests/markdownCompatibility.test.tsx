@@ -528,6 +528,14 @@ describe("Escape precision", () => {
       source: "\\[outer [inner](inner.md) text]\\(outer.md)",
     },
     { saved: "*a [ b* [link](u)", source: "*a \\[ b* [link](u)" },
+    // A `&` only opens a reference. One that never closes, names nothing, or overruns its digit
+    // budget is ordinary text.
+    { saved: "&copy no semicolon", source: "&copy no semicolon" },
+    { saved: "&MadeUpEntity; names nothing", source: "&MadeUpEntity; names nothing" },
+    { saved: "&123; is not a name", source: "&123; is not a name" },
+    { saved: "&#; and &#x; hold no digits", source: "&#; and &#x; hold no digits" },
+    { saved: "&#12345678; overruns eight digits", source: "&#12345678; overruns eight digits" },
+    { saved: "&#x1234567; overruns seven digits", source: "&#x1234567; overruns seven digits" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -598,6 +606,14 @@ describe("Escape precision", () => {
     "\\~a\\~b~",
     // Three tildes at the start of a line open a code fence.
     "\\~\\~\\~",
+    // A reference that would form on the next read has to stay broken, or two saves decode it.
+    "\\&copy;",
+    "\\&AElig;",
+    "\\&amp;",
+    "\\&#169;",
+    "\\&#xA9;",
+    // U+0000 is a well-formed reference; CommonMark decodes it to U+FFFD rather than rejecting it.
+    "\\&#0;",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -645,6 +661,83 @@ describe("Raw link destination parentheses", () => {
     const mounted = await mountEditor(`${source}\n`);
 
     expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+});
+
+describe("Character references", () => {
+  it.each([
+    "&copy; &#169; &#xA9; &AElig;",
+    // CommonMark decodes this to U+FFFD, and the reference writes back as the reference.
+    "&#0;",
+    // The decoded character is invisible, which is the form an author is most likely to want back.
+    "&nbsp;x",
+    "&#8212; em dash",
+    // A reference is not syntax, so the run needs no escape and the marker stays where it was
+    // authored rather than moving onto a backslash.
+    "&#35; not a heading",
+    "&#42;not emphasis&#42;",
+    "&#42; not a list item",
+    "&#124; pipe",
+    // An escaped ampersand is a reference the file spells out, and stays one.
+    "&amp;copy;",
+    "[&copy; label](/uri)",
+    "# Heading with &copy;",
+    "> quote &copy;",
+  ])("writes %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A reference contributes the characters it will be written as, so neither it nor its neighbours
+  // gain an escape from sitting next to one.
+  it.each([
+    "&copy; text with *star",
+    "&copy; text with [ bracket",
+    "&copy; garden_sensor_name",
+    "&copy; *emphasis* and &#42;literal&#42;",
+  ])("leaves %j unescaped beside a reference", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A destination carries its authored form on the link and the image, so a reference there is
+  // written back rather than resolved into the target it names.
+  it.each([
+    "[Entity-obfuscated scheme](&#106;avascript&#58;alert&lpar;1&rpar;)",
+    "[Destination](folder/f&ouml;&ouml;.md)",
+    "[Angle](<f&ouml;&ouml; one.md>)",
+    "[Query](a.md?x=1&amp;y=2)",
+    "![Image](f&ouml;&ouml;.png)",
+  ])("writes the destination in %j as it was authored", async (source) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("writes the character rather than the reference once an edit replaces it", async () => {
+    const mounted = await mountEditor("&copy;\n");
+    const start = getEditorTextPosition(mounted, "©");
+
+    setTextSelection(mounted.view, start, start + 1);
+    typeText(mounted.view, "z");
+
+    expect(mounted.getMarkdown()).toBe("z\n");
+  });
+
+  it("does not carry the reference onto text typed after it", async () => {
+    const mounted = await mountEditor("&copy;\n");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "x");
+
+    expect(mounted.getMarkdown()).toBe("&copy;x\n");
   });
 });
 

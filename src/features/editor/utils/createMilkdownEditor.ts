@@ -18,6 +18,7 @@ import {
   commonmark,
   emphasisKeymap,
   hardbreakSchema,
+  imageSchema,
   headingKeymap,
   htmlSchema,
   inlineCodeKeymap,
@@ -46,6 +47,10 @@ import {
 } from "../commands";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
+import {
+  createLeafdownCharacterReferencePlugin,
+  leafdownCharacterReferenceSchema,
+} from "../plugins/characterReference";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
@@ -79,6 +84,11 @@ import {
   serializeBareAutolink,
   withBareAutolinkForm,
 } from "./bareAutolinkMarkdown";
+import {
+  CHARACTER_REFERENCE_MARKDOWN_TYPE,
+  serializeCharacterReference,
+  withAuthoredDestination,
+} from "./characterReferenceMarkdown";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
@@ -203,6 +213,7 @@ export const createMilkdownEditor = async ({
   };
 
   const configuredEditor = editor
+    .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownTableShapePlugin())
@@ -210,6 +221,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableKeyboardPlugin())
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
+    .use(leafdownCharacterReferenceSchema)
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
@@ -255,6 +267,7 @@ export const createMilkdownEditor = async ({
         handlers: {
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
+          [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           image: serializeMarkdownImage,
           link: serializeMarkdownLink,
@@ -288,6 +301,10 @@ export const createMilkdownEditor = async ({
           },
         };
       });
+      ctx.update(
+        imageSchema.key,
+        (getSchema) => (schemaCtx) => withAuthoredDestination(getSchema(schemaCtx)),
+      );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,

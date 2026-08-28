@@ -1,4 +1,7 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { decodeNamedCharacterReference } from "decode-named-character-reference";
+
+import { CHARACTER_REFERENCE_MARKDOWN_TYPE } from "./characterReferenceMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -32,6 +35,7 @@ interface PhrasingNeighbors extends BracketNeighbors {
 interface PhrasingNode {
   type: string;
   value?: string;
+  source?: string;
   marker?: string;
   identifier?: string;
   children?: readonly PhrasingNode[];
@@ -77,6 +81,20 @@ const ANGLE_CONSTRUCT_PATTERN = new RegExp(
 );
 const REFERENCE_TAIL_PATTERN = /^\[([^[\]]*)\]/u;
 const LABEL_WHITESPACE_PATTERN = /[\t\n\r ]+/gu;
+
+// A preserved character reference writes its own source, so it contributes those characters to the
+// line and none of what they decode to. It opens no construct and closes none, which leaves it
+// ordinary text for every pass that reads a run's neighbours.
+const isInertPhrasing = (child: { type: string }) =>
+  child.type === "text" || child.type === CHARACTER_REFERENCE_MARKDOWN_TYPE;
+
+const readInertValue = (child: { source?: unknown; type: string; value?: string }) => {
+  if (child.type !== CHARACTER_REFERENCE_MARKDOWN_TYPE) {
+    return child.value ?? "";
+  }
+
+  return typeof child.source === "string" ? child.source : "";
+};
 
 const normalizeLabel = (label: string) =>
   label.replace(LABEL_WHITESPACE_PATTERN, " ").trim().toLowerCase();
@@ -683,6 +701,36 @@ const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after:
   }
 };
 
+// micromark bounds a reference at 31 alphanumeric characters, 7 decimal digits, or 6 hexadecimal
+// digits, and asks this same table for a name, so the check agrees with the parser that reads the
+// file back rather than with a second reading of the grammar.
+const NAMED_REFERENCE_PATTERN = /^&([A-Za-z0-9]{1,31});/u;
+const DECIMAL_REFERENCE_PATTERN = /^&#\d{1,7};/u;
+const HEXADECIMAL_REFERENCE_PATTERN = /^&#[Xx][\dA-Fa-f]{1,6};/u;
+
+const formsCharacterReference = (tail: string) => {
+  const named = NAMED_REFERENCE_PATTERN.exec(tail);
+
+  return named
+    ? decodeNamedCharacterReference(named[1]) !== false
+    : DECIMAL_REFERENCE_PATTERN.test(tail) || HEXADECIMAL_REFERENCE_PATTERN.test(tail);
+};
+
+// `state.safe` escapes every `&` that a reference could start at, which is a wider class than the
+// ones that finish. A run that never closes, names nothing, or overruns its digit budget is
+// ordinary text and reads back as itself.
+const relaxCharacterReferenceEscapes = (slots: EscapeSlot[], after: string) => {
+  const line = slots.map((slot) => slot.character).join("") + after;
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+
+    if (slot.character === "&" && slot.escaped && !formsCharacterReference(line.slice(index))) {
+      slot.escaped = false;
+    }
+  }
+};
+
 // A handler receives only its own node and immediate parent, and `state.indexStack` is a path of
 // numbers with no node to walk it from, so the line a marked run sits on is otherwise unreachable.
 // The root handler is the one hook that runs before any of them.
@@ -746,11 +794,11 @@ const readLineBrackets = (
     for (const child of nodes) {
       if (child === target) {
         seen = true;
-      } else if (child.type === "text") {
+      } else if (isInertPhrasing(child)) {
         if (seen) {
-          later.push(child.value ?? "");
+          later.push(readInertValue(child));
         } else if (ownLine) {
-          earlier.push(child.value ?? "");
+          earlier.push(readInertValue(child));
         }
       } else if (TRANSPARENT_MARKS.has(child.type)) {
         visit(child.children ?? [], false);
@@ -801,17 +849,14 @@ const readPhrasingNeighbors = (
   const children = parent.children;
   const earlier = children.slice(0, index);
   const later = children.slice(index + 1);
-  const textValues = (nodes: readonly { type: string; value?: string }[]) =>
-    nodes
-      .filter((child) => child.type === "text")
-      .map((child) => child.value ?? "")
-      .join(" ");
+  const textValues = (nodes: readonly { source?: unknown; type: string; value?: string }[]) =>
+    nodes.filter(isInertPhrasing).map(readInertValue).join(" ");
 
   return {
-    textOnly: children.every((child) => child.type === "text"),
+    textOnly: children.every(isInertPhrasing),
     earlier: textValues(earlier),
     later: textValues(later),
-    laterHasMarkup: partialLine || later.some((child) => child.type !== "text"),
+    laterHasMarkup: partialLine || !later.every(isInertPhrasing),
   };
 };
 
@@ -849,6 +894,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
   relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
+  relaxCharacterReferenceEscapes(slots, after);
 
   return encodeEscapes(slots) + trailingWhitespace;
 };

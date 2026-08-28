@@ -2,6 +2,8 @@ import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { TagParseRule } from "@milkdown/kit/prose/model";
 import type { MarkdownNode, MarkSchema } from "@milkdown/kit/transformer";
 
+import { AUTHORED_URL_ATTRIBUTE_NAME, readAuthoredUrl } from "./characterReferenceMarkdown";
+
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
@@ -85,6 +87,7 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
     attrs: {
       ...schema.attrs,
       [BARE_AUTOLINK_ATTRIBUTE_NAME]: { default: false, validate: "boolean" },
+      [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
     },
     // The link mark matches anchors, so every rule it declares is a tag rule.
     parseDOM: (schema.parseDOM as TagParseRule[] | undefined)?.map((rule) => ({
@@ -122,6 +125,7 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
         state.openMark(markType, {
           href: node.url,
           [BARE_AUTOLINK_ATTRIBUTE_NAME]: isBareAutolinkNode(node),
+          [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
           title: node.title,
         });
         state.next(node.children);
@@ -137,7 +141,11 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
             ? BARE_AUTOLINK_MARKDOWN_TYPE
             : LINK_MARKDOWN_TYPE,
           undefined,
-          { title: mark.attrs.title, url: mark.attrs.href },
+          {
+            title: mark.attrs.title,
+            url: mark.attrs.href,
+            [AUTHORED_URL_ATTRIBUTE_NAME]: mark.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
+          },
         );
       },
     },

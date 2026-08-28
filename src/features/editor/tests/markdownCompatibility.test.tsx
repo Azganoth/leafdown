@@ -528,6 +528,14 @@ describe("Escape precision", () => {
       source: "\\[outer [inner](inner.md) text]\\(outer.md)",
     },
     { saved: "*a [ b* [link](u)", source: "*a \\[ b* [link](u)" },
+    // A `&` only opens a reference. One that never closes, names nothing, or overruns its digit
+    // budget is ordinary text.
+    { saved: "&copy no semicolon", source: "&copy no semicolon" },
+    { saved: "&MadeUpEntity; names nothing", source: "&MadeUpEntity; names nothing" },
+    { saved: "&123; is not a name", source: "&123; is not a name" },
+    { saved: "&#; and &#x; hold no digits", source: "&#; and &#x; hold no digits" },
+    { saved: "&#12345678; overruns eight digits", source: "&#12345678; overruns eight digits" },
+    { saved: "&#x1234567; overruns seven digits", source: "&#x1234567; overruns seven digits" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -598,6 +606,14 @@ describe("Escape precision", () => {
     "\\~a\\~b~",
     // Three tildes at the start of a line open a code fence.
     "\\~\\~\\~",
+    // A reference that would form on the next read has to stay broken, or two saves decode it.
+    "\\&copy;",
+    "\\&AElig;",
+    "\\&amp;",
+    "\\&#169;",
+    "\\&#xA9;",
+    // U+0000 is a well-formed reference; CommonMark decodes it to U+FFFD rather than rejecting it.
+    "\\&#0;",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 

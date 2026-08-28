@@ -1,4 +1,5 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { decodeNamedCharacterReference } from "decode-named-character-reference";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -683,6 +684,36 @@ const relaxAutolinkLiteralEscapes = (slots: EscapeSlot[], before: string, after:
   }
 };
 
+// micromark bounds a reference at 31 alphanumeric characters, 7 decimal digits, or 6 hexadecimal
+// digits, and asks this same table for a name, so the check agrees with the parser that reads the
+// file back rather than with a second reading of the grammar.
+const NAMED_REFERENCE_PATTERN = /^&([A-Za-z0-9]{1,31});/u;
+const DECIMAL_REFERENCE_PATTERN = /^&#\d{1,7};/u;
+const HEXADECIMAL_REFERENCE_PATTERN = /^&#[Xx][\dA-Fa-f]{1,6};/u;
+
+const formsCharacterReference = (tail: string) => {
+  const named = NAMED_REFERENCE_PATTERN.exec(tail);
+
+  return named
+    ? decodeNamedCharacterReference(named[1]) !== false
+    : DECIMAL_REFERENCE_PATTERN.test(tail) || HEXADECIMAL_REFERENCE_PATTERN.test(tail);
+};
+
+// `state.safe` escapes every `&` that a reference could start at, which is a wider class than the
+// ones that finish. A run that never closes, names nothing, or overruns its digit budget is
+// ordinary text and reads back as itself.
+const relaxCharacterReferenceEscapes = (slots: EscapeSlot[], after: string) => {
+  const line = slots.map((slot) => slot.character).join("") + after;
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+
+    if (slot.character === "&" && slot.escaped && !formsCharacterReference(line.slice(index))) {
+      slot.escaped = false;
+    }
+  }
+};
+
 // A handler receives only its own node and immediate parent, and `state.indexStack` is a path of
 // numbers with no node to walk it from, so the line a marked run sits on is otherwise unreachable.
 // The root handler is the one hook that runs before any of them.
@@ -849,6 +880,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
   relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
+  relaxCharacterReferenceEscapes(slots, after);
 
   return encodeEscapes(slots) + trailingWhitespace;
 };

@@ -3,6 +3,10 @@ import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
 import { isTruthy } from "@/lib/predicates";
 
 import {
+  CHARACTER_REFERENCE_MARKDOWN_TYPE,
+  readCharacterReference,
+} from "./characterReferenceMarkdown";
+import {
   getFootnoteReferenceSourceBounds,
   withFootnoteDefinitions,
 } from "./sourceProjectionFootnoteReferenceSyntax";
@@ -92,6 +96,19 @@ const getTextSourceBoundaries = (source: string, value: string, sourceFrom: numb
       continue;
     }
 
+    const reference = readCharacterReference(source, sourceOffset);
+
+    if (reference && value.startsWith(reference.decoded, valueOffset)) {
+      sourceOffset += reference.source.length;
+
+      for (let index = 0; index < reference.decoded.length; index += 1) {
+        valueOffset += 1;
+        boundaries.push(sourceFrom + sourceOffset);
+      }
+
+      continue;
+    }
+
     if (source[sourceOffset] === "\\" && source[sourceOffset + 1] === value[valueOffset]) {
       sourceOffset += 2;
     } else if (source[sourceOffset] === value[valueOffset]) {
@@ -154,6 +171,10 @@ export const isAtomicLinkSegment = (segment: LinkSourceSegment) =>
 export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
     return typeof node.value === "string";
+  }
+
+  if (node.type === CHARACTER_REFERENCE_MARKDOWN_TYPE) {
+    return true;
   }
 
   if (node.type === "image" || node.type === "footnoteReference" || isInlineSoftBreak(node)) {

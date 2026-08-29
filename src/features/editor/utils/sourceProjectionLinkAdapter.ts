@@ -5,6 +5,11 @@ import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer
 
 import { isTruthy } from "@/lib/predicates";
 
+import {
+  CHARACTER_REFERENCE_MARK_NAME,
+  getPreservedCharacterReferenceSource,
+  hasCharacterReferenceMark,
+} from "./characterReferenceMarkdown";
 import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
@@ -40,6 +45,7 @@ const LINK_ADAPTER_ID = "link";
 const LINK_MARK_NAME = "link";
 const IMAGE_NODE_NAME = "image";
 const SUPPORTED_LINK_MARK_NAMES = new Set([
+  CHARACTER_REFERENCE_MARK_NAME,
   "emphasis",
   "inlineCode",
   LINK_MARK_NAME,
@@ -99,7 +105,8 @@ const getLinkNodes = (state: EditorState, from: number, to: number, linkMark: Ma
       to < nodeTo ||
       !isSupportedLinkNode(node) ||
       !linkMark.isInSet(node.marks) ||
-      node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name))
+      node.marks.some((mark) => !SUPPORTED_LINK_MARK_NAMES.has(mark.type.name)) ||
+      (hasCharacterReferenceMark(node) && getPreservedCharacterReferenceSource(node) === null)
     ) {
       isSupported = false;
       return;

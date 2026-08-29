@@ -121,6 +121,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Preserve empty link destinations and GFM link titles while editing projected link source.
 - Project mixed-format link labels as one editable source object and preserve one logical outer link wrapper when saving Markdown.
 - Let `Enter` and `Shift+Enter` continue through normal editor behavior after committing projected source, immediately project formatted content that moves with the caret, and avoid using `Escape` to close projection.
+- Open bold, italic, strikethrough, or a link whose text holds a character reference such as `&copy;` as one Markdown source with the reference in place, instead of opening only the part of the run before the reference beside the rendered rest of it, or nothing at all in a link label.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

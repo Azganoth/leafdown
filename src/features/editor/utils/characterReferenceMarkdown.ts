@@ -1,4 +1,5 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
@@ -33,7 +34,7 @@ interface DecodedReference {
   source: string;
 }
 
-const readCharacterReference = (source: string, index: number): DecodedReference | null => {
+export const readCharacterReference = (source: string, index: number): DecodedReference | null => {
   const tail = source.slice(index, index + REFERENCE_LENGTH_MAX);
   const named = NAMED_REFERENCE_PATTERN.exec(tail);
 
@@ -69,9 +70,24 @@ export const decodeWholeCharacterReference = (source: string) => {
 export const decodesTo = (source: string, text: string) =>
   decodeWholeCharacterReference(source) === text;
 
+// The reference an inline node still spells. An edit inside the marked range leaves the stored
+// source describing text the node no longer holds, and the node is ordinary text from then on.
+export const getPreservedCharacterReferenceSource = (node: ProseMirrorNode) => {
+  const source = node.marks.find((mark) => mark.type.name === CHARACTER_REFERENCE_MARK_NAME)?.attrs[
+    CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME
+  ];
+
+  return typeof source === "string" && decodesTo(source, node.text ?? "") ? source : null;
+};
+
+export const hasCharacterReferenceMark = (node: ProseMirrorNode) =>
+  node.marks.some((mark) => mark.type.name === CHARACTER_REFERENCE_MARK_NAME);
+
 export interface ReferenceSpan {
   end: number;
   source: string;
+  sourceEnd: number;
+  sourceStart: number;
   start: number;
 }
 
@@ -95,6 +111,8 @@ export const findCharacterReferences = (source: string, value: string): Referenc
           start: valueIndex,
           end: valueIndex + reference.decoded.length,
           source: reference.source,
+          sourceStart: sourceIndex,
+          sourceEnd: sourceIndex + reference.source.length,
         });
         sourceIndex += reference.source.length;
         valueIndex += reference.decoded.length;
@@ -329,9 +347,41 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
   };
 };
 
+interface SourcePoint {
+  column: number;
+  line: number;
+  offset: number;
+}
+
+const advanceSourcePoint = (
+  point: SourcePoint,
+  source: string,
+  from: number,
+  to: number,
+): SourcePoint => {
+  let { column, line } = point;
+
+  for (let index = from; index < to; index += 1) {
+    if (source[index] === "\n") {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+
+  return { column, line, offset: point.offset + to - from };
+};
+
 // Splits one text node into the runs a reference covers and the runs it does not, so the parser
-// can hang a mark on the first kind. Returns null where nothing needs splitting.
-export const splitCharacterReferences = (value: string, source: string): MarkdownNode[] | null => {
+// can hang a mark on the first kind. Returns null where nothing needs splitting. Each part carries
+// the position of the source it was cut from, which every reader that locates a node in the file
+// needs and the text node being replaced no longer answers for.
+export const splitCharacterReferences = (
+  value: string,
+  source: string,
+  start: SourcePoint,
+): MarkdownNode[] | null => {
   const spans = findCharacterReferences(source, value);
 
   if (!spans || spans.length === 0) {
@@ -340,22 +390,35 @@ export const splitCharacterReferences = (value: string, source: string): Markdow
 
   const children: MarkdownNode[] = [];
   let cursor = 0;
+  let sourceCursor = 0;
+  let point = start;
+
+  const push = (node: MarkdownNode, sourceEnd: number) => {
+    const end = advanceSourcePoint(point, source, sourceCursor, sourceEnd);
+
+    children.push({ ...node, position: { end, start: point } } as MarkdownNode);
+    point = end;
+    sourceCursor = sourceEnd;
+  };
 
   for (const span of spans) {
     if (span.start > cursor) {
-      children.push({ type: "text", value: value.slice(cursor, span.start) });
+      push({ type: "text", value: value.slice(cursor, span.start) }, span.sourceStart);
     }
 
-    children.push({
-      type: CHARACTER_REFERENCE_MARKDOWN_TYPE,
-      [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: span.source,
-      children: [{ type: "text", value: value.slice(span.start, span.end) }],
-    } as unknown as MarkdownNode);
+    push(
+      {
+        type: CHARACTER_REFERENCE_MARKDOWN_TYPE,
+        [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: span.source,
+        children: [{ type: "text", value: value.slice(span.start, span.end) }],
+      } as unknown as MarkdownNode,
+      span.sourceEnd,
+    );
     cursor = span.end;
   }
 
   if (cursor < value.length) {
-    children.push({ type: "text", value: value.slice(cursor) });
+    push({ type: "text", value: value.slice(cursor) }, source.length);
   }
 
   return children;

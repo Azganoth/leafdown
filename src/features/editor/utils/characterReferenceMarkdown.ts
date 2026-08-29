@@ -225,6 +225,26 @@ export const decodeCharacterReferences = (value: string) => {
   return decoded;
 };
 
+// The distinct references the value spells out. An ampersand that names nothing, never closes, or
+// overruns its digit budget starts none of them and is ordinary text wherever it sits.
+export const findCharacterReferenceSources = (value: string) => {
+  const sources = new Set<string>();
+
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== "&") {
+      continue;
+    }
+
+    const reference = readCharacterReference(value, index);
+
+    if (reference) {
+      sources.add(reference.source);
+    }
+  }
+
+  return sources;
+};
+
 // The authored destination with its escapes resolved and its references left standing, or null
 // where the two forms already agree. Resolving the escapes keeps destination escaping owned by the
 // issues that settled it, so this carries the reference difference and nothing else.

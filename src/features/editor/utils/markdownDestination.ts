@@ -1,7 +1,10 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { defaultHandlers } from "mdast-util-to-markdown";
 
-import { decodeCharacterReferences } from "./characterReferenceMarkdown";
+import {
+  decodeCharacterReferences,
+  findCharacterReferenceSources,
+} from "./characterReferenceMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -39,9 +42,42 @@ const hasBalancedParentheses = (url: string) => {
   return depth === 0;
 };
 
-// A phrasing pattern stays in scope inside a destination, because the paragraph is still on the
-// stack, so an ampersand there is escaped on the same possibility the text handler answers.
 const isAmpersand = (pattern: UnsafePattern) => pattern.character === "&";
+
+const DESTINATION_CONSTRUCTS = ["destinationLiteral", "destinationRaw"] as const;
+const REGULAR_EXPRESSION_SYNTAX_PATTERN = /[$()*+.?[\\\]^{|}]/gu;
+
+// A phrasing pattern stays in scope inside a destination, because the paragraph is still on the
+// stack, and it constrains its character by that construct rather than by what follows it. The
+// tail alone decides a reference, so the ones this destination spells out narrow the pattern to
+// exactly the ampersands that open one. The label keeps the pattern it had: it holds its own text
+// and is answered by the text handler.
+const scopeAmpersand = (
+  pattern: UnsafePattern,
+  url: string,
+  authored: boolean,
+): UnsafePattern[] => {
+  const outsideDestination: UnsafePattern = {
+    ...pattern,
+    notInConstruct: [...DESTINATION_CONSTRUCTS],
+  };
+  // An authored destination is written where its references still decode to the target, so every
+  // ampersand in it reaches the file bare.
+  const references = authored ? new Set<string>() : findCharacterReferenceSources(url);
+
+  if (references.size === 0) {
+    return [outsideDestination];
+  }
+
+  const tails = [...references]
+    .map((source) => source.slice(1).replace(REGULAR_EXPRESSION_SYNTAX_PATTERN, String.raw`\$&`))
+    .join("|");
+
+  return [
+    outsideDestination,
+    { character: "&", after: `(?:${tails})`, inConstruct: [...DESTINATION_CONSTRUCTS] },
+  ];
+};
 
 const scopeDestination = (
   state: StringifyState,
@@ -49,9 +85,13 @@ const scopeDestination = (
   authored: boolean,
 ) => {
   const enclosing = state.unsafe;
-  const relaxed = enclosing.filter(
-    (pattern) => !isDestinationParenthesis(pattern) && !(authored && isAmpersand(pattern)),
-  );
+  const relaxed = enclosing.flatMap((pattern) => {
+    if (isDestinationParenthesis(pattern)) {
+      return [];
+    }
+
+    return isAmpersand(pattern) ? scopeAmpersand(pattern, url ?? "", authored) : [pattern];
+  });
 
   // An image in a link label serializes inside the link handler, so the patterns an unbalanced
   // destination needs are put back rather than assumed still present.

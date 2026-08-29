@@ -536,6 +536,49 @@ describe("Escape precision", () => {
     { saved: "&#; and &#x; hold no digits", source: "&#; and &#x; hold no digits" },
     { saved: "&#12345678; overruns eight digits", source: "&#12345678; overruns eight digits" },
     { saved: "&#x1234567; overruns seven digits", source: "&#x1234567; overruns seven digits" },
+    // An ATX heading needs a separator after its hashes and admits no more than six of them.
+    { saved: "#no separator", source: "\\#no separator" },
+    { saved: "####### seven hashes", source: "\\####### seven hashes" },
+    // A list marker admits no more than nine digits, and only a list starting at one interrupts a
+    // paragraph.
+    {
+      saved: "1234567890. ten digits remain paragraph text",
+      source: "1234567890\\. ten digits remain paragraph text",
+    },
+    {
+      saved: "1234567890) ten digits remain paragraph text",
+      source: "1234567890\\) ten digits remain paragraph text",
+    },
+    {
+      saved: "does not interrupt:\n2. remains paragraph text",
+      source: "does not interrupt:\n2\\. remains paragraph text",
+    },
+    {
+      saved: "does not interrupt:\n2) remains paragraph text",
+      source: "does not interrupt:\n2\\) remains paragraph text",
+    },
+    // A marker with nothing between it and its content opens no list item at all.
+    { saved: "does not interrupt:\n1)item", source: "does not interrupt:\n1\\)item" },
+    // A table needs a delimiter row whose cell count matches the header row above it.
+    {
+      saved: "| Header | Cells |\n| --- |\n| mismatch | stays text |",
+      source: "\\| Header | Cells |\n\\| --- |\n\\| mismatch | stays text |",
+    },
+    {
+      saved: "| No delimiter row | so these lines |\n| stay paragraph text | with pipes |",
+      source: "\\| No delimiter row | so these lines |\n\\| stay paragraph text | with pipes |",
+    },
+    // A container prefixes every line of the paragraph it holds, which the cell count reads past.
+    {
+      saved: "> | Header | Cells |\n> | --- |",
+      source: "> \\| Header | Cells |\n> \\| --- |",
+    },
+    {
+      saved: "* | Header | Cells |\n  | --- |",
+      source: "* \\| Header | Cells |\n  \\| --- |",
+    },
+    { saved: "> quoted\n> 2. remains paragraph", source: "> quoted\n> 2\\. remains paragraph" },
+    { saved: "> #no separator", source: "> \\#no separator" },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -614,6 +657,23 @@ describe("Escape precision", () => {
     "\\&#xA9;",
     // U+0000 is a well-formed reference; CommonMark decodes it to U+FFFD rather than rejecting it.
     "\\&#0;",
+    // Hashes followed by a separator open a heading, and the end of the line separates as a space
+    // does. Six is the last depth a heading admits.
+    "\\###### six hashes",
+    "\\#\nsecond line",
+    // At the start of a block any start number opens a list; on a continuation line only one
+    // interrupts the paragraph.
+    "2\\. not an ordered list item",
+    "2\\) not an ordered list item",
+    "123456789\\. nine digits",
+    "does not interrupt:\n1\\. item",
+    "does not interrupt:\n1\\) item",
+    // The delimiter row matches the header row above it, so both rows open a table. Inside a
+    // container the rows are counted past the prefix, which a list marker shares a width with.
+    "\\| a | b |\n\\| --- | --- |",
+    "> \\| a | b |\n> \\| --- | --- |",
+    "* \\| a | b |\n  \\| --- | --- |",
+    "* 2\\. not a nested ordered list",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -661,6 +721,40 @@ describe("Raw link destination parentheses", () => {
     const mounted = await mountEditor(`${source}\n`);
 
     expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+});
+
+describe("Raw link destination ampersands", () => {
+  it.each([
+    { saved: "[x](a.md?x=1&y=2)", source: "[x](a.md?x=1\\&y=2)" },
+    { saved: "![x](a.png?x=1&y=2)", source: "![x](a.png?x=1\\&y=2)" },
+    { saved: "[x](<a file.md?x=1&y=2>)", source: "[x](<a file.md?x=1\\&y=2>)" },
+    // `&MadeUpEntity;` names nothing and `&123;` is not a name, so neither closes a reference.
+    { saved: "[x](a.md?q=&MadeUpEntity;)", source: "[x](a.md?q=\\&MadeUpEntity;)" },
+    { saved: "[x](a.md?q=&123;)", source: "[x](a.md?q=\\&123;)" },
+  ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  // Writing one of these bare would decode it on the next read, which is a different destination
+  // than the document holds.
+  it.each([
+    "[x](a.md?q=\\&copy;)",
+    "[x](a.md?q=\\&#169;)",
+    "[x](a.md?q=\\&#xA9;)",
+    // Only the ampersands that open a reference are escaped; the rest of the query stays bare.
+    "[x](a.md?a=1&b=2&q=\\&copy;)",
+    "![x](a.png?q=\\&copy;)",
+    // The label holds its own text, so the destination relaxing its ampersands leaves the label's
+    // escape standing.
+    "[\\&copy; x](a.md?q=&copy;)",
+    "[\\&copy; x](a.md?x=1&y=2)",
+  ])("keeps the escape the document needs in %j", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 });
 

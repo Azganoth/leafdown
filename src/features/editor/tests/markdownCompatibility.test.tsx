@@ -815,6 +815,81 @@ describe("Link and image title form", () => {
   });
 });
 
+describe("Reference link and image form", () => {
+  const DEFINITION = '[garden report]: /garden "Report"';
+  const IMAGE_DEFINITION = '[leaf]: ../assets/leaf.svg "Leaf"';
+
+  it.each([
+    `${DEFINITION}\n\n[Full reference][garden report]`,
+    `${DEFINITION}\n\n[garden report][]`,
+    `${DEFINITION}\n\n[garden report]`,
+    // A definition placed after the reference that uses it resolves the same way.
+    `[Full reference][garden report]\n\n${DEFINITION}`,
+    `${IMAGE_DEFINITION}\n\n![Reference leaf][leaf]`,
+    `${IMAGE_DEFINITION}\n\n![leaf][]`,
+    `${IMAGE_DEFINITION}\n\n![leaf]`,
+    // A definition needs neither a title nor a destination another form would rewrite.
+    "[bare]: /bare\n\n[bare]",
+    // Each reference keeps the casing and spacing it was written with, though both resolve
+    // against the one definition.
+    "[Normalized   Report]: /normalized\n\n[normalized report] and [NORMALIZED REPORT]",
+    // A reference inside a mark, and a mark inside a reference's label.
+    `${DEFINITION}\n\n**[Full reference][garden report]**`,
+    `${DEFINITION}\n\n[*Full* reference][garden report]`,
+  ])("writes the reference in %j as it was authored", async (source) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A definition writes its title through the same option a link and an image do.
+  it.each([
+    '[quote]: /garden "Report"',
+    "[apostrophe]: /garden 'Report'",
+    "[parentheses]: /garden (Report)",
+    '[quote in parentheses]: /garden (He said "hi")',
+  ])("writes the definition title in %j as it was authored", async (definition) => {
+    const mounted = await mountEditor(`${definition}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${definition}\n`);
+  });
+
+  // CommonMark reads a parenthesized title between matching parentheses, so a definition title
+  // holding one moves to a quote that carries it bare, as a link title already does.
+  it("writes a parenthesized definition title holding a parenthesis in a form that holds it", async () => {
+    const mounted = await mountEditor("[close]: /garden (Report \\) here)\n");
+
+    expect(mounted.getMarkdown()).toBe('[close]: /garden "Report ) here"\n');
+  });
+
+  it("keeps a reference whose definition is missing as literal text", async () => {
+    const mounted = await mountEditor("[missing]\n");
+
+    expect(getMarkNames(mounted.view.state.doc)).not.toContain("link");
+    expect(mounted.getMarkdown()).toBe("[missing]\n");
+  });
+
+  it("resolves a reference to the destination its definition names", async () => {
+    const mounted = await mountEditor(`${DEFINITION}\n\n[Full reference][garden report]\n`);
+    const anchor = mounted.root.querySelector("a");
+
+    expect(anchor?.getAttribute("href")).toBe("/garden");
+    expect(anchor?.getAttribute("title")).toBe("Report");
+  });
+
+  it("renders a definition as the permanent source it is written with", async () => {
+    const mounted = await mountEditor(`${DEFINITION}\n`);
+    const definition = mounted.root.querySelector('[data-type="definition"]');
+
+    expect(definition?.textContent).toBe(DEFINITION);
+  });
+});
+
 describe("Character references", () => {
   it.each([
     "&copy; &#169; &#xA9; &AElig;",

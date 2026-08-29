@@ -1,4 +1,4 @@
-import { chooseTitleMarker, type TitleMarker } from "./markdownTitle";
+import { chooseTitleMarker, TITLE_MARKER_PAIRS, type TitleMarker } from "./markdownTitle";
 
 export interface ImageMarkdownAttrs {
   alt: string;
@@ -6,12 +6,6 @@ export interface ImageMarkdownAttrs {
   title: string;
   titleMarker: TitleMarker;
 }
-
-const TITLE_MARKER_PAIRS: Record<TitleMarker, readonly [string, string]> = {
-  '"': ['"', '"'],
-  "'": ["'", "'"],
-  "(": ["(", ")"],
-};
 
 export const serializeImageMarkdown = ({ alt, src, title, titleMarker }: ImageMarkdownAttrs) => {
   const serializedAlt = escapeImageAlt(alt);

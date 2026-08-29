@@ -258,6 +258,8 @@ describe("multiline logical-link source projection", () => {
           isBareAutolink: false,
           authoredUrl: null,
           titleMarker: '"',
+          referenceType: null,
+          referenceLabel: "",
         }),
       ]),
     );

@@ -1,7 +1,11 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 
-import { CHARACTER_REFERENCE_MARKDOWN_TYPE } from "./characterReferenceMarkdown";
+import {
+  CHARACTER_REFERENCE_MARKDOWN_TYPE,
+  readCharacterReferenceRun,
+  readCharacterReferenceText,
+} from "./characterReferenceMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -88,12 +92,20 @@ const LABEL_WHITESPACE_PATTERN = /[\t\n\r ]+/gu;
 const isInertPhrasing = (child: { type: string }) =>
   child.type === "text" || child.type === CHARACTER_REFERENCE_MARKDOWN_TYPE;
 
-const readInertValue = (child: { source?: unknown; type: string; value?: string }) => {
+const readInertValue = (child: PhrasingNode) => {
   if (child.type !== CHARACTER_REFERENCE_MARKDOWN_TYPE) {
     return child.value ?? "";
   }
 
-  return typeof child.source === "string" ? child.source : "";
+  const text = readCharacterReferenceText(child);
+
+  if (child.source === undefined) {
+    return text;
+  }
+
+  const run = readCharacterReferenceRun(child.source, text);
+
+  return run ? child.source.repeat(run.count) : text;
 };
 
 const normalizeLabel = (label: string) =>
@@ -1024,7 +1036,7 @@ const readPhrasingNeighbors = (
   const children = parent.children;
   const earlier = children.slice(0, index);
   const later = children.slice(index + 1);
-  const textValues = (nodes: readonly { source?: unknown; type: string; value?: string }[]) =>
+  const textValues = (nodes: readonly PhrasingNode[]) =>
     nodes.filter(isInertPhrasing).map(readInertValue).join(" ");
 
   return {

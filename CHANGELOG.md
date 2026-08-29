@@ -123,6 +123,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Let `Enter` and `Shift+Enter` continue through normal editor behavior after committing projected source, immediately project formatted content that moves with the caret, and avoid using `Escape` to close projection.
 - Open bold, italic, strikethrough, or a link whose text holds a character reference such as `&copy;` as one Markdown source with the reference in place, instead of opening only the part of the run before the reference beside the rendered rest of it, or nothing at all in a link label.
 - Show the backslashes that keep text literal when the Markdown source of bold, italic, or strikethrough is opened, as a link label already did, so text such as `**a \[b](c) d**` no longer reads as though it held a live link and an escaped `&copy;` can be told apart from one the file preserves.
+- Keep character references written next to each other as they were written, so text such as `&copy;&copy;` no longer saves as the characters it names. Each one still opens as its own Markdown source, so breaking one leaves the others preserved.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

@@ -11,6 +11,7 @@ import {
   CHARACTER_REFERENCE_MARK_NAME,
   CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME,
   decodeWholeCharacterReference,
+  readCharacterReferenceRun,
 } from "./characterReferenceMarkdown";
 import { getCandidateMarksAtPosition, getMarkRangeAtPosition } from "./marks";
 import {
@@ -45,7 +46,11 @@ const createMarkedTextSlice = (state: EditorState, text: string, marks: readonly
 
 // The stored source is projected only where it still spells the text it marks, which is the
 // predicate the serializer writes it under. A run the source no longer describes saves as its
-// character, so showing the reference there would promise a form the file will not hold.
+// characters, so showing the reference there would promise a form the file will not hold.
+//
+// References written back to back share one mark range, and each is its own object: the caret
+// reaches the one it stands against, and breaking that one leaves its neighbours preserved. A
+// position between two belongs to the reference that follows it, as it does between two marks.
 const createCharacterReferenceTarget = (
   state: EditorState,
   position: number,
@@ -58,19 +63,25 @@ const createCharacterReferenceTarget = (
   }
 
   const source = readMarkSource(mark);
+  const run = readCharacterReferenceRun(source, getTextBetween(state.doc, range.from, range.to));
 
-  if (decodeWholeCharacterReference(source) !== getTextBetween(state.doc, range.from, range.to)) {
+  if (!run) {
     return null;
   }
 
+  const size = run.decoded.length;
+  const offset = Math.min(position - range.from, run.count * size - 1);
+  const from = range.from + Math.floor(offset / size) * size;
+  const to = from + size;
+
   return {
     adapterId: CHARACTER_REFERENCE_ADAPTER_ID,
-    ambientMarks: mark.type.removeFromSet(state.doc.resolve(range.from).nodeAfter?.marks ?? []),
-    from: range.from,
-    originalContent: state.doc.slice(range.from, range.to),
-    originalContentSize: range.to - range.from,
+    ambientMarks: mark.type.removeFromSet(state.doc.resolve(from).nodeAfter?.marks ?? []),
+    from,
+    originalContent: state.doc.slice(from, to),
+    originalContentSize: size,
     originalSource: source,
-    to: range.to,
+    to,
   };
 };
 

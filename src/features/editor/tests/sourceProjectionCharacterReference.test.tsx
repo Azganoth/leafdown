@@ -156,13 +156,115 @@ describe("character reference source projection", () => {
     expect(getEditorTextContent(mounted)).toBe("A &coy; b");
   });
 
-  it("projects nothing where the stored source no longer spells the text it covers", async () => {
+  it.each([
+    {
+      label: "repeat",
+      marker: "&copy;",
+      projected: "A &copy;© b",
+      rendered: "A ©© b",
+      source: "A &copy;&copy; b",
+    },
+    {
+      label: "differ",
+      marker: "&copy;",
+      projected: "A &copy;® b",
+      rendered: "A ©® b",
+      source: "A &copy;&reg; b",
+    },
+    {
+      label: "name more than one character",
+      marker: "&fjlig;",
+      projected: "A &fjlig;fj b",
+      rendered: "A fjfj b",
+      source: "A &fjlig;&fjlig; b",
+    },
+  ])(
+    "projects the reference the caret reaches where two adjacent ones $label",
+    async ({ marker, projected, rendered, source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      expect(getEditorTextContent(mounted)).toBe(rendered);
+
+      setTextSelection(mounted.view, 3);
+
+      expect(getProjectionAdapterId(mounted)).toBe("character-reference");
+      expect(getEditorTextContent(mounted)).toBe(projected);
+      expect(getMarkerTexts(mounted)).toEqual([marker]);
+    },
+  );
+
+  it("enters the reference that follows a position between two", async () => {
+    const mounted = await mountProjectionEditor("A &copy;&copy; b");
+
+    setTextSelection(mounted.view, 4);
+
+    expect(getEditorTextContent(mounted)).toBe("A ©&copy; b");
+    expect(mounted.view.state.selection.from).toBe(4);
+  });
+
+  it("enters the last reference of a run from the right", async () => {
+    const mounted = await mountProjectionEditor("A &copy;&copy; b");
+
+    setTextSelection(mounted.view, 5);
+
+    expect(getEditorTextContent(mounted)).toBe("A ©&copy; b");
+    expect(mounted.view.state.selection.from).toBe(10);
+  });
+
+  it("commits one reference of a run an edit rewrites", async () => {
     const mounted = await mountProjectionEditor("A &copy;&copy; b");
 
     setTextSelection(mounted.view, 3);
+    setTextSelection(mounted.view, 4, 8);
+    typeText(mounted.view, "#169");
+    setTextSelection(mounted.view, 1);
+
+    expect(getEditorTextContent(mounted)).toBe("A ©© b");
+    expect(mounted.getMarkdown()).toBe("A &#169;&copy; b\n");
+  });
+
+  it.each([
+    { committed: "A &copy&copy; b", label: "a repeat of it", source: "A &copy;&copy; b" },
+    { committed: "A &copy&reg; b", label: "a different reference", source: "A &copy;&reg; b" },
+  ])(
+    "leaves $label preserved when the reference before it is broken",
+    async ({ committed, source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      setTextSelection(mounted.view, 3);
+      setTextSelection(mounted.view, 9);
+      pressBackspace(mounted);
+      setTextSelection(mounted.view, 1);
+
+      expect(mounted.getMarkdown()).toBe(`${committed}\n`);
+    },
+  );
+
+  // Deleting the text between two identical references makes their marks neighbours, which merges
+  // them into one node the same way the parser's own runs arrive merged.
+  it("keeps both references when an edit brings two identical ones together", async () => {
+    const mounted = await mountProjectionEditor("A &copy;x&copy; b");
+
+    setTextSelection(mounted.view, 4, 5);
+    pressBackspace(mounted);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(getEditorTextContent(mounted)).toBe("A ©© b");
+    expect(mounted.getMarkdown()).toBe("A &copy;&copy; b\n");
+  });
+
+  // A selection that ends inside the characters a reference names is not contained by it, so the
+  // deletion is an ordinary one and leaves the stored source describing text that is gone.
+  it("projects nothing where the stored source no longer spells the text it covers", async () => {
+    const mounted = await mountProjectionEditor("A &fjlig; b");
+
+    setTextSelection(mounted.view, 1, 4);
+    pressBackspace(mounted);
+    setTextSelection(mounted.view, 1);
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
-    expect(getEditorTextContent(mounted)).toBe("A ©© b");
+    expect(getEditorTextContent(mounted)).toBe("j b");
+    expect(mounted.getMarkdown()).toBe("j b\n");
   });
 });
 

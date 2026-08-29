@@ -303,6 +303,106 @@ const relaxAttentionEscapes = (
   }
 };
 
+const LINE_BREAK_PATTERN = /[\r\n]/u;
+const INDENT_PATTERN = /[\t ]/u;
+const MARKER_SEPARATOR_PATTERN = /[\t\n\r ]/u;
+const DIGIT_PATTERN = /\d/u;
+const ORDERED_MARKERS = ".)";
+const HEADING_HASHES_MAX = 6;
+const ORDERED_DIGITS_MAX = 9;
+
+// Where the marker's line begins, or -1 where it does not begin one. A block marker only opens its
+// construct from the start of a line, which is also the position `atBreak` escapes it at.
+const findMarkerLineStart = (slots: readonly EscapeSlot[], index: number, before: string) => {
+  let start = index;
+
+  while (start > 0 && INDENT_PATTERN.test(slots[start - 1].character)) {
+    start -= 1;
+  }
+
+  const preceding = start === 0 ? before.slice(-1) : slots[start - 1].character;
+
+  return LINE_BREAK_PATTERN.test(preceding) ? start : -1;
+};
+
+// `state.safe` escapes a block marker wherever one could open, which is a wider class than the
+// positions where the construct finishes. The heading and the list marker are decided by the line
+// they open; a pipe row also needs the line after it, which only the assembled document holds.
+const relaxBlockMarkerEscapes = (
+  slots: EscapeSlot[],
+  before: string,
+  after: string,
+  blockStart: boolean,
+  deferrable: boolean,
+) => {
+  const characterAt = (index: number) =>
+    index < slots.length ? slots[index].character : after.charAt(0);
+  // An empty tail is the end of the block, which ends the line as a line ending would.
+  const separates = (character: string) =>
+    character === "" || MARKER_SEPARATOR_PATTERN.test(character);
+
+  for (let index = 0; index < slots.length; index += 1) {
+    const slot = slots[index];
+
+    if (!slot.escaped) {
+      continue;
+    }
+
+    if (slot.character === "#") {
+      if (findMarkerLineStart(slots, index, before) < 0) {
+        continue;
+      }
+
+      let end = index;
+
+      while (end < slots.length && slots[end].character === "#") {
+        end += 1;
+      }
+
+      if (end - index > HEADING_HASHES_MAX || !separates(characterAt(end))) {
+        slot.escaped = false;
+      }
+
+      continue;
+    }
+
+    if (ORDERED_MARKERS.includes(slot.character)) {
+      let digits = index;
+
+      while (digits > 0 && DIGIT_PATTERN.test(slots[digits - 1].character)) {
+        digits -= 1;
+      }
+
+      const lineStart = digits === index ? -1 : findMarkerLineStart(slots, digits, before);
+
+      if (lineStart < 0) {
+        continue;
+      }
+
+      const startNumber = slots
+        .slice(digits, index)
+        .map((digit) => digit.character)
+        .join("");
+      // Only a list starting at one interrupts a paragraph. At the start of a block any start
+      // number opens one.
+      const opensList =
+        index - digits <= ORDERED_DIGITS_MAX &&
+        separates(characterAt(index + 1)) &&
+        ((lineStart === 0 && blockStart) || Number(startNumber) === 1);
+
+      if (!opensList) {
+        slot.escaped = false;
+      }
+
+      continue;
+    }
+
+    if (slot.character === "|" && deferrable && findMarkerLineStart(slots, index, before) >= 0) {
+      slot.deferred = true;
+    }
+  }
+};
+
 const TAIL_WHITESPACE_PATTERN = /[\t\n\f\r ]/u;
 const DESTINATION_END_PATTERN = /\s/u;
 
@@ -613,6 +713,77 @@ const findBracketLinks = (block: string, labels: ReadonlySet<string>): BracketLi
   return { closers, openers };
 };
 
+const DELIMITER_CELL_PATTERN = /^[\t ]*:?-+:?[\t ]*$/u;
+
+// GFM splits a row on its unescaped pipes and drops the empty cell an outer pipe leaves behind.
+// A container writes a prefix of one width onto every line of the paragraph it holds — a quote
+// marker, or a list marker the continuation lines match with indentation — so the width measured
+// on the marker's own line is what leaves each row the table grammar reads.
+const readRowCells = (line: string, prefix: number) => {
+  const content = line.slice(prefix);
+  const cells: string[] = [];
+  let cell = "";
+
+  for (let index = 0; index < content.length; index += 1) {
+    if (content[index] === "\\") {
+      cell += content.slice(index, index + 2);
+      index += 1;
+    } else if (content[index] === "|") {
+      cells.push(cell);
+      cell = "";
+    } else {
+      cell += content[index];
+    }
+  }
+
+  cells.push(cell);
+
+  if (cells.length > 1 && cells[0].trim() === "") {
+    cells.shift();
+  }
+
+  if (cells.length > 1 && cells[cells.length - 1].trim() === "") {
+    cells.pop();
+  }
+
+  return cells;
+};
+
+const formsTable = (header: string | undefined, delimiter: string | undefined, prefix: number) => {
+  // A blank line ends the paragraph the header row would have to belong to, and inside a container
+  // a blank line is the prefix alone.
+  if (header === undefined || delimiter === undefined || header.slice(prefix).trim() === "") {
+    return false;
+  }
+
+  const cells = readRowCells(delimiter, prefix);
+
+  return (
+    cells.every((cell) => DELIMITER_CELL_PATTERN.test(cell)) &&
+    readRowCells(header, prefix).length === cells.length
+  );
+};
+
+const readLine = (document: string, start: number) => {
+  const end = document.indexOf("\n", start);
+
+  return end < 0 ? document.slice(start) : document.slice(start, end);
+};
+
+// A table needs a header row and a delimiter row whose cell counts agree, so the pipe that opens
+// either row is the one that needs its escape.
+const opensTableRow = (document: string, index: number) => {
+  const start = document.lastIndexOf("\n", index) + 1;
+  const line = readLine(document, start);
+  const end = start + line.length;
+  const next = end < document.length ? readLine(document, end + 1) : undefined;
+  const previous =
+    start === 0 ? undefined : readLine(document, document.lastIndexOf("\n", start - 2) + 1);
+  const prefix = index - start;
+
+  return formsTable(line, next, prefix) || formsTable(previous, line, prefix);
+};
+
 // Every marker in a pass is answered against the same string, so the blocks and the links inside
 // them are found once rather than once per marker.
 const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
@@ -620,6 +791,10 @@ const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
   let ranges: { end: number; start: number }[] | undefined;
 
   return (bare: string, index: number) => {
+    if (bare[index] === "|") {
+      return opensTableRow(bare, index);
+    }
+
     ranges ??= findBlockRanges(bare);
 
     const { end, start } = ranges.find((range) => index <= range.end) ?? ranges[ranges.length - 1];
@@ -874,10 +1049,8 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     after,
   });
   const slots = decodeEscapes(escaped);
-  const neighbors = readPhrasingNeighbors(
-    parent,
-    state.indexStack[state.indexStack.length - 1] ?? -1,
-  );
+  const childIndex = state.indexStack[state.indexStack.length - 1] ?? -1;
+  const neighbors = readPhrasingNeighbors(parent, childIndex);
 
   relaxAttentionEscapes(
     slots,
@@ -890,7 +1063,12 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   // A table measures its columns from the serialized cell, so a cell resolved after the fact would
   // be padded to a width it no longer has.
   const deferrable = !state.stack.includes("tableCell");
+  // `containerFlow` hands a block's first child a line ending as its `before`, and that child is
+  // the only one that can begin the block's own first line. A marker anywhere else sits on a line
+  // the paragraph already started, where a list has to interrupt to open.
+  const blockStart = childIndex === 0 && info.before === "\n";
 
+  relaxBlockMarkerEscapes(slots, info.before, after, blockStart, deferrable);
   relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
   relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);

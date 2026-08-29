@@ -6,10 +6,8 @@ import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   readCharacterReference,
 } from "./characterReferenceMarkdown";
-import {
-  getFootnoteReferenceSourceBounds,
-  withFootnoteDefinitions,
-} from "./sourceProjectionFootnoteReferenceSyntax";
+import { withProjectionDefinitions } from "./sourceProjectionDefinitions";
+import { getFootnoteReferenceSourceBounds } from "./sourceProjectionFootnoteReferenceSyntax";
 import type { TextRange } from "./textRanges";
 
 interface LinkSourceSegmentBase {
@@ -57,6 +55,7 @@ interface MarkdownPosition {
 }
 
 const LINK_MARK_NAME = "link";
+const LINK_MARKDOWN_TYPES = new Set(["link", "linkReference"]);
 const FOOTNOTE_REFERENCE_SOURCE_TYPE = "footnote-reference";
 const FOOTNOTE_REFERENCE_CONTENT_CLASS_NAME =
   "leafdown-source-projection__content--footnote-reference";
@@ -215,7 +214,7 @@ const getLogicalLinkNode = (root: MarkdownNode, sourceLength: number) => {
   }
 
   if (
-    candidate.type !== "link" ||
+    !LINK_MARKDOWN_TYPES.has(candidate.type) ||
     !candidate.children?.length ||
     !candidate.children.every(isSupportedLinkChild)
   ) {
@@ -249,8 +248,12 @@ const getLinkLabelBounds = (link: MarkdownNode) => {
   };
 };
 
-export const createLinkSourceMap = (remark: RemarkParser, source: string): LinkSourceMap | null => {
-  const parseSource = withFootnoteDefinitions(source);
+export const createLinkSourceMap = (
+  remark: RemarkParser,
+  source: string,
+  definitions: readonly string[] = [],
+): LinkSourceMap | null => {
+  const parseSource = withProjectionDefinitions(source, definitions);
   let root: MarkdownNode;
 
   try {

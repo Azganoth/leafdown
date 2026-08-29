@@ -64,6 +64,10 @@ interface MarkedFragmentLinkSourceSegment extends MarkedFragmentSourceSegmentBas
 }
 
 interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBase {
+  // One source offset per document offset the run covers, so a backslash the file spends on an
+  // escape maps onto the character it keeps literal rather than onto a position of its own.
+  sourceBoundaries: number[];
+  text: string;
   type: "text";
 }
 
@@ -92,7 +96,10 @@ export interface MarkedFragmentSourceStructure {
 }
 
 interface SerializedMarkedFragmentSource {
-  hasInlineObjects: boolean;
+  // Whether the source spends characters the document does not hold, which is what decides
+  // between projecting the source as literal text and wrapping the document's own text in
+  // markers. An inline object, a preserved reference, and an escape all spend them.
+  hasSourceOnlyContent: boolean;
   map: MarkedFragmentSourceMap;
   source: string;
 }
@@ -170,25 +177,74 @@ const parseLinkSourceNodes = (
   return nodes;
 };
 
+// Walks the source against the text a run holds, returning the source offset each document offset
+// falls on. A preserved reference is a segment of its own, so the only character a run spends
+// source on and does not hold is an escape. Null where the two stop lining up, which leaves every
+// caller on its unescaped fallback rather than on a guess about where the file spends characters.
+const readTextSourceBoundaries = (source: string, from: number, value: string) => {
+  const boundaries = [from];
+  let sourceOffset = from;
+  let valueOffset = 0;
+
+  while (valueOffset < value.length) {
+    if (source[sourceOffset] === "\\" && source[sourceOffset + 1] === value[valueOffset]) {
+      sourceOffset += 2;
+    } else if (source[sourceOffset] === value[valueOffset]) {
+      sourceOffset += 1;
+    } else {
+      return null;
+    }
+
+    valueOffset += 1;
+    boundaries.push(sourceOffset);
+  }
+
+  return boundaries;
+};
+
+const createTextSegment = (
+  documentFrom: number,
+  sourceFrom: number,
+  sourceTo: number,
+  text: string,
+  sourceBoundaries: number[],
+): MarkedFragmentTextSourceSegment => ({
+  documentFrom,
+  documentTo: documentFrom + text.length,
+  sourceBoundaries,
+  sourceFrom,
+  sourceTo,
+  text,
+  type: "text",
+});
+
+const createIdentityBoundaries = (sourceFrom: number, length: number) =>
+  Array.from({ length: length + 1 }, (_, offset) => sourceFrom + offset);
+
 const addTextMapSegment = (
   sourceFrom: number,
   sourceTo: number,
   segments: MarkedFragmentSourceSegment[],
   documentOffset: number,
+  source: string,
 ) => {
   if (sourceFrom >= sourceTo) {
     return documentOffset;
   }
 
-  segments.push({
-    documentFrom: documentOffset,
-    documentTo: documentOffset + sourceTo - sourceFrom,
-    sourceFrom,
-    sourceTo,
-    type: "text",
-  });
+  const text = source.slice(sourceFrom, sourceTo);
 
-  return documentOffset + sourceTo - sourceFrom;
+  segments.push(
+    createTextSegment(
+      documentOffset,
+      sourceFrom,
+      sourceTo,
+      text,
+      createIdentityBoundaries(sourceFrom, text.length),
+    ),
+  );
+
+  return documentOffset + text.length;
 };
 
 const createMarkedLiteralStructure = (
@@ -205,13 +261,13 @@ const createMarkedLiteralStructure = (
       documentSize,
       segments: documentSize
         ? [
-            {
-              documentFrom: 0,
-              documentTo: documentSize,
-              sourceFrom: from,
-              sourceTo: to,
-              type: "text",
-            },
+            createTextSegment(
+              0,
+              from,
+              to,
+              source.slice(from, to),
+              createIdentityBoundaries(from, documentSize),
+            ),
           ]
         : [],
     },
@@ -225,15 +281,7 @@ const createUnmarkedLiteralStructure = (source: string): MarkedFragmentSourceStr
     contentTo: source.length,
     documentSize: source.length,
     segments: source
-      ? [
-          {
-            documentFrom: 0,
-            documentTo: source.length,
-            sourceFrom: 0,
-            sourceTo: source.length,
-            type: "text",
-          },
-        ]
+      ? [createTextSegment(0, 0, source.length, source, createIdentityBoundaries(0, source.length))]
       : [],
   },
   marks: [],
@@ -308,6 +356,36 @@ const isSupportedMarkedFragmentChild = (node: MarkdownNode): boolean => {
   return node.type === "link" && children.length > 0 && children.every(isSupportedLinkChild);
 };
 
+// The source the serializer would write for this fragment, markers stripped. Escaping is decided
+// from the whole line a run lands on, so the fragment is serialized once with its marks intact
+// rather than a node at a time, and the markers are left to `createProjectionSource` so the
+// projected form still follows the mark the document carries.
+const getEscapedFragmentContent = (
+  state: EditorState,
+  serializer: Serializer,
+  nodes: readonly ProseMirrorNode[],
+  marks: ProjectionMarkDescriptor[],
+) => {
+  if (!nodes.length || marks.some((mark) => mark.markName === "inlineCode")) {
+    return null;
+  }
+
+  const serialized = serializeLinkRunSource(state, serializer, nodes);
+  const parsed = parseProjectionSource(serialized);
+
+  if (
+    parsed.type !== "mark" ||
+    parsed.marks.length !== marks.length ||
+    parsed.marks.some(({ markName }) => !marks.some((mark) => mark.markName === markName))
+  ) {
+    return null;
+  }
+
+  const { from, to } = getProjectionSourceContentBounds(serialized);
+
+  return from < to ? serialized.slice(from, to) : null;
+};
+
 export const serializeMarkedFragmentSource = (
   state: EditorState,
   serializer: Serializer,
@@ -324,8 +402,9 @@ export const serializeMarkedFragmentSource = (
   const innerSegments: MarkedFragmentSourceSegment[] = [];
   let documentOffset = 0;
   let sourceOffset = 0;
-  let hasInlineObjects = false;
   let index = 0;
+  let escapedContent = getEscapedFragmentContent(state, serializer, nodes, marks);
+  let escapedOffset = 0;
 
   while (index < nodes.length) {
     const node = nodes[index];
@@ -335,6 +414,22 @@ export const serializeMarkedFragmentSource = (
     const documentSize = runNodes.reduce((size, runNode) => size + runNode.nodeSize, 0);
     const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
     const referenceSource = linkMark ? null : getPreservedCharacterReferenceSource(node);
+    const isPlainText = !linkMark && !referenceSource && node.isText;
+    const escapedStart = escapedOffset;
+    const text = isBreak ? "\n" : (node.text ?? "");
+    // A run the serializer escaped spends source characters the document does not hold, so its
+    // slice is read off the escaped content rather than off the node.
+    const escapedTextBoundaries =
+      isPlainText && escapedContent !== null
+        ? readTextSourceBoundaries(escapedContent, escapedOffset, text)
+        : null;
+    const escapedText =
+      escapedContent !== null && escapedTextBoundaries
+        ? escapedContent.slice(
+            escapedOffset,
+            escapedTextBoundaries[escapedTextBoundaries.length - 1],
+          )
+        : null;
     const nodeSource = linkMark
       ? serializeLinkRunSource(
           state,
@@ -344,17 +439,29 @@ export const serializeMarkedFragmentSource = (
           ),
         )
       : (referenceSource ??
+        escapedText ??
         (node.isText
-          ? (node.text ?? "")
+          ? text
           : isBreak
             ? "\n"
             : serializeFootnoteReference(state, serializer, node)));
     const sourceTo = sourceOffset + nodeSource.length;
 
+    if (escapedContent !== null) {
+      if (escapedTextBoundaries) {
+        escapedOffset = escapedTextBoundaries[escapedTextBoundaries.length - 1];
+      } else if (escapedContent.startsWith(nodeSource, escapedOffset)) {
+        escapedOffset += nodeSource.length;
+      } else {
+        // The escaped content stopped describing this fragment, so every later run falls back to
+        // the text the document holds rather than to an offset guessed against it.
+        escapedContent = null;
+      }
+    }
+
     if (linkMark) {
       const map = createLinkSourceMap(remark, nodeSource);
 
-      hasInlineObjects = true;
       innerSegments.push({
         documentFrom: documentOffset,
         documentTo: documentOffset + documentSize,
@@ -364,7 +471,6 @@ export const serializeMarkedFragmentSource = (
         type: "link",
       });
     } else if (referenceSource) {
-      hasInlineObjects = true;
       innerSegments.push({
         documentFrom: documentOffset,
         documentTo: documentOffset + documentSize,
@@ -373,13 +479,18 @@ export const serializeMarkedFragmentSource = (
         type: "characterReference",
       });
     } else if (node.isText || isBreak) {
-      innerSegments.push({
-        documentFrom: documentOffset,
-        documentTo: documentOffset + documentSize,
-        sourceFrom: sourceOffset,
-        sourceTo,
-        type: "text",
-      });
+      innerSegments.push(
+        createTextSegment(
+          documentOffset,
+          sourceOffset,
+          sourceTo,
+          text,
+          // The walk ran over the fragment the serializer wrote, so its offsets are rebased onto
+          // the source being joined here.
+          escapedTextBoundaries?.map((boundary) => sourceOffset + boundary - escapedStart) ??
+            createIdentityBoundaries(sourceOffset, text.length),
+        ),
+      );
     } else {
       const bounds = getFootnoteReferenceSourceBounds(nodeSource);
 
@@ -387,7 +498,6 @@ export const serializeMarkedFragmentSource = (
         throw new Error(`Expected a serializable footnote reference, received '${node.type.name}'`);
       }
 
-      hasInlineObjects = true;
       innerSegments.push({
         documentFrom: documentOffset,
         documentTo: documentOffset + documentSize,
@@ -412,12 +522,18 @@ export const serializeMarkedFragmentSource = (
     ...(segment.type === "footnoteReference"
       ? { labelFrom: segment.labelFrom + from, labelTo: segment.labelTo + from }
       : {}),
+    ...(segment.type === "text"
+      ? { sourceBoundaries: segment.sourceBoundaries.map((boundary) => boundary + from) }
+      : {}),
     sourceFrom: segment.sourceFrom + from,
     sourceTo: segment.sourceTo + from,
   }));
 
   return {
-    hasInlineObjects,
+    hasSourceOnlyContent: segments.some(
+      (segment) =>
+        segment.type !== "text" || segment.sourceTo - segment.sourceFrom !== segment.text.length,
+    ),
     map: {
       contentFrom: from,
       contentTo: to,
@@ -463,7 +579,13 @@ export const createMarkedFragmentSourceStructure = (
       return createMarkedLiteralStructure(source, parsed.marks);
     }
 
-    documentOffset = addTextMapSegment(sourceOffset, position.from, segments, documentOffset);
+    documentOffset = addTextMapSegment(
+      sourceOffset,
+      position.from,
+      segments,
+      documentOffset,
+      source,
+    );
 
     if (child.type === "link") {
       const map = createLinkSourceMap(remark, source.slice(position.from, position.to));
@@ -516,13 +638,29 @@ export const createMarkedFragmentSourceStructure = (
       });
       documentOffset += reference.nodeSize;
     } else {
-      documentOffset = addTextMapSegment(position.from, position.to, segments, documentOffset);
+      const value = typeof child.value === "string" ? child.value : "";
+      const boundaries = readTextSourceBoundaries(source, position.from, value);
+
+      if (!boundaries || boundaries[boundaries.length - 1] !== position.to) {
+        return createMarkedLiteralStructure(source, parsed.marks);
+      }
+
+      segments.push(
+        createTextSegment(documentOffset, position.from, position.to, value, boundaries),
+      );
+      documentOffset += value.length;
     }
 
     sourceOffset = position.to;
   }
 
-  documentOffset = addTextMapSegment(sourceOffset, contentBounds.to, segments, documentOffset);
+  documentOffset = addTextMapSegment(
+    sourceOffset,
+    contentBounds.to,
+    segments,
+    documentOffset,
+    source,
+  );
 
   return {
     map: {
@@ -553,7 +691,7 @@ export const parseMarkedFragmentSource = (
     const segmentSource = source.slice(segment.sourceFrom, segment.sourceTo);
 
     if (segment.type === "text") {
-      const node = createTextNode(state, segmentSource, documentMarks);
+      const node = createTextNode(state, segment.text, documentMarks);
 
       return node ? [node] : [];
     }
@@ -638,7 +776,12 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
     return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
   }
 
-  return segment.sourceFrom + normalizedOffset - segment.documentFrom;
+  return segment.sourceBoundaries[
+    Math.min(
+      Math.max(normalizedOffset - segment.documentFrom, 0),
+      segment.sourceBoundaries.length - 1,
+    )
+  ];
 };
 
 export const mapMarkedFragmentSourceOffsetToDocument = (
@@ -686,5 +829,17 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
     );
   }
 
-  return segment.documentFrom + offset - segment.sourceFrom;
+  let closestOffset = segment.documentFrom;
+  let closestDistance = Number.POSITIVE_INFINITY;
+
+  for (const [documentOffset, sourcePosition] of segment.sourceBoundaries.entries()) {
+    const distance = Math.abs(offset - sourcePosition);
+
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestOffset = segment.documentFrom + documentOffset;
+    }
+  }
+
+  return closestOffset;
 };

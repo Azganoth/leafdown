@@ -18,7 +18,8 @@ export const getDocumentDefinitionSources = (document: ProseMirrorNode) => {
 
   document.descendants((node) => {
     if (node.type.name !== DEFINITION_NODE_NAME) {
-      return true;
+      // A definition is a block, so inline content holds none and is not walked.
+      return node.isBlock;
     }
 
     definitions.push(serializeDefinitionMarkdown(readDefinitionAttrs(node.attrs)));

@@ -89,12 +89,12 @@ const omitReferenceAttributes = (attributes: Record<string, unknown>) => {
   return rendered;
 };
 
-// The definition handler writes an angle-bracket destination for an empty destination and for
-// one holding a control character or whitespace, and a raw one otherwise, so the rendered
-// block reads as the line the file is written with.
 const CONTROL_CHARACTER_MAX_CODE = 0x20;
 const DELETE_CHARACTER_CODE = 0x7f;
 
+// The definition handler writes an angle-bracket destination for an empty destination and for one
+// holding a control character or whitespace, and a raw one otherwise, so the rendered block reads
+// as the line the file is written with.
 const needsAngleDestination = (url: string) => {
   for (let index = 0; index < url.length; index += 1) {
     const code = url.charCodeAt(index);

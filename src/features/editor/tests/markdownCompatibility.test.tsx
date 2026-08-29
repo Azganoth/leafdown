@@ -1,3 +1,4 @@
+import { NodeSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it, vi } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
@@ -880,6 +881,23 @@ describe("Reference link and image form", () => {
 
     expect(anchor?.getAttribute("href")).toBe("/garden");
     expect(anchor?.getAttribute("title")).toBe("Report");
+  });
+
+  // The definition is one block rather than a line to type in, so removing it is a node deletion,
+  // and the references it resolved are written as the text they spell.
+  it("writes references as literal text once their definition block is deleted", async () => {
+    const mounted = await mountEditor(`${DEFINITION}\n\n[Full reference][garden report]\n`);
+    const { view } = mounted;
+
+    view.dispatch(
+      view.state.tr.setSelection(NodeSelection.create(view.state.doc, 0)).deleteSelection(),
+    );
+
+    expect(mounted.getMarkdown()).toBe("[Full reference][garden report]\n");
+
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(getMarkNames(reopened.view.state.doc)).not.toContain("link");
   });
 
   it("renders a definition as the permanent source it is written with", async () => {

@@ -305,7 +305,7 @@ const createImageDefinitionResolver =
 
     view.state.doc.descendants((node) => {
       if (node.type.name !== DEFINITION_NODE_NAME) {
-        return true;
+        return node.isBlock;
       }
 
       definitions.push(readDefinitionAttrs(node.attrs));

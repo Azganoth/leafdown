@@ -56,7 +56,7 @@ export interface SourceProjectionTarget extends TextRange {
 
 interface MarkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "mark";
-  hasInlineObjects: boolean;
+  hasSourceOnlyContent: boolean;
   marks: ProjectionMarkDescriptor[];
   originalText: string;
   sourceMap: MarkedFragmentSourceMap | null;
@@ -279,7 +279,7 @@ const createMarkSourceProjectionTarget = (
   return {
     adapterId: "mark",
     from: range.from,
-    hasInlineObjects: serialized.hasInlineObjects,
+    hasSourceOnlyContent: serialized.hasSourceOnlyContent,
     marks: range.marks,
     originalContent,
     originalContentSize: range.to - range.from,
@@ -298,7 +298,7 @@ const createMarkSourceProjectionTargetFromSource = (
 ): MarkSourceProjectionTarget => ({
   adapterId: "mark",
   from,
-  hasInlineObjects: false,
+  hasSourceOnlyContent: false,
   marks: parsed.marks,
   originalContent: createTextSlice(state, parsed.text, parsed.marks),
   originalContentSize: parsed.text.length,
@@ -954,7 +954,7 @@ export const createMarkSourceProjectionAdapter = ({
     canCopySelectionSemantically: (selection, session, parsed) => {
       const markTarget = session.target;
 
-      if (!markTarget.hasInlineObjects) {
+      if (!markTarget.hasSourceOnlyContent) {
         return true;
       }
 
@@ -974,7 +974,7 @@ export const createMarkSourceProjectionAdapter = ({
       });
     },
     createEnterTransaction: (state, markTarget) => {
-      if (markTarget.hasInlineObjects) {
+      if (markTarget.hasSourceOnlyContent) {
         return state.tr.replace(
           markTarget.from,
           markTarget.to,
@@ -998,7 +998,7 @@ export const createMarkSourceProjectionAdapter = ({
     },
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
     getPresentation: (markTarget, source) => {
-      if (markTarget.hasInlineObjects) {
+      if (markTarget.hasSourceOnlyContent) {
         const structure = createMarkedFragmentSourceStructure(source, parser, remark);
 
         if (structure) {
@@ -1038,7 +1038,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     mapSelectionFromSource: (selection, session, result) => {
-      if (session.target.hasInlineObjects) {
+      if (session.target.hasSourceOnlyContent) {
         const structure = createMarkedFragmentSourceStructure(result.source, parser, remark);
 
         if (structure) {
@@ -1079,7 +1079,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     mapSelectionToSource: (selection, markTarget) => {
-      if (markTarget.hasInlineObjects && markTarget.sourceMap) {
+      if (markTarget.hasSourceOnlyContent && markTarget.sourceMap) {
         if (selection instanceof NodeSelection) {
           const documentOffset = selection.from - markTarget.from;
           const segment = markTarget.sourceMap.segments.find(
@@ -1119,7 +1119,7 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     parseSource: (state, source, markTarget) => {
-      if (markTarget.hasInlineObjects) {
+      if (markTarget.hasSourceOnlyContent) {
         const richFragment = parseMarkedFragmentSource(state, source, parser, remark);
 
         if (richFragment) {
@@ -1147,7 +1147,7 @@ export const createMarkSourceProjectionAdapter = ({
     restoreCleanTarget: (state, session) => {
       const { target } = session;
 
-      if (target.hasInlineObjects) {
+      if (target.hasSourceOnlyContent) {
         return state.tr.replace(session.from, session.to, target.originalContent);
       }
 

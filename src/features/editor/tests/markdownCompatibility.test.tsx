@@ -758,6 +758,63 @@ describe("Raw link destination ampersands", () => {
   });
 });
 
+describe("Link and image title form", () => {
+  it.each([
+    '[Double quote](garden.md "Garden")',
+    "[Single quote](garden.md 'Garden')",
+    "[Parentheses](garden.md (Garden))",
+    '![Double quote](garden.png "Garden")',
+    "![Single quote](garden.png 'Garden')",
+    "![Parentheses](garden.png (Garden))",
+    // A quote keeps the escape the author wrote rather than moving the title to another form.
+    "[Apostrophe](garden.md 'It\\'s')",
+    '[Quote](garden.md "He said \\"hi\\"")',
+    // A parenthesized title holds either quote bare.
+    '[Quote in parentheses](garden.md (He said "hi"))',
+    "[Apostrophe in parentheses](garden.md (It's))",
+    '[Both quotes in parentheses](garden.md (He said "it\'s"))',
+    // The author's own backslash before a quote is not the marker's escape and stays where it is.
+    "[Escaped backslash in parentheses](garden.md (a\\\\'b\"c))",
+    // Each object answers for its own title while one serializes inside the other.
+    "[![Alt](garden.png 'Image')](target.md 'Target')",
+  ])("writes the title in %j as it was authored", async (source) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // CommonMark reads a parenthesized title between matching parentheses, so a title holding one
+  // moves to a quote that carries it bare rather than being escaped back into the authored form.
+  it.each([
+    {
+      saved: '[Close](garden.md "Garden ) here")',
+      source: "[Close](garden.md (Garden \\) here))",
+    },
+    {
+      saved: "[Close and quote](garden.md 'He said \"hi\" ) end')",
+      source: '[Close and quote](garden.md (He said "hi" \\) end))',
+    },
+    {
+      saved: '![Close](garden.png "Garden ) here")',
+      source: "![Close](garden.png (Garden \\) here))",
+    },
+  ])("writes $saved in a form that holds its title", async ({ saved, source }) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+});
+
 describe("Character references", () => {
   it.each([
     "&copy; &#169; &#xA9; &AElig;",

@@ -3,6 +3,7 @@ import type { TagParseRule } from "@milkdown/kit/prose/model";
 import type { MarkdownNode, MarkSchema } from "@milkdown/kit/transformer";
 
 import { AUTHORED_URL_ATTRIBUTE_NAME, readAuthoredUrl } from "./characterReferenceMarkdown";
+import { TITLE_MARKER_ATTRIBUTE_NAME, readTitleMarker } from "./markdownTitle";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -88,6 +89,7 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
       ...schema.attrs,
       [BARE_AUTOLINK_ATTRIBUTE_NAME]: { default: false, validate: "boolean" },
       [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
+      [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     },
     // The link mark matches anchors, so every rule it declares is a tag rule.
     parseDOM: (schema.parseDOM as TagParseRule[] | undefined)?.map((rule) => ({
@@ -113,6 +115,8 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
         ];
         const { [BARE_AUTOLINK_ATTRIBUTE_NAME]: isBareAutolink, ...rendered } = attributes;
 
+        delete rendered[TITLE_MARKER_ATTRIBUTE_NAME];
+
         return [
           tag,
           isBareAutolink ? { ...rendered, [BARE_AUTOLINK_DOM_ATTRIBUTE_NAME]: "" } : rendered,
@@ -126,6 +130,7 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
           href: node.url,
           [BARE_AUTOLINK_ATTRIBUTE_NAME]: isBareAutolinkNode(node),
           [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
+          [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
           title: node.title,
         });
         state.next(node.children);
@@ -145,6 +150,7 @@ export const withBareAutolinkForm = (schema: MarkSchema): MarkSchema => {
             title: mark.attrs.title,
             url: mark.attrs.href,
             [AUTHORED_URL_ATTRIBUTE_NAME]: mark.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
+            [TITLE_MARKER_ATTRIBUTE_NAME]: mark.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
           },
         );
       },

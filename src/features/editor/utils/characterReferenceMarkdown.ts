@@ -4,6 +4,8 @@ import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transfo
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 
+import { TITLE_MARKER_ATTRIBUTE_NAME, readTitleMarker } from "./markdownTitle";
+
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
@@ -312,17 +314,19 @@ export const readAuthoredUrl = (node: object) => {
   return typeof authored === "string" ? authored : null;
 };
 
-const omitAuthoredUrl = (attributes: Record<string, unknown>) => {
+const omitAuthoredAttributes = (attributes: Record<string, unknown>) => {
   const rendered = { ...attributes };
 
   delete rendered[AUTHORED_URL_ATTRIBUTE_NAME];
+  delete rendered[TITLE_MARKER_ATTRIBUTE_NAME];
 
   return rendered;
 };
 
-// An image is a node rather than a mark, so its destination form travels in a node attribute. The
-// rendered `img` does not carry it and no parse rule reads it back, which leaves a copy through the
-// DOM holding the decoded destination — the same fallback an edit inside a reference takes.
+// An image is a node rather than a mark, so the form it was authored in travels in node attributes.
+// The rendered `img` carries neither and no parse rule reads them back, which leaves a copy through
+// the DOM holding the decoded destination and a double-quoted title — the same fallback an edit
+// inside a reference takes.
 export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
   const { toDOM } = schema;
 
@@ -331,6 +335,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
     attrs: {
       ...schema.attrs,
       [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
+      [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     },
     toDOM:
       toDOM &&
@@ -341,7 +346,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           ...unknown[],
         ];
 
-        return [tag, omitAuthoredUrl(attributes), ...rest];
+        return [tag, omitAuthoredAttributes(attributes), ...rest];
       }),
     parseMarkdown: {
       ...schema.parseMarkdown,
@@ -351,6 +356,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           alt: (node as { alt?: unknown }).alt,
           title: node.title,
           [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
+          [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
         });
       },
     },
@@ -362,6 +368,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           url: node.attrs.src,
           alt: node.attrs.alt,
           [AUTHORED_URL_ATTRIBUTE_NAME]: node.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
+          [TITLE_MARKER_ATTRIBUTE_NAME]: node.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
         });
       },
     },

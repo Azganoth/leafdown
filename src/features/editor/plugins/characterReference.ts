@@ -7,16 +7,18 @@ import {
   findAuthoredDestination,
   splitCharacterReferences,
 } from "../utils/characterReferenceMarkdown";
+import { findTitleMarker, type TitleMarker } from "../utils/markdownTitle";
 
 export const leafdownCharacterReferenceSchema = $markSchema(
   CHARACTER_REFERENCE_MARK_NAME,
   () => characterReferenceMarkSchema,
 );
 
-// A reference is gone from the value by the time the tree exists, so the run it covered is
-// recovered by walking the value against the slice of the file it was built from. A node the
-// parser gave no position, or one another transformer has already rebuilt, is left alone.
-const markCharacterReferences = (node: MarkdownNode, source: string) => {
+// A reference is gone from the value by the time the tree exists, and a title keeps its text
+// without its markers, so both are recovered by walking the tree against the slice of the file
+// each node was built from. A node the parser gave no position, or one another transformer has
+// already rebuilt, is left alone.
+const markAuthoredSource = (node: MarkdownNode, source: string) => {
   const children = node.children;
 
   if (!children) {
@@ -47,15 +49,20 @@ const markCharacterReferences = (node: MarkdownNode, source: string) => {
         (child.type === "link" || child.type === "image") &&
         typeof child.url === "string"
       ) {
-        const authored = findAuthoredDestination(source.slice(start.offset, end), child.url);
+        const raw = source.slice(start.offset, end);
+        const authored = findAuthoredDestination(raw, child.url);
 
         if (authored !== null) {
           (child as { authoredUrl?: string }).authoredUrl = authored;
         }
+
+        if (child.title) {
+          (child as { titleMarker?: TitleMarker }).titleMarker = findTitleMarker(raw);
+        }
       }
     }
 
-    markCharacterReferences(child, source);
+    markAuthoredSource(child, source);
     next.push(child);
   }
 
@@ -66,5 +73,5 @@ const markCharacterReferences = (node: MarkdownNode, source: string) => {
 
 export const createLeafdownCharacterReferencePlugin = () =>
   $remark("leafdownCharacterReference", () => () => (tree, file) => {
-    markCharacterReferences(tree as MarkdownNode, String(file));
+    markAuthoredSource(tree as MarkdownNode, String(file));
   });

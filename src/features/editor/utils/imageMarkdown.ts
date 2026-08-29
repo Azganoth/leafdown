@@ -1,16 +1,31 @@
+import { chooseTitleMarker, type TitleMarker } from "./markdownTitle";
+
 export interface ImageMarkdownAttrs {
   alt: string;
   src: string;
   title: string;
+  titleMarker: TitleMarker;
 }
 
-export const serializeImageMarkdown = ({ alt, src, title }: ImageMarkdownAttrs) => {
+const TITLE_MARKER_PAIRS: Record<TitleMarker, readonly [string, string]> = {
+  '"': ['"', '"'],
+  "'": ["'", "'"],
+  "(": ["(", ")"],
+};
+
+export const serializeImageMarkdown = ({ alt, src, title, titleMarker }: ImageMarkdownAttrs) => {
   const serializedAlt = escapeImageAlt(alt);
   const serializedSrc = serializeImageSource(src);
 
-  return title
-    ? `![${serializedAlt}](${serializedSrc} "${escapeImageTitle(title)}")`
-    : `![${serializedAlt}](${serializedSrc})`;
+  if (!title) {
+    return `![${serializedAlt}](${serializedSrc})`;
+  }
+
+  const marker = chooseTitleMarker(title, titleMarker);
+  const [opening, closing] = TITLE_MARKER_PAIRS[marker];
+  const serializedTitle = escapeImageTitle(title, marker);
+
+  return `![${serializedAlt}](${serializedSrc} ${opening}${serializedTitle}${closing})`;
 };
 
 export const parseImageMarkdown = (value: string): ImageMarkdownAttrs | null => {
@@ -40,16 +55,20 @@ const parseImageBody = (body: string): Omit<ImageMarkdownAttrs, "alt"> => {
     return {
       src: normalizeImageSource(trimmedBody),
       title: "",
+      titleMarker: '"',
     };
   }
 
   return {
     src: normalizeImageSource(titleMatch.src),
     title: unescapeMarkdownText(titleMatch.title),
+    titleMarker: titleMatch.marker,
   };
 };
 
-const getTrailingTitle = (body: string): { src: string; title: string } | null => {
+const getTrailingTitle = (
+  body: string,
+): { marker: TitleMarker; src: string; title: string } | null => {
   const delimiter = body.at(-1);
 
   if (delimiter === '"' || delimiter === "'") {
@@ -57,6 +76,7 @@ const getTrailingTitle = (body: string): { src: string; title: string } | null =
 
     if (titleStart > 0 && /\s/u.test(body[titleStart - 1])) {
       return {
+        marker: delimiter,
         src: body.slice(0, titleStart).trim(),
         title: body.slice(titleStart + 1, -1),
       };
@@ -68,6 +88,7 @@ const getTrailingTitle = (body: string): { src: string; title: string } | null =
 
     if (titleStart > 0 && /\s/u.test(body[titleStart - 1])) {
       return {
+        marker: "(",
         src: body.slice(0, titleStart).trim(),
         title: body.slice(titleStart + 1, -1),
       };
@@ -162,7 +183,14 @@ const normalizeImageSource = (value: string) => {
 
 const escapeImageAlt = (value: string) => value.replace(/[\\[\]]/gu, "\\$&");
 
-const escapeImageTitle = (value: string) => value.replace(/[\\"]/gu, "\\$&");
+const TITLE_ESCAPE_PATTERNS: Record<TitleMarker, RegExp> = {
+  '"': /[\\"]/gu,
+  "'": /[\\']/gu,
+  "(": /[\\()]/gu,
+};
+
+const escapeImageTitle = (value: string, marker: TitleMarker) =>
+  value.replace(TITLE_ESCAPE_PATTERNS[marker], "\\$&");
 
 const serializeImageSource = (value: string) =>
   needsAngledImageSource(value) ? `<${value.replace(/[\\>]/gu, "\\$&")}>` : value;

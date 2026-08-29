@@ -30,6 +30,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
 import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
@@ -195,6 +196,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
 
     return createSourceProjectionProsePlugin([
       ...objectAdapters,
+      createCharacterReferenceSourceProjectionAdapter(),
       createEscapeSourceProjectionAdapter({
         findLiteralSourceCommit: (state, range) =>
           findSourceProjectionLiteralSourceCommit(state, range, objectAdapters),

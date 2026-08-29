@@ -35,7 +35,12 @@ import {
 } from "./sourceProjectionSyntax";
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
-export type SourceProjectionAdapterId = "escape" | "footnote-reference" | "link" | "mark";
+export type SourceProjectionAdapterId =
+  | "character-reference"
+  | "escape"
+  | "footnote-reference"
+  | "link"
+  | "mark";
 
 export interface SourceProjectionTarget extends TextRange {
   adapterId: SourceProjectionAdapterId;

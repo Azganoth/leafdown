@@ -100,7 +100,7 @@ A restructure reads canonical content, so it finalizes an active projection befo
 
 A change that reaches the projected range without passing through the engine's edit path is an unauthored write; composition input is the path that produces one. The engine keeps an unauthored write out of native history, where it would replay against coordinates the commit discards, and otherwise treats it as the content change it is: the document becomes dirty and projection-local history can step back over it.
 
-Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, standalone footnote reference, then escaped literal run. Adapters that cannot preserve a semantic mapping fall back to literal text.
+Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, standalone footnote reference, preserved character reference, then escaped literal run. Adapters that cannot preserve a semantic mapping fall back to literal text.
 
 An adapter may declare that its session is finished while the caret is still inside it, rather than on the caret leaving. The commit is dispatched on its own rather than appended to the edit that completed it, because native history drops a transaction appended to one that opted out of it and a projected edit always opts out. What the commit produces then projects in the session's place, so the caret keeps its position.
 

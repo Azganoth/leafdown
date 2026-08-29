@@ -24,6 +24,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Turn a typed link, URL, or angle-bracket URL into the link it describes once the caret leaves it, as pasting the same text already did.
 - Show the backslash that keeps link or image text literal when the caret reaches it, so deleting the backslash turns the text into the link or image it describes.
 - Turn typed image text into the image it describes once the caret leaves it, as typed link text already did.
+- Show a character reference such as `&copy;`, `&#169;`, or `&#xA9;` as it was written when the caret reaches it, so it can be told apart from the character it names and removing any of its characters turns it into ordinary text.
 
 ### Fixed
 

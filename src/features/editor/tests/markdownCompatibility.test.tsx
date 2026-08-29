@@ -772,6 +772,16 @@ describe("Character references", () => {
     "&#42;not emphasis&#42;",
     "&#42; not a list item",
     "&#124; pipe",
+    // References written back to back are one run, whether they repeat, differ, or name more than
+    // one character each.
+    "A &copy;&copy; b",
+    "A &copy;&reg; b",
+    "A &copy;&copy;&copy; b",
+    "A &fjlig;&fjlig; b",
+    "A &copy;&#169;&#xA9; b",
+    // A reference beside the character it names keeps them apart.
+    "A &copy;© b",
+    "A ©&copy; b",
     // An escaped ampersand is a reference the file spells out, and stays one.
     "&amp;copy;",
     "[&copy; label](/uri)",

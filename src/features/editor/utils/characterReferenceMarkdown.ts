@@ -67,17 +67,38 @@ export const decodeWholeCharacterReference = (source: string) => {
   return reference !== null && reference.source === source ? reference.decoded : null;
 };
 
-export const decodesTo = (source: string, text: string) =>
-  decodeWholeCharacterReference(source) === text;
+// The mark carries one reference, and ProseMirror merges neighbouring text nodes carrying an equal
+// mark set, so references the file writes back to back arrive as one node holding the character
+// they name repeated. The stored source describes such a node exactly when its text is whole
+// repetitions of what the source decodes to, and the node is written as that many copies of it.
+// Only an equal mark merges, so a run reached this way is always the same reference throughout.
+export const readCharacterReferenceRun = (source: string, text: string) => {
+  const decoded = decodeWholeCharacterReference(source);
 
-// The reference an inline node still spells. An edit inside the marked range leaves the stored
-// source describing text the node no longer holds, and the node is ordinary text from then on.
+  if (decoded === null || decoded.length === 0 || text.length % decoded.length !== 0) {
+    return null;
+  }
+
+  const count = text.length / decoded.length;
+
+  return count > 0 && decoded.repeat(count) === text ? { count, decoded } : null;
+};
+
+// The source an inline node is written with, which is its stored source once per reference the
+// node holds. An edit inside the marked range leaves that source describing text the node no
+// longer holds, and the node is ordinary text from then on.
 export const getPreservedCharacterReferenceSource = (node: ProseMirrorNode) => {
   const source = node.marks.find((mark) => mark.type.name === CHARACTER_REFERENCE_MARK_NAME)?.attrs[
     CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME
   ];
 
-  return typeof source === "string" && decodesTo(source, node.text ?? "") ? source : null;
+  if (typeof source !== "string") {
+    return null;
+  }
+
+  const run = readCharacterReferenceRun(source, node.text ?? "");
+
+  return run && source.repeat(run.count);
 };
 
 export const hasCharacterReferenceMark = (node: ProseMirrorNode) =>
@@ -424,11 +445,16 @@ export const splitCharacterReferences = (
   return children;
 };
 
-export const readCharacterReferenceText = (node: { children?: readonly MarkdownNode[] }) =>
-  (node.children ?? []).map((child) => (child as { value?: string }).value ?? "").join("");
+export const readCharacterReferenceText = (node: {
+  children?: readonly { type: string; value?: unknown }[];
+}) =>
+  (node.children ?? [])
+    .map((child) => (typeof child.value === "string" ? child.value : ""))
+    .join("");
 
-// The stored source is written only where it still spells the text it marks. An edit inside the
-// range leaves the two disagreeing, and the run falls back to the character the document holds.
+// The stored source is written only where it still spells the text it marks, once per reference
+// the node ended up holding. An edit inside the range leaves the two disagreeing, and the run
+// falls back to the characters the document holds.
 export const serializeCharacterReference: NonNullable<RemarkStringifyHandlers["text"]> = (
   node: MarkdownNode,
   parent,
@@ -438,9 +464,15 @@ export const serializeCharacterReference: NonNullable<RemarkStringifyHandlers["t
   const source = (node as { source?: unknown }).source;
   const text = readCharacterReferenceText(node);
 
-  return typeof source === "string" && decodesTo(source, text)
-    ? source
-    : state.containerPhrasing(node as Parameters<typeof state.containerPhrasing>[0], info);
+  if (typeof source === "string") {
+    const run = readCharacterReferenceRun(source, text);
+
+    if (run) {
+      return source.repeat(run.count);
+    }
+  }
+
+  return state.containerPhrasing(node as Parameters<typeof state.containerPhrasing>[0], info);
 };
 
 export const characterReferenceMarkSchema: MarkSchema = {

@@ -271,6 +271,26 @@ describe("source projection clipboard slices", () => {
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
   });
 
+  it("maps a complete character reference but declines a partial one", async () => {
+    const mounted = await mountEditor("A &copy; b");
+    const sourceStart = getEditorTextPosition(mounted, "©");
+
+    setTextSelection(mounted.view, sourceStart);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+    setTextSelection(mounted.view, sourceStart, sourceStart + "&copy;".length);
+
+    const reference = parseClipboardHtml(getClipboardHtml(mounted)).querySelector(
+      "span[data-character-reference]",
+    );
+
+    expect(reference).toHaveTextContent("©");
+    expect(reference).toHaveAttribute("data-character-reference", "&copy;");
+
+    setTextSelection(mounted.view, sourceStart + 1, sourceStart + "&copy".length);
+    expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
   it("maps a complete image label but declines a partial image selection", async () => {
     mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
       kind: "renderable",

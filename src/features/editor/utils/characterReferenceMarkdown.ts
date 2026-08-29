@@ -13,7 +13,7 @@ export const CHARACTER_REFERENCE_MARK_NAME = "leafdownCharacterReference";
 // the parser decoded, so the mark and the node name it the same way.
 export const AUTHORED_URL_ATTRIBUTE_NAME = "authoredUrl";
 
-const SOURCE_ATTRIBUTE_NAME = "source";
+export const CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME = "source";
 const SOURCE_DOM_ATTRIBUTE_NAME = "data-character-reference";
 
 // micromark bounds a reference at 31 alphanumeric characters, 7 decimal digits, or 6 hexadecimal
@@ -58,11 +58,16 @@ const readCharacterReference = (source: string, index: number): DecodedReference
     : null;
 };
 
-export const decodesTo = (source: string, text: string) => {
+// The text the whole string spells as one reference, or null where it spells anything else. A
+// reference with a tail, a truncated one, and a name the table does not hold all read as null.
+export const decodeWholeCharacterReference = (source: string) => {
   const reference = readCharacterReference(source, 0);
 
-  return reference !== null && reference.source === source && reference.decoded === text;
+  return reference !== null && reference.source === source ? reference.decoded : null;
 };
+
+export const decodesTo = (source: string, text: string) =>
+  decodeWholeCharacterReference(source) === text;
 
 export interface ReferenceSpan {
   end: number;
@@ -343,7 +348,7 @@ export const splitCharacterReferences = (value: string, source: string): Markdow
 
     children.push({
       type: CHARACTER_REFERENCE_MARKDOWN_TYPE,
-      [SOURCE_ATTRIBUTE_NAME]: span.source,
+      [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: span.source,
       children: [{ type: "text", value: value.slice(span.start, span.end) }],
     } as unknown as MarkdownNode);
     cursor = span.end;
@@ -377,25 +382,28 @@ export const serializeCharacterReference: NonNullable<RemarkStringifyHandlers["t
 
 export const characterReferenceMarkSchema: MarkSchema = {
   inclusive: false,
-  attrs: { [SOURCE_ATTRIBUTE_NAME]: { default: "", validate: "string" } },
+  attrs: { [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: { default: "", validate: "string" } },
   parseDOM: [
     {
       tag: `span[${SOURCE_DOM_ATTRIBUTE_NAME}]`,
       getAttrs: (dom) => ({
-        [SOURCE_ATTRIBUTE_NAME]: (dom as HTMLElement).getAttribute(SOURCE_DOM_ATTRIBUTE_NAME) ?? "",
+        [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]:
+          (dom as HTMLElement).getAttribute(SOURCE_DOM_ATTRIBUTE_NAME) ?? "",
       }),
     },
   ],
   toDOM: (mark) => [
     "span",
-    { [SOURCE_DOM_ATTRIBUTE_NAME]: mark.attrs[SOURCE_ATTRIBUTE_NAME] as string },
+    {
+      [SOURCE_DOM_ATTRIBUTE_NAME]: mark.attrs[CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME] as string,
+    },
     0,
   ],
   parseMarkdown: {
     match: (node) => node.type === CHARACTER_REFERENCE_MARKDOWN_TYPE,
     runner: (state, node, markType) => {
       state.openMark(markType, {
-        [SOURCE_ATTRIBUTE_NAME]: (node as { source?: unknown }).source ?? "",
+        [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: (node as { source?: unknown }).source ?? "",
       });
       state.next(node.children ?? []);
       state.closeMark(markType);
@@ -405,7 +413,9 @@ export const characterReferenceMarkSchema: MarkSchema = {
     match: (mark) => mark.type.name === CHARACTER_REFERENCE_MARK_NAME,
     runner: (state, mark) => {
       state.withMark(mark, CHARACTER_REFERENCE_MARKDOWN_TYPE, undefined, {
-        [SOURCE_ATTRIBUTE_NAME]: mark.attrs[SOURCE_ATTRIBUTE_NAME] as string,
+        [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: mark.attrs[
+          CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME
+        ] as string,
       });
     },
   },

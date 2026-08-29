@@ -257,6 +257,7 @@ describe("multiline logical-link source projection", () => {
           title: "Calibration review",
           isBareAutolink: false,
           authoredUrl: null,
+          titleMarker: '"',
         }),
       ]),
     );

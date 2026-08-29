@@ -250,6 +250,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.
 - Raw HTML is written back exactly as authored, including line-break tags.
+- A link or image title keeps the quotation marks or parentheses it was authored with. A parenthesized title whose text holds a parenthesis is written with quotation marks instead, because CommonMark reads such a title between matching parentheses.
 - A blank paragraph between blocks survives save and reopen.
 - Save output trims trailing blank lines and writes at most one final line ending, controlled by `Insert final newline on save`. Trailing blank paragraphs go with them.
 

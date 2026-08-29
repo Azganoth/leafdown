@@ -5,6 +5,7 @@ import {
   decodeCharacterReferences,
   findCharacterReferenceSources,
 } from "./characterReferenceMarkdown";
+import { withAuthoredTitle } from "./markdownTitle";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -121,7 +122,9 @@ export const serializeMarkdownLink: NonNullable<RemarkStringifyHandlers["link"]>
     const restore = scopeDestination(state, destination.url, authored);
 
     try {
-      return defaultHandlers.link(destination, parent, state, info);
+      return withAuthoredTitle(destination, state.options, () =>
+        defaultHandlers.link(destination, parent, state, info),
+      );
     } finally {
       restore();
     }
@@ -135,7 +138,9 @@ export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"
     const restore = scopeDestination(state, destination.url, authored);
 
     try {
-      return defaultHandlers.image(destination, parent, state, info);
+      return withAuthoredTitle(destination, state.options, () =>
+        defaultHandlers.image(destination, parent, state, info),
+      );
     } finally {
       restore();
     }

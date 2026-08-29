@@ -23,6 +23,7 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "../utils/markdownReferences";
+import { readTitleMarker } from "../utils/markdownTitle";
 
 type ImageResolutionState =
   | { status: "pending" }
@@ -273,6 +274,7 @@ const imageAttrsFromNode = (node: ProseMirrorNode): ImageMarkdownAttrs => ({
   alt: String(node.attrs.alt ?? ""),
   src: String(node.attrs.src ?? ""),
   title: String(node.attrs.title ?? ""),
+  titleMarker: readTitleMarker(node.attrs),
 });
 
 const isSameImageResolutionInput = (

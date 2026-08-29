@@ -5,6 +5,11 @@ import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer
 
 import { isNonNullish } from "@/lib/predicates";
 
+import {
+  CHARACTER_REFERENCE_MARK_NAME,
+  getPreservedCharacterReferenceSource,
+  hasCharacterReferenceMark,
+} from "./characterReferenceMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 import { isAtomicLinkSegment } from "./sourceProjectionLinkSyntax";
@@ -384,7 +389,10 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
       return;
     }
 
-    const text = node.isText ? (node.text ?? "") : "";
+    // A preserved reference writes its own source, so the run reaches the delimiters as `&` or
+    // `;` however the character it names is classified.
+    const text =
+      node.isText && getPreservedCharacterReferenceSource(node) === null ? (node.text ?? "") : "";
     const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
     const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
     const previousSegment = segments.at(-1);
@@ -420,7 +428,7 @@ const getWrappingMarks = (state: EditorState, node: ProseMirrorNode, from: numbe
   const linkMark = node.marks.find((mark) => mark.type.name === LINK_MARK_NAME);
 
   if (!linkMark) {
-    return node.marks;
+    return node.marks.filter((mark) => mark.type.name !== CHARACTER_REFERENCE_MARK_NAME);
   }
 
   const linkRange = getMarkRangeAtPosition(state, from, linkMark);
@@ -452,9 +460,16 @@ const getProjectionMarksFromInlineNode = (
 
   if (
     node.marks.some(
-      (mark) => mark.type.name !== LINK_MARK_NAME && !isProjectionMarkName(mark.type.name),
+      (mark) =>
+        mark.type.name !== LINK_MARK_NAME &&
+        mark.type.name !== CHARACTER_REFERENCE_MARK_NAME &&
+        !isProjectionMarkName(mark.type.name),
     )
   ) {
+    return [];
+  }
+
+  if (hasCharacterReferenceMark(node) && getPreservedCharacterReferenceSource(node) === null) {
     return [];
   }
 
@@ -583,7 +598,7 @@ const getMarkedFragmentPresentation = (
   const objectTypes = new Set<string>();
 
   for (const segment of map.segments) {
-    if (segment.type === "text") {
+    if (segment.type === "characterReference" || segment.type === "text") {
       spans.push({
         className: contentClassName,
         from: segment.sourceFrom,
@@ -906,7 +921,7 @@ const getProjectionEditSelectionOffset = (
 
 const getAtomicSourceRanges = (map: MarkedFragmentSourceMap): TextRange[] =>
   map.segments.flatMap((segment) => {
-    if (segment.type === "footnoteReference") {
+    if (segment.type === "characterReference" || segment.type === "footnoteReference") {
       return [{ from: segment.sourceFrom, to: segment.sourceTo }];
     }
 

@@ -4,7 +4,9 @@ import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorTextContent,
+  getEditorTextPosition,
   runKeyDownHandlers,
+  setSelectionAtDocumentEnd,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
@@ -161,5 +163,109 @@ describe("character reference source projection", () => {
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     expect(getEditorTextContent(mounted)).toBe("A ©© b");
+  });
+});
+
+describe("character reference source projection under an owner", () => {
+  it.each([
+    { adapter: "mark", caret: 2, label: "bold", source: "**a&copy;b**" },
+    { adapter: "mark", caret: 3, label: "bold past the reference", source: "**a&copy;b**" },
+    { adapter: "mark", caret: 2, label: "italic", source: "*a&copy;b*" },
+    { adapter: "mark", caret: 2, label: "strikethrough", source: "~~a&copy;b~~" },
+    { adapter: "mark", caret: 1, label: "a fragment the reference opens", source: "**&copy;b**" },
+    { adapter: "mark", caret: 3, label: "a fragment the reference closes", source: "**a&copy;**" },
+    { adapter: "link", caret: 2, label: "a link label", source: "[a&copy;b](x)" },
+    {
+      adapter: "link",
+      caret: 4,
+      label: "a link label past the reference",
+      source: "[a&copy;b](x)",
+    },
+  ])("projects the complete source of $label", async ({ adapter, caret, source }) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, caret);
+
+    expect(getProjectionAdapterId(mounted)).toBe(adapter);
+    expect(getEditorTextContent(mounted)).toBe(source);
+  });
+
+  it.each([
+    { adapter: "mark", label: "a marked fragment", source: "**a&copy;b**" },
+    { adapter: "link", label: "a link label", source: "[a&copy;b](x)" },
+  ])("projects $label a selection is contained in", async ({ adapter, source }) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, 1, 4);
+
+    expect(getProjectionAdapterId(mounted)).toBe(adapter);
+    expect(getEditorTextContent(mounted)).toBe(source);
+  });
+
+  it.each([
+    {
+      committed: "**aX&copy;b**",
+      label: "before the reference",
+      owner: "strong",
+      rendered: "aX©b",
+      source: "**a&copy;b**",
+      target: "a",
+    },
+    {
+      committed: "**a&copy;bX**",
+      label: "after the reference",
+      owner: "strong",
+      rendered: "a©bX",
+      source: "**a&copy;b**",
+      target: "b",
+    },
+    {
+      committed: "[aX&copy;b](x)",
+      label: "inside a link label",
+      owner: "a",
+      rendered: "aX©b",
+      source: "[a&copy;b](x)",
+      target: "a",
+    },
+  ])(
+    "commits one owner with the reference intact for an edit $label",
+    async ({ committed, owner, rendered, source, target }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      setTextSelection(mounted.view, 1);
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, target) + target.length);
+      typeText(mounted.view, "X");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${committed}\n`);
+      expect(getEditorTextContent(mounted)).toBe(rendered);
+      expect(mounted.view.dom.querySelector(owner)).toHaveTextContent(rendered);
+    },
+  );
+
+  it.each([
+    { adapter: "mark", caret: 1, label: "opens the fragment", source: "**&nbsp;a**" },
+    { adapter: "mark", caret: 2, label: "closes the fragment", source: "**a&nbsp;**" },
+    { adapter: "mark", caret: 1, label: "is the whole fragment", source: "**&nbsp;**" },
+    { adapter: "link", caret: 1, label: "opens a link label", source: "[&nbsp;a](x)" },
+  ])(
+    "projects the complete source where a reference naming whitespace $label",
+    async ({ adapter, caret, source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      setTextSelection(mounted.view, caret);
+
+      expect(getProjectionAdapterId(mounted)).toBe(adapter);
+      expect(getEditorTextContent(mounted)).toBe(source);
+    },
+  );
+
+  it("restores the owner unchanged when nothing is edited", async () => {
+    const mounted = await mountProjectionEditor("**a&copy;b** [c&copy;d](x)");
+
+    setTextSelection(mounted.view, 2);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe("**a&copy;b** [c&copy;d](x)\n");
   });
 });

@@ -7,6 +7,13 @@ import {
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { MarkdownNode, Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
+import {
+  CHARACTER_REFERENCE_MARK_NAME,
+  CHARACTER_REFERENCE_MARKDOWN_TYPE,
+  CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME,
+  decodeWholeCharacterReference,
+  getPreservedCharacterReferenceSource,
+} from "./characterReferenceMarkdown";
 import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import {
   getFootnoteAugmentedParagraph,
@@ -40,6 +47,10 @@ interface MarkedFragmentSourceSegmentBase {
   sourceTo: number;
 }
 
+interface MarkedFragmentCharacterReferenceSourceSegment extends MarkedFragmentSourceSegmentBase {
+  type: "characterReference";
+}
+
 interface MarkedFragmentReferenceSourceSegment extends MarkedFragmentSourceSegmentBase {
   labelFrom: number;
   labelTo: number;
@@ -57,6 +68,7 @@ interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBas
 }
 
 export type MarkedFragmentSourceSegment =
+  | MarkedFragmentCharacterReferenceSourceSegment
   | MarkedFragmentLinkSourceSegment
   | MarkedFragmentReferenceSourceSegment
   | MarkedFragmentTextSourceSegment;
@@ -283,7 +295,11 @@ const getValidatedMarkdownChildren = (
 };
 
 const isSupportedMarkedFragmentChild = (node: MarkdownNode): boolean => {
-  if (node.type === "text" || node.type === "footnoteReference") {
+  if (
+    node.type === "text" ||
+    node.type === "footnoteReference" ||
+    node.type === CHARACTER_REFERENCE_MARKDOWN_TYPE
+  ) {
     return true;
   }
 
@@ -318,6 +334,7 @@ export const serializeMarkedFragmentSource = (
     const runNodes = nodes.slice(index, runEnd);
     const documentSize = runNodes.reduce((size, runNode) => size + runNode.nodeSize, 0);
     const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
+    const referenceSource = linkMark ? null : getPreservedCharacterReferenceSource(node);
     const nodeSource = linkMark
       ? serializeLinkRunSource(
           state,
@@ -326,11 +343,12 @@ export const serializeMarkedFragmentSource = (
             runNode.mark(runNode.marks.filter((mark) => !wrappingMarkNames.has(mark.type.name))),
           ),
         )
-      : node.isText
-        ? (node.text ?? "")
-        : isBreak
-          ? "\n"
-          : serializeFootnoteReference(state, serializer, node);
+      : (referenceSource ??
+        (node.isText
+          ? (node.text ?? "")
+          : isBreak
+            ? "\n"
+            : serializeFootnoteReference(state, serializer, node)));
     const sourceTo = sourceOffset + nodeSource.length;
 
     if (linkMark) {
@@ -344,6 +362,15 @@ export const serializeMarkedFragmentSource = (
         sourceFrom: sourceOffset,
         sourceTo,
         type: "link",
+      });
+    } else if (referenceSource) {
+      hasInlineObjects = true;
+      innerSegments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + documentSize,
+        sourceFrom: sourceOffset,
+        sourceTo,
+        type: "characterReference",
       });
     } else if (node.isText || isBreak) {
       innerSegments.push({
@@ -454,6 +481,21 @@ export const createMarkedFragmentSourceStructure = (
         type: "link",
       });
       documentOffset += map.documentSize;
+    } else if (child.type === CHARACTER_REFERENCE_MARKDOWN_TYPE) {
+      const text = decodeWholeCharacterReference(source.slice(position.from, position.to));
+
+      if (text === null) {
+        return createMarkedLiteralStructure(source, parsed.marks);
+      }
+
+      segments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + text.length,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "characterReference",
+      });
+      documentOffset += text.length;
     } else if (child.type === "footnoteReference") {
       const referenceSource = source.slice(position.from, position.to);
       const reference = parseFootnoteReferenceSource(parser, referenceSource);
@@ -530,6 +572,23 @@ export const parseMarkedFragmentSource = (
       return linkNodes ?? [];
     }
 
+    if (segment.type === "characterReference") {
+      const text = decodeWholeCharacterReference(segmentSource);
+
+      isValid &&= text !== null;
+
+      return text
+        ? [
+            state.schema.text(
+              text,
+              state.schema.marks[CHARACTER_REFERENCE_MARK_NAME]
+                .create({ [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: segmentSource })
+                .addToSet(documentMarks),
+            ),
+          ]
+        : [];
+    }
+
     const reference = parseFootnoteReferenceSource(parser, segmentSource);
 
     return reference ? [reference.mark(documentMarks)] : [];
@@ -575,7 +634,7 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
         : segment.sourceTo;
   }
 
-  if (segment.type === "footnoteReference") {
+  if (segment.type === "characterReference" || segment.type === "footnoteReference") {
     return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
   }
 
@@ -609,6 +668,12 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
       : offset - segment.sourceFrom < segment.sourceTo - offset
         ? segment.documentFrom
         : segment.documentTo;
+  }
+
+  if (segment.type === "characterReference") {
+    return offset - segment.sourceFrom < segment.sourceTo - offset
+      ? segment.documentFrom
+      : segment.documentTo;
   }
 
   if (segment.type === "footnoteReference") {

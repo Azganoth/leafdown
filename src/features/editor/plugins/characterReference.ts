@@ -27,12 +27,16 @@ const markCharacterReferences = (node: MarkdownNode, source: string) => {
   let split = false;
 
   for (const child of children) {
-    const start = child.position?.start.offset;
+    const start = child.position?.start;
     const end = child.position?.end.offset;
 
-    if (start !== undefined && end !== undefined) {
+    if (start?.offset !== undefined && end !== undefined) {
       if (child.type === "text" && typeof child.value === "string") {
-        const parts = splitCharacterReferences(child.value, source.slice(start, end));
+        const parts = splitCharacterReferences(child.value, source.slice(start.offset, end), {
+          column: start.column,
+          line: start.line,
+          offset: start.offset,
+        });
 
         if (parts) {
           next.push(...parts);
@@ -43,7 +47,7 @@ const markCharacterReferences = (node: MarkdownNode, source: string) => {
         (child.type === "link" || child.type === "image") &&
         typeof child.url === "string"
       ) {
-        const authored = findAuthoredDestination(source.slice(start, end), child.url);
+        const authored = findAuthoredDestination(source.slice(start.offset, end), child.url);
 
         if (authored !== null) {
           (child as { authoredUrl?: string }).authoredUrl = authored;

@@ -389,7 +389,10 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
       return;
     }
 
-    const text = node.isText ? (node.text ?? "") : "";
+    // A preserved reference writes its own source, so the run reaches the delimiters as `&` or
+    // `;` however the character it names is classified.
+    const text =
+      node.isText && getPreservedCharacterReferenceSource(node) === null ? (node.text ?? "") : "";
     const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
     const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
     const previousSegment = segments.at(-1);

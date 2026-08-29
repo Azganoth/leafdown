@@ -243,6 +243,23 @@ describe("character reference source projection under an owner", () => {
     },
   );
 
+  it.each([
+    { adapter: "mark", caret: 1, label: "opens the fragment", source: "**&nbsp;a**" },
+    { adapter: "mark", caret: 2, label: "closes the fragment", source: "**a&nbsp;**" },
+    { adapter: "mark", caret: 1, label: "is the whole fragment", source: "**&nbsp;**" },
+    { adapter: "link", caret: 1, label: "opens a link label", source: "[&nbsp;a](x)" },
+  ])(
+    "projects the complete source where a reference naming whitespace $label",
+    async ({ adapter, caret, source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      setTextSelection(mounted.view, caret);
+
+      expect(getProjectionAdapterId(mounted)).toBe(adapter);
+      expect(getEditorTextContent(mounted)).toBe(source);
+    },
+  );
+
   it("restores the owner unchanged when nothing is edited", async () => {
     const mounted = await mountProjectionEditor("**a&copy;b** [c&copy;d](x)");
 

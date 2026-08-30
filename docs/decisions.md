@@ -252,6 +252,7 @@
 - Actions are pinned by major tag rather than commit SHA.
 - A full `tauri build` stays off the pull request path, and manifest version consistency is a release checklist line rather than a script.
 - The pre-commit hook formats but does not apply lint fixes, so a commit cannot differ from the diff its author read.
+- The pre-push hook runs the whole-program type check and lint, which reach the class the staged pre-commit pass cannot see: an edit that breaks a file it did not stage. Rust checks stay off it, because clippy costs minutes on a cold cache.
 - Rust import grouping is a convention rather than a check. The rustfmt options that would enforce it are nightly-only, and stable rustfmt warns, ignores them, and exits 0, so configuring them without a second toolchain would leave a passing check that enforces nothing.
 - Behavior that needs a real `AppHandle` is verified at runtime rather than against `tauri::test::mock_app`. The mock runtime cannot load on Windows without an application manifest cargo does not give test binaries, and it never dispatches custom protocols, so the asset protocol boundary stays unreachable either way; [issue #116](https://github.com/Azganoth/leafdown/issues/116) records the setup should a second such command make it worth revisiting.
 

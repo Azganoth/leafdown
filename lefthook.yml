@@ -17,3 +17,11 @@ pre-commit:
       glob: "src-tauri/**/*.rs"
       run: cargo fmt --manifest-path src-tauri/Cargo.toml
       stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: typecheck
+      run: pnpm lint:tsc
+
+    - name: lint
+      run: pnpm lint:oxlint

@@ -377,4 +377,62 @@ describe("Markdown images", () => {
       expect(mounted.getMarkdown()).toBe("![Alpt](./assets/icon.png)\n");
     });
   });
+
+  describe("reference images", () => {
+    const DEFINITION = '[leaf]: ./assets/icon.png "Leaf"';
+
+    const mountReferenceImage = async (reference: string) => {
+      mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+        kind: "renderable",
+        path: "C:\\Notes\\assets\\icon.png",
+      }));
+
+      const mounted = await mountImageEditor(`${DEFINITION}\n\n${reference}\n`);
+
+      await waitFor(() => {
+        expect(within(mounted.view.dom).getByRole("img")).toBeInTheDocument();
+      });
+
+      dispatchMouseDown(within(mounted.view.dom).getByRole("img"));
+
+      return mounted;
+    };
+
+    // The input reads the form the file holds, so editing an image no longer trades its
+    // definition for a copy of the destination.
+    it.each(["![Reference leaf][leaf]", "![leaf][]", "![leaf]"])(
+      "shows %s as the source it was authored with",
+      async (reference) => {
+        const mounted = await mountReferenceImage(reference);
+
+        expect(
+          within(mounted.view.dom).getByRole("textbox", { name: "Image Markdown" }),
+        ).toHaveValue(reference);
+      },
+    );
+
+    it("keeps the reference when the alt text is edited", async () => {
+      const mounted = await mountReferenceImage("![Reference leaf][leaf]");
+
+      dispatchInput(
+        within(mounted.view.dom).getByRole("textbox", { name: "Image Markdown" }),
+        "![Renamed leaf][leaf]",
+      );
+
+      expect(mounted.getMarkdown()).toBe(`${DEFINITION}\n\n![Renamed leaf][leaf]\n`);
+    });
+
+    it("turns a reference into the inline image its source spells", async () => {
+      const mounted = await mountReferenceImage("![Reference leaf][leaf]");
+
+      dispatchInput(
+        within(mounted.view.dom).getByRole("textbox", { name: "Image Markdown" }),
+        "![Reference leaf](./assets/other.png)",
+      );
+
+      expect(mounted.getMarkdown()).toBe(
+        `${DEFINITION}\n\n![Reference leaf](./assets/other.png)\n`,
+      );
+    });
+  });
 });

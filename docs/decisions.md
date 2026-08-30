@@ -187,6 +187,21 @@
 - Neither autolink form has a literal state, so neither has an escape to project.
 - The projected source is the serializer's own output for the run, so the gesture stays honest without a second placement rule to keep in step with it.
 
+### Carry a reference link rather than resolve it away
+
+**Decision:** A reference link, a reference image, and their definitions are document content. The Milkdown preset's remark plugin that inlines every reference and deletes the definitions is removed, and the schema gains the nodes to hold what it used to discard: the form each reference was written in and the label it named travel on the link mark and the image node, and a definition is an atomic block that renders the permanent source it will be written with. A reference projects that source, and a reference written as text in the current session stays text until the file is read back. Decided in [issue #260](https://github.com/Azganoth/leafdown/issues/260).
+
+**Rationale:** A document that names one destination once and points four references at it came back with four copies of the destination and no definition. The destination survived, so nothing was unreachable, but the file grew a copy per reference and lost the one place an author had to edit to move them all. No serializer override reaches this: the references and the definitions are gone before the editor's document exists, so the fix is where they are discarded. A definition is a leaf that holds no content an author types into, so the choice was between a block that renders its permanent source and a block whose source is edited in place. References resolve when the file is read, so an editable definition would leave every reference pointing at a destination the file no longer names until the document was reopened, which is a worse failure than needing to delete a line and write a new one.
+
+**Consequences:**
+
+- The reference forms round-trip byte-identically, including a definition's title marker, which is the form [issue #261](https://github.com/Azganoth/leafdown/issues/261) settled for a link and an image and could not settle for a definition while no definition survived.
+- A reference whose label matches no definition is not a reference. It is the literal text it spells, which is what it already was and what a Markdown reader shows.
+- Each reference keeps the casing and spacing its label was written with, because `mdast-util-to-markdown` writes the authored label in preference to the normalized identifier. Label matching is unchanged: references still resolve against one definition however they are cased and spaced.
+- Projected source is parsed on its own, so the definitions the document holds are appended to it, on the technique the footnote reference adapter already uses for the definitions it fabricates. They cannot be fabricated here: whether a bracket run is a link is exactly what a definition decides, so inventing one would turn literal text into a link.
+- The literal-commit path is deliberately given no definitions, so text typed this session that spells a reference stays literal. A definition an author has not looked at should not capture a bracket run they were still writing, and the file keeps that run literal either way.
+- A definition's destination form and the blank lines between adjacent definitions are not preserved. Both are classes [issue #251](https://github.com/Azganoth/leafdown/issues/251) tracks for blocks generally, and a definition is now subject to them for the first time because it now survives to be written at all.
+
 ## Technical Decisions
 
 ### Use Tauri

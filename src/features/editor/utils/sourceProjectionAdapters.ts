@@ -11,6 +11,7 @@ import {
   hasCharacterReferenceMark,
 } from "./characterReferenceMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
+import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 import { isAtomicLinkSegment } from "./sourceProjectionLinkSyntax";
 import {
@@ -56,6 +57,7 @@ export interface SourceProjectionTarget extends TextRange {
 
 interface MarkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "mark";
+  definitions: readonly string[];
   hasSourceOnlyContent: boolean;
   marks: ProjectionMarkDescriptor[];
   originalText: string;
@@ -268,16 +270,19 @@ const createMarkSourceProjectionTarget = (
   remark: RemarkParser,
 ): MarkSourceProjectionTarget => {
   const originalContent = state.doc.slice(range.from, range.to);
+  const definitions = getDocumentDefinitionSources(state.doc);
   const serialized = serializeMarkedFragmentSource(
     state,
     serializer,
     remark,
     originalContent.content,
     range.marks,
+    definitions,
   );
 
   return {
     adapterId: "mark",
+    definitions,
     from: range.from,
     hasSourceOnlyContent: serialized.hasSourceOnlyContent,
     marks: range.marks,
@@ -297,6 +302,9 @@ const createMarkSourceProjectionTargetFromSource = (
   parsed: Extract<ParsedProjectionSource, { type: "mark" }>,
 ): MarkSourceProjectionTarget => ({
   adapterId: "mark",
+  // The source is text written this session, where a reference is the literal text it spells
+  // until the file is read back.
+  definitions: [],
   from,
   hasSourceOnlyContent: false,
   marks: parsed.marks,
@@ -958,7 +966,12 @@ export const createMarkSourceProjectionAdapter = ({
         return true;
       }
 
-      const structure = createMarkedFragmentSourceStructure(parsed.source, parser, remark);
+      const structure = createMarkedFragmentSourceStructure(
+        parsed.source,
+        parser,
+        remark,
+        markTarget.definitions,
+      );
 
       if (!structure) {
         return true;
@@ -999,7 +1012,12 @@ export const createMarkSourceProjectionAdapter = ({
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
     getPresentation: (markTarget, source) => {
       if (markTarget.hasSourceOnlyContent) {
-        const structure = createMarkedFragmentSourceStructure(source, parser, remark);
+        const structure = createMarkedFragmentSourceStructure(
+          source,
+          parser,
+          remark,
+          markTarget.definitions,
+        );
 
         if (structure) {
           return getMarkedFragmentPresentation(source, structure.marks, structure.map);
@@ -1039,7 +1057,12 @@ export const createMarkSourceProjectionAdapter = ({
     },
     mapSelectionFromSource: (selection, session, result) => {
       if (session.target.hasSourceOnlyContent) {
-        const structure = createMarkedFragmentSourceStructure(result.source, parser, remark);
+        const structure = createMarkedFragmentSourceStructure(
+          result.source,
+          parser,
+          remark,
+          session.target.definitions,
+        );
 
         if (structure) {
           return {
@@ -1120,7 +1143,13 @@ export const createMarkSourceProjectionAdapter = ({
     },
     parseSource: (state, source, markTarget) => {
       if (markTarget.hasSourceOnlyContent) {
-        const richFragment = parseMarkedFragmentSource(state, source, parser, remark);
+        const richFragment = parseMarkedFragmentSource(
+          state,
+          source,
+          parser,
+          remark,
+          markTarget.definitions,
+        );
 
         if (richFragment) {
           return {

@@ -48,17 +48,6 @@ export const withFootnoteDefinitions = (source: string) => {
   return definitions.size ? `${source}\n\n${[...definitions].join("\n\n")}` : source;
 };
 
-export const getFootnoteAugmentedParagraph = (document: ProseMirrorNode) => {
-  const paragraph = document.firstChild;
-  let isValid = paragraph?.type.name === PARAGRAPH_NODE_NAME;
-
-  document.forEach((node, _offset, index) => {
-    isValid &&= index === 0 || node.type.name === FOOTNOTE_DEFINITION_NODE_NAME;
-  });
-
-  return isValid ? paragraph : null;
-};
-
 export const serializeFootnoteReference = (
   state: EditorState,
   serializer: Serializer,

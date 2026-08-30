@@ -12,6 +12,7 @@ import { isSameNullablePath } from "@/lib/path";
 import {
   parseImageMarkdown,
   serializeImageMarkdown,
+  type ImageDefinitionResolver,
   type ImageMarkdownAttrs,
 } from "../utils/imageMarkdown";
 import {
@@ -23,7 +24,16 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "../utils/markdownReferences";
-import { readTitleMarker } from "../utils/markdownTitle";
+import { readTitleMarker, TITLE_MARKER_ATTRIBUTE_NAME } from "../utils/markdownTitle";
+import {
+  DEFINITION_NODE_NAME,
+  normalizeReferenceLabel,
+  readDefinitionAttrs,
+  readReferenceType,
+  REFERENCE_LABEL_ATTRIBUTE_NAME,
+  REFERENCE_TYPE_ATTRIBUTE_NAME,
+  type DefinitionAttrs,
+} from "../utils/referenceLinkMarkdown";
 
 type ImageResolutionState =
   | { status: "pending" }
@@ -150,10 +160,10 @@ class LeafdownImageNodeView implements NodeView {
     }
 
     const currentAttrs = this.getImageAttrs();
-    const nextAttrs = {
+    const nextAttrs = toNodeAttrs({
       ...currentAttrs,
       ...attrs,
-    };
+    });
 
     if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
       this.allowOutsideFolder = false;
@@ -242,6 +252,7 @@ class LeafdownImageNodeView implements NodeView {
       this.rawMarkdownInputElement = createRawMarkdownInput(
         attrs,
         this.updateImageAttrs,
+        createImageDefinitionResolver(this.view),
         this.rawMarkdownDraft,
         (value) => {
           this.rawMarkdownDraft = value;
@@ -270,12 +281,46 @@ class LeafdownImageNodeView implements NodeView {
   }
 }
 
+const readNodeString = (node: ProseMirrorNode, key: string) => {
+  const value = node.attrs[key];
+
+  return typeof value === "string" ? value : "";
+};
+
 const imageAttrsFromNode = (node: ProseMirrorNode): ImageMarkdownAttrs => ({
-  alt: String(node.attrs.alt ?? ""),
-  src: String(node.attrs.src ?? ""),
-  title: String(node.attrs.title ?? ""),
+  alt: readNodeString(node, "alt"),
+  referenceLabel: readNodeString(node, REFERENCE_LABEL_ATTRIBUTE_NAME),
+  referenceType: readReferenceType(node.attrs),
+  src: readNodeString(node, "src"),
+  title: readNodeString(node, "title"),
   titleMarker: readTitleMarker(node.attrs),
 });
+
+// The input reads and writes the form the file holds, so a reference resolves against the same
+// definitions the document was built from rather than against the destination it happens to carry.
+const createImageDefinitionResolver =
+  (view: EditorView): ImageDefinitionResolver =>
+  (label) => {
+    const definitions: DefinitionAttrs[] = [];
+
+    view.state.doc.descendants((node) => {
+      if (node.type.name !== DEFINITION_NODE_NAME) {
+        return node.isBlock;
+      }
+
+      definitions.push(readDefinitionAttrs(node.attrs));
+
+      return false;
+    });
+
+    const definition = definitions.find(
+      (candidate) => normalizeReferenceLabel(candidate.label) === label,
+    );
+
+    return definition
+      ? { src: definition.url, title: definition.title, titleMarker: definition.titleMarker }
+      : null;
+  };
 
 const isSameImageResolutionInput = (
   currentInput: ImageResolutionInput,
@@ -285,6 +330,22 @@ const isSameImageResolutionInput = (
   currentInput.allowOutsideFolder === nextInput.allowOutsideFolder &&
   isSameNullablePath(currentInput.folderContextPath, nextInput.folderContextPath) &&
   currentInput.target === nextInput.target;
+
+const toNodeAttrs = ({
+  alt,
+  referenceLabel,
+  referenceType,
+  src,
+  title,
+  titleMarker,
+}: ImageMarkdownAttrs) => ({
+  alt,
+  src,
+  title,
+  [TITLE_MARKER_ATTRIBUTE_NAME]: titleMarker,
+  [REFERENCE_LABEL_ATTRIBUTE_NAME]: referenceLabel,
+  [REFERENCE_TYPE_ATTRIBUTE_NAME]: referenceType,
+});
 
 const createImageElement = (attrs: ImageMarkdownAttrs, assetUrl: string) => {
   const image = document.createElement("img");
@@ -303,6 +364,7 @@ const createImageElement = (attrs: ImageMarkdownAttrs, assetUrl: string) => {
 const createRawMarkdownInput = (
   attrs: ImageMarkdownAttrs,
   updateAttrs: (attrs: Partial<ImageMarkdownAttrs>) => void,
+  resolveDefinition: ImageDefinitionResolver,
   draft: string | null,
   updateDraft: (value: string) => void,
 ) => {
@@ -316,7 +378,7 @@ const createRawMarkdownInput = (
   input.addEventListener("input", () => {
     updateDraft(input.value);
 
-    const parsed = parseImageMarkdown(input.value);
+    const parsed = parseImageMarkdown(input.value, resolveDefinition);
 
     if (parsed) {
       updateAttrs(parsed);

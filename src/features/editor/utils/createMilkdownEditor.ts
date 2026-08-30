@@ -25,6 +25,7 @@ import {
   linkSchema,
   orderedListKeymap,
   paragraphKeymap,
+  remarkInlineLinkPlugin,
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
@@ -67,6 +68,10 @@ import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLin
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
 import {
+  createLeafdownReferenceLinkPlugin,
+  leafdownDefinitionSchema,
+} from "../plugins/referenceLink";
+import {
   createLeafdownSourceProjectionPlugin,
   finalizeSourceProjection,
   hasTransientSourceProjection,
@@ -93,7 +98,11 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
-import { serializeMarkdownImage, serializeMarkdownLink } from "./markdownDestination";
+import {
+  serializeMarkdownDefinition,
+  serializeMarkdownImage,
+  serializeMarkdownLink,
+} from "./markdownDestination";
 import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
@@ -104,6 +113,7 @@ import {
   RAW_HTML_MARKDOWN_TYPE,
   serializeRawHtml,
 } from "./rawHtmlMarkdown";
+import { withImageReferenceForm, withLinkReferenceForm } from "./referenceLinkMarkdown";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -214,6 +224,7 @@ export const createMilkdownEditor = async ({
 
   const configuredEditor = editor
     .use(createLeafdownCharacterReferencePlugin())
+    .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownTableShapePlugin())
@@ -222,6 +233,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
     .use(leafdownCharacterReferenceSchema)
+    .use(leafdownDefinitionSchema)
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
@@ -269,6 +281,7 @@ export const createMilkdownEditor = async ({
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
+          definition: serializeMarkdownDefinition,
           image: serializeMarkdownImage,
           link: serializeMarkdownLink,
           root: serializeMarkdownRoot,
@@ -303,14 +316,15 @@ export const createMilkdownEditor = async ({
       });
       ctx.update(
         imageSchema.key,
-        (getSchema) => (schemaCtx) => withAuthoredDestination(getSchema(schemaCtx)),
+        (getSchema) => (schemaCtx) =>
+          withImageReferenceForm(withAuthoredDestination(getSchema(schemaCtx))),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),
         linebreakReplacement: true,
       }));
       ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({
-        ...withBareAutolinkForm(getSchema(schemaCtx)),
+        ...withLinkReferenceForm(withBareAutolinkForm(getSchema(schemaCtx))),
         priority: LINK_MARK_PRIORITY,
       }));
       // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the
@@ -398,6 +412,10 @@ export const createMilkdownEditor = async ({
   // `<br>` it finds, authored ones included. Leafdown represents a blank paragraph with blank
   // lines instead, so raw HTML stays document content.
   await configuredEditor.remove(remarkPreserveEmptyLinePlugin);
+
+  // The preset resolves every reference into an inline link and deletes the definitions before the
+  // parser sees them, which leaves the document with no way to carry either back to the file.
+  await configuredEditor.remove(remarkInlineLinkPlugin);
 
   await configuredEditor.remove(strikethroughInputRule);
 

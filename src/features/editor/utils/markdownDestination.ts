@@ -132,6 +132,25 @@ export const serializeMarkdownLink: NonNullable<RemarkStringifyHandlers["link"]>
   { peek: defaultHandlers.link.peek },
 );
 
+// A definition writes its destination outside any tail, so nothing in it needs a parenthesis
+// escaped, and its title ends the line rather than sitting before a `)`.
+export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["definition"]> = (
+  ...[node, parent, state, info]: Parameters<typeof defaultHandlers.definition>
+) => {
+  const restore = scopeDestination(state, node.url, false);
+
+  try {
+    return withAuthoredTitle(
+      node,
+      state.options,
+      () => defaultHandlers.definition(node, parent, state, info),
+      "",
+    );
+  } finally {
+    restore();
+  }
+};
+
 export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"]> = Object.assign(
   (...[node, parent, state, info]: Parameters<typeof defaultHandlers.image>) => {
     const { authored, node: destination } = withAuthoredUrl(node);

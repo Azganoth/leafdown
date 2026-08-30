@@ -15,13 +15,12 @@ import {
   getPreservedCharacterReferenceSource,
 } from "./characterReferenceMarkdown";
 import { serializeLinkRunSource } from "./logicalLinkMarkdown";
+import { getAugmentedParagraph, withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import {
-  getFootnoteAugmentedParagraph,
   getFootnoteReferenceSourceBounds,
   mapFootnoteReferenceSourceOffsetToDocument,
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
-  withFootnoteDefinitions,
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createLinkSourceMap,
@@ -153,16 +152,17 @@ const parseLinkSourceNodes = (
   source: string,
   marks: readonly Mark[],
   documentSize: number,
+  definitions: readonly string[],
 ) => {
   let document: ProseMirrorNode;
 
   try {
-    document = parser(withFootnoteDefinitions(source));
+    document = parser(withProjectionDefinitions(source, definitions));
   } catch {
     return null;
   }
 
-  const paragraph = getFootnoteAugmentedParagraph(document);
+  const paragraph = getAugmentedParagraph(document);
 
   if (paragraph?.type !== state.schema.nodes.paragraph || paragraph.content.size !== documentSize) {
     return null;
@@ -291,8 +291,9 @@ const getValidatedMarkdownChildren = (
   source: string,
   remark: RemarkParser,
   marks: readonly ProjectionMarkDescriptor[],
+  definitions: readonly string[],
 ): MarkdownValidationResult => {
-  const validationSource = withFootnoteDefinitions(source);
+  const validationSource = withProjectionDefinitions(source, definitions);
   let root: MarkdownNode;
 
   try {
@@ -392,6 +393,7 @@ export const serializeMarkedFragmentSource = (
   remark: RemarkParser,
   content: Fragment,
   marks: ProjectionMarkDescriptor[],
+  definitions: readonly string[],
 ): SerializedMarkedFragmentSource => {
   const nodes: ProseMirrorNode[] = [];
 
@@ -460,7 +462,7 @@ export const serializeMarkedFragmentSource = (
     }
 
     if (linkMark) {
-      const map = createLinkSourceMap(remark, nodeSource);
+      const map = createLinkSourceMap(remark, nodeSource, definitions);
 
       innerSegments.push({
         documentFrom: documentOffset,
@@ -548,6 +550,7 @@ export const createMarkedFragmentSourceStructure = (
   source: string,
   parser: Parser,
   remark: RemarkParser,
+  definitions: readonly string[] = [],
 ): MarkedFragmentSourceStructure | null => {
   const parsed = parseProjectionSource(source);
 
@@ -555,7 +558,7 @@ export const createMarkedFragmentSourceStructure = (
     return null;
   }
 
-  const validation = getValidatedMarkdownChildren(source, remark, parsed.marks);
+  const validation = getValidatedMarkdownChildren(source, remark, parsed.marks, definitions);
 
   if (validation.type === "invalidOuter") {
     return createUnmarkedLiteralStructure(source);
@@ -588,7 +591,11 @@ export const createMarkedFragmentSourceStructure = (
     );
 
     if (child.type === "link") {
-      const map = createLinkSourceMap(remark, source.slice(position.from, position.to));
+      const map = createLinkSourceMap(
+        remark,
+        source.slice(position.from, position.to),
+        definitions,
+      );
 
       if (!map) {
         return createMarkedLiteralStructure(source, parsed.marks);
@@ -678,8 +685,9 @@ export const parseMarkedFragmentSource = (
   source: string,
   parser: Parser,
   remark: RemarkParser,
+  definitions: readonly string[],
 ): ParsedMarkedFragmentSource | null => {
-  const structure = createMarkedFragmentSourceStructure(source, parser, remark);
+  const structure = createMarkedFragmentSourceStructure(source, parser, remark, definitions);
 
   if (!structure) {
     return null;
@@ -703,6 +711,7 @@ export const parseMarkedFragmentSource = (
         segmentSource,
         documentMarks,
         segment.documentTo - segment.documentFrom,
+        definitions,
       );
 
       isValid &&= linkNodes !== null;

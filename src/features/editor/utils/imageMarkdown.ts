@@ -1,19 +1,47 @@
-import { chooseTitleMarker, type TitleMarker } from "./markdownTitle";
+import { chooseTitleMarker, TITLE_MARKER_PAIRS, type TitleMarker } from "./markdownTitle";
+import { normalizeReferenceLabel, type ReferenceType } from "./referenceLinkMarkdown";
 
 export interface ImageMarkdownAttrs {
   alt: string;
+  referenceLabel: string;
+  referenceType: ReferenceType | null;
   src: string;
   title: string;
   titleMarker: TitleMarker;
 }
 
-const TITLE_MARKER_PAIRS: Record<TitleMarker, readonly [string, string]> = {
-  '"': ['"', '"'],
-  "'": ["'", "'"],
-  "(": ["(", ")"],
+export interface ImageDefinition {
+  src: string;
+  title: string;
+  titleMarker: TitleMarker;
+}
+
+export type ImageDefinitionResolver = (label: string) => ImageDefinition | null;
+
+// The reference forms collapse to the full one where the alt text no longer spells the label, which
+// is the rule the serializer applies to the node itself.
+const serializeImageReference = (alt: string, label: string, referenceType: ReferenceType) => {
+  const serializedAlt = escapeImageAlt(alt);
+
+  if (referenceType === "full" || alt !== label) {
+    return `![${serializedAlt}][${label}]`;
+  }
+
+  return referenceType === "shortcut" ? `![${serializedAlt}]` : `![${serializedAlt}][]`;
 };
 
-export const serializeImageMarkdown = ({ alt, src, title, titleMarker }: ImageMarkdownAttrs) => {
+export const serializeImageMarkdown = ({
+  alt,
+  referenceLabel,
+  referenceType,
+  src,
+  title,
+  titleMarker,
+}: ImageMarkdownAttrs) => {
+  if (referenceType) {
+    return serializeImageReference(alt, referenceLabel, referenceType);
+  }
+
   const serializedAlt = escapeImageAlt(alt);
   const serializedSrc = serializeImageSource(src);
 
@@ -28,7 +56,10 @@ export const serializeImageMarkdown = ({ alt, src, title, titleMarker }: ImageMa
   return `![${serializedAlt}](${serializedSrc} ${opening}${serializedTitle}${closing})`;
 };
 
-export const parseImageMarkdown = (value: string): ImageMarkdownAttrs | null => {
+export const parseImageMarkdown = (
+  value: string,
+  resolveDefinition: ImageDefinitionResolver = () => null,
+): ImageMarkdownAttrs | null => {
   const source = value.trim();
 
   if (!source.startsWith("![")) {
@@ -37,17 +68,68 @@ export const parseImageMarkdown = (value: string): ImageMarkdownAttrs | null => 
 
   const altEnd = findClosingBracket(source, 2);
 
-  if (altEnd === -1 || source[altEnd + 1] !== "(" || !source.endsWith(")")) {
+  if (altEnd === -1) {
     return null;
   }
 
-  return {
-    alt: unescapeMarkdownText(source.slice(2, altEnd)),
-    ...parseImageBody(source.slice(altEnd + 2, -1)),
-  };
+  const alt = unescapeMarkdownText(source.slice(2, altEnd));
+  const tail = source.slice(altEnd + 1);
+
+  if (tail.startsWith("(") && source.endsWith(")")) {
+    return {
+      alt,
+      referenceLabel: "",
+      referenceType: null,
+      ...parseImageBody(source.slice(altEnd + 2, -1)),
+    };
+  }
+
+  return parseImageReference(alt, tail, resolveDefinition);
 };
 
-const parseImageBody = (body: string): Omit<ImageMarkdownAttrs, "alt"> => {
+// A reference names a destination its definition holds, so a label that resolves to nothing is not
+// an image and leaves the node as it was.
+const parseImageReference = (
+  alt: string,
+  tail: string,
+  resolveDefinition: ImageDefinitionResolver,
+): ImageMarkdownAttrs | null => {
+  const reference = readImageReferenceTail(alt, tail);
+  const definition = reference && resolveDefinition(normalizeReferenceLabel(reference.label));
+
+  return definition
+    ? {
+        alt,
+        referenceLabel: reference.label,
+        referenceType: reference.referenceType,
+        ...definition,
+      }
+    : null;
+};
+
+// The tail is whatever follows the label's closing bracket: nothing for a shortcut reference, an
+// empty pair for a collapsed one, and the label itself for a full one.
+const readImageReferenceTail = (alt: string, tail: string) => {
+  if (tail === "") {
+    return { label: alt, referenceType: "shortcut" } as const;
+  }
+
+  if (tail === "[]") {
+    return { label: alt, referenceType: "collapsed" } as const;
+  }
+
+  if (!tail.startsWith("[") || !tail.endsWith("]")) {
+    return null;
+  }
+
+  const label = tail.slice(1, -1);
+
+  return label && !label.includes("]") ? ({ label, referenceType: "full" } as const) : null;
+};
+
+const parseImageBody = (
+  body: string,
+): Omit<ImageMarkdownAttrs, "alt" | "referenceLabel" | "referenceType"> => {
   const trimmedBody = body.trim();
   const titleMatch = getTrailingTitle(trimmedBody);
 

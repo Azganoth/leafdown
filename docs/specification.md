@@ -128,7 +128,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Content that shows the syntax marker decoration when the caret is inside the block: Headings.
 - Content that remains structurally rendered without marker-driven editing controls or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks, Tables.
 - Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Autolinks, Raw HTML.
-- Content that shows the permanent syntax markers: Footnote definitions.
+- Content that shows the permanent syntax markers: Footnote definitions, link and image reference definitions.
 
 ### Blocks
 
@@ -142,6 +142,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface. A row holding more or fewer cells than the header is read as the columns the header declares, which is what a Markdown reader shows; cells beyond the header are dropped and missing cells are filled at the end of the row.
 - Code blocks render as styled monospace blocks with syntax highlighting when available. Focused code blocks edit code content directly. Language metadata controls are deferred.
 - Footnote definitions render as editable definition blocks with a persistent subtle definition marker.
+- Link and image reference definitions render as blocks showing the permanent definition source. They are selected, moved, and deleted as one block rather than typed into, because a reference resolves against the definitions the document was read with and would otherwise point at a destination the file no longer names.
 - Clicking the empty space below the document appends an empty paragraph and places the caret in it, unless the document already ends with one.
 
 ### Inline Content
@@ -157,6 +158,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - A link wrapped by one exact, contiguous supported mark combination belongs to that marked fragment. Entering from either side of the link projects one outer wrapper holding the link's complete source, such as `**bold [a b](./doc.md) tail**`, and a valid edit commits one mark around the link, its label, and its destination. A mark that stops at the link keeps its own projection, and logical links retain higher semantic ownership, so a caret inside the label still projects the link alone.
 - A footnote reference within one exact, contiguous supported mark combination belongs to that marked fragment. Entering through its text, either reference boundary, or the atomic reference projects one outer wrapper such as `**archive note[^archive]**`; the complete compatible mark set applies to both text and reference nodes. Logical links retain higher semantic ownership, while standalone or otherwise ineligible references use the reference-only adapter.
 - Standalone footnote references project their complete `[^label]` source as editable document text. A caret entering from the left starts at the beginning of the source, a caret entering from the right starts at the end, and selecting an atomic reference selects its label after projection. Valid edits in either projection rehydrate canonical Milkdown footnote-reference nodes, and an invalid edit to a standalone reference becomes the literal text its source spells, on the same escape rule as a link. If a marked wrapper remains valid, incomplete reference-like content remains exact text inside its outer marks; if the outer wrapper becomes invalid, the complete projected source becomes exact unmarked literal text. Editing a reference label does not create, rename, delete, or modify any footnote definition.
+- A reference link and a reference image project the reference source they were written as, such as `[Full reference][garden report]` or `![Reference leaf][leaf]`, rather than the destination their definition names, because a projection reads as the file will be written. The definitions the document holds travel with the projected source, so an edit that still names one of them commits a reference, an edit that spells an inline link or image commits that object instead, and any other edit becomes the literal text the source spells, on the same rule a link already follows. A reference written as text in the current editing session stays that text until the file is read back, so typing a reference form never claims a definition on its own. Editing a reference label does not create, rename, delete, or modify any definition.
 - A selection crossing plain text, another exact mark combination, another inline object, or a text-block boundary does not activate projection. When a selection crosses into or out of an active source projection, the projection finalizes and preserves the user's selection range and direction.
 - `Enter` and `Shift+Enter` internally finalize active projected source before continuing through the editor's normal line-break behavior in the same keypress. When formatted content moves with the caret, its new inline target immediately enters projection. `Escape` leaves projection active while the caret remains on its target.
 - Normal click places the caret in a link; `Mod+click` opens it.
@@ -250,7 +252,8 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.
 - Raw HTML is written back exactly as authored, including line-break tags.
-- A link or image title keeps the quotation marks or parentheses it was authored with. A parenthesized title whose text holds a parenthesis is written with quotation marks instead, because CommonMark reads such a title between matching parentheses.
+- A link or image title keeps the quotation marks or parentheses it was authored with. A parenthesized title whose text holds a parenthesis is written with quotation marks instead, because CommonMark reads such a title between matching parentheses. A reference definition writes its own title on the same rule.
+- A full, collapsed, or shortcut reference link or image is written back in the form it was authored in, with its definition, rather than as an inline copy of the destination the definition names. Each reference keeps the casing and spacing its label was written with, though references matching one definition still resolve together.
 - A blank paragraph between blocks survives save and reopen.
 - Save output trims trailing blank lines and writes at most one final line ending, controlled by `Insert final newline on save`. Trailing blank paragraphs go with them.
 

@@ -27,10 +27,11 @@ import {
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
 import {
-  FOOTNOTE_REFERENCE_NODE_NAME,
-  getFootnoteAugmentedParagraph,
-  withFootnoteDefinitions,
-} from "./sourceProjectionFootnoteReferenceSyntax";
+  getAugmentedParagraph,
+  getDocumentDefinitionSources,
+  withProjectionDefinitions,
+} from "./sourceProjectionDefinitions";
+import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createLinkSourceMap,
   findLinkSourceBounds,
@@ -66,6 +67,7 @@ const isSupportedLinkNode = (node: ProseMirrorNode) =>
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
   ambientMarks: readonly Mark[];
+  definitions: readonly string[];
   sourceMap: LinkSourceMap;
 }
 
@@ -208,7 +210,8 @@ const findLinkTarget = (
 
   const ambientMarks = getAmbientLinkMarks(state, nodes, linkMark, range.from, range.to);
   const originalSource = serializeLinkTarget(state, serializer, nodes, ambientMarks);
-  const sourceMap = createLinkSourceMap(remark, originalSource);
+  const definitions = getDocumentDefinitionSources(state.doc);
+  const sourceMap = createLinkSourceMap(remark, originalSource, definitions);
 
   if (!sourceMap || sourceMap.documentSize !== range.to - range.from) {
     return null;
@@ -217,6 +220,7 @@ const findLinkTarget = (
   return {
     adapterId: LINK_ADAPTER_ID,
     ambientMarks,
+    definitions,
     from: range.from,
     originalContent: state.doc.slice(range.from, range.to),
     originalContentSize: range.to - range.from,
@@ -246,8 +250,9 @@ const parseLinkSource = (
   parser: Parser,
   remark: RemarkParser,
   ambientMarks: readonly Mark[],
+  definitions: readonly string[],
 ): ParsedLinkSource | null => {
-  const map = createLinkSourceMap(remark, source);
+  const map = createLinkSourceMap(remark, source, definitions);
 
   if (!map) {
     return null;
@@ -256,12 +261,12 @@ const parseLinkSource = (
   let document: ProseMirrorNode;
 
   try {
-    document = parser(withFootnoteDefinitions(source));
+    document = parser(withProjectionDefinitions(source, definitions));
   } catch {
     return null;
   }
 
-  const paragraph = getFootnoteAugmentedParagraph(document);
+  const paragraph = getAugmentedParagraph(document);
 
   if (!paragraph?.isTextblock || paragraph.type !== state.schema.nodes.paragraph) {
     return null;
@@ -345,7 +350,9 @@ const findLiteralLinkSourceCommit = (
   }
 
   const source = text.slice(bounds.from, bounds.to);
-  const parsed = parseLinkSource(state, source, parser, remark, []);
+  // A reference typed into the document stays the literal text it spells until the file is read
+  // back, so the definitions the document holds are deliberately left out here.
+  const parsed = parseLinkSource(state, source, parser, remark, [], []);
 
   if (parsed) {
     return { ...commitRange, replacement: parsed.replacement };
@@ -697,13 +704,17 @@ export const createLinkSourceProjectionAdapter = ({
   // A partial soft break stays semantic, since the break and the characters it spans read the
   // same.
   canCopySelectionSemantically: (selection, session, parsed) =>
-    isLinkSelectionSemantic(selection, session, createLinkSourceMap(remark, parsed.source)),
+    isLinkSelectionSemantic(
+      selection,
+      session,
+      createLinkSourceMap(remark, parsed.source, session.target.definitions),
+    ),
   createEnterTransaction: createEnterLinkProjectionTransaction,
   findLiteralSourceCommit: (state, range) =>
     findLiteralLinkSourceCommit(state, range, parser, remark),
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (linkTarget, source) => {
-    const parsedMap = createLinkSourceMap(remark, source);
+    const parsedMap = createLinkSourceMap(remark, source, linkTarget.definitions);
     const map = getLinkPresentationMap(parsedMap ?? linkTarget.sourceMap, linkTarget.ambientMarks);
 
     return {
@@ -718,7 +729,7 @@ export const createLinkSourceProjectionAdapter = ({
     };
   },
   mapSelectionFromSource: (selection, session, result) => {
-    const map = createLinkSourceMap(remark, result.source);
+    const map = createLinkSourceMap(remark, result.source, session.target.definitions);
 
     return {
       anchor: mapSelectionPositionFromSource(selection.anchor, session, result, map),
@@ -735,8 +746,8 @@ export const createLinkSourceProjectionAdapter = ({
       head: mapSelectionPositionToSource(selection.head, linkTarget, headAssociation),
     };
   },
-  parseSource: (state, source, { ambientMarks }) => {
-    const parsed = parseLinkSource(state, source, parser, remark, ambientMarks);
+  parseSource: (state, source, { ambientMarks, definitions }) => {
+    const parsed = parseLinkSource(state, source, parser, remark, ambientMarks, definitions);
 
     if (parsed) {
       return {

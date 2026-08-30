@@ -1010,7 +1010,7 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   state,
   info,
 ) => {
-  const { labels, parents } = mapDocument(node as PhrasingNode);
+  const { labels, parents } = mapDocument(node);
 
   lineParents = parents;
   documentLabels = labels;

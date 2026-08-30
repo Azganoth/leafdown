@@ -132,7 +132,7 @@ const withPinnedIndexes = (indexes: number[], pinnedIndexes: number[]) => {
 
   return missingIndexes.length === 0
     ? indexes
-    : [...indexes, ...missingIndexes].sort((left, right) => left - right);
+    : [...indexes, ...missingIndexes].toSorted((left, right) => left - right);
 };
 
 function VirtualListContent({ className, style, ...props }: ComponentProps<"ul">) {

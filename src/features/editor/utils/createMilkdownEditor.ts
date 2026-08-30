@@ -398,8 +398,8 @@ export const createMilkdownEditor = async ({
       }));
 
       if (onMarkdownUpdated) {
-        ctx.get(listenerCtx).markdownUpdated((listenerCtx, markdown, previousMarkdown) => {
-          if (hasTransientSourceProjection(listenerCtx.get(editorViewCtx).state)) {
+        ctx.get(listenerCtx).markdownUpdated((updateCtx, markdown, previousMarkdown) => {
+          if (hasTransientSourceProjection(updateCtx.get(editorViewCtx).state)) {
             return;
           }
 

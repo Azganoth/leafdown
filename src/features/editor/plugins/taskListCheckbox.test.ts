@@ -21,7 +21,7 @@ const stubElementRect = (element: Element, left = TASK_LIST_ITEM_LEFT_PX) => {
     x: left,
     y: 0,
     toJSON: () => ({}),
-  } as DOMRect);
+  });
 };
 
 describe("task list checkbox plugin", () => {

@@ -16,7 +16,7 @@ interface ActiveDocumentEditorBridgeEntry {
 class DocumentEditorBridgeStore {
   private activeBridgeEntry: ActiveDocumentEditorBridgeEntry | null = null;
   private commandStateVersion = 0;
-  private readonly commandStateChanged = new SignalSource<void>();
+  private readonly commandStateChanged = new SignalSource();
 
   readonly onDidChangeCommandState = this.commandStateChanged.signal;
 

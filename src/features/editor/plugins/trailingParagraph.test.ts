@@ -35,7 +35,7 @@ const dispatchClickBelowDocument = (view: EditorView, clientY = LAST_BLOCK_BOTTO
     x: 0,
     y: 0,
     toJSON: () => ({}),
-  } as DOMRect);
+  });
 
   return dispatchMouseDown(view.dom, { button: 0, clientX: 20, clientY });
 };

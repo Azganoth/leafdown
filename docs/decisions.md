@@ -247,7 +247,7 @@
 
 **Consequences:**
 
-- Lint rules are named individually rather than enabled by category, and a rule is dropped when its reports do not hold. `eqeqeq` and `prefer-nullish-coalescing` argue with idioms that are correct here; `no-unnecessary-type-assertion` contradicts the type checker, and removing the assertions it flags fails the build.
+- The `correctness` and `suspicious` categories carry the lint rules. A rule whose reports hold is satisfied by changing the code, and a rule that is right about most of its reports keeps its place with the few it is wrong about suppressed where they sit; turning one off is reserved for a rule whose reports do not hold anywhere in the repository. `no-unsafe-type-assertion` reports the boundary narrowing the ProseMirror, Tauri, and persisted-state contracts are built on; `consistent-return` would be satisfied by a `default` clause, which is the thing that stops a new union member from failing the build; `react-in-jsx-scope` is obsolete under the JSX transform the build selects. Categories past those two stay off, which is what keeps `eqeqeq` and rules like it, which argue with idioms that are correct here, from arriving at all.
 - A green `cargo audit` is not evidence that dependencies are maintained. It gates on vulnerability advisories only, and the unmaintained and unsound warnings it also reports are largely GTK3 crates that never reach the Windows bundle.
 - Actions are pinned by major tag rather than commit SHA.
 - A full `tauri build` stays off the pull request path, and manifest version consistency is a release checklist line rather than a script.

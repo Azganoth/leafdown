@@ -52,10 +52,10 @@ const toTestActiveDocumentState = (
   activeDocument: TestActiveDocumentState | null | undefined,
 ): ActiveDocumentState | null =>
   activeDocument
-    ? ({
+    ? {
         isDirty: false,
         ...activeDocument,
-      } as ActiveDocumentState)
+      }
     : null;
 
 export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {

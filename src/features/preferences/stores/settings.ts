@@ -69,6 +69,8 @@ export const createDefaultSettingsState = (): SettingsState => ({
 export const getSystemDefaultLineEnding = (): LineEnding => (isWindowsPlatform() ? "crlf" : "lf");
 
 const MARKDOWN_FILE_EXTENSION_VALUES = MARKDOWN_FILE_EXTENSIONS.map(
+  // The template literal widens to `string`; the assertion is what keeps the union.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
   (extension) => `.${extension}` as MarkdownFileExtension,
 );
 

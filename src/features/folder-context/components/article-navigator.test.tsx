@@ -290,12 +290,12 @@ describe("article-navigator", () => {
   it("leaves focus outside the navigator when a rebuild removes a row", () => {
     useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
 
-    const renderTree = (folderContext: FolderContextState) => (
+    const renderTree = (treeFolderContext: FolderContextState) => (
       <>
         <button type="button">Editor</button>
         <ArticleNavigator
           activeArticlePath={null}
-          folderContext={folderContext}
+          folderContext={treeFolderContext}
           onOpenArticle={vi.fn()}
         />
       </>

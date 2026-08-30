@@ -148,7 +148,7 @@ describe("createPersistedTauriStore", () => {
       enabled: false,
       name: 7,
       version: 2,
-    } as never);
+    });
 
     useTestStore.setState(asTestStore(syncedState));
     const listener = vi.fn();

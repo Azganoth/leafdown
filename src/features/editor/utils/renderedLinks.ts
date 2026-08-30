@@ -33,7 +33,7 @@ const findLastTextNode = (node: Node): Text | null => {
     return node;
   }
 
-  for (const child of Array.from(node.childNodes).reverse()) {
+  for (const child of Array.from(node.childNodes).toReversed()) {
     const textNode = findLastTextNode(child);
 
     if (textNode) {

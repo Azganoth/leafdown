@@ -162,7 +162,10 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     .join(" ");
 
 const isInlineSoftBreak = (node: MarkdownNode) =>
-  node.type === "break" && (node.data as { isInline?: boolean } | undefined)?.isInline === true;
+  node.type === "break" &&
+  // mdast's `Data` does not declare `isInline`, so the assertion is what reaches it.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
+  (node.data as { isInline?: boolean } | undefined)?.isInline === true;
 
 export const isAtomicLinkSegment = (segment: LinkSourceSegment) =>
   segment.type === "image" || segment.type === "footnoteReference";

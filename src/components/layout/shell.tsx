@@ -19,6 +19,12 @@ import { notifyError } from "@/lib/toast";
 
 import { Titlebar } from "./titlebar";
 
+const handleOpenArticle = (path: string) => {
+  void openMarkdownFileAtPath(path).catch((error) => {
+    notifyError(getOpenMarkdownFileErrorMessage(error));
+  });
+};
+
 export function Shell() {
   useFolderContextWatcher();
 
@@ -28,12 +34,6 @@ export function Shell() {
   const folderContext = useSessionStore((state) => state.folderContext);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
-
-  const handleOpenArticle = (path: string) => {
-    void openMarkdownFileAtPath(path).catch((error) => {
-      notifyError(getOpenMarkdownFileErrorMessage(error));
-    });
-  };
 
   return (
     <>

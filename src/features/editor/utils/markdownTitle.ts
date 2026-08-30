@@ -139,8 +139,8 @@ interface TitleOptions {
 // into its options and rewriting the pair it wrote where that marker is a parenthesis. `trailing`
 // is what the handler writes after the title's closing marker: a link and an image close with `)`,
 // while a definition ends at the title.
-export const withAuthoredTitle = <T extends { title?: string | null }>(
-  node: T,
+export const withAuthoredTitle = (
+  node: { title?: string | null },
   options: TitleOptions,
   write: () => string,
   trailing = ")",

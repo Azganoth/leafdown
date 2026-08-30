@@ -188,11 +188,10 @@ export const useMilkdownEditorInstance = ({
           onClose: closeContextPopup,
           onRequest: requestContextPopup,
         },
-        getMarkdownReferenceContext: () => {
-          const { documentPath, folderContextPath } = liveOptionsRef.current;
-
-          return { documentPath, folderContextPath };
-        },
+        getMarkdownReferenceContext: () => ({
+          documentPath: liveOptionsRef.current.documentPath,
+          folderContextPath: liveOptionsRef.current.folderContextPath,
+        }),
         isAutoPairEnabled: () => liveOptionsRef.current.autoPairBracketsAndQuotes,
         onMarkdownUpdated: (update) => {
           if (isActiveEditorCallback()) {

@@ -509,7 +509,7 @@ const applyLinkProjectionTextEdits = (
   basePosition: number,
   edits: readonly LinkProjectionTextEdit[],
 ) => {
-  const descendingEdits = [...edits].sort(
+  const descendingEdits = edits.toSorted(
     (left, right) => right.from - left.from || right.to - left.to,
   );
 

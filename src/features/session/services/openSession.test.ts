@@ -208,9 +208,7 @@ describe("open session workflows", () => {
     });
     mockTauriApi({
       openMarkdownFile: (args) =>
-        (args as { path: string }).path === OTHER_MARKDOWN_PATH
-          ? supersededOpenFile.promise
-          : latestOpenFile.promise,
+        args.path === OTHER_MARKDOWN_PATH ? supersededOpenFile.promise : latestOpenFile.promise,
       scanMarkdownFolder: () => emptyNotesFolderContext,
     });
 

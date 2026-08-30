@@ -32,6 +32,8 @@ const renderDiagnosticsDialog = () =>
   render(<DiagnosticsDialog open onOpenChange={() => undefined} />);
 
 const diagnosticsSummaryInput = () =>
+  // Narrows to the element whose `value` the assertions below read.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
   screen.getByLabelText("Diagnostics summary") as HTMLTextAreaElement;
 
 describe("diagnostics-dialog", () => {

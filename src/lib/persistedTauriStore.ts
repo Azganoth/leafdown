@@ -39,7 +39,7 @@ const normalizeVersion = (version: unknown) =>
   Number.isInteger(version) && Number(version) >= 0 ? Number(version) : 0;
 
 const toPersistedObject = <State extends VersionedState>(state: unknown): Partial<State> =>
-  state && typeof state === "object" ? (state as Partial<State>) : {};
+  state && typeof state === "object" ? state : {};
 
 const runPersistedStateMigrations = <State extends VersionedState>(
   state: State,
@@ -47,9 +47,9 @@ const runPersistedStateMigrations = <State extends VersionedState>(
   targetVersion: number,
 ) => {
   let migrated = false;
-  const pendingMigrations = [...migrations]
+  const pendingMigrations = migrations
     .filter(({ version }) => state.version < version && version <= targetVersion)
-    .sort((first, second) => first.version - second.version);
+    .toSorted((first, second) => first.version - second.version);
 
   for (const migration of pendingMigrations) {
     migration.migrate(state);

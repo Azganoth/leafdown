@@ -12,51 +12,51 @@ import {
 } from "@/features/session";
 import { notifyError } from "@/lib/toast";
 
+const handleOpenFile = async () => {
+  try {
+    await pickAndOpenMarkdownFile();
+  } catch (error) {
+    notifyError(getOpenMarkdownFileErrorMessage(error));
+  }
+};
+
+const handleOpenFolder = async () => {
+  try {
+    await pickAndOpenFolderContext();
+  } catch (error) {
+    notifyError(getOpenFolderContextErrorMessage(error));
+  }
+};
+
+const handleOpenRecentFile = async (path: string) => {
+  try {
+    await openMarkdownFileAtPath(path);
+  } catch (error) {
+    notifyError(
+      getOpenMarkdownFileErrorMessage(error, {
+        title: "Could not open recent Markdown file.",
+      }),
+    );
+  }
+};
+
+const handleOpenRecentFolder = async (path: string) => {
+  try {
+    await openFolderContextAtPath(path);
+  } catch (error) {
+    notifyError(
+      getOpenFolderContextErrorMessage(error, {
+        title: "Could not open recent folder.",
+      }),
+    );
+  }
+};
+
 export function WelcomeScreen() {
   const recentFiles = useRecentItemsStore((state) => state.recentFiles);
   const recentFolders = useRecentItemsStore((state) => state.recentFolders);
   const clearRecentItems = useRecentItemsStore((state) => state.clearRecentItems);
   const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
-
-  const handleOpenFile = async () => {
-    try {
-      await pickAndOpenMarkdownFile();
-    } catch (error) {
-      notifyError(getOpenMarkdownFileErrorMessage(error));
-    }
-  };
-
-  const handleOpenFolder = async () => {
-    try {
-      await pickAndOpenFolderContext();
-    } catch (error) {
-      notifyError(getOpenFolderContextErrorMessage(error));
-    }
-  };
-
-  const handleOpenRecentFile = async (path: string) => {
-    try {
-      await openMarkdownFileAtPath(path);
-    } catch (error) {
-      notifyError(
-        getOpenMarkdownFileErrorMessage(error, {
-          title: "Could not open recent Markdown file.",
-        }),
-      );
-    }
-  };
-
-  const handleOpenRecentFolder = async (path: string) => {
-    try {
-      await openFolderContextAtPath(path);
-    } catch (error) {
-      notifyError(
-        getOpenFolderContextErrorMessage(error, {
-          title: "Could not open recent folder.",
-        }),
-      );
-    }
-  };
 
   return (
     <section

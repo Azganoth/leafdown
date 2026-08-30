@@ -13,6 +13,7 @@ import {
   createTauriWebviewMock,
   createTauriWindowMock,
 } from "../mocks/tauri";
+import { resetAppStores } from "../utils/appStores";
 import { resetTauriMocks } from "../utils/tauri";
 
 vi.mock("@tauri-store/zustand", () => createTauriStoreMock());
@@ -25,9 +26,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => createTauriDialogMock());
 vi.mock("@tauri-apps/plugin-log", () => createTauriLogMock());
 vi.mock("@tauri-apps/plugin-opener", () => createTauriOpenerMock());
 
-beforeEach(async () => {
-  const { resetAppStores } = await import("../utils/appStores");
-
+beforeEach(() => {
   vi.spyOn(toastManager, "add").mockReturnValue("test-toast");
 
   resetTauriMocks();

@@ -58,7 +58,7 @@ pnpm install
 rustup toolchain install
 ```
 
-> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and, through Lefthook, the Git hooks defined in [`lefthook.yml`](./lefthook.yml) for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components.
+> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies, the Node version the repository pins for running its scripts, and, through Lefthook, the Git hooks defined in [`lefthook.yml`](./lefthook.yml) for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components.
 
 Start the desktop application with:
 

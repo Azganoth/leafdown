@@ -25,7 +25,11 @@ export default defineConfig({
     "react/rules-of-hooks": "error",
     "no-var": "error",
     "prefer-const": "error",
-    "react/react-compiler": "error",
+
+    // The virtual list reads `useVirtualizer`, which returns functions the compiler
+    // cannot memoize, so it bails out of that component by design. Nothing in the
+    // report is actionable short of dropping the library.
+    "react/incompatible-library": "off",
 
     // Named individually because the categories holding them are dominated by style.
     "eslint/no-promise-executor-return": "error",

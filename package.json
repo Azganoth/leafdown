@@ -18,7 +18,7 @@
     "lint:frontend": "pnpm lint:tsc && pnpm lint:oxlint",
     "lint:backend": "cargo clippy --all-targets --manifest-path src-tauri/Cargo.toml -- -D warnings",
     "lint:tsc": "tsc -b",
-    "lint:oxlint": "oxlint --type-aware --deny-warnings",
+    "lint:oxlint": "oxlint --deny-warnings",
     "test": "pnpm test:frontend && pnpm test:backend",
     "test:frontend": "vitest run",
     "test:backend": "cargo test --manifest-path src-tauri/Cargo.toml",

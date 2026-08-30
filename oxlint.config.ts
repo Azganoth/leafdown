@@ -18,6 +18,9 @@ export default defineConfig({
     node: true,
     serviceworker: true,
   },
+  options: {
+    typeAware: true,
+  },
   rules: {
     "react/rules-of-hooks": "error",
     "no-var": "error",

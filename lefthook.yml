@@ -9,8 +9,6 @@ pre-commit:
       run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
-    # Type-aware rules need the whole program, so they are left to `pnpm check`
-    # and CI. This pass only covers what a single staged file can prove.
     - name: lint
       glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
       run: pnpm exec oxlint --deny-warnings {staged_files}

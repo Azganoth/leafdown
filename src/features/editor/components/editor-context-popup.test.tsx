@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { StrictMode, useState } from "react";
 import { describe, expect, it, vi, type Mock } from "vitest";
 

@@ -33,6 +33,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["./src/test/setup/common.ts", "./src/test/setup/dom.ts"],
     restoreMocks: true,
     clearMocks: true,
     coverage: {
@@ -53,25 +55,5 @@ export default defineConfig({
         lines: 89,
       },
     },
-    projects: [
-      {
-        extends: true,
-        test: {
-          environment: "node",
-          include: ["src/**/*.test.ts"],
-          name: "node",
-          setupFiles: ["./src/test/setup/common.ts"],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          environment: "happy-dom",
-          include: ["src/**/*.test.tsx"],
-          name: "dom",
-          setupFiles: ["./src/test/setup/common.ts", "./src/test/setup/dom.ts"],
-        },
-      },
-    ],
   },
 });

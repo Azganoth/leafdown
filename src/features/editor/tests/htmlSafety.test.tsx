@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { afterEach, describe, expect, it } from "vitest";

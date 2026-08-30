@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

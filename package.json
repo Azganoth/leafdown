@@ -30,8 +30,7 @@
     "check:cargo-fmt": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "format": "pnpm run --parallel /^format:/",
     "format:frontend": "oxfmt",
-    "format:backend": "cargo fmt --manifest-path src-tauri/Cargo.toml",
-    "prepare": "husky"
+    "format:backend": "cargo fmt --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -87,8 +86,7 @@
     "@wdio/types": "9.30.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "happy-dom": "^20.11.1",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.2.0",
+    "lefthook": "^2.1.12",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
     "oxlint-tsgolint": "^7.0.2001",

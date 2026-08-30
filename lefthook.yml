@@ -1,0 +1,21 @@
+# Run `pnpm exec lefthook install` after changing this file.
+
+pre-commit:
+  jobs:
+    - name: format
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,json,css,html,md,yml,yaml}"
+      # `corpus/**` is formatter-ignored, so a commit touching only fixtures
+      # reaches oxfmt with every matched file excluded.
+      run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+
+    # Type-aware rules need the whole program, so they are left to `pnpm check`
+    # and CI. This pass only covers what a single staged file can prove.
+    - name: lint
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      run: pnpm exec oxlint --deny-warnings {staged_files}
+
+    - name: format-rust
+      glob: "src-tauri/**/*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml
+      stage_fixed: true

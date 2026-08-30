@@ -52,7 +52,7 @@ const runWdio = (scenario: Scenario) =>
         LEAFDOWN_E2E_ARTIFACT_RUN: RUN_LABEL,
         LEAFDOWN_E2E_CONTEXT_PATH: contextPath,
         LEAFDOWN_E2E_SCENARIO: scenario.name,
-        LEAFDOWN_E2E_SPEC: `e2e/desktop/specs/${scenario.name}.e2e.ts`,
+        LEAFDOWN_E2E_SPEC: `e2e/desktop/specs/${scenario.name}.spec.ts`,
       },
       stdio: "inherit",
     });

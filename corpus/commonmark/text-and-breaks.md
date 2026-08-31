@@ -61,6 +61,24 @@ This line continues the same paragraph.
 
 Two spaces follow the end of this paragraph.  
 
+## Trailing whitespace a parse keeps
+
+A no-break space ends this paragraph. 
+
+An em space ends this paragraph. 
+
+An ideographic space ends this paragraph.　
+
+### A no-break space ends this heading 
+
+- A no-break space ends this list item. 
+
+> A no-break space ends this quote. 
+
+A no-break space follows the space that ends this paragraph.  
+
+A no-break space precedes the space that ends this paragraph.  
+
 ## Hard breaks using a backslash
 
 A backslash follows this line.\

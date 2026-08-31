@@ -1346,6 +1346,120 @@ describe("Line-final whitespace", () => {
     expect(firstSave).toBe("```\ncode \n```\n");
     expect(secondSave).toBe(firstSave);
   });
+
+  // A character CommonMark does not trim is content the line carries, so it reaches the file even
+  // where it sits against the line ending. `TRAILING_WHITESPACE_PATTERN` decides both what is left
+  // out and what `state.safe` never sees, which is why these are asserted through the escape it
+  // would otherwise have skipped rather than through the saved character alone.
+  const NO_BREAK_SPACE = "\u00a0";
+  const EM_SPACE = "\u2003";
+  const IDEOGRAPHIC_SPACE = "\u3000";
+
+  const openThenReload = async (initial: string) => {
+    const opened = await mountEditor(initial);
+    const firstSave = opened.getMarkdown();
+    const reloaded = await mountEditor(firstSave);
+
+    return {
+      firstSave,
+      reloadedText: reloaded.view.state.doc.textContent,
+      secondSave: reloaded.getMarkdown(),
+    };
+  };
+
+  it.each([
+    {
+      expected: `plain${NO_BREAK_SPACE}\n`,
+      initial: `plain${NO_BREAK_SPACE}`,
+      name: "a paragraph",
+    },
+    {
+      expected: `# head${NO_BREAK_SPACE}\n`,
+      initial: `# head${NO_BREAK_SPACE}`,
+      name: "a heading",
+    },
+    {
+      expected: `* item${NO_BREAK_SPACE}\n`,
+      initial: `- item${NO_BREAK_SPACE}`,
+      name: "a list item",
+    },
+    {
+      expected: `> quote${NO_BREAK_SPACE}\n`,
+      initial: `> quote${NO_BREAK_SPACE}`,
+      name: "a blockquote",
+    },
+  ])("keeps a no-break space ending $name", async ({ expected, initial }) => {
+    const { firstSave, secondSave } = await openThenReload(initial);
+
+    expect(firstSave).toBe(expected);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it.each([
+    { character: EM_SPACE, name: "an em space" },
+    { character: IDEOGRAPHIC_SPACE, name: "an ideographic space" },
+  ])("keeps $name ending a paragraph", async ({ character }) => {
+    const { firstSave, secondSave } = await openThenReload(`plain${character}`);
+
+    expect(firstSave).toBe(`plain${character}\n`);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps a no-break space ending a table cell", async () => {
+    const { firstSave, secondSave } = await openThenReload(
+      `| A | B |\n| - | - |\n| C${NO_BREAK_SPACE} | D |`,
+    );
+
+    expect(firstSave).toContain(`C${NO_BREAK_SPACE}`);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("reloads the paragraph holding the character the file kept", async () => {
+    const { reloadedText } = await openThenReload(`plain${NO_BREAK_SPACE}`);
+
+    expect(reloadedText).toBe(`plain${NO_BREAK_SPACE}`);
+  });
+
+  // The two classes meet here: the space is what a parse trims and goes, the character beside it
+  // is not and stays, whichever order the line puts them in.
+  it.each([
+    {
+      expected: `plain ${NO_BREAK_SPACE}\n`,
+      initial: `plain ${NO_BREAK_SPACE}`,
+      name: "a space the character follows",
+    },
+    {
+      expected: `plain${NO_BREAK_SPACE}\n`,
+      initial: `plain${NO_BREAK_SPACE} `,
+      name: "a space following the character",
+    },
+    {
+      expected: `plain${NO_BREAK_SPACE}\n`,
+      initial: `plain${NO_BREAK_SPACE}\t`,
+      name: "a tab following the character",
+    },
+  ])("keeps a line ending in $name", async ({ expected, initial }) => {
+    const { firstSave, secondSave } = await openThenReload(initial);
+
+    expect(firstSave).toBe(expected);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  // `state.safe` sees the character now that it is no longer split off the value, so the escapes
+  // it decides read the real line rather than one ending where the character starts.
+  it("leaves a backslash the character separates from the line ending bare", async () => {
+    const { firstSave, secondSave } = await openThenReload(`a\\${NO_BREAK_SPACE}`);
+
+    expect(firstSave).toBe(`a\\${NO_BREAK_SPACE}\n`);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps a bare autolink bare before the character", async () => {
+    const { firstSave, secondSave } = await openThenReload(`https://example.com${NO_BREAK_SPACE}`);
+
+    expect(firstSave).toBe(`https://example.com${NO_BREAK_SPACE}\n`);
+    expect(secondSave).toBe(firstSave);
+  });
 });
 
 // A parse trims what a line opens with just as it trims what a line closes with, so writing

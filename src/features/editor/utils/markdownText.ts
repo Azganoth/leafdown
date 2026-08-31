@@ -43,9 +43,9 @@ interface PhrasingNode {
   children?: readonly PhrasingNode[];
 }
 
-const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
 // CommonMark trims a space or a tab at a line edge and nothing else, so a no-break space stays
 // a character the line carries rather than whitespace the parse drops.
+const TRAILING_WHITESPACE_PATTERN = /[\t ]+$/u;
 const LEADING_WHITESPACE_PATTERN = /^[\t ]+/u;
 const LINE_ENDING_PATTERN = /[\r\n]$/u;
 // `state.safe` escapes ASCII punctuation and nothing else. Decoding with a wider class would read a

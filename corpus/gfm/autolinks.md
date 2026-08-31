@@ -32,6 +32,14 @@ Visit https://example.com/one, https://example.com/two. and (https://example.com
 
 Balanced path: https://example.com/a(b)c and unmatched path: https://example.com/a(b)).
 
+## An adjacent angle bracket stays outside the link
+
+Escaped bracket before an email and a plain one after: \<test@example.com>
+
+Character references around a URL: &lt;https://example.com&gt;
+
+Character reference after a URL: https://example.com&gt;
+
 ## Invalid domains remain literal
 
 www.example_.com

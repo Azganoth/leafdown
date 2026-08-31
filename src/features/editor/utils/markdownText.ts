@@ -1039,6 +1039,18 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   }
 };
 
+// A paragraph and a heading end their line where their last child ends, and a cell is read back
+// trimmed to its content, so whitespace closing any of them is whitespace the next parse drops.
+// Only the last child can hold it: `state.safe` encodes whitespace a line ending follows, and
+// Milkdown hoists whitespace out of a mark before the mark is written.
+const closesTrimmedContent = (
+  parent: { type: string; children: readonly unknown[] } | undefined,
+  index: number,
+) =>
+  parent !== undefined &&
+  WHOLE_LINE_PHRASING_PARENTS.has(parent.type) &&
+  index === parent.children.length - 1;
+
 const readPhrasingNeighbors = (
   parent: { type: string; children: readonly { type: string; value?: string }[] } | undefined,
   index: number,
@@ -1068,14 +1080,18 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   info,
 ) => {
   const { value } = node;
+  const childIndex = state.indexStack[state.indexStack.length - 1] ?? -1;
   const trailingWhitespace = TRAILING_WHITESPACE_PATTERN.exec(value)?.[0] ?? "";
-  const after = trailingWhitespace + info.after;
+  // Whitespace the parse drops is left out rather than encoded, so the file the editor writes is
+  // the file it reads back. Every other position keeps it raw, which is what `state.safe` would
+  // write there anyway and what a typed space beside literal source needs.
+  const writtenWhitespace = closesTrimmedContent(parent, childIndex) ? "" : trailingWhitespace;
+  const after = writtenWhitespace + info.after;
   const escaped = state.safe(value.slice(0, value.length - trailingWhitespace.length), {
     ...info,
     after,
   });
   const slots = decodeEscapes(escaped);
-  const childIndex = state.indexStack[state.indexStack.length - 1] ?? -1;
   const neighbors = readPhrasingNeighbors(parent, childIndex);
 
   relaxAttentionEscapes(
@@ -1100,5 +1116,5 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxAutolinkLiteralEscapes(slots, info.before, after);
   relaxCharacterReferenceEscapes(slots, after);
 
-  return encodeEscapes(slots) + trailingWhitespace;
+  return encodeEscapes(slots) + writtenWhitespace;
 };

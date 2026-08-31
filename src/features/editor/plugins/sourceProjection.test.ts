@@ -2013,19 +2013,27 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe("\\*__text__\\*\n");
     });
 
-    it.each(["~", "`"])("keeps a foreign marker %s outside a strong projection", async (marker) => {
-      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+    // A tilde is written bare because the strong beside it spells no counterpart it could pair
+    // with, while a backtick opens inline code on its own and keeps its escape.
+    it.each([
+      { marker: "~", written: "~" },
+      { marker: "`", written: "\\`" },
+    ])(
+      "keeps a foreign marker $marker outside a strong projection",
+      async ({ marker, written }) => {
+        const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
 
-      enterProjection(mounted, "strong");
+        enterProjection(mounted, "strong");
 
-      const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+        const sourceStart = getEditorTextPosition(mounted, "**Bold**");
 
-      setTextSelection(mounted.view, sourceStart);
-      typeText(mounted.view, marker);
+        setTextSelection(mounted.view, sourceStart);
+        typeText(mounted.view, marker);
 
-      expect(getEditorTextContent(mounted)).toBe(`${marker}${BOLD_PLAIN_MARKDOWN}`);
-      expect(mounted.getMarkdown()).toBe(`\\${marker}${BOLD_PLAIN_MARKDOWN}\n`);
-    });
+        expect(getEditorTextContent(mounted)).toBe(`${marker}${BOLD_PLAIN_MARKDOWN}`);
+        expect(mounted.getMarkdown()).toBe(`${written}${BOLD_PLAIN_MARKDOWN}\n`);
+      },
+    );
 
     it("keeps text typed at a link's opening delimiter outside its source", async () => {
       const mounted = await mountProjectionEditor("[a](b) tail");

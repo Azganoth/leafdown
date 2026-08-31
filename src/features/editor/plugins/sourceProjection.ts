@@ -12,7 +12,7 @@ import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/st
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
-import { $proseAsync } from "@milkdown/kit/utils";
+import { $prose, $proseAsync } from "@milkdown/kit/utils";
 
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
@@ -52,6 +52,7 @@ export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectio
 export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
 const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
 const SOURCE_PROJECTION_DEFERRED_COMMIT_META = "leafdownSourceProjectionDeferredCommit";
+const SOURCE_PROJECTION_APPENDED_META = "leafdownSourceProjectionAppended";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
 
@@ -115,7 +116,10 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
   return new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
     appendTransaction: (transactions, oldState, newState) =>
-      appendProjectionTransaction(transactions, oldState, newState, adapters),
+      appendProjectionTransaction(transactions, oldState, newState, adapters)?.setMeta(
+        SOURCE_PROJECTION_APPENDED_META,
+        true,
+      ) ?? null,
     // A change captured in native history while the document holds projected source replays
     // against coordinates the commit discards. `filterTransaction` is the only hook that runs
     // before the history plugin reads the meta.
@@ -204,6 +208,25 @@ export const createLeafdownSourceProjectionPlugin = () =>
       }),
     ]);
   });
+
+// Entering, restoring, and committing a projection each land as their own transaction, and each one
+// is decided from the state the one before it produced. ProseMirror stops calling a plugin's
+// `appendTransaction` once the only new transactions are the ones that plugin appended itself, so
+// the projection needs another plugin to append something before it is asked again. An empty
+// transaction, which carries no marker of its own and so cannot answer itself, gives it that pass
+// without adding a step.
+export const createLeafdownSourceProjectionContinuationPlugin = () =>
+  $prose(
+    () =>
+      new Plugin({
+        appendTransaction: (transactions, _oldState, state) =>
+          transactions.some(
+            (transaction) => transaction.getMeta(SOURCE_PROJECTION_APPENDED_META) === true,
+          )
+            ? state.tr
+            : null,
+      }),
+  );
 
 const hasDeferredProjectionCommit = (transactions: readonly Transaction[]) =>
   transactions.some(

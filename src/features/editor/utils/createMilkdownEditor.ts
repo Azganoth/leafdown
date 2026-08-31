@@ -72,6 +72,7 @@ import {
   leafdownDefinitionSchema,
 } from "../plugins/referenceLink";
 import {
+  createLeafdownSourceProjectionContinuationPlugin,
   createLeafdownSourceProjectionPlugin,
   finalizeSourceProjection,
   hasTransientSourceProjection,
@@ -246,6 +247,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())
+    .use(createLeafdownSourceProjectionContinuationPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))

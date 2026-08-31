@@ -131,6 +131,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Show the backslashes that keep text literal when the Markdown source of bold, italic, or strikethrough is opened, as a link label already did, so text such as `**a \[b](c) d**` no longer reads as though it held a live link and an escaped `&copy;` can be told apart from one the file preserves.
 - Keep character references written next to each other as they were written, so text such as `&copy;&copy;` no longer saves as the characters it names. Each one still opens as its own Markdown source, so breaking one leaves the others preserved.
 - Keep a link or image title in the quotation marks or parentheses it was written with, so a file holding `[Garden](garden.md 'Garden')` no longer comes back rewritten to double quotes. Editing an image no longer rewrites its title either.
+- Leave whitespace that ends a line out of the saved file, so a space typed at the end of a paragraph, heading, list item, quote, or table cell no longer writes a character that the next open discards and a second save then removes. Markdown drops such whitespace on read, so the space was already lost; the file now says so from the first save. Whitespace elsewhere on a line, a hard break, and whitespace inside fenced code are unchanged, and a space written as `&#x20;` at one of those trimmed positions is now dropped on save for the same reason.
 
 ## [0.1.0-alpha.1] - 2026-07-10
 

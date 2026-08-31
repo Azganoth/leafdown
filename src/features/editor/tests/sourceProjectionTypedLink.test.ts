@@ -234,7 +234,7 @@ describe("typed link source", () => {
 
     expect(getLinkTargets(mounted)).toEqual([]);
     expect(mounted.getMarkdown()).toBe(
-      moved ? "\\[test taillink](./test.html) \n" : "\\[test taillink](./test.html) tail\n",
+      moved ? "\\[test taillink](./test.html)\n" : "\\[test taillink](./test.html) tail\n",
     );
   });
 

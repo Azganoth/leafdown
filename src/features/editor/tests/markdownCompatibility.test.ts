@@ -1222,7 +1222,7 @@ describe("Typed link source", () => {
       setSelectionAtDocumentEnd(mounted.view);
       typeText(mounted.view, `${typed} `);
 
-      expect(mounted.getMarkdown()).toBe(`${typed} \n`);
+      expect(mounted.getMarkdown()).toBe(`${typed}\n`);
     },
   );
 
@@ -1236,13 +1236,115 @@ describe("Typed link source", () => {
     },
   );
 
-  it("writes an ordinary trailing space as itself", async () => {
+  it("leaves the space that follows typed source out of the line it ends", async () => {
     const mounted = await mountEditor("");
 
     setSelectionAtDocumentEnd(mounted.view);
     typeText(mounted.view, "plain tail ");
 
-    expect(mounted.getMarkdown()).toBe("plain tail \n");
+    expect(mounted.getMarkdown()).toBe("plain tail\n");
+  });
+});
+
+// A parse drops whitespace closing a line or a cell, so writing it produces a file that reloads as
+// a different document. The corpus guard cannot reach this: a file it has opened once no longer
+// holds such whitespace, so only an edit puts it there.
+describe("Line-final whitespace", () => {
+  const editThenReload = async (
+    initial: string,
+    edit: (mounted: MountedMilkdownEditor) => void,
+  ) => {
+    const edited = await mountEditor(initial);
+
+    edit(edited);
+
+    const firstSave = edited.getMarkdown();
+    const reloaded = await mountEditor(firstSave);
+
+    return {
+      firstSave,
+      reloadedText: reloaded.view.state.doc.textContent,
+      secondSave: reloaded.getMarkdown(),
+    };
+  };
+
+  const typeAtEnd = (typed: string) => (mounted: MountedMilkdownEditor) => {
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, typed);
+  };
+
+  it.each([
+    { expected: "plain\n", initial: "plain", name: "a paragraph", typed: " " },
+    {
+      expected: "plain tail\n",
+      initial: "plain tail",
+      name: "a paragraph holding a space",
+      typed: " ",
+    },
+    { expected: "*text*\n", initial: "*text*", name: "emphasis closing a paragraph", typed: " " },
+    { expected: "plain\n", initial: "plain", name: "a paragraph, typed twice", typed: "  " },
+    { expected: "plain\n", initial: "plain", name: "a paragraph, typed as a tab", typed: "\t" },
+    { expected: "# head\n", initial: "# head", name: "a heading", typed: " " },
+    { expected: "* item\n", initial: "- item", name: "a list item", typed: " " },
+    { expected: "> quote\n", initial: "> quote", name: "a blockquote", typed: " " },
+  ])(
+    "converges on $name after a space is typed at its end",
+    async ({ expected, initial, typed }) => {
+      const { firstSave, secondSave } = await editThenReload(initial, typeAtEnd(typed));
+
+      expect(firstSave).toBe(expected);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+
+  it("converges on a table cell after a space is typed at its end", async () => {
+    const { firstSave, secondSave } = await editThenReload(BASIC_TABLE_MARKDOWN, typeAtEnd(" "));
+
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("reloads the paragraph the editor showed before the space was typed", async () => {
+    const { reloadedText } = await editThenReload("plain", typeAtEnd(" "));
+
+    expect(reloadedText).toBe("plain");
+  });
+
+  it("converges where whitespace ends a line through a deletion rather than a keystroke", async () => {
+    const { firstSave, secondSave } = await editThenReload("plain x", (mounted) => {
+      const end = mounted.view.state.doc.content.size - 1;
+
+      mounted.view.dispatch(mounted.view.state.tr.delete(end - 1, end));
+    });
+
+    expect(firstSave).toBe("plain\n");
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps a space that later text on the same line follows", async () => {
+    const { firstSave, secondSave } = await editThenReload("plain", (mounted) => {
+      setTextSelection(mounted.view, 6);
+      typeText(mounted.view, " tail");
+    });
+
+    expect(firstSave).toBe("plain tail\n");
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps a space a hard break follows", async () => {
+    const { firstSave, secondSave } = await editThenReload("a\\\nb\n", (mounted) => {
+      setTextSelection(mounted.view, 2);
+      typeText(mounted.view, " ");
+    });
+
+    expect(firstSave).toBe("a \\\nb\n");
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps whitespace inside fenced code, which no parse trims", async () => {
+    const { firstSave, secondSave } = await editThenReload("```\ncode\n```", typeAtEnd(" "));
+
+    expect(firstSave).toBe("```\ncode \n```\n");
+    expect(secondSave).toBe(firstSave);
   });
 });
 

@@ -25,7 +25,10 @@ const HTTP_URL_PATTERN = /^https?:\/\//iu;
 const WWW_URL_PATTERN = /^www\./iu;
 const EMAIL_PATTERN = /^[^@]+@[^@]+\.[^@]+$/u;
 const PRECEDING_LETTER_PATTERN = /[A-Za-z]$/u;
-const TRIMMED_FOLLOWING_PATTERN = /^[\s!"'*,.:;<?\\\]_~]?$/u;
+const TRIMMED_FOLLOWING_PATTERN = /^[\s!"'*,.:;<?\]_~]?$/u;
+// GFM gives these their meaning as delimiters, which is why the file escapes one standing in
+// text, and the backslash it writes is taken into a literal target rather than trimmed off it.
+const ESCAPED_MARKER_PATTERN = /^[*_~]/u;
 const MAILTO_URL_PREFIX = "mailto:";
 const NAMED_REFERENCE_SOURCE_PATTERN = /^&[A-Za-z0-9]+;$/u;
 const ENTITY_SHAPED_RUN_PATTERN = /^&[A-Za-z0-9]+;/u;
@@ -127,6 +130,25 @@ const isFollowedByTrimmedRuns = (node: MarkdownNode, parent: MarkdownNode | unde
   return trimmed;
 };
 
+// The neighbour a literal actually meets is the sibling beside it. Where none follows, what comes
+// next closes an enclosing construct, and a delimiter is never escaped where it stands.
+const readFollowingSibling = (node: MarkdownNode, parent: MarkdownNode | undefined) => {
+  const children = parent?.children ?? [];
+  const index = children.indexOf(node);
+
+  return index < 0 ? undefined : children[index + 1];
+};
+
+const isFollowedByEscapedMarker = (node: MarkdownNode, parent: MarkdownNode | undefined) => {
+  const following = readFollowingSibling(node, parent);
+
+  return (
+    following?.type === "text" &&
+    typeof following.value === "string" &&
+    ESCAPED_MARKER_PATTERN.test(following.value)
+  );
+};
+
 const isEmailAutolink = (node: MarkdownNode) =>
   typeof node.url === "string" && node.url.startsWith(MAILTO_URL_PREFIX);
 
@@ -141,6 +163,7 @@ const isReadableWhereItLands = (
 
   return (
     !PRECEDING_LETTER_PATTERN.test(before) &&
+    !isFollowedByEscapedMarker(node, parent) &&
     (TRIMMED_FOLLOWING_PATTERN.test(following) ||
       // GFM leaves a trailing `)` out of the target only while the literal closes every
       // parenthesis it opens.

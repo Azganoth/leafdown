@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { type MountedMilkdownEditor, setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   findEditorTextNode,
   getEditorNodePosition,
@@ -99,6 +99,13 @@ const unusualMarkdownFixtures = [
     expected: "<custom broken\n",
   },
 ];
+
+const getEditorLinkHref = (mounted: MountedMilkdownEditor, text: string) => {
+  const href = findEditorTextNode(mounted, text)?.marks.find((mark) => mark.type.name === "link")
+    ?.attrs.href;
+
+  return typeof href === "string" ? href : null;
+};
 
 describe("Markdown compatibility", () => {
   it("parses and serializes the documented CommonMark and GFM fixture", async () => {
@@ -247,6 +254,60 @@ describe("Markdown compatibility", () => {
     const after = await mountEditor(before.getMarkdown());
 
     expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
+  });
+
+  // The escape the file writes to keep the marker literal sits between the literal and the marker,
+  // and a literal's target takes a backslash in rather than leaving it out, so an untouched
+  // document grew one backslash per save while every save still converged on its own output.
+  it.each([
+    {
+      expected: "<https://example.com>\\*\n",
+      href: "https://example.com",
+      source: "https://example.com*",
+      text: "https://example.com",
+    },
+    {
+      expected: "<https://example.com>\\_\n",
+      href: "https://example.com",
+      source: "https://example.com_",
+      text: "https://example.com",
+    },
+    {
+      expected: "<https://example.com>\\~\n",
+      href: "https://example.com",
+      source: "https://example.com~",
+      text: "https://example.com",
+    },
+    {
+      expected: "<test@example.com>\\*\n",
+      href: "mailto:test@example.com",
+      source: "test@example.com*",
+      text: "test@example.com",
+    },
+  ])(
+    "keeps the target of a bare autolink an escaped marker follows in $source",
+    async ({ expected, href, source, text }) => {
+      const first = await mountEditor(source);
+      const saved = first.getMarkdown();
+
+      expect(saved).toBe(expected);
+
+      const second = await mountEditor(saved);
+      const third = await mountEditor(second.getMarkdown());
+
+      expect(second.getMarkdown()).toBe(saved);
+      expect(third.view.state.doc.toJSON()).toEqual(second.view.state.doc.toJSON());
+      expect(getEditorLinkHref(third, text)).toBe(href);
+    },
+  );
+
+  it("writes a bare autolink with angle brackets once a typed character reference follows it", async () => {
+    const mounted = await mountEditor("https://example.com");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "&copy;");
+
+    expect(mounted.getMarkdown()).toBe("<https://example.com>\\&copy;\n");
   });
 
   it("writes a bare autolink with angle brackets once an edit puts text the target takes in after a trimmed run", async () => {

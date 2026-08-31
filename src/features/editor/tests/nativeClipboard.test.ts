@@ -62,6 +62,25 @@ describe("native editor clipboard events", () => {
     expect(pasted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  it.each(["---", "_ _ _"])(
+    "carries the thematic break %j through a copy and a paste",
+    async (source) => {
+      const copied = await mountEditor(source);
+      const clipboardData = createClipboardData();
+
+      setTextSelection(copied.view, 0, copied.view.state.doc.content.size);
+      dispatchClipboardEvent(copied.view.dom, "copy", clipboardData);
+
+      const pasted = await mountEditor("");
+
+      dispatchClipboardEvent(pasted.view.dom, "paste", {
+        [TEXT_HTML_MIME_TYPE]: clipboardData.getData(TEXT_HTML_MIME_TYPE),
+      });
+
+      expect(pasted.getMarkdown()).toBe(`${source}\n`);
+    },
+  );
+
   it("preserves semantic HTML-only content outside source projection", async () => {
     const mounted = await mountEditor("");
 

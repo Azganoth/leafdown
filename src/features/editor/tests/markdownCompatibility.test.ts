@@ -50,8 +50,8 @@ Footnote[^1]
 [^1]: Footnote text`;
 
 // Milkdown serializer defaults normalize several source markers:
-// unordered/task markers become `*`, thematic breaks become `***`, and
-// serialized output includes a final newline.
+// unordered/task markers become `*`, and serialized output includes a
+// final newline.
 const supportedMarkdownExpected = `# Heading
 
 Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com, and [link](docs/readme.md).
@@ -68,7 +68,7 @@ Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com
 const value = 1;
 \`\`\`
 
-***
+---
 
 ![Alt](image.png)
 
@@ -884,6 +884,74 @@ describe("Raw link destination ampersands", () => {
     const mounted = await mountEditor(`${source}\n`);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+});
+
+describe("Thematic break form", () => {
+  const setThematicBreakMarker = (mounted: MountedMilkdownEditor, marker: string) => {
+    const position = getEditorNodePosition(mounted, "hr");
+    const { attrs } = mounted.view.state.doc.nodeAt(position) ?? {};
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.setNodeMarkup(position, undefined, { ...attrs, marker }),
+    );
+  };
+
+  it.each([
+    "***",
+    "---",
+    "___",
+    "* * *",
+    "- - -",
+    "_ _ _",
+    "----------",
+    // A tab separates the characters the way a space does. The run is read off the file rather
+    // than off the tab stops the parser expands it to, so the tabs stay where they were written.
+    "*\t*\t*",
+  ])("writes the break in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // Indentation before the run and whitespace after it stand outside the characters the break is
+  // spelled with, and Leafdown writes neither.
+  it.each([
+    { saved: "---", source: "   ---" },
+    { saved: "---", source: "--- " },
+    { saved: "_ _ _", source: "  _ _ _\t" },
+  ])("writes $source as the run it spells", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  it.each([
+    { name: "a blockquote", source: "> Quote\n>\n> ---" },
+    { name: "a list item", source: "* Item\n\n  ---" },
+    { name: "a tight list item", source: "* Item\n  ***" },
+  ])("keeps the authored run inside $name", async ({ source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A bullet and a run spelled with the same character stand on one line and are read back as one
+  // longer break with no list around it, so the run gives way to the default.
+  it("writes a break opening a list item in a run its bullet cannot join", async () => {
+    const mounted = await mountEditor("* ---\n  Paragraph\n");
+
+    expect(mounted.getMarkdown()).toBe("- ***\n  Paragraph\n");
+  });
+
+  // A tight list item joins its children with a single newline, so a run of hyphens written after
+  // a paragraph there underlines it and the file is read back holding a heading.
+  it("writes a hyphen break following a paragraph in a tight list item as the default", async () => {
+    const mounted = await mountEditor("* Paragraph\n  ***\n");
+
+    setThematicBreakMarker(mounted, "---");
+
+    expect(mounted.getMarkdown()).toBe("* Paragraph\n  ***\n");
   });
 });
 

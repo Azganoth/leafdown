@@ -56,6 +56,17 @@ describe("editor block insertion commands", () => {
     }
   });
 
+  // A break read from a file writes the run it was authored with, so one the editor creates needs a
+  // run of its own. Three asterisks are the spelling no position reads as anything but a break.
+  it("writes an inserted horizontal rule with the default marker", async () => {
+    const mounted = await mountEditor(TWO_PARAGRAPH_MARKDOWN);
+
+    setTextSelection(mounted.view, 3);
+
+    expect(insertHorizontalRule(mounted.view)).toBe(true);
+    expect(mounted.getMarkdown()).toContain("\n***\n");
+  });
+
   it("inserts after the selected block range without replacing selected content", async () => {
     const mounted = await mountEditor(TWO_PARAGRAPH_MARKDOWN);
 

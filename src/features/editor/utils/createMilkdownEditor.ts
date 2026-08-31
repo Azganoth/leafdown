@@ -20,6 +20,7 @@ import {
   hardbreakSchema,
   imageSchema,
   headingKeymap,
+  hrSchema,
   htmlSchema,
   inlineCodeKeymap,
   linkSchema,
@@ -84,6 +85,7 @@ import {
   createLeafdownTableShapePlugin,
 } from "../plugins/tableShape";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
+import { createLeafdownThematicBreakPlugin } from "../plugins/thematicBreak";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
 import {
   BARE_AUTOLINK_MARKDOWN_TYPE,
@@ -115,6 +117,7 @@ import {
   serializeRawHtml,
 } from "./rawHtmlMarkdown";
 import { withImageReferenceForm, withLinkReferenceForm } from "./referenceLinkMarkdown";
+import { serializeThematicBreak, withThematicBreakMarker } from "./thematicBreakMarkdown";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -226,6 +229,7 @@ export const createMilkdownEditor = async ({
   const configuredEditor = editor
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
+    .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownTableShapePlugin())
@@ -288,6 +292,7 @@ export const createMilkdownEditor = async ({
           link: serializeMarkdownLink,
           root: serializeMarkdownRoot,
           text: serializeMarkdownText,
+          thematicBreak: serializeThematicBreak,
         },
       }));
       ctx.update(htmlSchema.key, (getSchema) => (schemaCtx) => {
@@ -320,6 +325,10 @@ export const createMilkdownEditor = async ({
         imageSchema.key,
         (getSchema) => (schemaCtx) =>
           withImageReferenceForm(withAuthoredDestination(getSchema(schemaCtx))),
+      );
+      ctx.update(
+        hrSchema.key,
+        (getSchema) => (schemaCtx) => withThematicBreakMarker(getSchema(schemaCtx)),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),

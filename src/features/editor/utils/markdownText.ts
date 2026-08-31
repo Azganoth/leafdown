@@ -44,6 +44,10 @@ interface PhrasingNode {
 }
 
 const TRAILING_WHITESPACE_PATTERN = /\s+$/u;
+// CommonMark trims a space or a tab at a line edge and nothing else, so a no-break space stays
+// a character the line carries rather than whitespace the parse drops.
+const LEADING_WHITESPACE_PATTERN = /^[\t ]+/u;
+const LINE_ENDING_PATTERN = /[\r\n]$/u;
 // `state.safe` escapes ASCII punctuation and nothing else. Decoding with a wider class would read a
 // backslash before ordinary text as an escape.
 const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
@@ -1051,6 +1055,37 @@ const closesTrimmedContent = (
   WHOLE_LINE_PHRASING_PARENTS.has(parent.type) &&
   index === parent.children.length - 1;
 
+// A parse trims what a line opens with just as it trims what a line closes with, so whitespace
+// opening a paragraph, a heading, or a cell is whitespace the next open drops. A line ending in
+// `before` marks the line a hard break leaves behind; the block's own first line is read off the
+// tree instead, because a heading hands its first child the marker as `before` and a cell hands
+// its own padding. Reading the tree is also what separates a hoisted space from an ordinary one:
+// Milkdown empties the character reference it lifts a space out of, and an emptied reference
+// writes nothing, while any sibling that writes even one character puts the space mid-line.
+const opensTrimmedContent = (
+  node: PhrasingNode,
+  parent: { type: string; children: readonly PhrasingNode[] } | undefined,
+  before: string,
+) => {
+  if (parent === undefined || !WHOLE_LINE_PHRASING_PARENTS.has(parent.type)) {
+    return false;
+  }
+
+  if (LINE_ENDING_PATTERN.test(before)) {
+    return true;
+  }
+
+  // `containerPhrasing` peeks the next child to learn what the current one has to be escaped
+  // against, and leaves `indexStack` pointing at the child being written rather than the one
+  // peeked, so the position has to come from the tree for a peek to agree with the write it predicts.
+  const index = parent.children.indexOf(node);
+
+  return (
+    index >= 0 &&
+    parent.children.slice(0, index).every((child) => readWrittenCharacters(child) === "")
+  );
+};
+
 const readPhrasingNeighbors = (
   parent: { type: string; children: readonly { type: string; value?: string }[] } | undefined,
   index: number,
@@ -1085,9 +1120,15 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   // Whitespace the parse drops is left out rather than encoded, so the file the editor writes is
   // the file it reads back. Every other position keeps it raw, which is what `state.safe` would
   // write there anyway and what a typed space beside literal source needs.
-  const writtenWhitespace = closesTrimmedContent(parent, childIndex) ? "" : trailingWhitespace;
+  const droppedWhitespace = opensTrimmedContent(node as PhrasingNode, parent, info.before)
+    ? (LEADING_WHITESPACE_PATTERN.exec(value)?.[0] ?? "")
+    : "";
+  // A value that is whitespace alone is both what the line opens with and what it closes with,
+  // so the body cannot start after it ends.
+  const bodyEnd = Math.max(droppedWhitespace.length, value.length - trailingWhitespace.length);
+  const writtenWhitespace = closesTrimmedContent(parent, childIndex) ? "" : value.slice(bodyEnd);
   const after = writtenWhitespace + info.after;
-  const escaped = state.safe(value.slice(0, value.length - trailingWhitespace.length), {
+  const escaped = state.safe(value.slice(droppedWhitespace.length, bodyEnd), {
     ...info,
     after,
   });

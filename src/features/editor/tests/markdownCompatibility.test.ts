@@ -1348,6 +1348,160 @@ describe("Line-final whitespace", () => {
   });
 });
 
+// A parse trims what a line opens with just as it trims what a line closes with, so writing
+// that whitespace produces a file the next open reads as a different document. The corpus guard
+// cannot reach this either: only an edit, or a character reference an author wrote, puts it
+// there.
+describe("Line-initial whitespace", () => {
+  const saveReloadSave = async (
+    initial: string,
+    edit?: (mounted: MountedMilkdownEditor) => void,
+  ) => {
+    const edited = await mountEditor(initial);
+
+    edit?.(edited);
+
+    const firstSave = edited.getMarkdown();
+    const reloaded = await mountEditor(firstSave);
+
+    return {
+      firstSave,
+      reloadedText: reloaded.view.state.doc.textContent,
+      secondSave: reloaded.getMarkdown(),
+    };
+  };
+
+  const typeBefore = (anchor: string, typed: string) => (mounted: MountedMilkdownEditor) => {
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, anchor));
+    typeText(mounted.view, typed);
+  };
+
+  it.each([
+    { anchor: "plain", expected: "plain\n", initial: "plain", name: "a paragraph", typed: " " },
+    {
+      anchor: "plain",
+      expected: "plain\n",
+      initial: "plain",
+      name: "a paragraph, typed twice",
+      typed: "  ",
+    },
+    {
+      anchor: "plain",
+      expected: "plain\n",
+      initial: "plain",
+      name: "a paragraph, typed as a tab",
+      typed: "\t",
+    },
+    { anchor: "head", expected: "# head\n", initial: "# head", name: "a heading", typed: " " },
+    { anchor: "item", expected: "* item\n", initial: "- item", name: "a list item", typed: " " },
+    {
+      anchor: "quote",
+      expected: "> quote\n",
+      initial: "> quote",
+      name: "a blockquote",
+      typed: " ",
+    },
+    {
+      anchor: "two",
+      expected: "one\n\ntwo\n",
+      initial: "one\n\ntwo",
+      name: "a later paragraph",
+      typed: " ",
+    },
+    {
+      anchor: "text",
+      expected: "*text*\n",
+      initial: "*text*",
+      name: "emphasis opening a paragraph",
+      typed: " ",
+    },
+  ])(
+    "converges on $name after a space is typed at its start",
+    async ({ anchor, expected, initial, typed }) => {
+      const { firstSave, secondSave } = await saveReloadSave(initial, typeBefore(anchor, typed));
+
+      expect(firstSave).toBe(expected);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+
+  it("converges on a table cell after a space is typed at its start", async () => {
+    const { firstSave, secondSave } = await saveReloadSave(
+      BASIC_TABLE_MARKDOWN,
+      typeBefore("C", " "),
+    );
+
+    expect(firstSave).toBe(`${BASIC_TABLE_MARKDOWN}\n`);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("converges where whitespace opens the line a hard break left behind", async () => {
+    const { firstSave, secondSave } = await saveReloadSave("a\\\nb", typeBefore("b", " "));
+
+    expect(firstSave).toBe("a\\\nb\n");
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it.each([
+    { expected: "plain\n", initial: "&#x20;plain", name: "a paragraph" },
+    { expected: "# head\n", initial: "# &#x20;head", name: "a heading" },
+  ])(
+    "converges on $name a character reference opens with a space",
+    async ({ expected, initial }) => {
+      const { firstSave, secondSave } = await saveReloadSave(initial);
+
+      expect(firstSave).toBe(expected);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+
+  it("reloads the paragraph the editor showed before the space was typed", async () => {
+    const { reloadedText } = await saveReloadSave("plain", typeBefore("plain", " "));
+
+    expect(reloadedText).toBe("plain");
+  });
+
+  it("reloads the paragraph without the space its character reference named", async () => {
+    const { reloadedText } = await saveReloadSave("&#x20;plain");
+
+    expect(reloadedText).toBe("plain");
+  });
+
+  it.each([
+    {
+      expected: "a b\n",
+      initial: "a&#x20;b",
+      name: "a character reference away from a line edge",
+    },
+    { expected: "&nbsp;plain\n", initial: "&nbsp;plain", name: "a no-break space" },
+    {
+      expected: "&#x9;plain\n",
+      initial: "&#x9;plain",
+      name: "a tab a character reference names",
+    },
+    {
+      expected: "*text* tail\n",
+      initial: "*text* tail",
+      name: "a space a construct on the same line precedes",
+    },
+  ])("keeps $name", async ({ expected, initial }) => {
+    const { firstSave, secondSave } = await saveReloadSave(initial);
+
+    expect(firstSave).toBe(expected);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it("keeps whitespace inside fenced code, which no parse trims", async () => {
+    const { firstSave, secondSave } = await saveReloadSave(
+      "```\ncode\n```",
+      typeBefore("code", " "),
+    );
+
+    expect(firstSave).toBe("```\n code\n```\n");
+    expect(secondSave).toBe(firstSave);
+  });
+});
+
 describe("Typed inline mark source", () => {
   const typeInto = async (initial: string, typed: string) => {
     const mounted = await mountEditor(initial);

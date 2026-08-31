@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep a URL or email address written on its own bare when a run shaped like a character reference but naming nothing, such as `&notarealentity;`, follows it, so text such as `https://example.com&notarealentity;` is saved as it was written instead of gaining angle brackets. Markdown leaves such a run outside the link whether or not the name exists.
 - Keep a URL or email address written on its own bare when a literal `<` or `>` sits beside it, so text such as `\<test@example.com>` or `&lt;https://example.com&gt;` is saved as it was written, instead of putting angle brackets around it and saving `<<…>>`, which the next open reads as an angle-bracket URL between two literal brackets.
 - Keep a reference link, a reference image, and the definitions they point at, instead of rewriting every reference as an inline link carrying its own copy of the destination and deleting the definition block on the first save. A definition now appears in the document as the line it is written as, and a reference shows that reference source when the caret reaches it.
 - Leave a URL, email address, or `www` address held as ordinary text without a backslash before its `:`, `@`, or `.`, so a saved file no longer carries an escape such as `https\://example.com`, instead of writing one that other Markdown tools read as a stray backslash and that turned back into a link on the next open regardless.

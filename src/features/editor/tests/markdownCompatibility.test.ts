@@ -203,6 +203,14 @@ describe("Markdown compatibility", () => {
     "&lt;https://example.com&gt; tail",
     "https://example.com&gt;",
     "test@example.com&gt;",
+    "https://example.com&notarealentity;",
+    "test@example.com&notarealentity;",
+    "&lt;https://example.com&notarealentity;",
+    "https://example.com&notarealentity; tail",
+    "https://example.com&gt;&notarealentity;",
+    "https://example.com&notarealentity;&gt;",
+    "https://example.com&copy",
+    "https://example.com&#62;",
   ])("keeps the authored autolink form in %s", async (source) => {
     const mounted = await mountEditor(source);
 
@@ -229,15 +237,26 @@ describe("Markdown compatibility", () => {
 
   // The angle-bracket fallback writes the very brackets these documents already hold, so the bytes
   // it produces converge while the document has moved to the other autolink form.
-  it.each(["\\<test@example.com>", "&lt;https://example.com&gt;"])(
-    "keeps a bare autolink between angle brackets across a save in %j",
-    async (source) => {
-      const before = await mountEditor(source);
-      const after = await mountEditor(before.getMarkdown());
+  it.each([
+    "\\<test@example.com>",
+    "&lt;https://example.com&gt;",
+    "https://example.com&notarealentity;",
+    "https://example.com&gt;&notarealentity;",
+  ])("keeps a bare autolink beside a trimmed neighbour across a save in %j", async (source) => {
+    const before = await mountEditor(source);
+    const after = await mountEditor(before.getMarkdown());
 
-      expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
-    },
-  );
+    expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
+  });
+
+  it("writes a bare autolink with angle brackets once an edit puts text the target takes in after a trimmed run", async () => {
+    const mounted = await mountEditor("https://example.com&notarealentity; tail");
+    const spacePosition = getEditorTextPosition(mounted, " tail");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(spacePosition, spacePosition + 1));
+
+    expect(mounted.getMarkdown()).toBe("<https://example.com>&notarealentity;tail\n");
+  });
 
   it("writes a bare autolink with angle brackets once an edit puts a bracket its target takes in after it", async () => {
     const mounted = await mountEditor("https://example.com >tail");

@@ -5,6 +5,7 @@ import type { MarkdownNode, MarkSchema } from "@milkdown/kit/transformer";
 import {
   AUTHORED_URL_ATTRIBUTE_NAME,
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
+  decodeWholeCharacterReference,
   readAuthoredUrl,
   readCharacterReferenceRun,
   readCharacterReferenceText,
@@ -27,6 +28,7 @@ const PRECEDING_LETTER_PATTERN = /[A-Za-z]$/u;
 const TRIMMED_FOLLOWING_PATTERN = /^[\s!"'*,.:;<?\\\]_~]?$/u;
 const MAILTO_URL_PREFIX = "mailto:";
 const NAMED_REFERENCE_SOURCE_PATTERN = /^&[A-Za-z0-9]+;$/u;
+const ENTITY_SHAPED_RUN_PATTERN = /^&[A-Za-z0-9]+;/u;
 const RUN_ENDING_TEXT_PATTERN = /^\s/u;
 
 const getBareAutolinkUrl = (value: string) => {
@@ -71,25 +73,58 @@ const isWrittenBackAsNamedReference = (node: MarkdownNode) => {
   );
 };
 
-// A literal's run reaches to the end of the block or to the whitespace that closes it, and takes in
-// everything between.
-const endsTheRun = (node: MarkdownNode | undefined) =>
-  node === undefined ||
-  (node.type === "text" &&
-    RUN_ENDING_TEXT_PATTERN.test(typeof node.value === "string" ? node.value : ""));
+// GFM excludes a trailing `;` from a literal's target when `&` and alphanumerics precede it,
+// without asking whether the name exists. What decides the run is therefore how the file writes it:
+// text that names a character is written with a backslash, and the target takes that in instead.
+const readTrimmedRuns = (value: string) => {
+  let rest = value;
+  let trimmed = false;
+  let run = ENTITY_SHAPED_RUN_PATTERN.exec(rest);
 
-// GFM trims every trailing named character reference off a literal, so references standing between
-// the literal and the end of its run are outside the target.
-const isFollowedByTrimmedReferences = (node: MarkdownNode, parent: MarkdownNode | undefined) => {
-  const children = parent?.children ?? [];
-  const start = children.indexOf(node) + 1;
-  let index = start;
-
-  while (index < children.length && isWrittenBackAsNamedReference(children[index])) {
-    index += 1;
+  while (run !== null && decodeWholeCharacterReference(run[0]) === null) {
+    rest = rest.slice(run[0].length);
+    trimmed = true;
+    run = ENTITY_SHAPED_RUN_PATTERN.exec(rest);
   }
 
-  return start > 0 && index > start && endsTheRun(children[index]);
+  return { rest, trimmed };
+};
+
+// GFM trims every trailing entity-shaped run off a literal, so runs standing between the literal
+// and the end of its run are outside the target. A literal's run reaches to the end of the block or
+// to the whitespace that closes it, and takes in everything else.
+const isFollowedByTrimmedRuns = (node: MarkdownNode, parent: MarkdownNode | undefined) => {
+  const children = parent?.children ?? [];
+  const start = children.indexOf(node) + 1;
+
+  if (start === 0) {
+    return false;
+  }
+
+  let trimmed = false;
+
+  for (let index = start; index < children.length; index += 1) {
+    const child = children[index];
+
+    if (isWrittenBackAsNamedReference(child)) {
+      trimmed = true;
+      continue;
+    }
+
+    if (child.type !== "text" || typeof child.value !== "string") {
+      return false;
+    }
+
+    const { rest, trimmed: trimmedHere } = readTrimmedRuns(child.value);
+
+    trimmed ||= trimmedHere;
+
+    if (rest.length > 0) {
+      return trimmed && RUN_ENDING_TEXT_PATTERN.test(rest);
+    }
+  }
+
+  return trimmed;
 };
 
 const isEmailAutolink = (node: MarkdownNode) =>
@@ -113,7 +148,7 @@ const isReadableWhereItLands = (
       // An email's domain admits no `>`, so the literal ends before the bracket instead of taking
       // it into the target the way a URL path does.
       (following === ">" && isEmailAutolink(node)) ||
-      isFollowedByTrimmedReferences(node, parent))
+      isFollowedByTrimmedRuns(node, parent))
   );
 };
 

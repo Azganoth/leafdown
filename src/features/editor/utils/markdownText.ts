@@ -32,9 +32,7 @@ interface BracketNeighbors {
   laterHasMarkup: boolean;
 }
 
-interface PhrasingNeighbors extends BracketNeighbors {
-  textOnly: boolean;
-}
+type PhrasingNeighbors = BracketNeighbors;
 
 interface PhrasingNode {
   type: string;
@@ -263,6 +261,25 @@ const readEnclosingMarkers = (
   return ATTENTION_CHARACTERS;
 };
 
+// What a sibling writes onto the line, so a run can be told whether a counterpart it could pair
+// with exists outside its own text node. A construct writes its own delimiters as well as its
+// content, and one whose output cannot be read off the tree contributes every marker, which keeps
+// an escape rather than risking a delimiter the line turns out to hold.
+const readWrittenCharacters = (node: PhrasingNode): string => {
+  if (isInertPhrasing(node)) {
+    return readInertValue(node);
+  }
+
+  if (node.children === undefined) {
+    return ATTENTION_CHARACTERS;
+  }
+
+  const marker =
+    node.type === "delete" || node.type === "strikethrough" ? "~" : (node.marker ?? "");
+
+  return marker + node.children.map(readWrittenCharacters).join("");
+};
+
 const relaxAttentionEscapes = (
   slots: EscapeSlot[],
   before: string,
@@ -289,7 +306,6 @@ const relaxAttentionEscapes = (
     const pairable =
       neighbors === undefined ||
       enclosingMarkers.includes(run.character) ||
-      !neighbors.textOnly ||
       neighbors.earlier.includes(run.character) ||
       neighbors.later.includes(run.character) ||
       (run.canOpen &&
@@ -1036,11 +1052,9 @@ const readPhrasingNeighbors = (
   const children = parent.children;
   const earlier = children.slice(0, index);
   const later = children.slice(index + 1);
-  const textValues = (nodes: readonly PhrasingNode[]) =>
-    nodes.filter(isInertPhrasing).map(readInertValue).join(" ");
+  const textValues = (nodes: readonly PhrasingNode[]) => nodes.map(readWrittenCharacters).join(" ");
 
   return {
-    textOnly: children.every(isInertPhrasing),
     earlier: textValues(earlier),
     later: textValues(later),
     laterHasMarkup: partialLine || !later.every(isInertPhrasing),

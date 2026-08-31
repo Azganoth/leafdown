@@ -256,30 +256,30 @@ describe("Markdown compatibility", () => {
     expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
   });
 
-  // The escape the file writes to keep the marker literal sits between the literal and the marker,
-  // and a literal's target takes a backslash in rather than leaving it out, so an untouched
-  // document grew one backslash per save while every save still converged on its own output.
+  // A marker beside a literal is one the file may escape, and a literal's target takes a backslash
+  // in rather than leaving it out, so an untouched document grew one backslash per save while every
+  // save still converged on its own output.
   it.each([
     {
-      expected: "<https://example.com>\\*\n",
+      expected: "<https://example.com>*\n",
       href: "https://example.com",
       source: "https://example.com*",
       text: "https://example.com",
     },
     {
-      expected: "<https://example.com>\\_\n",
+      expected: "<https://example.com>_\n",
       href: "https://example.com",
       source: "https://example.com_",
       text: "https://example.com",
     },
     {
-      expected: "<https://example.com>\\~\n",
+      expected: "<https://example.com>~\n",
       href: "https://example.com",
       source: "https://example.com~",
       text: "https://example.com",
     },
     {
-      expected: "<test@example.com>\\*\n",
+      expected: "<test@example.com>*\n",
       href: "mailto:test@example.com",
       source: "test@example.com*",
       text: "test@example.com",
@@ -530,6 +530,17 @@ describe("Escape precision", () => {
     { saved: "~~_a~~", source: "~~\\_a~~" },
     { saved: "[_a](u)", source: "[\\_a](u)" },
     { saved: "__*a__", source: "__\\*a__" },
+    // A construct on the line writes its own delimiters and its content, so a marker reaches a
+    // counterpart through what a sibling spells rather than through the sibling merely being there.
+    { saved: "[a](b)*", source: "[a](b)\\*" },
+    { saved: "[a](b)_", source: "[a](b)\\_" },
+    { saved: "[a](b)~", source: "[a](b)\\~" },
+    { saved: "<https://example.com>*", source: "<https://example.com>\\*" },
+    { saved: "~**Bold** plain", source: "\\~**Bold** plain" },
+    // A counterpart the line does spell keeps the escape, whether a construct writes it as a
+    // delimiter, holds it in its content, or writes an output the tree cannot be read for.
+    { saved: "**bold**\\*", source: "**bold**\\*" },
+    { saved: "![alt](x.png)\\*", source: "![alt](x.png)\\*" },
     // The line a mark sits on decides the bracket, so a `[` no `]` can reach loses its escape
     // inside the mark exactly as it does outside one.
     { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },

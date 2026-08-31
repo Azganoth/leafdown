@@ -424,7 +424,7 @@ export const splitCharacterReferences = (
   const push = (node: MarkdownNode, sourceEnd: number) => {
     const end = advanceSourcePoint(point, source, sourceCursor, sourceEnd);
 
-    children.push({ ...node, position: { end, start: point } } as MarkdownNode);
+    children.push({ ...node, position: { end, start: point } });
     point = end;
     sourceCursor = sourceEnd;
   };
@@ -439,7 +439,7 @@ export const splitCharacterReferences = (
         type: CHARACTER_REFERENCE_MARKDOWN_TYPE,
         [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: span.source,
         children: [{ type: "text", value: value.slice(span.start, span.end) }],
-      } as unknown as MarkdownNode,
+      },
       span.sourceEnd,
     );
     cursor = span.end;
@@ -490,7 +490,7 @@ export const characterReferenceMarkSchema: MarkSchema = {
       tag: `span[${SOURCE_DOM_ATTRIBUTE_NAME}]`,
       getAttrs: (dom) => ({
         [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]:
-          (dom as HTMLElement).getAttribute(SOURCE_DOM_ATTRIBUTE_NAME) ?? "",
+          dom.getAttribute(SOURCE_DOM_ATTRIBUTE_NAME) ?? "",
       }),
     },
   ],

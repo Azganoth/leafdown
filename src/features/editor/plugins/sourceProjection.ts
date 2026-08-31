@@ -153,7 +153,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
         },
         mouseout: (view, event) => handleProjectionLinkLabelMouseOut(view, event),
         mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
-        paste: (view, event) => handleProjectionPaste(view, event as ClipboardEvent),
+        paste: (view, event) => handleProjectionPaste(view, event),
       },
       handleDrop: (view, event, slice, moved) => handleProjectionDrop(view, event, slice, moved),
       handleKeyDown: (view, event) => handleProjectionKeyDown(view, event),
@@ -564,7 +564,7 @@ const applyProjectionTransaction = (
 
 const mergeTextRanges = (ranges: TextRange[]) =>
   ranges
-    .sort((left, right) => left.from - right.from || left.to - right.to)
+    .toSorted((left, right) => left.from - right.from || left.to - right.to)
     .reduce<TextRange[]>((merged, range) => {
       const previous = merged.at(-1);
 

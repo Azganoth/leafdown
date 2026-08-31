@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { afterEach, describe, expect, it } from "vitest";
 
 import { render, waitFor } from "@/test/utils/react";

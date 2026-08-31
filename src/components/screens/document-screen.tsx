@@ -15,6 +15,15 @@ interface DocumentScreenProps {
   activeDocument: ActiveDocumentState;
 }
 
+const handleOpenMarkdownPath = async (path: string) => {
+  try {
+    return await openMarkdownFileAtPath(path);
+  } catch (error) {
+    notifyError(getOpenMarkdownFileErrorMessage(error));
+    return false;
+  }
+};
+
 export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
@@ -29,15 +38,6 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     },
     [documentKey],
   );
-  const handleOpenMarkdownPath = async (path: string) => {
-    try {
-      return await openMarkdownFileAtPath(path);
-    } catch (error) {
-      notifyError(getOpenMarkdownFileErrorMessage(error));
-      return false;
-    }
-  };
-
   return (
     <ScrollArea className="h-full w-full" data-testid="document-surface-scroll-area">
       <section

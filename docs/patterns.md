@@ -315,10 +315,10 @@ Use:
 - `src/test/utils/` for store setup, Tauri helpers, React rendering, events, and editor helpers.
 - `src/test/factories/` for reusable domain object builders.
 - `src/test/fixtures/` for literal sample data such as Markdown, clipboard HTML, and paths.
-- `src/test/setup/` for the Vitest setup files each project loads.
+- `src/test/setup/` for the Vitest setup files every test loads.
 - Co-located tests for single modules.
 - Feature-level `tests/` directories only for broader integration behavior.
-- The `.test.tsx` extension for any test needing a DOM. The Vitest projects select the environment by extension: `.test.ts` runs under `node` and `.test.tsx` runs under `happy-dom`, regardless of whether the file contains JSX.
+- A `// @vitest-environment happy-dom` comment on the first line of any test needing a DOM. The suite runs under `node`, so a test that omits it fails on its first DOM access. The extension follows whether the file contains JSX and carries nothing about the environment.
 
 Avoid:
 

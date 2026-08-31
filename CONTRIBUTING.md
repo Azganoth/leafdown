@@ -58,7 +58,7 @@ pnpm install
 rustup toolchain install
 ```
 
-> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies and configures the Husky Git hooks used for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components.
+> Corepack installs the exact pnpm version configured by the repository. `pnpm install` then installs project dependencies, the Node version the repository pins for running its scripts, and, through Lefthook, the Git hooks defined in [`lefthook.yml`](./lefthook.yml) for basic linting and formatting checks. `rustup toolchain install` takes no toolchain argument because [`rust-toolchain.toml`](./rust-toolchain.toml) pins the version and components.
 
 Start the desktop application with:
 
@@ -131,7 +131,7 @@ Pull request requirements:
 
 After submission, CI runs the automated checks. Maintainers apply a type label, assign the pull request's owner, and review the scope, implementation, and verification evidence; priority and Project status stay on the issue. Contributors should address review feedback or explain unresolved trade-offs. Maintainers squash merge accepted pull requests using the pull request title as the commit title on `main`. The pull request body becomes that commit's body and is the permanent record of the change; intermediate commits do not survive the merge. That is why the pull request body carries verification evidence and intermediate commit messages do not.
 
-Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app. Markdown round-trip convergence over `corpus/commonmark/`, `corpus/gfm/`, and `corpus/isolated/end-of-file/` is asserted automatically by `src/features/editor/tests/corpusRoundTrip.test.tsx`, so the manual pass over those directories covers rendering, interaction, and navigator behavior; the remaining subtrees are verified only by hand.
+Verify changes locally before merging. Use `pnpm check:frontend` for frontend-only work, `pnpm check:backend` for Rust/Tauri-only work, and `pnpm check` for cross-cutting updates. For manual testing of Markdown and the article navigator, open the committed `corpus/` directory or one of its focused scenario directories in the app. Markdown round-trip convergence over `corpus/commonmark/`, `corpus/gfm/`, and `corpus/isolated/end-of-file/` is asserted automatically by `src/features/editor/tests/corpusRoundTrip.test.ts`, so the manual pass over those directories covers rendering, interaction, and navigator behavior; the remaining subtrees are verified only by hand.
 
 Frontend checks enforce a coverage floor. It is a ratchet set just below the measured numbers rather than a target: a change that falls below it needs tests, not a lower floor, and the floor is raised when the measured numbers move up.
 

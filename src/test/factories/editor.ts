@@ -39,7 +39,7 @@ export const createEditorCommandState = (
     enabledCommands: {
       ...enabledCommands,
       ...enabledCommandOverrides,
-    } as Record<EditorCommandId, boolean>,
+    },
     status: "inactive",
     ...stateOverrides,
   };

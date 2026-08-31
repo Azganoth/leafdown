@@ -151,7 +151,7 @@ export const definitionNodeSchema: NodeSchema = {
     {
       tag: `div[data-type="${DEFINITION_DOM_TYPE}"]`,
       getAttrs: (dom) => {
-        const element = dom as HTMLElement;
+        const element = dom;
 
         return {
           label: element.getAttribute("data-label") ?? "",

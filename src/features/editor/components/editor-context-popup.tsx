@@ -495,7 +495,7 @@ function ContextCommandSubmenu({
       </ToolbarButton>
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
         {commands.map(({ commandId, icon: CommandIcon }) => {
-          const label = EDITOR_COMMAND_LABELS[commandId];
+          const commandLabel = EDITOR_COMMAND_LABELS[commandId];
           const enabled = canExecute(commandId);
 
           return (
@@ -511,7 +511,7 @@ function ContextCommandSubmenu({
               ) : (
                 <PilcrowIcon className="size-4 opacity-0" />
               )}
-              {label}
+              {commandLabel}
             </DropdownMenuItem>
           );
         })}

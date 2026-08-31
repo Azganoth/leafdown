@@ -618,6 +618,22 @@ mod tests {
         assert_eq!(paths, vec![path.to_string_lossy()]);
     }
 
+    // Windows emits this only since notify 9.0.0-rc.5; before it, deleting the watched
+    // folder produced no event at all.
+    #[test]
+    fn treats_the_watched_folder_being_removed_as_relevant() {
+        let root = TestDirectory::new("watch-root-delete");
+        let root_path = root.path.clone();
+
+        let paths = relevant_event_paths(
+            &event(EventKind::Remove(RemoveKind::Folder), root_path.as_path()),
+            root_path.as_path(),
+            &[],
+        );
+
+        assert_eq!(paths, vec![root_path.to_string_lossy()]);
+    }
+
     #[test]
     fn treats_deleted_markdown_paths_as_relevant_without_metadata() {
         let root = TestDirectory::new("watch-markdown-delete");

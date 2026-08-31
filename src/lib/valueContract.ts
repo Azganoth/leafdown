@@ -97,7 +97,7 @@ export const salvagedRecord = <Shape extends ContractShape>(
         continue;
       }
 
-      const checked = shape[key]!.check(entry);
+      const checked = shape[key].check(entry);
 
       if (checked.outcome === "invalid") {
         touched = true;

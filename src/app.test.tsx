@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { confirm } from "@tauri-apps/plugin-dialog";

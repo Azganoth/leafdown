@@ -3,11 +3,11 @@ import { Signal, SignalSource } from "./signal";
 
 export interface CancellationToken {
   readonly isCancellationRequested: boolean;
-  readonly onCancellationRequested: Signal<void>;
+  readonly onCancellationRequested: Signal;
 }
 
 class ImmutableCancellationToken implements CancellationToken {
-  readonly onCancellationRequested: Signal<void>;
+  readonly onCancellationRequested: Signal;
 
   constructor(readonly isCancellationRequested: boolean) {
     this.onCancellationRequested = isCancellationRequested
@@ -20,7 +20,7 @@ class ImmutableCancellationToken implements CancellationToken {
 }
 
 class MutableCancellationToken implements CancellationToken {
-  private readonly cancellationRequested = new SignalSource<void>();
+  private readonly cancellationRequested = new SignalSource();
   private isCancelled = false;
 
   get isCancellationRequested() {

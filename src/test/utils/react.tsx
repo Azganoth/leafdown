@@ -37,10 +37,10 @@ const renderWithUser = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper
 const setupUser = (options?: Parameters<typeof userEvent.setup>[0]) => userEvent.setup(options);
 
 const renderHook = <Result, Props>(
-  render: (initialProps: Props) => Result,
+  callback: (initialProps: Props) => Result,
   options?: Omit<RenderHookOptions<Props>, "wrapper">,
 ) =>
-  renderHookWithTestingLibrary(render, {
+  renderHookWithTestingLibrary(callback, {
     wrapper: Providers,
     ...options,
   });

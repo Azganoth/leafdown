@@ -19,7 +19,7 @@ const toSignalDisposable = (dispose: () => void): Disposable => {
   });
 };
 
-const signalNone = <T = never>(_listener: (value: T) => void) => NOOP_SIGNAL_DISPOSABLE;
+const signalNone = (_listener: (value: never) => void) => NOOP_SIGNAL_DISPOSABLE;
 
 const once =
   <T>(signal: Signal<T>): Signal<T> =>

@@ -198,6 +198,11 @@ describe("Markdown compatibility", () => {
     "Balanced path: https://example.com/a(b)c and unmatched path: https://example.com/a(b)).",
     "**https://example.com**",
     "[https://example.com](https://leafdown.dev)",
+    "\\<test@example.com>",
+    "&lt;https://example.com&gt;",
+    "&lt;https://example.com&gt; tail",
+    "https://example.com&gt;",
+    "test@example.com&gt;",
   ])("keeps the authored autolink form in %s", async (source) => {
     const mounted = await mountEditor(source);
 
@@ -220,6 +225,36 @@ describe("Markdown compatibility", () => {
     mounted.view.dispatch(mounted.view.state.tr.delete(spacePosition, spacePosition + 1));
 
     expect(mounted.getMarkdown()).toBe("tail<https://example.com>\n");
+  });
+
+  // The angle-bracket fallback writes the very brackets these documents already hold, so the bytes
+  // it produces converge while the document has moved to the other autolink form.
+  it.each(["\\<test@example.com>", "&lt;https://example.com&gt;"])(
+    "keeps a bare autolink between angle brackets across a save in %j",
+    async (source) => {
+      const before = await mountEditor(source);
+      const after = await mountEditor(before.getMarkdown());
+
+      expect(after.view.state.doc.toJSON()).toEqual(before.view.state.doc.toJSON());
+    },
+  );
+
+  it("writes a bare autolink with angle brackets once an edit puts a bracket its target takes in after it", async () => {
+    const mounted = await mountEditor("https://example.com >tail");
+    const spacePosition = getEditorTextPosition(mounted, " >tail");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(spacePosition, spacePosition + 1));
+
+    expect(mounted.getMarkdown()).toBe("<https://example.com>>tail\n");
+  });
+
+  it("writes a bare autolink with angle brackets once an edit stops a following reference from being trimmed", async () => {
+    const mounted = await mountEditor("&lt;https://example.com&gt; tail");
+    const spacePosition = getEditorTextPosition(mounted, " tail");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(spacePosition, spacePosition + 1));
+
+    expect(mounted.getMarkdown()).toBe("&lt;<https://example.com>&gt;tail\n");
   });
 
   it.each([

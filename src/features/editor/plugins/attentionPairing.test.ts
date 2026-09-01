@@ -146,3 +146,73 @@ describe("pairing a delimiter typed beside a mark", () => {
     expect(settle(mounted)).toBe("text[emphasis] tail");
   });
 });
+
+describe("typing a delimiter run into literal text", () => {
+  // The run needs a paragraph the tail does not share: a run closed against a letter reads as the
+  // opener of a construct the author has not finished, and stays literal.
+  const typeIntoEmptyParagraph = async (input: string) => {
+    const mounted = await mountEditor(`x${TAIL}`);
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(1, 2));
+    setTextSelection(mounted.view, 1);
+    typeText(mounted.view, input);
+
+    return mounted;
+  };
+
+  it.each([
+    { document: "** text[emphasis]", saved: "\\*\\**text*", typed: "***text*" },
+    { document: "_* text[emphasis]", saved: "_\\**text*", typed: "_**text*" },
+    { document: "_ text[strong]", saved: "_**text**", typed: "_**text**" },
+    { document: "*_ text[emphasis]", saved: "*\\__text_", typed: "*__text_" },
+    { document: "text[emphasis+strong]", saved: "_**text**_", typed: "_**text**_" },
+    { document: "* text[emphasis]", saved: "\\**text*", typed: "**text*" },
+    { document: "*** text[emphasis]", saved: "\\*\\*\\**text*", typed: "****text*" },
+    { document: "* text[strong]", saved: "\\***text**", typed: "***text**" },
+    { document: "* text[strong]", saved: "*__text__", typed: "*__text__" },
+    { document: "text[emphasis+strong]", saved: "***text***", typed: "***text***" },
+  ])(
+    "reads $typed the way CommonMark reads the same source",
+    async ({ document, saved, typed }) => {
+      const mounted = await typeIntoEmptyParagraph(typed);
+
+      expect(settle(mounted)).toBe(`${document} tail`);
+      expect(mounted.getMarkdown()).toBe(`${saved}\n\ntail\n`);
+      // The file spells the delimiters the author typed and no others, whether it writes them as
+      // syntax or escapes them as text.
+      expect(saved.replaceAll(/\\(?=[*_~])/gu, "")).toBe(typed);
+
+      const reopened = await mountEditor(mounted.getMarkdown());
+
+      expect(describeDocument(reopened)).toBe(`${document} tail`);
+    },
+  );
+
+  it("holds a run the author can still extend until the caret leaves it", async () => {
+    const mounted = await typeIntoEmptyParagraph("***text*");
+
+    expect(describeDocument(mounted)).toBe("***text* tail");
+
+    typeText(mounted.view, "*");
+
+    expect(settle(mounted)).toBe("* text[strong] tail");
+  });
+
+  it("leaves a run closed against a letter literal", async () => {
+    const mounted = await typeIntoEmptyParagraph("**a*b");
+
+    expect(settle(mounted)).toBe("**a*b tail");
+  });
+
+  it("leaves a run that follows a word literal", async () => {
+    const mounted = await typeIntoEmptyParagraph("lead**text**");
+
+    expect(settle(mounted)).toBe("lead**text** tail");
+  });
+
+  it("leaves an unequal tilde run literal", async () => {
+    const mounted = await typeIntoEmptyParagraph("~~text~");
+
+    expect(settle(mounted)).toBe("~~text~ tail");
+  });
+});

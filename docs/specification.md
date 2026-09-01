@@ -333,7 +333,9 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 - Missing local images show a clear placeholder.
 - Remote image Markdown is preserved, but network images are currently blocked completely; loading them is deferred.
 - Local images that resolve outside the current folder context require explicit confirmation before rendering. Instead of a blocking modal, the editor displays an inline placeholder in place of the image, prompting the user to click to load/render it.
-- Selecting a rendered or placeholder image exposes the raw image Markdown for editing the alt text and target path.
+- Selecting a rendered or placeholder image exposes the raw image Markdown for editing the description and target path.
+- An image description keeps the Markdown it was written with, including emphasis, strong, inline code, strikethrough, a link, and a nested image. It is source the image carries rather than content the document holds, so a nested image is written back as it was authored rather than rendered as a second image, and the image is named by the text its description spells.
+- The raw image Markdown of a focused image is the source the file holds. Editing the destination or the title leaves the description as it was written; editing the description replaces it with the text typed there, which is written back escaped.
 
 For local-path resolution and asset-protocol handling, see [Architecture](./architecture.md#frontend-responsibilities).
 

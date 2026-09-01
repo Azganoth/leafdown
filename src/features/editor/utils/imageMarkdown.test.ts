@@ -2,16 +2,22 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseImageMarkdown,
+  readImageDescription,
   serializeImageMarkdown,
   type ImageDefinition,
   type ImageMarkdownAttrs,
 } from "./imageMarkdown";
 
-type InlineImageAttrs = Omit<ImageMarkdownAttrs, "referenceLabel" | "referenceType">;
+type InlineImageAttrs = Omit<
+  ImageMarkdownAttrs,
+  "description" | "referenceLabel" | "referenceType"
+> &
+  Partial<Pick<ImageMarkdownAttrs, "description">>;
 
 const inlineImageAttrs = (attrs: InlineImageAttrs): ImageMarkdownAttrs => ({
   referenceLabel: "",
   referenceType: null,
+  description: readImageDescription(null, attrs.alt),
   ...attrs,
 });
 
@@ -161,6 +167,7 @@ describe("imageMarkdown", () => {
     expect(
       serializeImageMarkdown({
         alt,
+        description: readImageDescription(null, alt),
         referenceLabel: "leaf",
         referenceType,
         src: LEAF_DEFINITION.src,
@@ -181,6 +188,7 @@ describe("imageMarkdown", () => {
     (markdown, referenceType, alt, referenceLabel) => {
       expect(parseImageMarkdown(markdown, resolveLeaf)).toEqual({
         alt,
+        description: readImageDescription(null, alt),
         referenceLabel,
         referenceType,
         ...LEAF_DEFINITION,
@@ -201,4 +209,50 @@ describe("imageMarkdown", () => {
       expect(parseImageMarkdown(markdown)).toBeNull();
     },
   );
+
+  it.each([
+    ["![Alt with *emphasis*](./assets/icon.png)", "Alt with *emphasis*"],
+    [
+      "![Outer ![inner](./assets/inner.png)](./assets/icon.png)",
+      "Outer ![inner](./assets/inner.png)",
+    ],
+  ])("writes the description the document kept as it was written: %s", (expected, description) => {
+    expect(
+      serializeImageMarkdown(
+        inlineImageAttrs({
+          alt: "Alt",
+          description,
+          src: "./assets/icon.png",
+          title: "",
+          titleMarker: '"',
+        }),
+      ),
+    ).toBe(expected);
+  });
+
+  // The input holds one image's source rather than a document, so a description typed into it is
+  // the text it spells and the reference forms compare against that text.
+  it("reads a typed description as the source it spells", () => {
+    expect(parseImageMarkdown("![Outer ![inner](./inner.png)](./assets/icon.png)")).toEqual(
+      inlineImageAttrs({
+        alt: "Outer ![inner](./inner.png)",
+        description: "Outer ![inner](./inner.png)",
+        src: "./assets/icon.png",
+        title: "",
+        titleMarker: '"',
+      }),
+    );
+  });
+
+  it("keeps a reference whose description spells its label in the form it was written", () => {
+    expect(
+      serializeImageMarkdown({
+        alt: "em",
+        description: "*em*",
+        referenceLabel: "*em*",
+        referenceType: "shortcut",
+        ...LEAF_DEFINITION,
+      }),
+    ).toBe("![*em*]");
+  });
 });

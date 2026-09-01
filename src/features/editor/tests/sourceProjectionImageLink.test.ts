@@ -151,6 +151,24 @@ describe("image link label source projection", () => {
     expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
   });
 
+  // An image in a projected label becomes its own Markdown source, and an image carries the
+  // description the file holds rather than the text that description spells.
+  it("projects the description a linked image was written with", async () => {
+    const source = "[![alt with *emphasis*](./pic.png)](./doc.md)";
+    const mounted = await mountProjectionEditor(`${source} tail`);
+    const originalDocument = mounted.view.state.doc;
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "image"));
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(`${source} tail`);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(`${source} tail\n`);
+  });
+
   it.each([
     {
       committed: "[![altered](./pic.png)](./doc.md) tail\n",

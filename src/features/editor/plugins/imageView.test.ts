@@ -378,6 +378,58 @@ describe("Markdown images", () => {
       expect(latestInput.selectionStart).toBe(5);
       expect(mounted.getMarkdown()).toBe("![Alpt](./assets/icon.png)\n");
     });
+
+    const mountDescribedImage = async () => {
+      mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+        kind: "renderable",
+        path: "C:\\Notes\\assets\\icon.png",
+      }));
+
+      const mounted = await mountImageEditor("![Alt with *emphasis*](./assets/icon.png)");
+
+      await waitFor(() => {
+        expect(
+          within(mounted.view.dom).getByRole("img", { name: "Alt with emphasis" }),
+        ).toBeInTheDocument();
+      });
+
+      dispatchMouseDown(within(mounted.view.dom).getByRole("img", { name: "Alt with emphasis" }));
+
+      return mounted;
+    };
+
+    // The input holds the source the file was written with rather than the text the description
+    // spells, so what it writes back is what the author is editing.
+    it("keeps the description the file holds while the rest of the image is edited", async () => {
+      const mounted = await mountDescribedImage();
+      const input = within(mounted.view.dom).getByRole("textbox", { name: "Image Markdown" });
+
+      expect(input).toHaveValue("![Alt with *emphasis*](./assets/icon.png)");
+      dispatchInput(input, "![Alt with *emphasis*](./assets/updated.png)");
+
+      await waitFor(() => {
+        expect(mounted.getMarkdown()).toBe("![Alt with *emphasis*](./assets/updated.png)\n");
+      });
+      expect(
+        within(mounted.view.dom).getByRole("img", { name: "Alt with emphasis" }),
+      ).toBeInTheDocument();
+    });
+
+    // Reading the markers a typed description spells back as inline content is the parse this
+    // input does not run, so an edited description is the text it holds and the file escapes it.
+    it("writes an edited description as the text it spells", async () => {
+      const mounted = await mountDescribedImage();
+      const input = within(mounted.view.dom).getByRole("textbox", { name: "Image Markdown" });
+
+      dispatchInput(input, "![Alt with *markers*](./assets/icon.png)");
+
+      await waitFor(() => {
+        expect(mounted.getMarkdown()).toBe("![Alt with \\*markers\\*](./assets/icon.png)\n");
+      });
+      expect(
+        within(mounted.view.dom).getByRole("img", { name: "Alt with *markers*" }),
+      ).toBeInTheDocument();
+    });
   });
 
   describe("reference images", () => {

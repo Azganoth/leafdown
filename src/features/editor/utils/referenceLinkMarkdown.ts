@@ -1,6 +1,10 @@
 import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 
-import { AUTHORED_URL_ATTRIBUTE_NAME } from "./characterReferenceMarkdown";
+import {
+  AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
+  AUTHORED_URL_ATTRIBUTE_NAME,
+  readAuthoredDescription,
+} from "./characterReferenceMarkdown";
 import {
   chooseTitleMarker,
   readTitleMarker,
@@ -289,6 +293,7 @@ export const withImageReferenceForm = (schema: NodeSchema): NodeSchema => {
           alt: readString(node, "alt"),
           title: node.title ?? "",
           [AUTHORED_URL_ATTRIBUTE_NAME]: null,
+          [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: readAuthoredDescription(node),
           [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
           ...readReferenceAttrs(node),
         });
@@ -304,6 +309,7 @@ export const withImageReferenceForm = (schema: NodeSchema): NodeSchema => {
 
         state.addNode(IMAGE_REFERENCE_MARKDOWN_TYPE, undefined, undefined, {
           alt: node.attrs.alt,
+          [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: node.attrs[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME],
           ...getReferenceProps(node.attrs),
         });
       },

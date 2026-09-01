@@ -15,6 +15,9 @@ export const CHARACTER_REFERENCE_MARK_NAME = "leafdownCharacterReference";
 // A link and an image both carry the destination the author wrote where it differs from the one
 // the parser decoded, so the mark and the node name it the same way.
 export const AUTHORED_URL_ATTRIBUTE_NAME = "authoredUrl";
+// An image description holds inline content, and the parser keeps only the text it spells, so the
+// node carries the source the description was written with wherever that source says more.
+export const AUTHORED_DESCRIPTION_ATTRIBUTE_NAME = "authoredDescription";
 
 export const CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME = "source";
 const SOURCE_DOM_ATTRIBUTE_NAME = "data-character-reference";
@@ -314,19 +317,116 @@ export const readAuthoredUrl = (node: object) => {
   return typeof authored === "string" ? authored : null;
 };
 
+interface DescriptionSource {
+  description: string;
+  tail: string;
+}
+
+// The description of an image is the run its outer brackets hold, and it is bracket-balanced, so
+// its own brackets and a nested image cannot end it early. A code span holding a bracket the
+// grammar does not count can end it early here, which is what the tail is returned for.
+const findDescriptionSource = (raw: string): DescriptionSource | null => {
+  if (!raw.startsWith("![")) {
+    return null;
+  }
+
+  let depth = 0;
+  let index = 1;
+
+  for (; index < raw.length; index += 1) {
+    const character = raw[index];
+
+    if (character === "\\") {
+      index += 1;
+    } else if (character === "[") {
+      depth += 1;
+    } else if (character === "]") {
+      depth -= 1;
+
+      if (depth === 0) {
+        break;
+      }
+    }
+  }
+
+  return raw[index] === "]"
+    ? { description: raw.slice(2, index), tail: raw.slice(index + 1) }
+    : null;
+};
+
+// The label a reference tail names: the one it holds for a full reference, and the description
+// itself for the collapsed and shortcut forms, which spell their label once.
+const findReferenceLabelSource = ({ description, tail }: DescriptionSource) => {
+  if (tail === "" || tail === "[]") {
+    return description;
+  }
+
+  return tail.startsWith("[") && tail.endsWith("]") ? tail.slice(1, -1) : null;
+};
+
+// A description is worth carrying only where it says more than the text the parser kept from it:
+// emphasis, inline code, a nested image, or anything else whose markers the alt text drops.
+// Escapes and character references are differences the alt text does answer for, and both belong
+// to the issues that settled them, so a description spelling only those is left as it is.
+const saysMoreThanAlt = (description: string, alt: string) =>
+  decodeCharacterReferences(resolveEscapes(description)) !== alt;
+
+// The description an inline image was written with, or null where the slice does not spell the
+// image the node was built from. The destination the slice names is what confirms the description
+// ended where this reading has it end.
+export const findAuthoredDescription = (raw: string, alt: string, url: string) => {
+  const source = findDescriptionSource(raw);
+  const destination = findDestinationSource(raw);
+
+  if (
+    source === null ||
+    destination === null ||
+    decodeCharacterReferences(resolveEscapes(destination)) !== url
+  ) {
+    return null;
+  }
+
+  return saysMoreThanAlt(source.description, alt) ? source.description : null;
+};
+
+// The description a reference image was written with. A reference names no destination, so the
+// label its tail spells confirms the reading instead.
+export const findAuthoredReferenceDescription = (raw: string, alt: string, label: string) => {
+  const source = findDescriptionSource(raw);
+
+  if (source === null) {
+    return null;
+  }
+
+  const reference = findReferenceLabelSource(source);
+
+  if (reference === null || decodeCharacterReferences(resolveEscapes(reference)) !== label) {
+    return null;
+  }
+
+  return saysMoreThanAlt(source.description, alt) ? source.description : null;
+};
+
+export const readAuthoredDescription = (node: object) => {
+  const authored = (node as { authoredDescription?: unknown }).authoredDescription;
+
+  return typeof authored === "string" ? authored : null;
+};
+
 const omitAuthoredAttributes = (attributes: Record<string, unknown>) => {
   const rendered = { ...attributes };
 
   delete rendered[AUTHORED_URL_ATTRIBUTE_NAME];
+  delete rendered[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME];
   delete rendered[TITLE_MARKER_ATTRIBUTE_NAME];
 
   return rendered;
 };
 
 // An image is a node rather than a mark, so the form it was authored in travels in node attributes.
-// The rendered `img` carries neither and no parse rule reads them back, which leaves a copy through
-// the DOM holding the decoded destination and a double-quoted title — the same fallback an edit
-// inside a reference takes.
+// The rendered `img` carries none of them and no parse rule reads them back, which leaves a copy
+// through the DOM holding the decoded destination, a double-quoted title, and a description flat
+// to its text — the same fallback an edit inside a reference takes.
 export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
   const { toDOM } = schema;
 
@@ -335,6 +435,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
     attrs: {
       ...schema.attrs,
       [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
+      [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
       [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     },
     toDOM:
@@ -356,6 +457,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           alt: (node as { alt?: unknown }).alt,
           title: node.title,
           [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
+          [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: readAuthoredDescription(node),
           [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
         });
       },
@@ -368,6 +470,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           url: node.attrs.src,
           alt: node.attrs.alt,
           [AUTHORED_URL_ATTRIBUTE_NAME]: node.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
+          [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: node.attrs[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME],
           [TITLE_MARKER_ATTRIBUTE_NAME]: node.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
         });
       },

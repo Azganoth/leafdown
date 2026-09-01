@@ -10,7 +10,12 @@ import { MutableDisposable } from "@/lib/lifecycle";
 import { isSameNullablePath } from "@/lib/path";
 
 import {
+  AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
+  readAuthoredDescription,
+} from "../utils/characterReferenceMarkdown";
+import {
   parseImageMarkdown,
+  readImageDescription,
   serializeImageMarkdown,
   type ImageDefinitionResolver,
   type ImageMarkdownAttrs,
@@ -160,10 +165,16 @@ class LeafdownImageNodeView implements NodeView {
     }
 
     const currentAttrs = this.getImageAttrs();
-    const nextAttrs = toNodeAttrs({
-      ...currentAttrs,
-      ...attrs,
-    });
+    const editedAttrs = { ...currentAttrs, ...attrs };
+    // The input holds the description the file was written with, so an edit to the destination or
+    // the title leaves that description standing. A description the author did change is the text
+    // they typed, because reading its markers back as inline content is the parse this input does
+    // not run, and the file escapes them for it.
+    const keepsDescription = editedAttrs.description === currentAttrs.description;
+    const nextAttrs = toNodeAttrs(
+      keepsDescription ? { ...editedAttrs, alt: currentAttrs.alt } : editedAttrs,
+      keepsDescription ? readAuthoredDescription(this.node.attrs) : null,
+    );
 
     if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
       this.allowOutsideFolder = false;
@@ -289,6 +300,10 @@ const readNodeString = (node: ProseMirrorNode, key: string) => {
 
 const imageAttrsFromNode = (node: ProseMirrorNode): ImageMarkdownAttrs => ({
   alt: readNodeString(node, "alt"),
+  description: readImageDescription(
+    readAuthoredDescription(node.attrs),
+    readNodeString(node, "alt"),
+  ),
   referenceLabel: readNodeString(node, REFERENCE_LABEL_ATTRIBUTE_NAME),
   referenceType: readReferenceType(node.attrs),
   src: readNodeString(node, "src"),
@@ -331,17 +346,14 @@ const isSameImageResolutionInput = (
   isSameNullablePath(currentInput.folderContextPath, nextInput.folderContextPath) &&
   currentInput.target === nextInput.target;
 
-const toNodeAttrs = ({
-  alt,
-  referenceLabel,
-  referenceType,
-  src,
-  title,
-  titleMarker,
-}: ImageMarkdownAttrs) => ({
+const toNodeAttrs = (
+  { alt, referenceLabel, referenceType, src, title, titleMarker }: ImageMarkdownAttrs,
+  authoredDescription: string | null,
+) => ({
   alt,
   src,
   title,
+  [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: authoredDescription,
   [TITLE_MARKER_ATTRIBUTE_NAME]: titleMarker,
   [REFERENCE_LABEL_ATTRIBUTE_NAME]: referenceLabel,
   [REFERENCE_TYPE_ATTRIBUTE_NAME]: referenceType,

@@ -1997,8 +1997,11 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe("text[^a]x tail\n\n[^a]: note\n");
     });
 
-    it("keeps a literal marker beside a projection out of an input rule", async () => {
-      const mounted = await mountProjectionEditor("*__text__");
+    // The input rule sees the projection rather than the run, so the emphasis it offers is one
+    // wrapping the literal `__text__`. The pairing decided once the projection commits is what the
+    // line spells: emphasis over the strong run, with neither marker left as content.
+    it("pairs a marker typed beside a projection with the literal one across the run", async () => {
+      const mounted = await mountProjectionEditor("*__text__\n\nplain");
 
       enterProjection(mounted, "strong");
 
@@ -2006,11 +2009,13 @@ describe("source projection", () => {
 
       setTextSelection(mounted.view, sourceStart + "__text__".length);
       typeText(mounted.view, "*");
-      setSelectionAtDocumentEnd(mounted.view);
+      // The pairing carries the run to the end of its paragraph, so the caret parks in the next
+      // one rather than back against the mark, where it would project the source again.
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "plain"));
 
       expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("text");
-      expect(getEditorTextContent(mounted)).toBe("*text*");
-      expect(mounted.getMarkdown()).toBe("\\*__text__\\*\n");
+      expect(getEditorTextContent(mounted)).toBe("textplain");
+      expect(mounted.getMarkdown()).toBe("*__text__*\n\nplain\n");
     });
 
     // A tilde is written bare because the strong beside it spells no counterpart it could pair

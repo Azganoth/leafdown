@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Pair a `*`, `_`, or `~` typed against bold, italic, or strikethrough with the matching literal marker already on the other side of it, so closing `_**text**` with a `_` gives italic bold and saves `_**text**_`, instead of leaving both markers as text that saved as `\_**text**\_` and reopened without the italic. A marker a file keeps literal by escaping it stays literal.
 - Leave a `*`, `_`, or `~` bare on save wherever nothing else on its line could pair with it, so text such as `[a](b)*` keeps its marker as written instead of collecting a backslash merely because a link, an image, or a bold span shares the line with it. A marker that could still pair, including one that could pair with the markers of a span beside it, keeps its backslash.
 - Keep the address of a URL or email address written on its own when a `*`, `_`, or `~` follows it, so text such as `https://example.com*` keeps its link pointing where it did. The backslash the file writes to keep that marker literal was being read back as part of the address, which gained another backslash every time the document was opened and saved.
 - Keep a URL or email address written on its own bare when a run shaped like a character reference but naming nothing, such as `&notarealentity;`, follows it, so text such as `https://example.com&notarealentity;` is saved as it was written instead of gaining angle brackets. Markdown leaves such a run outside the link whether or not the name exists.

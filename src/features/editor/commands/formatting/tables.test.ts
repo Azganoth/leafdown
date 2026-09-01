@@ -2,7 +2,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { BASIC_TABLE_MARKDOWN, EXTENDED_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
+import {
+  BASIC_TABLE_MARKDOWN,
+  EXTENDED_TABLE_MARKDOWN,
+  HEADER_ONLY_TABLE_MARKDOWN,
+} from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -145,6 +149,31 @@ describe("editor table formatting commands", () => {
     setSelectionInTableCell(mounted, 1, 0);
 
     expect(deleteTable(mounted.view)).toBe(true);
+    expect(mounted.view.dom.querySelector("table")).not.toBeInTheDocument();
+  });
+
+  it("adds the first body row of a header-only table from its header", async () => {
+    const mounted = await mountEditor(HEADER_ONLY_TABLE_MARKDOWN);
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "th"));
+
+    expect(canAddRowBelow(mounted.view.state)).toBe(true);
+    expect(addRowBelow(mounted.view)).toBe(true);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B"],
+      ["", ""],
+    ]);
+  });
+
+  // A header-only table is a shape the editor can now open, but deleting the last body row still
+  // removes the table rather than producing one. Changing that is a command decision this fix
+  // does not take.
+  it("removes a table whose only body row is deleted", async () => {
+    const mounted = await mountEditor(BASIC_TABLE_MARKDOWN);
+
+    setSelectionInTableCell(mounted, 1, 0);
+
+    expect(deleteRows(mounted.view)).toBe(true);
     expect(mounted.view.dom.querySelector("table")).not.toBeInTheDocument();
   });
 });

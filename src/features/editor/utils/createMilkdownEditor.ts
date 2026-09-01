@@ -35,6 +35,7 @@ import {
   gfm,
   strikethroughInputRule,
   strikethroughKeymap,
+  tableSchema,
 } from "@milkdown/kit/preset/gfm";
 import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorProps } from "@milkdown/kit/prose/view";
@@ -341,6 +342,12 @@ export const createMilkdownEditor = async ({
       ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({
         ...withLinkReferenceForm(withBareAutolinkForm(getSchema(schemaCtx))),
         priority: LINK_MARK_PRIORITY,
+      }));
+      // A `table_row+` content expression has no legal header-only table, so ProseMirror fills a
+      // cell-less row into every table authored without body rows.
+      ctx.update(tableSchema.key, (getSchema) => (schemaCtx) => ({
+        ...getSchema(schemaCtx),
+        content: "table_header_row table_row*",
       }));
       // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the
       // schema the editor holds.

@@ -139,7 +139,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - List items and blockquotes may contain other block-level elements.
 - Ordered lists render with visual continuation.
 - Clicking a task-list checkbox toggles it checked or unchecked.
-- Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface. A row holding more or fewer cells than the header is read as the columns the header declares, which is what a Markdown reader shows; cells beyond the header are dropped and missing cells are filled at the end of the row.
+- Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface. A row holding more or fewer cells than the header is read as the columns the header declares, which is what a Markdown reader shows; cells beyond the header are dropped and missing cells are filled at the end of the row. A table written with a header and delimiter row and no body rows is kept and rendered as a header-only table.
 - Code blocks render as styled monospace blocks with syntax highlighting when available. Focused code blocks edit code content directly. Language metadata controls are deferred.
 - Footnote definitions render as editable definition blocks with a persistent subtle definition marker.
 - Link and image reference definitions render as blocks showing the permanent definition source. They are selected, moved, and deleted as one block rather than typed into, because a reference resolves against the definitions the document was read with and would otherwise point at a destination the file no longer names.
@@ -246,7 +246,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - GFM tables keep the header row as a protected structural row for table editing. Row commands that would insert above, move, or delete the header row are unavailable. `Add row below` remains available from the header row and inserts the first body row.
 - `Add column before` and `Add column after` insert one column before the first selected column or after the last selected column.
 - `Move row up`, `Move row down`, `Move column left`, and `Move column right` move the current or selected rows or columns one position when a destination exists.
-- `Delete row` and `Delete column` remove the current or selected rows or columns. If deleting them would leave no valid table, remove the table.
+- `Delete row` and `Delete column` remove the current or selected rows or columns. If deleting them would leave no valid table, remove the table, and deleting the last body row removes the table rather than leaving its header behind.
 - `Delete table` removes the current table.
 
 ### Serialization And Output

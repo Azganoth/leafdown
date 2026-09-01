@@ -15,6 +15,7 @@ const mountEditor = setupMilkdownEditorMount();
 const SHORT_ROW_MARKDOWN = "| A | B |\n| --- | --- |\n| one |\n";
 const LONG_ROW_MARKDOWN = "| A | B |\n| --- | --- |\n| two | three | ignored |\n";
 const RAGGED_MARKDOWN = "| A | B |\n| --- | --- |\n| one |\n| two | three | ignored |\n";
+const HEADER_ONLY_MARKDOWN = "| Header only | No body rows |\n| --- | --- |\n";
 const RAGGED_HTML =
   "<table><tr><th>A</th><th>B</th></tr><tr><td>one</td></tr>" +
   "<tr><td>two</td><td>three</td><td>ignored</td></tr></table>";
@@ -165,6 +166,39 @@ describe("table shape plugin", () => {
       ["A", "B"],
       ["one", ""],
       ["two", "three"],
+    ]);
+  });
+});
+
+describe("header-only table", () => {
+  it("holds no body rows on open", async () => {
+    const mounted = await mountEditor(HEADER_ONLY_MARKDOWN);
+
+    expect(getTableCellTexts(mounted)).toEqual([["Header only", "No body rows"]]);
+  });
+
+  it("preserves the document across a save", async () => {
+    const [beforeDoc, afterDoc] = await saveAndReopen(HEADER_ONLY_MARKDOWN);
+
+    expect(afterDoc).toEqual(beforeDoc);
+  });
+
+  // The cell padding the delimiter row gains is normalized rather than preserved, so the file is
+  // compared against the padded form the serializer writes.
+  it("writes the table back without a body row", async () => {
+    const mounted = await mountEditor(HEADER_ONLY_MARKDOWN);
+
+    expect(mounted.getMarkdown()).toBe(
+      "| Header only | No body rows |\n| ----------- | ------------ |\n",
+    );
+  });
+
+  it("still fills a body row that holds fewer cells than the header", async () => {
+    const mounted = await mountEditor(SHORT_ROW_MARKDOWN);
+
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B"],
+      ["one", ""],
     ]);
   });
 });

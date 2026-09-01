@@ -47,6 +47,7 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "../commands";
+import { createLeafdownAttentionPairingPlugin } from "../plugins/attentionPairing";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import {
@@ -252,6 +253,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())
     .use(createLeafdownSourceProjectionContinuationPlugin())
+    .use(createLeafdownAttentionPairingPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))

@@ -81,6 +81,7 @@ import {
   hasTransientSourceProjection,
 } from "../plugins/sourceProjection";
 import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
+import { createLeafdownTableFormPlugin } from "../plugins/tableForm";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import {
   createLeafdownTableShapeGuardPlugin,
@@ -120,6 +121,7 @@ import {
   serializeRawHtml,
 } from "./rawHtmlMarkdown";
 import { withImageReferenceForm, withLinkReferenceForm } from "./referenceLinkMarkdown";
+import { serializeTable, withTableOuterPipes } from "./tableMarkdown";
 import { serializeThematicBreak, withThematicBreakMarker } from "./thematicBreakMarkdown";
 
 export interface MilkdownMarkdownUpdate {
@@ -235,6 +237,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
+    .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
     .use(commonmark)
     .use(createLeafdownTableKeyboardPlugin())
@@ -296,6 +299,7 @@ export const createMilkdownEditor = async ({
           imageReference: serializeMarkdownImageReference,
           link: serializeMarkdownLink,
           root: serializeMarkdownRoot,
+          table: serializeTable,
           text: serializeMarkdownText,
           thematicBreak: serializeThematicBreak,
         },
@@ -346,7 +350,7 @@ export const createMilkdownEditor = async ({
       // A `table_row+` content expression has no legal header-only table, so ProseMirror fills a
       // cell-less row into every table authored without body rows.
       ctx.update(tableSchema.key, (getSchema) => (schemaCtx) => ({
-        ...getSchema(schemaCtx),
+        ...withTableOuterPipes(getSchema(schemaCtx)),
         content: "table_header_row table_row*",
       }));
       // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the

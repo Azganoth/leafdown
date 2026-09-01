@@ -157,4 +157,16 @@ describe("editor block insertion commands", () => {
     expect(table.querySelectorAll("tr")).toHaveLength(2);
     expect(table.querySelectorAll("th, td")).toHaveLength(4);
   });
+
+  // A table read from a file writes the outer pipes it was authored with, so one the editor creates
+  // needs a form of its own. Both pipes are the form every row reads back as the row it was
+  // written from.
+  it("writes an inserted table with the default outer pipes", async () => {
+    const mounted = await mountEditor("First");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(insertTable(mounted.view)).toBe(true);
+    expect(mounted.getMarkdown()).toContain("|    |    |\n| :- | :- |\n|    |    |\n");
+  });
 });

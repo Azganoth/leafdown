@@ -62,6 +62,9 @@ importers:
       lucide-react:
         specifier: ^1.37.0
         version: 1.37.0(react@19.2.8)
+      markdown-table:
+        specifier: 3.0.4
+        version: 3.0.4
       mdast-util-to-markdown:
         specifier: 2.1.2
         version: 2.1.2

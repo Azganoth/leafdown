@@ -955,6 +955,92 @@ describe("Thematic break form", () => {
   });
 });
 
+describe("Table outer pipe form", () => {
+  const BOTH_PIPES = "| Alpha | Bravo |\n| ----- | ----- |\n| Gamma | Delta |";
+  const NO_PIPES = "Alpha | Bravo\n----- | -----\nGamma | Delta";
+  const LEADING_PIPE = "| Alpha | Bravo\n| ----- | -----\n| Gamma | Delta";
+  const TRAILING_PIPE = "Alpha | Bravo |\n----- | ----- |\nGamma | Delta |";
+
+  const replaceCellText = (mounted: MountedMilkdownEditor, text: string, replacement: string) => {
+    const position = getEditorTextPosition(mounted, text);
+    const transaction = mounted.view.state.tr.delete(position, position + text.length);
+
+    mounted.view.dispatch(
+      replacement ? transaction.insertText(replacement, position) : transaction,
+    );
+  };
+
+  it.each([
+    BOTH_PIPES,
+    NO_PIPES,
+    LEADING_PIPE,
+    TRAILING_PIPE,
+    // A table with no body rows carries its form on the one row it has.
+    "Alpha | Bravo\n----- | -----",
+    // An alignment marker widens the delimiter cell past the lone hyphen that would open a bullet
+    // list, so a one-character first column keeps the form it was authored with.
+    "A  | Bravo\n:- | -----\nc  | Delta",
+    // The delimiter row only has to answer for a bullet where no pipe precedes it.
+    "| A | Bravo\n| - | -----\n| c | Delta",
+  ])("writes the outer pipes in %j as they were authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    { name: "a blockquote", source: "> Alpha | Bravo\n> ----- | -----\n> Gamma | Delta" },
+    { name: "a list item", source: "* Alpha | Bravo\n  ----- | -----\n  Gamma | Delta" },
+  ])("keeps the authored form inside $name", async ({ source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // One row's pipe answers for the table, so a form is dropped only where every row was authored
+  // without it. Taking the pipes off the rows that carry them would rewrite more than it keeps.
+  it("keeps an outer pipe the rows of a table disagree about", async () => {
+    const mounted = await mountEditor("| Alpha | Bravo |\n| ----- | ----- |\nGamma | Delta\n");
+
+    expect(mounted.getMarkdown()).toBe(`${BOTH_PIPES}\n`);
+  });
+
+  // A blank cell at either end of a row leaves the written row opening or closing on a pipe of its
+  // own, which GFM strips before it splits the row. No source can author one into a table with no
+  // outer pipes, and an edit can.
+  it.each([
+    {
+      cell: "Gamma",
+      name: "first",
+      saved: "| Alpha | Bravo |\n| ----- | ----- |\n|       | Delta |\n",
+    },
+    {
+      cell: "Delta",
+      name: "last",
+      saved: "| Alpha | Bravo |\n| ----- | ----- |\n| Gamma |       |\n",
+    },
+  ])(
+    "writes a table whose $name cell an edit emptied with its outer pipes",
+    async ({ cell, saved }) => {
+      const mounted = await mountEditor(`${NO_PIPES}\n`);
+
+      replaceCellText(mounted, cell, "");
+
+      expect(mounted.getMarkdown()).toBe(saved);
+    },
+  );
+
+  // A delimiter cell is as wide as its column, so a first column narrowed to one character is
+  // written `-`, and that hyphen opens a bullet list where no pipe precedes it.
+  it("writes a table whose first column an edit narrowed to a hyphen with its outer pipes", async () => {
+    const mounted = await mountEditor("Alpha | Bravo\n----- | -----\n");
+
+    replaceCellText(mounted, "Alpha", "A");
+
+    expect(mounted.getMarkdown()).toBe("| A | Bravo |\n| - | ----- |\n");
+  });
+});
+
 describe("Link and image title form", () => {
   it.each([
     '[Double quote](garden.md "Garden")',

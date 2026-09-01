@@ -105,6 +105,7 @@ import type { MarkdownLinkContext } from "./linkActivation";
 import {
   serializeMarkdownDefinition,
   serializeMarkdownImage,
+  serializeMarkdownImageReference,
   serializeMarkdownLink,
 } from "./markdownDestination";
 import {
@@ -291,6 +292,7 @@ export const createMilkdownEditor = async ({
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           definition: serializeMarkdownDefinition,
           image: serializeMarkdownImage,
+          imageReference: serializeMarkdownImageReference,
           link: serializeMarkdownLink,
           root: serializeMarkdownRoot,
           text: serializeMarkdownText,

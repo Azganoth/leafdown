@@ -3,6 +3,7 @@ import { normalizeReferenceLabel, type ReferenceType } from "./referenceLinkMark
 
 export interface ImageMarkdownAttrs {
   alt: string;
+  description: string;
   referenceLabel: string;
   referenceType: ReferenceType | null;
   src: string;
@@ -18,20 +19,27 @@ export interface ImageDefinition {
 
 export type ImageDefinitionResolver = (label: string) => ImageDefinition | null;
 
-// The reference forms collapse to the full one where the alt text no longer spells the label, which
-// is the rule the serializer applies to the node itself.
-const serializeImageReference = (alt: string, label: string, referenceType: ReferenceType) => {
-  const serializedAlt = escapeImageAlt(alt);
+// The source a description is written with: the one the document kept from the file, and the alt
+// text escaped to sit inside the brackets for a description holding nothing the text cannot carry.
+export const readImageDescription = (authored: string | null, alt: string) =>
+  authored ?? escapeImageAlt(alt);
 
-  if (referenceType === "full" || alt !== label) {
-    return `![${serializedAlt}][${label}]`;
+// The reference forms collapse to the full one where the description no longer spells the label,
+// which is the rule the serializer applies to the node itself.
+const serializeImageReference = (
+  description: string,
+  label: string,
+  referenceType: ReferenceType,
+) => {
+  if (referenceType === "full" || description !== label) {
+    return `![${description}][${label}]`;
   }
 
-  return referenceType === "shortcut" ? `![${serializedAlt}]` : `![${serializedAlt}][]`;
+  return referenceType === "shortcut" ? `![${description}]` : `![${description}][]`;
 };
 
 export const serializeImageMarkdown = ({
-  alt,
+  description,
   referenceLabel,
   referenceType,
   src,
@@ -39,21 +47,20 @@ export const serializeImageMarkdown = ({
   titleMarker,
 }: ImageMarkdownAttrs) => {
   if (referenceType) {
-    return serializeImageReference(alt, referenceLabel, referenceType);
+    return serializeImageReference(description, referenceLabel, referenceType);
   }
 
-  const serializedAlt = escapeImageAlt(alt);
   const serializedSrc = serializeImageSource(src);
 
   if (!title) {
-    return `![${serializedAlt}](${serializedSrc})`;
+    return `![${description}](${serializedSrc})`;
   }
 
   const marker = chooseTitleMarker(title, titleMarker);
   const [opening, closing] = TITLE_MARKER_PAIRS[marker];
   const serializedTitle = escapeImageTitle(title, marker);
 
-  return `![${serializedAlt}](${serializedSrc} ${opening}${serializedTitle}${closing})`;
+  return `![${description}](${serializedSrc} ${opening}${serializedTitle}${closing})`;
 };
 
 export const parseImageMarkdown = (
@@ -72,25 +79,28 @@ export const parseImageMarkdown = (
     return null;
   }
 
-  const alt = unescapeMarkdownText(source.slice(2, altEnd));
+  const description = source.slice(2, altEnd);
+  const alt = unescapeMarkdownText(description);
   const tail = source.slice(altEnd + 1);
 
   if (tail.startsWith("(") && source.endsWith(")")) {
     return {
       alt,
+      description,
       referenceLabel: "",
       referenceType: null,
       ...parseImageBody(source.slice(altEnd + 2, -1)),
     };
   }
 
-  return parseImageReference(alt, tail, resolveDefinition);
+  return parseImageReference(alt, description, tail, resolveDefinition);
 };
 
 // A reference names a destination its definition holds, so a label that resolves to nothing is not
 // an image and leaves the node as it was.
 const parseImageReference = (
   alt: string,
+  description: string,
   tail: string,
   resolveDefinition: ImageDefinitionResolver,
 ): ImageMarkdownAttrs | null => {
@@ -100,6 +110,7 @@ const parseImageReference = (
   return definition
     ? {
         alt,
+        description,
         referenceLabel: reference.label,
         referenceType: reference.referenceType,
         ...definition,
@@ -129,7 +140,7 @@ const readImageReferenceTail = (alt: string, tail: string) => {
 
 const parseImageBody = (
   body: string,
-): Omit<ImageMarkdownAttrs, "alt" | "referenceLabel" | "referenceType"> => {
+): Omit<ImageMarkdownAttrs, "alt" | "description" | "referenceLabel" | "referenceType"> => {
   const trimmedBody = body.trim();
   const titleMatch = getTrailingTitle(trimmedBody);
 

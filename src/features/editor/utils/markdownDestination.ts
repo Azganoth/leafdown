@@ -4,6 +4,7 @@ import { defaultHandlers } from "mdast-util-to-markdown";
 import {
   decodeCharacterReferences,
   findCharacterReferenceSources,
+  readAuthoredDescription,
 } from "./characterReferenceMarkdown";
 import { withAuthoredTitle } from "./markdownTitle";
 
@@ -105,6 +106,33 @@ const scopeDestination = (
   };
 };
 
+// A description the document carries is inline source rather than text, so it reaches the file as
+// it stands instead of through the escaping that would turn its markers into characters. Both
+// image handlers write the label before they open the destination or the reference tail, so the
+// first value the handler makes safe is the description and every value after it is not.
+const scopeDescription = (state: StringifyState, description: string | null) => {
+  if (description === null) {
+    return () => {};
+  }
+
+  const enclosing = state.safe;
+  let pending = true;
+
+  state.safe = (value, config) => {
+    if (!pending) {
+      return enclosing.call(state, value, config);
+    }
+
+    pending = false;
+
+    return description;
+  };
+
+  return () => {
+    state.safe = enclosing;
+  };
+};
+
 // The authored destination is written where its references still decode to the target the document
 // holds. Every ampersand in it belongs to a reference the author wrote, so the run reaches the file
 // as it was authored and reads back as the destination the document carries.
@@ -154,6 +182,7 @@ export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["d
 export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"]> = Object.assign(
   (...[node, parent, state, info]: Parameters<typeof defaultHandlers.image>) => {
     const { authored, node: destination } = withAuthoredUrl(node);
+    const restoreDescription = scopeDescription(state, readAuthoredDescription(node));
     const restore = scopeDestination(state, destination.url, authored);
 
     try {
@@ -162,7 +191,23 @@ export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"
       );
     } finally {
       restore();
+      restoreDescription();
     }
   },
   { peek: defaultHandlers.image.peek },
+);
+
+export const serializeMarkdownImageReference: NonNullable<
+  RemarkStringifyHandlers["imageReference"]
+> = Object.assign(
+  (...[node, parent, state, info]: Parameters<typeof defaultHandlers.imageReference>) => {
+    const restore = scopeDescription(state, readAuthoredDescription(node));
+
+    try {
+      return defaultHandlers.imageReference(node, parent, state, info);
+    } finally {
+      restore();
+    }
+  },
+  { peek: defaultHandlers.imageReference.peek },
 );

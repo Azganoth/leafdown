@@ -205,6 +205,20 @@
 - The literal-commit path is deliberately given no definitions, so text typed this session that spells a reference stays literal. A definition an author has not looked at should not capture a bracket run they were still writing, and the file keeps that run literal either way.
 - A definition's destination form and the blank lines between adjacent definitions are not preserved. Both are classes [issue #251](https://github.com/Azganoth/leafdown/issues/251) tracks for blocks generally, and a definition is now subject to them for the first time because it now survives to be written at all.
 
+### Carry an image description as the source it was written with
+
+**Decision:** An image description holds inline content, and the image node carries it as the source it was written with rather than as content the document holds. The node keeps the alt text the parser derived, which is what the image is named by, and carries the description's source beside it wherever that source says more than the text: emphasis, strong, inline code, strikethrough, a link, or a nested image. The description reaches the file as it stands, and the raw image Markdown a focused image exposes is that same source. Decided in [issue #259](https://github.com/Azganoth/leafdown/issues/259).
+
+**Rationale:** The parser keeps only the text a description spells, so everything else in it was gone from the document on open and gone from the file after one save, with the destination of a nested image unrecoverable. Holding the description as document content would mean giving the image node inline children, which nothing delivers: the mdast image node carries no children to build them from, and the node view's whole surface is a raw Markdown input, so a description rich in the schema would still be edited as text. Carrying the source keeps what the author wrote and leaves the editing surface the one the image already had.
+
+**Consequences:**
+
+- Formatting and a nested image inside a description round-trip byte-identically, and the rendered image is still named by the text the description spells, which is the alt text an `img` element carries.
+- A nested image is not a second image the editor renders, resolves, or blocks. It is source text on the image that holds it.
+- A description spelling only escapes or character references carries no source of its own. Those differences are answered by the alt text and belong to the issues that settled them.
+- Editing the description in the raw image Markdown replaces it with the text typed there, which the file escapes, because reading its markers back as inline content is the parse that input does not run. Editing the destination or the title leaves the description as written, and a copy through the DOM, which carries no authored attributes, falls back to the text as an edited description does.
+- A description whose brackets a code span interrupts is left to its text. The source is read against the destination or the reference label the node holds, and a reading those refuse is declined rather than guessed.
+
 ## Technical Decisions
 
 ### Use Tauri

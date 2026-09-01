@@ -1,4 +1,5 @@
-export const BASIC_TABLE_MARKDOWN = "| A | B |\n| - | - |\n| C | D |";
+export const HEADER_ONLY_TABLE_MARKDOWN = "| A | B |\n| - | - |";
+export const BASIC_TABLE_MARKDOWN = `${HEADER_ONLY_TABLE_MARKDOWN}\n| C | D |`;
 export const EXTENDED_TABLE_MARKDOWN = `${BASIC_TABLE_MARKDOWN}\n| E | F |`;
 export const BOLD_PLAIN_MARKDOWN = "**Bold** plain";
 export const STRONG_HELLO_MARKDOWN = "**Hello** world";

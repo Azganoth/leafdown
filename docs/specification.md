@@ -231,6 +231,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - Toggling the same block command removes the marker when applicable.
 - `Increase heading level` moves `Heading 1` toward `Heading 6`; `Decrease heading level` moves `Heading 6` toward `Heading 1`.
 - A block command keeps the form the block it changes was authored in wherever that block stays the same construct, so `Heading 1` through `Heading 6` leave a heading's form exactly as `Increase heading level` and `Decrease heading level` do. A block that becomes another construct is written in the default form for what it becomes, and one that becomes a paragraph and a heading again is a heading the editor made.
+- `Ordered list` and `Unordered list` convert a list of the other kind on that rule. The marker and the numbers belonged to the list that is gone, so the one they make is written in the default form; each item keeps the padding and the opening line it holds itself, and the list keeps its tightness, which the conversion does not ask about.
 - `Clear block formatting` converts the selected blocks, or the current block, to paragraphs when applicable.
 - Insert commands add new content after the current block, or after the last selected block when the selection spans multiple blocks.
 - The `Image` insert command inserts `![]()` and places the caret inside the parentheses.

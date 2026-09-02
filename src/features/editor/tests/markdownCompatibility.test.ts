@@ -1390,6 +1390,92 @@ describe("List marker form", () => {
 
     expect(mounted.getMarkdown()).toBe("- Paragraph\n  - Nested\n");
   });
+
+  // A list converted to the other kind is a construct that is gone, so the marker and the numbers
+  // it was authored with go with it and the list it becomes is written in the default form. Each
+  // row asserts the node the command left behind beside the bytes, because a conversion that never
+  // happened writes a file the bytes alone cannot tell from one that did.
+  it.each([
+    {
+      command: "format.unorderedList",
+      node: "bullet_list",
+      saved: "* One\n* Two\n",
+      source: "1) One\n1) Two\n",
+    },
+    {
+      command: "format.unorderedList",
+      node: "bullet_list",
+      saved: "* Three\n* Eight\n",
+      source: "3. Three\n8. Eight\n",
+    },
+    {
+      command: "format.orderedList",
+      node: "ordered_list",
+      saved: "1. One\n2. Two\n",
+      source: "+ One\n+ Two\n",
+    },
+    // Tightness is not a form the conversion replaces, and nothing about it asks for a blank line
+    // between the items, so a loose list stays loose and a tight one stays tight.
+    {
+      command: "format.unorderedList",
+      node: "bullet_list",
+      saved: "* One\n\n* Two\n",
+      source: "1. One\n\n2. Two\n",
+    },
+    {
+      command: "format.orderedList",
+      node: "ordered_list",
+      saved: "1. One\n\n2. Two\n",
+      source: "+ One\n\n+ Two\n",
+    },
+    // The items stay the items they were, so each keeps the form it holds itself.
+    {
+      command: "format.unorderedList",
+      node: "bullet_list",
+      saved: "*   One\n*   Two\n",
+      source: "1)   One\n2)   Two\n",
+    },
+    {
+      command: "format.orderedList",
+      node: "ordered_list",
+      saved: "1.   One\n2.   Two\n",
+      source: "-   One\n-   Two\n",
+    },
+    {
+      command: "format.unorderedList",
+      node: "bullet_list",
+      saved: "* [ ] Todo\n* [x] Done\n",
+      source: "1) [ ] Todo\n2) [x] Done\n",
+    },
+    {
+      command: "format.orderedList",
+      node: "ordered_list",
+      saved: "1.\n   Content\n",
+      source: "-\n  Content\n",
+    },
+  ] satisfies { command: EditorCommandId; node: string; saved: string; source: string }[])(
+    "writes $source converted to a $node in the default form for it",
+    async ({ command, node, saved, source }) => {
+      const mounted = await mountEditor(source);
+
+      await runEditorCommand(mounted.editor, command);
+
+      expect(mounted.view.state.doc.firstChild?.type.name).toBe(node);
+      expect(mounted.getMarkdown()).toBe(saved);
+    },
+  );
+
+  // The numbers belonged to the ordered list the first conversion left behind, so the second one
+  // makes a list the editor made rather than bringing that one back.
+  it("writes the default numbers for a list converted away from ordered and back", async () => {
+    const mounted = await mountEditor("3. Three\n8. Eight\n");
+
+    await runEditorCommand(mounted.editor, "format.unorderedList");
+    await runEditorCommand(mounted.editor, "format.orderedList");
+
+    expect(mounted.view.state.doc.firstChild?.type.name).toBe("ordered_list");
+    expect(mounted.getMarkdown()).toBe("1. Three\n2. Eight\n");
+  });
 });
 
 describe("Link and image title form", () => {

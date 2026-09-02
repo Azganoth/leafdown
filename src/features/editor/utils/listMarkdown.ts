@@ -134,6 +134,18 @@ const readListItemLabel = (source: object) => {
     : { label: BULLET_LIST_ITEM_LABEL, listType: BULLET_LIST_ITEM_TYPE };
 };
 
+// The preset reads that pair back from the document as well: a bullet list whose first item still
+// reads `ordered` is turned back into an ordered list and rebuilt from its spread alone, which is
+// where the list's authored marker and its tightness go. A command converting a list to the other
+// kind writes the pair for the list the items end up in, and drops the number each item was
+// authored with along with the ordered list that held it.
+export const createConvertedListItemAttrs = (ordered: boolean, index: number) => ({
+  ...(ordered
+    ? { label: `${index + 1}.`, listType: ORDERED_LIST_ITEM_TYPE }
+    : { label: BULLET_LIST_ITEM_LABEL, listType: BULLET_LIST_ITEM_TYPE }),
+  [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: null,
+});
+
 const findListItemPadding = (afterMarker: string) =>
   LIST_ITEM_PADDING_PATTERN.exec(afterMarker)?.[0].length ?? DEFAULT_LIST_ITEM_PADDING;
 

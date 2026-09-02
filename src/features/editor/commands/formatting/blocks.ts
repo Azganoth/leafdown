@@ -376,8 +376,11 @@ export const toggleBlockquote = (view: EditorView) => {
     : runProseMirrorCommand(view, wrapIn(blockquoteType));
 };
 
-export const toggleCodeBlock = (view: EditorView) =>
-  toggleTextBlockType(view, "code_block", { language: "" });
+// The attributes a toggle names are the ones the command asks for: they say which blocks it reads
+// as already carrying the format, and they are written over a block that already has it. A code
+// block's language is neither. It is content the block carries, no command asks for a particular
+// one, and the schema opens a new block without one anyway.
+export const toggleCodeBlock = (view: EditorView) => toggleTextBlockType(view, "code_block");
 
 export const clearBlockFormat = (view: EditorView) => {
   const paragraphType = getNodeType(view.state, "paragraph");

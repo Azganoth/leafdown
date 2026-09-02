@@ -109,4 +109,31 @@ describe("editor block formatting commands", () => {
     expect(decreaseListIndent(mounted.view)).toBe(true);
     expect(mounted.view.dom.querySelectorAll("ul > li")).toHaveLength(2);
   });
+
+  // A code block's own toggle is the command that removes it, and an info string is not a second
+  // kind of code block. The saved bytes are asserted beside the node because a toggle that only
+  // deleted the info string left a file the language alone tells from the one a working toggle
+  // writes.
+  it.each(["```ts\nconst a = 1;\n```\n", "```\nconst a = 1;\n```\n"])(
+    "toggles the code block in %j off whatever its info string",
+    async (source) => {
+      const mounted = await mountEditor(source);
+
+      setTextSelection(mounted.view, 3);
+
+      expect(toggleCodeBlock(mounted.view)).toBe(true);
+      expect(mounted.view.state.doc.child(0).type.name).toBe("paragraph");
+      expect(mounted.getMarkdown()).toBe("const a = 1;\n");
+    },
+  );
+
+  // One command reaches every block in the selection, so a paragraph beside a code block gains the
+  // format while the block that already carries one keeps the language it holds.
+  it("keeps a code block's info string where the same command reaches a paragraph beside it", async () => {
+    const mounted = await mountEditor("Paragraph\n\n```ts\nconst a = 1;\n```\n");
+
+    expect(selectAll(mounted.view)).toBe(true);
+    expect(toggleCodeBlock(mounted.view)).toBe(true);
+    expect(mounted.getMarkdown()).toBe("```\nParagraph\n```\n\n```ts\nconst a = 1;\n```\n");
+  });
 });

@@ -102,6 +102,6 @@ The extension survey includes:
 - [Extension survey](./practical/extension-survey.md)
 - [Technical README](./practical/technical-readme.md)
 - [Multilingual field notes](./practical/multilingual-notes.md)
-- [Round-trip normalization walkthrough](./practical/round-trip.md)
+- [Round-trip form walkthrough](./practical/round-trip.md)
 
 ![Corpus leaf](./assets/leaf.svg)

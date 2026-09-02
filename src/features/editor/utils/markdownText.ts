@@ -32,7 +32,14 @@ interface BracketNeighbors {
   laterHasMarkup: boolean;
 }
 
-type PhrasingNeighbors = BracketNeighbors;
+interface PhrasingNeighbors extends BracketNeighbors {
+  // The mark flush against each end of the node, and what the siblings past it write. A run that
+  // merges with those delimiters stands opposite the rest of the line rather than the mark.
+  earlierMark: TouchingMark | undefined;
+  earlierRest: string;
+  laterMark: TouchingMark | undefined;
+  laterRest: string;
+}
 
 interface PhrasingNode {
   type: string;
@@ -156,6 +163,31 @@ const classifyCharacter = (character: string | undefined): CharacterClass => {
   return UNICODE_PUNCTUATION_PATTERN.test(character) ? "punctuation" : "other";
 };
 
+interface Flanking {
+  left: boolean;
+  next: CharacterClass;
+  previous: CharacterClass;
+  right: boolean;
+}
+
+const readFlanking = (before: string | undefined, after: string | undefined): Flanking => {
+  const previous = classifyCharacter(before);
+  const next = classifyCharacter(after);
+
+  return {
+    left: next !== "whitespace" && (next !== "punctuation" || previous !== "other"),
+    next,
+    previous,
+    right: previous !== "whitespace" && (previous !== "punctuation" || next !== "other"),
+  };
+};
+
+const canOpenRun = (character: string, flanking: Flanking) =>
+  flanking.left && (character !== "_" || !flanking.right || flanking.previous === "punctuation");
+
+const canCloseRun = (character: string, flanking: Flanking) =>
+  flanking.right && (character !== "_" || !flanking.left || flanking.next === "punctuation");
+
 const findAttentionRuns = (
   slots: readonly EscapeSlot[],
   before: string | undefined,
@@ -179,12 +211,7 @@ const findAttentionRuns = (
     }
 
     const previousCharacter = characterAt(index - 1);
-    const previous = classifyCharacter(previousCharacter);
-    const next = classifyCharacter(characterAt(end));
-    const leftFlanking = next !== "whitespace" && (next !== "punctuation" || previous !== "other");
-    const rightFlanking =
-      previous !== "whitespace" && (previous !== "punctuation" || next !== "other");
-    const intraword = character === "_";
+    const flanking = readFlanking(previousCharacter, characterAt(end));
     // A third tilde makes the sequence fail to tokenize, so only one or two can delimit.
     const delimits = character !== "~" || end - index < 3;
 
@@ -192,10 +219,8 @@ const findAttentionRuns = (
       character,
       start: index,
       end,
-      canOpen:
-        delimits && leftFlanking && (!intraword || !rightFlanking || previous === "punctuation"),
-      canClose:
-        delimits && rightFlanking && (!intraword || !leftFlanking || next === "punctuation"),
+      canOpen: delimits && canOpenRun(character, flanking),
+      canClose: delimits && canCloseRun(character, flanking),
       atLineStart:
         previousCharacter === undefined || previousCharacter === "\n" || previousCharacter === "\r",
     });
@@ -284,6 +309,96 @@ const readWrittenCharacters = (node: PhrasingNode): string => {
   return marker + node.children.map(readWrittenCharacters).join("");
 };
 
+// How many delimiters a mark writes on each of its sides, and the characters it can write them
+// with. A tilde is left out of both: GFM closes a strikethrough only with a run of its own length,
+// so a run a literal tilde lengthens spells nothing to close and the escape is what holds it.
+const ATTENTION_MARK_DELIMITERS: Record<string, number> = { emphasis: 1, strong: 2 };
+const MERGEABLE_DELIMITERS = "*_";
+
+interface TouchingMark {
+  character: string;
+  inner: string | undefined;
+  length: number;
+}
+
+// The delimiters a sibling mark writes flush against this text node, and the character its content
+// turns towards them. A mark whose content spells the same character is not read: a delimiter
+// inside it could take the pairing the merged run is measured against, and one written escaped is
+// indistinguishable here from one written bare.
+const readTouchingMark = (
+  node: PhrasingNode | undefined,
+  side: "earlier" | "later",
+): TouchingMark | undefined => {
+  const length = node === undefined ? undefined : ATTENTION_MARK_DELIMITERS[node.type];
+  const character = node?.marker;
+
+  if (
+    node === undefined ||
+    length === undefined ||
+    character === undefined ||
+    !MERGEABLE_DELIMITERS.includes(character)
+  ) {
+    return undefined;
+  }
+
+  const content = (node.children ?? []).map(readWrittenCharacters).join("");
+
+  if (content === "" || content.includes(character)) {
+    return undefined;
+  }
+
+  return {
+    character,
+    inner: side === "later" ? content[0] : content[content.length - 1],
+    length,
+  };
+};
+
+// Whether the run and a sibling mark's delimiters spell one run rather than a pair. Flush against
+// each other they are a single run, and no run pairs with itself: the mark's own pairing spends as
+// many delimiters as the mark wrote, and the run's are the surplus that pairing leaves literal.
+const findMergedSide = (
+  run: AttentionRun,
+  size: number,
+  slots: readonly EscapeSlot[],
+  neighbors: PhrasingNeighbors | undefined,
+  characterAt: (index: number) => string | undefined,
+) => {
+  // Whitespace the node writes between the run and the mark keeps them two runs, so the merge is
+  // read off the character actually written beside the run rather than off the node's edge.
+  const touches = (mark: TouchingMark | undefined, index: number) =>
+    mark && characterAt(index) === mark.character ? mark : undefined;
+  const earlierMark = run.start === 0 ? touches(neighbors?.earlierMark, -1) : undefined;
+  const laterMark =
+    run.end === slots.length ? touches(neighbors?.laterMark, slots.length) : undefined;
+  // A run that is the whole node between two marks merges with both, which spells a third run
+  // neither half of this pass measures.
+  const mark = earlierMark && laterMark ? undefined : (earlierMark ?? laterMark);
+
+  if (!mark || mark.character !== run.character) {
+    return undefined;
+  }
+
+  const merged = size + mark.length;
+
+  // CommonMark refuses a pair whose two runs sum to a multiple of three unless both runs are,
+  // wherever either can play both parts. Whether the mark's far delimiters can open depends on the
+  // text past them, which no handler sees, so the sum is answered as though they can.
+  if ((merged + mark.length) % 3 === 0 && (merged % 3 !== 0 || mark.length % 3 !== 0)) {
+    return undefined;
+  }
+
+  if (earlierMark) {
+    return canCloseRun(run.character, readFlanking(mark.inner, characterAt(run.end)))
+      ? "earlier"
+      : undefined;
+  }
+
+  return canOpenRun(run.character, readFlanking(characterAt(run.start - 1), mark.inner))
+    ? "later"
+    : undefined;
+};
+
 const relaxAttentionEscapes = (
   slots: EscapeSlot[],
   before: string,
@@ -291,18 +406,29 @@ const relaxAttentionEscapes = (
   neighbors: PhrasingNeighbors | undefined,
   enclosingMarkers: string,
 ) => {
-  const runs = findAttentionRuns(
-    slots,
-    before.slice(-1) || undefined,
-    after.slice(0, 1) || undefined,
-  );
+  const characterAt = (index: number) =>
+    index < 0
+      ? before.slice(-1) || undefined
+      : index < slots.length
+        ? slots[index].character
+        : after.charAt(0) || undefined;
+  const runs = findAttentionRuns(slots, characterAt(-1), characterAt(slots.length));
+  // What the line holds past this node, as far as it is known. `containerPhrasing` hands over one
+  // character of the next sibling, which for a mark is the first of its delimiters; the rest of
+  // them and the character behind them decide whether a run at the node's edge opens a block.
+  const laterMark = neighbors?.laterMark;
+  const tail =
+    laterMark && after.charAt(0) === laterMark.character
+      ? laterMark.character.repeat(laterMark.length) + (laterMark.inner ?? "")
+      : after;
 
   for (const run of runs) {
-    if (opensBlockConstruct(run, slots, after)) {
+    if (opensBlockConstruct(run, slots, tail)) {
       continue;
     }
 
     const size = run.end - run.start;
+    const mergedSide = findMergedSide(run, size, slots, neighbors, characterAt);
     // GFM closes a tilde run only with a run of the same length.
     const counterpart = (other: AttentionRun) =>
       other.character === run.character &&
@@ -310,8 +436,10 @@ const relaxAttentionEscapes = (
     const pairable =
       neighbors === undefined ||
       enclosingMarkers.includes(run.character) ||
-      neighbors.earlier.includes(run.character) ||
-      neighbors.later.includes(run.character) ||
+      (mergedSide === "earlier" ? neighbors.earlierRest : neighbors.earlier).includes(
+        run.character,
+      ) ||
+      (mergedSide === "later" ? neighbors.laterRest : neighbors.later).includes(run.character) ||
       (run.canOpen &&
         runs.some((other) => counterpart(other) && other.start > run.start && other.canClose)) ||
       // An earlier opener that kept its escape is no longer a delimiter, so it leaves nothing here
@@ -1087,7 +1215,7 @@ const opensTrimmedContent = (
 };
 
 const readPhrasingNeighbors = (
-  parent: { type: string; children: readonly { type: string; value?: string }[] } | undefined,
+  parent: { type: string; children: readonly PhrasingNode[] } | undefined,
   index: number,
 ): PhrasingNeighbors | undefined => {
   const partialLine = parent !== undefined && FRAGMENT_PHRASING_PARENTS.has(parent.type);
@@ -1103,8 +1231,12 @@ const readPhrasingNeighbors = (
 
   return {
     earlier: textValues(earlier),
+    earlierMark: readTouchingMark(earlier[earlier.length - 1], "earlier"),
+    earlierRest: textValues(earlier.slice(0, -1)),
     later: textValues(later),
     laterHasMarkup: partialLine || !later.every(isInertPhrasing),
+    laterMark: readTouchingMark(later[0], "later"),
+    laterRest: textValues(later.slice(1)),
   };
 };
 

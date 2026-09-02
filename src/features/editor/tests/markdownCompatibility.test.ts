@@ -18,6 +18,8 @@ import {
 import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
+import { runEditorCommand } from "../commands";
+
 const mountEditor = setupMilkdownEditorMount();
 
 const supportedMarkdown = `# Heading
@@ -49,37 +51,8 @@ Footnote[^1]
 
 [^1]: Footnote text`;
 
-// Milkdown serializer defaults normalize several source markers:
-// unordered/task markers become `*`, and serialized output includes a
-// final newline.
-const supportedMarkdownExpected = `# Heading
-
-Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com, and [link](docs/readme.md).
-
-> Quote
-
-1. One
-2. Two
-
-* A
-* B
-
-\`\`\`ts
-const value = 1;
-\`\`\`
-
----
-
-![Alt](image.png)
-
-${BASIC_TABLE_MARKDOWN}
-
-* [ ] todo
-* [x] done
-
-Footnote[^1]
-
-[^1]: Footnote text
+// The save writes the fixture back as it was authored, apart from the final newline.
+const supportedMarkdownExpected = `${supportedMarkdown}
 `;
 
 const unusualMarkdownFixtures = [
@@ -930,6 +903,7 @@ describe("Thematic break form", () => {
     { name: "a blockquote", source: "> Quote\n>\n> ---" },
     { name: "a list item", source: "* Item\n\n  ---" },
     { name: "a tight list item", source: "* Item\n  ***" },
+    { name: "a list item whose bullet it cannot join", source: "* ---\n  Paragraph" },
   ])("keeps the authored run inside $name", async ({ source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -937,12 +911,22 @@ describe("Thematic break form", () => {
   });
 
   // A bullet and a run spelled with the same character stand on one line and are read back as one
-  // longer break with no list around it, so the run gives way to the default.
-  it("writes a break opening a list item in a run its bullet cannot join", async () => {
-    const mounted = await mountEditor("* ---\n  Paragraph\n");
+  // longer break with no list around it. No file holds that spelling, because it opens as the
+  // longer break rather than as a list, so only a run edited into it can reach the collision. The
+  // run is what gives way, the bullet keeping the marker its list was authored with.
+  it.each([
+    { marker: "---", saved: "- ***", source: "- ***" },
+    { marker: "***", saved: "* ___", source: "* ---" },
+  ])(
+    "writes a $marker break opening $source in a run its bullet cannot join",
+    async ({ marker, saved, source }) => {
+      const mounted = await mountEditor(`${source}\n  Paragraph\n`);
 
-    expect(mounted.getMarkdown()).toBe("- ***\n  Paragraph\n");
-  });
+      setThematicBreakMarker(mounted, marker);
+
+      expect(mounted.getMarkdown()).toBe(`${saved}\n  Paragraph\n`);
+    },
+  );
 
   // A tight list item joins its children with a single newline, so a run of hyphens written after
   // a paragraph there underlines it and the file is read back holding a heading.
@@ -1038,6 +1022,129 @@ describe("Table outer pipe form", () => {
     replaceCellText(mounted, "Alpha", "A");
 
     expect(mounted.getMarkdown()).toBe("| A | Bravo |\n| - | ----- |\n");
+  });
+});
+
+describe("List marker form", () => {
+  const removeBlock = (mounted: MountedMilkdownEditor, index: number) => {
+    const { doc, tr } = mounted.view.state;
+    let start = 0;
+
+    for (let child = 0; child < index; child += 1) {
+      start += doc.child(child).nodeSize;
+    }
+
+    mounted.view.dispatch(tr.delete(start, start + doc.child(index).nodeSize));
+  };
+
+  it.each([
+    "- Hyphen",
+    "+ Plus",
+    "* Asterisk",
+    "1. Period",
+    "1) Parenthesis",
+    // CommonMark reads a change of marker as the start of another list, so adjacent lists were
+    // each authored with a marker of their own.
+    "- Hyphen\n\n+ Plus\n\n* Asterisk",
+    "1. Period\n\n1) Parenthesis",
+    // A nested list is a list of its own and carries its own marker.
+    "- Outer\n  * Nested\n  * Nested again\n- Outer again",
+    "1. Outer\n   + Nested\n2. Outer again",
+    "+ Outer\n  1) Nested",
+    // A task marker stands inside the item rather than in place of its marker.
+    "- [ ] Todo\n- [x] Done",
+    "1) [ ] Todo\n2) [x] Done",
+  ])("writes the marker in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // Only an ordered list's first number sets the start it is read back with. The numbers after it
+  // are the author's own counting, which a renumbering from the start would rewrite.
+  it.each([
+    "1. One\n2. Two\n3. Three",
+    "3. Three\n8. Eight\n8. Eight again",
+    "1. One\n1. One again\n1. One more",
+    "0. Zero\n0. Zero again",
+    "123456789. The longest marker CommonMark reads\n1. Short again",
+  ])("writes the numbers in %j as they were authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    "- one space",
+    "-  two spaces",
+    "-   three spaces",
+    "-    four spaces",
+    "10.  Padding is measured from the end of the marker",
+    "-    [x] A task marker stands after the padding",
+    // The padding is the column the item's own blocks are written at.
+    "-   Paragraph\n\n    Second paragraph",
+    "-  Paragraph\n   - Nested",
+  ])("writes the marker padding in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A list the editor makes carries no authored marker and writes the default.
+  it("writes a list made in the editor with the default marker", async () => {
+    const mounted = await mountEditor("Paragraph\n");
+
+    await runEditorCommand(mounted.editor, "format.unorderedList");
+
+    expect(mounted.getMarkdown()).toBe("* Paragraph\n");
+  });
+
+  // Two adjacent lists sharing a marker are read back as one list. No file holds that, because a
+  // repeated marker opens one list to begin with, but deleting what stood between two lists does.
+  it.each([
+    { name: "bullet", saved: "- a\n\n* b\n", source: "- a\n\n<!---->\n\n- b\n" },
+    { name: "ordered", saved: "1. a\n\n1) b\n", source: "1. a\n\n<!---->\n\n1. b\n" },
+  ])(
+    "moves the second of two adjacent $name lists off the marker they share",
+    async ({ saved, source }) => {
+      const mounted = await mountEditor(source);
+
+      removeBlock(mounted, 1);
+
+      expect(mounted.getMarkdown()).toBe(saved);
+
+      const reopened = await mountEditor(saved);
+
+      expect(reopened.view.state.doc.childCount).toBe(2);
+    },
+  );
+
+  it.each([
+    "-\n  Content on the line after the marker",
+    "-\n  First\n- Second",
+    "1.\n   Content",
+    "-\n  [x] A task marker opens the content wherever it stands",
+    "-\n  > A block other than a paragraph",
+  ])("writes the item in %j opening on the line after its marker", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A list interrupts the paragraph above it only where its first item opens with content, so an
+  // item that would open with a blank line there is written on the marker's line instead. Only a
+  // tight item joins a paragraph to the list after it, and no file holds one: a list written there
+  // is read as more of the paragraph, so only an edit that tightens the item reaches this.
+  it("writes an item opening on the line after its marker where its list must interrupt a paragraph", async () => {
+    const mounted = await mountEditor("- Paragraph\n\n  -\n    Nested\n");
+    const position = getEditorNodePosition(mounted, "list_item");
+    const { attrs } = mounted.view.state.doc.nodeAt(position) ?? {};
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.setNodeMarkup(position, undefined, { ...attrs, spread: false }),
+    );
+
+    expect(mounted.getMarkdown()).toBe("- Paragraph\n  - Nested\n");
   });
 });
 
@@ -1371,7 +1478,7 @@ describe("Line-final whitespace", () => {
     { expected: "plain\n", initial: "plain", name: "a paragraph, typed twice", typed: "  " },
     { expected: "plain\n", initial: "plain", name: "a paragraph, typed as a tab", typed: "\t" },
     { expected: "# head\n", initial: "# head", name: "a heading", typed: " " },
-    { expected: "* item\n", initial: "- item", name: "a list item", typed: " " },
+    { expected: "- item\n", initial: "- item", name: "a list item", typed: " " },
     { expected: "> quote\n", initial: "> quote", name: "a blockquote", typed: " " },
   ])(
     "converges on $name after a space is typed at its end",
@@ -1465,7 +1572,7 @@ describe("Line-final whitespace", () => {
       name: "a heading",
     },
     {
-      expected: `* item${NO_BREAK_SPACE}\n`,
+      expected: `- item${NO_BREAK_SPACE}\n`,
       initial: `- item${NO_BREAK_SPACE}`,
       name: "a list item",
     },
@@ -1593,7 +1700,7 @@ describe("Line-initial whitespace", () => {
       typed: "\t",
     },
     { anchor: "head", expected: "# head\n", initial: "# head", name: "a heading", typed: " " },
-    { anchor: "item", expected: "* item\n", initial: "- item", name: "a list item", typed: " " },
+    { anchor: "item", expected: "- item\n", initial: "- item", name: "a list item", typed: " " },
     {
       anchor: "quote",
       expected: "> quote\n",
@@ -1736,7 +1843,7 @@ describe("Typed inline mark source", () => {
   });
 
   it.each([
-    { expected: "* item ~~text~~", initial: "- item", name: "a list item" },
+    { expected: "- item ~~text~~", initial: "- item", name: "a list item" },
     { expected: "> quote ~~text~~", initial: "> quote", name: "a blockquote" },
   ])("writes a strikethrough typed in $name", async ({ expected, initial }) => {
     expect(await typeInto(initial, " ~~text~~")).toBe(`${expected}\n`);

@@ -119,7 +119,7 @@ describe("Leafdown editor command keymap", () => {
     const event = dispatchEditorShortcut(mounted.view.dom, "Enter", { ctrl: true });
 
     expect(event.defaultPrevented).toBe(true);
-    expect(mounted.getMarkdown()).toBe("* [x] Task\n");
+    expect(mounted.getMarkdown()).toBe("- [x] Task\n");
   });
 
   it.each([

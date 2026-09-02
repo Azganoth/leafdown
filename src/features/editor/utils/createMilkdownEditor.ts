@@ -25,6 +25,7 @@ import {
   inlineCodeKeymap,
   linkSchema,
   orderedListKeymap,
+  orderedListSchema,
   paragraphKeymap,
   remarkInlineLinkPlugin,
   remarkPreserveEmptyLinePlugin,
@@ -37,7 +38,6 @@ import {
   strikethroughKeymap,
   tableSchema,
 } from "@milkdown/kit/preset/gfm";
-import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
@@ -67,6 +67,7 @@ import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClick
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
+import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
@@ -104,6 +105,13 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
+import {
+  serializeList,
+  serializeListItem,
+  withBulletListMarker,
+  withListItemForm,
+  withOrderedListMarker,
+} from "./listMarkdown";
 import {
   serializeMarkdownDefinition,
   serializeMarkdownImage,
@@ -155,39 +163,6 @@ export const composeEditorViewAttributes = (
     ? (state) => ({ ...previous(state), ...added })
     : { ...previous, ...added };
 
-// The list item schema requires a leading paragraph, so an item whose source starts with any other
-// block parses with an empty one filled in ahead of it. Written out it becomes a blank line, and
-// CommonMark ends the item at the second one.
-const withoutFilledLeadingParagraph = (node: ProseNode) => {
-  const firstChild = node.firstChild;
-
-  if (
-    node.childCount < 2 ||
-    !firstChild ||
-    firstChild.type.name !== "paragraph" ||
-    firstChild.content.size > 0 ||
-    // GFM writes the checkbox into the item's first paragraph and drops it when that paragraph is
-    // not there to hold it.
-    node.attrs.checked != null
-  ) {
-    return node;
-  }
-
-  return node.copy(node.content.cut(firstChild.nodeSize));
-};
-
-// `parseMarkdown` builds `spread` with a template literal, so the attribute holds the string
-// "false" where mdast expects a boolean. Forwarded raw, it reads as spread and writes every tight
-// list loose.
-const withBooleanSpread = (node: ProseNode) =>
-  typeof node.attrs.spread === "boolean"
-    ? node
-    : node.type.create(
-        { ...node.attrs, spread: node.attrs.spread === "true" },
-        node.content,
-        node.marks,
-      );
-
 const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = () => false;
 // Marks serialize in `spec.priority` order, 50 unless declared, and inline code declares 100 to
 // stay innermost.
@@ -237,6 +212,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
+    .use(createLeafdownListFormPlugin())
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
     .use(commonmark)
@@ -298,6 +274,8 @@ export const createMilkdownEditor = async ({
           image: serializeMarkdownImage,
           imageReference: serializeMarkdownImageReference,
           link: serializeMarkdownLink,
+          list: serializeList,
+          listItem: serializeListItem,
           root: serializeMarkdownRoot,
           table: serializeTable,
           text: serializeMarkdownText,
@@ -319,17 +297,14 @@ export const createMilkdownEditor = async ({
           },
         };
       });
-      ctx.update(bulletListSchema.key, (getSchema) => (schemaCtx) => {
-        const schema = getSchema(schemaCtx);
-
-        return {
-          ...schema,
-          toMarkdown: {
-            ...schema.toMarkdown,
-            runner: (state, node) => schema.toMarkdown.runner(state, withBooleanSpread(node)),
-          },
-        };
-      });
+      ctx.update(
+        bulletListSchema.key,
+        (getSchema) => (schemaCtx) => withBulletListMarker(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        orderedListSchema.key,
+        (getSchema) => (schemaCtx) => withOrderedListMarker(getSchema(schemaCtx)),
+      );
       ctx.update(
         imageSchema.key,
         (getSchema) => (schemaCtx) =>
@@ -355,21 +330,10 @@ export const createMilkdownEditor = async ({
       }));
       // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the
       // schema the editor holds.
-      ctx.update(extendListItemSchemaForTask.key, (getSchema) => (schemaCtx) => {
-        const schema = getSchema(schemaCtx);
-
-        return {
-          ...schema,
-          toMarkdown: {
-            ...schema.toMarkdown,
-            runner: (state, node) =>
-              schema.toMarkdown.runner(
-                state,
-                withBooleanSpread(withoutFilledLeadingParagraph(node)),
-              ),
-          },
-        };
-      });
+      ctx.update(
+        extendListItemSchemaForTask.key,
+        (getSchema) => (schemaCtx) => withListItemForm(getSchema(schemaCtx)),
+      );
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({

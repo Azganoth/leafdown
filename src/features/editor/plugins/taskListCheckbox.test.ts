@@ -34,7 +34,7 @@ describe("task list checkbox plugin", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(mounted.view.dom.querySelector("li[data-checked='true']")).toHaveTextContent("Todo");
-    expect(mounted.getMarkdown()).toContain("* [x] Todo");
+    expect(mounted.getMarkdown()).toContain("- [x] Todo");
   });
 
   it("ignores task-list clicks outside the checkbox hit area", async () => {
@@ -46,7 +46,7 @@ describe("task list checkbox plugin", () => {
 
     expect(event.defaultPrevented).toBe(false);
     expect(mounted.view.dom.querySelector("li[data-checked='false']")).toHaveTextContent("Todo");
-    expect(mounted.getMarkdown()).toContain("* [ ] Todo");
+    expect(mounted.getMarkdown()).toContain("- [ ] Todo");
   });
 
   it("ignores normal list items", async () => {

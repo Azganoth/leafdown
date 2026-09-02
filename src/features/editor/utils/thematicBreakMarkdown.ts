@@ -2,6 +2,8 @@ import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { TagParseRule } from "@milkdown/kit/prose/model";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 
+import { joinsWithoutBlankLine } from "./markdownJoins";
+
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
@@ -56,35 +58,6 @@ export const findThematicBreakMarker = (raw: string): string => {
   const marker = raw.replace(TRAILING_WHITESPACE_PATTERN, "");
 
   return isThematicBreakMarker(marker) ? marker : DEFAULT_THEMATIC_BREAK_MARKER;
-};
-
-// Asking `mdast-util-to-markdown` what it will write between two blocks, by the resolution it uses
-// itself, so the answer cannot drift from the blank line it actually emits.
-const joinsWithoutBlankLine = (
-  left: JoinArguments[0],
-  right: JoinArguments[1],
-  parent: JoinArguments[2],
-  state: StringifyState,
-) => {
-  let index = state.join.length;
-
-  while (index--) {
-    const result = state.join[index](left, right, parent, state);
-
-    if (result === true || result === 1) {
-      break;
-    }
-
-    if (typeof result === "number") {
-      return result === 0;
-    }
-
-    if (result === false) {
-      return false;
-    }
-  }
-
-  return false;
 };
 
 // A tight list item joins its children with a single newline, so a break written there follows the

@@ -1,5 +1,7 @@
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { createTaskStateListItemAttrs } from "./listMarkdown";
+
 export const toggleTaskCheckedAt = (view: EditorView, pos: number) => {
   const node = view.state.doc.nodeAt(pos);
 
@@ -10,7 +12,7 @@ export const toggleTaskCheckedAt = (view: EditorView, pos: number) => {
   const tr = view.state.tr.setNodeMarkup(
     pos,
     undefined,
-    { ...node.attrs, checked: !node.attrs.checked },
+    { ...node.attrs, ...createTaskStateListItemAttrs(node, !node.attrs.checked) },
     node.marks,
   );
 

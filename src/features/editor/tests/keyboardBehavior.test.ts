@@ -32,10 +32,12 @@ describe("Milkdown keyboard behavior", () => {
     setSelectionAtElementTextEnd(mounted.view, listItems[1]);
 
     expect(runKeyDownHandlers(mounted.view, "Tab").handled).toBe(true);
+    // The nested list is one the editor made, so it carries the default marker rather than the
+    // one the list around it was authored with.
     expect(mounted.getMarkdown()).toContain("  * two");
 
     expect(runKeyDownHandlers(mounted.view, "Tab", { shift: true }).handled).toBe(true);
-    expect(mounted.getMarkdown()).toBe("* one\n* two\n");
+    expect(mounted.getMarkdown()).toBe("- one\n- two\n");
   });
 
   it("uses Milkdown defaults to insert hard breaks with Shift+Enter", async () => {

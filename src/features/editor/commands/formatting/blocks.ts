@@ -1,7 +1,7 @@
-import { lift, setBlockType, wrapIn } from "@milkdown/kit/prose/commands";
-import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { lift, wrapIn } from "@milkdown/kit/prose/commands";
+import type { Node as ProseMirrorNode, NodeType } from "@milkdown/kit/prose/model";
 import { liftListItem, sinkListItem, wrapInList } from "@milkdown/kit/prose/schema-list";
-import type { EditorState } from "@milkdown/kit/prose/state";
+import type { Command, EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { getNodeType, runProseMirrorCommand } from "../../utils/milkdown";
@@ -14,6 +14,8 @@ interface NodeRange {
 interface AncestorNodeRange extends NodeRange {
   depth: number;
 }
+
+type BlockAttrs = Record<string, unknown>;
 
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -60,10 +62,72 @@ const textBlocksAllMatch = (state: EditorState, predicate: (node: ProseMirrorNod
   return textBlocks.length > 0 && textBlocks.every(({ node }) => predicate(node));
 };
 
+// A command changes the block it acts on rather than authoring a new one, so a block that stays the
+// construct it already was keeps every attribute the command does not name, the authored form among
+// them. A block that becomes another construct carries nothing over, because the form belonged to
+// the construct that is gone.
+const resolveTextBlockAttrs =
+  (nodeType: NodeType, attrs: BlockAttrs | null) => (node: ProseMirrorNode) =>
+    node.type === nodeType ? { ...node.attrs, ...attrs } : (attrs ?? {});
+
+// `setBlockType` upstream builds every block it changes from one set of attributes, which cannot
+// hold a form each block carries its own copy of, so the resolver stands in for that argument. The
+// applicability pass is the upstream one, reading each block's own attributes the way the change
+// that follows does.
+const setTextBlockType =
+  (nodeType: NodeType, attrs: BlockAttrs | null): Command =>
+  (state, dispatch) => {
+    const resolveAttrs = resolveTextBlockAttrs(nodeType, attrs);
+    let applicable = false;
+
+    for (const { $from, $to } of state.selection.ranges) {
+      if (applicable) {
+        break;
+      }
+
+      state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
+        if (applicable) {
+          return false;
+        }
+
+        if (!node.isTextblock || node.hasMarkup(nodeType, resolveAttrs(node))) {
+          return;
+        }
+
+        if (node.type === nodeType) {
+          applicable = true;
+
+          return;
+        }
+
+        const $pos = state.doc.resolve(pos);
+        const index = $pos.index();
+
+        applicable = $pos.parent.canReplaceWith(index, index + 1, nodeType);
+      });
+    }
+
+    if (!applicable) {
+      return false;
+    }
+
+    if (dispatch) {
+      const tr = state.tr;
+
+      for (const { $from, $to } of state.selection.ranges) {
+        tr.setBlockType($from.pos, $to.pos, nodeType, resolveAttrs);
+      }
+
+      dispatch(tr.scrollIntoView());
+    }
+
+    return true;
+  };
+
 const setSelectionTextBlockType = (
   view: EditorView,
   nodeName: string,
-  attrs: Record<string, unknown> | null = null,
+  attrs: BlockAttrs | null = null,
 ) => {
   const nodeType = getNodeType(view.state, nodeName);
 
@@ -71,13 +135,13 @@ const setSelectionTextBlockType = (
     return false;
   }
 
-  return runProseMirrorCommand(view, setBlockType(nodeType, attrs));
+  return runProseMirrorCommand(view, setTextBlockType(nodeType, attrs));
 };
 
 const toggleTextBlockType = (
   view: EditorView,
   nodeName: string,
-  attrs: Record<string, unknown> | null = null,
+  attrs: BlockAttrs | null = null,
 ) => {
   const shouldClear = textBlocksAllMatch(
     view.state,

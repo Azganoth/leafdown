@@ -911,6 +911,131 @@ describe("Raw link destination ampersands", () => {
   });
 });
 
+describe("Heading form", () => {
+  it.each([
+    "# Level one",
+    "### Level three",
+    "###### Level six",
+    "# Level one #",
+    "### Level three ###",
+    "###### Level six ######",
+    // CommonMark reads a closing sequence of any length, so the run the file wrote is not the
+    // opening sequence read back.
+    "# Trailing hashes ####",
+    "### One hash closes three #",
+    // An empty heading is its opening sequence, and a run after it closes rather than fills it.
+    "#",
+    "# #",
+    "# ##",
+    // A backslash keeps the hash literal, which leaves the heading with nothing closing it.
+    "# Not a closer \\#",
+    // The spaces or tabs after the opening sequence are the ones the file was written with.
+    "#\tHeading after a tab separator",
+    "#   Wide separator",
+    "#  Padded closer  ##",
+  ])("writes the ATX heading in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    "Level one\n=========",
+    "Level two\n---------",
+    // The underline carries the level, not the length of the content above it.
+    "Level two with *inline content*\n--------------------------------",
+    "Paragraph becomes a heading\n---",
+    "A paragraph that\n-",
+    "Setext one\n=",
+    "Quoted setext\n====================",
+  ])("writes the setext heading in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    { name: "a blockquote", source: "> Quoted setext\n> ====" },
+    { name: "a list item", source: "- Item setext\n  ----" },
+    { name: "a blockquote holding an ATX heading", source: "> # Quoted atx #" },
+  ])("keeps the authored form inside $name", async ({ source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // Indentation before the opening sequence and whitespace closing the line stand outside the
+  // characters the heading is spelled with, and Leafdown writes neither.
+  it.each([
+    { saved: "# Level one #", source: "   # Level one #" },
+    { saved: "# Level one #", source: "# Level one #   " },
+    { saved: "Level one\n=========", source: "Level one\n=========  " },
+  ])("writes $source as the heading it spells", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  // `mdast-util-to-markdown` chooses one form for the whole document, so a file holding both is
+  // what shows that preserving either cannot force the other onto its neighbours.
+  it("writes both forms in one document", async () => {
+    const source = "# Closed atx #\n\nSetext one\n===\n\n## Open atx\n\nSetext two\n-\n";
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(source);
+  });
+
+  // A heading the editor makes carries no authored form and writes the default.
+  it("writes a heading made in the editor as ATX with nothing closing it", async () => {
+    const mounted = await mountEditor("Paragraph\n");
+
+    await runEditorCommand(mounted.editor, "format.heading2");
+
+    expect(mounted.getMarkdown()).toBe("## Paragraph\n");
+  });
+
+  // A setext underline carries only levels one and two, so a heading moved past them is written
+  // ATX. The authored run stays on the node, which is what returns the form to a heading moved
+  // back into reach of it, at the length the file wrote and the character its level reads back as.
+  it("writes a setext heading moved past level two as ATX", async () => {
+    const mounted = await mountEditor("Setext one\n===\n");
+
+    await runEditorCommand(mounted.editor, "format.increaseHeading");
+    await runEditorCommand(mounted.editor, "format.increaseHeading");
+
+    expect(mounted.getMarkdown()).toBe("### Setext one\n");
+
+    await runEditorCommand(mounted.editor, "format.decreaseHeading");
+
+    expect(mounted.getMarkdown()).toBe("Setext one\n---\n");
+  });
+
+  // A tight list item joins its children with a single newline, so a setext heading written after
+  // a paragraph there is read back as more of that paragraph with the underline covering both. No
+  // file holds one, because a setext heading written there underlines the paragraph to begin with,
+  // so only an edit that puts text before it reaches this.
+  it("writes a setext heading following a paragraph in a tight list item as ATX", async () => {
+    const mounted = await mountEditor("- Item setext\n  ----\n");
+
+    mounted.view.dispatch(mounted.view.state.tr.insertText("Lead", 3));
+
+    expect(mounted.getMarkdown()).toBe("- Lead\n  ## Item setext\n");
+  });
+
+  // The document a save writes is the document that wrote it, whichever form each heading holds.
+  it.each([
+    "# Closed atx #",
+    "Setext one\n===",
+    "- Item setext\n  ----",
+    "> Quoted setext\n> ====",
+  ])("reopens %j as the document that wrote it", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+});
+
 describe("Thematic break form", () => {
   const setThematicBreakMarker = (mounted: MountedMilkdownEditor, marker: string) => {
     const position = getEditorNodePosition(mounted, "hr");

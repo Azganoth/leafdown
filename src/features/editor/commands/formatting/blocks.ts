@@ -4,6 +4,7 @@ import { liftListItem, sinkListItem, wrapInList } from "@milkdown/kit/prose/sche
 import type { Command, EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { createConvertedListItemAttrs } from "../../utils/listMarkdown";
 import { getNodeType, runProseMirrorCommand } from "../../utils/milkdown";
 
 interface NodeRange {
@@ -225,7 +226,23 @@ const toggleListFormat = (view: EditorView, listNodeName: "bullet_list" | "order
   }
 
   if (currentList) {
-    const tr = view.state.tr.setNodeMarkup(currentList.pos, listType);
+    const ordered = listNodeName === "ordered_list";
+    // The list becomes another construct, so it is written in the default form for the one it
+    // becomes: a bullet list carries no ordered delimiter and an ordered one no bullet. Tightness
+    // is not a form the conversion replaces, and nothing about it asks for a blank line between
+    // items, so the list keeps the spread it had.
+    const tr = view.state.tr.setNodeMarkup(currentList.pos, listType, {
+      spread: currentList.node.attrs.spread,
+    });
+
+    currentList.node.forEach((item, offset, index) => {
+      tr.setNodeMarkup(
+        currentList.pos + 1 + offset,
+        undefined,
+        { ...item.attrs, ...createConvertedListItemAttrs(ordered, index) },
+        item.marks,
+      );
+    });
 
     view.focus();
     view.dispatch(tr.scrollIntoView());

@@ -16,8 +16,9 @@ import {
 } from "../utils/listMarkdown";
 
 // Nine digits, a delimiter, and four spaces are the longest head CommonMark reads as a marker and
-// the padding after it.
-const LIST_ITEM_HEAD_LENGTH = 14;
+// the padding after it, and the padding is measured against the character that ends it rather than
+// against its own length, so the head carries one character more than the widest of them.
+const LIST_ITEM_HEAD_LENGTH = 15;
 
 // An item's slice opens at its own marker rather than at the indentation the container gave it, so
 // the head of that slice is the marker and what follows it on the same line.

@@ -20,6 +20,7 @@ import {
   hardbreakSchema,
   imageSchema,
   headingKeymap,
+  headingSchema,
   hrSchema,
   htmlSchema,
   inlineCodeKeymap,
@@ -64,6 +65,7 @@ import {
 } from "../plugins/contextPopup";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
+import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
@@ -103,6 +105,7 @@ import {
 } from "./characterReferenceMarkdown";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
+import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
 import {
@@ -212,6 +215,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
+    .use(createLeafdownHeadingFormPlugin())
     .use(createLeafdownListFormPlugin())
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
@@ -271,6 +275,7 @@ export const createMilkdownEditor = async ({
           [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           definition: serializeMarkdownDefinition,
+          heading: serializeHeading,
           image: serializeMarkdownImage,
           imageReference: serializeMarkdownImageReference,
           link: serializeMarkdownLink,
@@ -313,6 +318,10 @@ export const createMilkdownEditor = async ({
       ctx.update(
         hrSchema.key,
         (getSchema) => (schemaCtx) => withThematicBreakMarker(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        headingSchema.key,
+        (getSchema) => (schemaCtx) => withHeadingForm(getSchema(schemaCtx)),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),

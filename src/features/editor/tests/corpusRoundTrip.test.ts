@@ -10,7 +10,18 @@ import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 const mountEditor = setupMilkdownEditorMount(createMarkdownReferenceContext());
 
-const corpusFiles = [
+// Files a save writes back exactly as they were authored. Identity subsumes convergence,
+// so these carry no convergence assertion.
+const byteIdenticalFiles = [
+  "gfm/tagfilter.md",
+  "isolated/end-of-file/incomplete-html-comment.md",
+  "isolated/end-of-file/unclosed-directive.md",
+  "isolated/end-of-file/unclosed-html-block.md",
+];
+
+// Files a save still rewrites, either through a class not yet removed or through a form
+// nothing owns. This list ends holding only the second kind.
+const convergingFiles = [
   "commonmark/blocks.md",
   "commonmark/code.md",
   "commonmark/emphasis.md",
@@ -21,19 +32,15 @@ const corpusFiles = [
   "gfm/autolinks.md",
   "gfm/strikethrough.md",
   "gfm/tables.md",
-  "gfm/tagfilter.md",
   "gfm/task-lists.md",
-  "isolated/end-of-file/incomplete-html-comment.md",
   "isolated/end-of-file/unclosed-code-fence.md",
-  "isolated/end-of-file/unclosed-directive.md",
-  "isolated/end-of-file/unclosed-html-block.md",
 ];
+
+const corpusFiles = [...byteIdenticalFiles, ...convergingFiles];
 
 const readCorpusFile = (relativePath: string) =>
   readFileSync(resolve(process.cwd(), "corpus", relativePath), "utf8");
 
-// The editor is allowed to normalize on first open, so the baseline is the first
-// serialization rather than the corpus file.
 describe("Corpus round trip", () => {
   beforeEach(() => {
     mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
@@ -42,7 +49,15 @@ describe("Corpus round trip", () => {
     }));
   });
 
-  it.each(corpusFiles)("converges on a stable serialization for %s", async (relativePath) => {
+  it.each(byteIdenticalFiles)("writes %s back as it was authored", async (relativePath) => {
+    const source = readCorpusFile(relativePath);
+
+    expect((await mountEditor(source)).getMarkdown()).toBe(source);
+  });
+
+  // The baseline is the first serialization rather than the file, because a save still
+  // rewrites these on first open.
+  it.each(convergingFiles)("converges on a stable serialization for %s", async (relativePath) => {
     const source = readCorpusFile(relativePath);
 
     const first = (await mountEditor(source)).getMarkdown();

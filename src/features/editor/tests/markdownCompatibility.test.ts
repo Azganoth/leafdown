@@ -18,7 +18,7 @@ import {
 import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
-import { runEditorCommand } from "../commands";
+import { type EditorCommandId, runEditorCommand } from "../commands";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -1034,6 +1034,74 @@ describe("Heading form", () => {
 
     expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
   });
+
+  // A heading stays a heading through a level change, so it keeps the form it was authored in. Two
+  // commands reach the same level, and each row runs one document through both, so a level change
+  // that keeps the form on one path cannot silently reset it on the other.
+  it.each([
+    { level: "format.heading2", saved: "Setext one\n---", source: "Setext one\n===", step: 1 },
+    { level: "format.heading1", saved: "Setext two\n===", source: "Setext two\n---", step: -1 },
+    { level: "format.heading2", saved: "## Closed atx #", source: "# Closed atx #", step: 1 },
+    {
+      level: "format.heading5",
+      saved: "##### Level six ######",
+      source: "###### Level six ######",
+      step: -1,
+    },
+    { level: "format.heading2", saved: "##\tTab separator", source: "#\tTab separator", step: 1 },
+    {
+      level: "format.heading2",
+      saved: "##   Wide separator",
+      source: "#   Wide separator",
+      step: 1,
+    },
+  ] satisfies { level: EditorCommandId; saved: string; source: string; step: number }[])(
+    "keeps the form of $source through either command that reaches $level",
+    async (row) => {
+      const step: EditorCommandId =
+        row.step > 0 ? "format.increaseHeading" : "format.decreaseHeading";
+
+      for (const command of [row.level, step]) {
+        const mounted = await mountEditor(`${row.source}\n`);
+
+        await runEditorCommand(mounted.editor, command);
+
+        expect(mounted.getMarkdown()).toBe(`${row.saved}\n`);
+      }
+    },
+  );
+
+  // One command reaches every block it covers, so a heading in the selection keeps its own form
+  // while a paragraph beside it, which has none, is written in the default.
+  it("keeps each selected heading's own form through one level change", async () => {
+    const mounted = await mountEditor("Setext one\n===\n\nParagraph\n\n# Closed atx #\n");
+
+    await runEditorCommand(mounted.editor, "edit.selectAll");
+    await runEditorCommand(mounted.editor, "format.heading2");
+
+    expect(mounted.getMarkdown()).toBe("Setext one\n---\n\n## Paragraph\n\n## Closed atx #\n");
+  });
+
+  // A heading that becomes another construct has no form to keep, because the form belonged to the
+  // heading that is gone. Making one again writes the default rather than the run the file held.
+  it.each([
+    { away: "format.heading1", name: "toggled off and back" },
+    { away: "format.paragraph", name: "turned into a paragraph" },
+    { away: "format.clearBlock", name: "cleared" },
+  ] satisfies { away: EditorCommandId; name: string }[])(
+    "writes the default form for a heading $name",
+    async ({ away }) => {
+      const mounted = await mountEditor("# Closed atx #\n");
+
+      await runEditorCommand(mounted.editor, away);
+
+      expect(mounted.getMarkdown()).toBe("Closed atx\n");
+
+      await runEditorCommand(mounted.editor, "format.heading1");
+
+      expect(mounted.getMarkdown()).toBe("# Closed atx\n");
+    },
+  );
 });
 
 describe("Thematic break form", () => {

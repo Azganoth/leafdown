@@ -512,8 +512,30 @@ describe("Escape precision", () => {
     { saved: "~**Bold** plain", source: "\\~**Bold** plain" },
     // A counterpart the line does spell keeps the escape, whether a construct writes it as a
     // delimiter, holds it in its content, or writes an output the tree cannot be read for.
-    { saved: "**bold**\\*", source: "**bold**\\*" },
+    { saved: "*em*x\\*", source: "*em*x\\*" },
     { saved: "![alt](x.png)\\*", source: "![alt](x.png)\\*" },
+    // A run flush against a span's delimiters is not standing opposite them: the two spell one
+    // longer run, and the surplus the span's own pairing leaves over is literal without a
+    // backslash. The counterpart is looked for past the span instead.
+    { saved: "***strong**", source: "\\***strong**" },
+    { saved: "**strong***", source: "**strong**\\*" },
+    { saved: "___strong__", source: "\\___strong__" },
+    { saved: "__strong___", source: "__strong__\\_" },
+    { saved: "***em*", source: "\\*\\**em*" },
+    { saved: "**strong***trailing", source: "**strong**\\*trailing" },
+    { saved: "x***strong**", source: "x\\***strong**" },
+    // The sum of the two runs decides whether CommonMark pairs them at all, and the span's far
+    // delimiters can open wherever the text past them admits it, so a sum of three keeps the
+    // escape it cannot be shown to have outgrown.
+    { saved: "\\**em*", source: "\\**em*" },
+    { saved: "x\\*\\*\\*\\*strong**", source: "x\\*\\*\\*\\*strong**" },
+    // A delimiter inside the span could take the pairing the merged run is measured against, and
+    // one on the other side of the run is a counterpart the merge does not hide.
+    { saved: "**bold *and* italic**\\*", source: "**bold *and* italic**\\*" },
+    { saved: "\\***strong** and *em*", source: "\\***strong** and *em*" },
+    // GFM closes a strikethrough only with a run of its own length, so a tilde run a literal tilde
+    // lengthens spells nothing and the escape is what holds it.
+    { saved: "~~strike~~\\~", source: "~~strike~~\\~" },
     // The line a mark sits on decides the bracket, so a `[` no `]` can reach loses its escape
     // inside the mark exactly as it does outside one.
     { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },
@@ -734,6 +756,10 @@ describe("Escape precision", () => {
     // No link-reference definition survives the editor, so a footnote definition is the one
     // resolvable label a document can still hold.
     "\\[^1] literal\n\n[^1]: Footnote text",
+    // Whitespace between a run and the span beside it keeps them two runs rather than one, so the
+    // run is still a bullet marker on its own and the span is not what holds it literal.
+    "\\* **a**",
+    "\\_ __a__",
     // The enclosing delimiters remain available counterparts for a run of the same character.
     "**\\*a**",
     "**\\*opening-only asterisk**",
@@ -780,6 +806,31 @@ describe("Escape precision", () => {
     const mounted = await mountEditor(`${source}\n`);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // Both spellings of a surplus delimiter reopen as the same document, which is why neither the
+  // corpus round trip nor the document-preservation guard can see the escape. These rows assert
+  // the bytes and the document together, so a relaxation that damaged the document fails here
+  // rather than converging on its own output.
+  it.each([
+    "***strong**",
+    "**strong***",
+    "___strong__",
+    "__strong___",
+    "***em*",
+    "****em*",
+    "**strong***trailing",
+    "x***strong**",
+    "x___strong__",
+  ])("writes %j as authored and reopens it as the same document", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const document: unknown = mounted.view.state.doc.toJSON();
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(document);
   });
 });
 

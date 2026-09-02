@@ -161,14 +161,14 @@ describe("typing a delimiter run into literal text", () => {
   };
 
   it.each([
-    { document: "** text[emphasis]", saved: "\\*\\**text*", typed: "***text*" },
+    { document: "** text[emphasis]", saved: "***text*", typed: "***text*" },
     { document: "_* text[emphasis]", saved: "_\\**text*", typed: "_**text*" },
     { document: "_ text[strong]", saved: "_**text**", typed: "_**text**" },
     { document: "*_ text[emphasis]", saved: "*\\__text_", typed: "*__text_" },
     { document: "text[emphasis+strong]", saved: "_**text**_", typed: "_**text**_" },
     { document: "* text[emphasis]", saved: "\\**text*", typed: "**text*" },
-    { document: "*** text[emphasis]", saved: "\\*\\*\\**text*", typed: "****text*" },
-    { document: "* text[strong]", saved: "\\***text**", typed: "***text**" },
+    { document: "*** text[emphasis]", saved: "****text*", typed: "****text*" },
+    { document: "* text[strong]", saved: "***text**", typed: "***text**" },
     { document: "* text[strong]", saved: "*__text__", typed: "*__text__" },
     { document: "text[emphasis+strong]", saved: "***text***", typed: "***text***" },
   ])(

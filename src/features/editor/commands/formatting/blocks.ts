@@ -4,7 +4,10 @@ import { liftListItem, sinkListItem, wrapInList } from "@milkdown/kit/prose/sche
 import type { Command, EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import { createConvertedListItemAttrs } from "../../utils/listMarkdown";
+import {
+  createConvertedListItemAttrs,
+  createTaskStateListItemAttrs,
+} from "../../utils/listMarkdown";
 import { getNodeType, runProseMirrorCommand } from "../../utils/milkdown";
 
 interface NodeRange {
@@ -298,7 +301,12 @@ const updateSelectedTaskState = (
   const tr = view.state.tr;
 
   for (const { node, pos } of listItems) {
-    tr.setNodeMarkup(pos, undefined, { ...node.attrs, checked: getChecked(node) }, node.marks);
+    tr.setNodeMarkup(
+      pos,
+      undefined,
+      { ...node.attrs, ...createTaskStateListItemAttrs(node, getChecked(node)) },
+      node.marks,
+    );
   }
 
   view.focus();

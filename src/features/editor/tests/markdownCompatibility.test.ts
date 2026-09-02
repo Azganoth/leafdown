@@ -19,6 +19,7 @@ import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { type EditorCommandId, runEditorCommand } from "../commands";
+import { toggleTaskCheckedAt } from "../utils/taskLists";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -1475,6 +1476,97 @@ describe("List marker form", () => {
 
     expect(mounted.view.state.doc.firstChild?.type.name).toBe("ordered_list");
     expect(mounted.getMarkdown()).toBe("1. Three\n2. Eight\n");
+  });
+});
+
+describe("Task marker form", () => {
+  // GFM reads `x` and `X` as the same checked marker and a space and a tab as the same unchecked
+  // one, so the state survives whichever is written and only the authored spelling is at stake.
+  // The reopened document is asserted beside the bytes, because a marker written in a form the
+  // next read does not answer for costs the state rather than the form.
+  it.each([
+    "- [ ] Unchecked",
+    "- [x] Checked",
+    "- [X] Checked in uppercase",
+    "- [\t] Unchecked with a tab",
+    "- [X] Outer\n  - [\t] Nested",
+    "1) [X] Ordered",
+    "-   [X] After the padding",
+    "-\n  [X] Opening on the line after its marker",
+    "> - [X] Inside a blockquote",
+  ])("writes the task marker in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const saved = mounted.getMarkdown();
+
+    expect(saved).toBe(`${source}\n`);
+
+    const reopened = await mountEditor(saved);
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+
+  // A marker spells one of the two states, so the state the editor moves an item to is one the
+  // authored marker cannot answer for and the default for it is written.
+  it.each([
+    { name: "unchecks", saved: "- [ ] Task\n", source: "- [X] Task\n" },
+    { name: "checks", saved: "- [x] Task\n", source: "- [\t] Task\n" },
+  ])("writes the default marker for an item the editor $name", async ({ saved, source }) => {
+    const mounted = await mountEditor(source);
+
+    await runEditorCommand(mounted.editor, "format.toggleTaskChecked");
+
+    expect(mounted.getMarkdown()).toBe(saved);
+  });
+
+  // The marker did not survive the edit to the state it spells, so it is gone rather than held for
+  // a return to that state. Measured against Typora 1.14.9, which writes `[x]` here.
+  it("writes the default marker for an item moved off its state and back", async () => {
+    const mounted = await mountEditor("- [X] Task\n");
+
+    await runEditorCommand(mounted.editor, "format.toggleTaskChecked");
+    await runEditorCommand(mounted.editor, "format.toggleTaskChecked");
+
+    expect(mounted.getMarkdown()).toBe("- [x] Task\n");
+  });
+
+  // Clicking the checkbox is the same move made through the rendered item rather than a command.
+  it("writes the default marker for an item whose checkbox was clicked", async () => {
+    const mounted = await mountEditor("- [X] Task\n");
+
+    toggleTaskCheckedAt(mounted.view, getEditorNodePosition(mounted, "list_item"));
+
+    expect(mounted.getMarkdown()).toBe("- [ ] Task\n");
+
+    toggleTaskCheckedAt(mounted.view, getEditorNodePosition(mounted, "list_item"));
+
+    expect(mounted.getMarkdown()).toBe("- [x] Task\n");
+  });
+
+  // The marker spells a checkbox, so it belongs to a construct that is gone once the item stops
+  // being a task item, and the item made a task item again is one the editor made.
+  it("writes the default marker for an item made a task item again", async () => {
+    const mounted = await mountEditor("- [X] Task\n");
+
+    await runEditorCommand(mounted.editor, "format.taskList");
+
+    expect(mounted.getMarkdown()).toBe("- Task\n");
+
+    await runEditorCommand(mounted.editor, "format.taskList");
+    await runEditorCommand(mounted.editor, "format.toggleTaskChecked");
+
+    expect(mounted.getMarkdown()).toBe("- [x] Task\n");
+  });
+
+  it("writes a task item made in the editor with the default marker", async () => {
+    const mounted = await mountEditor("Paragraph\n");
+
+    await runEditorCommand(mounted.editor, "format.taskList");
+
+    expect(mounted.getMarkdown()).toBe("* [ ] Paragraph\n");
+
+    await runEditorCommand(mounted.editor, "format.toggleTaskChecked");
+
+    expect(mounted.getMarkdown()).toBe("* [x] Paragraph\n");
   });
 });
 

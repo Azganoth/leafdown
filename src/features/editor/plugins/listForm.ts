@@ -5,10 +5,12 @@ import {
   DEFAULT_BULLET_LIST_MARKER,
   DEFAULT_ORDERED_LIST_MARKER,
   findListItemForm,
+  findTaskMarker,
   LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME,
   LIST_ITEM_MARKDOWN_TYPE,
   LIST_ITEM_NUMBER_ATTRIBUTE_NAME,
   LIST_ITEM_PADDING_ATTRIBUTE_NAME,
+  LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME,
   LIST_MARKDOWN_TYPE,
   LIST_MARKER_ATTRIBUTE_NAME,
 } from "../utils/listMarkdown";
@@ -26,6 +28,18 @@ const readListItemHead = (item: MarkdownNode, source: string) => {
   return start === undefined || end === undefined
     ? undefined
     : source.slice(start, Math.min(end, start + LIST_ITEM_HEAD_LENGTH));
+};
+
+// A checkbox stands between the item's marker and the content the item opens with, and neither the
+// marker nor the padding is long enough to bound it, so it is read off the whole slice standing
+// before that content rather than off a head of a fixed length.
+const readListItemOpening = (item: MarkdownNode, source: string) => {
+  const start = item.position?.start.offset;
+  const contentStart = item.children?.[0]?.position?.start.offset;
+
+  return start === undefined || contentStart === undefined
+    ? undefined
+    : source.slice(start, contentStart);
 };
 
 // CommonMark puts an item's content one space past its marker wherever the marker's own line
@@ -58,6 +72,8 @@ const markAuthoredListForm = (list: MarkdownNode, source: string) => {
 
     listMarker ??= form.marker;
 
+    const opening = readListItemOpening(item, source);
+    const taskMarker = opening === undefined ? undefined : findTaskMarker(opening);
     const authored = item as Record<string, unknown>;
 
     authored[LIST_ITEM_PADDING_ATTRIBUTE_NAME] = form.padding;
@@ -65,6 +81,10 @@ const markAuthoredListForm = (list: MarkdownNode, source: string) => {
 
     if (form.number !== undefined) {
       authored[LIST_ITEM_NUMBER_ATTRIBUTE_NAME] = form.number;
+    }
+
+    if (taskMarker !== undefined) {
+      authored[LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME] = taskMarker;
     }
   }
 

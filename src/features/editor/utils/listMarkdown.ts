@@ -27,6 +27,7 @@ export const LIST_MARKER_ATTRIBUTE_NAME = "marker";
 export const LIST_ITEM_NUMBER_ATTRIBUTE_NAME = "number";
 export const LIST_ITEM_PADDING_ATTRIBUTE_NAME = "padding";
 export const LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME = "leadingBlankLine";
+export const LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME = "taskMarker";
 
 const PARAGRAPH_MARKDOWN_TYPE = "paragraph";
 const LIST_ITEM_LABEL_ATTRIBUTE_NAME = "label";
@@ -55,6 +56,18 @@ const ALTERNATE_BULLET_LIST_MARKER: BulletListMarker = "-";
 // match a marker.
 const NON_BULLET_RULE_MARKER = "_";
 
+// GFM reads `x` and `X` as the same checked marker, and a space and a tab as the same unchecked
+// one, so each pair spells one state and a marker answers for the state it belongs to.
+const CHECKED_TASK_MARKERS = ["x", "X"] as const;
+const UNCHECKED_TASK_MARKERS = [" ", "\t"] as const;
+
+type TaskMarker = (typeof CHECKED_TASK_MARKERS)[number] | (typeof UNCHECKED_TASK_MARKERS)[number];
+
+// The marker a task item is written with when it has none of its own: one the editor checked or
+// unchecked, and one whose authored marker cannot be recovered.
+const DEFAULT_CHECKED_TASK_MARKER: TaskMarker = "x";
+const DEFAULT_UNCHECKED_TASK_MARKER: TaskMarker = " ";
+
 // The spaces between a marker and the content it opens. CommonMark reads one to four of them and
 // puts the content that many columns past the marker; a fifth space opens indented code inside the
 // item and leaves the content one space past the marker, which is also where an item beginning on
@@ -70,6 +83,9 @@ const ORDERED_LIST_ITEM_PATTERN = /^(\d{1,9})([.)])/u;
 // five or more spaces belong to indented code, and none at all mean the content opens on a later
 // line.
 const LIST_ITEM_PADDING_PATTERN = /^ {1,4}(?=[^\t\n\r ])/u;
+// Anchored at the end of what stands before the item's content, which is where GFM leaves the
+// checkbox and the whitespace it requires after it.
+const TASK_MARKER_PATTERN = /\[([\t xX])\][\t\n\r ]*$/u;
 
 export interface AuthoredListItemForm {
   marker: BulletListMarker | OrderedListMarker;
@@ -122,6 +138,30 @@ export const readListItemPadding = (source: object): number => {
 export const readListItemLeadingBlankLine = (source: object): boolean =>
   readAttribute(source, LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME) === true;
 
+const isTaskMarker = (value: unknown): value is TaskMarker =>
+  CHECKED_TASK_MARKERS.includes(value as never) || UNCHECKED_TASK_MARKERS.includes(value as never);
+
+const readAuthoredTaskMarker = (source: object): TaskMarker | null => {
+  const marker = readAttribute(source, LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME);
+
+  return isTaskMarker(marker) ? marker : null;
+};
+
+// A marker spells one of the two states, so one disagreeing with the state the item is in now is
+// the marker of the state it was moved off. The item is still the task item the file wrote, and
+// the state it moved to is the editor's, so the default for that state is written and the authored
+// marker is kept for the state it answers for.
+const readTaskMarker = (source: object, checked: boolean): TaskMarker => {
+  const marker = readAuthoredTaskMarker(source);
+  const markers: readonly TaskMarker[] = checked ? CHECKED_TASK_MARKERS : UNCHECKED_TASK_MARKERS;
+
+  if (marker !== null && markers.includes(marker)) {
+    return marker;
+  }
+
+  return checked ? DEFAULT_CHECKED_TASK_MARKER : DEFAULT_UNCHECKED_TASK_MARKER;
+};
+
 // The preset numbers an ordered list's items onto an mdast field of its own before the parse and
 // keeps the pair up to date from the document afterwards, so they decorate the rendered item rather
 // than answering for the marker the file is written with. The item is written from the number it
@@ -145,6 +185,15 @@ export const createConvertedListItemAttrs = (ordered: boolean, index: number) =>
     : { label: BULLET_LIST_ITEM_LABEL, listType: BULLET_LIST_ITEM_TYPE }),
   [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: null,
 });
+
+// A marker spells the state it was written for rather than decorating both, so an item the editor
+// moves to another state carries none: the form did not survive an edit to the very thing it
+// decorates. Removing the checkbox is such a move, so an item made a task item again is written in
+// the default form as well.
+export const createTaskStateListItemAttrs = (item: ProseNode, checked: boolean | null) =>
+  checked === item.attrs.checked
+    ? { checked }
+    : { checked, [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: null };
 
 const findListItemPadding = (afterMarker: string) =>
   LIST_ITEM_PADDING_PATTERN.exec(afterMarker)?.[0].length ?? DEFAULT_LIST_ITEM_PADDING;
@@ -171,6 +220,12 @@ export const findListItemForm = (
     padding: findListItemPadding(head.slice(matched.length)),
   };
 };
+
+// GFM consumes the checkbox and the whitespace after it, so an item's own content opens past both
+// and the marker is the last thing the slice between the two holds. An item carrying no checkbox
+// has nothing but its marker and padding there, which the pattern cannot match.
+export const findTaskMarker = (opening: string): TaskMarker | undefined =>
+  TASK_MARKER_PATTERN.exec(opening)?.[1] as TaskMarker | undefined;
 
 // The list item schema requires a leading paragraph, so an item whose source starts with any other
 // block parses with an empty one filled in ahead of it. Written out it becomes a blank line, and
@@ -309,7 +364,7 @@ export const serializeListItem: NonNullable<RemarkStringifyHandlers["listItem"]>
   // item opening on any other block cannot carry one.
   const checkbox =
     typeof node.checked === "boolean" && node.children[0]?.type === PARAGRAPH_MARKDOWN_TYPE
-      ? `[${node.checked ? "x" : " "}] `
+      ? `[${readTaskMarker(node, node.checked)}] `
       : "";
   const opening = leadingBlankLine
     ? `${marker}\n${" ".repeat(size)}`
@@ -426,6 +481,10 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
       default: false,
       validate: "boolean",
     },
+    [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: {
+      default: null,
+      validate: "string|null",
+    },
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -437,6 +496,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(node) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(node),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(node),
+        [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(node),
       });
       state.next(node.children);
       state.closeNode();
@@ -453,6 +513,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(item.attrs) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(item.attrs),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(item.attrs),
+        [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(item.attrs),
       });
       state.next(item.content);
       state.closeNode();

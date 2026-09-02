@@ -1326,6 +1326,10 @@ describe("List marker form", () => {
     "-    four spaces",
     "10.  Padding is measured from the end of the marker",
     "-    [x] A task marker stands after the padding",
+    // The widest marker and the widest padding together are the longest an item's form can be
+    // read from, and the padding is measured against the character that ends it.
+    "123456789.    The widest marker and the widest padding",
+    "123456789.   One space short of the widest padding",
     // The padding is the column the item's own blocks are written at.
     "-   Paragraph\n\n    Second paragraph",
     "-  Paragraph\n   - Nested",

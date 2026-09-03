@@ -30,8 +30,6 @@ export const CODE_SEPARATOR_ATTRIBUTE_NAME = "codeSeparator";
 export const CODE_INDENT_ATTRIBUTE_NAME = "codeIndent";
 export const CODE_CLOSED_ATTRIBUTE_NAME = "closed";
 
-const ROOT_MARKDOWN_TYPE = "root";
-
 export type CodeFence = "`" | "~";
 
 // The form a block is written in when it has none of its own: one the editor created, and one
@@ -137,49 +135,16 @@ export const readCodeIndent = (source: object): number => {
 export const readCodeClosed = (source: object): boolean =>
   (source as Record<string, unknown>)[CODE_CLOSED_ATTRIBUTE_NAME] !== false;
 
-// A container writes the same prefix onto every line the block holds, and CommonMark strips up to
-// the fence's own indentation from each content line, so the narrowest content line answers for
-// that prefix wherever one line was written without the indentation. A block whose every line
-// keeps some of it reads the prefix as wider and the indentation as narrower, which writes the
-// block back with less indentation than the file gave it rather than with a prefix the container
-// never wrote. A blank line spells neither and is passed over.
-const findContainerPrefixWidth = (raw: string, value: string) => {
-  const lines = raw.split("\n");
-  const contents = value === "" ? [] : value.split("\n");
-  let width: number | undefined;
-
-  for (const [index, content] of contents.entries()) {
-    const line = lines[index + 1];
-
-    if (line === undefined || content === "") {
-      continue;
-    }
-
-    const measured = line.length - content.length;
-
-    width = width === undefined ? measured : Math.min(width, measured);
-  }
-
-  return width;
-};
-
 // A fence's slice opens at the fence itself, past whatever indentation the file gave it, so the
-// indentation is read off the column instead. At the document root that column is the indentation;
-// inside a container it also counts the prefix the container wrote, which only the block's own
-// lines separate out.
-const findFenceIndent = (raw: string, column: number, atRoot: boolean, value: string) => {
-  const offset = column - 1;
-
-  if (offset <= 0) {
-    return DEFAULT_CODE_INDENT;
-  }
-
-  const prefix = atRoot ? 0 : findContainerPrefixWidth(raw, value);
-
-  return prefix === undefined
-    ? DEFAULT_CODE_INDENT
-    : Math.min(Math.max(offset - prefix, 0), CODE_INDENT_MAX);
-};
+// indentation is read off the column instead. Only at the document root is that column the
+// indentation alone. Inside a container it also counts the prefix the container wrote, and mdast
+// names neither separately: the two cannot be told apart from the block's own lines either,
+// because a footnote definition writes a label on the line the block opens on and indents the
+// lines under it by four, so the difference between them reads as indentation the file never
+// wrote and would be written into the content. A block inside a container therefore keeps no
+// indentation of its own, which costs bytes rather than content.
+const findFenceIndent = (column: number, atRoot: boolean) =>
+  atRoot ? Math.min(Math.max(column - 1, 0), CODE_INDENT_MAX) : DEFAULT_CODE_INDENT;
 
 // A fence the file never closed runs to the end of the block, so the slice ends on content rather
 // than on a run of its own. A run shorter than the one that opened the block closes nothing, which
@@ -234,7 +199,7 @@ export const findCodeForm = ({
     fence,
     fenceSurplus: Math.max(run.length - findRequiredFenceLength(value, fence), 0),
     separator: info === undefined ? DEFAULT_CODE_SEPARATOR : spacing,
-    indent: findFenceIndent(raw, column, atRoot, value),
+    indent: findFenceIndent(column, atRoot),
     closed: !endsDocument || findFenceClosed(raw, fence, run.length),
   };
 };
@@ -242,7 +207,7 @@ export const findCodeForm = ({
 // A fence left open runs to the end of the file, so the form is written back only where the block
 // ends the document. Anything after it would be read as the code the block holds.
 const standsLastInDocument = (node: CodeNode, parent: StringifyParent) =>
-  parent?.type === ROOT_MARKDOWN_TYPE && parent.children[parent.children.length - 1] === node;
+  parent !== undefined && parent.children[parent.children.length - 1] === node;
 
 // The handler sizes the run to the content it just wrote, and a fence has to outrun anything
 // inside it, so the file's own length is kept as the surplus over that floor rather than as a

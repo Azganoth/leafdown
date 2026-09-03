@@ -1343,17 +1343,36 @@ describe("Code block form", () => {
     expect(mounted.getMarkdown()).toBe(source);
   });
 
-  // A fence can be left open only where the block ends the document, so one the file left open
-  // inside a container is closed on the way out and recorded closed. Recording it open would record
-  // a form the file can never be written in, and the record would flip on the save that closes it.
-  it("closes a fence the file left open inside a blockquote", async () => {
-    const mounted = await mountEditor("> ```\n> code\n\nAfter.\n");
+  // An open fence runs to the end of the block that holds it, so one standing last in a container
+  // is ended by that container rather than by a run of its own and stays open. The blockquote's own
+  // prefix is what closes it, which is why the paragraph after it is still outside the code.
+  it.each([
+    { name: "a blockquote", source: "> ```\n> code\n\nAfter.\n" },
+    { name: "a list item", source: "- ```\n  code\n- second\n" },
+    { name: "a list item holding a blockquote", source: "- > ```\n  > code\n\nAfter.\n" },
+  ])("keeps a fence the file left open at the end of $name open", async ({ source }) => {
+    const mounted = await mountEditor(source);
     const written = mounted.getMarkdown();
 
-    expect(written).toBe("> ```\n> code\n> ```\n\nAfter.\n");
+    expect(written).toBe(source);
     expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
       mounted.view.state.doc.toJSON(),
     );
+  });
+
+  // A footnote definition writes its label on the line the block opens on and indents the lines
+  // under it by four, so the column the fence opens at says nothing about indentation the file
+  // wrote. Reading the difference as indentation writes it into the code the block holds.
+  it("keeps a fence inside a footnote definition clear of the label's own width", async () => {
+    const mounted = await mountEditor("[^a]: ```\n    code\n\nAfter.\n");
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe("[^a]: ```\n    code\nAfter.\n");
+    expect((await mountEditor(written)).view.state.doc.textContent).toBe(
+      mounted.view.state.doc.textContent,
+    );
+    expect(mounted.view.state.doc.textContent).toContain("code");
+    expect(mounted.view.state.doc.textContent).not.toContain("  code");
   });
 
   // A fence left open runs to the end of the file, so a block that stops ending the document has to

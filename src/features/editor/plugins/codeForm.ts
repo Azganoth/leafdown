@@ -34,7 +34,7 @@ const markAuthoredForm = (node: MarkdownNode, source: string, atRoot: boolean) =
         value: (child.value as string | undefined) ?? "",
         column,
         atRoot,
-        endsDocument: atRoot && child === children[children.length - 1],
+        endsDocument: child === children[children.length - 1],
       });
       const authored = child as Record<string, unknown>;
 

@@ -1,14 +1,18 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $nodeSchema, $remark } from "@milkdown/kit/utils";
 
-import { findTitleMarker } from "../utils/markdownTitle";
+import { findTitleMarker, TITLE_MARKER_ATTRIBUTE_NAME } from "../utils/markdownTitle";
 import {
   DEFINITION_MARKDOWN_TYPE,
   DEFINITION_NODE_NAME,
   definitionNodeSchema,
+  DESTINATION_MARKER_ATTRIBUTE_NAME,
+  DESTINATION_SEPARATOR_ATTRIBUTE_NAME,
+  findDefinitionForm,
   IMAGE_REFERENCE_MARKDOWN_TYPE,
   LINK_REFERENCE_MARKDOWN_TYPE,
   normalizeReferenceLabel,
+  TITLE_SEPARATOR_ATTRIBUTE_NAME,
 } from "../utils/referenceLinkMarkdown";
 
 export const leafdownDefinitionSchema = $nodeSchema(
@@ -33,21 +37,28 @@ const readIdentifier = (node: MarkdownNode) => {
 };
 
 // A definition ends at its title rather than at a `)`, so the marker is the last character of the
-// slice it was built from. A definition whose title continues on the following line is one node
-// covering both, and that slice still ends at the marker.
+// slice it was built from. A definition whose destination or title continues on the following line
+// is one node covering both, and that slice still ends at the marker.
 const readDefinitions = (tree: MarkdownNode, source: string) => {
   const definitions = new Map<string, ResolvedDefinition>();
   const visit = (node: MarkdownNode) => {
     if (node.type === DEFINITION_MARKDOWN_TYPE) {
       const identifier = readIdentifier(node);
-      const start = node.position?.start.offset;
+      const start = node.position?.start;
       const end = node.position?.end.offset;
 
-      if (node.title && start !== undefined && end !== undefined) {
-        (node as { titleMarker?: string }).titleMarker = findTitleMarker(
-          source.slice(start, end),
-          "",
-        );
+      if (start?.offset !== undefined && end !== undefined) {
+        const raw = source.slice(start.offset, end);
+        const form = findDefinitionForm(raw, start.column - 1);
+        const authored = node as Record<string, unknown>;
+
+        authored[DESTINATION_MARKER_ATTRIBUTE_NAME] = form.destinationMarker;
+        authored[DESTINATION_SEPARATOR_ATTRIBUTE_NAME] = form.destinationSeparator;
+        authored[TITLE_SEPARATOR_ATTRIBUTE_NAME] = form.titleSeparator;
+
+        if (node.title) {
+          authored[TITLE_MARKER_ATTRIBUTE_NAME] = findTitleMarker(raw, "");
+        }
       }
 
       // CommonMark resolves a label against the first definition that claims it.

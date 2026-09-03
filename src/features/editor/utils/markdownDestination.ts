@@ -6,7 +6,19 @@ import {
   findCharacterReferenceSources,
   readAuthoredDescription,
 } from "./characterReferenceMarkdown";
-import { withAuthoredTitle } from "./markdownTitle";
+import {
+  chooseTitleMarker,
+  readTitleMarker,
+  TITLE_MARKER_PAIRS,
+  type TitleMarker,
+  withAuthoredTitle,
+} from "./markdownTitle";
+import {
+  readDestinationMarker,
+  readDestinationSeparator,
+  readTitleSeparator,
+  usesAngleDestination,
+} from "./referenceLinkMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -160,21 +172,82 @@ export const serializeMarkdownLink: NonNullable<RemarkStringifyHandlers["link"]>
   { peek: defaultHandlers.link.peek },
 );
 
-// A definition writes its destination outside any tail, so nothing in it needs a parenthesis
-// escaped, and its title ends the line rather than sitting before a `)`.
-export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["definition"]> = (
-  ...[node, parent, state, info]: Parameters<typeof defaultHandlers.definition>
+type DefinitionNode = Parameters<typeof defaultHandlers.definition>[0];
+
+// The construct a title is written inside decides which quote the run gives up a backslash for. A
+// parenthesized title is written inside none of them, because the marker it is held between is only
+// ever chosen for a title spelling no parenthesis, and every other pattern is out of scope for a
+// definition already.
+const TITLE_CONSTRUCTS = {
+  '"': "titleQuote",
+  "'": "titleApostrophe",
+  "(": null,
+} as const satisfies Record<TitleMarker, "titleApostrophe" | "titleQuote" | null>;
+
+const withConstruct = (
+  state: StringifyState,
+  construct: Parameters<StringifyState["enter"]>[0],
+  write: () => string,
 ) => {
-  const restore = scopeDestination(state, node.url, false);
+  const exit = state.enter(construct);
 
   try {
-    return withAuthoredTitle(
-      node,
-      state.options,
-      () => defaultHandlers.definition(node, parent, state, info),
-      "",
-    );
+    return write();
   } finally {
+    exit();
+  }
+};
+
+const writeDefinitionLabel = (node: DefinitionNode, state: StringifyState) =>
+  withConstruct(state, "label", () =>
+    state.safe(state.associationId(node), { before: "[", after: "]" }),
+  );
+
+const writeDefinitionDestination = (node: DefinitionNode, state: StringifyState, after: string) => {
+  const url = node.url;
+
+  return usesAngleDestination(url, readDestinationMarker(node))
+    ? withConstruct(
+        state,
+        "destinationLiteral",
+        () => `<${state.safe(url, { before: "<", after: ">" })}>`,
+      )
+    : withConstruct(state, "destinationRaw", () => state.safe(url, { before: " ", after }));
+};
+
+const writeDefinitionTitle = (node: DefinitionNode, state: StringifyState, title: string) => {
+  const marker = chooseTitleMarker(title, readTitleMarker(node));
+  const [opening, closing] = TITLE_MARKER_PAIRS[marker];
+  const construct = TITLE_CONSTRUCTS[marker];
+  const write = () =>
+    `${opening}${state.safe(title, { before: opening, after: closing })}${closing}`;
+
+  return construct === null ? write() : withConstruct(state, construct, write);
+};
+
+// The handler owns three of the four choices a definition spells — the form its destination is
+// written in, the marker its title is held between, and the whitespace runs between the three — so
+// it writes the line itself rather than steering the default one, which reads each of them off the
+// document instead. Every run still reaches the file through `state.safe`, under the construct the
+// default handler names for it, so what a destination or a title escapes is unchanged.
+export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["definition"]> = (
+  ...[node, , state]: Parameters<typeof defaultHandlers.definition>
+) => {
+  const title = node.title;
+  // What the destination is written against: the run before the title, or the line ending that
+  // closes a definition carrying none.
+  const trailing = title ? readTitleSeparator(node) : "\n";
+  const restore = scopeDestination(state, node.url, false);
+  const exit = state.enter("definition");
+
+  try {
+    const label = writeDefinitionLabel(node, state);
+    const destination = writeDefinitionDestination(node, state, trailing);
+    const head = `[${label}]:${readDestinationSeparator(node)}${destination}`;
+
+    return title ? `${head}${trailing}${writeDefinitionTitle(node, state, title)}` : head;
+  } finally {
+    exit();
     restore();
   }
 };

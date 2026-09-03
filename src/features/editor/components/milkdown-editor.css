@@ -247,8 +247,10 @@
       @apply mt-10 border-t border-border pt-4 text-sm text-muted-foreground;
     }
 
+    /* The block renders the source the file is written with, whose line ending and indentation are
+       part of that source. */
     .leafdown-definition {
-      @apply my-4 rounded-sm border border-border/60 bg-muted px-2 py-1 font-mono text-[0.9em] text-muted-foreground;
+      @apply my-4 rounded-sm border border-border/60 bg-muted px-2 py-1 font-mono text-[0.9em] whitespace-pre-wrap text-muted-foreground;
 
       &.ProseMirror-selectednode {
         @apply border-primary/40 ring-2 ring-primary/25;

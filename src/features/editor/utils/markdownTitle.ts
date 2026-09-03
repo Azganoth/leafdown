@@ -109,12 +109,14 @@ const unescapeQuote = (value: string, quote: string) =>
 // `mdast-util-to-markdown` writes a title with `options.quote`, whose `checkQuote` throws for
 // anything but the two quotes, so the parenthesized form is reached by swapping the pair the
 // handler wrote. The run between the markers is the text the handler escaped for a title, which a
-// parenthesized title carries unchanged apart from that marker's own escape. `trailing` is what the
-// handler writes after the closing marker, which locates that marker from the end.
-const withParenthesizedTitle = (value: string, quote: string, trailing: string) => {
-  const closing = value.length - trailing.length - 1;
+// parenthesized title carries unchanged apart from that marker's own escape. A link and an image
+// both close with `)`, which locates that marker from the end.
+const TITLE_TRAILING = ")";
 
-  if (!value.endsWith(trailing) || value[closing] !== quote) {
+const withParenthesizedTitle = (value: string, quote: string) => {
+  const closing = value.length - TITLE_TRAILING.length - 1;
+
+  if (!value.endsWith(TITLE_TRAILING) || value[closing] !== quote) {
     return value;
   }
 
@@ -136,14 +138,11 @@ interface TitleOptions {
 }
 
 // Writes a node's title in the form it was authored in, by putting the marker the handler reads
-// into its options and rewriting the pair it wrote where that marker is a parenthesis. `trailing`
-// is what the handler writes after the title's closing marker: a link and an image close with `)`,
-// while a definition ends at the title.
+// into its options and rewriting the pair it wrote where that marker is a parenthesis.
 export const withAuthoredTitle = (
   node: { title?: string | null },
   options: TitleOptions,
   write: () => string,
-  trailing = ")",
 ) => {
   const title = node.title;
 
@@ -160,7 +159,7 @@ export const withAuthoredTitle = (
   try {
     const value = write();
 
-    return marker === "(" ? withParenthesizedTitle(value, quote, trailing) : value;
+    return marker === "(" ? withParenthesizedTitle(value, quote) : value;
   } finally {
     options.quote = enclosing;
   }

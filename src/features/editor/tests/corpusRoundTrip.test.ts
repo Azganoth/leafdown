@@ -16,6 +16,7 @@ const byteIdenticalFiles = [
   "commonmark/html.md",
   "gfm/tagfilter.md",
   "isolated/end-of-file/incomplete-html-comment.md",
+  "isolated/end-of-file/unclosed-code-fence.md",
   "isolated/end-of-file/unclosed-directive.md",
   "isolated/end-of-file/unclosed-html-block.md",
 ];
@@ -33,7 +34,6 @@ const convergingFiles = [
   "gfm/strikethrough.md",
   "gfm/tables.md",
   "gfm/task-lists.md",
-  "isolated/end-of-file/unclosed-code-fence.md",
 ];
 
 const corpusFiles = [...byteIdenticalFiles, ...convergingFiles];

@@ -47,8 +47,9 @@ const TRAILING_WHITESPACE_PATTERN = /[\t ]+$/u;
 // wrote it, without one.
 const ATX_HEADING_PATTERN = /^#{1,6}(?:[\t ]|$)/u;
 // An info string cannot hold a backtick when the fence is spelled with them, which is the one case
-// where a run of three opens no block.
-const CODE_FENCE_PATTERN = /^(?:`{3,}[^`]*|~{3,}.*)$/u;
+// where a run of three opens no block. A fence carries whatever indentation it was authored with,
+// and CommonMark still reads one under three spaces, so the run is not always first on the line.
+const CODE_FENCE_PATTERN = /^ {0,3}(?:`{3,}[^`]*|~{3,}.*)$/u;
 const BLOCKQUOTE_PATTERN = /^>/u;
 // A marker interrupts only where the item it opens holds content on the marker's own line, and an
 // ordered list interrupts only where it starts at one.

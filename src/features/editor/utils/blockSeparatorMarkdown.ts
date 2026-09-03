@@ -273,7 +273,7 @@ const blockAdjacentAttrs = {
 
 // The preset's own runners open the mdast node themselves and carry only the fields they know, so
 // each is replaced rather than wrapped: the authored separator has to reach the node the runner
-// opens. Only the four blocks Leafdown holds no other form for are replaced here; the rest carry
+// opens. Only the three blocks Leafdown holds no other form for are replaced here; the rest carry
 // the separator alongside the form their own module already writes.
 export const withParagraphSeparator = (schema: NodeSchema): NodeSchema => ({
   ...schema,
@@ -331,37 +331,6 @@ export const withBlockquoteSeparator = (schema: NodeSchema): NodeSchema => ({
         })
         .next(node.content)
         .closeNode();
-    },
-  },
-});
-
-export const withCodeBlockSeparator = (schema: NodeSchema): NodeSchema => ({
-  ...schema,
-  attrs: { ...schema.attrs, ...blockAdjacentAttrs },
-  parseMarkdown: {
-    ...schema.parseMarkdown,
-    runner: (state, node, type) => {
-      const value = node.value as string | undefined;
-
-      state.openNode(type, {
-        language: node.lang ?? "",
-        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
-      });
-
-      if (value) {
-        state.addText(value);
-      }
-
-      state.closeNode();
-    },
-  },
-  toMarkdown: {
-    ...schema.toMarkdown,
-    runner: (state, node) => {
-      state.addNode(CODE_MARKDOWN_TYPE, undefined, node.content.firstChild?.text ?? "", {
-        lang: node.attrs.language,
-        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
-      });
     },
   },
 });

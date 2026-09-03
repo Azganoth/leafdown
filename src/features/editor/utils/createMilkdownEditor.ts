@@ -61,6 +61,7 @@ import {
   leafdownCharacterReferenceSchema,
 } from "../plugins/characterReference";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
+import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import {
@@ -104,7 +105,6 @@ import {
 } from "./bareAutolinkMarkdown";
 import {
   withBlockquoteSeparator,
-  withCodeBlockSeparator,
   withFootnoteDefinitionSeparator,
   withParagraphSeparator,
 } from "./blockSeparatorMarkdown";
@@ -115,6 +115,7 @@ import {
 } from "./characterReferenceMarkdown";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
+import { serializeCode, withCodeForm } from "./codeMarkdown";
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -223,6 +224,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownThematicBreakPlugin())
+    .use(createLeafdownCodeFormPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownHeadingFormPlugin())
@@ -284,6 +286,7 @@ export const createMilkdownEditor = async ({
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
+          code: serializeCode,
           definition: serializeMarkdownDefinition,
           heading: serializeHeading,
           image: serializeMarkdownImage,
@@ -312,7 +315,7 @@ export const createMilkdownEditor = async ({
           },
         };
       });
-      // Every block carries the separator it was authored with, so the four Leafdown holds no
+      // Every block carries the separator it was authored with, so the three Leafdown holds no
       // other form for are wrapped here and the rest carry it alongside the form they already do.
       ctx.update(
         paragraphSchema.key,
@@ -321,10 +324,6 @@ export const createMilkdownEditor = async ({
       ctx.update(
         blockquoteSchema.key,
         (getSchema) => (schemaCtx) => withBlockquoteSeparator(getSchema(schemaCtx)),
-      );
-      ctx.update(
-        codeBlockSchema.key,
-        (getSchema) => (schemaCtx) => withCodeBlockSeparator(getSchema(schemaCtx)),
       );
       ctx.update(
         footnoteDefinitionSchema.key,
@@ -350,6 +349,10 @@ export const createMilkdownEditor = async ({
       ctx.update(
         headingSchema.key,
         (getSchema) => (schemaCtx) => withHeadingForm(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        codeBlockSchema.key,
+        (getSchema) => (schemaCtx) => withCodeForm(getSchema(schemaCtx)),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),

@@ -684,6 +684,20 @@ describe("Escape precision", () => {
     },
     // A marker with nothing between it and its content opens no list item at all.
     { saved: "does not interrupt:\n1)item", source: "does not interrupt:\n1\\)item" },
+    // A thematic break spends three markers, so a shorter run is ordinary text wherever it sits.
+    { saved: "**", source: "\\*\\*" },
+    { saved: "_", source: "\\_" },
+    { saved: "__", source: "\\_\\_" },
+    { saved: "_ _", source: "\\_ \\_" },
+    { saved: "a paragraph line\n**", source: "a paragraph line\n\\*\\*" },
+    // The three are counted across the line rather than inside one run of it, and only the run
+    // the line starts with stands where the break could open.
+    { saved: "\\*\\* *", source: "\\*\\* \\*" },
+    { saved: "\\* * *", source: "\\* \\* \\*" },
+    { saved: "\\_ _ _", source: "\\_ \\_ \\_" },
+    // An underscore opens no bullet marker, so a run standing off a span of its own character is
+    // held by nothing once the line it shares spells fewer than three markers.
+    { saved: "_ __a__", source: "\\_ __a__" },
     // A table needs a delimiter row whose cell count matches the header row above it.
     {
       saved: "| Header | Cells |\n| --- |\n| mismatch | stays text |",
@@ -719,6 +733,8 @@ describe("Escape precision", () => {
     "1\\. not a list item",
     "\\*\\*\\*",
     "\\_\\_\\_",
+    // A thematic break interrupts a paragraph, so a continuation line spending three needs it too.
+    "a paragraph line\n\\*\\*\\*",
     "\\# not a heading",
     "\\> not a quote",
     "\\- not a list item",
@@ -760,7 +776,6 @@ describe("Escape precision", () => {
     // Whitespace between a run and the span beside it keeps them two runs rather than one, so the
     // run is still a bullet marker on its own and the span is not what holds it literal.
     "\\* **a**",
-    "\\_ __a__",
     // The enclosing delimiters remain available counterparts for a run of the same character.
     "**\\*a**",
     "**\\*opening-only asterisk**",
@@ -823,6 +838,16 @@ describe("Escape precision", () => {
     "**strong***trailing",
     "x***strong**",
     "x___strong__",
+    // A marker run too short to open a thematic break reopens as its own text whether or not a
+    // backslash holds it, which puts it in the same blind spot.
+    "**",
+    "_",
+    "__",
+    "_ _",
+    "_ __a__",
+    "\\*\\*\\*",
+    "\\_\\_\\_",
+    "\\* * *",
   ])("writes %j as authored and reopens it as the same document", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
     const document: unknown = mounted.view.state.doc.toJSON();

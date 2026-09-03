@@ -60,7 +60,12 @@ const LINE_ENDING_PATTERN = /[\r\n]$/u;
 const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
 const UNICODE_PUNCTUATION_PATTERN = /[\p{P}\p{S}]/u;
 const ATTENTION_CHARACTERS = "*_~";
-const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = { "*": /^[*\t ]*$/u, _: /^[_\t ]*$/u };
+// A thematic break spends three markers or more, counted across the line rather than inside one
+// run of it, and admits nothing else but spaces and tabs.
+const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = {
+  "*": /^(?:[\t ]*\*){3,}[\t ]*$/u,
+  _: /^(?:[\t ]*_){3,}[\t ]*$/u,
+};
 const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"]);
 // A mark holds only a fragment of its line, so its siblings cannot answer what follows the mark.
 // Every `[` in the fragment keeps its escape, which is also what makes an unescaped `[` from

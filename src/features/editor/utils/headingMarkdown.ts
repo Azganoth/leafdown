@@ -3,6 +3,11 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 import { defaultHandlers } from "mdast-util-to-markdown";
 
+import {
+  BLOCK_ADJACENT_ATTRIBUTE_NAME,
+  DEFAULT_BLOCK_ADJACENT,
+  readBlockAdjacent,
+} from "./blockSeparatorMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -226,6 +231,10 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
       default: NO_HEADING_RUN,
       validate: "string",
     },
+    [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_BLOCK_ADJACENT,
+      validate: "boolean",
+    },
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -235,6 +244,7 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
         [HEADING_SEPARATOR_ATTRIBUTE_NAME]: readHeadingSeparator(node),
         [HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME]: readHeadingClosingSequence(node),
         [HEADING_UNDERLINE_ATTRIBUTE_NAME]: readHeadingUnderline(node),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
       state.next(node.children);
       state.closeNode();
@@ -248,6 +258,7 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
         [HEADING_SEPARATOR_ATTRIBUTE_NAME]: readHeadingSeparator(node.attrs),
         [HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME]: readHeadingClosingSequence(node.attrs),
         [HEADING_UNDERLINE_ATTRIBUTE_NAME]: readHeadingUnderline(node.attrs),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       state.next(withoutTrailingHardBreak(node).content);
       state.closeNode();

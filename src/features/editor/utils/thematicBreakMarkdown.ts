@@ -2,6 +2,11 @@ import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { TagParseRule } from "@milkdown/kit/prose/model";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 
+import {
+  BLOCK_ADJACENT_ATTRIBUTE_NAME,
+  DEFAULT_BLOCK_ADJACENT,
+  readBlockAdjacent,
+} from "./blockSeparatorMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -127,6 +132,10 @@ export const withThematicBreakMarker = (schema: NodeSchema): NodeSchema => {
         default: DEFAULT_THEMATIC_BREAK_MARKER,
         validate: "string",
       },
+      [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+        default: DEFAULT_BLOCK_ADJACENT,
+        validate: "boolean",
+      },
     },
     // The rendered separator carries the run it will be written with, so a break copied out of one
     // document keeps its spelling when it is pasted into another.
@@ -168,6 +177,7 @@ export const withThematicBreakMarker = (schema: NodeSchema): NodeSchema => {
       runner: (state, node, type) => {
         state.addNode(type, {
           [THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME]: readThematicBreakMarker(node),
+          [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
         });
       },
     },
@@ -176,6 +186,7 @@ export const withThematicBreakMarker = (schema: NodeSchema): NodeSchema => {
       runner: (state, node) => {
         state.addNode(THEMATIC_BREAK_MARKDOWN_TYPE, undefined, undefined, {
           [THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME]: readThematicBreakMarker(node.attrs),
+          [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
         });
       },
     },

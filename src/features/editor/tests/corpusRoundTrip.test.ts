@@ -13,6 +13,7 @@ const mountEditor = setupMilkdownEditorMount(createMarkdownReferenceContext());
 // Files a save writes back exactly as they were authored. Identity subsumes convergence,
 // so these carry no convergence assertion.
 const byteIdenticalFiles = [
+  "commonmark/html.md",
   "gfm/tagfilter.md",
   "isolated/end-of-file/incomplete-html-comment.md",
   "isolated/end-of-file/unclosed-directive.md",
@@ -25,7 +26,6 @@ const convergingFiles = [
   "commonmark/blocks.md",
   "commonmark/code.md",
   "commonmark/emphasis.md",
-  "commonmark/html.md",
   "commonmark/links-and-images.md",
   "commonmark/lists-and-blockquotes.md",
   "commonmark/text-and-breaks.md",

@@ -3,6 +3,11 @@ import type { Node as ProseNode } from "@milkdown/kit/prose/model";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 import { defaultHandlers } from "mdast-util-to-markdown";
 
+import {
+  BLOCK_ADJACENT_ATTRIBUTE_NAME,
+  DEFAULT_BLOCK_ADJACENT,
+  readBlockAdjacent,
+} from "./blockSeparatorMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -401,6 +406,10 @@ export const withBulletListMarker = (schema: NodeSchema): NodeSchema => ({
       default: DEFAULT_BULLET_LIST_MARKER,
       validate: "string",
     },
+    [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_BLOCK_ADJACENT,
+      validate: "boolean",
+    },
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -408,6 +417,7 @@ export const withBulletListMarker = (schema: NodeSchema): NodeSchema => ({
       state.openNode(type, {
         spread: node.spread ?? false,
         [LIST_MARKER_ATTRIBUTE_NAME]: readBulletListMarker(node),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
       state.next(node.children);
       state.closeNode();
@@ -420,6 +430,7 @@ export const withBulletListMarker = (schema: NodeSchema): NodeSchema => ({
         ordered: false,
         spread: readSpread(node),
         [LIST_MARKER_ATTRIBUTE_NAME]: readBulletListMarker(node.attrs),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       state.next(node.content);
       state.closeNode();
@@ -435,6 +446,10 @@ export const withOrderedListMarker = (schema: NodeSchema): NodeSchema => ({
       default: DEFAULT_ORDERED_LIST_MARKER,
       validate: "string",
     },
+    [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_BLOCK_ADJACENT,
+      validate: "boolean",
+    },
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -443,6 +458,7 @@ export const withOrderedListMarker = (schema: NodeSchema): NodeSchema => ({
         spread: node.spread ?? true,
         order: node.start ?? 1,
         [LIST_MARKER_ATTRIBUTE_NAME]: readOrderedListMarker(node),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
       state.next(node.children);
       state.closeNode();
@@ -456,6 +472,7 @@ export const withOrderedListMarker = (schema: NodeSchema): NodeSchema => ({
         start: node.attrs.order ?? 1,
         spread: readSpread(node),
         [LIST_MARKER_ATTRIBUTE_NAME]: readOrderedListMarker(node.attrs),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       state.next(node.content);
       state.closeNode();

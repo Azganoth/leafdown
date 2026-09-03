@@ -12,9 +12,11 @@ import { history, historyKeymap } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
   blockquoteKeymap,
+  blockquoteSchema,
   bulletListKeymap,
   bulletListSchema,
   codeBlockKeymap,
+  codeBlockSchema,
   commonmark,
   emphasisKeymap,
   hardbreakSchema,
@@ -28,12 +30,14 @@ import {
   orderedListKeymap,
   orderedListSchema,
   paragraphKeymap,
+  paragraphSchema,
   remarkInlineLinkPlugin,
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
 } from "@milkdown/kit/preset/commonmark";
 import {
   extendListItemSchemaForTask,
+  footnoteDefinitionSchema,
   gfm,
   strikethroughInputRule,
   strikethroughKeymap,
@@ -98,6 +102,12 @@ import {
   serializeBareAutolink,
   withBareAutolinkForm,
 } from "./bareAutolinkMarkdown";
+import {
+  withBlockquoteSeparator,
+  withCodeBlockSeparator,
+  withFootnoteDefinitionSeparator,
+  withParagraphSeparator,
+} from "./blockSeparatorMarkdown";
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   serializeCharacterReference,
@@ -302,6 +312,24 @@ export const createMilkdownEditor = async ({
           },
         };
       });
+      // Every block carries the separator it was authored with, so the four Leafdown holds no
+      // other form for are wrapped here and the rest carry it alongside the form they already do.
+      ctx.update(
+        paragraphSchema.key,
+        (getSchema) => (schemaCtx) => withParagraphSeparator(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        blockquoteSchema.key,
+        (getSchema) => (schemaCtx) => withBlockquoteSeparator(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        codeBlockSchema.key,
+        (getSchema) => (schemaCtx) => withCodeBlockSeparator(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        footnoteDefinitionSchema.key,
+        (getSchema) => (schemaCtx) => withFootnoteDefinitionSeparator(getSchema(schemaCtx)),
+      );
       ctx.update(
         bulletListSchema.key,
         (getSchema) => (schemaCtx) => withBulletListMarker(getSchema(schemaCtx)),

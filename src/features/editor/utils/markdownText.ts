@@ -1,6 +1,7 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 
+import { markBlockSeparators, resolveBlockSeparators } from "./blockSeparatorMarkdown";
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   readCharacterReferenceRun,
@@ -1168,9 +1169,14 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   lineParents = parents;
   documentLabels = labels;
 
+  const unmarkSeparators = markBlockSeparators(state);
+
   try {
-    return resolveDeferredEscapes(state.containerFlow(node, info), labels);
+    // The separators are settled first, so an escape is decided against the lines the file is
+    // actually written with rather than against the blank ones a separator takes back out.
+    return resolveDeferredEscapes(resolveBlockSeparators(state.containerFlow(node, info)), labels);
   } finally {
+    unmarkSeparators();
     lineParents = undefined;
     documentLabels = new Set();
   }

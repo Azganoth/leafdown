@@ -314,6 +314,10 @@ describe("Markdown compatibility", () => {
   it.each([
     "* ```\n  code\n  ```",
     "1. ```\n   code\n   ```",
+    // Padding wide enough to hold four spaces past the marker's own one opens indented code, so
+    // the item's content boundary and the block's indentation are read off the same run.
+    "*     code",
+    "1.     code",
     "* | A | B |\n  | - | - |\n  | 1 | 2 |",
     "1. | A | B |\n   | - | - |\n   | 1 | 2 |",
     "* > quoted",
@@ -329,18 +333,6 @@ describe("Markdown compatibility", () => {
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
-
-  it.each([
-    { expected: "* ```\n  code\n  ```\n", source: "*     code" },
-    { expected: "1. ```\n   code\n   ```\n", source: "1.     code" },
-  ])(
-    "keeps an indented-code first child inside its list item in $source",
-    async ({ expected, source }) => {
-      const mounted = await mountEditor(source);
-
-      expect(mounted.getMarkdown()).toBe(expected);
-    },
-  );
 
   it.each([
     "* A\n* B",
@@ -1206,6 +1198,198 @@ describe("Thematic break form", () => {
     setThematicBreakMarker(mounted, "---");
 
     expect(mounted.getMarkdown()).toBe("* Paragraph\n  ***\n");
+  });
+});
+
+describe("Code block form", () => {
+  it.each([
+    "    four spaces open the block",
+    // Indentation past the four that open the block is content, and stays in it.
+    "    four spaces open the block\n      two further spaces stay in the content",
+    // A blank line inside an indented block does not end it, so the block spans it.
+    "    first\n\n    second",
+    // A fence written inside indented code is content rather than a fence, which is what fencing
+    // the block would have to spend a longer run to hold.
+    "    ```\n    four leading spaces form indented code instead",
+  ])("writes the indented block in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it.each([
+    { name: "a list item", source: "-     five spaces changes the content indentation boundary" },
+    { name: "a blockquote", source: ">     quoted indented code" },
+    { name: "a list item holding a blockquote", source: "- >     deeply indented code" },
+  ])("keeps an indented block inside $name", async ({ source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // An indented block cannot carry an info string, so the two forms are not interchangeable and a
+  // block holding one is fenced whatever the file wrote.
+  it.each([
+    "```typescript\nconst leaf = true;\n```",
+    "```\nplain fence\n```",
+    "> ```\n> quoted fence\n> ```",
+  ])("writes the fenced block in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A block made in the editor carries no authored form and writes the default.
+  it.each([
+    { commandId: "insert.codeBlock", saved: "Paragraph\n\n```\n```" },
+    { commandId: "format.codeBlock", saved: "```\nParagraph\n```" },
+  ] as const)("writes a block made by $commandId as a fence", async ({ commandId, saved }) => {
+    const mounted = await mountEditor("Paragraph\n");
+
+    await runEditorCommand(mounted.editor, commandId);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  // CommonMark strips the blank lines around indented code, so a block whose content grows one
+  // cannot be written in that form and gives way to a fence. The recorded form is what the block
+  // returns to once the edit that reached this is undone.
+  it("writes an indented block as a fence once its content opens on a blank line", async () => {
+    const mounted = await mountEditor("    indented\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("\n", 1));
+
+    expect(mounted.getMarkdown()).toBe("```\n\nindented\n```\n");
+  });
+
+  it.each([
+    // The fence character is the one the file spelled, and a tilde fence's info string may hold a
+    // backtick where a backtick fence's may not.
+    "~~~\ntilde fence\n~~~",
+    "~~~ language`with-backtick\nvalid tilde info string\n~~~",
+    // A run longer than the content needs is the length the file was written at.
+    "````\nplain\n````",
+    "~~~~~\nplain\n~~~~~",
+    // The spacing between the run and the info string is the file's.
+    "``` language+escaped\nvalid backtick info string\n```",
+    "```\tafter-tab\nvalid\n```",
+    // A fence stays under the three spaces CommonMark still reads it under.
+    "   ```\n   three leading spaces still open a fence\n   ```",
+    " ```\n one leading space\n ```",
+    // A blank line inside a container says nothing about the prefix the container wrote, so the
+    // indentation is measured off the lines that do.
+    "> ```\n>\n> quoted with a blank line\n> ```",
+    // A fence holding nothing stands on one line, which is the whole of the block.
+    "```",
+    // A list item's own padding puts its content past the marker, so a block written against that
+    // boundary carries no indentation of its own and the item's form answers for the whole column.
+    "-    ```\n     item and indented\n     ```",
+  ])("writes the fence in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // mdast names a container's prefix and a fence's own indentation as one column, and CommonMark
+  // strips up to that indentation from each content line, so the two come apart only where some
+  // line was written without it. A block indented uniformly reads the prefix as the whole column
+  // and is written with less indentation than the file gave it, which CommonMark strips back off
+  // on the way in, so the block still reopens as itself.
+  it("writes a uniformly indented quoted fence with the indentation its own lines account for", async () => {
+    const mounted = await mountEditor(">    ```\n>    quoted and indented\n>    ```\n");
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe("> ```\n> quoted and indented\n> ```\n");
+    expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // A run has to outrun anything inside it, so the length the file wrote is a floor the content can
+  // still raise rather than a number written back whatever the block now holds.
+  it("raises a recorded run the content has outgrown", async () => {
+    const mounted = await mountEditor("```\nplain\n```\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("\n```", 6));
+
+    expect(mounted.getMarkdown()).toBe("````\nplain\n```\n````\n");
+  });
+
+  // The surplus over that floor is what the file spent, so a wide fence stays wide when its content
+  // grows into the run the file wrote.
+  it("keeps a recorded surplus above the run the content needs", async () => {
+    const mounted = await mountEditor("`````\nplain\n`````\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("\n```", 6));
+
+    expect(mounted.getMarkdown()).toBe("``````\nplain\n```\n``````\n");
+  });
+
+  // A file ending on its opening fence writes that fence as the whole of the block, so the run has
+  // to be read as the one that opened it rather than as one closing it.
+  it("writes a fence standing alone with no final newline unclosed", async () => {
+    const mounted = await mountEditor("```");
+
+    expect(mounted.getMarkdown()).toBe("```\n");
+  });
+
+  it("writes a fence left unclosed at end of file unclosed", async () => {
+    const source = "# Heading\n\n```\nThe code block continues through end of file.\n";
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(source);
+  });
+
+  // An open fence runs to the end of the block that holds it, so one standing last in a container
+  // is ended by that container rather than by a run of its own and stays open. The blockquote's own
+  // prefix is what closes it, which is why the paragraph after it is still outside the code.
+  it.each([
+    { name: "a blockquote", source: "> ```\n> code\n\nAfter.\n" },
+    { name: "a list item", source: "- ```\n  code\n- second\n" },
+    { name: "a list item holding a blockquote", source: "- > ```\n  > code\n\nAfter.\n" },
+  ])("keeps a fence the file left open at the end of $name open", async ({ source }) => {
+    const mounted = await mountEditor(source);
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe(source);
+    expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // A footnote definition writes its label on the line the block opens on and indents the lines
+  // under it by four, so the column the fence opens at says nothing about indentation the file
+  // wrote. Reading the difference as indentation writes it into the code the block holds.
+  it("keeps a fence inside a footnote definition clear of the label's own width", async () => {
+    const mounted = await mountEditor("[^a]: ```\n    code\n\nAfter.\n");
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe("[^a]: ```\n    code\nAfter.\n");
+    expect((await mountEditor(written)).view.state.doc.textContent).toBe(
+      mounted.view.state.doc.textContent,
+    );
+    expect(mounted.view.state.doc.textContent).toContain("code");
+    expect(mounted.view.state.doc.textContent).not.toContain("  code");
+  });
+
+  // A fence left open runs to the end of the file, so a block that stops ending the document has to
+  // be closed or it reads the blocks after it as its own content.
+  it("closes an unclosed fence once a block follows it", async () => {
+    const mounted = await mountEditor("```\ncode\n");
+    const { view } = mounted;
+    const { paragraph } = view.state.schema.nodes;
+
+    view.dispatch(
+      view.state.tr.insert(
+        view.state.doc.content.size,
+        paragraph.create(null, [view.state.schema.text("After")]),
+      ),
+    );
+
+    expect(mounted.getMarkdown()).toBe("```\ncode\n```\n\nAfter\n");
   });
 });
 

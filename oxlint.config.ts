@@ -77,6 +77,8 @@ export default defineConfig({
           "expectControlsOutOfTabSequence",
           "expectMarkSource",
           "expectOversizedMarkdownFileToast",
+          "expectSaved",
+          "expectUnchanged",
         ],
       },
     ],

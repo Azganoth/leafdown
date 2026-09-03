@@ -96,4 +96,69 @@ describe("restoreBlockStructure", () => {
 
     expect(() => restoreBlockStructure(tree)).not.toThrow();
   });
+
+  it.each([
+    { adjacent: true, nextLine: 2, separator: "no blank line" },
+    { adjacent: false, nextLine: 3, separator: "one blank line" },
+    { adjacent: false, nextLine: 5, separator: "a blank-line run" },
+  ])("records $separator between two blocks as adjacent=$adjacent", ({ adjacent, nextLine }) => {
+    const tree = container("root", [positioned("paragraph", 1), positioned("heading", nextLine)]);
+
+    restoreBlockStructure(tree);
+
+    const heading = tree.children?.at(-1);
+
+    expect(heading?.type).toBe("heading");
+    expect(Object.hasOwn(heading!, "adjacent")).toBe(adjacent);
+  });
+
+  it("records adjacency from the line a block ends on rather than the line it opens", () => {
+    const tree = container("root", [positioned("heading", 1, 2), positioned("paragraph", 3)]);
+
+    restoreBlockStructure(tree);
+
+    expect(tree.children![1]).toMatchObject({ adjacent: true });
+  });
+
+  it("records adjacency inside nested block containers", () => {
+    const tree = container("root", [
+      container("blockquote", [positioned("paragraph", 1), positioned("heading", 2)]),
+    ]);
+
+    restoreBlockStructure(tree);
+
+    expect(tree.children![0].children![1]).toMatchObject({ adjacent: true });
+  });
+
+  it("leaves the first block of a container with no separator to record", () => {
+    const tree = container("root", [positioned("paragraph", 1), positioned("heading", 2)]);
+
+    restoreBlockStructure(tree);
+
+    expect(tree.children![0]).not.toHaveProperty("adjacent");
+  });
+
+  it("records adjacency on the paragraph filled in around raw HTML", () => {
+    const tree = container("root", [
+      container("footnoteDefinition", [
+        positioned("paragraph", 1),
+        { ...positioned("html", 2), value: "<div>x</div>" },
+      ]),
+    ]);
+
+    restoreBlockStructure(tree);
+
+    const wrapper = tree.children![0].children![1];
+
+    expect(wrapper).toMatchObject({ type: "paragraph", adjacent: true });
+    expect(wrapper.children![0]).not.toHaveProperty("adjacent");
+  });
+
+  it("records no adjacency where the parser gave a block no position", () => {
+    const tree = container("root", [{ type: "paragraph" }, positioned("heading", 2)]);
+
+    restoreBlockStructure(tree);
+
+    expect(tree.children![1]).not.toHaveProperty("adjacent");
+  });
 });

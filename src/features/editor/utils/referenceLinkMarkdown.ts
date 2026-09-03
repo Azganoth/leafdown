@@ -1,6 +1,11 @@
 import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 
 import {
+  BLOCK_ADJACENT_ATTRIBUTE_NAME,
+  DEFAULT_BLOCK_ADJACENT,
+  readBlockAdjacent,
+} from "./blockSeparatorMarkdown";
+import {
   AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
   AUTHORED_URL_ATTRIBUTE_NAME,
   readAuthoredDescription,
@@ -270,6 +275,10 @@ export const definitionNodeSchema: NodeSchema = {
       default: DEFAULT_DEFINITION_FORM.titleSeparator,
       validate: "string",
     },
+    [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_BLOCK_ADJACENT,
+      validate: "boolean",
+    },
   },
   parseDOM: [
     {
@@ -321,6 +330,7 @@ export const definitionNodeSchema: NodeSchema = {
         [DESTINATION_MARKER_ATTRIBUTE_NAME]: readDestinationMarker(node),
         [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: readDestinationSeparator(node),
         [TITLE_SEPARATOR_ATTRIBUTE_NAME]: readTitleSeparator(node),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
     },
   },
@@ -336,6 +346,7 @@ export const definitionNodeSchema: NodeSchema = {
         [DESTINATION_MARKER_ATTRIBUTE_NAME]: node.attrs[DESTINATION_MARKER_ATTRIBUTE_NAME],
         [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: node.attrs[DESTINATION_SEPARATOR_ATTRIBUTE_NAME],
         [TITLE_SEPARATOR_ATTRIBUTE_NAME]: node.attrs[TITLE_SEPARATOR_ATTRIBUTE_NAME],
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
     },
   },

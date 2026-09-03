@@ -2,6 +2,12 @@ import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { MarkdownNode, NodeSchema } from "@milkdown/kit/transformer";
 import { markdownTable } from "markdown-table";
 
+import {
+  BLOCK_ADJACENT_ATTRIBUTE_NAME,
+  DEFAULT_BLOCK_ADJACENT,
+  readBlockAdjacent,
+} from "./blockSeparatorMarkdown";
+
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
@@ -144,6 +150,10 @@ export const withTableOuterPipes = (schema: NodeSchema): NodeSchema => ({
       default: DEFAULT_TABLE_OUTER_PIPES,
       validate: "string",
     },
+    [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_BLOCK_ADJACENT,
+      validate: "boolean",
+    },
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -155,7 +165,10 @@ export const withTableOuterPipes = (schema: NodeSchema): NodeSchema => ({
         isHeader: index === 0,
       }));
 
-      state.openNode(type, { [TABLE_OUTER_PIPES_ATTRIBUTE_NAME]: readTableOuterPipes(node) });
+      state.openNode(type, {
+        [TABLE_OUTER_PIPES_ATTRIBUTE_NAME]: readTableOuterPipes(node),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
+      });
       state.next(rows);
       state.closeNode();
     },
@@ -176,6 +189,7 @@ export const withTableOuterPipes = (schema: NodeSchema): NodeSchema => ({
       state.openNode(TABLE_MARKDOWN_TYPE, undefined, {
         align,
         [TABLE_OUTER_PIPES_ATTRIBUTE_NAME]: readTableOuterPipes(node.attrs),
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       state.next(node.content);
       state.closeNode();

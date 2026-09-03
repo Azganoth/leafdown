@@ -1723,6 +1723,90 @@ describe("Reference link and image form", () => {
   });
 });
 
+describe("Definition form", () => {
+  // The reopened document is asserted beside the bytes, because a destination written in a form the
+  // next read does not answer for costs the destination rather than the form, and a definition
+  // written across two lines is one construct whichever way its bytes are split.
+  it.each([
+    "[a]: <field-report.md>",
+    "[a]: field-report.md",
+    // A destination the bare form cannot spell.
+    "[a]: <with space.md>",
+    "[a]: <>",
+    // A destination the bare form could spell keeps the brackets it was authored between.
+    "[a]: <field(report).md>",
+    "[a]: <field*report.md>",
+    // The brackets close on the first unescaped `>`, so both of them keep their backslash.
+    String.raw`[a]: <field\>report.md>`,
+    String.raw`[a]: <field\<report.md>`,
+    // The colon is followed by whichever run the file wrote, including none at all.
+    "[a]:field-report.md",
+    "[a]: field-report.md 'T'",
+    "[a]: field-report.md\t'T'",
+    "[a]: field-report.md   'T'",
+    // A title on its own line, indented or not, and a destination on one of its own.
+    "[a]: <field-report.md>\n    'Field report title'",
+    '[a]: field-report.md\n"T"',
+    "[a]:\n    /destination",
+    "[a]:\n    /destination\n    'T'",
+    // A container writes its own prefix back around every line it makes, so the run a continuation
+    // line opens with is the one past that prefix.
+    "> [a]: <field-report.md>\n>     'T'",
+    "> > [a]: <field-report.md>\n> >     'T'",
+    "- [a]: <field-report.md>\n      'T'",
+    "- [a]:\n  <field-report.md>",
+  ])("writes the definition in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const saved = mounted.getMarkdown();
+
+    expect(saved).toBe(`${source}\n`);
+
+    const reopened = await mountEditor(saved);
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+
+  // A destination is written between angle brackets wherever the bare form would not be read back
+  // as the destination the document holds, whatever form the file recorded for it. A character
+  // reference is decoded into the destination, so a bare one can spell a destination that needs
+  // them.
+  it("writes the brackets a destination needs over the form it was authored in", async () => {
+    const mounted = await mountEditor("[a]: field&#32;report.md\n");
+
+    expect(mounted.getMarkdown()).toBe("[a]: <field report.md>\n");
+  });
+
+  // The block renders the source the file is written with, which is the whole of it wherever that
+  // source spans more than one line.
+  it("renders a definition written across two lines as both of them", async () => {
+    const source = "[field report]: <field-report.md>\n    'Field report title'";
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.root.querySelector('[data-type="definition"]')?.textContent).toBe(source);
+  });
+
+  // A blockquote's own form and a lazy continuation are settled elsewhere, so the layout is read
+  // past whichever prefix the definition's column names and the line the container writes back is
+  // the one it would have written anyway.
+  it.each([
+    {
+      name: "a lazy continuation",
+      saved: "> [a]: <b.md>\n> 'T'\n",
+      source: "> [a]: <b.md>\n'T'\n",
+    },
+    {
+      name: "a blockquote marker written without its space",
+      saved: "> [a]: <b.md>\n>     'T'\n",
+      source: ">[a]: <b.md>\n>    'T'\n",
+    },
+  ])("keeps the layout of a definition written with $name", async ({ saved, source }) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(saved);
+    expect((await mountEditor(saved)).getMarkdown()).toBe(saved);
+  });
+});
+
 describe("Character references", () => {
   it.each([
     "&copy; &#169; &#xA9; &AElig;",

@@ -42,7 +42,6 @@ valid tilde info string
 
 ``` language`with-backtick
 the preceding line stays paragraph text rather than opening a code block
-```
 
 ## Three leading spaces open a fence while four create indented code
 

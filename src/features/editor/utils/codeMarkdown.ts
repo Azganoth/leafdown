@@ -1,5 +1,5 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
-import type { NodeSchema } from "@milkdown/kit/transformer";
+import type { MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 import { defaultHandlers } from "mdast-util-to-markdown";
 
 import {
@@ -23,12 +23,14 @@ type JoinArguments = Parameters<StringifyState["join"][number]>;
 type CodeNode = Extract<JoinArguments[0], { type: "code" }>;
 
 export const CODE_MARKDOWN_TYPE = "code";
+export const CODE_SPAN_MARKDOWN_TYPE = "inlineCode";
 export const CODE_FENCED_ATTRIBUTE_NAME = "fenced";
 export const CODE_FENCE_ATTRIBUTE_NAME = "fence";
 export const CODE_FENCE_SURPLUS_ATTRIBUTE_NAME = "fenceSurplus";
 export const CODE_SEPARATOR_ATTRIBUTE_NAME = "codeSeparator";
 export const CODE_INDENT_ATTRIBUTE_NAME = "codeIndent";
 export const CODE_CLOSED_ATTRIBUTE_NAME = "closed";
+export const CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME = "runSurplus";
 
 export type CodeFence = "`" | "~";
 
@@ -43,6 +45,9 @@ export const DEFAULT_CODE_FENCE_SURPLUS = 0;
 export const DEFAULT_CODE_SEPARATOR = "";
 export const DEFAULT_CODE_INDENT = 0;
 export const DEFAULT_CODE_CLOSED = true;
+// A span the editor created is delimited by the shortest run its content leaves free, the way one
+// whose authored run cannot be recovered is.
+export const DEFAULT_CODE_SPAN_RUN_SURPLUS = 0;
 
 // Four spaces open indented code instead, so three is the widest a fence can be indented by.
 const CODE_INDENT_MAX = 3;
@@ -313,6 +318,145 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
         [CODE_CLOSED_ATTRIBUTE_NAME]: readCodeClosed(node.attrs),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
+    },
+  },
+});
+
+// A span's slice opens on the run that delimits it, whatever the content it holds.
+const CODE_SPAN_RUN_PATTERN = /^`+/u;
+// The construct the serializer is inside while it writes a cell's content.
+const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
+
+type CodeSpanNode = Parameters<typeof defaultHandlers.inlineCode>[0];
+
+export const readCodeSpanRunSurplus = (source: object): number => {
+  const surplus = (source as Record<string, unknown>)[CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME];
+
+  return typeof surplus === "number" && Number.isInteger(surplus) && surplus > 0
+    ? surplus
+    : DEFAULT_CODE_SPAN_RUN_SURPLUS;
+};
+
+// The run lengths the content spells, which are the lengths that cannot delimit it.
+const findCodeSpanRuns = (value: string) => {
+  const runs = new Set<number>();
+  let current = 0;
+
+  for (const character of value) {
+    if (character === "`") {
+      current += 1;
+      continue;
+    }
+
+    if (current > 0) {
+      runs.add(current);
+    }
+
+    current = 0;
+  }
+
+  if (current > 0) {
+    runs.add(current);
+  }
+
+  return runs;
+};
+
+// A span closes on a run of its own length, so the shortest run that can delimit it is the
+// shortest one its content spells nowhere. That is not the longest run plus one, which is what
+// separates a span from a fence: content holding a run of two leaves a single backtick free.
+const findRequiredCodeSpanRun = (value: string) => {
+  const runs = findCodeSpanRuns(value);
+  let length = 1;
+
+  while (runs.has(length)) {
+    length += 1;
+  }
+
+  return length;
+};
+
+// The parse keeps the content and drops the run around it, so the authored length survives only in
+// the slice of the file the span was built from. It is kept as the surplus over the length the
+// content forces, so content edited to hold a longer run raises that floor and carries the surplus
+// with it, which is how the block form records its fence.
+export const findCodeSpanRunSurplus = (raw: string, value: string) => {
+  const run = CODE_SPAN_RUN_PATTERN.exec(raw);
+
+  return run === null
+    ? DEFAULT_CODE_SPAN_RUN_SURPLUS
+    : Math.max(run[0].length - findRequiredCodeSpanRun(value), 0);
+};
+
+// A cell is split on the pipes it holds before its content is read, so a pipe inside a span has to
+// be escaped for the span to survive the split. `mdast-util-gfm-table` carries that rule in an
+// `inlineCode` handler of its own, which a handler registered here replaces, so the rule is
+// reproduced rather than lost. It reaches only the content, since the delimiters are backticks.
+const withCellPipeEscapes = (value: string, state: StringifyState) =>
+  state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? value.replaceAll("|", String.raw`\|`) : value;
+
+// The handler sizes the run to the content it just wrote and pads the value where a delimiter
+// would otherwise touch a backtick or an edge space, so the recorded surplus is added to both ends
+// of its output and the padding it chose still holds.
+//
+// Unlike a fence, whose floor is the longest run the content holds, a span's floor is the shortest
+// run it leaves free, and a longer run is not free for being longer: content edited to spell the
+// recorded length exactly would close the span at itself. The canonical fallback is the run the
+// handler wrote, which is the one the content is measured against.
+export const serializeCodeSpan: NonNullable<RemarkStringifyHandlers["inlineCode"]> = (
+  node: CodeSpanNode,
+  parent,
+  state,
+) => {
+  const value = withCellPipeEscapes(defaultHandlers.inlineCode(node, parent, state), state);
+  const surplus = readCodeSpanRunSurplus(node);
+  const written = CODE_SPAN_RUN_PATTERN.exec(value);
+
+  if (surplus === 0 || written === null) {
+    return value;
+  }
+
+  const length = written[0].length + surplus;
+
+  if (findCodeSpanRuns(node.value).has(length)) {
+    return value;
+  }
+
+  const run = "`".repeat(length);
+
+  return run + value.slice(written[0].length, value.length - written[0].length) + run;
+};
+
+// The preset's runners carry the value alone, so both are replaced to put the recorded run beside
+// it. The mark's `toDOM` writes only the attributes the preset's own slice holds, so the record
+// reaches no rendered attribute of its own.
+export const withCodeSpanForm = (schema: MarkSchema): MarkSchema => ({
+  ...schema,
+  attrs: {
+    ...schema.attrs,
+    [CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME]: {
+      default: DEFAULT_CODE_SPAN_RUN_SURPLUS,
+      validate: "number",
+    },
+  },
+  parseMarkdown: {
+    ...schema.parseMarkdown,
+    runner: (state, node, markType) => {
+      state.openMark(markType, {
+        [CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME]: readCodeSpanRunSurplus(node),
+      });
+      state.addText((node.value as string | undefined) ?? "");
+      state.closeMark(markType);
+    },
+  },
+  toMarkdown: {
+    ...schema.toMarkdown,
+    runner: (state, mark, node) => {
+      state.withMark(mark, CODE_SPAN_MARKDOWN_TYPE, node.text ?? "", {
+        [CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME]: readCodeSpanRunSurplus(mark.attrs),
+      });
+
+      return true;
     },
   },
 });

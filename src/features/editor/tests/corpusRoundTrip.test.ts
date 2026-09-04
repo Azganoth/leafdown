@@ -14,6 +14,7 @@ const mountEditor = setupMilkdownEditorMount(createMarkdownReferenceContext());
 // so these carry no convergence assertion.
 const byteIdenticalFiles = [
   "commonmark/blocks.md",
+  "commonmark/code.md",
   "commonmark/html.md",
   "commonmark/lists-and-blockquotes.md",
   "gfm/tagfilter.md",
@@ -27,7 +28,6 @@ const byteIdenticalFiles = [
 // Files a save still rewrites, either through a class not yet removed or through a form
 // nothing owns. This list ends holding only the second kind.
 const convergingFiles = [
-  "commonmark/code.md",
   "commonmark/emphasis.md",
   "commonmark/links-and-images.md",
   "commonmark/text-and-breaks.md",

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  findParagraphContinuations,
-  PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME,
-  readParagraphContinuations,
-  resolveParagraphContinuations,
+  CONTINUATIONS_ATTRIBUTE_NAME,
+  findContinuations,
+  markContinuationLines,
+  readContinuations,
+  resolveContinuations,
 } from "./continuationMarkdown";
 
 const MARKER = "\u0000c";
@@ -14,7 +15,7 @@ const MARKER = "\u0000c";
 const marked = (written: string, authored: string, content: string) =>
   `${written}${MARKER}${authored}${MARKER}${content}`;
 
-describe("readParagraphContinuations", () => {
+describe("readContinuations", () => {
   it.each([
     { continuations: [], name: "an attribute holding no lines", source: { continuations: [] } },
     {
@@ -30,17 +31,15 @@ describe("readParagraphContinuations", () => {
       source: { continuations: ["> ", 4] },
     },
   ])("reads $name", ({ continuations, source }) => {
-    expect(readParagraphContinuations(source)).toEqual(continuations);
+    expect(readContinuations(source)).toEqual(continuations);
   });
 
   it("names the attribute the schema carries", () => {
-    expect(
-      readParagraphContinuations({ [PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME]: ["  "] }),
-    ).toEqual(["  "]);
+    expect(readContinuations({ [CONTINUATIONS_ATTRIBUTE_NAME]: ["  "] })).toEqual(["  "]);
   });
 });
 
-describe("findParagraphContinuations", () => {
+describe("findContinuations", () => {
   it.each([
     { continuations: [], name: "a paragraph written on one line", raw: "One line" },
     {
@@ -79,13 +78,38 @@ describe("findParagraphContinuations", () => {
       raw: "item\r\n  second",
     },
   ])("reads $name", ({ continuations, raw }) => {
-    expect(findParagraphContinuations(raw)).toEqual(continuations);
+    expect(findContinuations(raw)).toEqual(continuations);
   });
 });
 
-describe("resolveParagraphContinuations", () => {
+describe("markContinuationLines", () => {
+  it("leaves a block holding no record alone", () => {
+    expect(markContinuationLines("One\ntwo", [])).toBe("One\ntwo");
+  });
+
+  it("marks each line the record reaches", () => {
+    expect(markContinuationLines("One\ntwo\nthree", ["> ", "  "])).toBe(
+      `One\n${MARKER}> ${MARKER}two\n${MARKER}  ${MARKER}three`,
+    );
+  });
+
+  // A line the editor added to a block stands past everything the file recorded for it.
+  it("leaves a line past the record for the containers to prefix", () => {
+    expect(markContinuationLines("One\ntwo\n=====", ["  "])).toBe(
+      `One\n${MARKER}  ${MARKER}two\n=====`,
+    );
+  });
+
+  it("leaves a blank line alone", () => {
+    expect(markContinuationLines("One\n\nthree", ["  ", "  "])).toBe(
+      `One\n\n${MARKER}  ${MARKER}three`,
+    );
+  });
+});
+
+describe("resolveContinuations", () => {
   it("leaves a document holding no marked line alone", () => {
-    expect(resolveParagraphContinuations("A paragraph.\n")).toBe("A paragraph.\n");
+    expect(resolveContinuations("A paragraph.\n")).toBe("A paragraph.\n");
   });
 
   describe("writes the prefix the file wrote", () => {
@@ -116,9 +140,7 @@ describe("resolveParagraphContinuations", () => {
         written: marked("> ", ">     ", "\\# indented"),
       },
     ])("writes $name", ({ expected, written }) => {
-      expect(resolveParagraphContinuations(`${expected.split("\n")[0]}\n${written}\n`)).toBe(
-        expected,
-      );
+      expect(resolveContinuations(`${expected.split("\n")[0]}\n${written}\n`)).toBe(expected);
     });
   });
 
@@ -132,7 +154,7 @@ describe("resolveParagraphContinuations", () => {
       { content: "1\\. item", expected: "1. item", name: "an ordered marker" },
       { content: "12\\) item", expected: "12) item", name: "a parenthesised ordered marker" },
     ])("takes back the escape on $name", ({ content, expected }) => {
-      expect(resolveParagraphContinuations(`Text\n${marked("", "    ", content)}\n`)).toBe(
+      expect(resolveContinuations(`Text\n${marked("", "    ", content)}\n`)).toBe(
         `Text\n    ${expected}\n`,
       );
     });
@@ -145,13 +167,13 @@ describe("resolveParagraphContinuations", () => {
       { content: "\\[label]", name: "a bracket, which could open a link" },
       { content: "\\<span>", name: "an angle, which could open raw HTML" },
     ])("keeps the escape on $name", ({ content }) => {
-      expect(resolveParagraphContinuations(`Text\n${marked("", "    ", content)}\n`)).toBe(
+      expect(resolveContinuations(`Text\n${marked("", "    ", content)}\n`)).toBe(
         `Text\n    ${content}\n`,
       );
     });
 
     it("keeps the escape where the line stands under four columns", () => {
-      expect(resolveParagraphContinuations(`Text\n${marked("", "   ", "\\# heading")}\n`)).toBe(
+      expect(resolveContinuations(`Text\n${marked("", "   ", "\\# heading")}\n`)).toBe(
         "Text\n   \\# heading\n",
       );
     });
@@ -159,7 +181,7 @@ describe("resolveParagraphContinuations", () => {
     // Two items stacked at three columns each write one run of six, and a line spelling four of
     // them satisfies the outer item and leaves one column rather than the four it appears to have.
     it("keeps the escape where a line only partly spells the indentation two items stack", () => {
-      expect(resolveParagraphContinuations(`1. aa\n${marked("      ", "    ", "\\# bb")}\n`)).toBe(
+      expect(resolveContinuations(`1. aa\n${marked("      ", "    ", "\\# bb")}\n`)).toBe(
         "1. aa\n    \\# bb\n",
       );
     });
@@ -167,7 +189,7 @@ describe("resolveParagraphContinuations", () => {
     // A quote the line does not spell closes every container inside it, so the columns after it
     // are the line's own and the marker they hold up opens nothing.
     it("takes back the escape where the line stands four columns past a quote it drops", () => {
-      expect(resolveParagraphContinuations(`> quoted\n${marked("> ", "    ", "\\# cc")}\n`)).toBe(
+      expect(resolveContinuations(`> quoted\n${marked("> ", "    ", "\\# cc")}\n`)).toBe(
         "> quoted\n    # cc\n",
       );
     });
@@ -186,11 +208,11 @@ describe("resolveParagraphContinuations", () => {
         expected: "> line",
       },
     ])("withdraws $name", ({ expected, written }) => {
-      expect(resolveParagraphContinuations(`Text\n${written}\n`)).toBe(`Text\n${expected}\n`);
+      expect(resolveContinuations(`Text\n${written}\n`)).toBe(`Text\n${expected}\n`);
     });
   });
 
   it("drops a marker left without the one that closes it", () => {
-    expect(resolveParagraphContinuations(`Text\n${MARKER}line\n`)).toBe("Text\nline\n");
+    expect(resolveContinuations(`Text\n${MARKER}line\n`)).toBe("Text\nline\n");
   });
 });

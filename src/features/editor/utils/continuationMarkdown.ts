@@ -21,24 +21,25 @@ type JoinArguments = Parameters<StringifyState["join"][number]>;
 type ParagraphNode = Extract<JoinArguments[0], { type: "paragraph" }>;
 
 export const PARAGRAPH_MARKDOWN_TYPE = "paragraph";
-export const PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME = "continuations";
+export const HEADING_MARKDOWN_TYPE = "heading";
+export const CONTINUATIONS_ATTRIBUTE_NAME = "continuations";
 
-// The lines a paragraph carries when it holds no record of them: one the editor created, and one
-// whose authored lines cannot be recovered. Each continuation line is then written with the prefix
-// its containers spell, which is the form every paragraph reads back as.
-export const DEFAULT_PARAGRAPH_CONTINUATIONS: readonly string[] = [];
+// The lines a block carries when it holds no record of them: one the editor created, and one whose
+// authored lines cannot be recovered. Each continuation line is then written with the prefix its
+// containers spell, which is the form every block whose text spans lines reads back as.
+export const DEFAULT_CONTINUATIONS: readonly string[] = [];
 
 const HARD_BREAK_NODE_NAME = "hardbreak";
 
 // Everything a continuation line stands behind: the quote markers it repeats and the whitespace
-// after them. A parse strips the indentation a paragraph line opens with and reads a bare `>` as a
+// after them. A parse strips the indentation such a line opens with and reads a bare `>` as a
 // quote rather than as content, so the run is the prefix and what follows it is the line.
 const CONTINUATION_PREFIX_PATTERN = /^(?:[\t ]*>)*[\t ]*/u;
 // CommonMark ends a line on a carriage return, a line feed, or the pair, and a file spelling its
 // endings either of the first two ways still holds the lines a record answers for.
 const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;
 
-// CommonMark replaces U+0000 with U+FFFD while parsing, so no paragraph can carry one and the
+// CommonMark replaces U+0000 with U+FFFD while parsing, so no block can carry one and the
 // marker cannot collide with document content. A block separator spends `j` after it and a
 // deferred escape spends ASCII punctuation, so neither reads as this one. The pair brackets the
 // authored prefix, which leaves the run readable however the prefix is spelled.
@@ -67,17 +68,23 @@ interface ContinuationLine {
   restorable: boolean;
 }
 
-export const readParagraphContinuations = (source: object): string[] => {
-  const recorded = (source as Record<string, unknown>)[PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME];
+export const validateContinuations = (value: unknown) => {
+  if (!Array.isArray(value) || value.some((line) => typeof line !== "string")) {
+    throw new RangeError("Expected a line prefix for each of a block's later lines");
+  }
+};
+
+export const readContinuations = (source: object): string[] => {
+  const recorded = (source as Record<string, unknown>)[CONTINUATIONS_ATTRIBUTE_NAME];
 
   return Array.isArray(recorded) && recorded.every((line) => typeof line === "string")
     ? [...recorded]
-    : [...DEFAULT_PARAGRAPH_CONTINUATIONS];
+    : [...DEFAULT_CONTINUATIONS];
 };
 
-/// Reads what each line after a paragraph's first stood behind in the file. Exported for colocated
+/// Reads what each line after a block's first stood behind in the file. Exported for colocated
 /// tests.
-export const findParagraphContinuations = (raw: string): string[] =>
+export const findContinuations = (raw: string): string[] =>
   raw
     .split(LINE_ENDING_PATTERN)
     .slice(1)
@@ -157,8 +164,8 @@ const withoutBlockMarkerEscape = (content: string) => {
 /// escapes a block marker wherever a line could open one, and a line the file indented four columns
 /// past its containers opens none. The document is read once, a line at a time, because a paragraph
 /// the file hard-wrapped carries a marker on every line it holds and each line carries only the one
-/// its own paragraph wrote.
-export const resolveParagraphContinuations = (document: string) => {
+/// its own block wrote.
+export const resolveContinuations = (document: string) => {
   const resolved: string[] = [];
   let read = 0;
   let index = document.indexOf(CONTINUATION_MARKER);
@@ -197,19 +204,12 @@ export const resolveParagraphContinuations = (document: string) => {
   return resolved.join("");
 };
 
-// A paragraph writes its lines with nothing in front of them and the containers holding it add
-// their prefix afterwards, so the line a record answers for is only identifiable once every
-// handler has run. Each one is marked as it is written and `resolveParagraphContinuations` puts the
-// authored prefix in place of the one the containers wrote.
-export const serializeParagraph: NonNullable<RemarkStringifyHandlers["paragraph"]> = (
-  node: ParagraphNode,
-  parent,
-  state,
-  info,
-) => {
-  const continuations = readParagraphContinuations(node);
-  const value = defaultHandlers.paragraph(node, parent, state, info);
-
+/// Marks each line a record answers for. A block writes its lines with nothing in front of them and
+/// the containers holding it add their prefix afterwards, so the line a record answers for is only
+/// identifiable once every handler has run; `resolveContinuations` puts the authored prefix in place
+/// of the one the containers wrote. A line the record does not reach keeps that prefix, which is
+/// what answers for a block the editor has since added a line to.
+export const markContinuationLines = (value: string, continuations: readonly string[]) => {
   if (continuations.length === 0) {
     return value;
   }
@@ -226,6 +226,17 @@ export const serializeParagraph: NonNullable<RemarkStringifyHandlers["paragraph"
     .join("\n");
 };
 
+export const serializeParagraph: NonNullable<RemarkStringifyHandlers["paragraph"]> = (
+  node: ParagraphNode,
+  parent,
+  state,
+  info,
+) =>
+  markContinuationLines(
+    defaultHandlers.paragraph(node, parent, state, info),
+    readContinuations(node),
+  );
+
 // The preset's own runner opens the mdast node itself and carries only the children, so it is
 // replaced rather than wrapped: the authored form has to reach the node the runner opens. The
 // separator every block carries travels with it, the way each block Leafdown holds another form
@@ -234,13 +245,9 @@ export const withParagraphForm = (schema: NodeSchema): NodeSchema => ({
   ...schema,
   attrs: {
     ...schema.attrs,
-    [PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME]: {
-      default: DEFAULT_PARAGRAPH_CONTINUATIONS,
-      validate: (value: unknown) => {
-        if (!Array.isArray(value) || value.some((line) => typeof line !== "string")) {
-          throw new RangeError("Expected a line prefix for each of a paragraph's later lines");
-        }
-      },
+    [CONTINUATIONS_ATTRIBUTE_NAME]: {
+      default: DEFAULT_CONTINUATIONS,
+      validate: validateContinuations,
     },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
       default: DEFAULT_BLOCK_ADJACENT,
@@ -251,7 +258,7 @@ export const withParagraphForm = (schema: NodeSchema): NodeSchema => ({
     ...schema.parseMarkdown,
     runner: (state, node, type) => {
       state.openNode(type, {
-        [PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME]: readParagraphContinuations(node),
+        [CONTINUATIONS_ATTRIBUTE_NAME]: readContinuations(node),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
 
@@ -268,7 +275,7 @@ export const withParagraphForm = (schema: NodeSchema): NodeSchema => ({
     ...schema.toMarkdown,
     runner: (state, node) => {
       state.openNode(PARAGRAPH_MARKDOWN_TYPE, undefined, {
-        [PARAGRAPH_CONTINUATIONS_ATTRIBUTE_NAME]: readParagraphContinuations(node.attrs),
+        [CONTINUATIONS_ATTRIBUTE_NAME]: readContinuations(node.attrs),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       // A paragraph ends its line where its last child ends, so a hard break there has nothing to

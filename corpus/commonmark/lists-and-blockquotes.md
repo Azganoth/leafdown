@@ -7,6 +7,16 @@ lazy continuation without another marker
 >
 > Final quoted paragraph.
 
+## Lazy continuation of a Setext heading's text
+
+> Quoted heading text
+lazy line under the same heading
+> ================================
+
+- Item heading text
+lazy line under the same heading
+  ================================
+
 ## Lazy continuation cannot begin a new block
 
 > Quoted paragraph before a heading

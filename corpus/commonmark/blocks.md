@@ -49,6 +49,12 @@ Level one
 Level two with *inline content*
 --------------------------------
 
+## A Setext heading carries the lines its text was written on
+
+Heading text carried
+    onto an indented line
+=====================
+
 ## A Setext underline takes precedence after paragraph text
 
 Paragraph becomes a heading

@@ -1515,6 +1515,98 @@ describe("Code block form", () => {
   });
 });
 
+describe("Code span form", () => {
+  it.each([
+    // The shortest run the content leaves free, which is the length the serializer arrives at on
+    // its own.
+    "`plain code`",
+    // Content holding a single backtick leaves none free, so two is the shortest run.
+    "``code with a ` backtick``",
+    // A content run of two still leaves a single backtick free, so a longer run here is the length
+    // the file was written at rather than one the content forces.
+    "```code with `` two```",
+    "``no backtick in the content at all``",
+    // The edge spaces the parse strips are written back around the content it kept.
+    "`  padded  `",
+    // A span inside a mark carries its own run.
+    "*`emphasized span`*",
+  ])("writes the span in %j as it was authored", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe(`${source}\n`);
+    expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // A cell is split on its pipes before its content is read, so the escape holding a pipe inside a
+  // span has to survive the run written around it.
+  it("keeps a pipe inside a span written in a table cell escaped", async () => {
+    const mounted = await mountEditor(
+      "| Form | Value |\n| --- | --- |\n| code | ```alpha\\|beta``` |\n",
+    );
+    const written = mounted.getMarkdown();
+
+    expect(written).toContain("```alpha\\|beta```");
+    expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // A run has to be one the content leaves free, so the length the file wrote is a floor the
+  // content can still raise rather than a number written back whatever the span now holds.
+  it("raises a recorded run the content has outgrown", async () => {
+    const mounted = await mountEditor("`plain`\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("`", getEditorTextPosition(mounted, "plain") + 1));
+
+    expect(mounted.getMarkdown()).toBe("``p`lain``\n");
+  });
+
+  // The surplus over that floor is what the file spent, so a wide run stays wide when its content
+  // grows into the run the file wrote.
+  it("keeps a recorded surplus above the run the content needs", async () => {
+    const mounted = await mountEditor("``plain``\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("`", getEditorTextPosition(mounted, "plain") + 1));
+
+    expect(mounted.getMarkdown()).toBe("```p`lain```\n");
+  });
+
+  // A longer run is not free for being longer, which is where a span parts from a fence: content
+  // edited to spell the recorded length exactly would close the span at itself, so the run the
+  // content leaves free is written instead.
+  it("gives up a recorded run the content has grown to spell", async () => {
+    const mounted = await mountEditor("```ab```\n");
+    const { view } = mounted;
+
+    view.dispatch(view.state.tr.insertText("```", getEditorTextPosition(mounted, "ab") + 1));
+
+    const written = mounted.getMarkdown();
+    const reopened = await mountEditor(written);
+
+    expect(written).toBe("`a```b`\n");
+    // The record is what the fallback withdrew, so the reopened span is compared on the content and
+    // the mark it still carries rather than on the run it no longer records.
+    expect(reopened.view.state.doc.textContent).toBe(mounted.view.state.doc.textContent);
+    expect(getMarkNames(findEditorTextNode(reopened, "a```b")!)).toContain("inlineCode");
+  });
+
+  // A span made in the editor carries no authored form and writes the default.
+  it("writes a span made by format.inlineCode with the shortest run", async () => {
+    const mounted = await mountEditor("Paragraph\n");
+    const start = getEditorTextPosition(mounted, "Paragraph");
+
+    setTextSelection(mounted.view, start, start + "Paragraph".length);
+    await runEditorCommand(mounted.editor, "format.inlineCode");
+
+    expect(mounted.getMarkdown()).toBe("`Paragraph`\n");
+  });
+});
+
 describe("Table outer pipe form", () => {
   const BOTH_PIPES = "| Alpha | Bravo |\n| ----- | ----- |\n| Gamma | Delta |";
   const NO_PIPES = "Alpha | Bravo\n----- | -----\nGamma | Delta";

@@ -26,6 +26,7 @@ import {
   hrSchema,
   htmlSchema,
   inlineCodeKeymap,
+  inlineCodeSchema,
   linkSchema,
   orderedListKeymap,
   orderedListSchema,
@@ -112,7 +113,7 @@ import {
 } from "./characterReferenceMarkdown";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
-import { serializeCode, withCodeForm } from "./codeMarkdown";
+import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
@@ -290,6 +291,7 @@ export const createMilkdownEditor = async ({
           heading: serializeHeading,
           image: serializeMarkdownImage,
           imageReference: serializeMarkdownImageReference,
+          inlineCode: serializeCodeSpan,
           link: serializeMarkdownLink,
           list: serializeList,
           listItem: serializeListItem,
@@ -353,6 +355,10 @@ export const createMilkdownEditor = async ({
       ctx.update(
         codeBlockSchema.key,
         (getSchema) => (schemaCtx) => withCodeForm(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        inlineCodeSchema.key,
+        (getSchema) => (schemaCtx) => withCodeSpanForm(getSchema(schemaCtx)),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
         ...getSchema(schemaCtx),

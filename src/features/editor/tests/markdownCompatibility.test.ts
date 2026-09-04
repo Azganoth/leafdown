@@ -779,6 +779,33 @@ describe("Escape precision", () => {
     },
     { saved: "> quoted\n> 2. remains paragraph", source: "> quoted\n> 2\\. remains paragraph" },
     { saved: "> #no separator", source: "> \\#no separator" },
+    // A backslash spells a hard break only where a line of the same block follows the one it
+    // closes, and a block's last line has none, so the character there is literal as written
+    // and as escaped, at the document root and inside a container.
+    {
+      saved: "a paragraph ending in a backslash\\",
+      source: "a paragraph ending in a backslash\\\\",
+    },
+    {
+      saved: "> a quoted line ending in a backslash\\",
+      source: "> a quoted line ending in a backslash\\\\",
+    },
+    { saved: "- an item ending in a backslash\\", source: "- an item ending in a backslash\\\\" },
+    {
+      saved: "# a heading ending in a backslash\\",
+      source: "# a heading ending in a backslash\\\\",
+    },
+    // Only the line a block ends on relaxes; the lines above it still carry breaks.
+    {
+      saved: "a line\nand a backslash ending the last one\\",
+      source: "a line\nand a backslash ending the last one\\\\",
+    },
+    // The escape a second backslash needs is the one holding it out of the first, which the
+    // end of the block leaves in place.
+    {
+      saved: "two backslashes end this line\\\\\\",
+      source: "two backslashes end this line\\\\\\\\",
+    },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -912,6 +939,13 @@ describe("Escape precision", () => {
     "> \\| a | b |\n> \\| --- | --- |",
     "* \\| a | b |\n  \\| --- | --- |",
     "* 2\\. not a nested ordered list",
+    // A line of the same block under it is what makes a backslash a break, so a literal one
+    // there keeps the escape holding it apart from the break it would otherwise spell. A
+    // backslash a break or a mark follows keeps the escape holding it out of that character.
+    "a\\\\\nb",
+    "a\\\\\\\nb",
+    "a\\\\*b*",
+    "*a\\\\*",
   ])("keeps the escape the document needs in %j", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -963,6 +997,21 @@ describe("Escape precision", () => {
     "\\*\\*\\*",
     "\\_\\_\\_",
     "\\* * *",
+    // A backslash ending a block's last line reopens as its own text whether or not a
+    // backslash holds it, which is the same blind spot, at the document root and inside
+    // every container.
+    "The final backslash is at the end of the block and file.\\",
+    "> a quoted line ending in a backslash\\",
+    "- an item ending in a backslash\\",
+    "- an item\n\n  whose second block ends in a backslash\\",
+    "- > a quote inside an item ending in a backslash\\",
+    "# a heading ending in a backslash\\",
+    "[^1]: a footnote definition ending in a backslash\\",
+    // An underline is not a line of the heading's content, and neither is a block written on
+    // the line under a paragraph it interrupts, so a backslash above either closes its block.
+    "an underlined heading ending in a backslash\\\n---",
+    "a paragraph ending in a backslash\\\n# an adjacent heading",
+    "- a\\\n- b",
   ])("writes %j as authored and reopens it as the same document", async (source) => {
     const mounted = await mountEditor(`${source}\n`);
     const document: unknown = mounted.view.state.doc.toJSON();

@@ -68,6 +68,7 @@ import {
   createLeafdownContextPopupPlugin,
   type LeafdownContextPopupPluginOptions,
 } from "../plugins/contextPopup";
+import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
@@ -103,11 +104,7 @@ import {
   serializeBareAutolink,
   withBareAutolinkForm,
 } from "./bareAutolinkMarkdown";
-import {
-  withBlockquoteSeparator,
-  withFootnoteDefinitionSeparator,
-  withParagraphSeparator,
-} from "./blockSeparatorMarkdown";
+import { withBlockquoteSeparator, withFootnoteDefinitionSeparator } from "./blockSeparatorMarkdown";
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   serializeCharacterReference,
@@ -116,6 +113,7 @@ import {
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, withCodeForm } from "./codeMarkdown";
+import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -229,6 +227,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownHeadingFormPlugin())
     .use(createLeafdownListFormPlugin())
+    .use(createLeafdownContinuationFormPlugin())
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
     .use(commonmark)
@@ -294,6 +293,7 @@ export const createMilkdownEditor = async ({
           link: serializeMarkdownLink,
           list: serializeList,
           listItem: serializeListItem,
+          paragraph: serializeParagraph,
           root: serializeMarkdownRoot,
           table: serializeTable,
           text: serializeMarkdownText,
@@ -315,11 +315,11 @@ export const createMilkdownEditor = async ({
           },
         };
       });
-      // Every block carries the separator it was authored with, so the three Leafdown holds no
+      // Every block carries the separator it was authored with, so the two Leafdown holds no
       // other form for are wrapped here and the rest carry it alongside the form they already do.
       ctx.update(
         paragraphSchema.key,
-        (getSchema) => (schemaCtx) => withParagraphSeparator(getSchema(schemaCtx)),
+        (getSchema) => (schemaCtx) => withParagraphForm(getSchema(schemaCtx)),
       );
       ctx.update(
         blockquoteSchema.key,

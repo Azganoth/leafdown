@@ -14,7 +14,9 @@ const mountEditor = setupMilkdownEditorMount(createMarkdownReferenceContext());
 // so these carry no convergence assertion.
 const byteIdenticalFiles = [
   "commonmark/html.md",
+  "commonmark/lists-and-blockquotes.md",
   "gfm/tagfilter.md",
+  "gfm/task-lists.md",
   "isolated/end-of-file/incomplete-html-comment.md",
   "isolated/end-of-file/unclosed-code-fence.md",
   "isolated/end-of-file/unclosed-directive.md",
@@ -28,12 +30,10 @@ const convergingFiles = [
   "commonmark/code.md",
   "commonmark/emphasis.md",
   "commonmark/links-and-images.md",
-  "commonmark/lists-and-blockquotes.md",
   "commonmark/text-and-breaks.md",
   "gfm/autolinks.md",
   "gfm/strikethrough.md",
   "gfm/tables.md",
-  "gfm/task-lists.md",
 ];
 
 const corpusFiles = [...byteIdenticalFiles, ...convergingFiles];

@@ -199,14 +199,26 @@ describe("source projection syntax", () => {
     });
   });
 
-  it("uses a backtick run that cannot occur inside projected inline code", () => {
-    expect(
-      getSourceMarkers([{ attrs: { marker: "`" }, marker: "`", markName: "inlineCode" }], "a``b"),
-    ).toEqual({
-      closing: "```",
-      opening: "```",
-    });
-  });
+  // The run is the one the save writes: the shortest the content leaves free, which a longer run
+  // is not, plus whatever the file spent over it.
+  it.each([
+    { marker: "`", surplus: 0, text: "a``b" },
+    { marker: "``", surplus: 0, text: "a`b" },
+    { marker: "```", surplus: 0, text: "a`b``c" },
+    { marker: "``", surplus: 1, text: "ab" },
+    // A recorded run the content spells gives way, since it would close the span at itself.
+    { marker: "`", surplus: 1, text: "a``b" },
+  ])(
+    "uses the run $marker for projected inline code holding $text with surplus $surplus",
+    ({ marker, surplus, text }) => {
+      expect(
+        getSourceMarkers(
+          [{ attrs: { marker: "`", runSurplus: surplus }, marker: "`", markName: "inlineCode" }],
+          text,
+        ),
+      ).toEqual({ closing: marker, opening: marker });
+    },
+  );
 
   it.each([
     { source: "`` `leading ``", text: "`leading" },

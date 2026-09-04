@@ -362,18 +362,23 @@ const findCodeSpanRuns = (value: string) => {
   return runs;
 };
 
-// A span closes on a run of its own length, so the shortest run that can delimit it is the
-// shortest one its content spells nowhere. That is not the longest run plus one, which is what
-// separates a span from a fence: content holding a run of two leaves a single backtick free.
-const findRequiredCodeSpanRun = (value: string) => {
+// The run a span is written with. A span closes on a run of its own length, so the shortest run
+// that can delimit it is the shortest one its content spells nowhere. That is not the longest run
+// plus one, which is what separates a span from a fence: content holding a run of two leaves a
+// single backtick free. The surplus the file spent stands on top of that, and gives way to the free
+// length again wherever the content has grown to spell the sum, since a longer run is not free for
+// being longer and would close the span at itself.
+export const findCodeSpanRun = (value: string, surplus: number = DEFAULT_CODE_SPAN_RUN_SURPLUS) => {
   const runs = findCodeSpanRuns(value);
-  let length = 1;
+  let required = 1;
 
-  while (runs.has(length)) {
-    length += 1;
+  while (runs.has(required)) {
+    required += 1;
   }
 
-  return length;
+  const length = required + surplus;
+
+  return runs.has(length) ? required : length;
 };
 
 // The parse keeps the content and drops the run around it, so the authored length survives only in
@@ -385,7 +390,7 @@ export const findCodeSpanRunSurplus = (raw: string, value: string) => {
 
   return run === null
     ? DEFAULT_CODE_SPAN_RUN_SURPLUS
-    : Math.max(run[0].length - findRequiredCodeSpanRun(value), 0);
+    : Math.max(run[0].length - findCodeSpanRun(value), 0);
 };
 
 // A cell is split on the pipes it holds before its content is read, so a pipe inside a span has to
@@ -395,30 +400,24 @@ export const findCodeSpanRunSurplus = (raw: string, value: string) => {
 const withCellPipeEscapes = (value: string, state: StringifyState) =>
   state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? value.replaceAll("|", String.raw`\|`) : value;
 
-// The handler sizes the run to the content it just wrote and pads the value where a delimiter
-// would otherwise touch a backtick or an edge space, so the recorded surplus is added to both ends
-// of its output and the padding it chose still holds.
-//
-// Unlike a fence, whose floor is the longest run the content holds, a span's floor is the shortest
-// run it leaves free, and a longer run is not free for being longer: content edited to spell the
-// recorded length exactly would close the span at itself. The canonical fallback is the run the
-// handler wrote, which is the one the content is measured against.
+// The handler sizes the run to the shortest length the content leaves free and pads the value where
+// a delimiter would otherwise touch a backtick or an edge space, so the run the file was written
+// with is put back on both ends of its output and the padding it chose still holds.
 export const serializeCodeSpan: NonNullable<RemarkStringifyHandlers["inlineCode"]> = (
   node: CodeSpanNode,
   parent,
   state,
 ) => {
   const value = withCellPipeEscapes(defaultHandlers.inlineCode(node, parent, state), state);
-  const surplus = readCodeSpanRunSurplus(node);
   const written = CODE_SPAN_RUN_PATTERN.exec(value);
 
-  if (surplus === 0 || written === null) {
+  if (written === null) {
     return value;
   }
 
-  const length = written[0].length + surplus;
+  const length = findCodeSpanRun(node.value, readCodeSpanRunSurplus(node));
 
-  if (findCodeSpanRuns(node.value).has(length)) {
+  if (length === written[0].length) {
     return value;
   }
 

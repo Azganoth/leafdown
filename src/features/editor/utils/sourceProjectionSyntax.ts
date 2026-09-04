@@ -1,3 +1,11 @@
+import {
+  CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME,
+  DEFAULT_CODE_SPAN_RUN_SURPLUS,
+  findCodeSpanRun,
+  findCodeSpanRunSurplus,
+  readCodeSpanRunSurplus,
+} from "./codeMarkdown";
+
 export const SUPPORTED_PROJECTION_MARK_NAMES = [
   "strong",
   "emphasis",
@@ -117,7 +125,9 @@ const getNormalizedDelimitedProjectionSource = (source: string, context: Project
     const markerLength = Math.min(bounds.opening.length, bounds.closing.length);
     const text = normalizeInlineCodeText(source.slice(markerLength, source.length - markerLength));
 
-    return createInlineCodeProjectionSource(text);
+    // The run the source already spells is the author's, so an insert into the content re-spells
+    // the markers at that length rather than at the shortest one the new content leaves free.
+    return createInlineCodeProjectionSource(text, findCodeSpanRunSurplus(bounds.opening, text));
   }
 
   const markerCount = getNormalizedMarkerCount(bounds, context);
@@ -176,7 +186,7 @@ export const getSourceMarkers = (marks: ProjectionMarkDescriptor[], text = "") =
   const inlineCode = marks.find((mark) => mark.markName === "inlineCode");
 
   if (inlineCode) {
-    const marker = getInlineCodeMarker(text);
+    const marker = getInlineCodeMarker(text, readCodeSpanRunSurplus(inlineCode.attrs));
 
     return { closing: marker, opening: marker };
   }
@@ -198,8 +208,10 @@ export const getSourceMarkers = (marks: ProjectionMarkDescriptor[], text = "") =
 };
 
 export const createProjectionSource = (marks: ProjectionMarkDescriptor[], text: string) => {
-  if (marks.some((mark) => mark.markName === "inlineCode")) {
-    return createInlineCodeProjectionSource(text);
+  const inlineCode = marks.find((mark) => mark.markName === "inlineCode");
+
+  if (inlineCode) {
+    return createInlineCodeProjectionSource(text, readCodeSpanRunSurplus(inlineCode.attrs));
   }
 
   const sourceMarkers = getSourceMarkers(marks, text);
@@ -323,11 +335,19 @@ const parseInlineCodeProjectionSource = (source: string): ParsedProjectionSource
     return null;
   }
 
+  const content = normalizeInlineCodeText(text);
+
   return {
     closing,
-    marks: [createProjectionMarkDescriptorFromSource("inlineCode", opening)],
+    // The run the source spells is the one the author is looking at, so a marker they edited is
+    // recorded as the file's own form and one they left alone carries the record back unchanged.
+    marks: [
+      createProjectionMarkDescriptorFromSource("inlineCode", opening, {
+        [CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME]: findCodeSpanRunSurplus(opening, content),
+      }),
+    ],
     opening,
-    text: normalizeInlineCodeText(text),
+    text: content,
     type: "mark",
   };
 };
@@ -346,8 +366,8 @@ const normalizeInlineCodeText = (text: string) => {
 const hasNormalizableInlineCodePadding = (text: string) =>
   text.startsWith(" ") && text.endsWith(" ") && text.trim() !== "";
 
-const createInlineCodeProjectionSource = (text: string) => {
-  const marker = getInlineCodeMarker(text);
+const createInlineCodeProjectionSource = (text: string, surplus?: number) => {
+  const marker = getInlineCodeMarker(text, surplus);
   const padding = text.startsWith("`") || text.endsWith("`") ? " " : "";
 
   return `${marker}${padding}${text}${padding}${marker}`;
@@ -490,11 +510,12 @@ export const createProjectionMarkDescriptor = (
 const createProjectionMarkDescriptorFromSource = (
   markName: ProjectionMarkName,
   markerSyntax: string,
+  attrs: Record<string, unknown> = {},
 ): ProjectionMarkDescriptor => {
   const marker = getMarkerCharacterFromSource(markerSyntax);
 
   return {
-    attrs: { marker },
+    attrs: { ...attrs, marker },
     marker,
     markName,
   };
@@ -533,11 +554,7 @@ const getMarkerCharacterFromAttrs = (
 const getSourceMarker = (markName: ProjectionMarkName, marker: ProjectionMarkerCharacter) =>
   markName === "strong" || markName === "strike_through" ? marker.repeat(2) : marker;
 
-const getInlineCodeMarker = (text: string) => {
-  const longestBacktickRun = Math.max(
-    0,
-    ...Array.from(text.matchAll(/`+/gu), (match) => match[0].length),
-  );
-
-  return "`".repeat(longestBacktickRun + 1);
-};
+// The markers a projected span shows are the run the save will write it with, so the caret reveals
+// the file's own form rather than a second spelling of it.
+const getInlineCodeMarker = (text: string, surplus = DEFAULT_CODE_SPAN_RUN_SURPLUS) =>
+  "`".repeat(findCodeSpanRun(text, surplus));

@@ -7,6 +7,7 @@ import {
   readCharacterReferenceRun,
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
+import { resolveParagraphContinuations } from "./continuationMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -1172,9 +1173,13 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   const unmarkSeparators = markBlockSeparators(state);
 
   try {
-    // The separators are settled first, so an escape is decided against the lines the file is
-    // actually written with rather than against the blank ones a separator takes back out.
-    return resolveDeferredEscapes(resolveBlockSeparators(state.containerFlow(node, info)), labels);
+    // The lines and the separators are settled first, so an escape is decided against the lines the
+    // file is actually written with rather than against blank ones a separator takes back out or a
+    // prefix the file never put in front of a continuation line.
+    return resolveDeferredEscapes(
+      resolveBlockSeparators(resolveParagraphContinuations(state.containerFlow(node, info))),
+      labels,
+    );
   } finally {
     unmarkSeparators();
     lineParents = undefined;

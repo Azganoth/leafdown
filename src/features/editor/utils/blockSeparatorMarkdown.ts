@@ -33,7 +33,6 @@ const LIST_MARKDOWN_TYPE = "list";
 const LIST_ITEM_MARKDOWN_TYPE = "listItem";
 const TABLE_MARKDOWN_TYPE = "table";
 const THEMATIC_BREAK_MARKDOWN_TYPE = "thematicBreak";
-const HARD_BREAK_NODE_NAME = "hardbreak";
 
 // CommonMark replaces U+0000 with U+FFFD while parsing, so no block can carry one and the marker
 // cannot collide with document content. A deferred escape spends the same character and is always
@@ -274,43 +273,8 @@ const blockAdjacentAttrs = {
 
 // The preset's own runners open the mdast node themselves and carry only the fields they know, so
 // each is replaced rather than wrapped: the authored separator has to reach the node the runner
-// opens. Only the three blocks Leafdown holds no other form for are replaced here; the rest carry
+// opens. Only the two blocks Leafdown holds no other form for are replaced here; the rest carry
 // the separator alongside the form their own module already writes.
-export const withParagraphSeparator = (schema: NodeSchema): NodeSchema => ({
-  ...schema,
-  attrs: { ...schema.attrs, ...blockAdjacentAttrs },
-  parseMarkdown: {
-    ...schema.parseMarkdown,
-    runner: (state, node, type) => {
-      state.openNode(type, { [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node) });
-
-      if (node.children) {
-        state.next(node.children);
-      } else {
-        state.addText((node.value as string | undefined) ?? "");
-      }
-
-      state.closeNode();
-    },
-  },
-  toMarkdown: {
-    ...schema.toMarkdown,
-    runner: (state, node) => {
-      state.openNode(PARAGRAPH_MARKDOWN_TYPE, undefined, {
-        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
-      });
-      // A paragraph ends its line where its last child ends, so a hard break there has nothing to
-      // break onto and the preset drops it. Rebuilding the runner keeps that.
-      state.next(
-        node.lastChild?.type.name === HARD_BREAK_NODE_NAME
-          ? node.content.cut(0, node.content.size - node.lastChild.nodeSize)
-          : node.content,
-      );
-      state.closeNode();
-    },
-  },
-});
-
 export const withBlockquoteSeparator = (schema: NodeSchema): NodeSchema => ({
   ...schema,
   attrs: { ...schema.attrs, ...blockAdjacentAttrs },

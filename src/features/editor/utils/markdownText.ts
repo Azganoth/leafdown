@@ -66,6 +66,7 @@ const ATTENTION_CHARACTERS = "*_~";
 // run of it, and admits nothing else but spaces and tabs.
 const THEMATIC_BREAK_PATTERNS: Record<string, RegExp> = {
   "*": /^(?:[\t ]*\*){3,}[\t ]*$/u,
+  "-": /^(?:[\t ]*-){3,}[\t ]*$/u,
   _: /^(?:[\t ]*_){3,}[\t ]*$/u,
 };
 const WHOLE_LINE_PHRASING_PARENTS = new Set(["heading", "paragraph", "tableCell"]);
@@ -516,6 +517,12 @@ const DIGIT_PATTERN = /\d/u;
 const ORDERED_MARKERS = ".)";
 const HEADING_HASHES_MAX = 6;
 const ORDERED_DIGITS_MAX = 9;
+// Every character a setext underline or a table's delimiter row can spell, taken together rather
+// than parsed apart: a run this wide is answered by keeping the escape, and the cells a row would
+// be split into are decided against the assembled document by the pipe that opens it.
+const DELIMITER_LINE_PATTERN = /^[\t :|-]*$/u;
+// A thematic break admits its own marker, spaces, and tabs, and nothing else.
+const BREAK_LINE_PATTERN = /^[\t -]*$/u;
 
 // Where the marker's line begins, or -1 where it does not begin one. A block marker only opens its
 // construct from the start of a line, which is also the position `atBreak` escapes it at.
@@ -539,6 +546,7 @@ const relaxBlockMarkerEscapes = (
   before: string,
   after: string,
   blockStart: boolean,
+  markedLine: boolean,
   deferrable: boolean,
 ) => {
   const characterAt = (index: number) =>
@@ -566,6 +574,50 @@ const relaxBlockMarkerEscapes = (
       }
 
       if (end - index > HEADING_HASHES_MAX || !separates(characterAt(end))) {
+        slot.escaped = false;
+      }
+
+      continue;
+    }
+
+    if (slot.character === "-") {
+      const lineStart = findMarkerLineStart(slots, index, before);
+
+      if (lineStart < 0) {
+        continue;
+      }
+
+      let end = index;
+
+      while (end < slots.length && slots[end].character !== "\n") {
+        end += 1;
+      }
+
+      const line =
+        slots
+          .slice(index, end)
+          .map((marker) => marker.character)
+          .join("") + (end === slots.length ? after.split("\n")[0] : "");
+      let run = index;
+
+      while (run < slots.length && slots[run].character === "-") {
+        run += 1;
+      }
+
+      // One hyphen and a separator open a bullet item, and three across the line open a thematic
+      // break. A line spelling nothing but the characters a delimiter cell admits ends the
+      // paragraph above it instead, as a setext underline or as a table's delimiter row, so it is
+      // held wherever the block has a line above for either to answer.
+      const firstLine = lineStart === 0 && blockStart;
+      const opensList = run - index === 1 && separates(characterAt(index + 1));
+      const opensBreak =
+        THEMATIC_BREAK_PATTERNS[slot.character].test(line) ||
+        // A marker the container wrote stands on this line ahead of the run and counts toward the
+        // three a break spends, and the break is what the line reads as where it reaches them.
+        (firstLine && markedLine && BREAK_LINE_PATTERN.test(line));
+      const underlines = !firstLine && DELIMITER_LINE_PATTERN.test(line);
+
+      if (!opensList && !opensBreak && !underlines) {
         slot.escaped = false;
       }
 
@@ -1481,8 +1533,16 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   // the only one that can begin the block's own first line. A marker anywhere else sits on a line
   // the paragraph already started, where a list has to interrupt to open.
   const blockStart = childIndex === 0 && info.before === "\n";
+  // A list item writes its marker onto the line its first block opens on, where it stands ahead of
+  // anything that block's own text spells. Every other container writes a prefix that opens no
+  // leaf construct, and an item's later blocks stand under the marker rather than on it. A parent
+  // the tree cannot be walked from is read as carrying one, which keeps an escape rather than
+  // risking a marker the line turns out to hold.
+  const item = parent === undefined ? undefined : lineParents?.get(parent);
+  const markedLine =
+    item === undefined || (item.type === "listItem" && item.children?.[0] === parent);
 
-  relaxBlockMarkerEscapes(slots, info.before, after, blockStart, deferrable);
+  relaxBlockMarkerEscapes(slots, info.before, after, blockStart, markedLine, deferrable);
 
   const inertBlock = readInertBlock(node as PhrasingNode, parent);
 

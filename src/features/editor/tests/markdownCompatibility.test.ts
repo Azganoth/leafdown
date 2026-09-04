@@ -736,6 +736,28 @@ describe("Escape precision", () => {
     // An underscore opens no bullet marker, so a run standing off a span of its own character is
     // held by nothing once the line it shares spells fewer than three markers.
     { saved: "_ __a__", source: "\\_ __a__" },
+    // A hyphen opens a bullet item with a separator after it, a thematic break with three across
+    // the line, and a setext underline or a delimiter row under a line of its own block. A run
+    // that reaches none of them is text as written, at the top level and inside a container that
+    // writes no marker onto the line.
+    { saved: "--", source: "\\--" },
+    { saved: "-- more text", source: "\\-- more text" },
+    { saved: "----- more text", source: "\\----- more text" },
+    { saved: "-:", source: "\\-:" },
+    { saved: "-|x", source: "\\-|x" },
+    { saved: "> --", source: "> \\--" },
+    { saved: "- > --", source: "- > \\--" },
+    { saved: "[^1]: --\n\ntext[^1]", source: "[^1]: \\--\n\ntext[^1]" },
+    { saved: "- a\n\n  --", source: "- a\n\n  \\--" },
+    // A line the run does not fill can be neither underline nor delimiter row, so a continuation
+    // line relaxes on the same terms as a block's first.
+    { saved: "text\n-- more", source: "text\n\\-- more" },
+    // Only the delimiter row has to stay broken for the table not to form, since a header row
+    // takes any content at all.
+    { saved: "-|x\n\\-|-", source: "\\-|x\n\\-|-" },
+    // A list item's own marker stands on the line ahead of the run, and the break it can complete
+    // there takes precedence over the item, so the run relaxes only where no break can form.
+    { saved: "- -- more text", source: "- \\-- more text" },
     // A table needs a delimiter row whose cell count matches the header row above it.
     {
       saved: "| Header | Cells |\n| --- |\n| mismatch | stays text |",
@@ -776,6 +798,23 @@ describe("Escape precision", () => {
     "\\# not a heading",
     "\\> not a quote",
     "\\- not a list item",
+    // A hyphen keeps its backslash wherever the line it opens spells a construct: a bullet item
+    // with or without content, a thematic break counted across the line, a setext underline or a
+    // delimiter row under a line of the same block, and a run a list marker completes a break for.
+    "\\-",
+    "\\---",
+    "\\- - -",
+    "text\n\\--",
+    "> text\n> \\--",
+    "- text\n  \\--",
+    "a|b\n\\-|-",
+    "a|b\n\\-:|:-",
+    "- \\--",
+    "- \\-----",
+    "* \\--",
+    "1. \\--",
+    "> - \\--",
+    "- - \\--",
     "\\[intentionally literal](garden.md)",
     "!\\[intentionally literal](garden.png)",
     "\\![literal bang before a live link](garden.png)",
@@ -906,6 +945,13 @@ describe("Escape precision", () => {
     "``` language`with-backtick",
     "[a](b) c ` d",
     "`code` a ` b",
+    // A hyphen run that opens no block reopens as its own text whether or not a backslash holds
+    // it, which is the same blind spot, at the top level and inside a container.
+    "--",
+    "-- more text",
+    "-|x",
+    "> --",
+    "- -- more text",
     // A marker run too short to open a thematic break reopens as its own text whether or not a
     // backslash holds it, which puts it in the same blind spot.
     "**",

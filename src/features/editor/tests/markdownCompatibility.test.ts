@@ -467,7 +467,7 @@ describe("Escape precision", () => {
       source: "\\[intentionally literal]\\(garden.md)",
     },
     {
-      saved: "!\"#$%&'()*+,-./:;<=>?@[\\\\]^_\\`{|}~",
+      saved: "!\"#$%&'()*+,-./:;<=>?@[\\\\]^_`{|}~",
       source:
         "\\!\\\"\\#\\$\\%\\&\\'\\(\\)\\*\\+\\,\\-\\.\\/\\:\\;\\<\\=\\>\\?\\@\\[\\\\\\]\\^\\_\\`\\{\\|\\}\\~",
     },
@@ -503,6 +503,7 @@ describe("Escape precision", () => {
     { saved: "[a](b)~", source: "[a](b)\\~" },
     { saved: "<https://example.com>*", source: "<https://example.com>\\*" },
     { saved: "~**Bold** plain", source: "\\~**Bold** plain" },
+    { saved: "`**Bold** plain", source: "\\`**Bold** plain" },
     // A counterpart the line does spell keeps the escape, whether a construct writes it as a
     // delimiter, holds it in its content, or writes an output the tree cannot be read for.
     { saved: "*em*x\\*", source: "*em*x\\*" },
@@ -540,6 +541,45 @@ describe("Escape precision", () => {
     { saved: "**text with [ bracket**", source: "**text with \\[ bracket**" },
     { saved: "~~text with [ bracket~~", source: "~~text with \\[ bracket~~" },
     { saved: "*a **b** [ c*", source: "*a **b** \\[ c*" },
+    // A code span closes on a run of the opening run's own length, so an opener with no closer, a
+    // closer with no opener, and a mismatched pair are all literal where they sit.
+    { saved: "a ` b", source: "a \\` b" },
+    { saved: "`opening-only backtick", source: "\\`opening-only backtick" },
+    { saved: "closing-only backtick`", source: "closing-only backtick\\`" },
+    { saved: "a `` b", source: "a \\`\\` b" },
+    { saved: "one opens but two close: ` a ``", source: "one opens but two close: \\` a \\`\\`" },
+    // Block structure bounds the search: a span never crosses out of the block that opened it, so
+    // two list items, two paragraphs, and a heading each answer only for their own.
+    {
+      saved: "- `a code span does not\n- cross a list-item boundary`",
+      source: "- \\`a code span does not\n- cross a list-item boundary\\`",
+    },
+    {
+      saved: "this ` does not cross\n\na paragraph boundary `",
+      source: "this \\` does not cross\n\na paragraph boundary \\`",
+    },
+    { saved: "# a ` b", source: "# a \\` b" },
+    { saved: "> a ` b", source: "> a \\` b" },
+    { saved: "| a     |\n| ----- |\n| x ` y |", source: "| a |\n| --- |\n| x \\` y |" },
+    // Escaping the opening run already breaks the pair, so the run it can no longer reach drops
+    // its own escape.
+    { saved: "\\`not code`", source: "\\`not code\\`" },
+    { saved: "a \\`\\` b `` c", source: "a \\`\\` b \\`\\` c" },
+    { saved: "a \\` b \\` c ` d", source: "a \\` b \\` c \\` d" },
+    // A run three markers long spells a code fence only where a line starts at it, and only where
+    // the rest of that line holds no backtick, which the info string of a backtick fence admits
+    // none of.
+    { saved: "a ``` b", source: "a \\`\\`\\` b" },
+    {
+      saved: "``` language`with-backtick",
+      source: "\\`\\`\\` language\\`with-backtick",
+    },
+    // The assembled document decides a run whose block a construct shares, since a construct
+    // writes delimiters of its own that the tree cannot be read for.
+    { saved: "[a](b) c ` d", source: "[a](b) c \\` d" },
+    { saved: "`code` a ` b", source: "`code` a \\` b" },
+    { saved: "*a ` b*", source: "*a \\` b*" },
+    { saved: "a \\` [b](c) ` d", source: "a \\` [b](c) \\` d" },
     // A tilde run reaches a counterpart only through a run of its own length, so an opener with no
     // closer, a closer with no opener, and a mismatched pair all stay literal where they sit.
     {
@@ -739,7 +779,7 @@ describe("Escape precision", () => {
     "\\[intentionally literal](garden.md)",
     "!\\[intentionally literal](garden.png)",
     "\\![literal bang before a live link](garden.png)",
-    "\\`not code\\`",
+    "\\`not code`",
     "\\~\\~not strikethrough~~",
     "\\<span>not html\\</span>",
     "| bed         |\n| ----------- |\n| alpha\\|beta |",
@@ -791,6 +831,17 @@ describe("Escape precision", () => {
     "\\~a\\~b~",
     // Three tildes at the start of a line open a code fence.
     "\\~\\~\\~",
+    // So do three backticks, wherever a line can start, including one a paragraph continues onto
+    // and one a container writes a prefix in front of. The escape is kept for a run the assembled
+    // document decides, where the prefix cannot be told from the text a line holds.
+    "\\`\\`\\`",
+    "a paragraph line\n\\`\\`\\`",
+    "> \\`\\`\\`",
+    "[a](b) \\`\\`\\` c",
+    // A run the block answers keeps its escape, whether the counterpart is literal text or the
+    // delimiters a real code span writes.
+    "a \\` b ` c",
+    "a \\` b `code`",
     // A reference that would form on the next read has to stay broken, or two saves decode it.
     "\\&copy;",
     "\\&AElig;",
@@ -845,6 +896,16 @@ describe("Escape precision", () => {
     // backslash holds it, which is the same blind spot.
     "_**underscore and one asterisk stay literal*",
     "x****strong**",
+    // A backtick nothing can close reopens as its own text whether or not a backslash holds it,
+    // which is the same blind spot, in the block that opened it and in the line a fence would take.
+    "a ` b",
+    "`unclosed",
+    "- `a code span does not\n- cross a list-item boundary`",
+    "\\`not code`",
+    "a ``` b",
+    "``` language`with-backtick",
+    "[a](b) c ` d",
+    "`code` a ` b",
     // A marker run too short to open a thematic break reopens as its own text whether or not a
     // backslash holds it, which puts it in the same blind spot.
     "**",

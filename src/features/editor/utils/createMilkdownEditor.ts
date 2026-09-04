@@ -72,6 +72,7 @@ import {
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
+import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
@@ -115,6 +116,11 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
+import {
+  HARD_BREAK_MARKDOWN_TYPE,
+  serializeHardBreak,
+  withHardBreakForm,
+} from "./hardBreakMarkdown";
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
@@ -226,6 +232,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCodeFormPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
+    .use(createLeafdownHardBreakFormPlugin())
     .use(createLeafdownHeadingFormPlugin())
     .use(createLeafdownListFormPlugin())
     .use(createLeafdownContinuationFormPlugin())
@@ -285,6 +292,7 @@ export const createMilkdownEditor = async ({
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
+          [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           code: serializeCode,
           definition: serializeMarkdownDefinition,
@@ -361,7 +369,7 @@ export const createMilkdownEditor = async ({
         (getSchema) => (schemaCtx) => withCodeSpanForm(getSchema(schemaCtx)),
       );
       ctx.update(hardbreakSchema.key, (getSchema) => (schemaCtx) => ({
-        ...getSchema(schemaCtx),
+        ...withHardBreakForm(getSchema(schemaCtx)),
         linebreakReplacement: true,
       }));
       ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({

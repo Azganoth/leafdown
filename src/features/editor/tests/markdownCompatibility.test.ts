@@ -11,6 +11,7 @@ import {
   getEditorNodePosition,
   getEditorTextPosition,
   getMarkNames,
+  runKeyDownHandlers,
   setSelectionAtDocumentEnd,
   setTextSelection,
   typeText,
@@ -2866,6 +2867,105 @@ describe("Authored raw line breaks", () => {
     const mounted = await mountEditor(source);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+});
+
+// Both spellings of a hard break reopen as the same node, so neither the corpus round trip nor the
+// document-preservation guard can see the difference, and the coverage asserts the written bytes and
+// the document the written file reopens as together.
+describe("Hard break form", () => {
+  const setHardBreakRun = (mounted: MountedMilkdownEditor, authored: string, run: string) => {
+    const position = getEditorNodePosition(
+      mounted,
+      "hardbreak",
+      (node) => node.attrs.run === authored,
+    );
+    const node = mounted.view.state.doc.nodeAt(position);
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.setNodeMarkup(
+        position,
+        undefined,
+        { ...node?.attrs, run },
+        node?.marks,
+      ),
+    );
+  };
+
+  const expectSaved = async (source: string, expected: string) => {
+    const before = await mountEditor(source);
+    const beforeDocument: unknown = before.view.state.doc.toJSON();
+    const written = before.getMarkdown();
+
+    expect(written).toBe(expected);
+
+    const after = await mountEditor(written);
+
+    expect(after.view.state.doc.toJSON()).toEqual(beforeDocument);
+  };
+
+  it.each([
+    "Two spaces follow this line.  \nThis line follows the break.",
+    "Three spaces follow this line.   \nThis line follows the break.",
+    "Ten spaces follow this line.          \nThis line follows the break.",
+    "A backslash follows this line.\\\nThis line follows the break.",
+    "*emphasis with a hard break  \ninside it*",
+    "`code span`  \nThis line follows the break.",
+    "Two breaks  \nfollow each other  \nin this paragraph.",
+    "> A quoted line  \n> follows the break.",
+    "- An item's line  \n  follows the break.",
+    "# A heading\n\nThe paragraph under it  \nfollows the break.",
+  ])("writes the break in %j as it was authored", async (source) => {
+    await expectSaved(`${source}\n`, `${source}\n`);
+  });
+
+  // A run too short to open a break, or one a tab keeps from opening one, is whitespace the parse
+  // trims at the line edge rather than characters a node carries, and is written by neither.
+  it.each([
+    {
+      saved: "One space follows this line.\nThis line continues the paragraph.",
+      source: "One space follows this line. \nThis line continues the paragraph.",
+    },
+    {
+      saved: "A tab precedes the two spaces.\nThis line continues the paragraph.",
+      source: "A tab precedes the two spaces.\t  \nThis line continues the paragraph.",
+    },
+    {
+      saved: "Two spaces follow the end of this paragraph.",
+      source: "Two spaces follow the end of this paragraph.  ",
+    },
+  ])("writes $source without the whitespace closing its line", async ({ saved, source }) => {
+    await expectSaved(`${source}\n`, `${saved}\n`);
+  });
+
+  it("writes a break inserted with Shift+Enter as the default", async () => {
+    const mounted = await mountEditor("Left right");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "right"));
+    runKeyDownHandlers(mounted.view, "Enter", { shift: true });
+
+    expect(mounted.getMarkdown()).toBe("Left \\\nright\n");
+  });
+
+  // A run of spaces spells a break only where the line it closes already holds a character of its
+  // own: a line opening on the run is blank and ends the block, and a run written against
+  // whitespace already there is trimmed into the break along with it. No file holds a run in
+  // either position, so each is reached by editing one into it, and the run is what gives way.
+  // These rows assert the bytes alone, because the file they write reopens holding the default the
+  // fallback wrote rather than the run the edited document carries.
+  it.each([
+    { name: "opens its paragraph", source: "\\\nThis line follows the break.\n" },
+    {
+      name: "follows a space the line already holds",
+      source: "A space precedes the break. \\\nThis line follows it.\n",
+    },
+    { name: "follows another break", source: "A line  \n\\\nfollows two breaks.\n" },
+  ])("writes a break that $name as the default", async ({ source }) => {
+    const mounted = await mountEditor(source);
+
+    setHardBreakRun(mounted, "\\", "  ");
+
+    expect(mounted.getMarkdown()).toBe(source);
   });
 });
 

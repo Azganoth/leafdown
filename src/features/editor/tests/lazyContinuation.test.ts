@@ -75,6 +75,51 @@ describe("Lazy continuation", () => {
     });
   });
 
+  // A setext heading's text spans lines the same way a paragraph's does, and its underline is one
+  // of those lines: the run it spells belongs to the heading's own form, while the whitespace
+  // before that run belongs to this one.
+  describe("keeps the lines a setext heading was written on", () => {
+    it.each([
+      {
+        name: "four columns of indentation",
+        source: "First line\n    indented second line\n=========\n",
+      },
+      {
+        name: "three columns of indentation",
+        source: "First line\n   indented second line\n=========\n",
+      },
+      { name: "a hyphen underline", source: "First line\n    indented second line\n---------\n" },
+      { name: "a lazy line inside a quote", source: "> First line\nsecond line\n> =========\n" },
+      { name: "a lazy line inside an item", source: "- First line\nsecond line\n  =========\n" },
+      {
+        name: "a quoted heading the file marked throughout",
+        source: "> First line\n> second line\n> =========\n",
+      },
+      { name: "three text lines indented apart", source: "One\n  two\n    three\n=====\n" },
+      {
+        name: "an underline indented past its item's content column",
+        source: "- First line\n  second line\n   =========\n",
+      },
+      {
+        name: "an underline indented past its quote marker",
+        source: "> First line\n> second line\n>   =========\n",
+      },
+      {
+        name: "an underline indented at the top level",
+        source: "First line\nsecond line\n   =========\n",
+      },
+    ])("keeps $name", async ({ source }) => {
+      await expectUnchanged(source);
+    });
+
+    it.each([
+      { name: "a setext heading written on one line", source: "Level one\n=========\n" },
+      { name: "an ATX heading, which never spans lines", source: "# Level one #\n" },
+    ])("leaves $name alone", async ({ source }) => {
+      await expectUnchanged(source);
+    });
+  });
+
   describe("keeps the prefix the containers write where the file wrote it", () => {
     it.each([
       { name: "a quoted paragraph", source: "> First quoted line\n> second quoted line\n" },

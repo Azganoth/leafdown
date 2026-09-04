@@ -8,6 +8,13 @@ import {
   DEFAULT_BLOCK_ADJACENT,
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
+import {
+  CONTINUATIONS_ATTRIBUTE_NAME,
+  DEFAULT_CONTINUATIONS,
+  markContinuationLines,
+  readContinuations,
+  validateContinuations,
+} from "./continuationMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -195,9 +202,12 @@ export const serializeHeading: NonNullable<RemarkStringifyHandlers["heading"]> =
     const value = defaultHandlers.heading(node, parent, state, info);
     const written = WRITTEN_SETEXT_UNDERLINE_PATTERN.exec(value);
 
-    return written
-      ? withSetextHeadingForm(value, written[1], node)
-      : withAtxHeadingForm(value, node);
+    // The lines are marked after the runs are put back, so the record answers for the lines the
+    // heading is actually written with rather than the ones the handler sized.
+    return markContinuationLines(
+      written ? withSetextHeadingForm(value, written[1], node) : withAtxHeadingForm(value, node),
+      readContinuations(node),
+    );
   } finally {
     Object.assign(state.options, { closeAtx, setext });
   }
@@ -231,6 +241,10 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
       default: NO_HEADING_RUN,
       validate: "string",
     },
+    [CONTINUATIONS_ATTRIBUTE_NAME]: {
+      default: DEFAULT_CONTINUATIONS,
+      validate: validateContinuations,
+    },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
       default: DEFAULT_BLOCK_ADJACENT,
       validate: "boolean",
@@ -244,6 +258,7 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
         [HEADING_SEPARATOR_ATTRIBUTE_NAME]: readHeadingSeparator(node),
         [HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME]: readHeadingClosingSequence(node),
         [HEADING_UNDERLINE_ATTRIBUTE_NAME]: readHeadingUnderline(node),
+        [CONTINUATIONS_ATTRIBUTE_NAME]: readContinuations(node),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
       state.next(node.children);
@@ -258,6 +273,7 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
         [HEADING_SEPARATOR_ATTRIBUTE_NAME]: readHeadingSeparator(node.attrs),
         [HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME]: readHeadingClosingSequence(node.attrs),
         [HEADING_UNDERLINE_ATTRIBUTE_NAME]: readHeadingUnderline(node.attrs),
+        [CONTINUATIONS_ATTRIBUTE_NAME]: readContinuations(node.attrs),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });
       state.next(withoutTrailingHardBreak(node).content);

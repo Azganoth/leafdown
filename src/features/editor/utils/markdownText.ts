@@ -171,6 +171,8 @@ const classifyCharacter = (character: string | undefined): CharacterClass => {
 };
 
 interface Flanking {
+  after: string | undefined;
+  before: string | undefined;
   left: boolean;
   next: CharacterClass;
   previous: CharacterClass;
@@ -182,6 +184,8 @@ const readFlanking = (before: string | undefined, after: string | undefined): Fl
   const next = classifyCharacter(after);
 
   return {
+    after,
+    before,
     left: next !== "whitespace" && (next !== "punctuation" || previous !== "other"),
     next,
     previous,
@@ -189,11 +193,26 @@ const readFlanking = (before: string | undefined, after: string | undefined): Fl
   };
 };
 
+// micromark reads a run as able to play a part wherever the character on that side is another
+// attention marker, past what flanking alone gives it, and the GFM extension puts the tilde in
+// that set. A tilde run is tokenized by strikethrough instead, which reads its flanking without
+// the widening, so it is answered by flanking alone.
+const facesMarker = (character: string, neighbour: string | undefined) =>
+  character !== "~" && neighbour !== undefined && ATTENTION_CHARACTERS.includes(neighbour);
+
+const opensSide = (character: string, flanking: Flanking) =>
+  flanking.left || facesMarker(character, flanking.after);
+
+const closesSide = (character: string, flanking: Flanking) =>
+  flanking.right || facesMarker(character, flanking.before);
+
 const canOpenRun = (character: string, flanking: Flanking) =>
-  flanking.left && (character !== "_" || !flanking.right || flanking.previous === "punctuation");
+  opensSide(character, flanking) &&
+  (character !== "_" || !closesSide(character, flanking) || flanking.previous === "punctuation");
 
 const canCloseRun = (character: string, flanking: Flanking) =>
-  flanking.right && (character !== "_" || !flanking.left || flanking.next === "punctuation");
+  closesSide(character, flanking) &&
+  (character !== "_" || !opensSide(character, flanking) || flanking.next === "punctuation");
 
 const findAttentionRuns = (
   slots: readonly EscapeSlot[],
@@ -406,6 +425,19 @@ const findMergedSide = (
     : undefined;
 };
 
+// CommonMark refuses a pair whose two runs sum to a multiple of three without both being one,
+// wherever either run can also play the other part. Both parts are known inside one text node, so
+// a run the sum leaves literal reaches no counterpart and needs no backslash to hold it.
+const pairsAcrossSum = (opening: AttentionRun, closing: AttentionRun) => {
+  const closingSize = closing.end - closing.start;
+
+  return (
+    (!opening.canClose && !closing.canOpen) ||
+    closingSize % 3 === 0 ||
+    (opening.end - opening.start + closingSize) % 3 !== 0
+  );
+};
+
 const relaxAttentionEscapes = (
   slots: EscapeSlot[],
   before: string,
@@ -448,7 +480,13 @@ const relaxAttentionEscapes = (
       ) ||
       (mergedSide === "later" ? neighbors.laterRest : neighbors.later).includes(run.character) ||
       (run.canOpen &&
-        runs.some((other) => counterpart(other) && other.start > run.start && other.canClose)) ||
+        runs.some(
+          (other) =>
+            counterpart(other) &&
+            other.start > run.start &&
+            other.canClose &&
+            pairsAcrossSum(run, other),
+        )) ||
       // An earlier opener that kept its escape is no longer a delimiter, so it leaves nothing here
       // to close. Runs are decided in order, so an earlier run's slot already holds its answer.
       (run.canClose &&
@@ -457,7 +495,8 @@ const relaxAttentionEscapes = (
             counterpart(other) &&
             other.start < run.start &&
             other.canOpen &&
-            !slots[other.start].escaped,
+            !slots[other.start].escaped &&
+            pairsAcrossSum(other, run),
         ));
 
     if ((run.canOpen || run.canClose) && pairable) {

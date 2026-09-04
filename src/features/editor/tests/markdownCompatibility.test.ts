@@ -521,7 +521,13 @@ describe("Escape precision", () => {
     // delimiters can open wherever the text past them admits it, so a sum of three keeps the
     // escape it cannot be shown to have outgrown.
     { saved: "\\**em*", source: "\\**em*" },
-    { saved: "x\\*\\*\\*\\*strong**", source: "x\\*\\*\\*\\*strong**" },
+    // Two runs the same text holds are measured by that same sum, and here both parts are known,
+    // so a pair the sum rules out leaves the run literal without a backslash. The character beside
+    // the run is what puts it in reach of the rule: micromark reads a run facing another attention
+    // marker as able to play both parts, which is the condition the sum is stated under.
+    { saved: "_**a*", source: "_\\*\\*a*" },
+    { saved: "~**a*", source: "~\\*\\*a*" },
+    { saved: "x****strong**", source: "x\\*\\*\\*\\*strong**" },
     // A delimiter inside the span could take the pairing the merged run is measured against, and
     // one on the other side of the run is a counterpart the merge does not hide.
     { saved: "**bold *and* italic**\\*", source: "**bold *and* italic**\\*" },
@@ -797,6 +803,11 @@ describe("Escape precision", () => {
     // does. Six is the last depth a heading admits.
     "\\###### six hashes",
     "\\#\nsecond line",
+    // A backslash on the opening run is what holds a pair apart, and the closing run needs none
+    // once that opener has stopped being a delimiter. The sum rule spares a pair whose lengths are
+    // both multiples of three, and reaches none whose sum is not a multiple of three at all.
+    "a\\*\\*\\*b***",
+    "a\\*\\*b**",
     // At the start of a block any start number opens a list; on a continuation line only one
     // interrupts the paragraph.
     "2\\. not an ordered list item",
@@ -830,6 +841,10 @@ describe("Escape precision", () => {
     "**strong***trailing",
     "x***strong**",
     "x___strong__",
+    // A run the sum rule leaves nothing to pair with reopens as its own text whether or not a
+    // backslash holds it, which is the same blind spot.
+    "_**underscore and one asterisk stay literal*",
+    "x****strong**",
     // A marker run too short to open a thematic break reopens as its own text whether or not a
     // backslash holds it, which puts it in the same blind spot.
     "**",

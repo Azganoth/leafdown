@@ -609,6 +609,106 @@ const relaxBlockMarkerEscapes = (
   }
 };
 
+const CODE_FENCE_MARKERS_MIN = 3;
+
+// The backtick runs a block spells. A backslash holds the backtick after it out of every run it
+// touches, which the assembled document spells and a single node does not: the backslashes there
+// are the escapes `state.safe` wrote, which these passes are still deciding.
+const findCodeSpanRuns = (text: string, escapes: boolean) => {
+  const runs: { end: number; start: number }[] = [];
+
+  for (let index = 0; index < text.length; index += 1) {
+    if (escapes && text[index] === "\\") {
+      index += 1;
+    } else if (text[index] === "`") {
+      const start = index;
+
+      while (text[index + 1] === "`") {
+        index += 1;
+      }
+
+      runs.push({ end: index + 1, start });
+    }
+  }
+
+  return runs;
+};
+
+// The run a backtick belongs to, and whether the block answers it with a run of its own length,
+// which is the only pairing a code span forms on.
+const readCodeSpanRun = (block: string, position: number, escapes: boolean) => {
+  const runs = findCodeSpanRuns(block, escapes);
+  const index = runs.findIndex((run) => run.start <= position && position < run.end);
+
+  if (index < 0) {
+    return undefined;
+  }
+
+  const length = runs[index].end - runs[index].start;
+
+  return { closes: runs.slice(index + 1).some((run) => run.end - run.start === length), length };
+};
+
+// `state.safe` escapes every backtick, which is a wider class than the ones that open a code span.
+// A span closes on a run of its own length inside the block that opened it, so a run the block
+// answers with nothing is text as written. A run long enough to spell a code fence keeps its escape
+// where a line starts at it, because the fence would take the rest of the block into its content.
+const relaxCodeSpanEscapes = (
+  slots: EscapeSlot[],
+  before: string,
+  block: { earlier: string; later: string } | undefined,
+  deferrable: boolean,
+) => {
+  const line = slots.map((slot) => slot.character).join("");
+  const text = block && `${block.earlier}${line}${block.later}`;
+  const offset = block?.earlier.length ?? 0;
+
+  for (let index = 0; index < slots.length; index += 1) {
+    if (slots[index].character !== "`") {
+      continue;
+    }
+
+    const start = index;
+
+    while (index + 1 < slots.length && slots[index + 1].character === "`") {
+      index += 1;
+    }
+
+    const end = index + 1;
+    const escaped = slots.slice(start, end).filter((slot) => slot.escaped);
+
+    if (escaped.length === 0) {
+      continue;
+    }
+
+    const opensLine =
+      end - start >= CODE_FENCE_MARKERS_MIN && findMarkerLineStart(slots, start, before) >= 0;
+
+    if (text === undefined) {
+      if (!opensLine) {
+        for (const slot of escaped) {
+          slot.deferred = deferrable;
+        }
+      }
+
+      continue;
+    }
+
+    // A backtick fence reads the rest of its line as an info string and admits no backtick there,
+    // so a run another one follows on its own line opens nothing wherever it stands.
+    const lineEnd = text.indexOf("\n", offset + end);
+    const info = text.slice(offset + end, lineEnd < 0 ? undefined : lineEnd);
+    const opensFence = opensLine && !info.includes("`");
+    const run = readCodeSpanRun(text, offset + start, false);
+
+    if (!opensFence && run !== undefined && !run.closes) {
+      for (const slot of escaped) {
+        slot.escaped = false;
+      }
+    }
+  }
+};
+
 const TAIL_WHITESPACE_PATTERN = /[\t\n\f\r ]/u;
 const DESTINATION_END_PATTERN = /\s/u;
 
@@ -1011,6 +1111,16 @@ const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
       return ANGLE_CONSTRUCT_PATTERN.test(block.slice(position));
     }
 
+    if (block[position] === "`") {
+      const run = readCodeSpanRun(block, position, true);
+
+      // A container writes its prefix onto every line of the block it holds, so a line a fence
+      // could open on is not distinguishable here from text standing before the run. The node that
+      // wrote the run rules the fence out where it can see its own line; this is the block no node
+      // could see, and a run long enough to open one keeps its escape.
+      return run === undefined || run.closes || run.length >= CODE_FENCE_MARKERS_MIN;
+    }
+
     let links = bracketLinks.get(start);
 
     if (!links) {
@@ -1048,15 +1158,20 @@ const replaceDeferredEscapes = (
 // The escape passes see one text node; a construct closed by a later sibling needs the line. The
 // root handler is the one hook that runs after every handler has written its part.
 //
-// A `(` is answered last. Whether it needs its escape depends on the `[` before it keeping one, so
-// the openers have to be settled before the parenthesis that would follow them is.
+// A backtick is answered first and a `(` last. A code span binds tighter than the brackets around
+// it, so the backticks are settled before the walk that reads over the spans they form, and the
+// bracket openers before the parenthesis whose own escape depends on one of them keeping its.
 const resolveDeferredEscapes = (document: string, labels: ReadonlySet<string>) => {
   if (!document.includes(DEFERRED_ESCAPE)) {
     return document;
   }
 
+  const decideCodeSpan = createDeferredEscapeDecider(labels);
+  const spans = replaceDeferredEscapes(document, (bare, index) =>
+    bare[index] === "`" ? decideCodeSpan(bare, index) : undefined,
+  );
   const decideOpener = createDeferredEscapeDecider(labels);
-  const brackets = replaceDeferredEscapes(document, (bare, index) =>
+  const brackets = replaceDeferredEscapes(spans, (bare, index) =>
     bare[index] === "(" ? undefined : decideOpener(bare, index),
   );
   const decideCloser = createDeferredEscapeDecider(labels);
@@ -1269,6 +1384,35 @@ const opensTrimmedContent = (
   );
 };
 
+// What a block spells on either side of this node, where the block is one whose every child writes
+// its own characters and no delimiters of its own. A code span is closed inside the block that
+// opens it, and this is the block a handler can read in full; any other is left to the assembled
+// document, where the constructs sharing it have written their delimiters out.
+const readInertBlock = (
+  node: PhrasingNode,
+  parent: { type: string; children: readonly PhrasingNode[] } | undefined,
+) => {
+  if (
+    parent === undefined ||
+    !WHOLE_LINE_PHRASING_PARENTS.has(parent.type) ||
+    !parent.children.every(isInertPhrasing)
+  ) {
+    return undefined;
+  }
+
+  const index = parent.children.indexOf(node);
+
+  return index < 0
+    ? undefined
+    : {
+        earlier: parent.children.slice(0, index).map(readInertValue).join(""),
+        later: parent.children
+          .slice(index + 1)
+          .map(readInertValue)
+          .join(""),
+      };
+};
+
 const readPhrasingNeighbors = (
   parent: { type: string; children: readonly PhrasingNode[] } | undefined,
   index: number,
@@ -1339,6 +1483,18 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   const blockStart = childIndex === 0 && info.before === "\n";
 
   relaxBlockMarkerEscapes(slots, info.before, after, blockStart, deferrable);
+
+  const inertBlock = readInertBlock(node as PhrasingNode, parent);
+
+  relaxCodeSpanEscapes(
+    slots,
+    info.before,
+    inertBlock && {
+      earlier: inertBlock.earlier + droppedWhitespace,
+      later: writtenWhitespace + inertBlock.later,
+    },
+    deferrable,
+  );
   relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
   relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);

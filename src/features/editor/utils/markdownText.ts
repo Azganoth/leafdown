@@ -1279,6 +1279,25 @@ const relaxCharacterReferenceEscapes = (slots: EscapeSlot[], after: string) => {
   }
 };
 
+// `state.safe` escapes a backslash wherever a line ending follows it, which is a wider class than
+// the positions where the break it would spell can form. A break needs a line of the same block
+// under the one it closes, and a block's last line has none, so a backslash there is literal as
+// written and as escaped. The line ending alone cannot tell the two apart: a soft break is a text
+// node of its own, so the node before one is peeked with the same line ending as its `after`, and
+// only a node that closes its block is standing at the block's end.
+const relaxHardBreakEscapes = (slots: EscapeSlot[], after: string, closesBlock: boolean) => {
+  const slot = slots[slots.length - 1];
+
+  if (
+    closesBlock &&
+    slot?.character === "\\" &&
+    slot.escaped &&
+    LINE_BREAK_PATTERN.test(after.charAt(0))
+  ) {
+    slot.escaped = false;
+  }
+};
+
 // A handler receives only its own node and immediate parent, and `state.indexStack` is a path of
 // numbers with no node to walk it from, so the line a marked run sits on is otherwise unreachable.
 // The root handler is the one hook that runs before any of them.
@@ -1509,7 +1528,8 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   // A value that is whitespace alone is both what the line opens with and what it closes with,
   // so the body cannot start after it ends.
   const bodyEnd = Math.max(droppedWhitespace.length, value.length - trailingWhitespace.length);
-  const writtenWhitespace = closesTrimmedContent(parent, childIndex) ? "" : value.slice(bodyEnd);
+  const closesBlock = closesTrimmedContent(parent, childIndex);
+  const writtenWhitespace = closesBlock ? "" : value.slice(bodyEnd);
   const after = writtenWhitespace + info.after;
   const escaped = state.safe(value.slice(droppedWhitespace.length, bodyEnd), {
     ...info,
@@ -1559,6 +1579,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxAngleEscapes(slots, lineNeighbors, deferrable);
   relaxAutolinkLiteralEscapes(slots, info.before, after);
   relaxCharacterReferenceEscapes(slots, after);
+  relaxHardBreakEscapes(slots, after, closesBlock);
 
   return encodeEscapes(slots) + writtenWhitespace;
 };

@@ -576,5 +576,49 @@ describe("source projection integration", () => {
         "[**Bolder** and *soft*](https://example.com) plain",
       );
     });
+
+    it("returns the caret to the edit local undo and redo reverse in a marked fragment", async () => {
+      const mounted = await mountProjectionEditor("Z *abc* Z");
+
+      enterProjection(mounted, "em");
+
+      const editPosition = getEditorTextPosition(mounted, "*abc*") + "*".length;
+
+      setTextSelection(mounted.view, editPosition);
+      typeText(mounted.view, "Q");
+
+      expect(getEditorTextContent(mounted)).toBe("Z *Qabc* Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition + 1);
+
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Z *abc* Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition);
+
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Z *Qabc* Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition + 1);
+    });
+
+    it("returns the caret to the edit local undo and redo reverse in a link", async () => {
+      const mounted = await mountProjectionEditor("Z [label](target) Z");
+
+      enterProjection(mounted, "a");
+
+      const editPosition = getEditorTextPosition(mounted, "[label](target)") + "[label](t".length;
+
+      setTextSelection(mounted.view, editPosition);
+      typeText(mounted.view, "Q");
+
+      expect(getEditorTextContent(mounted)).toBe("Z [label](tQarget) Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition + 1);
+
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Z [label](target) Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition);
+
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe("Z [label](tQarget) Z");
+      expect(mounted.view.state.selection.from).toBe(editPosition + 1);
+    });
   });
 });

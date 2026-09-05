@@ -81,6 +81,7 @@ import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
+import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
   createLeafdownReferenceLinkPlugin,
   leafdownDefinitionSchema,
@@ -264,6 +265,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
     .use(createLeafdownTaskListCheckboxPlugin())
+    .use(createLeafdownPrevailingFormPlugin())
     .use(createLeafdownTrailingParagraphPlugin())
     .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {

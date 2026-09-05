@@ -55,8 +55,9 @@ type BulletListMarker = (typeof BULLET_LIST_MARKERS)[number];
 
 type OrderedListMarker = (typeof ORDERED_LIST_MARKERS)[number];
 
-// The marker a list is written with when it has none of its own: one the editor created, and one
-// whose authored marker cannot be recovered.
+// The marker a list is written with where nothing names another: one whose authored marker cannot
+// be recovered, and one the editor created in a document that names no marker of its own or
+// disagrees with itself about one.
 export const DEFAULT_BULLET_LIST_MARKER: BulletListMarker = "*";
 export const DEFAULT_ORDERED_LIST_MARKER: OrderedListMarker = ".";
 // The marker a list moves to when the one it would write is the one the list before it used. Two
@@ -120,17 +121,25 @@ const isOrderedListMarker = (value: unknown): value is OrderedListMarker =>
 
 const readAttribute = (source: object, name: string) => (source as Record<string, unknown>)[name];
 
-export const readBulletListMarker = (source: object): BulletListMarker => {
+// A list the editor creates carries no marker until one is settled for it, which is what separates
+// it from a list the file wrote with the very character the default names.
+export const readAuthoredBulletListMarker = (source: object): BulletListMarker | null => {
   const marker = readAttribute(source, LIST_MARKER_ATTRIBUTE_NAME);
 
-  return isBulletListMarker(marker) ? marker : DEFAULT_BULLET_LIST_MARKER;
+  return isBulletListMarker(marker) ? marker : null;
 };
 
-export const readOrderedListMarker = (source: object): OrderedListMarker => {
+export const readAuthoredOrderedListMarker = (source: object): OrderedListMarker | null => {
   const marker = readAttribute(source, LIST_MARKER_ATTRIBUTE_NAME);
 
-  return isOrderedListMarker(marker) ? marker : DEFAULT_ORDERED_LIST_MARKER;
+  return isOrderedListMarker(marker) ? marker : null;
 };
+
+export const readBulletListMarker = (source: object): BulletListMarker =>
+  readAuthoredBulletListMarker(source) ?? DEFAULT_BULLET_LIST_MARKER;
+
+export const readOrderedListMarker = (source: object): OrderedListMarker =>
+  readAuthoredOrderedListMarker(source) ?? DEFAULT_ORDERED_LIST_MARKER;
 
 export const readListItemNumber = (source: object): number | undefined => {
   const number = readAttribute(source, LIST_ITEM_NUMBER_ATTRIBUTE_NAME);
@@ -508,9 +517,11 @@ export const withBulletListMarker = (schema: NodeSchema): NodeSchema => ({
   ...schema,
   attrs: {
     ...schema.attrs,
+    // A list the editor creates opens with no marker of its own, which is what
+    // `leafdownPrevailingForm` settles against the document it was created in.
     [LIST_MARKER_ATTRIBUTE_NAME]: {
-      default: DEFAULT_BULLET_LIST_MARKER,
-      validate: "string",
+      default: null,
+      validate: "string|null",
     },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
       default: DEFAULT_BLOCK_ADJACENT,
@@ -549,8 +560,8 @@ export const withOrderedListMarker = (schema: NodeSchema): NodeSchema => ({
   attrs: {
     ...schema.attrs,
     [LIST_MARKER_ATTRIBUTE_NAME]: {
-      default: DEFAULT_ORDERED_LIST_MARKER,
-      validate: "string",
+      default: null,
+      validate: "string|null",
     },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
       default: DEFAULT_BLOCK_ADJACENT,

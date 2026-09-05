@@ -40,11 +40,17 @@ const PARAGRAPH_MARKDOWN_TYPE = "paragraph";
 const LIST_ITEM_MARKDOWN_TYPE = "listItem";
 const HARD_BREAK_NODE_NAME = "hardbreak";
 
-// The form a heading is written in when it has none of its own: one the editor created, and one
-// whose authored form cannot be recovered. An ATX heading opened one space before its content,
-// closed by nothing, and underlined by nothing.
+// The form a heading is written in where nothing names another: one whose authored form cannot be
+// recovered, and one the editor created in a document that names no form of its own or disagrees
+// with itself about one. An ATX heading opened one space before its content, closed by nothing,
+// and underlined by nothing.
 export const DEFAULT_HEADING_SEPARATOR = " ";
-const NO_HEADING_RUN = "";
+export const NO_HEADING_RUN = "";
+// The record a heading the editor writes as setext carries in place of a run. An underline is
+// sized to the content standing above it, which a created heading has none of and an edit changes
+// under it, so no length another heading holds answers for it and the handler's own sizing writes
+// it.
+export const SIZED_HEADING_UNDERLINE = "sized";
 
 const HEADING_SEPARATOR_PATTERN = /^[\t ]+$/u;
 // The closing sequence carries the spacing before it, because the two together are the whole of
@@ -72,30 +78,48 @@ export interface AuthoredHeadingForm {
   underline: string;
 }
 
-const readRun = (source: object, name: string, pattern: RegExp, fallback: string) => {
+// A heading the editor creates carries no record on an axis until one is settled for it, which is
+// what separates it from a heading the file wrote in the very form the default names: the empty
+// run closing an ATX heading and the empty run under it each spell a form a file can hold.
+const readAuthoredRun = (
+  source: object,
+  name: string,
+  pattern: RegExp,
+  ...allowed: readonly string[]
+) => {
   const run = (source as Record<string, unknown>)[name];
 
-  return typeof run === "string" && pattern.test(run) ? run : fallback;
+  return typeof run === "string" && (allowed.includes(run) || pattern.test(run)) ? run : null;
 };
 
-export const readHeadingSeparator = (source: object): string =>
-  readRun(
-    source,
-    HEADING_SEPARATOR_ATTRIBUTE_NAME,
-    HEADING_SEPARATOR_PATTERN,
-    DEFAULT_HEADING_SEPARATOR,
-  );
+export const readAuthoredHeadingSeparator = (source: object): string | null =>
+  readAuthoredRun(source, HEADING_SEPARATOR_ATTRIBUTE_NAME, HEADING_SEPARATOR_PATTERN);
 
-export const readHeadingClosingSequence = (source: object): string =>
-  readRun(
+export const readAuthoredHeadingClosingSequence = (source: object): string | null =>
+  readAuthoredRun(
     source,
     HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME,
     HEADING_CLOSING_SEQUENCE_PATTERN,
     NO_HEADING_RUN,
   );
 
+export const readAuthoredHeadingUnderline = (source: object): string | null =>
+  readAuthoredRun(
+    source,
+    HEADING_UNDERLINE_ATTRIBUTE_NAME,
+    HEADING_UNDERLINE_PATTERN,
+    NO_HEADING_RUN,
+    SIZED_HEADING_UNDERLINE,
+  );
+
+export const readHeadingSeparator = (source: object): string =>
+  readAuthoredHeadingSeparator(source) ?? DEFAULT_HEADING_SEPARATOR;
+
+export const readHeadingClosingSequence = (source: object): string =>
+  readAuthoredHeadingClosingSequence(source) ?? NO_HEADING_RUN;
+
 export const readHeadingUnderline = (source: object): string =>
-  readRun(source, HEADING_UNDERLINE_ATTRIBUTE_NAME, HEADING_UNDERLINE_PATTERN, NO_HEADING_RUN);
+  readAuthoredHeadingUnderline(source) ?? NO_HEADING_RUN;
 
 // A heading's slice opens at its opening sequence, or at its first content character where it has
 // none, whatever the container indented it by, and closes at the end of the line that ends it. An
@@ -172,11 +196,12 @@ const withAtxHeadingForm = (value: string, node: HeadingNode) => {
 // The handler sizes the underline to the content it just wrote, which cannot answer for the run a
 // heading was authored with. Its character answers for the level rather than the file, so a
 // heading moved between levels one and two is underlined by the character that level reads back
-// as, at the length the file wrote.
+// as, at the length the file wrote. A heading carrying the form without a run keeps that sizing,
+// which is the run it names.
 const withSetextHeadingForm = (value: string, written: string, node: HeadingNode) => {
   const underline = readHeadingUnderline(node);
 
-  return underline === NO_HEADING_RUN
+  return underline === NO_HEADING_RUN || underline === SIZED_HEADING_UNDERLINE
     ? value
     : value.slice(0, value.length - written.length) + written.charAt(0).repeat(underline.length);
 };
@@ -229,17 +254,19 @@ export const withHeadingForm = (schema: NodeSchema): NodeSchema => ({
   ...schema,
   attrs: {
     ...schema.attrs,
+    // A heading the editor creates opens with no record on any of the three axes, which is what
+    // `leafdownPrevailingForm` settles against the document it was created in.
     [HEADING_SEPARATOR_ATTRIBUTE_NAME]: {
-      default: DEFAULT_HEADING_SEPARATOR,
-      validate: "string",
+      default: null,
+      validate: "string|null",
     },
     [HEADING_CLOSING_SEQUENCE_ATTRIBUTE_NAME]: {
-      default: NO_HEADING_RUN,
-      validate: "string",
+      default: null,
+      validate: "string|null",
     },
     [HEADING_UNDERLINE_ATTRIBUTE_NAME]: {
-      default: NO_HEADING_RUN,
-      validate: "string",
+      default: null,
+      validate: "string|null",
     },
     [CONTINUATIONS_ATTRIBUTE_NAME]: {
       default: DEFAULT_CONTINUATIONS,

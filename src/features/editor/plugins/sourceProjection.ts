@@ -57,11 +57,17 @@ const SOURCE_PROJECTION_APPENDED_META = "leafdownSourceProjectionAppended";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
 
+interface ProjectionHistoryEntry {
+  anchorOffset: number;
+  headOffset: number;
+  source: string;
+}
+
 interface ProjectionSession extends TextRange {
   adapter: SourceProjectionAdapter;
-  redoStack: string[];
+  redoStack: ProjectionHistoryEntry[];
   target: SourceProjectionTarget;
-  undoStack: string[];
+  undoStack: ProjectionHistoryEntry[];
 }
 
 interface PendingProjectionCommit extends TextRange {
@@ -96,9 +102,9 @@ type ProjectionHistoryDirection = "redo" | "undo";
 type ProjectionMeta =
   | { type: "enter"; session: ProjectionSession }
   | { type: "enterFromUserEdit"; session: ProjectionSession }
-  | { type: "userEdit"; previousSource: string }
-  | { type: "localUndo"; currentSource: string }
-  | { type: "localRedo"; currentSource: string }
+  | { type: "userEdit"; previousEntry: ProjectionHistoryEntry }
+  | { type: "localUndo"; currentEntry: ProjectionHistoryEntry }
+  | { type: "localRedo"; currentEntry: ProjectionHistoryEntry }
   | { isHovered: boolean; type: "linkLabelHover" }
   | {
       type: "restoreBeforeCommit";
@@ -359,9 +365,9 @@ const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistor
     return false;
   }
 
-  const source = direction === "undo" ? session.undoStack.at(-1) : session.redoStack.at(-1);
+  const entry = direction === "undo" ? session.undoStack.at(-1) : session.redoStack.at(-1);
 
-  if (source === undefined) {
+  if (entry === undefined) {
     if (isCleanProjectionSession(view.state, session)) {
       finalizeSourceProjection(view);
 
@@ -371,12 +377,12 @@ const runProjectionLocalHistory = (view: EditorView, direction: ProjectionHistor
     return true;
   }
 
-  const currentSource = getProjectionSource(view.state, session);
-  const transaction = replaceProjectionSource(view.state, session, source);
+  const currentEntry = createProjectionHistoryEntry(view.state, session);
+  const transaction = replaceProjectionSource(view.state, session, entry);
   const metaType = direction === "undo" ? "localUndo" : "localRedo";
 
   transaction.setMeta("addToHistory", false).setMeta(leafdownSourceProjectionPluginKey, {
-    currentSource,
+    currentEntry,
     type: metaType,
   } satisfies ProjectionMeta);
 
@@ -763,9 +769,9 @@ const applyProjectionSessionState = (
         ...session,
         redoStack: [],
         undoStack:
-          meta.previousSource === nextSource
+          meta.previousEntry.source === nextSource
             ? session.undoStack
-            : [...session.undoStack, meta.previousSource],
+            : [...session.undoStack, meta.previousEntry],
       },
       suppressedSelection,
     };
@@ -777,7 +783,7 @@ const applyProjectionSessionState = (
       pendingCommit: null,
       session: {
         ...session,
-        redoStack: [...session.redoStack, meta.currentSource],
+        redoStack: [...session.redoStack, meta.currentEntry],
         undoStack: session.undoStack.slice(0, -1),
       },
       suppressedSelection,
@@ -791,7 +797,7 @@ const applyProjectionSessionState = (
       session: {
         ...session,
         redoStack: session.redoStack.slice(0, -1),
-        undoStack: [...session.undoStack, meta.currentSource],
+        undoStack: [...session.undoStack, meta.currentEntry],
       },
       suppressedSelection,
     };
@@ -810,7 +816,7 @@ const applyProjectionSessionState = (
   }
 
   if (isSourceProjectionSuppressedHistoryTransaction(transaction)) {
-    const previousSource = getProjectionSource(oldState, pluginState.session);
+    const previousEntry = createProjectionHistoryEntry(oldState, pluginState.session);
 
     return {
       isLinkLabelHovered: false,
@@ -819,9 +825,9 @@ const applyProjectionSessionState = (
         ...session,
         redoStack: [],
         undoStack:
-          previousSource === getProjectionSource(newState, session)
+          previousEntry.source === getProjectionSource(newState, session)
             ? session.undoStack
-            : [...session.undoStack, previousSource],
+            : [...session.undoStack, previousEntry],
       },
       suppressedSelection,
     };
@@ -1183,10 +1189,10 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     return;
   }
 
-  const previousSource = getProjectionSource(view.state, session);
+  const previousEntry = createProjectionHistoryEntry(view.state, session);
   const edit = getRelativeProjectionEdit(session, from, to, text);
   const result = (session.adapter.applyEdit ?? applyLiteralSourceProjectionEdit)(
-    previousSource,
+    previousEntry.source,
     edit,
   );
   const transaction = replaceProjectionRange(
@@ -1207,7 +1213,7 @@ const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text
     .setStoredMarks([])
     .setMeta("addToHistory", false)
     .setMeta(leafdownSourceProjectionPluginKey, {
-      previousSource,
+      previousEntry,
       type: "userEdit",
     } satisfies ProjectionMeta);
 
@@ -1261,7 +1267,10 @@ const normalizeProjectionComposition = (view: EditorView, previousSource: string
     .setMeta(leafdownSourceProjectionPluginKey, {
       // The composed write already recorded the source it replaced, so this correction must not
       // leave a second entry to undo.
-      previousSource: result.source,
+      previousEntry: {
+        ...createProjectionHistoryEntry(view.state, session),
+        source: result.source,
+      },
       type: "userEdit",
     } satisfies ProjectionMeta);
 
@@ -1589,18 +1598,25 @@ const createCommitAfterRestoreTransaction = (
 const replaceProjectionSource = (
   state: EditorState,
   session: ProjectionSession,
-  source: string,
+  entry: ProjectionHistoryEntry,
 ) => {
   const transaction = replaceProjectionRange(
     state.tr,
     session.from,
     session.to,
-    createLiteralSourceProjectionSlice(state, source),
+    createLiteralSourceProjectionSlice(state, entry.source),
   );
-  const selectionPosition = session.from + source.length;
+  const resolveOffset = (offset: number) =>
+    session.from + Math.min(Math.max(offset, 0), entry.source.length);
 
   return transaction
-    .setSelection(TextSelection.create(transaction.doc, selectionPosition))
+    .setSelection(
+      TextSelection.create(
+        transaction.doc,
+        resolveOffset(entry.anchorOffset),
+        resolveOffset(entry.headOffset),
+      ),
+    )
     .setStoredMarks([])
     .scrollIntoView();
 };
@@ -1647,6 +1663,21 @@ const mapProjectionSession = (session: ProjectionSession, transaction: Transacti
 
 const getProjectionSource = (state: EditorState, session: ProjectionSession) =>
   getRangeText(state.doc, session);
+
+const createProjectionHistoryEntry = (
+  state: EditorState,
+  session: ProjectionSession,
+): ProjectionHistoryEntry => {
+  const { selection } = state;
+  const toOffset = (position: number) =>
+    Math.min(Math.max(position, session.from), session.to) - session.from;
+
+  return {
+    anchorOffset: toOffset(selection.anchor),
+    headOffset: toOffset(selection.head),
+    source: getProjectionSource(state, session),
+  };
+};
 
 const isCleanProjectionSession = (state: EditorState, session: ProjectionSession) =>
   getProjectionSource(state, session) === session.target.originalSource;

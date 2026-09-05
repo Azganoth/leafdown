@@ -13,7 +13,13 @@ const CONTINUATION_MARKER = "\u0000c";
 // The prefix an item's own marker stood behind, which asks the same question of a line as a
 // continuation record does and gives way on other terms, so it carries a token of its own.
 const LIST_ITEM_MARKER = "\u0000i";
+// The prefix a line whose content is verbatim stood behind, which an indented code block's own
+// indentation is part of. It carries a token of its own because the content past it holds no escape
+// the serializer added: a continuation record relaxes one there, and a backslash a line of code
+// spells before a block marker is one the file wrote itself.
+const VERBATIM_LINE_MARKER = "\u0000v";
 const LINE_PREFIX_MARKER_LENGTH = CONTINUATION_MARKER.length;
+const LINE_PREFIX_MARKERS = [CONTINUATION_MARKER, LIST_ITEM_MARKER, VERBATIM_LINE_MARKER];
 // What every marker opens with, which is what a scan for one a later pass owns reads.
 const MARKER_LEAD = "\u0000";
 
@@ -160,6 +166,17 @@ const takesListItemPrefix = (written: string, authored: string) => {
   return indent >= 0 && indent < BLOCK_OPENING_INDENT;
 };
 
+// Whether the containers the document holds now still take the prefix a verbatim line stood behind.
+// A quote has to stand where the containers write theirs, on the same terms as an item's record, and
+// the run has to measure the width the containers wrote rather than merely fit inside it. That
+// second test is what an indented code block turns on: a tab spelling the indentation of a block
+// whose content column is no tab stop runs past it, and the columns it overshoots are read back as
+// the block's content, so restoring the run would move the column the code stands at. Both are
+// counted as CommonMark reads them, because a tab is the one spelling whose width is not its length.
+const takesVerbatimPrefix = (written: string, authored: string) =>
+  holdsSameQuoteColumns(written, authored) &&
+  readPrefixColumns(written) === readPrefixColumns(authored);
+
 const withoutBlockMarkerEscape = (content: string) => {
   if (content.charAt(0) === "\\" && BLOCK_MARKERS.includes(content.charAt(1))) {
     return content.slice(1);
@@ -170,10 +187,17 @@ const withoutBlockMarkerEscape = (content: string) => {
 
 // The next record on the line, whichever kind it is.
 const findLinePrefixMarker = (line: string, from: number) => {
-  const continuation = line.indexOf(CONTINUATION_MARKER, from);
-  const item = line.indexOf(LIST_ITEM_MARKER, from);
+  let found = -1;
 
-  return continuation < 0 || item < 0 ? Math.max(continuation, item) : Math.min(continuation, item);
+  for (const marker of LINE_PREFIX_MARKERS) {
+    const at = line.indexOf(marker, from);
+
+    if (at >= 0 && (found < 0 || at < found)) {
+      found = at;
+    }
+  }
+
+  return found;
 };
 
 // What the containers wrote, split from the markers another pass left standing in it. Those are
@@ -229,6 +253,14 @@ const resolveLinePrefix = (line: string) => {
         if (continuation.restorable) {
           prefix = authored;
         }
+      } else if (marker === VERBATIM_LINE_MARKER) {
+        // The line's content is verbatim, so no escape standing in it is the serializer's to take
+        // back out.
+        relaxed = false;
+
+        if (takesVerbatimPrefix(prefix, authored)) {
+          prefix = authored;
+        }
       } else {
         relaxed = false;
 
@@ -254,7 +286,7 @@ const resolveLinePrefix = (line: string) => {
 /// the file hard-wrapped carries a marker on every line it holds and a nested item carries one on
 /// every line of its own.
 export const resolveLinePrefixes = (document: string) =>
-  document.includes(CONTINUATION_MARKER) || document.includes(LIST_ITEM_MARKER)
+  LINE_PREFIX_MARKERS.some((marker) => document.includes(marker))
     ? document.split("\n").map(resolveLinePrefix).join("\n")
     : document;
 
@@ -265,7 +297,7 @@ export const resolveLinePrefixes = (document: string) =>
 export const withoutLeadingLinePrefix = (value: string) => {
   const marker = value.slice(0, LINE_PREFIX_MARKER_LENGTH);
 
-  if (marker !== CONTINUATION_MARKER && marker !== LIST_ITEM_MARKER) {
+  if (!LINE_PREFIX_MARKERS.includes(marker)) {
     return value;
   }
 
@@ -302,6 +334,35 @@ export const withoutLinePrefixMarkers = (value: string) => {
   }
 
   return written + value.slice(read);
+};
+
+/// Marks each line of a block that writes its own indentation, behind the canonical run the
+/// handler wrote it with. The run stays in place so a record the resolver withdraws leaves the
+/// line as the serializer spelled it, which is what answers for a block an edit has since moved
+/// or rewritten. A blank line inside such a block stands behind no prefix and carries no record.
+export const markVerbatimLines = (
+  value: string,
+  canonical: string,
+  prefixes: readonly string[],
+) => {
+  if (prefixes.length === 0) {
+    return value;
+  }
+
+  return value
+    .split("\n")
+    .map((line, index) => {
+      const authored = prefixes[index];
+
+      return authored === undefined || authored === "" || !line.startsWith(canonical)
+        ? line
+        : canonical +
+            VERBATIM_LINE_MARKER +
+            authored +
+            VERBATIM_LINE_MARKER +
+            line.slice(canonical.length);
+    })
+    .join("\n");
 };
 
 /// Marks each line a record answers for. A block writes its lines with nothing in front of them and

@@ -7,11 +7,13 @@ import {
   CODE_FENCE_SURPLUS_ATTRIBUTE_NAME,
   CODE_FENCED_ATTRIBUTE_NAME,
   CODE_INDENT_ATTRIBUTE_NAME,
+  CODE_LINE_PREFIXES_ATTRIBUTE_NAME,
   CODE_MARKDOWN_TYPE,
   CODE_SEPARATOR_ATTRIBUTE_NAME,
   CODE_SPAN_MARKDOWN_TYPE,
   CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME,
   findCodeForm,
+  findCodeLinePrefixes,
   findCodeSpanRunSurplus,
 } from "../utils/codeMarkdown";
 
@@ -47,6 +49,11 @@ const markAuthoredForm = (node: MarkdownNode, source: string, atRoot: boolean) =
       authored[CODE_FENCE_SURPLUS_ATTRIBUTE_NAME] = form.fenceSurplus;
       authored[CODE_SEPARATOR_ATTRIBUTE_NAME] = form.separator;
       authored[CODE_INDENT_ATTRIBUTE_NAME] = form.indent;
+      authored[CODE_LINE_PREFIXES_ATTRIBUTE_NAME] = findCodeLinePrefixes(
+        source.slice(start, end),
+        (child.value as string | undefined) ?? "",
+        source.slice(source.lastIndexOf("\n", start - 1) + 1, start),
+      );
       authored[CODE_CLOSED_ATTRIBUTE_NAME] = form.closed;
     } else if (child.type === CODE_SPAN_MARKDOWN_TYPE && start !== undefined && end !== undefined) {
       (child as Record<string, unknown>)[CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME] =

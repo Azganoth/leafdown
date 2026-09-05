@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   markContinuationLines,
   markListItemPrefix,
+  markVerbatimLines,
   resolveLinePrefixes,
   withoutLeadingLinePrefix,
   withoutLinePrefixMarkers,
@@ -10,6 +11,7 @@ import {
 
 const MARKER = "\u0000c";
 const ITEM_MARKER = "\u0000i";
+const VERBATIM_MARKER = "\u0000v";
 // The marker the block separator pass owns, which stands where the containers wrote their prefix
 // and is settled after this one.
 const SEPARATOR_MARKER = "\u0000j";
@@ -23,6 +25,11 @@ const marked = (written: string, authored: string, content: string) =>
 // rather than the one a later line stands behind.
 const markedItem = (written: string, authored: string, content: string) =>
   `${written}${ITEM_MARKER}${authored}${ITEM_MARKER}${content}`;
+
+// The same line for a block that writes its own indentation, whose record stands behind the
+// canonical run rather than in place of it.
+const markedVerbatim = (written: string, authored: string, content: string) =>
+  `${written}${VERBATIM_MARKER}${authored}${VERBATIM_MARKER}${content}`;
 
 describe("markContinuationLines", () => {
   it("leaves a block holding no record alone", () => {
@@ -56,6 +63,24 @@ describe("markListItemPrefix", () => {
 
   it("brackets the prefix an item's marker stood behind", () => {
     expect(markListItemPrefix("\t")).toBe(`${ITEM_MARKER}\t${ITEM_MARKER}`);
+  });
+});
+
+describe("markVerbatimLines", () => {
+  it("leaves a block holding no record alone", () => {
+    expect(markVerbatimLines("    one", "    ", [])).toBe("    one");
+  });
+
+  it("marks each line behind the canonical run the handler wrote", () => {
+    expect(markVerbatimLines("    one\n    two", "    ", ["\t", "\t"])).toBe(
+      `    ${VERBATIM_MARKER}\t${VERBATIM_MARKER}one\n    ${VERBATIM_MARKER}\t${VERBATIM_MARKER}two`,
+    );
+  });
+
+  it("leaves a blank line and a line holding no prefix of its own alone", () => {
+    expect(markVerbatimLines("    one\n\n    three", "    ", ["\t", "", ""])).toBe(
+      `    ${VERBATIM_MARKER}\t${VERBATIM_MARKER}one\n\n    three`,
+    );
   });
 });
 
@@ -137,6 +162,48 @@ describe("resolveLinePrefixes", () => {
       const line = `  ${SEPARATOR_MARKER}${ITEM_MARKER}\t${ITEM_MARKER}- child`;
 
       expect(resolveLinePrefixes(`${line}\n`)).toBe(`\t${SEPARATOR_MARKER}- child\n`);
+    });
+  });
+
+  describe("writes a verbatim line's own prefix", () => {
+    it.each([
+      {
+        expected: "\tcode",
+        name: "a tab covering the columns the canonical run wrote",
+        written: markedVerbatim("    ", "\t", "code"),
+      },
+      {
+        expected: "> \t  quoted",
+        name: "a run inside a quote measuring the columns the containers wrote",
+        written: markedVerbatim(">     ", "> \t  ", "quoted"),
+      },
+    ])("writes $name", ({ expected, written }) => {
+      expect(resolveLinePrefixes(`${written}\n`)).toBe(`${expected}\n`);
+    });
+
+    // A tab whose run overshoots the column the block's content stands at is expanded by the parse
+    // into that content, so restoring it would move the column and the block would reopen deeper.
+    it.each([
+      {
+        expected: ">       x",
+        name: "a run measuring wider than the containers wrote",
+        written: markedVerbatim(">     ", ">\t\t", "  x"),
+      },
+      {
+        expected: "    x",
+        name: "a quote the containers no longer spell",
+        written: markedVerbatim("    ", "> \t", "x"),
+      },
+    ])("withdraws $name", ({ expected, written }) => {
+      expect(resolveLinePrefixes(`${written}\n`)).toBe(`${expected}\n`);
+    });
+
+    // The content of a verbatim line is the file's own, so a backslash standing before a block
+    // marker there is not one the serializer added. A continuation record relaxes the same run.
+    it("keeps an escape the line's content spells", () => {
+      const line = markedVerbatim("    ", "\t", "\\# x");
+
+      expect(resolveLinePrefixes(`${line}\n`)).toBe(`\t\\# x\n`);
     });
   });
 

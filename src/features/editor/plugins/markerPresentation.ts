@@ -3,7 +3,6 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
-import type { NodeSchema } from "@milkdown/kit/transformer";
 import { $prose } from "@milkdown/kit/utils";
 
 import { isCaretSelection, isTextCaretSelection } from "../utils/selections";
@@ -31,25 +30,10 @@ export const createLeafdownMarkerPresentationPlugin = () =>
 const getMarkerDecorations = (state: EditorState) => {
   const decorations: Decoration[] = [];
 
-  addPersistentFootnoteDefinitionMarkers(state, decorations);
   addCaretBasedMarkers(state, decorations);
   addFocusedSourceNodeEditors(state, decorations);
 
   return decorations;
-};
-
-const addPersistentFootnoteDefinitionMarkers = (state: EditorState, decorations: Decoration[]) => {
-  state.doc.descendants((node, pos) => {
-    if (node.type.name !== "footnote_definition") {
-      return true;
-    }
-
-    decorations.push(
-      createMarkerNodeDecoration(pos, node, serializeFootnoteDefinitionMarker(node), "persistent"),
-    );
-
-    return false;
-  });
 };
 
 const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => {
@@ -70,7 +54,7 @@ const addCaretBasedMarkers = (state: EditorState, decorations: Decoration[]) => 
       continue;
     }
 
-    decorations.push(createMarkerNodeDecoration(pos, node, marker, "subtle"));
+    decorations.push(createMarkerNodeDecoration(pos, node, marker));
   }
 };
 
@@ -101,14 +85,9 @@ const addFocusedSourceNodeEditors = (state: EditorState, decorations: Decoration
 // The marker is chrome on the block it names rather than a widget in its content. A widget would
 // take a document position the block's own content does not hold, and a caret aimed at that
 // position resolves into a neighbouring block instead.
-const createMarkerNodeDecoration = (
-  pos: number,
-  node: ProseMirrorNode,
-  marker: string,
-  variant: "persistent" | "subtle",
-) =>
+const createMarkerNodeDecoration = (pos: number, node: ProseMirrorNode, marker: string) =>
   Decoration.node(pos, pos + node.nodeSize, {
-    class: `leafdown-marker-node leafdown-marker-node--${variant}`,
+    class: "leafdown-marker-node leafdown-marker-node--subtle",
     "data-leafdown-marker": marker,
   });
 
@@ -194,35 +173,6 @@ const parseSourceNode = (source: string, nodeName: string): Record<string, unkno
 
   return null;
 };
-
-// The preset also renders the label as a definition term, which spells what the persistent marker
-// already spells and, being node chrome, stands outside every position the definition holds.
-export const withoutFootnoteDefinitionLabelTerm = (schema: NodeSchema): NodeSchema => {
-  const { toDOM } = schema;
-
-  return {
-    ...schema,
-    toDOM:
-      toDOM &&
-      ((node) => {
-        const [tag, attributes, ...rest] = toDOM(node) as [
-          string,
-          Record<string, unknown>,
-          ...unknown[],
-        ];
-
-        return [tag, attributes, ...rest.filter((child) => !isDefinitionTerm(child))];
-      }),
-  };
-};
-
-const isDefinitionTerm = (child: unknown) => Array.isArray(child) && child[0] === "dt";
-
-const serializeFootnoteDefinitionMarker = (node: ProseMirrorNode) =>
-  `[^${getFootnoteLabel(node)}]:`;
-
-const getFootnoteLabel = (node: ProseMirrorNode) =>
-  String(node.attrs.label ?? node.attrs.identifier ?? node.attrs.id ?? "");
 
 const createSourceInput = (label: string, value: string) => {
   const input = document.createElement("input");

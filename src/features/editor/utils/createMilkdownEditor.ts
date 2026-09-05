@@ -72,6 +72,11 @@ import {
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
+import {
+  commitFootnoteDefinitionLabels,
+  createLeafdownFootnoteDefinitionLabelPlugin,
+  leafdownFootnoteDefinitionLabelSchema,
+} from "../plugins/footnoteDefinitionLabel";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
@@ -79,10 +84,7 @@ import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
 import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
-import {
-  createLeafdownMarkerPresentationPlugin,
-  withoutFootnoteDefinitionLabelTerm,
-} from "../plugins/markerPresentation";
+import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
@@ -120,6 +122,7 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
+import { withFootnoteDefinitionLabelContent } from "./footnoteDefinitionLabel";
 import {
   HARD_BREAK_MARKDOWN_TYPE,
   serializeHardBreak,
@@ -248,6 +251,8 @@ export const createMilkdownEditor = async ({
     .use(gfm)
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownDefinitionSchema)
+    .use(leafdownFootnoteDefinitionLabelSchema)
+    .use(createLeafdownFootnoteDefinitionLabelPlugin())
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
@@ -343,7 +348,7 @@ export const createMilkdownEditor = async ({
       ctx.update(
         footnoteDefinitionSchema.key,
         (getSchema) => (schemaCtx) =>
-          withoutFootnoteDefinitionLabelTerm(withFootnoteDefinitionSeparator(getSchema(schemaCtx))),
+          withFootnoteDefinitionLabelContent(withFootnoteDefinitionSeparator(getSchema(schemaCtx))),
       );
       ctx.update(
         bulletListSchema.key,
@@ -473,7 +478,10 @@ export const createMilkdownEditor = async ({
 };
 
 export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
-  finalizeSourceProjection(editor.ctx.get(editorViewCtx));
+  const view = editor.ctx.get(editorViewCtx);
+
+  finalizeSourceProjection(view);
+  commitFootnoteDefinitionLabels(view);
 
   return editor.action(getMarkdown());
 };

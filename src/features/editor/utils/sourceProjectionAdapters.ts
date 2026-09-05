@@ -3,17 +3,18 @@ import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/st
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
-import { isNonNullish } from "@/lib/predicates";
+import { isTruthy } from "@/lib/predicates";
 
 import {
   CHARACTER_REFERENCE_MARK_NAME,
+  decodeWholeCharacterReference,
   getPreservedCharacterReferenceSource,
   hasCharacterReferenceMark,
 } from "./characterReferenceMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
-import { isAtomicLinkSegment } from "./sourceProjectionLinkSyntax";
+import { isAtomicLinkSegment, type LinkSourceMap } from "./sourceProjectionLinkSyntax";
 import {
   createMarkedFragmentSourceStructure,
   mapMarkedFragmentDocumentOffsetToSource,
@@ -95,7 +96,18 @@ export interface SourceProjectionPresentationSpan extends TextRange {
   className: string;
 }
 
+// The character a projected reference names, drawn beside the source at the offset the reference
+// opens on. It is a decoration rather than text, so the source keeps every offset it spells. It
+// reads as the content it renders, which is why it carries a class of its own: the source beside
+// it is syntax and reads as a marker, and the widget stands outside the document's marks.
+export interface SourceProjectionPresentationPreview {
+  className: string;
+  offset: number;
+  text: string;
+}
+
 export interface SourceProjectionPresentation {
+  previews: SourceProjectionPresentationPreview[];
   sourceTypes: string[];
   spans: SourceProjectionPresentationSpan[];
 }
@@ -575,27 +587,92 @@ export const getSourceProjectionInsertionCandidate = (
   };
 };
 
-const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
+export const getProjectionContentClassName = (markNames: readonly string[]) =>
   [
     "leafdown-source-projection__content",
-    marks.some((mark) => mark.markName === "strong") &&
-      "leafdown-source-projection__content--strong",
-    marks.some((mark) => mark.markName === "emphasis") &&
-      "leafdown-source-projection__content--emphasis",
-    marks.some((mark) => mark.markName === "strike_through") &&
-      "leafdown-source-projection__content--strikethrough",
-    marks.some((mark) => mark.markName === "inlineCode") &&
-      "leafdown-source-projection__content--inline-code",
+    markNames.includes("strong") && "leafdown-source-projection__content--strong",
+    markNames.includes("emphasis") && "leafdown-source-projection__content--emphasis",
+    markNames.includes("strike_through") && "leafdown-source-projection__content--strikethrough",
+    markNames.includes("inlineCode") && "leafdown-source-projection__content--inline-code",
   ]
-    .filter(isNonNullish)
+    .filter(isTruthy)
     .join(" ");
+
+export interface SourceCharacterReference extends TextRange {
+  text: string;
+}
+
+// Each pair of boundaries a text segment carries is the source one document character was read
+// from, so a pair spelling a whole reference is the source of one. An escape spends two characters
+// on the character it keeps literal and a code span spends one per character, and neither decodes.
+export const findLinkSourceCharacterReferences = (
+  source: string,
+  map: LinkSourceMap,
+  sourceOffset = 0,
+) => {
+  const references: SourceCharacterReference[] = [];
+
+  for (const segment of map.segments) {
+    if (segment.type !== "text") {
+      continue;
+    }
+
+    const { sourceBoundaries } = segment;
+
+    for (let index = 0; index + 1 < sourceBoundaries.length; index += 1) {
+      const from = sourceBoundaries[index];
+      const to = sourceBoundaries[index + 1];
+      const text = decodeWholeCharacterReference(source.slice(from, to));
+
+      if (text !== null) {
+        references.push({ from: sourceOffset + from, text, to: sourceOffset + to });
+      }
+    }
+  }
+
+  return references;
+};
+
+// The source a reference is written with is syntax, so the run it covers reads as a marker while
+// the rest of the range keeps the content styling it had.
+export const getCharacterReferenceSpans = (
+  className: string,
+  { from, to }: TextRange,
+  references: readonly SourceCharacterReference[],
+) => {
+  const spans: SourceProjectionPresentationSpan[] = [];
+  let contentFrom = from;
+
+  for (const reference of references) {
+    if (reference.from < contentFrom || to < reference.to) {
+      continue;
+    }
+
+    if (contentFrom < reference.from) {
+      spans.push({ className, from: contentFrom, to: reference.from });
+    }
+
+    spans.push({
+      className: "leafdown-source-projection__marker",
+      from: reference.from,
+      to: reference.to,
+    });
+    contentFrom = reference.to;
+  }
+
+  if (contentFrom < to) {
+    spans.push({ className, from: contentFrom, to });
+  }
+
+  return spans;
+};
 
 const getMarkedFragmentPresentation = (
   source: string,
   marks: ProjectionMarkDescriptor[],
   map: MarkedFragmentSourceMap,
 ): SourceProjectionPresentation => {
-  const contentClassName = getProjectionContentClassName(marks);
+  const contentClassName = getProjectionContentClassName(marks.map((mark) => mark.markName));
   const spans: SourceProjectionPresentationSpan[] = [
     {
       className: "leafdown-source-projection__marker",
@@ -603,10 +680,28 @@ const getMarkedFragmentPresentation = (
       to: map.contentFrom,
     },
   ];
+  const previews: SourceProjectionPresentationPreview[] = [];
   const objectTypes = new Set<string>();
 
   for (const segment of map.segments) {
-    if (segment.type === "characterReference" || segment.type === "text") {
+    if (segment.type === "characterReference") {
+      const text = decodeWholeCharacterReference(
+        source.slice(segment.sourceFrom, segment.sourceTo),
+      );
+
+      if (text !== null) {
+        previews.push({ className: contentClassName, offset: segment.sourceFrom, text });
+      }
+
+      spans.push({
+        className: "leafdown-source-projection__marker",
+        from: segment.sourceFrom,
+        to: segment.sourceTo,
+      });
+      continue;
+    }
+
+    if (segment.type === "text") {
       spans.push({
         className: contentClassName,
         from: segment.sourceFrom,
@@ -618,7 +713,18 @@ const getMarkedFragmentPresentation = (
     if (segment.type === "link") {
       const labelFrom = segment.sourceFrom + (segment.map?.labelFrom ?? 0);
       const labelTo = segment.sourceFrom + (segment.map?.labelTo ?? 0);
+      const labelClassName = `${contentClassName} leafdown-source-projection__content--link-label`;
+      const references = segment.map
+        ? findLinkSourceCharacterReferences(
+            source.slice(segment.sourceFrom, segment.sourceTo),
+            segment.map,
+            segment.sourceFrom,
+          )
+        : [];
 
+      previews.push(
+        ...references.map(({ from, text }) => ({ className: labelClassName, offset: from, text })),
+      );
       objectTypes.add(LINK_MARK_NAME);
       spans.push(
         {
@@ -626,11 +732,7 @@ const getMarkedFragmentPresentation = (
           from: segment.sourceFrom,
           to: labelFrom,
         },
-        {
-          className: `${contentClassName} leafdown-source-projection__content--link-label`,
-          from: labelFrom,
-          to: labelTo,
-        },
+        ...getCharacterReferenceSpans(labelClassName, { from: labelFrom, to: labelTo }, references),
         {
           className: "leafdown-source-projection__marker",
           from: labelTo,
@@ -667,6 +769,7 @@ const getMarkedFragmentPresentation = (
   });
 
   return {
+    previews,
     sourceTypes: [...marks.map((mark) => mark.markName), ...objectTypes],
     spans: spans.filter(({ from, to }) => from < to),
   };
@@ -1038,7 +1141,7 @@ export const createMarkSourceProjectionAdapter = ({
             to: contentBounds.from,
           },
           {
-            className: getProjectionContentClassName(marks),
+            className: getProjectionContentClassName(marks.map((mark) => mark.markName)),
             from: contentBounds.from,
             to: contentBounds.to,
           },
@@ -1051,6 +1154,7 @@ export const createMarkSourceProjectionAdapter = ({
       }
 
       return {
+        previews: [],
         sourceTypes: marks.map((mark) => mark.markName),
         spans,
       };

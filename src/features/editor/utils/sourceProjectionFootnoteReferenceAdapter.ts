@@ -223,6 +223,7 @@ export const createFootnoteReferenceSourceProjectionAdapter = ({
   findTarget: (state) => findFootnoteReferenceTarget(state, serializer),
   getPresentation: ({ ambientMarks }, source) => {
     return {
+      previews: [],
       sourceTypes: [FOOTNOTE_REFERENCE_ADAPTER_ID, ...ambientMarks.map((mark) => mark.type.name)],
       spans: getFootnoteReferencePresentation(source, ambientMarks),
     };

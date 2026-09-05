@@ -16,6 +16,7 @@ import {
 import { getCandidateMarksAtPosition, getMarkRangeAtPosition } from "./marks";
 import {
   decodeSourceProjectionEscapes,
+  getProjectionContentClassName,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
@@ -195,13 +196,24 @@ export const createCharacterReferenceSourceProjectionAdapter =
         createMarkedTextSlice(state, target.originalSource, target.ambientMarks),
       ),
     findTarget: findCharacterReferenceTarget,
-    getPresentation: ({ ambientMarks }, source) => ({
-      sourceTypes: [CHARACTER_REFERENCE_ADAPTER_ID, ...ambientMarks.map((mark) => mark.type.name)],
-      spans:
-        decodeWholeCharacterReference(source) === null
-          ? []
-          : [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }],
-    }),
+    getPresentation: ({ ambientMarks }, source) => {
+      const decoded = decodeWholeCharacterReference(source);
+      const markNames = ambientMarks.map((mark) => mark.type.name);
+
+      return {
+        // The widget stands outside the document's marks, so the run's own styling reaches the
+        // character through a class rather than through the marks the source carries.
+        previews:
+          decoded === null
+            ? []
+            : [{ className: getProjectionContentClassName(markNames), offset: 0, text: decoded }],
+        sourceTypes: [CHARACTER_REFERENCE_ADAPTER_ID, ...markNames],
+        spans:
+          decoded === null
+            ? []
+            : [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }],
+      };
+    },
     mapSelectionFromSource,
     mapSelectionToSource: (selection, target) => ({
       anchor: mapSelectionPositionToSource(selection.anchor, target),

@@ -119,6 +119,7 @@ export const createEscapeSourceProjectionAdapter = ({
     ),
   findTarget: (state) => findEscapeTarget(state, serializer, findLiteralSourceCommit),
   getPresentation: (_target, source) => ({
+    previews: [],
     sourceTypes: [ESCAPE_ADAPTER_ID],
     spans: findSourceProjectionEscapeOffsets(source).map((offset) => ({
       className: "leafdown-source-projection__marker",

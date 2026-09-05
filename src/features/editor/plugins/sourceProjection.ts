@@ -27,6 +27,7 @@ import {
   type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
+  type SourceProjectionPresentationPreview,
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
@@ -884,7 +885,39 @@ const createProjectionDecorations = (state: EditorState) => {
     }
   }
 
+  for (const preview of presentation.previews) {
+    decorations.push(
+      Decoration.widget(
+        session.from + Math.min(Math.max(preview.offset, 0), source.length),
+        () => createProjectionPreviewElement(preview),
+        // The character and the `&` it opens read as one, so the caret at that offset rests on the
+        // near side of both rather than between them, which a positive side draws it as. The widget
+        // carries no marks because it is not the document's text; its styling arrives as a class.
+        {
+          key: `character-reference-preview:${preview.offset}:${preview.text}`,
+          marks: [],
+          side: 1,
+        },
+      ),
+    );
+  }
+
   return DecorationSet.create(state.doc, decorations);
+};
+
+// The character rides in an attribute the stylesheet draws, as a block marker already does, which
+// is what keeps it out of every reading of the document: it is in no text node, so no selection
+// covers it, no copy carries it, and nothing serializes it.
+const createProjectionPreviewElement = ({
+  className,
+  text,
+}: SourceProjectionPresentationPreview) => {
+  const element = document.createElement("span");
+
+  element.className = `leafdown-source-projection__preview ${className}`.trimEnd();
+  element.dataset.leafdownPreview = text;
+
+  return element;
 };
 
 const LINK_LABEL_PRESENTATION_CLASS_NAME = "leafdown-source-projection__content--link-label";

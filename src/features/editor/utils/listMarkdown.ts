@@ -8,6 +8,11 @@ import {
   DEFAULT_BLOCK_ADJACENT,
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
+import {
+  markListItemPrefix,
+  readPrefixColumns,
+  withoutLeadingLinePrefix,
+} from "./linePrefixMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -31,6 +36,7 @@ export const LIST_ITEM_MARKDOWN_TYPE = "listItem";
 export const LIST_MARKER_ATTRIBUTE_NAME = "marker";
 export const LIST_ITEM_NUMBER_ATTRIBUTE_NAME = "number";
 export const LIST_ITEM_PADDING_ATTRIBUTE_NAME = "padding";
+export const LIST_ITEM_INDENT_ATTRIBUTE_NAME = "indent";
 export const LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME = "leadingBlankLine";
 export const LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME = "taskMarker";
 
@@ -79,6 +85,14 @@ const DEFAULT_UNCHECKED_TASK_MARKER: TaskMarker = " ";
 // the line after its marker puts it.
 export const DEFAULT_LIST_ITEM_PADDING = 1;
 const MAXIMUM_LIST_ITEM_PADDING = 4;
+// The prefix an item's marker stands behind when it carries no record of one: one the editor
+// created, one written on the line its container's marker opens, and one whose authored prefix
+// cannot be recovered. Each is written at the prefix its containers spell.
+export const DEFAULT_LIST_ITEM_INDENT = "";
+// Everything a marker can stand behind and still open its own line: the quote markers the
+// containers spell and the whitespace between and after them. A prefix spelling anything else
+// holds another item's marker, which is form belonging to that item rather than to this one.
+const LIST_ITEM_INDENT_PATTERN = /^(?:[\t ]*>)*[\t ]*$/u;
 // CommonMark reads at most nine digits as an ordered marker.
 const MAXIMUM_LIST_ITEM_NUMBER = 999999999;
 
@@ -138,6 +152,14 @@ export const readListItemPadding = (source: object): number => {
     padding <= MAXIMUM_LIST_ITEM_PADDING
     ? padding
     : DEFAULT_LIST_ITEM_PADDING;
+};
+
+export const readListItemIndent = (source: object): string => {
+  const indent = readAttribute(source, LIST_ITEM_INDENT_ATTRIBUTE_NAME);
+
+  return typeof indent === "string" && LIST_ITEM_INDENT_PATTERN.test(indent)
+    ? indent
+    : DEFAULT_LIST_ITEM_INDENT;
 };
 
 export const readListItemLeadingBlankLine = (source: object): boolean =>
@@ -295,6 +317,27 @@ const withoutUninterruptingFirstItem = (
   };
 };
 
+const withoutAuthoredIndent = (list: ListNode) => ({
+  ...list,
+  children: list.children.map((item) => ({
+    ...item,
+    [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: DEFAULT_LIST_ITEM_INDENT,
+  })),
+});
+
+// A list standing right after another in the same container writes its items at the prefix the
+// containers spell. The list before it ends on an item whose content stands past that prefix, so a
+// marker written even one column deeper falls inside that item rather than opening a list of its
+// own. The file the record came from cannot have held that, because the parse would have nested
+// the item there; a record reaching it is one an edit left behind, and a marker's column is the one
+// axis of an item's form that decides what the document holds.
+const standsAfterList = (node: ListNode, parent: StringifyParent) => {
+  const children = parent?.children ?? [];
+  const index = children.indexOf(node);
+
+  return index > 0 && children[index - 1]?.type === LIST_MARKDOWN_TYPE;
+};
+
 // `mdast-util-to-markdown` picks a list's marker from one option for the whole document and moves
 // the next list off whatever the last one used, which is the alternation an authored marker
 // replaces. The choice is reachable only through those options, so they carry the authored marker
@@ -306,7 +349,10 @@ export const serializeList: NonNullable<RemarkStringifyHandlers["list"]> = (
   state,
   info,
 ) => {
-  const list = withoutUninterruptingFirstItem(node, parent, state);
+  // Both are read off the node the serializer was handed, because each rewrite replaces it and a
+  // replacement is no longer the child its parent lists.
+  const written = withoutUninterruptingFirstItem(node, parent, state);
+  const list = standsAfterList(node, parent) ? withoutAuthoredIndent(written) : written;
   const { bullet, bulletOrdered, bulletOther, rule } = state.options;
 
   if (node.ordered) {
@@ -348,11 +394,53 @@ const findListItemMarker = (node: ListItemNode, parent: StringifyParent, state: 
   return `${number}${marker}`;
 };
 
+// The columns an item spends between its own marker and the content it opens.
+const findListItemSize = (node: ListItemNode, parent: StringifyParent, state: StringifyState) =>
+  findListItemMarker(node, parent, state).length +
+  (readListItemLeadingBlankLine(node) && node.children.length > 0
+    ? DEFAULT_LIST_ITEM_PADDING
+    : readListItemPadding(node));
+
+// An item's own indentation is written back only where the items before it in its list still stand
+// where the file put them. An item written at the prefix its containers spell takes a marker
+// standing past its content column into its own content, so an item the editor added ahead of a
+// recorded one would swallow it, and so would two recorded items whose columns no longer nest the
+// way the document does. Both are read off the items rather than off the columns the serializer
+// lands on, because an item is measured against the prefix its own record puts it at.
+const readAuthoredListItemIndent = (
+  node: ListItemNode,
+  parent: StringifyParent,
+  state: StringifyState,
+) => {
+  const indent = readListItemIndent(node);
+
+  if (indent === DEFAULT_LIST_ITEM_INDENT || parent?.type !== LIST_MARKDOWN_TYPE) {
+    return DEFAULT_LIST_ITEM_INDENT;
+  }
+
+  const columns = readPrefixColumns(indent);
+
+  for (const earlier of parent.children.slice(0, parent.children.indexOf(node))) {
+    const earlierIndent = readListItemIndent(earlier);
+
+    if (
+      earlierIndent === DEFAULT_LIST_ITEM_INDENT ||
+      columns >= readPrefixColumns(earlierIndent) + findListItemSize(earlier, parent, state)
+    ) {
+      return DEFAULT_LIST_ITEM_INDENT;
+    }
+  }
+
+  return indent;
+};
+
 // The handler upstream sizes every item by one space after its marker, or by the tab stop the
 // document-wide option names, neither of which can answer for the spaces a single item was written
 // with. Rewriting it here is also what keeps a task marker on an item the GFM handler cannot
 // reach: it inserts the checkbox by matching the marker it expects, which is a `.` delimiter
-// followed by at most three spaces.
+// followed by at most three spaces. It is also where an item's own indentation is marked, on the
+// marker's line and on every line the item writes under it: the prefix the record replaces is the
+// one the containers add afterwards, and the item's content column moves with its marker.
 export const serializeListItem: NonNullable<RemarkStringifyHandlers["listItem"]> = (
   node: ListItemNode,
   parent,
@@ -376,18 +464,36 @@ export const serializeListItem: NonNullable<RemarkStringifyHandlers["listItem"]>
     : marker + " ".repeat(padding);
   const tracker = state.createTracker(info);
 
+  // The record stands outside what the tracker counts, which measures the columns the item's own
+  // content is written at.
   tracker.move(opening + checkbox);
   tracker.shift(size);
 
+  const indent = readAuthoredListItemIndent(node, parent, state);
+  const markedIndent = markListItemPrefix(indent);
+  const markedContentIndent =
+    indent === DEFAULT_LIST_ITEM_INDENT
+      ? markedIndent
+      : markListItemPrefix(indent + " ".repeat(size));
+  const markedOpening = leadingBlankLine
+    ? `${markedIndent}${marker}\n${" ".repeat(size)}${markedContentIndent}`
+    : markedIndent + opening;
   const exit = state.enter(LIST_ITEM_MARKDOWN_TYPE);
   const value = state.indentLines(
     state.containerFlow(node, tracker.current()),
     (line, index, blank) => {
       if (index) {
-        return (blank ? "" : " ".repeat(size)) + line;
+        return (blank ? "" : " ".repeat(size) + markedContentIndent) + line;
       }
 
-      return (blank ? marker : opening + checkbox) + line;
+      if (blank) {
+        return markedIndent + marker;
+      }
+
+      // An item opening on this line stands behind the marker rather than behind a prefix, so the
+      // record it carries answers for a line it no longer opens. An item whose content begins
+      // below its marker leaves that line to it, and keeps it.
+      return markedOpening + checkbox + (leadingBlankLine ? line : withoutLeadingLinePrefix(line));
     },
   );
 
@@ -494,6 +600,10 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
       default: DEFAULT_LIST_ITEM_PADDING,
       validate: "number",
     },
+    [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: {
+      default: DEFAULT_LIST_ITEM_INDENT,
+      validate: "string",
+    },
     [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: {
       default: false,
       validate: "boolean",
@@ -512,6 +622,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         checked: node.checked == null ? null : Boolean(node.checked),
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(node) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(node),
+        [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: readListItemIndent(node),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(node),
         [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(node),
       });
@@ -529,6 +640,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         checked: item.attrs.checked ?? null,
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(item.attrs) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(item.attrs),
+        [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: readListItemIndent(item.attrs),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(item.attrs),
         [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(item.attrs),
       });

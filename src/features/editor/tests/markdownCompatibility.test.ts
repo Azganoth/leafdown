@@ -1284,14 +1284,16 @@ describe("Heading form", () => {
   );
 
   // One command reaches every block it covers, so a heading in the selection keeps its own form
-  // while a paragraph beside it, which has none, is written in the default.
+  // while a paragraph beside it, which has none, takes the form the document prevails in: the one
+  // ATX heading there closes its line, and the underline over the other leaves that axis alone
+  // disagreeing.
   it("keeps each selected heading's own form through one level change", async () => {
     const mounted = await mountEditor("Setext one\n===\n\nParagraph\n\n# Closed atx #\n");
 
     await runEditorCommand(mounted.editor, "edit.selectAll");
     await runEditorCommand(mounted.editor, "format.heading2");
 
-    expect(mounted.getMarkdown()).toBe("Setext one\n---\n\n## Paragraph\n\n## Closed atx #\n");
+    expect(mounted.getMarkdown()).toBe("Setext one\n---\n\n## Paragraph ##\n\n## Closed atx #\n");
   });
 
   // A heading that becomes another construct has no form to keep, because the form belonged to the
@@ -2056,6 +2058,193 @@ describe("List marker form", () => {
   });
 });
 
+// A construct the editor creates carries no form of its own, so it takes the form the document it
+// was created in prevails in. Each axis is settled on its own, over the whole document: either the
+// nodes that can answer for it agree on one answer, or the serializer's own default stands rather
+// than one of two answers being chosen for the author. A run sized to the heading holding it
+// carries its presence across and not its length, which answers to that heading's own level or
+// content.
+describe("Prevailing form", () => {
+  const runCommandOnText = async (
+    mounted: MountedMilkdownEditor,
+    text: string,
+    command: EditorCommandId,
+  ) => {
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, text));
+
+    await runEditorCommand(mounted.editor, command);
+
+    return mounted.getMarkdown();
+  };
+
+  it.each([
+    {
+      command: "format.unorderedList",
+      name: "the marker its bullet lists agree on",
+      saved: "- Hyphen\n\nText\n\n- Paragraph\n",
+      source: "- Hyphen\n\nText\n\nParagraph\n",
+    },
+    {
+      command: "format.unorderedList",
+      name: "the default where its bullet lists disagree",
+      saved: "- Hyphen\n\n* Asterisk\n\nText\n\n* Paragraph\n",
+      source: "- Hyphen\n\n* Asterisk\n\nText\n\nParagraph\n",
+    },
+    {
+      command: "format.orderedList",
+      name: "the delimiter its ordered lists agree on",
+      saved: "1) One\n\nText\n\n1) Paragraph\n",
+      source: "1) One\n\nText\n\nParagraph\n",
+    },
+    {
+      command: "format.orderedList",
+      name: "the default where its ordered lists disagree",
+      saved: "1) One\n\n1. Two\n\nText\n\n1. Paragraph\n",
+      source: "1) One\n\n1. Two\n\nText\n\nParagraph\n",
+    },
+    // A bullet list answers for the bullet axis alone, so an ordered list made beside one takes
+    // the delimiter default rather than being left to a marker no ordered list can carry.
+    {
+      command: "format.orderedList",
+      name: "the delimiter default where only its bullet lists agree",
+      saved: "- Hyphen\n\nText\n\n1. Paragraph\n",
+      source: "- Hyphen\n\nText\n\nParagraph\n",
+    },
+  ] satisfies { command: EditorCommandId; name: string; saved: string; source: string }[])(
+    "writes a list made in $source with $name",
+    async ({ command, saved, source }) => {
+      const mounted = await mountEditor(source);
+
+      expect(await runCommandOnText(mounted, "Paragraph", command)).toBe(saved);
+    },
+  );
+
+  it.each([
+    // The underline is sized to the content standing above it, because no length another heading
+    // holds answers for it.
+    {
+      command: "format.heading2",
+      name: "the setext underline its headings agree on, sized to its own content",
+      saved: "Setext one\n===\n\nParagraph\n---------\n",
+      source: "Setext one\n===\n\nParagraph\n",
+    },
+    {
+      command: "format.heading3",
+      name: "ATX where its level carries no underline",
+      saved: "Setext one\n===\n\n### Paragraph\n",
+      source: "Setext one\n===\n\nParagraph\n",
+    },
+    {
+      command: "format.heading2",
+      name: "the default where its headings disagree about the underline",
+      saved: "Setext one\n===\n\n# Atx one\n\n## Paragraph\n",
+      source: "Setext one\n===\n\n# Atx one\n\nParagraph\n",
+    },
+    {
+      command: "format.heading1",
+      name: "the separator its ATX headings agree on",
+      saved: "#\tTab separator\n\n#\tParagraph\n",
+      source: "#\tTab separator\n\nParagraph\n",
+    },
+    // A closing sequence is written at the level of the heading closing it, which is the length its
+    // own opening sequence spells rather than the one another heading was closed at.
+    {
+      command: "format.heading2",
+      name: "a closing sequence where its ATX headings all close",
+      saved: "# Closed #\n\n## Paragraph ##\n",
+      source: "# Closed #\n\nParagraph\n",
+    },
+    {
+      command: "format.heading2",
+      name: "the default where only some of its ATX headings close",
+      saved: "# Closed #\n\n# Open\n\n## Paragraph\n",
+      source: "# Closed #\n\n# Open\n\nParagraph\n",
+    },
+    // A setext heading opens on ordinary text and closes on its underline, so it answers for
+    // neither ATX run and leaves both to the default.
+    {
+      command: "format.heading3",
+      name: "the ATX defaults where only setext headings answer",
+      saved: "Setext one\n===\n\n### Paragraph\n",
+      source: "Setext one\n===\n\nParagraph\n",
+    },
+  ] satisfies { command: EditorCommandId; name: string; saved: string; source: string }[])(
+    "writes a heading made in $source with $name",
+    async ({ command, saved, source }) => {
+      const mounted = await mountEditor(source);
+
+      expect(await runCommandOnText(mounted, "Paragraph", command)).toBe(saved);
+    },
+  );
+
+  it.each([
+    { command: "format.unorderedList", saved: "* Paragraph\n" },
+    { command: "format.orderedList", saved: "1. Paragraph\n" },
+    { command: "format.heading2", saved: "## Paragraph\n" },
+  ] satisfies { command: EditorCommandId; saved: string }[])(
+    "writes $saved for a construct made in a document naming no form of its own",
+    async ({ command, saved }) => {
+      const mounted = await mountEditor("Paragraph\n");
+
+      expect(await runCommandOnText(mounted, "Paragraph", command)).toBe(saved);
+    },
+  );
+
+  it("writes the default form for a construct made in an empty document", async () => {
+    const mounted = await mountEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "Item");
+
+    await runEditorCommand(mounted.editor, "format.unorderedList");
+
+    expect(mounted.getMarkdown()).toBe("* Item\n");
+  });
+
+  // A command is not the only way a construct reaches the document, so the survey runs over the
+  // document rather than reaching each site that can open one. Nothing typed here names the axis
+  // the document settles.
+  it("writes a heading made by an input rule in the prevailing form", async () => {
+    const mounted = await mountEditor("# Closed #\n");
+
+    await runEditorCommand(mounted.editor, "insert.paragraph");
+    typeText(mounted.view, "## Typed");
+
+    expect(mounted.getMarkdown()).toBe("# Closed #\n\n## Typed ##\n");
+  });
+
+  // The form the survey settles is the construct's own from then on, so a document that stops
+  // naming it does not move a construct already written in it.
+  it("keeps the form a construct was created in after the document stops naming it", async () => {
+    const mounted = await mountEditor("- Hyphen\n\nText\n\nParagraph\n");
+
+    expect(await runCommandOnText(mounted, "Paragraph", "format.unorderedList")).toBe(
+      "- Hyphen\n\nText\n\n- Paragraph\n",
+    );
+
+    const { doc, tr } = mounted.view.state;
+
+    mounted.view.dispatch(tr.delete(0, doc.child(0).nodeSize));
+
+    expect(mounted.getMarkdown()).toBe("Text\n\n- Paragraph\n");
+  });
+
+  // A created construct carries the form without carrying every run of it, so the bytes are
+  // asserted to converge: a heading underlined at the width of its own content reopens as one
+  // underlined at that width, and writes the same file again.
+  it.each([
+    "- Hyphen\n\nText\n\n- Paragraph\n",
+    "1) One\n\nText\n\n1) Paragraph\n",
+    "Setext one\n===\n\nParagraph\n---------\n",
+    "#\tTab separator\n\n#\tParagraph\n",
+    "# Closed #\n\n## Paragraph ##\n",
+  ])("reopens %j as the document that wrote it", async (saved) => {
+    const mounted = await mountEditor(saved);
+
+    expect(mounted.getMarkdown()).toBe(saved);
+  });
+});
+
 // An item's marker can stand past the column its container's content is written at, and the run it
 // stands behind is one the file holds indivisibly: a tab covering both the container's prefix and
 // the item's own columns is a single character. Both spellings nest the item in the same place, so
@@ -2127,7 +2316,9 @@ describe("List item indentation", () => {
     {
       command: "format.increaseListIndent",
       name: "an item moved inside the one before it",
-      saved: "- parent\n\n\t- alpha\n\t  * beta\n",
+      // The list holding the moved item is one the editor made, so it is written with the marker
+      // the document prevails in rather than with the default.
+      saved: "- parent\n\n\t- alpha\n\t  - beta\n",
       source: "- parent\n\n\t- alpha\n\t- beta\n",
       text: "beta",
     },

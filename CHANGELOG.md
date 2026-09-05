@@ -25,6 +25,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Show the backslash that keeps link or image text literal when the caret reaches it, so deleting the backslash turns the text into the link or image it describes.
 - Turn typed image text into the image it describes once the caret leaves it, as typed link text already did.
 - Show a character reference such as `&copy;`, `&#169;`, or `&#xA9;` as it was written when the caret reaches it, so it can be told apart from the character it names and removing any of its characters turns it into ordinary text.
+- Write a list or heading made in the editor in the form the rest of the document is written in, so a list added to a file whose lists are all `-` is written `-` rather than `*`, an ordered list added to a file written with `)` keeps `)`, and a heading added to a file of underlined headings is underlined too, at the width of its own text. A heading added to a file whose headings all close with hashes closes with them, at its own level, and one written after a tab is written after a tab. Where a file disagrees with itself about any of these, or says nothing about them, the editor's own `*`, `.`, and `#` are written as before, and a construct keeps the form it was made with even if the file stops agreeing later.
 
 ### Fixed
 

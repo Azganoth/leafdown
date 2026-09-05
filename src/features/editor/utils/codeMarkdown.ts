@@ -7,6 +7,7 @@ import {
   DEFAULT_BLOCK_ADJACENT,
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
+import { markVerbatimLines } from "./linePrefixMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -29,6 +30,7 @@ export const CODE_FENCE_ATTRIBUTE_NAME = "fence";
 export const CODE_FENCE_SURPLUS_ATTRIBUTE_NAME = "fenceSurplus";
 export const CODE_SEPARATOR_ATTRIBUTE_NAME = "codeSeparator";
 export const CODE_INDENT_ATTRIBUTE_NAME = "codeIndent";
+export const CODE_LINE_PREFIXES_ATTRIBUTE_NAME = "codeLinePrefixes";
 export const CODE_CLOSED_ATTRIBUTE_NAME = "closed";
 export const CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME = "runSurplus";
 
@@ -44,6 +46,10 @@ export const DEFAULT_CODE_FENCE_LENGTH = 3;
 export const DEFAULT_CODE_FENCE_SURPLUS = 0;
 export const DEFAULT_CODE_SEPARATOR = "";
 export const DEFAULT_CODE_INDENT = 0;
+// The lines an indented block carries when it holds no record of them: one the editor created,
+// and one whose authored lines cannot be recovered. Each is then written behind the four spaces
+// that open the form.
+export const DEFAULT_CODE_LINE_PREFIXES: readonly string[] = [];
 export const DEFAULT_CODE_CLOSED = true;
 // A span the editor created is delimited by the shortest run its content leaves free, the way one
 // whose authored run cannot be recovered is.
@@ -51,6 +57,12 @@ export const DEFAULT_CODE_SPAN_RUN_SURPLUS = 0;
 
 // Four spaces open indented code instead, so three is the widest a fence can be indented by.
 const CODE_INDENT_MAX = 3;
+
+// What the preset's indented branch writes every non-blank line behind, which is the run a
+// record stands in place of and the one a withdrawn record leaves standing.
+const INDENTED_CODE_PREFIX = "    ";
+// CommonMark ends a line on a carriage return, a line feed, or the pair.
+const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;
 
 // A fence opens on three or more of one character. Indented code opens on the four spaces that
 // make it, so a slice standing on a run of either character was written as a fence.
@@ -135,6 +147,54 @@ export const readCodeIndent = (source: object): number => {
   return typeof indent === "number" && Number.isInteger(indent) && indent > 0
     ? Math.min(indent, CODE_INDENT_MAX)
     : DEFAULT_CODE_INDENT;
+};
+
+export const validateCodeLinePrefixes = (value: unknown) => {
+  if (!Array.isArray(value) || value.some((line) => typeof line !== "string")) {
+    throw new RangeError("Expected a line prefix for each of an indented block's lines");
+  }
+};
+
+export const readCodeLinePrefixes = (source: object): string[] => {
+  const recorded = (source as Record<string, unknown>)[CODE_LINE_PREFIXES_ATTRIBUTE_NAME];
+
+  return Array.isArray(recorded) && recorded.every((line) => typeof line === "string")
+    ? [...recorded]
+    : [...DEFAULT_CODE_LINE_PREFIXES];
+};
+
+/// Reads what each line of an indented block stood behind in the file. The prefix ends where the
+/// line's own content begins, which the value the parse kept is what names: a whitespace run before
+/// it is the block's indentation, and one the parse left in the value is content the block holds.
+/// The slice a block was built from opens at its own indentation rather than at the head of the
+/// line, so the prefix the containers wrote before it is only on the first line and is passed in.
+/// Exported for colocated tests.
+export const findCodeLinePrefixes = (raw: string, value: string, opening: string): string[] => {
+  const lines = raw.split(LINE_ENDING_PATTERN);
+  const content = value.split(LINE_ENDING_PATTERN);
+
+  if (lines.length !== content.length) {
+    return [...DEFAULT_CODE_LINE_PREFIXES];
+  }
+
+  return lines.map((line, index) => {
+    const text = content[index] ?? "";
+
+    // A parse expands a tab against the tab stops rather than recording it, so a run covering the
+    // column the content stands at leaves the line spelling characters the value does not hold.
+    // Such a line keeps no record: the run reaches past the block's indentation into what the block
+    // holds as content, and restoring it would move the column that content stands at.
+    if (!line.endsWith(text)) {
+      return "";
+    }
+
+    const prefix = (index === 0 ? opening : "") + line.slice(0, line.length - text.length);
+
+    // A prefix spelled in spaces is one the canonical run already reproduces, character for
+    // character, so recording it would only make the same line answer for two spellings of itself.
+    // A tab is the one spelling whose width is not its length, and the only one worth a record.
+    return prefix.includes("\t") ? prefix : "";
+  });
 };
 
 export const readCodeClosed = (source: object): boolean =>
@@ -257,7 +317,12 @@ export const serializeCode: NonNullable<RemarkStringifyHandlers["code"]> = (
     const value = defaultHandlers.code(node, parent, state, info);
     const written = WRITTEN_CODE_FENCE_PATTERN.exec(value);
 
-    return written ? withFenceForm(value, written[1], node, parent) : value;
+    // The indented branch is the one that writes an indentation of its own, and it is reached only
+    // where the preset declined every condition that forces a fence, so the record is put back on
+    // the lines that branch actually wrote rather than on the form the node asked for.
+    return written
+      ? withFenceForm(value, written[1], node, parent)
+      : markVerbatimLines(value, INDENTED_CODE_PREFIX, readCodeLinePrefixes(node));
   } finally {
     Object.assign(state.options, { fence, fences });
   }
@@ -279,6 +344,10 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
     },
     [CODE_SEPARATOR_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_SEPARATOR, validate: "string" },
     [CODE_INDENT_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_INDENT, validate: "number" },
+    [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: {
+      default: DEFAULT_CODE_LINE_PREFIXES,
+      validate: validateCodeLinePrefixes,
+    },
     [CODE_CLOSED_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_CLOSED, validate: "boolean" },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: { default: DEFAULT_BLOCK_ADJACENT, validate: "boolean" },
   },
@@ -294,6 +363,7 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
         [CODE_FENCE_SURPLUS_ATTRIBUTE_NAME]: readCodeFenceSurplus(node),
         [CODE_SEPARATOR_ATTRIBUTE_NAME]: readCodeSeparator(node),
         [CODE_INDENT_ATTRIBUTE_NAME]: readCodeIndent(node),
+        [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: readCodeLinePrefixes(node),
         [CODE_CLOSED_ATTRIBUTE_NAME]: readCodeClosed(node),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
       });
@@ -315,6 +385,7 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
         [CODE_FENCE_SURPLUS_ATTRIBUTE_NAME]: readCodeFenceSurplus(node.attrs),
         [CODE_SEPARATOR_ATTRIBUTE_NAME]: readCodeSeparator(node.attrs),
         [CODE_INDENT_ATTRIBUTE_NAME]: readCodeIndent(node.attrs),
+        [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: readCodeLinePrefixes(node.attrs),
         [CODE_CLOSED_ATTRIBUTE_NAME]: readCodeClosed(node.attrs),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
       });

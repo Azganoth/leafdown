@@ -1399,6 +1399,51 @@ describe("Code block form", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  // An indented block's indentation survives only in the slice the block was built from, so the
+  // tab a file spelled it with is recorded per line and written back over the canonical run.
+  it.each([
+    { name: "at the document root", source: "\tone tab opens the block" },
+    { name: "spelled in spaces and a tab", source: "   \tthree spaces and a tab" },
+    { name: "past the columns that open it", source: "\t\ta tab of content follows" },
+    { name: "on each line it holds", source: "\tone\n    two\n\tthree" },
+    { name: "across a blank line it spans", source: "\tone\n\n\tthree" },
+    { name: "inside a blockquote", source: "> \t  quoted indented code" },
+    { name: "inside two blockquotes", source: "> >\t\tdeeply quoted code" },
+  ])("keeps the tab an indented block was indented with $name", async ({ source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A tab covering the column a block's content stands at is expanded by the parse into content the
+  // block holds, so writing the run back would move that column and the block would reopen a level
+  // deeper. The canonical run is written instead, which is the boundary this record stops at.
+  it.each([
+    {
+      expected: ">       quoted tab-stop content",
+      name: "a quote whose content column is no tab stop",
+      source: ">\t\tquoted tab-stop content",
+    },
+    {
+      expected: "-       list item with tab indentation",
+      name: "a bullet whose content column is no tab stop",
+      source: "-\t\tlist item with tab indentation",
+    },
+  ])("writes the canonical run where a tab overshoots $name", async ({ expected, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${expected}\n`);
+  });
+
+  // The content of an indented block is verbatim, so a backslash standing before a block marker is
+  // one the file wrote rather than one the serializer added and a relaxation pass could take out.
+  it("keeps a backslash a line of indented code spells before a block marker", async () => {
+    const source = "\t\\# not a heading\n";
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe(source);
+  });
+
   // An indented block cannot carry an info string, so the two forms are not interchangeable and a
   // block holding one is fenced whatever the file wrote.
   it.each([

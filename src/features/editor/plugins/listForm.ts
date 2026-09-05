@@ -6,6 +6,7 @@ import {
   DEFAULT_ORDERED_LIST_MARKER,
   findListItemForm,
   findTaskMarker,
+  LIST_ITEM_INDENT_ATTRIBUTE_NAME,
   LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME,
   LIST_ITEM_MARKDOWN_TYPE,
   LIST_ITEM_NUMBER_ATTRIBUTE_NAME,
@@ -43,6 +44,24 @@ const readListItemOpening = (item: MarkdownNode, source: string) => {
     : source.slice(start, contentStart);
 };
 
+// What an item's marker stood behind on its own line, which is the prefix its containers wrote
+// and the columns the item stands past them by, spelled as one run the file holds indivisibly: a
+// tab covering both is a single character, and the parse expands it against the tab stops rather
+// than recording it. An item sharing its line with the marker that holds it reads its container's
+// marker here instead, which `readListItemIndent` declines.
+const readListItemIndent = (item: MarkdownNode, source: string) => {
+  const start = item.position?.start.offset;
+
+  if (start === undefined) {
+    return undefined;
+  }
+
+  const lineStart =
+    Math.max(source.lastIndexOf("\n", start - 1), source.lastIndexOf("\r", start - 1)) + 1;
+
+  return source.slice(lineStart, start);
+};
+
 // CommonMark puts an item's content one space past its marker wherever the marker's own line
 // carries nothing else, so an item whose first block opens on a later line is one that was written
 // with a blank line after its marker.
@@ -78,6 +97,7 @@ const markAuthoredListForm = (list: MarkdownNode, source: string) => {
     const authored = item as Record<string, unknown>;
 
     authored[LIST_ITEM_PADDING_ATTRIBUTE_NAME] = form.padding;
+    authored[LIST_ITEM_INDENT_ATTRIBUTE_NAME] = readListItemIndent(item, source);
     authored[LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME] = opensOnLaterLine(item);
 
     if (form.number !== undefined) {

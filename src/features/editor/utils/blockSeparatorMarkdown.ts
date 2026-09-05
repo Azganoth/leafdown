@@ -1,6 +1,7 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 
+import { withoutLinePrefixMarkers } from "./linePrefixMarkdown";
 import { interruptsParagraphAsHtmlBlock, RAW_HTML_MARKDOWN_TYPE } from "./rawHtmlMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -227,7 +228,8 @@ export const markBlockSeparators = (state: StringifyState) => {
   const marked = (node: SeparatorNode, parent: never, handleState: never, info: never) => {
     const value = handle(node, parent, handleState, info);
 
-    return readBlockAdjacent(node) && joinsPrecedingBlock(node, parent, value)
+    return readBlockAdjacent(node) &&
+      joinsPrecedingBlock(node, parent, withoutLinePrefixMarkers(value))
       ? BLOCK_SEPARATOR_MARKER + value
       : value;
   };

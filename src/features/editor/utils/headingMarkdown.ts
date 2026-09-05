@@ -11,10 +11,10 @@ import {
 import {
   CONTINUATIONS_ATTRIBUTE_NAME,
   DEFAULT_CONTINUATIONS,
-  markContinuationLines,
   readContinuations,
   validateContinuations,
 } from "./continuationMarkdown";
+import { markContinuationLines } from "./linePrefixMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<

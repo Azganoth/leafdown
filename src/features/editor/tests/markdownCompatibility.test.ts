@@ -1956,6 +1956,160 @@ describe("List marker form", () => {
   });
 });
 
+// An item's marker can stand past the column its container's content is written at, and the run it
+// stands behind is one the file holds indivisibly: a tab covering both the container's prefix and
+// the item's own columns is a single character. Both spellings nest the item in the same place, so
+// the reopened document is asserted beside the bytes; neither the corpus round trip nor the
+// document-preservation guard can see the difference. A withdrawal is asserted against the blocks
+// the file reopens as rather than against the whole node, because the record itself is what the
+// withdrawal changes.
+describe("List item indentation", () => {
+  const outlineBlocks = (mounted: MountedMilkdownEditor) => {
+    const blocks: string[] = [];
+
+    mounted.view.state.doc.descendants((node, position) => {
+      const depth = mounted.view.state.doc.resolve(position).depth;
+
+      blocks.push(`${"  ".repeat(depth)}${node.type.name} ${node.textContent}`);
+
+      return !node.isTextblock;
+    });
+
+    return blocks;
+  };
+
+  const saveAndReopen = async (source: string) => {
+    const mounted = await mountEditor(source);
+    const saved = mounted.getMarkdown();
+    const reopened = await mountEditor(saved);
+
+    return { mounted, reopened, saved };
+  };
+
+  it.each([
+    { name: "a tab", source: "- parent\n\n\t- child\n" },
+    { name: "a tab under an item the list interrupts", source: "- parent\n\t- child\n" },
+    { name: "three spaces at the document root", source: "   - alpha\n" },
+    // The record stands where the containers write their prefix, and the separator between two
+    // blocks is decided on the line the second was written with, so that line is read without it.
+    {
+      name: "a root list the paragraph above it runs straight into",
+      source: "Text\n   - alpha\n",
+    },
+    { name: "the run a nested list stacks", source: "- a\n\n\t- b\n\n\t\t- c\n\n\t\t\t- d\n" },
+    { name: "a tab past a quote marker", source: ">\t- a\n" },
+    { name: "a tab inside a blockquote", source: "> - parent\n>\n> \t- child\n" },
+    {
+      name: "two items the file wrote a column apart",
+      source: "- parent\n\n\t- alpha\n\t - beta\n",
+    },
+    { name: "the lines under the item's own", source: "- parent\n\n\t- child\n\t  more\n" },
+    { name: "a second block inside the item", source: "- parent\n\n\t- child\n\n\t  second\n" },
+    {
+      name: "an item whose content opens below its marker",
+      source: "- parent\n\n\t-\n\t  below\n",
+    },
+    { name: "a task item", source: "- parent\n\n\t- [x] done\n" },
+    {
+      name: "a wide ordered marker holding the item",
+      source: "10. parent\n\n\t- alpha\n\t  - beta\n",
+    },
+  ])("writes $name as it was authored", async ({ source }) => {
+    const { mounted, reopened, saved } = await saveAndReopen(source);
+
+    expect(saved).toBe(source);
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+
+  // A marker written even one column past the item before it falls inside that item, so a list
+  // standing right after another gives way: the file the record came from cannot have held that,
+  // and the columns the containers write are no longer the ones the file wrote.
+  it("writes a list standing after another in the same container at the containers' prefix", async () => {
+    const { mounted, reopened, saved } = await saveAndReopen("- parent\n\n\t- alpha\n\n\t* beta\n");
+
+    expect(saved).toBe("- parent\n\n\t- alpha\n\n  * beta\n");
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  it.each([
+    {
+      command: "format.decreaseListIndent",
+      name: "an item moved out of the container it was written in",
+      saved: "- parent\n- child\n",
+      source: "- parent\n\n\t- child\n",
+      text: "child",
+    },
+    {
+      command: "format.decreaseListIndent",
+      name: "an item moved one container out of two",
+      saved: "- parent\n\n\t- alpha\n  - beta\n",
+      source: "- parent\n\n\t- alpha\n\n\t\t- beta\n",
+      text: "beta",
+    },
+    {
+      command: "format.increaseListIndent",
+      name: "an item moved inside the one before it",
+      saved: "- parent\n\n\t- alpha\n\t  * beta\n",
+      source: "- parent\n\n\t- alpha\n\t- beta\n",
+      text: "beta",
+    },
+  ] satisfies {
+    command: EditorCommandId;
+    name: string;
+    saved: string;
+    source: string;
+    text: string;
+  }[])(
+    "writes $name at the prefix its containers spell",
+    async ({ command, saved, source, text }) => {
+      const mounted = await mountEditor(source);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, text));
+      await runEditorCommand(mounted.editor, command);
+
+      const written = mounted.getMarkdown();
+      const reopened = await mountEditor(written);
+
+      expect(written).toBe(saved);
+      expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+    },
+  );
+
+  // An item split off a recorded one carries the same prefix, which stands it beside the item it
+  // was split from rather than inside it.
+  it("writes an item split off a recorded one at the prefix it was split from", async () => {
+    const mounted = await mountEditor("- parent\n\n\t- alpha\n");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "alpha"));
+    runKeyDownHandlers(mounted.view, "Enter");
+
+    expect(mounted.getMarkdown()).toBe("- parent\n\n\t-\n\t- alpha\n");
+  });
+
+  // An item arriving with no prefix of its own, as one pasted or dragged into the list does, is
+  // written at the containers' prefix and its content stands one column past that. Every recorded
+  // item after it gives way, because a marker written where the file wrote it would fall inside it.
+  it("writes the items after one carrying no prefix at the containers' prefix", async () => {
+    const mounted = await mountEditor("- parent\n\n\t- alpha\n\t- beta\n");
+    const { doc, schema, tr } = mounted.view.state;
+    const added = schema.nodes.list_item?.createAndFill();
+    let itemStart = -1;
+
+    doc.descendants((node, position) => {
+      if (itemStart < 0 && node.type.name === "list_item" && node.textContent === "alpha") {
+        itemStart = position;
+      }
+
+      return itemStart < 0;
+    });
+
+    expect(added).not.toBeNull();
+    mounted.view.dispatch(tr.insert(itemStart, added!));
+
+    expect(mounted.getMarkdown()).toBe("- parent\n\n  -\n  - alpha\n  - beta\n");
+  });
+});
+
 describe("Task marker form", () => {
   // GFM reads `x` and `X` as the same checked marker and a space and a tab as the same unchecked
   // one, so the state survives whichever is written and only the authored spelling is at stake.

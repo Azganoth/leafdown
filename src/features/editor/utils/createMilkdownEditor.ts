@@ -72,7 +72,11 @@ import {
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
-import { leafdownFootnoteDefinitionLabelSchema } from "../plugins/footnoteDefinitionLabel";
+import {
+  commitFootnoteDefinitionLabels,
+  createLeafdownFootnoteDefinitionLabelPlugin,
+  leafdownFootnoteDefinitionLabelSchema,
+} from "../plugins/footnoteDefinitionLabel";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
@@ -248,6 +252,7 @@ export const createMilkdownEditor = async ({
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownDefinitionSchema)
     .use(leafdownFootnoteDefinitionLabelSchema)
+    .use(createLeafdownFootnoteDefinitionLabelPlugin())
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
@@ -473,7 +478,10 @@ export const createMilkdownEditor = async ({
 };
 
 export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
-  finalizeSourceProjection(editor.ctx.get(editorViewCtx));
+  const view = editor.ctx.get(editorViewCtx);
+
+  finalizeSourceProjection(view);
+  commitFootnoteDefinitionLabels(view);
 
   return editor.action(getMarkdown());
 };

@@ -127,8 +127,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Content that shows the syntax marker decoration when the caret is inside the block: Headings.
 - Content that remains structurally rendered without marker-driven editing controls or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks, Tables.
-- Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Autolinks, Raw HTML.
-- Content that shows the permanent syntax markers: Footnote definitions, link and image reference definitions.
+- Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Footnote definition labels, Autolinks, Raw HTML.
+- Content that shows the permanent syntax markers: Link and image reference definitions.
 
 ### Blocks
 
@@ -141,7 +141,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Clicking a task-list checkbox toggles it checked or unchecked.
 - Tables render as editable table blocks. Basic table editing uses visual table interaction; pipe-delimited Markdown is not exposed in the editor surface. A row holding more or fewer cells than the header is read as the columns the header declares, which is what a Markdown reader shows; cells beyond the header are dropped and missing cells are filled at the end of the row. A table written with a header and delimiter row and no body rows is kept and rendered as a header-only table.
 - Code blocks render as styled monospace blocks with syntax highlighting when available. Focused code blocks edit code content directly. Language metadata controls are deferred.
-- Footnote definitions render as editable definition blocks with a persistent subtle definition marker.
+- Footnote definitions render as editable definition blocks that always show their source: `[^` and `]:` as muted monospace marker runs, the label between them in bold, and the definition body in muted text, with a small gap separating the label from each marker run. The presentation does not depend on the caret: it neither appears when a caret arrives nor resolves when one leaves. The label is document text a caret and a selection reach and edit; the marker runs are chrome that hold no document position, so a caret aimed at one resolves inside the definition. A backspace at the start of the definition's body moves the caret to the end of the label rather than merging the body into it.
+- Editing a footnote definition's label renames the definition and every reference that named it, so the resolution key moves on both sides together and no reference is left naming a label the file no longer defines. The label commits when the caret leaves it, and a file written while the caret is still in it is written with the label the author typed. An empty label, a label holding a bracket or a line ending, and a label another definition already answers to do not commit; the label the definition was read with stands. `Undo` restores the label the typing began from and returns the caret to it, which reopens the edit, so the rename it reverses settles when the caret next leaves or when the file is written. Editing a reference label still does not create, rename, delete, or modify any definition.
 - Link and image reference definitions render as blocks showing the permanent definition source. They are selected, moved, and deleted as one block rather than typed into, because a reference resolves against the definitions the document was read with and would otherwise point at a destination the file no longer names.
 - Clicking the empty space below the document appends an empty paragraph and places the caret in it, unless the document already ends with one.
 

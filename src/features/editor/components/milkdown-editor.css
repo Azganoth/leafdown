@@ -282,7 +282,7 @@
       }
 
       & > :not(dt) {
-        @apply col-start-2;
+        @apply col-start-2 text-muted-foreground;
       }
 
       & > :nth-child(2) {

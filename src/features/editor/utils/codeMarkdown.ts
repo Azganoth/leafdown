@@ -61,6 +61,11 @@ const CODE_INDENT_MAX = 3;
 // What the preset's indented branch writes every non-blank line behind, which is the run a
 // record stands in place of and the one a withdrawn record leaves standing.
 const INDENTED_CODE_PREFIX = "    ";
+// Everything a record may stand for: the quote markers the containers spell and the whitespace
+// around them. A prefix reaching any other character has taken in a marker another container
+// owns, which the record would write back over the one the document now holds. A quote is safe
+// because the resolver compares where each one stands, and no other marker is compared at all.
+const CODE_LINE_PREFIX_PATTERN = /^(?:[\t ]*>)*[\t ]*$/u;
 // CommonMark ends a line on a carriage return, a line feed, or the pair.
 const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;
 
@@ -193,7 +198,7 @@ export const findCodeLinePrefixes = (raw: string, value: string, opening: string
     // A prefix spelled in spaces is one the canonical run already reproduces, character for
     // character, so recording it would only make the same line answer for two spellings of itself.
     // A tab is the one spelling whose width is not its length, and the only one worth a record.
-    return prefix.includes("\t") ? prefix : "";
+    return prefix.includes("\t") && CODE_LINE_PREFIX_PATTERN.test(prefix) ? prefix : "";
   });
 };
 

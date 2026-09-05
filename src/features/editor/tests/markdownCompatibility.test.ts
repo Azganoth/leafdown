@@ -24,6 +24,28 @@ import { toggleTaskCheckedAt } from "../utils/taskLists";
 
 const mountEditor = setupMilkdownEditorMount();
 
+const outlineBlocks = (mounted: MountedMilkdownEditor) => {
+  const blocks: string[] = [];
+
+  mounted.view.state.doc.descendants((node, position) => {
+    const depth = mounted.view.state.doc.resolve(position).depth;
+
+    blocks.push(`${"  ".repeat(depth)}${node.type.name} ${node.textContent}`);
+
+    return !node.isTextblock;
+  });
+
+  return blocks;
+};
+
+const saveAndReopen = async (source: string) => {
+  const mounted = await mountEditor(source);
+  const saved = mounted.getMarkdown();
+  const reopened = await mountEditor(saved);
+
+  return { mounted, reopened, saved };
+};
+
 const supportedMarkdown = `# Heading
 
 Paragraph with *emphasis*, **strong**, \`code\`, ~~strike~~, https://example.com, and [link](docs/readme.md).
@@ -1444,6 +1466,39 @@ describe("Code block form", () => {
     expect(mounted.getMarkdown()).toBe(source);
   });
 
+  // Both spellings put the block's content at the same column, so the reopened document is asserted
+  // beside the bytes: neither the corpus round trip nor the document-preservation guard can see the
+  // difference between a run written back and the canonical one.
+  it.each([
+    { name: "at the document root", source: "\tone\n\ttwo\n" },
+    { name: "inside a blockquote", source: "> \t  quoted\n" },
+  ])("reopens as the same document with the tab written back $name", async ({ source }) => {
+    const { mounted, reopened, saved } = await saveAndReopen(source);
+
+    expect(saved).toBe(source);
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  // A record stands in place of everything written before the line's content, so one reaching a
+  // marker another container owns would write that marker back over the one the document now holds.
+  // A two-digit ordered marker puts its content column on a tab stop, which is where a block's own
+  // indentation can be spelled by a run that starts at the marker; the record is refused there, and
+  // the item's own spelling stays the axis its record owns.
+  it("records no prefix reaching a marker another container owns", async () => {
+    const mounted = await mountEditor("12. a\n\n13.\t\tcode\n");
+    const position = getEditorTextPosition(mounted, "code");
+
+    setTextSelection(mounted.view, position + "code".length);
+    await runEditorCommand(mounted.editor, "format.unorderedList");
+    await runEditorCommand(mounted.editor, "format.increaseListIndent");
+
+    const saved = mounted.getMarkdown();
+    const reopened = await mountEditor(saved);
+
+    expect(saved).toBe("* a\n  *     code\n");
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
   // An indented block cannot carry an info string, so the two forms are not interchangeable and a
   // block holding one is fenced whatever the file wrote.
   it.each([
@@ -2009,28 +2064,6 @@ describe("List marker form", () => {
 // the file reopens as rather than against the whole node, because the record itself is what the
 // withdrawal changes.
 describe("List item indentation", () => {
-  const outlineBlocks = (mounted: MountedMilkdownEditor) => {
-    const blocks: string[] = [];
-
-    mounted.view.state.doc.descendants((node, position) => {
-      const depth = mounted.view.state.doc.resolve(position).depth;
-
-      blocks.push(`${"  ".repeat(depth)}${node.type.name} ${node.textContent}`);
-
-      return !node.isTextblock;
-    });
-
-    return blocks;
-  };
-
-  const saveAndReopen = async (source: string) => {
-    const mounted = await mountEditor(source);
-    const saved = mounted.getMarkdown();
-    const reopened = await mountEditor(saved);
-
-    return { mounted, reopened, saved };
-  };
-
   it.each([
     { name: "a tab", source: "- parent\n\n\t- child\n" },
     { name: "a tab under an item the list interrupts", source: "- parent\n\t- child\n" },

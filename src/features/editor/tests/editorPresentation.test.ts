@@ -71,6 +71,19 @@ const value = 1;
     expect(editorCss).toContain("text-muted-foreground");
   });
 
+  it("renders a footnote definition beside its persistent marker", async () => {
+    const mounted = await mountStyledEditor("Note[^a]\n\n[^a]: Detail");
+    const definition = getEditorDomElement(mounted, "dl[data-type='footnote_definition']");
+    const editorCss = readFileSync(editorCssPath, "utf8");
+
+    expect(definition).toHaveAttribute("data-leafdown-marker", "[^a]:");
+    expect(definition.querySelector("dd")).toHaveTextContent("Detail");
+    expect(editorCss).toContain(".leafdown-marker-node--persistent::before {");
+    expect(editorCss).toMatch(
+      /dl\[data-type="footnote_definition"\]\s*\{[^}]*flex items-baseline/su,
+    );
+  });
+
   it("adds bundled Shiki decorations to supported code block languages", async () => {
     const mounted = await mountStyledEditor(`\`\`\`ts
 const value: number = 1;

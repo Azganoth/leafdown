@@ -79,7 +79,10 @@ import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
 import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
-import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
+import {
+  createLeafdownMarkerPresentationPlugin,
+  withoutFootnoteDefinitionLabelTerm,
+} from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
@@ -339,7 +342,8 @@ export const createMilkdownEditor = async ({
       );
       ctx.update(
         footnoteDefinitionSchema.key,
-        (getSchema) => (schemaCtx) => withFootnoteDefinitionSeparator(getSchema(schemaCtx)),
+        (getSchema) => (schemaCtx) =>
+          withoutFootnoteDefinitionLabelTerm(withFootnoteDefinitionSeparator(getSchema(schemaCtx))),
       );
       ctx.update(
         bulletListSchema.key,

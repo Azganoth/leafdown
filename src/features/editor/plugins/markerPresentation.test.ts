@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { NodeSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
@@ -36,18 +36,39 @@ describe("marker presentation", () => {
     expect(heading).not.toHaveAttribute("data-leafdown-marker");
   });
 
-  it("keeps footnote definition markers persistent", async () => {
+  it("keeps a footnote definition's persistent marker as its only label", async () => {
     const mounted = await mountStyledEditor("Text[^note]\n\n[^note]: Detail");
+    const definition = getEditorDomElement(mounted, "dl[data-type='footnote_definition']");
 
-    expect(mounted.view.dom.querySelector(".leafdown-marker-widget--persistent")).toHaveTextContent(
-      "[^note]:",
-    );
+    expect(definition).toHaveClass("leafdown-marker-node--persistent");
+    expect(definition).toHaveAttribute("data-leafdown-marker", "[^note]:");
+    expect(definition.querySelector("dt")).toBeNull();
+    expect(definition).toHaveTextContent(/^Detail$/u);
 
     setTextSelection(mounted.view, 1, 5);
 
-    expect(mounted.view.dom.querySelector(".leafdown-marker-widget--persistent")).toHaveTextContent(
-      "[^note]:",
+    expect(definition).toHaveClass("leafdown-marker-node--persistent");
+    expect(definition).toHaveAttribute("data-leafdown-marker", "[^note]:");
+  });
+
+  it("keeps a footnote definition marker out of the positions its content holds", async () => {
+    const mounted = await mountStyledEditor("Text[^note]\n\n[^note]: Detail");
+    const definition = getEditorDomElement(mounted, "dl[data-type='footnote_definition']");
+    const content = getEditorDomElement(mounted, "dl[data-type='footnote_definition'] > dd");
+    const definitionPos = getEditorNodePosition(mounted, "footnote_definition");
+    const definitionNode = mounted.view.state.doc.nodeAt(definitionPos);
+
+    expect(content.firstElementChild).toBe(definition.querySelector("p"));
+    expect(getEditorTextContent(mounted)).not.toContain("[^note]:");
+
+    const caret = TextSelection.near(
+      mounted.view.state.doc.resolve(mounted.view.posAtDOM(content, 0)),
+      1,
     );
+
+    expect(caret.from).toBeGreaterThan(definitionPos);
+    expect(caret.from).toBeLessThan(definitionPos + (definitionNode?.nodeSize ?? 0));
+    expect(caret.$from.parent).toBe(definitionNode?.firstChild);
   });
 
   it("does not add caret markers to blockquotes or list items", async () => {

@@ -2075,6 +2075,77 @@ describe("List item indentation", () => {
     },
   );
 
+  // An item whose leading paragraph is emptied writes its nested list on its own marker's line, so
+  // that list's items stand behind a marker rather than behind a prefix and carry no indentation of
+  // their own. Reading the record there would write it over the marker holding them.
+  it.each([
+    { name: "at the document root", saved: "- - c\n", source: "- b\n\n  - c\n" },
+    {
+      name: "under a recorded item",
+      saved: "- a\n\n\t- - c\n",
+      source: "- a\n\n\t- b\n\n\t\t- c\n",
+    },
+    {
+      name: "under an item written with spaces",
+      saved: "- a\n\n  - - c\n",
+      source: "- a\n\n  - b\n\n    - c\n",
+    },
+  ])("writes an item opening on its container's marker line $name", async ({ saved, source }) => {
+    const mounted = await mountEditor(source);
+    const from = getEditorTextPosition(mounted, "b");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(from, from + 1));
+
+    const written = mounted.getMarkdown();
+    const reopened = await mountEditor(written);
+
+    expect(written).toBe(saved);
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  // A record spelling as many quote markers as the containers do, at other columns, would move the
+  // quote holding the item rather than the item.
+  it("writes a quote moved into the item above it at the prefix its containers spell", async () => {
+    const mounted = await mountEditor("- parent\n\n>   - child\n");
+    const { doc, tr } = mounted.view.state;
+    let quote = -1;
+    let item = -1;
+
+    doc.descendants((node, position) => {
+      if (node.type.name === "blockquote") {
+        quote = position;
+      } else if (node.type.name === "list_item") {
+        item = position + node.nodeSize - 1;
+      }
+
+      return quote < 0;
+    });
+
+    const moved = doc.slice(quote, quote + doc.nodeAt(quote)!.nodeSize).content;
+
+    mounted.view.dispatch(
+      tr.delete(quote, quote + doc.nodeAt(quote)!.nodeSize).insert(item, moved),
+    );
+
+    const written = mounted.getMarkdown();
+    const reopened = await mountEditor(written);
+
+    expect(written).toBe("- parent\n  > - child\n");
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  // The separator between two blocks is cancelled by matching the prefix the containers wrote, so a
+  // record standing a quote at another column would leave the blank line behind rather than the
+  // indentation, which is the blockquote's own form and not the item's.
+  it.each([
+    { name: "one the quote's own lines carry", source: "  > Text\n  > - alpha\n" },
+    { name: "one only the item's line carries", source: "> Text\n  > - alpha\n" },
+  ])("writes a list under a quote indented $name without a blank line", async ({ source }) => {
+    const mounted = await mountEditor(source);
+
+    expect(mounted.getMarkdown()).toBe("> Text\n> - alpha\n");
+  });
+
   // An item split off a recorded one carries the same prefix, which stands it beside the item it
   // was split from rather than inside it.
   it("writes an item split off a recorded one at the prefix it was split from", async () => {

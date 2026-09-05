@@ -4,6 +4,7 @@ import {
   markContinuationLines,
   markListItemPrefix,
   resolveLinePrefixes,
+  withoutLeadingLinePrefix,
   withoutLinePrefixMarkers,
 } from "./linePrefixMarkdown";
 
@@ -157,6 +158,16 @@ describe("resolveLinePrefixes", () => {
         written: markedItem("", "> ", "- a"),
       },
       {
+        expected: "  > - c",
+        name: "a quote marker standing at another column than the containers write it",
+        written: markedItem("  > ", ">   ", "- c"),
+      },
+      {
+        expected: "> - alpha",
+        name: "a quote marker the record indents and the containers do not",
+        written: markedItem("> ", "  > ", "- alpha"),
+      },
+      {
         expected: "  - c",
         name: "a nested item measured against the item holding it",
         written: `  ${ITEM_MARKER}\t\t${ITEM_MARKER}- c`,
@@ -236,6 +247,36 @@ describe("resolveLinePrefixes", () => {
 
   it("drops a marker left without the one that closes it", () => {
     expect(resolveLinePrefixes(`Text\n${MARKER}line\n`)).toBe("Text\nline\n");
+  });
+});
+
+describe("withoutLeadingLinePrefix", () => {
+  it.each([
+    { name: "a value carrying no record", value: "- alpha", written: "- alpha" },
+    {
+      name: "a record standing past the head",
+      value: `- ${ITEM_MARKER}  ${ITEM_MARKER}- c`,
+      written: `- ${ITEM_MARKER}  ${ITEM_MARKER}- c`,
+    },
+    {
+      name: "a marker the closing one never followed",
+      value: `${ITEM_MARKER}- alpha`,
+      written: `${ITEM_MARKER}- alpha`,
+    },
+    {
+      name: "a marker the closing one follows on a later line",
+      value: `${ITEM_MARKER}- alpha\n  ${ITEM_MARKER}`,
+      written: `${ITEM_MARKER}- alpha\n  ${ITEM_MARKER}`,
+    },
+  ])("leaves $name alone", ({ value, written }) => {
+    expect(withoutLeadingLinePrefix(value)).toBe(written);
+  });
+
+  it.each([
+    { name: "an item's own", value: markedItem("", "  ", "- c"), written: "- c" },
+    { name: "a continuation line's", value: marked("", "  ", "text"), written: "text" },
+  ])("drops $name record from the head of the value", ({ value, written }) => {
+    expect(withoutLeadingLinePrefix(value)).toBe(written);
   });
 });
 

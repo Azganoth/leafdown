@@ -8,7 +8,11 @@ import {
   DEFAULT_BLOCK_ADJACENT,
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
-import { markListItemPrefix, readPrefixColumns } from "./linePrefixMarkdown";
+import {
+  markListItemPrefix,
+  readPrefixColumns,
+  withoutLeadingLinePrefix,
+} from "./linePrefixMarkdown";
 import { joinsWithoutBlankLine } from "./markdownJoins";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -313,9 +317,9 @@ const withoutUninterruptingFirstItem = (
   };
 };
 
-const withoutAuthoredIndent = (node: ListNode) => ({
-  ...node,
-  children: node.children.map((item) => ({
+const withoutAuthoredIndent = (list: ListNode) => ({
+  ...list,
+  children: list.children.map((item) => ({
     ...item,
     [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: DEFAULT_LIST_ITEM_INDENT,
   })),
@@ -327,13 +331,11 @@ const withoutAuthoredIndent = (node: ListNode) => ({
 // own. The file the record came from cannot have held that, because the parse would have nested
 // the item there; a record reaching it is one an edit left behind, and a marker's column is the one
 // axis of an item's form that decides what the document holds.
-const withoutIndentAfterList = (node: ListNode, parent: StringifyParent) => {
+const standsAfterList = (node: ListNode, parent: StringifyParent) => {
   const children = parent?.children ?? [];
   const index = children.indexOf(node);
 
-  return index > 0 && children[index - 1]?.type === LIST_MARKDOWN_TYPE
-    ? withoutAuthoredIndent(node)
-    : node;
+  return index > 0 && children[index - 1]?.type === LIST_MARKDOWN_TYPE;
 };
 
 // `mdast-util-to-markdown` picks a list's marker from one option for the whole document and moves
@@ -347,7 +349,10 @@ export const serializeList: NonNullable<RemarkStringifyHandlers["list"]> = (
   state,
   info,
 ) => {
-  const list = withoutIndentAfterList(withoutUninterruptingFirstItem(node, parent, state), parent);
+  // Both are read off the node the serializer was handed, because each rewrite replaces it and a
+  // replacement is no longer the child its parent lists.
+  const written = withoutUninterruptingFirstItem(node, parent, state);
+  const list = standsAfterList(node, parent) ? withoutAuthoredIndent(written) : written;
   const { bullet, bulletOrdered, bulletOther, rule } = state.options;
 
   if (node.ordered) {
@@ -481,7 +486,14 @@ export const serializeListItem: NonNullable<RemarkStringifyHandlers["listItem"]>
         return (blank ? "" : " ".repeat(size) + markedContentIndent) + line;
       }
 
-      return (blank ? markedIndent + marker : markedOpening + checkbox) + line;
+      if (blank) {
+        return markedIndent + marker;
+      }
+
+      // An item opening on this line stands behind the marker rather than behind a prefix, so the
+      // record it carries answers for a line it no longer opens. An item whose content begins
+      // below its marker leaves that line to it, and keeps it.
+      return markedOpening + checkbox + (leadingBlankLine ? line : withoutLeadingLinePrefix(line));
     },
   );
 

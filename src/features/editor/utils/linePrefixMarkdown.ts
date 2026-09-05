@@ -116,16 +116,42 @@ export const readPrefixColumns = (prefix: string) => {
   return columns;
 };
 
-const countQuoteMarkers = (prefix: string) => prefix.split(QUOTE_MARKER).length - 1;
+// Where every quote marker the prefix spells stands. A container writes its marker at one column,
+// so counting them is not enough: a record spelling as many as the containers do, at other columns,
+// is a record that moves a quote out of the container holding it.
+const readQuoteColumns = (prefix: string) => {
+  const columns: number[] = [];
+  let column = 0;
+
+  for (const character of prefix) {
+    if (character === QUOTE_MARKER) {
+      columns.push(column);
+    }
+
+    column = character === "\t" ? column + TAB_STOP - (column % TAB_STOP) : column + 1;
+  }
+
+  return columns;
+};
+
+const holdsSameQuoteColumns = (written: string, authored: string) => {
+  const columns = readQuoteColumns(written);
+  const recorded = readQuoteColumns(authored);
+
+  return (
+    columns.length === recorded.length && columns.every((column, at) => column === recorded[at])
+  );
+};
 
 // Whether the containers the document holds now still take the prefix an item's marker stood
-// behind. The quote markers have to be the ones the containers spell, or the item opens a quote of
-// its own; and the marker has to land at or past the column the containers wrote and under four
-// further, or the item leaves its container or opens indented code inside it. The columns are
-// counted as CommonMark reads them, because a tab is the one spelling whose width is not its
-// length and the whole point of the record is to write one back.
+// behind. Every quote marker has to stand where the containers write theirs, or the record opens a
+// quote of its own or takes one out of the container holding it; and the marker has to land at or
+// past the column the containers wrote and under four further, or the item leaves its container or
+// opens indented code inside it. The columns are counted as CommonMark reads them, because a tab is
+// the one spelling whose width is not its length and the whole point of the record is to write one
+// back.
 const takesListItemPrefix = (written: string, authored: string) => {
-  if (countQuoteMarkers(written) !== countQuoteMarkers(authored)) {
+  if (!holdsSameQuoteColumns(written, authored)) {
     return false;
   }
 
@@ -231,6 +257,25 @@ export const resolveLinePrefixes = (document: string) =>
   document.includes(CONTINUATION_MARKER) || document.includes(LIST_ITEM_MARKER)
     ? document.split("\n").map(resolveLinePrefix).join("\n")
     : document;
+
+/// Drops the record a value opens with, for content another item's marker already stands on. A
+/// record answers for the prefix a marker opens its own line behind, and an item written on the
+/// line its container's marker opens has none: what stands before it there is that marker, which
+/// the resolver would otherwise take for prefix and write the record over.
+export const withoutLeadingLinePrefix = (value: string) => {
+  const marker = value.slice(0, LINE_PREFIX_MARKER_LENGTH);
+
+  if (marker !== CONTINUATION_MARKER && marker !== LIST_ITEM_MARKER) {
+    return value;
+  }
+
+  const close = value.indexOf(marker, LINE_PREFIX_MARKER_LENGTH);
+  const line = value.indexOf("\n");
+
+  return close < 0 || (line >= 0 && close > line)
+    ? value
+    : value.slice(close + LINE_PREFIX_MARKER_LENGTH);
+};
 
 /// Marks the line an item's marker opens and every line the item writes under it. The prefix the
 /// containers spell is what the record replaces, so the marker stands after the item's own

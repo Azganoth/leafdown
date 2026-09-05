@@ -1,6 +1,10 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { NodeSchema } from "@milkdown/kit/transformer";
 
+import {
+  FOOTNOTE_DEFINITION_LABEL_NODE_NAME,
+  getFootnoteDefinitionLabelNode,
+} from "./footnoteDefinitionLabel";
 import { withoutLinePrefixMarkers } from "./linePrefixMarkdown";
 import { interruptsParagraphAsHtmlBlock, RAW_HTML_MARKDOWN_TYPE } from "./rawHtmlMarkdown";
 
@@ -308,25 +312,34 @@ export const withFootnoteDefinitionSeparator = (schema: NodeSchema): NodeSchema 
   parseMarkdown: {
     ...schema.parseMarkdown,
     runner: (state, node, type) => {
-      state
-        .openNode(type, {
-          label: node.label as string,
-          [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
-        })
-        .next(node.children)
-        .closeNode();
+      const label = node.label as string;
+
+      state.openNode(type, {
+        label,
+        [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
+      });
+
+      state.openNode(type.schema.nodes[FOOTNOTE_DEFINITION_LABEL_NODE_NAME]);
+
+      if (label) {
+        state.addText(label);
+      }
+
+      state.closeNode().next(node.children).closeNode();
     },
   },
   toMarkdown: {
     ...schema.toMarkdown,
     runner: (state, node) => {
+      const labelNode = getFootnoteDefinitionLabelNode(node);
+
       state
         .openNode(FOOTNOTE_DEFINITION_MARKDOWN_TYPE, undefined, {
           label: node.attrs.label,
           identifier: node.attrs.label,
           [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node.attrs),
         })
-        .next(node.content)
+        .next(labelNode ? node.content.cut(labelNode.nodeSize) : node.content)
         .closeNode();
     },
   },

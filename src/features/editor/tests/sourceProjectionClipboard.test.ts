@@ -427,7 +427,7 @@ describe("source projection clipboard slices", () => {
     expect(
       mounted.view.someProp("handlePaste", (handler) => handler(mounted.view, event, slice)),
     ).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("[wor[^note]d](./doc.md) TextDetail");
+    expect(getEditorTextContent(mounted)).toBe("[wor[^note]d](./doc.md) TextnoteDetail");
 
     setSelectionAtDocumentEnd(mounted.view);
 

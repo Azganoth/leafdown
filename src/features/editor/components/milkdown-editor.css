@@ -265,35 +265,50 @@
       @apply relative;
     }
 
-    .leafdown-marker-node--subtle::before,
-    .leafdown-marker-node--persistent::before {
-      @apply inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground opacity-80 select-none;
+    .leafdown-marker-node--subtle::before {
+      @apply mr-2 inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground opacity-80 select-none;
       content: attr(data-leafdown-marker);
     }
 
-    .leafdown-marker-node--subtle::before {
-      @apply mr-2;
-    }
-
-    .leafdown-marker-node--persistent::before {
-      @apply border-primary/25 text-primary/80;
-    }
-
-    /* The marker stands where the label it spells stands in the file, on the line the definition
-       opens on, so the content beside it keeps the block's remaining width. */
+    /* The label stands where the file spells it, on the line the definition opens on, with the body
+       in a second column so a body of several blocks stays under one heading rather than splitting
+       across the row. */
     dl[data-type="footnote_definition"] {
-      @apply my-4 flex items-baseline gap-2;
+      @apply my-4 grid items-baseline gap-x-2;
+      grid-template-columns: auto minmax(0, 1fr);
 
-      & > dd {
-        @apply min-w-0 flex-1;
+      & > dt {
+        @apply col-start-1 row-start-1 font-bold;
+      }
 
-        & > :first-child {
-          @apply mt-0;
-        }
+      & > :not(dt) {
+        @apply col-start-2;
+      }
 
-        & > :last-child {
-          @apply mb-0;
-        }
+      & > :nth-child(2) {
+        @apply row-start-1 mt-0;
+      }
+
+      & > :last-child {
+        @apply mb-0;
+      }
+    }
+
+    /* `[^` and `]:` are the source the file holds rather than text the document does. Drawing them
+       as generated content keeps them out of every position, which is what lets a caret aimed at
+       one resolve inside the definition. */
+    dl[data-type="footnote_definition"] > dt {
+      &::before,
+      &::after {
+        @apply px-1 font-mono font-normal text-muted-foreground select-none;
+      }
+
+      &::before {
+        content: "[^";
+      }
+
+      &::after {
+        content: "]:";
       }
     }
 

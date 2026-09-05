@@ -71,16 +71,20 @@ const value = 1;
     expect(editorCss).toContain("text-muted-foreground");
   });
 
-  it("renders a footnote definition beside its persistent marker", async () => {
+  it("renders a footnote definition's label beside its marker runs", async () => {
     const mounted = await mountStyledEditor("Note[^a]\n\n[^a]: Detail");
     const definition = getEditorDomElement(mounted, "dl[data-type='footnote_definition']");
+    const label = getEditorDomElement(mounted, "dl[data-type='footnote_definition'] > dt");
     const editorCss = readFileSync(editorCssPath, "utf8");
 
-    expect(definition).toHaveAttribute("data-leafdown-marker", "[^a]:");
-    expect(definition.querySelector("dd")).toHaveTextContent("Detail");
-    expect(editorCss).toContain(".leafdown-marker-node--persistent::before {");
+    expect(label).toHaveTextContent(/^a$/u);
+    expect(definition).not.toHaveAttribute("data-leafdown-marker");
+    expect(definition.querySelector("p")).toHaveTextContent("Detail");
     expect(editorCss).toMatch(
-      /dl\[data-type="footnote_definition"\]\s*\{[^}]*flex items-baseline/su,
+      /dl\[data-type="footnote_definition"\]\s*\{[^}]*grid items-baseline/su,
+    );
+    expect(editorCss).toMatch(
+      /dl\[data-type="footnote_definition"\]\s*>\s*dt\s*\{.*?content:\s*"\[\^";.*?content:\s*"\]:";/su,
     );
   });
 

@@ -16,6 +16,7 @@ import {
 import { getCandidateMarksAtPosition, getMarkRangeAtPosition } from "./marks";
 import {
   decodeSourceProjectionEscapes,
+  getProjectionContentClassName,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
@@ -197,13 +198,16 @@ export const createCharacterReferenceSourceProjectionAdapter =
     findTarget: findCharacterReferenceTarget,
     getPresentation: ({ ambientMarks }, source) => {
       const decoded = decodeWholeCharacterReference(source);
+      const markNames = ambientMarks.map((mark) => mark.type.name);
 
       return {
-        previews: decoded === null ? [] : [{ offset: 0, text: decoded }],
-        sourceTypes: [
-          CHARACTER_REFERENCE_ADAPTER_ID,
-          ...ambientMarks.map((mark) => mark.type.name),
-        ],
+        // The widget stands outside the document's marks, so the run's own styling reaches the
+        // character through a class rather than through the marks the source carries.
+        previews:
+          decoded === null
+            ? []
+            : [{ className: getProjectionContentClassName(markNames), offset: 0, text: decoded }],
+        sourceTypes: [CHARACTER_REFERENCE_ADAPTER_ID, ...markNames],
         spans:
           decoded === null
             ? []

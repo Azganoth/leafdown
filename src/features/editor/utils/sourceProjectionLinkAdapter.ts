@@ -15,13 +15,15 @@ import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
+  findLinkSourceCharacterReferences,
   findSourceProjectionEscapeOffsets,
-  getLinkSourceCharacterReferencePreviews,
+  getCharacterReferenceSpans,
   isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type LiteralSourceCommit,
   type SourceProjectionAdapter,
+  type SourceCharacterReference,
   type SourceProjectionParseResult,
   type SourceProjectionPresentationSpan,
   type SourceProjectionSessionRange,
@@ -632,7 +634,11 @@ const isLinkSelectionSemantic = (
   });
 };
 
-const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
+const getLinkPresentationSpans = (
+  source: string,
+  map: LinkSourceMap,
+  references: readonly SourceCharacterReference[],
+) => {
   const spans: SourceProjectionPresentationSpan[] = [
     {
       className: "leafdown-source-projection__content--link-label",
@@ -651,11 +657,13 @@ const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
       });
     }
 
-    spans.push({
-      className: segment.className,
-      from: segment.sourceFrom,
-      to: segment.sourceTo,
-    });
+    spans.push(
+      ...getCharacterReferenceSpans(
+        segment.className,
+        { from: segment.sourceFrom, to: segment.sourceTo },
+        references,
+      ),
+    );
     markerFrom = segment.sourceTo;
   }
 
@@ -669,6 +677,10 @@ const getLinkPresentationSpans = (source: string, map: LinkSourceMap) => {
 
   return spans;
 };
+
+const getLinkSegmentClassName = (map: LinkSourceMap, sourceFrom: number) =>
+  map.segments.find((segment) => segment.sourceFrom <= sourceFrom && sourceFrom < segment.sourceTo)
+    ?.className ?? "";
 
 const getLinkPresentationMap = (
   map: LinkSourceMap,
@@ -717,12 +729,19 @@ export const createLinkSourceProjectionAdapter = ({
   getPresentation: (linkTarget, source) => {
     const parsedMap = createLinkSourceMap(remark, source, linkTarget.definitions);
     const map = getLinkPresentationMap(parsedMap ?? linkTarget.sourceMap, linkTarget.ambientMarks);
+    const references = parsedMap ? findLinkSourceCharacterReferences(source, map) : [];
 
     return {
-      previews: parsedMap ? getLinkSourceCharacterReferencePreviews(source, parsedMap) : [],
+      // The label's own styling reaches the character, which is what the label spells, while the
+      // source it is written with reads as the marker the span below makes it.
+      previews: references.map(({ from, text }) => ({
+        className: `${getLinkSegmentClassName(map, from)} leafdown-source-projection__content--link-label`,
+        offset: from,
+        text,
+      })),
       sourceTypes: map.sourceTypes,
       spans: parsedMap
-        ? getLinkPresentationSpans(source, map)
+        ? getLinkPresentationSpans(source, map, references)
         : findSourceProjectionEscapeOffsets(source).map((offset) => ({
             className: "leafdown-source-projection__marker",
             from: offset,

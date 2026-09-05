@@ -56,6 +56,16 @@ const getProjectedLineText = (mounted: MountedMilkdownEditor) => {
   return read(mounted.view.dom);
 };
 
+const getPreviewClassNames = (mounted: MountedMilkdownEditor) =>
+  Array.from(mounted.view.dom.querySelectorAll("[data-leafdown-preview]"), (node) =>
+    node.className.split(" ").filter((name) => name !== "ProseMirror-widget"),
+  );
+
+const getSourceClassNames = (mounted: MountedMilkdownEditor, source: string) =>
+  Array.from(mounted.view.dom.querySelectorAll("span"))
+    .filter((node) => node.textContent === source)
+    .map((node) => node.className.split(" "));
+
 const pressBackspace = (mounted: MountedMilkdownEditor) => {
   runKeyDownHandlers(mounted.view, "Backspace");
 };
@@ -90,6 +100,47 @@ describe("character reference source projection", () => {
     setTextSelection(mounted.view, 3);
 
     expect(getProjectedLineText(mounted)).toBe(projected);
+  });
+
+  // The character is what the run renders and the source beside it is syntax, so each takes the
+  // other's styling: regular text against the marker the source reads as.
+  it.each([
+    {
+      caret: 3,
+      label: "on its own",
+      preview: ["leafdown-source-projection__content"],
+      source: "A &copy; b",
+    },
+    {
+      caret: 2,
+      label: "inside a marked fragment",
+      preview: [
+        "leafdown-source-projection__content",
+        "leafdown-source-projection__content--strong",
+      ],
+      source: "**a&copy;b**",
+    },
+    {
+      caret: 2,
+      label: "inside a link label",
+      preview: [
+        "leafdown-source-projection__content",
+        "leafdown-source-projection__content--link",
+        "leafdown-source-projection__content--link-label",
+      ],
+      source: "[a&copy;b](x)",
+    },
+  ])("draws the character as content and its source as a marker $label", async (expected) => {
+    const mounted = await mountProjectionEditor(expected.source);
+
+    setTextSelection(mounted.view, expected.caret);
+
+    expect(getPreviewClassNames(mounted)).toEqual([
+      ["leafdown-source-projection__preview", ...expected.preview],
+    ]);
+    expect(getSourceClassNames(mounted, "&copy;")).toContainEqual(
+      expect.arrayContaining(["leafdown-source-projection__marker"]),
+    );
   });
 
   it("leaves the document, the caret, and the saved file unchanged by the preview", async () => {

@@ -307,14 +307,12 @@
       font-weight: 400;
     }
 
-    /* The character a reference names stands beside the source in the marker's colour. It is drawn
-       from an attribute so that whitespace it may name keeps its width and nothing about it reads
-       as content. */
+    /* The character a reference names stands beside its source, reading as the content it renders
+       while the source stays a marker. It is drawn from an attribute so that whitespace it may
+       name keeps its width and no selection, copy, or save can reach it. */
     .leafdown-source-projection__preview::before {
-      @apply text-muted-foreground select-none;
+      @apply select-none;
       content: attr(data-leafdown-preview);
-      font-style: normal;
-      font-weight: 400;
       white-space: pre;
     }
 

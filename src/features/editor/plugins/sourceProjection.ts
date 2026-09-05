@@ -884,7 +884,36 @@ const createProjectionDecorations = (state: EditorState) => {
     }
   }
 
+  for (const preview of presentation.previews) {
+    decorations.push(
+      Decoration.widget(
+        session.from + Math.min(Math.max(preview.offset, 0), source.length),
+        () => createProjectionPreviewElement(preview.text),
+        // The preview stands before the source it names, so a caret at the start of that source
+        // rests against the `&` rather than behind the character. It carries no marks because it
+        // is not the document's text and must not take the styling the source around it is under.
+        {
+          key: `character-reference-preview:${preview.offset}:${preview.text}`,
+          marks: [],
+          side: -1,
+        },
+      ),
+    );
+  }
+
   return DecorationSet.create(state.doc, decorations);
+};
+
+// The character rides in an attribute the stylesheet draws, as a block marker already does, which
+// is what keeps it out of every reading of the document: it is in no text node, so no selection
+// covers it, no copy carries it, and nothing serializes it.
+const createProjectionPreviewElement = (text: string) => {
+  const element = document.createElement("span");
+
+  element.className = "leafdown-source-projection__preview";
+  element.dataset.leafdownPreview = text;
+
+  return element;
 };
 
 const LINK_LABEL_PRESENTATION_CLASS_NAME = "leafdown-source-projection__content--link-label";

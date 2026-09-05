@@ -2,11 +2,14 @@
 
 import { describe, expect, it } from "vitest";
 
+import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
+import { createClipboardData, dispatchClipboardEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorTextContent,
   getEditorTextPosition,
+  getSelectedEditorText,
   runKeyDownHandlers,
   setSelectionAtDocumentEnd,
   setTextSelection,
@@ -32,6 +35,27 @@ const getMarkerTexts = (mounted: MountedMilkdownEditor) =>
     (node) => node.textContent,
   );
 
+const COPYRIGHT_SIGN = "©";
+const NO_BREAK_SPACE = "\u00a0";
+const ZERO_WIDTH_SPACE = "\u200b";
+
+// The character a projected reference names is drawn from an attribute rather than written into
+// the document, so the rendered line reads as the source with each preview marked where it stands.
+const getProjectedLineText = (mounted: MountedMilkdownEditor) => {
+  const read = (node: Node): string =>
+    Array.from(node.childNodes, (child) => {
+      if (!(child instanceof HTMLElement)) {
+        return child.textContent ?? "";
+      }
+
+      const preview = child.dataset.leafdownPreview;
+
+      return preview === undefined ? read(child) : `[${preview}]`;
+    }).join("");
+
+  return read(mounted.view.dom);
+};
+
 const pressBackspace = (mounted: MountedMilkdownEditor) => {
   runKeyDownHandlers(mounted.view, "Backspace");
 };
@@ -51,6 +75,59 @@ describe("character reference source projection", () => {
     expect(getProjectionAdapterId(mounted)).toBe("character-reference");
     expect(getEditorTextContent(mounted)).toBe(source);
     expect(getMarkerTexts(mounted)).toEqual([source.slice(2, -2)]);
+  });
+
+  it.each([
+    ["a named reference", "A &copy; b", `A [${COPYRIGHT_SIGN}]&copy; b`],
+    ["a decimal reference", "A &#169; b", `A [${COPYRIGHT_SIGN}]&#169; b`],
+    ["a hexadecimal reference", "A &#xA9; b", `A [${COPYRIGHT_SIGN}]&#xA9; b`],
+    ["a reference naming a space", "A &nbsp; b", `A [${NO_BREAK_SPACE}]&nbsp; b`],
+    ["a reference naming nothing visible", "A &#8203; b", `A [${ZERO_WIDTH_SPACE}]&#8203; b`],
+    ["a reference naming two characters", "A &fjlig; b", "A [fj]&fjlig; b"],
+  ])("shows the character %s names beside its source", async (_label, source, projected) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, 3);
+
+    expect(getProjectedLineText(mounted)).toBe(projected);
+  });
+
+  it("leaves the document, the caret, and the saved file unchanged by the preview", async () => {
+    const mounted = await mountProjectionEditor("A &copy; b");
+    const renderedSize = mounted.view.state.doc.content.size;
+
+    setTextSelection(mounted.view, 3);
+
+    expect(getEditorTextContent(mounted)).toBe("A &copy; b");
+    expect(mounted.view.state.selection.from).toBe(3);
+    expect(mounted.view.state.doc.content.size).toBe(renderedSize + "&copy;".length - 1);
+
+    setTextSelection(mounted.view, 1);
+
+    expect(getProjectedLineText(mounted)).toBe(`A ${COPYRIGHT_SIGN} b`);
+    expect(mounted.view.state.doc.content.size).toBe(renderedSize);
+    expect(mounted.getMarkdown()).toBe("A &copy; b\n");
+  });
+
+  it("leaves the preview out of a selection over the source and out of a copy of it", async () => {
+    const mounted = await mountProjectionEditor("A &copy; b");
+    const clipboardData = createClipboardData();
+
+    setTextSelection(mounted.view, 3);
+    setTextSelection(mounted.view, 3, 9);
+    dispatchClipboardEvent(mounted.view.dom, "copy", clipboardData);
+
+    expect(getSelectedEditorText(mounted)).toBe("&copy;");
+    expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe("&copy;");
+  });
+
+  it("drops the preview once an edit leaves the source spelling no reference", async () => {
+    const mounted = await mountProjectionEditor("A &copy; b");
+
+    setTextSelection(mounted.view, 4);
+    pressBackspace(mounted);
+
+    expect(getProjectedLineText(mounted)).toBe("A &copy b");
   });
 
   it("starts at the beginning of the source entering from the left", async () => {
@@ -293,6 +370,70 @@ describe("character reference source projection under an owner", () => {
     expect(getProjectionAdapterId(mounted)).toBe(adapter);
     expect(getEditorTextContent(mounted)).toBe(source);
   });
+
+  it.each([
+    {
+      caret: 2,
+      label: "a marked fragment",
+      projected: `**a[${COPYRIGHT_SIGN}]&copy;b**`,
+      source: "**a&copy;b**",
+    },
+    {
+      caret: 2,
+      label: "a link label",
+      projected: `[a[${COPYRIGHT_SIGN}]&copy;b](x)`,
+      source: "[a&copy;b](x)",
+    },
+    {
+      caret: 4,
+      label: "a link label inside a marked fragment",
+      projected: `**[a[${COPYRIGHT_SIGN}]&copy;b](x)**`,
+      source: "**[a&copy;b](x)**",
+    },
+    {
+      caret: 2,
+      label: "a fragment the references open and close",
+      projected: `**[${COPYRIGHT_SIGN}]&copy;a[®]&reg;**`,
+      source: "**&copy;a&reg;**",
+    },
+  ])("shows the character a reference in $label names", async ({ caret, projected, source }) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, caret);
+
+    expect(getEditorTextContent(mounted)).toBe(source);
+    expect(getProjectedLineText(mounted)).toBe(projected);
+  });
+
+  it.each([
+    { caret: 2, label: "a marked fragment", source: "**a&copy;b**" },
+    { caret: 2, label: "a link label", source: "[a&copy;b](x)" },
+  ])("leaves the file $label writes unchanged by the preview", async ({ caret, source }) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, caret);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  // A code span keeps its content literal, so the characters a reference would name are the text
+  // the file already holds and there is nothing beside the source to preview. An escape spends a
+  // backslash on the ampersand for the same reason.
+  it.each([
+    { label: "a code span", source: "[a`&copy;`b](x)" },
+    { label: "an escape", source: String.raw`[a\&copy;b](x)` },
+  ])(
+    "shows no preview where $label keeps a reference in a link label literal",
+    async ({ source }) => {
+      const mounted = await mountProjectionEditor(source);
+
+      setTextSelection(mounted.view, 2);
+
+      expect(getEditorTextContent(mounted)).toBe(source);
+      expect(getProjectedLineText(mounted)).toBe(source);
+    },
+  );
 
   it.each([
     { adapter: "mark", label: "a marked fragment", source: "**a&copy;b**" },

@@ -7,13 +7,14 @@ import { isNonNullish } from "@/lib/predicates";
 
 import {
   CHARACTER_REFERENCE_MARK_NAME,
+  decodeWholeCharacterReference,
   getPreservedCharacterReferenceSource,
   hasCharacterReferenceMark,
 } from "./characterReferenceMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
-import { isAtomicLinkSegment } from "./sourceProjectionLinkSyntax";
+import { isAtomicLinkSegment, type LinkSourceMap } from "./sourceProjectionLinkSyntax";
 import {
   createMarkedFragmentSourceStructure,
   mapMarkedFragmentDocumentOffsetToSource,
@@ -95,7 +96,15 @@ export interface SourceProjectionPresentationSpan extends TextRange {
   className: string;
 }
 
+// The character a projected reference names, drawn beside the source at the offset the reference
+// opens on. It is a decoration rather than text, so the source keeps every offset it spells.
+export interface SourceProjectionPresentationPreview {
+  offset: number;
+  text: string;
+}
+
 export interface SourceProjectionPresentation {
+  previews: SourceProjectionPresentationPreview[];
   sourceTypes: string[];
   spans: SourceProjectionPresentationSpan[];
 }
@@ -590,6 +599,36 @@ const getProjectionContentClassName = (marks: ProjectionMarkDescriptor[]) =>
     .filter(isNonNullish)
     .join(" ");
 
+// Each pair of boundaries a text segment carries is the source one document character was read
+// from, so a pair spelling a whole reference is the source of one. An escape spends two characters
+// on the character it keeps literal and a code span spends one per character, and neither decodes.
+export const getLinkSourceCharacterReferencePreviews = (
+  source: string,
+  map: LinkSourceMap,
+  sourceOffset = 0,
+) => {
+  const previews: SourceProjectionPresentationPreview[] = [];
+
+  for (const segment of map.segments) {
+    if (segment.type !== "text") {
+      continue;
+    }
+
+    const { sourceBoundaries } = segment;
+
+    for (let index = 0; index + 1 < sourceBoundaries.length; index += 1) {
+      const from = sourceBoundaries[index];
+      const text = decodeWholeCharacterReference(source.slice(from, sourceBoundaries[index + 1]));
+
+      if (text !== null) {
+        previews.push({ offset: sourceOffset + from, text });
+      }
+    }
+  }
+
+  return previews;
+};
+
 const getMarkedFragmentPresentation = (
   source: string,
   marks: ProjectionMarkDescriptor[],
@@ -603,10 +642,21 @@ const getMarkedFragmentPresentation = (
       to: map.contentFrom,
     },
   ];
+  const previews: SourceProjectionPresentationPreview[] = [];
   const objectTypes = new Set<string>();
 
   for (const segment of map.segments) {
     if (segment.type === "characterReference" || segment.type === "text") {
+      if (segment.type === "characterReference") {
+        const text = decodeWholeCharacterReference(
+          source.slice(segment.sourceFrom, segment.sourceTo),
+        );
+
+        if (text !== null) {
+          previews.push({ offset: segment.sourceFrom, text });
+        }
+      }
+
       spans.push({
         className: contentClassName,
         from: segment.sourceFrom,
@@ -618,6 +668,16 @@ const getMarkedFragmentPresentation = (
     if (segment.type === "link") {
       const labelFrom = segment.sourceFrom + (segment.map?.labelFrom ?? 0);
       const labelTo = segment.sourceFrom + (segment.map?.labelTo ?? 0);
+
+      if (segment.map) {
+        previews.push(
+          ...getLinkSourceCharacterReferencePreviews(
+            source.slice(segment.sourceFrom, segment.sourceTo),
+            segment.map,
+            segment.sourceFrom,
+          ),
+        );
+      }
 
       objectTypes.add(LINK_MARK_NAME);
       spans.push(
@@ -667,6 +727,7 @@ const getMarkedFragmentPresentation = (
   });
 
   return {
+    previews,
     sourceTypes: [...marks.map((mark) => mark.markName), ...objectTypes],
     spans: spans.filter(({ from, to }) => from < to),
   };
@@ -1051,6 +1112,7 @@ export const createMarkSourceProjectionAdapter = ({
       }
 
       return {
+        previews: [],
         sourceTypes: marks.map((mark) => mark.markName),
         spans,
       };

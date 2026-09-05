@@ -195,13 +195,21 @@ export const createCharacterReferenceSourceProjectionAdapter =
         createMarkedTextSlice(state, target.originalSource, target.ambientMarks),
       ),
     findTarget: findCharacterReferenceTarget,
-    getPresentation: ({ ambientMarks }, source) => ({
-      sourceTypes: [CHARACTER_REFERENCE_ADAPTER_ID, ...ambientMarks.map((mark) => mark.type.name)],
-      spans:
-        decodeWholeCharacterReference(source) === null
-          ? []
-          : [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }],
-    }),
+    getPresentation: ({ ambientMarks }, source) => {
+      const decoded = decodeWholeCharacterReference(source);
+
+      return {
+        previews: decoded === null ? [] : [{ offset: 0, text: decoded }],
+        sourceTypes: [
+          CHARACTER_REFERENCE_ADAPTER_ID,
+          ...ambientMarks.map((mark) => mark.type.name),
+        ],
+        spans:
+          decoded === null
+            ? []
+            : [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }],
+      };
+    },
     mapSelectionFromSource,
     mapSelectionToSource: (selection, target) => ({
       anchor: mapSelectionPositionToSource(selection.anchor, target),

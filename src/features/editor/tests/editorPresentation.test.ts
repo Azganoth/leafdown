@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
-import { getEditorDomElement } from "@/test/utils/prosemirror";
+import { getEditorDomElement, setTextSelection } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
 const mountStyledEditor = setupMilkdownEditorMount({
@@ -81,6 +81,23 @@ const value = 1;
     expect(editorCss).toContain(".leafdown-marker-node--persistent::before {");
     expect(editorCss).toMatch(
       /dl\[data-type="footnote_definition"\]\s*\{[^}]*flex items-baseline/su,
+    );
+  });
+
+  it("draws the character a projected reference names beside its source", async () => {
+    const mounted = await mountStyledEditor("A &copy; b");
+    const editorCss = readFileSync(editorCssPath, "utf8");
+
+    setTextSelection(mounted.view, 3);
+
+    const preview = getEditorDomElement(mounted, "[data-leafdown-preview]");
+
+    expect(preview).toHaveAttribute("data-leafdown-preview", "©");
+    expect(preview).toHaveTextContent("");
+    expect(preview.nextSibling).toHaveTextContent("&copy;");
+    expect(editorCss).toContain(".leafdown-source-projection__preview::before {");
+    expect(editorCss).toMatch(
+      /\.leafdown-source-projection__preview::before\s*\{[^}]*content: attr\(data-leafdown-preview\)/su,
     );
   });
 

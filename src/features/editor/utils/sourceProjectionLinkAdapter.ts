@@ -16,6 +16,7 @@ import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
   findSourceProjectionEscapeOffsets,
+  getLinkSourceCharacterReferencePreviews,
   isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
@@ -718,6 +719,7 @@ export const createLinkSourceProjectionAdapter = ({
     const map = getLinkPresentationMap(parsedMap ?? linkTarget.sourceMap, linkTarget.ambientMarks);
 
     return {
+      previews: parsedMap ? getLinkSourceCharacterReferencePreviews(source, parsedMap) : [],
       sourceTypes: map.sourceTypes,
       spans: parsedMap
         ? getLinkPresentationSpans(source, map)

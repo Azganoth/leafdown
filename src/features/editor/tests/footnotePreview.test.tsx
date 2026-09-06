@@ -210,8 +210,8 @@ describe("footnote preview surface", () => {
 
     const tooltip = await screen.findByRole("tooltip");
 
-    expect(tooltip).toHaveTextContent("[^note]");
     expect(tooltip).toHaveTextContent("The definition body.");
+    expect(tooltip.textContent).not.toContain("[^note]");
     expect(tooltip.querySelectorAll("a, button, input, [tabindex]")).toHaveLength(0);
   });
 

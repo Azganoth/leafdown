@@ -45,11 +45,10 @@ export function EditorFootnotePreview({ request }: EditorFootnotePreviewProps) {
         // caret-driven preview has none of. The role carries the semantic instead, and the live
         // region is what announces a preview that opens without taking focus.
         aria-live="polite"
-        className="max-w-sm flex-col items-start gap-1 px-3 py-2 text-left"
+        className="max-w-sm px-3 py-2 text-left"
         role="tooltip"
         side="top"
       >
-        <span className="font-mono text-[0.9em] opacity-70">{`[^${request?.label ?? ""}]`}</span>
         {request?.definition === null ? (
           <span className="italic">No footnote definition for this label.</span>
         ) : (

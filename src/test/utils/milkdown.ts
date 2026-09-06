@@ -5,6 +5,7 @@ import { afterEach } from "vitest";
 import {
   type ContextPopupRequest,
   createMilkdownEditor,
+  type FootnotePreviewRequest,
   type EditorCommandState,
   getMilkdownEditorMarkdown,
   type MarkdownReferenceContext,
@@ -30,6 +31,9 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onContextPopupClosed?: () => void;
   onContextPopupRequested?: (request: ContextPopupRequest) => void;
   getContextPopupOpen?: () => boolean;
+  onFootnotePreviewClosed?: () => void;
+  onFootnotePreviewRequested?: (request: FootnotePreviewRequest) => void;
+  footnotePreviewDelayMs?: number;
 }
 
 export const mountMilkdownEditor = async (
@@ -47,6 +51,11 @@ export const mountMilkdownEditor = async (
       isOpen: options.getContextPopupOpen,
       onClose: options.onContextPopupClosed,
       onRequest: options.onContextPopupRequested,
+    },
+    footnotePreview: {
+      onClose: options.onFootnotePreviewClosed,
+      onRequest: options.onFootnotePreviewRequested,
+      pointerDelayMs: options.footnotePreviewDelayMs,
     },
     getMarkdownReferenceContext: () => ({
       documentPath: options.documentPath ?? null,

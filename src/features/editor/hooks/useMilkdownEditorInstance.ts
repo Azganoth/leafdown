@@ -20,6 +20,7 @@ import {
   type EditorCommandState,
 } from "../commands";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
+import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 import {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,
@@ -64,6 +65,8 @@ export const useMilkdownEditorInstance = ({
     INACTIVE_EDITOR_COMMAND_STATE,
   );
   const [contextPopupRequest, setContextPopupRequest] = useState<ContextPopupRequest | null>(null);
+  const [footnotePreviewRequest, setFootnotePreviewRequest] =
+    useState<FootnotePreviewRequest | null>(null);
 
   const commandStateRef = useRef<EditorCommandState>(INACTIVE_EDITOR_COMMAND_STATE);
   const liveOptionsRef = useRef({
@@ -130,6 +133,13 @@ export const useMilkdownEditorInstance = ({
     setContextPopupRequest(request);
   }, []);
 
+  const closeFootnotePreview = useCallback(() => setFootnotePreviewRequest(null), []);
+
+  const requestFootnotePreview = useCallback(
+    (request: FootnotePreviewRequest) => setFootnotePreviewRequest(request),
+    [],
+  );
+
   const focusEditor = useCallback(() => {
     const editor = editorRef.current;
 
@@ -187,6 +197,10 @@ export const useMilkdownEditorInstance = ({
           isOpen: () => contextPopupOpenRef.current,
           onClose: closeContextPopup,
           onRequest: requestContextPopup,
+        },
+        footnotePreview: {
+          onClose: closeFootnotePreview,
+          onRequest: requestFootnotePreview,
         },
         getMarkdownReferenceContext: () => ({
           documentPath: liveOptionsRef.current.documentPath,
@@ -246,8 +260,15 @@ export const useMilkdownEditorInstance = ({
       }
 
       closeContextPopup();
+      closeFootnotePreview();
     };
-  }, [closeContextPopup, requestContextPopup, updateCommandState]);
+  }, [
+    closeContextPopup,
+    closeFootnotePreview,
+    requestContextPopup,
+    requestFootnotePreview,
+    updateCommandState,
+  ]);
 
   return {
     closeContextPopup,
@@ -255,6 +276,7 @@ export const useMilkdownEditorInstance = ({
     contextPopupRequest,
     executeContextCommand,
     focusEditor,
+    footnotePreviewRequest,
     rootRef,
   };
 };

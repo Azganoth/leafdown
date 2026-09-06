@@ -46,6 +46,29 @@ const getSeamPosition = (mounted: MountedMilkdownEditor) => {
 const getParagraphText = (mounted: MountedMilkdownEditor) =>
   mounted.view.state.doc.firstChild?.textContent ?? "";
 
+const getMarkerTexts = (mounted: MountedMilkdownEditor) =>
+  Array.from(
+    mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+    (node) => node.textContent,
+  );
+
+// The character a projected reference names is drawn from an attribute rather than written into
+// the document, so the rendered line reads as the source with each preview marked where it stands.
+const getProjectedLineText = (mounted: MountedMilkdownEditor) => {
+  const read = (node: Node): string =>
+    Array.from(node.childNodes, (child) => {
+      if (!(child instanceof HTMLElement)) {
+        return child.textContent ?? "";
+      }
+
+      const preview = child.dataset.leafdownPreview;
+
+      return preview === undefined ? read(child) : `[${preview}]`;
+    }).join("");
+
+  return read(mounted.view.dom);
+};
+
 const getProjectionSession = (mounted: MountedMilkdownEditor) =>
   leafdownSourceProjectionPluginKey.getState(mounted.view.state)?.session ?? null;
 
@@ -107,6 +130,24 @@ describe("boundary source projection", () => {
       expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
     },
   );
+
+  it("presents each object's own markers across the pair", async () => {
+    const mounted = await mountProjectionEditor("Z [ab](x)*cd* Z");
+
+    enterBoundary(mounted);
+
+    // Each side keeps the styling it has on its own: the link's brackets and destination and the
+    // emphasis delimiters read as markers, while the label and the emphasised text read as content.
+    expect(getMarkerTexts(mounted)).toEqual(["[", "](x)", "*", "*"]);
+  });
+
+  it("keeps a projected reference's character beside its source across the pair", async () => {
+    const mounted = await mountProjectionEditor("Z *ab*&copy; Z");
+
+    enterBoundary(mounted);
+
+    expect(getProjectedLineText(mounted)).toBe("Z *ab*[©]&copy; Z");
+  });
 
   it("opens the sources around the caret rather than moving it", async () => {
     const mounted = await mountProjectionEditor("Z *ab***cd** Z");

@@ -120,6 +120,10 @@ export interface SourceProjectionPresentation {
 export interface SourceProjectionInsertionCandidate<
   TTarget extends SourceProjectionTarget = SourceProjectionTarget,
 > extends TextRange {
+  // Whether the conversion is a step of its own to undo. A keystroke that converts the run it
+  // lands in is not the typing that reached it, so `Undo` returns that run as it was typed rather
+  // than dropping the whole group the typing built.
+  closesHistory?: boolean;
   selectionOffset: number;
   target: TTarget;
 }

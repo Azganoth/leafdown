@@ -298,13 +298,50 @@ describe("Markdown compatibility", () => {
     },
   );
 
-  it("writes a bare autolink with angle brackets once a typed character reference follows it", async () => {
+  // A trailing reference is trimmed off an autolink literal on the way back in, so a reference
+  // typed after one costs the link neither its bare form nor an escape.
+  it("keeps a bare autolink bare once a typed character reference converts after it", async () => {
     const mounted = await mountEditor("https://example.com");
 
     setSelectionAtDocumentEnd(mounted.view);
     typeText(mounted.view, "&copy;");
 
-    expect(mounted.getMarkdown()).toBe("<https://example.com>\\&copy;\n");
+    const saved = mounted.getMarkdown();
+
+    expect(saved).toBe("https://example.com&copy;\n");
+    expect((await mountEditor(saved)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // Only an alphanumeric name is trimmed, so a converted numeric reference still has to be bounded
+  // by angle brackets or the link's target takes it in.
+  it.each(["&#169;", "&#xA9;"])(
+    "writes a bare autolink with angle brackets once a typed %s converts after it",
+    async (typed) => {
+      const mounted = await mountEditor("https://example.com");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, typed);
+
+      const saved = mounted.getMarkdown();
+
+      expect(saved).toBe(`<https://example.com>${typed}\n`);
+
+      const reopened = await mountEditor(saved);
+
+      expect(getEditorLinkHref(reopened, "https://example.com")).toBe("https://example.com");
+      expect(reopened.getMarkdown()).toBe(saved);
+    },
+  );
+
+  it("writes a bare autolink with angle brackets once typed reference source stays literal after it", async () => {
+    const mounted = await mountEditor("https://example.com");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "&copy");
+
+    expect(mounted.getMarkdown()).toBe("<https://example.com>&copy\n");
   });
 
   it("writes a bare autolink with angle brackets once an edit puts text the target takes in after a trimmed run", async () => {

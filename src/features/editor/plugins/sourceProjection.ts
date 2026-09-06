@@ -1155,7 +1155,7 @@ const handleProjectionSourceTextInput = (
     } satisfies ProjectionMeta)
     .scrollIntoView();
 
-  view.dispatch(transaction);
+  view.dispatch(candidate.closesHistory ? closeHistory(transaction) : transaction);
 
   return true;
 };

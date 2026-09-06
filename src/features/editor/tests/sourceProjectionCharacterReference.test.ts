@@ -398,6 +398,215 @@ describe("character reference source projection", () => {
   });
 });
 
+describe("typed character reference conversion", () => {
+  it.each([
+    { decoded: COPYRIGHT_SIGN, label: "a named reference", source: "&copy;" },
+    { decoded: COPYRIGHT_SIGN, label: "a decimal reference", source: "&#169;" },
+    { decoded: COPYRIGHT_SIGN, label: "a hexadecimal reference", source: "&#xA9;" },
+    { decoded: "fj", label: "a reference naming two characters", source: "&fjlig;" },
+    { decoded: NO_BREAK_SPACE, label: "a reference naming whitespace", source: "&nbsp;" },
+  ])("converts $label as its terminator completes it", async ({ decoded, source }) => {
+    const mounted = await mountProjectionEditor("A b");
+    const caret = getEditorTextPosition(mounted, "b");
+
+    setTextSelection(mounted.view, caret);
+    typeText(mounted.view, source);
+
+    expect(getProjectionAdapterId(mounted)).toBe("character-reference");
+    expect(getEditorTextContent(mounted)).toBe(`A ${source}b`);
+    expect(getMarkerTexts(mounted)).toEqual([source]);
+    expect(getProjectedLineText(mounted)).toBe(`A [${decoded}]${source}b`);
+    expect(mounted.view.state.selection.from).toBe(caret + source.length);
+    expect(mounted.getMarkdown()).toBe(`A ${source}b\n`);
+  });
+
+  // The conversion is a restyle rather than a rewrite: the run holds the same characters the
+  // keystroke put there, and the caret is where typing the terminator left it.
+  it("leaves the typed characters and the caret where the terminator put them", async () => {
+    const mounted = await mountProjectionEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "&copy");
+
+    const beforeText = getEditorTextContent(mounted);
+    const beforeCaret = mounted.view.state.selection.from;
+
+    typeText(mounted.view, ";");
+
+    expect(getEditorTextContent(mounted)).toBe(`${beforeText};`);
+    expect(mounted.view.state.selection.from).toBe(beforeCaret + 1);
+  });
+
+  it("commits the reference when the caret leaves the converted run", async () => {
+    const mounted = await mountProjectionEditor("A b");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "b"));
+    typeText(mounted.view, "&copy;");
+    setTextSelection(mounted.view, 1);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(`A ${COPYRIGHT_SIGN}b`);
+    expect(mounted.getMarkdown()).toBe("A &copy;b\n");
+  });
+
+  it("commits the reference when a character is typed against its right edge", async () => {
+    const mounted = await mountProjectionEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "&copy;x");
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(`${COPYRIGHT_SIGN}x`);
+    expect(mounted.getMarkdown()).toBe("&copy;x\n");
+  });
+
+  // The escape is how an author keeps the characters they typed without reaching for `Undo`.
+  it("commits literal text when the projected source is escaped", async () => {
+    const mounted = await mountProjectionEditor("A b");
+    const caret = getEditorTextPosition(mounted, "b");
+
+    setTextSelection(mounted.view, caret);
+    typeText(mounted.view, "&copy;");
+    setTextSelection(mounted.view, caret);
+    typeText(mounted.view, "\\");
+    setTextSelection(mounted.view, 1);
+
+    expect(getEditorTextContent(mounted)).toBe("A &copy;b");
+    expect(mounted.getMarkdown()).toBe(`${String.raw`A \&copy;b`}\n`);
+  });
+
+  it.each([
+    { label: "an unclosed reference", typed: "&copy" },
+    { label: "a name no table holds", typed: "&MadeUpEntity;" },
+    { label: "a numeric reference with no digits", typed: "&#;" },
+  ])("leaves $label literal through a save and a reopen", async ({ typed }) => {
+    const mounted = await mountProjectionEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, typed);
+    setTextSelection(mounted.view, 1);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.getMarkdown()).toBe(`${typed}\n`);
+
+    const reopened = await mountProjectionEditor(`${typed}\n`);
+
+    expect(getEditorTextContent(reopened)).toBe(typed);
+    expect(reopened.getMarkdown()).toBe(`${typed}\n`);
+  });
+
+  // A preserved reference stands for the character it will be written as, so the ampersand it
+  // spells opens nothing, which is the rule its own escaping already follows.
+  it("leaves a preserved reference inert to the terminator", async () => {
+    const mounted = await mountProjectionEditor("a &amp;");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "copy;");
+    setTextSelection(mounted.view, 1);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe("a &copy;");
+    expect(mounted.getMarkdown()).toBe("a &amp;copy;\n");
+  });
+
+  it.each([
+    {
+      committed: "`a&copy;`",
+      content: "a",
+      label: "inside a code span",
+      owner: "mark",
+      source: "`a`",
+    },
+    {
+      committed: String.raw`**a\&copy;b**`,
+      content: "ab",
+      label: "inside a marked fragment",
+      owner: "mark",
+      source: "**ab**",
+    },
+    {
+      committed: "[a&copy;b](x)",
+      content: "ab",
+      label: "inside a link label",
+      owner: "link",
+      source: "[ab](x)",
+    },
+  ])("leaves the run to its owner $label", async ({ committed, content, owner, source }) => {
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, content) + 1);
+    typeText(mounted.view, "&copy;");
+
+    expect(getProjectionAdapterId(mounted)).toBe(owner);
+
+    setTextSelection(mounted.view, 1);
+
+    expect(mounted.getMarkdown()).toBe(`${committed}\n`);
+  });
+
+  it("leaves a run crossing a mark boundary as it was written", async () => {
+    const mounted = await mountProjectionEditor("&co**py**");
+    const caret = getEditorTextPosition(mounted, "py") + "py".length;
+
+    setTextSelection(mounted.view, caret);
+    typeText(mounted.view, ";");
+
+    expect(getProjectionAdapterId(mounted)).toBe("mark");
+    expect(getEditorTextContent(mounted)).toBe("&co**py;**");
+
+    setTextSelection(mounted.view, 1);
+
+    expect(mounted.getMarkdown()).toBe("&co**py;**\n");
+  });
+
+  // The conversion is not the typing that reached it, so it is a step of its own: one `Undo` steps
+  // past the terminator rather than onto a run that differs only by marker colour.
+  it("returns the typed source with one Undo", async () => {
+    const mounted = await mountProjectionEditor("A b");
+    const caret = getEditorTextPosition(mounted, "b");
+
+    setTextSelection(mounted.view, caret);
+    typeText(mounted.view, "&copy;");
+
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe("A &copyb");
+    expect(mounted.getMarkdown()).toBe("A &copyb\n");
+
+    expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe("A &copy;b");
+    expect(getMarkerTexts(mounted)).toEqual(["&copy;"]);
+  });
+
+  it("converts a reference typed against one already preserved", async () => {
+    const mounted = await mountProjectionEditor("a &copy;");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, "&reg;");
+    setTextSelection(mounted.view, 1);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(`a ${COPYRIGHT_SIGN}®`);
+    expect(mounted.getMarkdown()).toBe("a &copy;&reg;\n");
+  });
+
+  it("reaches the document a plain-text paste of the same characters reaches", async () => {
+    const typed = await mountProjectionEditor("");
+    const pasted = await mountProjectionEditor("");
+
+    setSelectionAtDocumentEnd(typed.view);
+    typeText(typed.view, "A &copy; b");
+
+    setSelectionAtDocumentEnd(pasted.view);
+    dispatchClipboardEvent(pasted.view.dom, "paste", { [TEXT_PLAIN_MIME_TYPE]: "A &copy; b" });
+    setTextSelection(pasted.view, 1);
+
+    expect(typed.view.state.doc.toJSON()).toEqual(pasted.view.state.doc.toJSON());
+    expect(typed.getMarkdown()).toBe("A &copy; b\n");
+    expect(pasted.getMarkdown()).toBe("A &copy; b\n");
+  });
+});
+
 describe("character reference source projection under an owner", () => {
   it.each([
     { adapter: "mark", caret: 2, label: "bold", source: "**a&copy;b**" },

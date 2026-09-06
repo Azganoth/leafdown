@@ -20,6 +20,9 @@ export const AUTHORED_URL_ATTRIBUTE_NAME = "authoredUrl";
 export const AUTHORED_DESCRIPTION_ATTRIBUTE_NAME = "authoredDescription";
 
 export const CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME = "source";
+// Every reference closes on this character, named, decimal, and hexadecimal alike, so one
+// character answers for all three forms.
+export const CHARACTER_REFERENCE_TERMINATOR = ";";
 const SOURCE_DOM_ATTRIBUTE_NAME = "data-character-reference";
 
 // micromark bounds a reference at 31 alphanumeric characters, 7 decimal digits, or 6 hexadecimal
@@ -70,6 +73,23 @@ export const decodeWholeCharacterReference = (source: string) => {
   const reference = readCharacterReference(source, 0);
 
   return reference !== null && reference.source === source ? reference.decoded : null;
+};
+
+// The reference the text before a terminator completes, or null where those characters spell none.
+// A reference body holds no ampersand, so the last one is the only opening the terminator can
+// close, and nothing further back than the longest reference reaches it.
+export const readCompletedCharacterReference = (textBefore: string) => {
+  const reach = textBefore.slice(-(REFERENCE_LENGTH_MAX - CHARACTER_REFERENCE_TERMINATOR.length));
+  const openingIndex = reach.lastIndexOf("&");
+
+  if (openingIndex < 0) {
+    return null;
+  }
+
+  const source = `${reach.slice(openingIndex)}${CHARACTER_REFERENCE_TERMINATOR}`;
+  const decoded = decodeWholeCharacterReference(source);
+
+  return decoded === null ? null : ({ decoded, source } satisfies DecodedReference);
 };
 
 // The mark carries one reference, and ProseMirror merges neighbouring text nodes carrying an equal

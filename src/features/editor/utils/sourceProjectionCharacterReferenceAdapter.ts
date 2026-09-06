@@ -10,16 +10,20 @@ import { TextSelection } from "@milkdown/kit/prose/state";
 import {
   CHARACTER_REFERENCE_MARK_NAME,
   CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME,
+  CHARACTER_REFERENCE_TERMINATOR,
   decodeWholeCharacterReference,
   readCharacterReferenceRun,
+  readCompletedCharacterReference,
 } from "./characterReferenceMarkdown";
 import { getCandidateMarksAtPosition, getMarkRangeAtPosition } from "./marks";
 import {
   decodeSourceProjectionEscapes,
   getProjectionContentClassName,
+  isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
   type SourceProjectionAdapter,
+  type SourceProjectionInsertionCandidate,
   type SourceProjectionParseResult,
   type SourceProjectionSessionRange,
   type SourceProjectionTarget,
@@ -44,6 +48,20 @@ const readMarkSource = (mark: Mark) => {
 
 const createMarkedTextSlice = (state: EditorState, text: string, marks: readonly Mark[]) =>
   text ? new Slice(Fragment.from(state.schema.text(text, marks)), 0, 0) : Slice.empty;
+
+const createPreservedReferenceSlice = (
+  state: EditorState,
+  source: string,
+  decoded: string,
+  ambientMarks: readonly Mark[],
+) =>
+  createMarkedTextSlice(
+    state,
+    decoded,
+    state.schema.marks[CHARACTER_REFERENCE_MARK_NAME]
+      .create({ [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: source })
+      .addToSet([...ambientMarks]),
+  );
 
 // The stored source is projected only where it still spells the text it marks, which is the
 // predicate the serializer writes it under. A run the source no longer describes saves as its
@@ -124,6 +142,62 @@ const findCharacterReferenceTarget = (
   return target && target.from <= selection.from && selection.to <= target.to ? target : null;
 };
 
+// The keystroke that finishes a reference is what converts the run it spells, because nothing read
+// off the document could: a file holding an escaped reference opens as the same literal text a
+// freshly typed one does, node for node, so a trigger keyed to the caret leaving would convert the
+// run the file deliberately escaped.
+//
+// The plain-text gate answers for the run being text this document holds as itself. A preserved
+// reference is inert, on the rule its own escaping already follows, so typing `copy;` after
+// `&amp;` leaves the file spelling both rather than converting across the ampersand one of them
+// stands for; and a run crossing a mark carries syntax that is not the reference's to close.
+const findTypedCharacterReferenceCandidate = (
+  state: EditorState,
+  position: number,
+  text: string,
+): SourceProjectionInsertionCandidate<CharacterReferenceSourceProjectionTarget> | null => {
+  if (text !== CHARACTER_REFERENCE_TERMINATOR) {
+    return null;
+  }
+
+  const $position = state.doc.resolve(position);
+
+  if (!$position.parent.isTextblock) {
+    return null;
+  }
+
+  const completed = readCompletedCharacterReference(
+    getTextBetween($position.parent, 0, $position.parentOffset),
+  );
+
+  if (!completed) {
+    return null;
+  }
+
+  const { decoded, source } = completed;
+  const from = position - (source.length - CHARACTER_REFERENCE_TERMINATOR.length);
+
+  if (!isPlainTextRange(state, from, position)) {
+    return null;
+  }
+
+  return {
+    closesHistory: true,
+    from,
+    selectionOffset: source.length,
+    target: {
+      adapterId: CHARACTER_REFERENCE_ADAPTER_ID,
+      ambientMarks: [],
+      from,
+      originalContent: createPreservedReferenceSlice(state, source, decoded, []),
+      originalContentSize: decoded.length,
+      originalSource: source,
+      to: from + decoded.length,
+    },
+    to: position,
+  };
+};
+
 // The reference is one character on screen and its source is syntax end to end, so the caret rests
 // against it rather than inside it: entering from the left starts at the beginning of the source,
 // entering from the right starts at the end.
@@ -195,6 +269,7 @@ export const createCharacterReferenceSourceProjectionAdapter =
         target.to,
         createMarkedTextSlice(state, target.originalSource, target.ambientMarks),
       ),
+    findInsertionCandidate: findTypedCharacterReferenceCandidate,
     findTarget: findCharacterReferenceTarget,
     getPresentation: ({ ambientMarks }, source) => {
       const decoded = decodeWholeCharacterReference(source);
@@ -223,12 +298,8 @@ export const createCharacterReferenceSourceProjectionAdapter =
       const decoded = decodeWholeCharacterReference(source);
 
       if (decoded) {
-        const marks = state.schema.marks[CHARACTER_REFERENCE_MARK_NAME]
-          .create({ [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: source })
-          .addToSet([...ambientMarks]);
-
         return {
-          replacement: createMarkedTextSlice(state, decoded, marks),
+          replacement: createPreservedReferenceSlice(state, source, decoded, ambientMarks),
           replacementSize: decoded.length,
           source,
         };

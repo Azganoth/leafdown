@@ -37,6 +37,30 @@ export const getFootnoteReferenceSourceBounds = (
 export const hasCompleteFootnoteReferenceWrapper = (source: string) =>
   getFootnoteReferenceSourceBounds(source) !== null;
 
+/**
+ * The label of the `[^label]` run covering `offset`, or `null` where the offset is outside every
+ * run. Both edges of a run count as inside it, so a caret resting against either delimiter reads
+ * the reference it delimits.
+ */
+export const findFootnoteReferenceSourceRunAt = (source: string, offset: number) => {
+  for (const match of source.matchAll(FOOTNOTE_REFERENCE_CANDIDATE_PATTERN)) {
+    const from = match.index;
+    const to = from + match[0].length;
+
+    if (offset < from) {
+      return null;
+    }
+
+    if (offset <= to) {
+      const bounds = getFootnoteReferenceSourceBounds(match[0]);
+
+      return bounds ? match[0].slice(bounds.labelFrom, bounds.labelTo) : null;
+    }
+  }
+
+  return null;
+};
+
 export const withFootnoteDefinitions = (source: string) => {
   const definitions = new Set(
     Array.from(

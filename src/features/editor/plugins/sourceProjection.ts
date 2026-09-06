@@ -298,6 +298,13 @@ export const finalizeSourceProjection = (view: EditorView) => {
 export const hasActiveSourceProjection = (state: EditorState) =>
   getSourceProjectionState(state).session !== null;
 
+/** The document range an active projection is showing source in, for readers that need its text. */
+export const getActiveSourceProjectionRange = (state: EditorState): TextRange | null => {
+  const { session } = getSourceProjectionState(state);
+
+  return session ? { from: session.from, to: session.to } : null;
+};
+
 export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | null => {
   const { session } = getSourceProjectionState(state);
   const { selection } = state;

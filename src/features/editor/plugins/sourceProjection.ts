@@ -31,6 +31,10 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
+import {
+  createBoundarySourceProjectionAdapter,
+  isBoundarySourceProjectionTarget,
+} from "../utils/sourceProjectionBoundaryAdapter";
 import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
 import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
@@ -205,14 +209,24 @@ export const createLeafdownSourceProjectionPlugin = () =>
       }),
     ];
 
-    return createSourceProjectionProsePlugin([
+    const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
+      findSourceProjectionLiteralSourceCommit(state, range, objectAdapters);
+    const sideAdapters = [
       ...objectAdapters,
       createCharacterReferenceSourceProjectionAdapter(),
-      createEscapeSourceProjectionAdapter({
-        findLiteralSourceCommit: (state, range) =>
-          findSourceProjectionLiteralSourceCommit(state, range, objectAdapters),
-        serializer,
+      createEscapeSourceProjectionAdapter({ findLiteralSourceCommit, serializer }),
+    ];
+
+    // A boundary owns the pair before either side owns itself, and it only claims a caret that two
+    // objects meet on, so ordinary precedence still answers everywhere else.
+    return createSourceProjectionProsePlugin([
+      createBoundarySourceProjectionAdapter({
+        findLiteralSourceCommit,
+        findSideTarget: (state) => findSourceProjectionTarget(state, sideAdapters),
+        parser,
+        remark,
       }),
+      ...sideAdapters,
     ]);
   });
 
@@ -467,11 +481,15 @@ const appendProjectionTransaction = (
   }
 
   if (projectionState.session) {
-    if (isRangeInside(state.selection, projectionState.session)) {
-      return null;
+    if (!isRangeInside(state.selection, projectionState.session)) {
+      return createFinalizeProjectionTransaction(state, projectionState.session);
     }
 
-    return createFinalizeProjectionTransaction(state, projectionState.session);
+    // A session the caret has moved off gives way where it stands, rather than on the caret
+    // leaving its range, so what the caret moved onto opens in its place.
+    return keepsProjectionCaret(state, projectionState.session, transactions)
+      ? null
+      : createFinalizeProjectionTransaction(state, projectionState.session, true);
   }
 
   if (areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
@@ -517,11 +535,30 @@ const appendProjectionTransaction = (
   return createEnterProjectionTransaction(state, match);
 };
 
+// An escaped run spells out source the file already holds, so the engine neither treats entering
+// it as authoring nor offers it over a run this session wrote. A boundary holding one carries the
+// same rules, because the same characters reach the document either way.
+const isEscapeSourceProjection = (target: SourceProjectionTarget) =>
+  target.adapterId === "escape" || (isBoundarySourceProjectionTarget(target) && target.holdsEscape);
+
+// A write moves the caret without moving the author, so only a caret the author moved can leave a
+// session standing. A selection is left to the range gate, which is what the copy and crossing
+// rules already read.
+const keepsProjectionCaret = (
+  state: EditorState,
+  session: ProjectionSession,
+  transactions: readonly Transaction[],
+) =>
+  !session.adapter.ownsSelection ||
+  !state.selection.empty ||
+  transactions.some((transaction) => transaction.docChanged) ||
+  session.adapter.ownsSelection(state.selection, session, getProjectionSource(state, session));
+
 const isProjectableTarget = (
-  { adapter, target }: SourceProjectionTargetMatch,
+  { target }: SourceProjectionTargetMatch,
   { protectedRanges, writtenRanges }: SourceProjectionPluginState,
 ) =>
-  adapter.id !== "escape" ||
+  !isEscapeSourceProjection(target) ||
   !overlapsRange(writtenRanges, target) ||
   overlapsRange(protectedRanges, target);
 
@@ -660,8 +697,10 @@ const getUpdatedSourceProvenance = (
   // A change that only moves content the document already held authors nothing, but its steps
   // re-insert what they took, which the step maps alone read as text the session wrote.
   const isRestructure = transaction.getMeta(SOURCE_PROJECTION_RESTRUCTURE_META) === true;
-  const isEscapeSession =
-    (meta?.type === "enter" ? meta.session : session)?.adapter.id === "escape";
+  const escapeSessionTarget = (meta?.type === "enter" ? meta.session : session)?.target;
+  const isEscapeSession = escapeSessionTarget
+    ? isEscapeSourceProjection(escapeSessionTarget)
+    : false;
   const written = writtenRanges.map((range) => ({
     from: mapping.map(range.from, -1),
     to: mapping.map(range.to, 1),

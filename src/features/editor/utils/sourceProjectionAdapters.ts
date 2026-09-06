@@ -43,6 +43,7 @@ import {
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
 export type SourceProjectionAdapterId =
+  | "boundary"
   | "character-reference"
   | "escape"
   | "footnote-reference"
@@ -148,6 +149,14 @@ export interface SourceProjectionAdapter<
     parsed: SourceProjectionParseResult,
   ): { anchor: number; head: number };
   mapSelectionToSource(selection: Selection, target: TTarget): { anchor: number; head: number };
+  // Whether the caret still sits on what this session was opened for. An adapter whose range
+  // covers more than the caret's own object narrows it here, so the session gives way once the
+  // caret moves onto something the range holds but the session does not answer for.
+  ownsSelection?(
+    selection: Selection,
+    session: SourceProjectionSessionRange<TTarget>,
+    source: string,
+  ): boolean;
   parseSource(state: EditorState, source: string, target: TTarget): SourceProjectionParseResult;
   restoreCleanTarget(
     state: EditorState,

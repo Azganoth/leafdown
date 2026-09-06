@@ -23,6 +23,11 @@ import {
   serializeFootnoteReference,
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
+  createIdentityBoundaries,
+  getMarkdownSourcePosition as getMarkdownPosition,
+  readTextSourceBoundaries,
+} from "./sourceProjectionInlineRunSyntax";
+import {
   createLinkSourceMap,
   isSupportedLinkChild,
   mapLinkDocumentPositionToSource,
@@ -103,11 +108,6 @@ interface SerializedMarkedFragmentSource {
   source: string;
 }
 
-interface MarkdownPosition {
-  end?: { offset?: number };
-  start?: { offset?: number };
-}
-
 type MarkdownValidationResult =
   | { children: MarkdownNode[]; type: "structured" }
   | { type: "invalidOuter" }
@@ -118,14 +118,6 @@ const MARKDOWN_MARK_TYPES = new Map<string, string>([
   ["strike_through", "delete"],
   ["strong", "strong"],
 ]);
-
-const getMarkdownPosition = (node: MarkdownNode) => {
-  const position = node.position as MarkdownPosition | undefined;
-  const from = position?.start?.offset;
-  const to = position?.end?.offset;
-
-  return typeof from === "number" && typeof to === "number" ? { from, to } : null;
-};
 
 const getLinkMark = (node: ProseMirrorNode) =>
   node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
@@ -177,31 +169,6 @@ const parseLinkSourceNodes = (
   return nodes;
 };
 
-// Walks the source against the text a run holds, returning the source offset each document offset
-// falls on. A preserved reference is a segment of its own, so the only character a run spends
-// source on and does not hold is an escape. Null where the two stop lining up, which leaves every
-// caller on its unescaped fallback rather than on a guess about where the file spends characters.
-const readTextSourceBoundaries = (source: string, from: number, value: string) => {
-  const boundaries = [from];
-  let sourceOffset = from;
-  let valueOffset = 0;
-
-  while (valueOffset < value.length) {
-    if (source[sourceOffset] === "\\" && source[sourceOffset + 1] === value[valueOffset]) {
-      sourceOffset += 2;
-    } else if (source[sourceOffset] === value[valueOffset]) {
-      sourceOffset += 1;
-    } else {
-      return null;
-    }
-
-    valueOffset += 1;
-    boundaries.push(sourceOffset);
-  }
-
-  return boundaries;
-};
-
 const createTextSegment = (
   documentFrom: number,
   sourceFrom: number,
@@ -217,9 +184,6 @@ const createTextSegment = (
   text,
   type: "text",
 });
-
-const createIdentityBoundaries = (sourceFrom: number, length: number) =>
-  Array.from({ length: length + 1 }, (_, offset) => sourceFrom + offset);
 
 const addTextMapSegment = (
   sourceFrom: number,

@@ -39,6 +39,8 @@ export interface LeafdownFootnotePreviewPluginOptions {
   pointerDelayMs?: number;
 }
 
+const MODIFIER_KEYS = new Set(["Alt", "Control", "Meta", "Shift"]);
+
 const isPreviewKey = (event: KeyboardEvent) =>
   isPrimaryModifierEvent(event) && event.altKey && normalizeKeyboardKey(event.key) === PREVIEW_KEY;
 
@@ -158,6 +160,13 @@ export const createLeafdownFootnotePreviewPlugin = (
 
             return false;
           },
+          // The pointer stays on the reference through a click, so nothing else would take the
+          // preview away from over the caret's new home once a modifier click has navigated.
+          mousedown: () => {
+            close();
+
+            return false;
+          },
           mouseout: (view, event) => {
             if (getFootnoteReferenceElementAtTarget(view.dom, event.relatedTarget) === null) {
               close();
@@ -177,9 +186,12 @@ export const createLeafdownFootnotePreviewPlugin = (
             return close();
           }
 
-          // A preview reports what the document says, so any edit or move leaves it behind rather
-          // than describing a reference the caret has left.
-          close();
+          // A preview reports what the document says, so an edit or a move leaves it behind rather
+          // than describing a reference the caret has left. A modifier on its own is neither, and
+          // holding one is how a pointer navigates from the preview it is reading.
+          if (!MODIFIER_KEYS.has(event.key)) {
+            close();
+          }
 
           return false;
         },

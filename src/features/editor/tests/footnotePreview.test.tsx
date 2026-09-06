@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { FootnotePreviewRequest } from "@/features/editor";
+import type { ContextPopupAnchor, FootnotePreviewRequest } from "@/features/editor";
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchKeyDown, dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
@@ -95,6 +95,34 @@ describe("footnote definition preview", () => {
     });
   });
 
+  it("anchors a keyboard preview to the measured selection rather than an element", async () => {
+    const { mounted, onFootnotePreviewRequested } = await setupPreview();
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "footnote_reference") + 1);
+
+    await withWindowsUserAgent(() =>
+      dispatchKeyDown(mounted.view.dom, "p", { alt: true, ctrl: true }),
+    );
+
+    // The reference the caret reads has been replaced by its projected source, so there is no
+    // element left to anchor to and the selection is measured instead.
+    const { anchor } = lastRequest(onFootnotePreviewRequested);
+
+    expect(anchor).not.toBeInstanceOf(Element);
+    expect((anchor as ContextPopupAnchor).contextElement).toBe(mounted.view.dom);
+    expect((anchor as ContextPopupAnchor).getRect("live")).toBeInstanceOf(Object);
+  });
+
+  it("anchors a pointer preview to the reference the pointer rests on", async () => {
+    const { mounted, onFootnotePreviewRequested } = await setupPreview();
+    const reference = getReferenceElement(mounted.view.dom);
+
+    dispatchMouseEvent(reference, "mouseover");
+    await waitFor(() => expect(onFootnotePreviewRequested).toHaveBeenCalledTimes(1));
+
+    expect(lastRequest(onFootnotePreviewRequested).anchor).toBe(reference);
+  });
+
   it("reports a missing definition rather than an empty preview", async () => {
     const { mounted, onFootnotePreviewRequested } = await setupPreview();
 
@@ -107,6 +135,29 @@ describe("footnote definition preview", () => {
       definition: null,
       label: "note",
     });
+  });
+
+  it("dismisses the preview when a click navigates away from the reference", async () => {
+    const { mounted, onFootnotePreviewClosed, onFootnotePreviewRequested } = await setupPreview();
+    const reference = getReferenceElement(mounted.view.dom);
+
+    dispatchMouseEvent(reference, "mouseover");
+    await waitFor(() => expect(onFootnotePreviewRequested).toHaveBeenCalledTimes(1));
+
+    dispatchMouseEvent(reference, "mousedown");
+
+    expect(onFootnotePreviewClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds the preview open while a modifier is held for a navigating click", async () => {
+    const { mounted, onFootnotePreviewClosed, onFootnotePreviewRequested } = await setupPreview();
+
+    dispatchMouseEvent(getReferenceElement(mounted.view.dom), "mouseover");
+    await waitFor(() => expect(onFootnotePreviewRequested).toHaveBeenCalledTimes(1));
+
+    dispatchKeyDown(mounted.view.dom, "Control", { ctrl: true });
+
+    expect(onFootnotePreviewClosed).not.toHaveBeenCalled();
   });
 
   it("dismisses the preview on Escape", async () => {

@@ -4,6 +4,7 @@ import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
 import {
   FOOTNOTE_DEFINITION_NODE_NAME,
   getFootnoteDefinitionLabel,
+  getFootnoteDefinitionLabelNode,
   isFootnoteDefinitionLabel,
 } from "./footnoteDefinitionLabel";
 import { decodeSourceProjectionEscapes } from "./sourceProjectionAdapters";
@@ -49,6 +50,13 @@ export const findFootnoteDefinitions = (doc: ProseMirrorNode) => {
 export const findFootnoteDefinitionByLabel = (doc: ProseMirrorNode, label: string) =>
   findFootnoteDefinitions(doc).find(({ node }) => getFootnoteDefinitionLabel(node) === label) ??
   null;
+
+/**
+ * The first position inside the definition's body. The label sits before it, so a caret sent here
+ * reaches the definition's content without opening the label's rename edit.
+ */
+export const getFootnoteDefinitionBodyPosition = ({ node, pos }: FootnoteDefinitionMatch) =>
+  pos + 1 + (getFootnoteDefinitionLabelNode(node)?.nodeSize ?? 0);
 
 /**
  * The definition's body as one line of plain text, cut to {@link FOOTNOTE_PREVIEW_CHARACTER_LIMIT}.

@@ -118,6 +118,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to selection**
   - **Jump to line start** (`Home`)
   - **Jump to line end** (`End`)
+  - **Jump to footnote definition**
 - **Move block up** (`Alt+Up`, Deferred)
 - **Move block down** (`Alt+Down`, Deferred)
 - **Line ending**
@@ -269,6 +270,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Cut`, `Copy`, and `Copy as` require a selection.
 - `Undo` and `Redo` require available editor history.
 - `Jump to selection` requires a selection.
+- `Jump to footnote definition` requires a footnote reference at the caret whose label a definition in the document answers to.
 - `Delete block` requires an active block.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.
 - `Delete sentence` and `Select sentence` require a sentence at or adjacent to the caret.

@@ -82,6 +82,10 @@ export const EDITOR_COMMANDS = {
   "edit.jumpToSelection": viewCommand(selection.jumpToSelection, selection.canJumpToSelection),
   "edit.jumpToLineStart": viewCommand(selection.jumpToLineStart),
   "edit.jumpToLineEnd": viewCommand(selection.jumpToLineEnd),
+  "edit.jumpToFootnoteDefinition": viewCommand(
+    selection.jumpToFootnoteDefinition,
+    selection.canJumpToFootnoteDefinition,
+  ),
 
   "format.paragraph": viewCommand(blockFormatting.setParagraph),
   "format.heading1": formatHeadingCommand(1),

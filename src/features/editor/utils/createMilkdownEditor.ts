@@ -77,6 +77,7 @@ import {
   createLeafdownFootnoteDefinitionLabelPlugin,
   leafdownFootnoteDefinitionLabelSchema,
 } from "../plugins/footnoteDefinitionLabel";
+import { createLeafdownFootnoteNavigationPlugin } from "../plugins/footnoteNavigation";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
@@ -253,6 +254,7 @@ export const createMilkdownEditor = async ({
     .use(leafdownDefinitionSchema)
     .use(leafdownFootnoteDefinitionLabelSchema)
     .use(createLeafdownFootnoteDefinitionLabelPlugin())
+    .use(createLeafdownFootnoteNavigationPlugin())
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))

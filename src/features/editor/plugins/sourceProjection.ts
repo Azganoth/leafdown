@@ -481,11 +481,15 @@ const appendProjectionTransaction = (
   }
 
   if (projectionState.session) {
-    if (isRangeInside(state.selection, projectionState.session)) {
-      return null;
+    if (!isRangeInside(state.selection, projectionState.session)) {
+      return createFinalizeProjectionTransaction(state, projectionState.session);
     }
 
-    return createFinalizeProjectionTransaction(state, projectionState.session);
+    // A session the caret has moved off gives way where it stands, rather than on the caret
+    // leaving its range, so what the caret moved onto opens in its place.
+    return keepsProjectionCaret(state, projectionState.session, transactions)
+      ? null
+      : createFinalizeProjectionTransaction(state, projectionState.session, true);
   }
 
   if (areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
@@ -536,6 +540,19 @@ const appendProjectionTransaction = (
 // same rules, because the same characters reach the document either way.
 const isEscapeSourceProjection = (target: SourceProjectionTarget) =>
   target.adapterId === "escape" || (isBoundarySourceProjectionTarget(target) && target.holdsEscape);
+
+// A write moves the caret without moving the author, so only a caret the author moved can leave a
+// session standing. A selection is left to the range gate, which is what the copy and crossing
+// rules already read.
+const keepsProjectionCaret = (
+  state: EditorState,
+  session: ProjectionSession,
+  transactions: readonly Transaction[],
+) =>
+  !session.adapter.ownsSelection ||
+  !state.selection.empty ||
+  transactions.some((transaction) => transaction.docChanged) ||
+  session.adapter.ownsSelection(state.selection, session, getProjectionSource(state, session));
 
 const isProjectableTarget = (
   { target }: SourceProjectionTargetMatch,

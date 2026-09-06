@@ -330,6 +330,28 @@ export const createBoundarySourceProjectionAdapter = ({
         head: mapPositionToSource(selection.head, target, selection.empty || !isForward ? 1 : -1),
       };
     },
+    // The pair answers for the caret only while it sits between the two objects: on the place they
+    // meet, or in the run written there since, which is what the two ends of the run leave over.
+    // Once the caret moves into either object's own source, that object owns it and opens alone.
+    ownsSelection: (selection, session, source) => {
+      const { definitions, originalContentSize, seamDocumentOffset } = session.target;
+      const map = readSourceMap(source, definitions);
+
+      if (!map) {
+        return true;
+      }
+
+      // Measured against the document the run spells rather than against the run itself, because
+      // the delimiters on either side of the place the two objects meet hold no document position
+      // of their own: a caret moving through them has not reached either object's content yet.
+      const trailing = map.documentSize - (originalContentSize - seamDocumentOffset);
+      const offset = mapInlineRunSourceOffsetToDocument(selection.from - session.from, map);
+
+      return (
+        Math.min(seamDocumentOffset, trailing) <= offset &&
+        offset <= Math.max(seamDocumentOffset, trailing)
+      );
+    },
     // The run commits as the content the file would read it as, which is what keeps an object the
     // author did not touch whole and leaves a character written between two of them as text.
     parseSource: (state, source, target) => {

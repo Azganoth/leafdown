@@ -137,11 +137,59 @@ describe("boundary source projection", () => {
     expect(fromLeft.view.state.selection.from).toBe(fromRight.view.state.selection.from);
   });
 
+  it("gives way to the first object when the caret moves into it", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+    const caret = enterBoundary(mounted);
+
+    setTextSelection(mounted.view, caret - 2);
+
+    expect(getProjectionAdapterId(mounted)).toBe("mark");
+    expect(getProjectedSource(mounted)).toBe("*ab*");
+    expect(getParagraphText(mounted)).toBe("Z *ab*cd Z");
+  });
+
+  it("gives way to the second object when the caret moves into it", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+    const caret = enterBoundary(mounted);
+
+    setTextSelection(mounted.view, caret + 3);
+
+    expect(getProjectionAdapterId(mounted)).toBe("mark");
+    expect(getProjectedSource(mounted)).toBe("**cd**");
+    expect(getParagraphText(mounted)).toBe("Z ab**cd** Z");
+  });
+
+  it("keeps both open while the caret moves through the delimiters they meet at", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+    const caret = enterBoundary(mounted);
+
+    // The delimiters on either side of the place the two meet hold no document position of their
+    // own, so a caret moving through them has not reached either object's content yet.
+    for (const offset of [-1, 1, 2]) {
+      setTextSelection(mounted.view, caret + offset);
+
+      expect(getProjectionAdapterId(mounted)).toBe("boundary");
+      expect(mounted.view.state.selection.from).toBe(caret + offset);
+    }
+  });
+
+  it("keeps both open while the caret moves inside the text written between them", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+
+    enterBoundary(mounted);
+    typeText(mounted.view, "X");
+    typeText(mounted.view, "Y");
+    setTextSelection(mounted.view, mounted.view.state.selection.from - 1);
+
+    expect(getProjectionAdapterId(mounted)).toBe("boundary");
+    expect(getParagraphText(mounted)).toBe("Z *ab*XY**cd** Z");
+  });
+
   it("commits an edit inside one object and leaves its neighbour whole", async () => {
     const mounted = await mountProjectionEditor("Z *ab***cd** Z");
     const caret = enterBoundary(mounted);
 
-    // Between `c` and `d` of the second object's own content.
+    // Moving into the second object hands it the caret, and the pair restores as the file held it.
     setTextSelection(mounted.view, caret + 3);
     typeText(mounted.view, "Q");
     leaveProjection(mounted);
@@ -278,13 +326,34 @@ describe("boundary source projection", () => {
     expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
   });
 
-  it("converts an escaped side at once when its backslash is deleted", async () => {
+  it("gives way to an escaped side that then converts when its backslash is deleted", async () => {
     const mounted = await mountProjectionEditor(String.raw`Z \[ab](x)*cd* Z`);
     const seam = enterBoundary(mounted);
 
-    setTextSelection(mounted.view, seam - "\\[ab](x)".length + 1);
+    setTextSelection(mounted.view, seam - 4);
+
+    expect(getProjectionAdapterId(mounted)).toBe("escape");
+    expect(getParagraphText(mounted)).toBe(String.raw`Z \[ab](x)cd Z`);
+
+    setTextSelection(mounted.view, getProjectionSession(mounted)!.from + 1);
     runKeyDownHandlers(mounted.view, "Backspace");
 
+    expect(getProjectionAdapterId(mounted)).toBe("link");
+    expect(getEditorTextContent(mounted)).toBe("Z [ab](x)cd Z");
+    expect(mounted.getMarkdown()).toBe("Z [ab](x)*cd* Z\n");
+  });
+
+  it("converts an escaped side at once when a deletion inside the pair spends its backslash", async () => {
+    const mounted = await mountProjectionEditor(String.raw`Z \[ab](x)*cd* Z`);
+
+    enterBoundary(mounted);
+
+    const backslash = getProjectionSession(mounted)!.from;
+
+    setTextSelection(mounted.view, backslash, backslash + 1);
+    runKeyDownHandlers(mounted.view, "Backspace");
+
+    expect(getProjectionAdapterId(mounted)).toBe("link");
     expect(getEditorTextContent(mounted)).toBe("Z [ab](x)cd Z");
     expect(mounted.getMarkdown()).toBe("Z [ab](x)*cd* Z\n");
   });

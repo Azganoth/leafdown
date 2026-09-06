@@ -578,6 +578,21 @@ describe("typed character reference conversion", () => {
     expect(getMarkerTexts(mounted)).toEqual(["&copy;"]);
   });
 
+  // A backslash is a character the document holds rather than an escape it records, so one typed
+  // before the run does not hold the conversion off. The escape that keeps the characters is the
+  // one written into the projected source.
+  it("converts a run a typed backslash stands before", async () => {
+    const mounted = await mountProjectionEditor("");
+
+    setSelectionAtDocumentEnd(mounted.view);
+    typeText(mounted.view, String.raw`\&copy;`);
+    setTextSelection(mounted.view, 1);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(getEditorTextContent(mounted)).toBe(`\\${COPYRIGHT_SIGN}`);
+    expect(mounted.getMarkdown()).toBe(`${String.raw`\\&copy;`}\n`);
+  });
+
   it("converts a reference typed against one already preserved", async () => {
     const mounted = await mountProjectionEditor("a &copy;");
 

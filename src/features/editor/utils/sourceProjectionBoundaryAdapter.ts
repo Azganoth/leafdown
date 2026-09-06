@@ -1,9 +1,10 @@
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
-import { EditorState as ProseMirrorEditorState, TextSelection } from "@milkdown/kit/prose/state";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser } from "@milkdown/kit/transformer";
 
 import {
   createLiteralSourceProjectionSlice,
+  createSourceProjectionProbeState,
   decodeSourceProjectionEscapes,
   findLinkSourceCharacterReferences,
   findSourceProjectionEscapeOffsets,
@@ -63,27 +64,14 @@ export const isBoundarySourceProjectionTarget = (
   target: SourceProjectionTarget,
 ): target is BoundarySourceProjectionTarget => target.adapterId === BOUNDARY_ADAPTER_ID;
 
-// Discovery reads the canonical document rather than the live editor state, because the plugins the
-// live state carries answer a selection change by projecting it, and a probe must leave the
-// document as it found it.
 const probeSideTarget = (
   state: EditorState,
   position: number,
   findSideTarget: FindSideTarget,
 ): SourceProjectionTargetMatch | null => {
-  let probe: ProseMirrorEditorState;
+  const probe = createSourceProjectionProbeState(state.doc, position);
 
-  try {
-    probe = ProseMirrorEditorState.create({
-      doc: state.doc,
-      plugins: [],
-      selection: TextSelection.create(state.doc, position),
-    });
-  } catch {
-    return null;
-  }
-
-  return findSideTarget(probe);
+  return probe ? findSideTarget(probe) : null;
 };
 
 const findBoundaryTarget = (

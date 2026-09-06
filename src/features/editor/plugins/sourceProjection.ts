@@ -20,6 +20,7 @@ import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
   createMarkSourceProjectionAdapter,
+  createSourceProjectionProbeState,
   decodeSourceProjectionEscapes,
   findSourceProjectionInsertionCandidate,
   findSourceProjectionLiteralSourceCommit,
@@ -487,7 +488,7 @@ const appendProjectionTransaction = (
 
     // A session the caret has moved off gives way where it stands, rather than on the caret
     // leaving its range, so what the caret moved onto opens in its place.
-    return keepsProjectionCaret(state, projectionState.session, transactions)
+    return shouldKeepProjection(state, projectionState.session, transactions, adapters)
       ? null
       : createFinalizeProjectionTransaction(state, projectionState.session, true);
   }
@@ -541,18 +542,66 @@ const appendProjectionTransaction = (
 const isEscapeSourceProjection = (target: SourceProjectionTarget) =>
   target.adapterId === "escape" || (isBoundarySourceProjectionTarget(target) && target.holdsEscape);
 
-// A write moves the caret without moving the author, so only a caret the author moved can leave a
-// session standing. A selection is left to the range gate, which is what the copy and crossing
-// rules already read.
-const keepsProjectionCaret = (
+const shouldKeepProjection = (
   state: EditorState,
   session: ProjectionSession,
   transactions: readonly Transaction[],
-) =>
-  !session.adapter.ownsSelection ||
-  !state.selection.empty ||
-  transactions.some((transaction) => transaction.docChanged) ||
-  session.adapter.ownsSelection(state.selection, session, getProjectionSource(state, session));
+  adapters: readonly SourceProjectionAdapter[],
+) => {
+  // A write moves the caret without moving the author, so only a caret the author moved can leave
+  // a session standing. A selection is left to the range gate, which is what the copy and crossing
+  // rules already read.
+  if (!state.selection.empty || transactions.some((transaction) => transaction.docChanged)) {
+    return true;
+  }
+
+  const ownsSelection =
+    session.adapter.ownsSelection?.(
+      state.selection,
+      session,
+      getProjectionSource(state, session),
+    ) !== false;
+
+  return ownsSelection && !givesWayToDiscovery(state, session, adapters);
+};
+
+// A caret on a session's own edge is inside its range, so discovery never runs there, and that
+// edge is the only place a caret ever arrives at where two objects meet: reaching one of them
+// projects it before the caret can stand between them. The session gives way where it stands when
+// the ordinary precedence, put to the document the session is holding out of view, answers with a
+// range that takes in everything this one covers and more. Asking discovery rather than asking
+// whether a neighbour is there keeps the rule adapter-agnostic, and asking for a range that
+// contains this one keeps the caret from being handed sideways to the neighbour itself, which
+// would swap which of two objects reads as source rather than opening both.
+const givesWayToDiscovery = (
+  state: EditorState,
+  session: ProjectionSession,
+  adapters: readonly SourceProjectionAdapter[],
+) => {
+  const { selection } = state;
+
+  if (
+    (selection.from !== session.from && selection.from !== session.to) ||
+    !isCleanProjectionSession(state, session)
+  ) {
+    return false;
+  }
+
+  const restored = state.tr.replace(session.from, session.to, session.target.originalContent).doc;
+  const to = session.from + session.target.originalContentSize;
+  const probe = createSourceProjectionProbeState(
+    restored,
+    selection.from === session.from ? session.from : to,
+  );
+  const match = probe ? findSourceProjectionTarget(probe, adapters) : null;
+
+  return (
+    match !== null &&
+    match.target.from <= session.from &&
+    to <= match.target.to &&
+    match.target.to - match.target.from > to - session.from
+  );
+};
 
 const isProjectableTarget = (
   { target }: SourceProjectionTargetMatch,

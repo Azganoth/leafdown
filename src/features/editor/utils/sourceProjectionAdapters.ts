@@ -1,6 +1,10 @@
 import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
-import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
+import {
+  EditorState as ProseMirrorEditorState,
+  NodeSelection,
+  TextSelection,
+} from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 
 import { isTruthy } from "@/lib/predicates";
@@ -1317,6 +1321,21 @@ export const createMarkSourceProjectionAdapter = ({
     },
     shouldHandleTextInput: shouldHandleMarkTextInput,
   };
+};
+
+// Discovery reads a document rather than the live editor state, because the plugins the live state
+// carries answer a selection change by projecting it, and a question about what a caret would find
+// must leave the document as it was asked about.
+export const createSourceProjectionProbeState = (doc: ProseMirrorNode, position: number) => {
+  try {
+    return ProseMirrorEditorState.create({
+      doc,
+      plugins: [],
+      selection: TextSelection.create(doc, position),
+    });
+  } catch {
+    return null;
+  }
 };
 
 export const findSourceProjectionTarget = (

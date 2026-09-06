@@ -178,6 +178,88 @@ describe("boundary source projection", () => {
     expect(fromLeft.view.state.selection.from).toBe(fromRight.view.state.selection.from);
   });
 
+  it("opens the pair when the caret reaches the meeting place from inside the first object", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "ab"));
+
+    expect(getProjectedSource(mounted)).toBe("*ab*");
+
+    // The first object's own edge is where the two meet, and it is the only way a caret arrives
+    // there: reaching either object projects it before the caret can stand between them.
+    setTextSelection(mounted.view, getProjectionSession(mounted)!.to);
+
+    expect(getProjectionAdapterId(mounted)).toBe("boundary");
+    expect(getParagraphText(mounted)).toBe("Z *ab***cd** Z");
+  });
+
+  it("opens the pair when the caret reaches the meeting place from inside the second object", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "cd") + 1);
+
+    expect(getProjectedSource(mounted)).toBe("**cd**");
+
+    setTextSelection(mounted.view, getProjectionSession(mounted)!.from);
+
+    expect(getProjectionAdapterId(mounted)).toBe("boundary");
+    expect(getParagraphText(mounted)).toBe("Z *ab***cd** Z");
+  });
+
+  it("reaches the same caret from either object", async () => {
+    const fromFirst = await mountProjectionEditor("Z *ab***cd** Z");
+    const fromSecond = await mountProjectionEditor("Z *ab***cd** Z");
+
+    setTextSelection(fromFirst.view, getEditorTextPosition(fromFirst, "ab"));
+    setTextSelection(fromFirst.view, getProjectionSession(fromFirst)!.to);
+
+    setTextSelection(fromSecond.view, getEditorTextPosition(fromSecond, "cd") + 1);
+    setTextSelection(fromSecond.view, getProjectionSession(fromSecond)!.from);
+
+    expect(fromFirst.view.state.selection.from).toBe(fromSecond.view.state.selection.from);
+  });
+
+  it("keeps a projection whose object has no projectable neighbour at its edge", async () => {
+    const mounted = await mountProjectionEditor("Z *ab* cd Z");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "ab"));
+
+    const edge = getProjectionSession(mounted)!.to;
+
+    setTextSelection(mounted.view, edge);
+
+    expect(getProjectionAdapterId(mounted)).toBe("mark");
+    expect(mounted.view.state.selection.from).toBe(edge);
+  });
+
+  it("keeps a projection whose neighbour would take the caret rather than open beside it", async () => {
+    const mounted = await mountProjectionEditor("A &copy;&copy; b");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "©"));
+
+    expect(getProjectedSource(mounted)).toBe("&copy;");
+
+    // Two identical references are one text node, so nothing is paired here. Handing the caret to
+    // the neighbour would swap which of the two reads as source rather than opening both.
+    const edge = getProjectionSession(mounted)!.to;
+
+    setTextSelection(mounted.view, edge);
+
+    expect(getProjectionAdapterId(mounted)).toBe("character-reference");
+    expect(mounted.view.state.selection.from).toBe(edge);
+  });
+
+  it("keeps an edited projection standing when the caret reaches its edge", async () => {
+    const mounted = await mountProjectionEditor("Z *ab***cd** Z");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "ab"));
+    typeText(mounted.view, "Q");
+    setTextSelection(mounted.view, getProjectionSession(mounted)!.to);
+
+    expect(getProjectionAdapterId(mounted)).toBe("mark");
+    expect(getParagraphText(mounted)).toBe("Z *Qab*cd Z");
+  });
+
   it("gives way to the first object when the caret moves into it", async () => {
     const mounted = await mountProjectionEditor("Z *ab***cd** Z");
     const caret = enterBoundary(mounted);

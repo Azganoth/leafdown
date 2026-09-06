@@ -108,7 +108,7 @@ export function DeveloperTools({ onSimulateRenderFailure }: DeveloperToolsProps)
             />
           }
         >
-          <WrenchIcon className="size-4" />
+          <WrenchIcon />
         </PopoverTrigger>
         <PopoverContent
           align="end"
@@ -155,7 +155,7 @@ function DeveloperToolErrorPopover({ actions }: DeveloperToolErrorPopoverProps) 
             />
           }
         >
-          <BugIcon className="size-4" />
+          <BugIcon />
         </TooltipTrigger>
         <TooltipContent
           className="max-w-64 flex-col items-start gap-0.5"
@@ -206,7 +206,7 @@ function DeveloperToolIconButton({ action }: DeveloperToolIconButtonProps) {
           />
         }
       >
-        <Icon className="size-4" />
+        <Icon />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 flex-col items-start gap-0.5" side="left" sideOffset={8}>
         <span className="text-xs font-medium">{action.label}</span>
@@ -230,7 +230,7 @@ function DeveloperToolActionButton({ action }: DeveloperToolActionButtonProps) {
       type="button"
       variant="ghost"
     >
-      <Icon className="mt-0.5 size-4 text-muted-foreground" />
+      <Icon className="mt-0.5 text-muted-foreground" />
       <span className="min-w-0">
         <span className="block text-xs font-medium">{action.label}</span>
         <span className="block text-[0.7rem] leading-4 font-normal text-muted-foreground">

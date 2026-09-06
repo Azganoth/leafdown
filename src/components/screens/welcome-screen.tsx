@@ -73,11 +73,11 @@ export function WelcomeScreen() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Button type="button" onClick={handleOpenFile} size="lg">
-            <FileTextIcon className="size-4" />
+            <FileTextIcon data-icon="inline-start" />
             Open file
           </Button>
           <Button type="button" onClick={handleOpenFolder} variant="outline" size="lg">
-            <FolderOpenIcon className="size-4" />
+            <FolderOpenIcon data-icon="inline-start" />
             Open folder
           </Button>
           {hasRecentItems && (
@@ -88,7 +88,7 @@ export function WelcomeScreen() {
               onClick={clearRecentItems}
               className="ml-auto"
             >
-              <XIcon className="size-4" />
+              <XIcon data-icon="inline-start" />
               Clear recent items
             </Button>
           )}
@@ -142,7 +142,7 @@ function RecentItemsSection({
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 flex flex-col gap-1">
           {items.map((path) => (
             <li key={path} className="min-w-0">
               <Button
@@ -153,7 +153,7 @@ function RecentItemsSection({
                 title={path}
                 className="w-full justify-start px-2"
               >
-                <Icon className="size-4" />
+                <Icon />
                 <span className="min-w-0 truncate">{path}</span>
               </Button>
             </li>

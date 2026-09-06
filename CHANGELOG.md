@@ -16,6 +16,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Tighten the padding on the icon side of buttons that carry a leading icon, such as `Open file` on the welcome screen and `Copy summary` in the diagnostics dialog, so the icon no longer sits as far from the edge as the text does on the other side.
 - Sort article directories before articles in the article navigator.
 - Ease the editor context popup between selection-driven positions while keeping scroll tracking immediate.
 - Separate global application shortcuts, focused editor command shortcuts, and native text-input and clipboard gestures by ownership.
@@ -37,6 +38,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Line up the rows of the View menu. `Toggle sidebar` and `Full screen` reserve a column on their left for the tick that marks them on, and the rows sharing the menu with them did not, so `Zoom in`, `Appearance`, `Sort articles by`, `Collapse all folders`, and the rest began a step to the left of the two and the menu read as two ragged columns. Every row of the menu now begins at the same place, whether it can carry a tick or not. The submenus are unchanged: each one's rows already agreed with each other.
 - Keep that whitespace on a heading underlined with `=` or `-` whose text runs across more than one line, so a line written without its `>` or its item's indentation stays that way and one written indented keeps its indentation, as a paragraph's already did. The underline keeps whatever it was written behind too.
 - Keep the indentation a nested list item's marker was written behind, so an item indented by a tab under `- parent` stays indented by a tab instead of being rewritten as two spaces, and the lines the item holds move with it. An item the editor moves into or out of another item is still written at the indentation its containers spell, and so is one whose recorded indentation would put its marker inside the item before it.
 - Keep the leading whitespace a paragraph's later lines were written with, so a quoted line written without its `>` no longer gains one on the first save, a list item's second line written without indentation no longer gains it, and a line indented inside a paragraph keeps that indentation instead of losing it and gaining a backslash in its place. A line added in the editor is still written under the marker or indentation its blockquote or list item spells, and so is one whose recorded whitespace would open a quote the document no longer holds.

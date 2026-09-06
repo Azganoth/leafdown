@@ -163,16 +163,16 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
         <DialogFooter showCloseButton>
           {loadError && (
             <Button variant="outline" onClick={reloadSummary}>
-              <RotateCcwIcon />
+              <RotateCcwIcon data-icon="inline-start" />
               Retry
             </Button>
           )}
           <Button variant="outline" disabled={!summary} onClick={openLogsFolder}>
-            <FolderOpenIcon />
+            <FolderOpenIcon data-icon="inline-start" />
             Open logs folder
           </Button>
           <Button disabled={!summary} onClick={copySummary}>
-            <CopyIcon />
+            <CopyIcon data-icon="inline-start" />
             Copy summary
           </Button>
         </DialogFooter>

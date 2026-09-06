@@ -112,6 +112,7 @@ export function CommandMenubar({
                 "edit.jumpToSelection",
                 "edit.jumpToLineStart",
                 "edit.jumpToLineEnd",
+                "edit.jumpToFootnoteDefinition",
               ]}
               label="Jump"
             />

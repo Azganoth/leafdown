@@ -23,6 +23,7 @@ export const EDITOR_COMMAND_LABELS = {
   "edit.jumpToSelection": "Jump to selection",
   "edit.jumpToLineStart": "Jump to line start",
   "edit.jumpToLineEnd": "Jump to line end",
+  "edit.jumpToFootnoteDefinition": "Jump to footnote definition",
   "insert.paragraph": "Paragraph",
   "insert.heading1": "Heading 1",
   "insert.heading2": "Heading 2",

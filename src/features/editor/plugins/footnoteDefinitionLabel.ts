@@ -10,13 +10,16 @@ import { $nodeSchema, $prose } from "@milkdown/kit/utils";
 
 import {
   FOOTNOTE_DEFINITION_LABEL_NODE_NAME,
-  FOOTNOTE_DEFINITION_NODE_NAME,
   footnoteDefinitionLabelNodeSchema,
   getFootnoteDefinitionLabel,
   getFootnoteDefinitionLabelNode,
   isFootnoteDefinitionLabel,
   isWritableFootnoteDefinitionLabel,
 } from "../utils/footnoteDefinitionLabel";
+import {
+  findFootnoteDefinitions,
+  type FootnoteDefinitionMatch,
+} from "../utils/footnoteDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "../utils/sourceProjectionFootnoteReferenceSyntax";
 
 export const leafdownFootnoteDefinitionLabelSchema = $nodeSchema(
@@ -28,30 +31,9 @@ export const leafdownFootnoteDefinitionLabelPluginKey = new PluginKey(
   "leafdownFootnoteDefinitionLabel",
 );
 
-interface FootnoteDefinition {
-  node: ProseMirrorNode;
-  pos: number;
-}
-
-const findFootnoteDefinitions = (document: ProseMirrorNode) => {
-  const definitions: FootnoteDefinition[] = [];
-
-  document.descendants((node, pos) => {
-    if (node.type.name !== FOOTNOTE_DEFINITION_NODE_NAME) {
-      return node.isBlock;
-    }
-
-    definitions.push({ node, pos });
-
-    return false;
-  });
-
-  return definitions;
-};
-
 const setLabelText = (
   transaction: Transaction,
-  definition: FootnoteDefinition,
+  definition: FootnoteDefinitionMatch,
   label: ProseMirrorNode,
   text: string,
 ) => {
@@ -81,7 +63,11 @@ const renameReferences = (
   });
 };
 
-const holdsLabel = (state: EditorState, definition: FootnoteDefinition, label: ProseMirrorNode) => {
+const holdsLabel = (
+  state: EditorState,
+  definition: FootnoteDefinitionMatch,
+  label: ProseMirrorNode,
+) => {
   const from = definition.pos + 1;
 
   return state.selection.from <= from + label.nodeSize && state.selection.to >= from;

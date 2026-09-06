@@ -13,6 +13,7 @@ import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { EditorContextPopup } from "./editor-context-popup";
+import { EditorFootnotePreview } from "./editor-footnote-preview";
 
 export type { MilkdownEditorBridge } from "../hooks/useMilkdownEditorInstance";
 
@@ -47,6 +48,7 @@ export function MilkdownEditor({
     contextPopupRequest,
     executeContextCommand,
     focusEditor,
+    footnotePreviewRequest,
     rootRef,
   } = useMilkdownEditorInstance({
     autoPairBracketsAndQuotes,
@@ -74,6 +76,7 @@ export function MilkdownEditor({
         onReturnFocus={focusEditor}
         request={contextPopupRequest}
       />
+      <EditorFootnotePreview request={footnotePreviewRequest} />
     </div>
   );
 }

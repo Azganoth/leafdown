@@ -77,6 +77,11 @@ import {
   createLeafdownFootnoteDefinitionLabelPlugin,
   leafdownFootnoteDefinitionLabelSchema,
 } from "../plugins/footnoteDefinitionLabel";
+import { createLeafdownFootnoteNavigationPlugin } from "../plugins/footnoteNavigation";
+import {
+  createLeafdownFootnotePreviewPlugin,
+  type LeafdownFootnotePreviewPluginOptions,
+} from "../plugins/footnotePreview";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
@@ -167,6 +172,7 @@ export interface CreateMilkdownEditorOptions {
   root: HTMLElement;
   initialMarkdown: string;
   contextPopup?: LeafdownContextPopupPluginOptions;
+  footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
   onCommandStateChanged?: (state: EditorCommandState) => void;
@@ -207,6 +213,7 @@ export const createMilkdownEditor = async ({
   root,
   initialMarkdown,
   contextPopup,
+  footnotePreview,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
   onCommandStateChanged,
@@ -253,6 +260,8 @@ export const createMilkdownEditor = async ({
     .use(leafdownDefinitionSchema)
     .use(leafdownFootnoteDefinitionLabelSchema)
     .use(createLeafdownFootnoteDefinitionLabelPlugin())
+    .use(createLeafdownFootnoteNavigationPlugin())
+    .use(createLeafdownFootnotePreviewPlugin(footnotePreview))
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))

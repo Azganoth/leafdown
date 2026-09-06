@@ -11,6 +11,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Add a paragraph at the end of the document by clicking the empty space below it.
 - Close folder contexts from the File menu.
 - Add keyboard shortcuts for formatting task lists and toggling task items.
+- Go from a footnote reference to the footnote it names, with `Mod+click` on the reference or `Jump to footnote definition` in the Edit menu, instead of hunting for the definition further down the file. Every reference sharing a label reaches the same definition, the caret lands in the definition's own text, and the plain click still opens the reference's source as before. Nothing about the file changes: the Markdown, the unsaved marker, and what `Undo` steps back to are the same after the jump as before it. A reference whose definition has been deleted, or one relabelled to a name no definition answers to, goes nowhere and greys the command out.
+- Read a footnote without leaving the line it is cited on. Resting the pointer on a reference shows what the definition says after a short pause, and `Mod+Alt+P` shows the same thing for the reference the caret is on, so the preview is reachable without a mouse. It is a preview and nothing more: it holds no buttons, never takes the caret, and shows the definition on one line, cut short where the footnote is longer than fits. A reference whose definition is gone says so instead of showing an empty box. Moving the pointer away, `Escape`, or carrying on typing puts it away, and the file is untouched throughout.
 
 ### Changed
 

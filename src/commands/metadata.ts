@@ -81,6 +81,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.jumpToSelection": editorCommandDef("edit.jumpToSelection"),
   "edit.jumpToLineStart": editorCommandDef("edit.jumpToLineStart", { key: "Home" }),
   "edit.jumpToLineEnd": editorCommandDef("edit.jumpToLineEnd", { key: "End" }),
+  "edit.jumpToFootnoteDefinition": editorCommandDef("edit.jumpToFootnoteDefinition"),
   "edit.lineEnding.crlf": commandDef("Windows line ending (CRLF)"),
   "edit.lineEnding.lf": commandDef("Unix line ending (LF)"),
   "edit.insertFinalNewline": commandDef("Insert final newline on save"),

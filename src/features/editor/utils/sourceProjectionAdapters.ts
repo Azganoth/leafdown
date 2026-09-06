@@ -43,6 +43,7 @@ import {
 import { getRangeText, getTextBetween, type TextRange } from "./textRanges";
 
 export type SourceProjectionAdapterId =
+  | "boundary"
   | "character-reference"
   | "escape"
   | "footnote-reference"

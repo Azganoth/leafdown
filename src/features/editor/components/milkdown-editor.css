@@ -85,6 +85,13 @@
       @apply mt-4;
     }
 
+    /* The heading's own `mb-3` only reaches the page paired with this: adjacent margins collapse to
+       the larger, so the prose a heading introduces has to yield the same 12px for it to hold. A
+       block that carries its own frame keeps its usual gap, and a separator keeps all of its. */
+    :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
+      @apply mt-3;
+    }
+
     strong {
       @apply font-semibold text-foreground;
     }

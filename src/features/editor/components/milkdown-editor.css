@@ -59,7 +59,7 @@
     }
 
     h1 {
-      @apply border-b border-border pb-3 text-3xl leading-tight;
+      @apply mt-10 border-b border-border pb-3 text-3xl leading-tight;
     }
 
     h2 {
@@ -67,16 +67,22 @@
     }
 
     h3 {
-      @apply text-xl leading-snug;
+      @apply mt-7 text-xl leading-snug;
     }
 
     h4 {
-      @apply text-lg leading-snug;
+      @apply mt-6 text-lg leading-snug;
     }
 
     h5,
     h6 {
-      @apply text-base leading-snug text-muted-foreground;
+      @apply mt-5 text-base leading-snug text-muted-foreground;
+    }
+
+    /* A heading standing directly under another introduces it rather than following prose, so it
+       does not take the space that separates a heading from the text above it. */
+    :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+      @apply mt-4;
     }
 
     strong {

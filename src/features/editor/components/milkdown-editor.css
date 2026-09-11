@@ -162,8 +162,16 @@
       }
     }
 
+    /* A heading's underline is drawn from the same token at the same weight, so a rule spanning the
+       measure here reads as one of those. The element keeps the measure, so what a click can reach
+       is unchanged, and the mark is drawn short and centred inside it. */
     hr {
-      @apply my-8 border-0 border-t border-border;
+      @apply my-8 h-px border-0;
+
+      &::before {
+        @apply mx-auto block h-px w-24 bg-border;
+        content: "";
+      }
     }
 
     :not(pre) > code {
@@ -288,7 +296,21 @@
       @apply my-4 rounded-sm border border-border/60 bg-muted px-2 py-1 font-mono text-[0.9em] whitespace-pre-wrap text-muted-foreground;
 
       &.ProseMirror-selectednode {
-        @apply border-primary/40 ring-2 ring-primary/25;
+        @apply border-primary/40;
+      }
+    }
+
+    /* `prosemirror-view` paints node selection as a fixed `#8cf`, which belongs to neither theme.
+       Its two rules are redrawn here on the token the rest of the selection chrome uses. */
+    .ProseMirror-selectednode {
+      @apply outline-2 outline-offset-2 outline-primary/40;
+    }
+
+    li.ProseMirror-selectednode {
+      @apply outline-none;
+
+      &::after {
+        @apply border-primary/40;
       }
     }
 

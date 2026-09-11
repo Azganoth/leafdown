@@ -13,7 +13,7 @@
   }
 
   .ProseMirror {
-    @apply mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl wrap-anywhere outline-none;
+    @apply mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl wrap-anywhere caret-primary outline-none;
 
     & > *:first-child {
       @apply mt-0;
@@ -87,11 +87,11 @@
     }
 
     ul {
-      @apply list-disc;
+      @apply list-disc marker:text-primary;
     }
 
     ol {
-      @apply list-decimal;
+      @apply list-decimal marker:text-primary/70;
     }
 
     li {
@@ -139,7 +139,7 @@
     }
 
     :not(pre) > code {
-      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
     pre {
@@ -344,7 +344,7 @@
     }
 
     .leafdown-source-projection__content--inline-code {
-      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
     }
 
     .leafdown-source-projection__content--footnote-reference {

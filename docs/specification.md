@@ -125,14 +125,15 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 ### Marker Visibility and Presentation
 
-- Content that shows the syntax marker decoration when the caret is inside the block: Headings.
+- Content that shows the syntax marker decoration when the caret is inside the block or the pointer rests on it: Headings.
 - Content that remains structurally rendered without marker-driven editing controls or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks, Tables.
 - Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Footnote definition labels, Autolinks, Raw HTML.
 - Content that shows the permanent syntax markers: Link and image reference definitions.
+- A column beside the document reserves room for block-level affordances. It holds two lanes: the inner one, next to the text, carries the block's marker, and the outer one is reserved for a later control. The column is present whether or not anything occupies it, so an affordance appearing or disappearing moves no document text at any window width. The text keeps its reading measure wherever the window leaves room for both, and narrows rather than letting the column meet it where the window does not.
 
 ### Blocks
 
-- Headings render structurally. When the caret is inside a heading, show a subtle heading marker.
+- Headings render structurally. When the caret is inside a heading, or the pointer rests on one, show a subtle heading marker in the reserved column's inner lane, beside the heading's first line. Either trigger shows the same marker, and both may show at once on different headings. The marker belongs to the heading's pointer area, so moving onto the marker does not dismiss it.
 - Lists render structurally with visual list markers.
 - Blockquotes render structurally.
 - Horizontal rules render as separators without exposing the raw marker used to create them.

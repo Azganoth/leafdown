@@ -1,8 +1,22 @@
 @reference "../../../app.css";
 
+/* Registered so `1lh` computes against the block's own line height and inherits into the gutter as
+   a length, which a plain custom property would re-resolve against the occupant's line height. */
+@property --leafdown-block-line {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 /* Keep editor presentation unlayered so it can override imported ProseMirror defaults. */
 .leafdown-editor {
   @apply min-h-full w-full px-6 py-8 text-foreground;
+
+  /* Two lanes: the inner one carries the marker, the outer one is reserved for a later control. */
+  --leafdown-gutter-lane: 2rem;
+  --leafdown-gutter-gap: 0.5rem;
+  --leafdown-gutter: calc(2 * var(--leafdown-gutter-lane) + var(--leafdown-gutter-gap));
+  --leafdown-measure: 48rem;
 
   @media (min-width: 40rem) {
     @apply px-8 py-10;
@@ -12,8 +26,12 @@
     @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
   }
 
+  /* The gutter is padding inside the block rather than page margin, so it holds at every window
+     width; below the combined width the text narrows rather than the gutter collapsing. */
   .ProseMirror {
-    @apply mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl wrap-anywhere caret-primary outline-none;
+    @apply mx-auto min-h-[calc(100vh-9rem)] w-full wrap-anywhere caret-primary outline-none;
+    max-width: calc(var(--leafdown-measure) + 2 * var(--leafdown-gutter));
+    padding-inline: var(--leafdown-gutter);
 
     & > *:first-child {
       @apply mt-0;
@@ -27,13 +45,17 @@
       @apply my-4 text-base leading-7;
     }
 
+    /* The marker is positioned against the heading and centred on its first line, so the heading
+       carries the containing block and publishes its own line height whether or not the caret
+       decoration is on it. Hover has no decoration to read either from. */
     h1,
     h2,
     h3,
     h4,
     h5,
     h6 {
-      @apply mt-8 mb-3 scroll-m-20 font-heading font-semibold text-foreground;
+      @apply relative mt-8 mb-3 scroll-m-20 font-heading font-semibold text-foreground;
+      --leafdown-block-line: 1lh;
     }
 
     h1 {
@@ -274,13 +296,44 @@
       @apply bg-transparent;
     }
 
-    .leafdown-marker-node {
-      @apply relative;
+    /* Out of flow into the inner lane, so the heading's text holds its place whether or not the
+       marker is showing, and centred on the block's first line rather than on the block. */
+    .leafdown-marker-node--subtle::before,
+    :is(h1, h2, h3, h4, h5, h6):hover::before {
+      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-muted-foreground opacity-80 select-none;
+      inset-block-start: 0;
+      inset-inline-end: calc(100% + var(--leafdown-gutter-gap));
+      translate: 0 calc(var(--leafdown-block-line) / 2 - 50%);
     }
 
     .leafdown-marker-node--subtle::before {
-      @apply mr-2 inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground opacity-80 select-none;
       content: attr(data-leafdown-marker);
+    }
+
+    /* The caret marker reads its text from the decoration. A hovered heading has no decoration to
+       read, so the level is spelled here; `getSubtleMarkerForNode` is the other half of the pair. */
+    h1:hover::before {
+      content: "H1";
+    }
+
+    h2:hover::before {
+      content: "H2";
+    }
+
+    h3:hover::before {
+      content: "H3";
+    }
+
+    h4:hover::before {
+      content: "H4";
+    }
+
+    h5:hover::before {
+      content: "H5";
+    }
+
+    h6:hover::before {
+      content: "H6";
     }
 
     /* The label stands where the file spells it, on the line the definition opens on, with the body

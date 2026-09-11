@@ -58,9 +58,11 @@ export function CommandMenubar({
 }: CommandMenubarProps) {
   return (
     <CommandMenuContext.Provider value={{ commandState, onExecute }}>
-      <Menubar className="border-0 bg-transparent p-0">
+      <Menubar className="border-0 bg-transparent p-0 text-muted-foreground">
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.file}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.file}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["file.new"]} />
             <MenubarSeparator />
@@ -85,7 +87,9 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.edit}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.edit}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["edit.undo", "edit.redo"]} />
             <MenubarSeparator />
@@ -122,7 +126,9 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.insert}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.insert}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["insert.paragraph"]} />
             <HeadingSubmenu prefix="insert" />
@@ -132,7 +138,9 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.format}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.format}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={INLINE_FORMAT_COMMAND_IDS} />
             <MenubarSeparator />
@@ -147,7 +155,9 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.view}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.view}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandCheckboxItem commandId="view.toggleSidebar" />
             <MenubarSeparator />
@@ -173,7 +183,9 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.help}</MenubarTrigger>
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.help}
+          </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />

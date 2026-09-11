@@ -79,6 +79,38 @@ export const getArticleDirectoryPaths = (tree: ArticleTree) =>
     roots: tree.children,
   }).flatMap(({ node }) => (node.kind === "directory" ? [node.path] : []));
 
+export const getArticleFileCount = (tree: ArticleTree) =>
+  flattenTree({
+    getChildren: getArticleTreeNodeChildren,
+    roots: tree.children,
+  }).filter(({ node }) => node.kind === "file").length;
+
+export const filterArticleTreeByArticleName = (tree: ArticleTree, query: string): ArticleTree => {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return tree;
+  }
+
+  return {
+    ...tree,
+    children: filterArticleTreeNodesByArticleName(tree.children, normalizedQuery),
+  };
+};
+
+const filterArticleTreeNodesByArticleName = (
+  nodes: ArticleTreeNode[],
+  normalizedQuery: string,
+): ArticleTreeNode[] =>
+  nodes.flatMap((node): ArticleTreeNode[] => {
+    if (node.kind === "file") {
+      return node.name.toLowerCase().includes(normalizedQuery) ? [node] : [];
+    }
+
+    const children = filterArticleTreeNodesByArticleName(node.children, normalizedQuery);
+
+    return children.length > 0 ? [{ ...node, children }] : [];
+  });
 export const getArticleAncestorDirectoryPaths = (
   tree: ArticleTree,
   filePath: string,

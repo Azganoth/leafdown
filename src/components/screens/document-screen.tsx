@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getActiveDocumentKey,
@@ -39,26 +40,30 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     [documentKey],
   );
   return (
-    <ScrollArea className="h-full w-full" data-testid="document-surface-scroll-area">
-      <section
-        aria-label="Active document"
-        data-testid="active-document-host"
-        className="min-h-full w-full bg-background"
-      >
-        <MilkdownEditor
-          key={documentKey}
-          ref={setEditorBridgeRef}
-          initialMarkdown={activeDocument.content}
-          documentPath={activeDocument.status === "saved" ? activeDocument.path : null}
-          folderContextPath={folderContextPath}
-          onOpenMarkdownPath={handleOpenMarkdownPath}
-          autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
-          softWrapCodeBlocks={softWrapCodeBlocks}
-          onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
-          onContentChanged={() => markActiveDocumentDirty(documentKey)}
-          onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
-        />
-      </section>
-    </ScrollArea>
+    <section
+      aria-label="Active document"
+      data-testid="active-document-host"
+      className="flex size-full pt-1 pr-3 pb-3"
+    >
+      <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
+        <CardContent className="min-h-0 flex-1 p-0">
+          <ScrollArea className="min-h-0 flex-1" data-testid="document-surface-scroll-area">
+            <MilkdownEditor
+              key={documentKey}
+              ref={setEditorBridgeRef}
+              initialMarkdown={activeDocument.content}
+              documentPath={activeDocument.status === "saved" ? activeDocument.path : null}
+              folderContextPath={folderContextPath}
+              onOpenMarkdownPath={handleOpenMarkdownPath}
+              autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
+              softWrapCodeBlocks={softWrapCodeBlocks}
+              onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
+              onContentChanged={() => markActiveDocumentDirty(documentKey)}
+              onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
+            />
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </section>
   );
 }

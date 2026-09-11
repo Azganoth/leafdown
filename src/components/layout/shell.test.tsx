@@ -54,6 +54,9 @@ describe("Shell", () => {
   it("renders the welcome shell with menu, sidebar, document surface, and modal layer", () => {
     render(<Shell />);
 
+    const titlebar = document.querySelector<HTMLElement>("#leafdown-titlebar");
+    expect(titlebar).not.toBeNull();
+
     expect(screen.getByRole("button", { name: "Open file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "File" })).toBeInTheDocument();
@@ -62,10 +65,25 @@ describe("Shell", () => {
     expect(screen.getByRole("menuitem", { name: "Format" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "View" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Help" })).toBeInTheDocument();
+    expect(titlebar!).toContainElement(screen.getByRole("menuitem", { name: "File" }));
+    expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Hide sidebar" }));
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(titlebar!.querySelector("h1")).toBeNull();
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
     expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
+    const navigatorHost = screen.getByTestId("article-navigator-host");
+    expect(navigatorHost).toHaveClass("pt-0.5", "pb-3", "pl-3");
+    expect(navigatorHost).not.toHaveClass("pr-3");
+    expect(navigatorHost).not.toHaveClass("pt-3");
+    expect(navigatorHost.querySelector("[data-slot=card]")).toBeInTheDocument();
+    const resizeHandle = screen.getByRole("separator", { name: "Resize article navigator" });
+    expect(resizeHandle).toHaveClass("w-2", "bg-transparent");
+    expect(resizeHandle.querySelector("[data-slot=resizable-grip]")).toBeInTheDocument();
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.getByText("No folder open")).toBeInTheDocument();
@@ -156,6 +174,17 @@ describe("Shell", () => {
     expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
   });
 
+  it("toggles the sidebar from the titlebar", async () => {
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
+
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show sidebar" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
   it("reports article open failures from the sidebar", async () => {
     setDefaultSession({
       folderContext: nestedFolderContext,

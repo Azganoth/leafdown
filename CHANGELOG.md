@@ -16,6 +16,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Integrate the command menu into the titlebar, replace the app-name label there with the Leafdown icon, provide a persistent sidebar toggle beside the native window controls, present the article navigator and document editor as aligned cards, resize the article navigator by dragging the divider between the two, hold the document card in place while its text scrolls so its scrollbar runs inside the card rather than down the side of the window, add article filtering, and soften the default dark-theme text color across the editor and interface.
+
 - Tighten the padding on the icon side of buttons that carry a leading icon, such as `Open file` on the welcome screen and `Copy summary` in the diagnostics dialog, so the icon no longer sits as far from the edge as the text does on the other side.
 - Sort article directories before articles in the article navigator.
 - Ease the editor context popup between selection-driven positions while keeping scroll tracking immediate.

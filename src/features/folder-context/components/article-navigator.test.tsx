@@ -42,6 +42,14 @@ const folderContextWithScanWarning = createFolderContext({
 describe("article-navigator", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
 
+  it("keeps the empty sidebar card free of an explorer header", () => {
+    render(
+      <ArticleNavigator activeArticlePath={null} folderContext={null} onOpenArticle={vi.fn()} />,
+    );
+
+    expect(screen.getByText("No folder open")).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=card-header]")).toBeNull();
+  });
   it("delegates article opening without importing session workflows", async () => {
     const onOpenArticle = vi.fn();
     const { user } = renderWithUser(
@@ -131,6 +139,34 @@ describe("article-navigator", () => {
     ]);
   });
 
+  it("filters articles through collapsed folders without changing the restored tree", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const filter = screen.getByRole("textbox", { name: "Filter articles" });
+    expect(filter).toHaveAttribute("type", "text");
+
+    await user.type(filter, "spec");
+
+    expect(screen.getByRole("button", { name: "Clear article filter" })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: "spec.md" })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "readme.md" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear article filter" }));
+
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("treeitem", { name: "spec.md" })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toBeInTheDocument();
+  });
   it("keeps an empty directory reachable instead of disabling it", () => {
     render(
       <ArticleNavigator

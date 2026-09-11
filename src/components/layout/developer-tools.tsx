@@ -96,39 +96,45 @@ export function DeveloperTools({ onSimulateRenderFailure }: DeveloperToolsProps)
   ];
 
   return (
-    <div className="fixed right-4 bottom-4 z-90">
-      <Popover>
-        <PopoverTrigger
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger
           render={
-            <Button
-              aria-label="Open developer tools"
-              className="size-10 rounded-full shadow-lg shadow-black/25"
-              size="icon"
-              type="button"
+            <PopoverTrigger
+              render={
+                <Button
+                  aria-label="Open developer tools"
+                  className="text-muted-foreground"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                />
+              }
             />
           }
         >
           <WrenchIcon />
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          className="z-90 w-auto gap-1 rounded-xl p-1.5"
-          side="top"
-          sideOffset={10}
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Developer tools</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        align="end"
+        className="z-90 w-auto gap-1 rounded-xl p-1.5"
+        side="bottom"
+        sideOffset={6}
+      >
+        <div
+          className="flex flex-col items-center gap-1"
+          role="toolbar"
+          aria-label="Developer tools"
         >
-          <div
-            className="flex flex-col items-center gap-1"
-            role="toolbar"
-            aria-label="Developer tools"
-          >
-            {appActions.map((action) => (
-              <DeveloperToolIconButton key={action.label} action={action} />
-            ))}
-            <DeveloperToolErrorPopover actions={failureActions} />
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+          {appActions.map((action) => (
+            <DeveloperToolIconButton key={action.label} action={action} />
+          ))}
+          <DeveloperToolErrorPopover actions={failureActions} />
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

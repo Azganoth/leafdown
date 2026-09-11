@@ -76,10 +76,11 @@ describe("Shell", () => {
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
     expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
+    const workspaceHost = screen.getByTestId("document-workspace-host");
+    expect(workspaceHost).toHaveClass("px-3", "pt-1", "pb-3");
     const navigatorHost = screen.getByTestId("article-navigator-host");
-    expect(navigatorHost).toHaveClass("pt-0.5", "pb-3", "pl-3");
+    expect(navigatorHost).not.toHaveClass("pl-3");
     expect(navigatorHost).not.toHaveClass("pr-3");
-    expect(navigatorHost).not.toHaveClass("pt-3");
     expect(navigatorHost.querySelector("[data-slot=card]")).toBeInTheDocument();
     const resizeHandle = screen.getByRole("separator", { name: "Resize article navigator" });
     expect(resizeHandle).toHaveClass("w-2", "bg-transparent");
@@ -172,6 +173,14 @@ describe("Shell", () => {
     render(<Shell />);
 
     expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
+  });
+
+  it("keeps the workspace gutter once the sidebar is collapsed", () => {
+    setDefaultSettings({ sidebarVisible: false });
+
+    render(<Shell />);
+
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
   });
 
   it("toggles the sidebar from the titlebar", async () => {

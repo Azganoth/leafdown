@@ -1,7 +1,7 @@
 import "@/app.css";
 import { setTheme as tauriSetTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect } from "react";
 
 import { Shell } from "@/components/layout/shell";
 import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-boundary";
@@ -17,14 +17,6 @@ import { confirmDiscardActiveDocumentChanges } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
-
-const DeveloperTools = import.meta.env.DEV
-  ? lazy(async () => {
-      const module = await import("@/components/layout/developer-tools");
-
-      return { default: module.DeveloperTools };
-    })
-  : null;
 
 const TOAST_TIMEOUT_MS = import.meta.env.MODE === "desktop-e2e" ? 0 : undefined;
 
@@ -44,8 +36,6 @@ const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
 const WINDOW_CLOSE_DECLINED_EVENT = "leafdown://window-close-declined";
 
 export function App() {
-  const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
-
   useEffect(() => {
     const initializeApp = async () => {
       try {
@@ -129,22 +119,8 @@ export function App() {
     <div className="flex h-screen flex-col overflow-hidden">
       <UnexpectedErrorBoundary>
         <Shell />
-        {simulatedRenderFailureId > 0 && <DeveloperRenderFailure key={simulatedRenderFailureId} />}
       </UnexpectedErrorBoundary>
-      {DeveloperTools && (
-        <Suspense fallback={null}>
-          <DeveloperTools
-            onSimulateRenderFailure={() =>
-              setSimulatedRenderFailureId((failureId) => failureId + 1)
-            }
-          />
-        </Suspense>
-      )}
       <Toaster timeout={TOAST_TIMEOUT_MS} />
     </div>
   );
-}
-
-function DeveloperRenderFailure(): never {
-  throw new Error("Developer tools simulated document surface render failure.");
 }

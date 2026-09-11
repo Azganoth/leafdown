@@ -16,6 +16,9 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Refine how the editor draws blocks. A block quote's accent bar is half its former width. A task list checkbox now carries the same box and tick as the checkboxes elsewhere in the interface. Table cells are separated by single rules that stop at the table's own edge rather than boxing each cell, cells have more room around their text, and rows no longer alternate their shading. A fenced block's language sits in a badge in the block's corner instead of floating as bare text, and the block itself no longer carries an inner shadow.
+- Darken the dots on the divider between the article navigator and the document while the pointer is over it, so the divider reads as something to drag before it is dragged.
+- Show an open folder beside an expanded folder in the article navigator, so a folder's icon says what its arrow says.
 - Integrate the command menu into the titlebar, replace the app-name label there with the Leafdown icon, provide a persistent sidebar toggle beside the native window controls, present the article navigator and document editor as aligned cards, resize the article navigator by dragging the divider between the two, hold the document card in place while its text scrolls so its scrollbar runs inside the card rather than down the side of the window, add article filtering, and soften the default dark-theme text color across the editor and interface.
 
 - Tighten the padding on the icon side of buttons that carry a leading icon, such as `Open file` on the welcome screen and `Copy summary` in the diagnostics dialog, so the icon no longer sits as far from the edge as the text does on the other side.
@@ -40,6 +43,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep the gap between the document card and the left edge of the window when the sidebar is hidden. That gap was drawn by the article navigator standing beside the card, so collapsing the sidebar took it away and the card ran into the side of the window. The gap is now held by the surface the two cards sit on, so it is the same whether the sidebar is showing or not.
+- Remove the empty column down the left of the rows in the editor context popup's `Block type` and `Insert` submenus. Every row there already carries its own icon, so the column a menu reserves for ticking its rows was standing empty and pushing each label a step to the right.
 - Show the border around inline code in the light theme. It was drawn in a colour that only shows against a dark background, so a `code` span read as a plain grey block in light while the same span carried an edge in dark. Inline code showing its source under the caret is drawn the same way and carries the border again too.
 - Line up the rows of the View menu. `Toggle sidebar` and `Full screen` reserve a column on their left for the tick that marks them on, and the rows sharing the menu with them did not, so `Zoom in`, `Appearance`, `Sort articles by`, `Collapse all folders`, and the rest began a step to the left of the two and the menu read as two ragged columns. Every row of the menu now begins at the same place, whether it can carry a tick or not. The submenus are unchanged: each one's rows already agreed with each other.
 - Keep that whitespace on a heading underlined with `=` or `-` whose text runs across more than one line, so a line written without its `>` or its item's indentation stays that way and one written indented keeps its indentation, as a paragraph's already did. The underline keeps whatever it was written behind too.

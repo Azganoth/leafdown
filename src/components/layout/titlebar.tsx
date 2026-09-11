@@ -45,7 +45,7 @@ export function Titlebar({ actions, children }: TitlebarProps) {
       <img src="/app-icon.svg" alt="" className="mx-1 size-4" />
       {children}
       <div data-tauri-drag-region className="h-full flex-1" />
-      {actions && <div className="flex h-full items-center">{actions}</div>}
+      {actions && <div className="flex h-full items-center gap-1">{actions}</div>}
     </header>
   );
 }

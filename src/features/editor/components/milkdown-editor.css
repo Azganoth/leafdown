@@ -105,7 +105,7 @@
         @apply relative list-none pl-7;
 
         &::before {
-          @apply absolute top-[0.42rem] left-0 size-4 rounded-sm border border-border bg-background;
+          @apply absolute top-[0.42rem] left-0 size-4 rounded-sm border border-input bg-background shadow-xs transition-colors dark:bg-input/30;
           content: "";
         }
       }
@@ -115,15 +115,21 @@
           @apply border-primary bg-primary;
         }
 
+        /* The tick is Lucide's `check`, drawn as a mask so the glyph matches the shadcn checkbox
+           while its colour still comes from the theme. */
         &::after {
-          @apply absolute top-[0.48rem] left-[0.34rem] h-2 w-1 rotate-45 border-r-2 border-b-2 border-primary-foreground;
+          @apply absolute top-[0.42rem] left-0 size-4 bg-primary-foreground;
           content: "";
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+          mask-position: center;
+          mask-repeat: no-repeat;
+          mask-size: 0.875rem;
         }
       }
     }
 
     blockquote {
-      @apply my-5 border-l-4 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
+      @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
 
       & > :first-child {
         @apply mt-0;
@@ -143,14 +149,16 @@
     }
 
     pre {
-      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm leading-6 whitespace-pre text-foreground shadow-inner;
+      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
       color: var(--prosemirror-highlight, var(--foreground));
 
+      /* The badge floats rather than anchoring to the block, because an absolute child of a
+         horizontally scrolling box travels with the content it is meant to label. */
       &[data-language] {
-        @apply pt-8;
+        @apply pt-9;
 
         &::before {
-          @apply float-right -mt-6 ml-4 font-mono text-xs text-muted-foreground;
+          @apply float-right -mt-7 -mr-1 ml-4 rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none;
           content: attr(data-language);
         }
       }
@@ -174,19 +182,24 @@
 
     th,
     td {
-      @apply border border-border px-2 py-1.5 text-left align-top;
+      @apply border-r border-b border-border/60 px-3 py-2 text-left align-top;
 
       p {
         @apply m-0;
       }
     }
 
-    th {
-      @apply bg-muted font-semibold text-foreground;
+    /* The wrapper draws the outer edge, so the cells along it drop their own. */
+    tr > *:last-child {
+      @apply border-r-0;
     }
 
-    tr:nth-child(even) td {
-      @apply bg-card/35;
+    tr:last-child > * {
+      @apply border-b-0;
+    }
+
+    th {
+      @apply border-b-border bg-muted/60 font-semibold text-foreground;
     }
 
     .selectedCell::after {

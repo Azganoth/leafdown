@@ -477,16 +477,17 @@ function ArticleNavigatorTreeItem({
 }
 
 function DirectoryRowContent({ row }: { row: ArticleNavigatorDirectoryRow }) {
-  const Icon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
+  const DisclosureIcon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
+  const DirectoryIcon = row.isExpanded ? FolderOpenIcon : FolderIcon;
 
   return (
     <>
       {row.hasChildren ? (
-        <Icon className="size-3 text-muted-foreground" />
+        <DisclosureIcon className="size-3 text-muted-foreground" />
       ) : (
         <span className="size-3 shrink-0" />
       )}
-      <FolderIcon className="size-3.5 text-muted-foreground" />
+      <DirectoryIcon className="size-3.5 text-muted-foreground" />
       <span className="min-w-0 truncate">{row.name}</span>
     </>
   );

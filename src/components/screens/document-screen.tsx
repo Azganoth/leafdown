@@ -43,7 +43,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     <section
       aria-label="Active document"
       data-testid="active-document-host"
-      className="flex size-full pt-1 pr-3 pb-3"
+      className="flex size-full"
     >
       <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
         <CardContent className="min-h-0 flex-1 p-0">

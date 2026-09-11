@@ -58,7 +58,7 @@ export function CommandMenubar({
 }: CommandMenubarProps) {
   return (
     <CommandMenuContext.Provider value={{ commandState, onExecute }}>
-      <Menubar className="border-0 bg-transparent p-0 text-muted-foreground">
+      <Menubar className="border-0 bg-transparent p-0 text-muted-foreground shadow-none">
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
             {COMMAND_MENU_LABELS.file}

@@ -6,12 +6,16 @@ import markdown from "@shikijs/langs/markdown";
 import rust from "@shikijs/langs/rust";
 import typescript from "@shikijs/langs/typescript";
 import githubDark from "@shikijs/themes/github-dark";
+import githubLight from "@shikijs/themes/github-light";
 import { createHighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
 import { AsyncLazy } from "@/lib/async";
 
-const SHIKI_THEME = "github-dark";
+// `defaultColor: false` keeps either palette from being written as a bare `color`, which would
+// leak one appearance into the other. Each token carries both as variables instead, and the editor
+// stylesheet paints the one the appearance in effect selects.
+const SHIKI_THEMES = { light: "github-light", dark: "github-dark" } as const;
 
 const SUPPORTED_LANGUAGES = [
   "markdown",
@@ -58,11 +62,11 @@ const normalizeLanguage = (language?: string): SupportedLanguage | undefined => 
 
 const loadParser = async (): Promise<Parser> => {
   const highlighter = await createHighlighterCore({
-    themes: [githubDark],
+    themes: [githubLight, githubDark],
     langs: [markdown, typescript, javascript, json, rust, bash],
     engine: createJavaScriptRegexEngine(),
   });
-  const parser = createParser(highlighter, { theme: SHIKI_THEME });
+  const parser = createParser(highlighter, { themes: SHIKI_THEMES, defaultColor: false });
 
   return (options) =>
     parser({

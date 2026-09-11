@@ -105,7 +105,7 @@ const value = 1;
     );
   });
 
-  it("adds bundled Shiki decorations to supported code block languages", async () => {
+  it("adds bundled Shiki decorations carrying a colour for each appearance", async () => {
     const mounted = await mountStyledEditor(`\`\`\`ts
 const value: number = 1;
 \`\`\``);
@@ -118,11 +118,16 @@ const value: number = 1;
     );
 
     const shikiToken = getEditorDomElement<HTMLElement>(mounted, ".shiki");
+    const editorCss = readFileSync(editorCssPath, "utf8");
 
     expect(mounted.view.dom.querySelector("pre[data-language='ts']")).toHaveTextContent(
       "const value",
     );
-    expect(shikiToken.getAttribute("style")).toContain("color");
+    expect(shikiToken.getAttribute("style")).toContain("--shiki-light:");
+    expect(shikiToken.getAttribute("style")).toContain("--shiki-dark:");
+    expect(shikiToken.getAttribute("style")).not.toMatch(/(?:^|;)\s*color:/u);
+    expect(editorCss).toMatch(/\.shiki\s*\{[^}]*color: var\(--shiki-light\)/su);
+    expect(editorCss).toMatch(/&:is\(\.dark \*\)\s*\{[^}]*color: var\(--shiki-dark\)/su);
   });
 
   it("keeps unknown code block languages editable without requiring remote assets", async () => {

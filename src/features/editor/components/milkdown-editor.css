@@ -193,7 +193,6 @@
 
     pre {
       @apply my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
-      color: var(--prosemirror-highlight, var(--foreground));
 
       /* The badge floats rather than anchoring to the block, because an absolute child of a
          horizontally scrolling box travels with the content it is meant to label. */
@@ -327,8 +326,15 @@
       }
     }
 
+    /* The dual-theme parser writes both variables onto every token and paints neither itself, so
+       the colour a token takes is chosen here. */
     .shiki {
       @apply bg-transparent;
+      color: var(--shiki-light);
+
+      &:is(.dark *) {
+        color: var(--shiki-dark);
+      }
     }
 
     /* Out of flow into the inner lane, so the heading's text holds its place whether or not the

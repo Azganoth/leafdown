@@ -59,11 +59,11 @@
     }
 
     h1 {
-      @apply mt-10 border-b border-border pb-3 text-3xl leading-tight;
+      @apply mt-10 text-3xl leading-tight;
     }
 
     h2 {
-      @apply border-b border-border/70 pb-2 text-2xl leading-tight;
+      @apply text-2xl leading-tight;
     }
 
     h3 {
@@ -175,9 +175,8 @@
       }
     }
 
-    /* A heading's underline is drawn from the same token at the same weight, so a rule spanning the
-       measure here reads as one of those. The element keeps the measure, so what a click can reach
-       is unchanged, and the mark is drawn short and centred inside it. */
+    /* The element keeps the measure, so what a click can reach is unchanged, and the mark is drawn
+       short and centred inside it. */
     hr {
       @apply my-8 h-px border-0;
 

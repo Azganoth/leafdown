@@ -13,6 +13,7 @@ import { $viewAsync } from "@milkdown/kit/utils";
 import type { SourceProjectionAdapter } from "../utils/sourceProjectionAdapters";
 import { createSourceProjectionAdapters } from "../utils/sourceProjectionAdapterSet";
 import { getCellSourceSpans, type TableSourceSpan } from "../utils/tableSourceMetrics";
+import { getActiveSourceProjectionPresentation } from "./sourceProjection";
 
 const METRICS_CLASS_NAME = "leafdown-table-metrics";
 
@@ -84,6 +85,7 @@ class LeafdownTableNodeView implements NodeView {
     }
 
     const { doc } = this.view.state;
+    const activeProjection = getActiveSourceProjectionPresentation(this.view.state);
     const rows = document.createDocumentFragment();
     let rowPosition = tablePosition + 1;
 
@@ -93,11 +95,26 @@ class LeafdownTableNodeView implements NodeView {
 
       row.forEach((cell) => {
         const cellElement = rowElement.appendChild(document.createElement("td"));
-        let spans = this.cellSpans.get(cell);
+        const holdsProjection =
+          activeProjection !== null &&
+          activeProjection.from >= cellPosition &&
+          activeProjection.to <= cellPosition + cell.nodeSize;
+        let spans = holdsProjection ? undefined : this.cellSpans.get(cell);
 
         if (!spans) {
-          spans = getCellSourceSpans(doc, this.adapters, cellPosition, cell);
-          this.cellSpans.set(cell, spans);
+          spans = getCellSourceSpans(
+            doc,
+            this.adapters,
+            cellPosition,
+            cell,
+            holdsProjection ? activeProjection : null,
+          );
+
+          // A cell showing a projection is mirrored from the session rather than from itself, so
+          // what it answers now is not what it answers once the caret leaves.
+          if (!holdsProjection) {
+            this.cellSpans.set(cell, spans);
+          }
         }
 
         for (const span of spans) {

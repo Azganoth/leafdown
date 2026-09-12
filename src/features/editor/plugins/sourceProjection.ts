@@ -27,6 +27,7 @@ import {
   type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
+  type SourceProjectionPresentation,
   type SourceProjectionPresentationPreview,
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
@@ -263,6 +264,32 @@ export const getActiveSourceProjectionRange = (state: EditorState): TextRange | 
   const { session } = getSourceProjectionState(state);
 
   return session ? { from: session.from, to: session.to } : null;
+};
+
+export interface ActiveSourceProjectionPresentation extends TextRange {
+  presentation: SourceProjectionPresentation;
+  source: string;
+}
+
+// What an open projection is showing, for a reader that has to account for the room it takes
+// rather than for the caret in it.
+export const getActiveSourceProjectionPresentation = (
+  state: EditorState,
+): ActiveSourceProjectionPresentation | null => {
+  const { session } = getSourceProjectionState(state);
+
+  if (!session) {
+    return null;
+  }
+
+  const source = getProjectionSource(state, session);
+
+  return {
+    from: session.from,
+    presentation: session.adapter.getPresentation(session.target, source),
+    source,
+    to: session.to,
+  };
 };
 
 export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | null => {

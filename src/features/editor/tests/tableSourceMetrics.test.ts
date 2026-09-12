@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setTextSelection } from "@/test/utils/prosemirror";
 
 const mountEditor = setupMilkdownEditorMount({ rootClassName: EDITOR_TEST_ROOT_CLASS_NAME });
 
@@ -68,5 +69,39 @@ describe("Table source metrics", () => {
     view.dispatch(view.state.tr.insertText(" `two`", cellTextPosition + 3));
 
     expect(readMetricsRows(view.dom).at(-1)?.[0]).toBe("one `two`");
+  });
+  // The width a column reserves is only worth anything if it is the same width once the caret
+  // opens the projection it was reserved for.
+  it.each([
+    ["inline code", "`pnpm run collect`"],
+    ["strong", "**a bold cell**"],
+    ["emphasis", "*leaning*"],
+    ["strikethrough", "~~struck out~~"],
+    ["a link", "[garden](destination.md)"],
+  ])("holds the mirror steady while a %s projection is open", async (_label, cellSource) => {
+    const mounted = await mountEditor(`| Command | Other |
+| --- | --- |
+| ${cellSource} | second |
+`);
+    const { view } = mounted;
+    const readSpans = () =>
+      [...view.dom.querySelectorAll("tfoot.leafdown-table-metrics td")].map((cell) =>
+        [...cell.children].map((span) => `${span.className}::${span.textContent}`),
+      );
+    const closed = readSpans();
+    let caret = 0;
+
+    view.state.doc.descendants((node, position) => {
+      if (node.isText && caret === 0 && node.text && cellSource.includes(node.text)) {
+        caret = position + 1;
+      }
+
+      return true;
+    });
+
+    setTextSelection(view, caret);
+
+    expect(view.dom.querySelector(".leafdown-source-projection")).toBeTruthy();
+    expect(readSpans()).toEqual(closed);
   });
 });

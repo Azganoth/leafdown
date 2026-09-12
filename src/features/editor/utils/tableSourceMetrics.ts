@@ -1,9 +1,11 @@
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 
+import type { ActiveSourceProjectionPresentation } from "../plugins/sourceProjection";
 import {
   createSourceProjectionProbeState,
   findSourceProjectionTarget,
   type SourceProjectionAdapter,
+  type SourceProjectionPresentation,
   type SourceProjectionTargetMatch,
 } from "./sourceProjectionAdapters";
 
@@ -33,10 +35,9 @@ const appendSpan = (spans: TableSourceSpan[], className: string, text: string) =
 // character twice. A preview is drawn beside the source rather than over it, so it adds its own.
 const appendPresentation = (
   spans: TableSourceSpan[],
-  { adapter, target }: SourceProjectionTargetMatch,
+  source: string,
+  presentation: SourceProjectionPresentation,
 ) => {
-  const source = target.originalSource;
-  const presentation = adapter.getPresentation(target, source);
   const classNames: string[][] = Array.from({ length: source.length }, () => []);
 
   for (const span of presentation.spans) {
@@ -65,6 +66,9 @@ const appendPresentation = (
 
   appendSpan(spans, "", previews.get(source.length) ?? "");
 };
+
+const presentationOf = ({ adapter, target }: SourceProjectionTargetMatch) =>
+  adapter.getPresentation(target, target.originalSource);
 
 // Text answers to a caret placed inside it, while an inline object has no inside, so the caret
 // that owns one sits against its edges instead.
@@ -100,6 +104,7 @@ export const getCellSourceSpans = (
   adapters: readonly SourceProjectionAdapter[],
   cellPosition: number,
   cell: ProseMirrorNode,
+  activeProjection: ActiveSourceProjectionPresentation | null = null,
 ): TableSourceSpan[] => {
   const spans: TableSourceSpan[] = [];
   const block = cell.firstChild;
@@ -116,10 +121,25 @@ export const getCellSourceSpans = (
   while (index < block.childCount) {
     const node = block.child(index);
     const position = contentFrom + offset;
+
+    // An open projection has already put its source into the document, where it reads as literal
+    // text under no mark. Probing that would mirror it as prose and give up exactly the monospace
+    // and padding the projection is spending, so the session is asked what it is showing instead.
+    if (activeProjection && position >= activeProjection.from && position < activeProjection.to) {
+      appendPresentation(spans, activeProjection.source, activeProjection.presentation);
+
+      while (index < block.childCount && contentFrom + offset < activeProjection.to) {
+        offset += block.child(index).nodeSize;
+        index += 1;
+      }
+
+      continue;
+    }
+
     const match = findCoveringTarget(doc, adapters, position, node);
 
     if (match) {
-      appendPresentation(spans, match);
+      appendPresentation(spans, match.target.originalSource, presentationOf(match));
 
       while (index < block.childCount && contentFrom + offset < match.target.to) {
         offset += block.child(index).nodeSize;

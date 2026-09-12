@@ -313,6 +313,6 @@ export const selectTableCellRange = (
 };
 
 export const getTableCellTexts = (mounted: MountedMilkdownEditor) =>
-  Array.from(mounted.view.dom.querySelectorAll("tbody tr")).map((row) =>
+  Array.from(mounted.view.dom.querySelectorAll("tr")).map((row) =>
     Array.from(row.querySelectorAll("th, td")).map((cell) => cell.textContent ?? ""),
   );

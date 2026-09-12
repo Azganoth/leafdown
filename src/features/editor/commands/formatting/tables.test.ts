@@ -50,16 +50,16 @@ describe("editor table formatting commands", () => {
     expect(canMoveRows(mounted.view.state, 1)).toBe(true);
     expect(canMoveRows(mounted.view.state, -1)).toBe(false);
     expect(addRowBelow(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
 
     expect(addColumnAfter(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelector("tbody tr")?.querySelectorAll("th, td")).toHaveLength(3);
+    expect(mounted.view.dom.querySelector("tr")?.querySelectorAll("th, td")).toHaveLength(3);
 
     expect(deleteColumns(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelector("tbody tr")?.querySelectorAll("th, td")).toHaveLength(2);
+    expect(mounted.view.dom.querySelector("tr")?.querySelectorAll("th, td")).toHaveLength(2);
 
     expect(deleteRows(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelectorAll("tbody tr")).toHaveLength(3);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(3);
   });
 
   it("keeps table header rows protected for row commands", async () => {
@@ -84,7 +84,7 @@ describe("editor table formatting commands", () => {
     ]);
 
     expect(addRowBelow(mounted.view)).toBe(true);
-    expect(mounted.view.dom.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
     expect(getTableCellTexts(mounted).slice(0, 2)).toEqual([
       ["A", "B"],
       ["", ""],

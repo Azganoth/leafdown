@@ -140,7 +140,7 @@
         @apply relative list-none pl-7;
 
         &::before {
-          @apply absolute top-[0.42rem] left-0 size-4 rounded-sm border border-input bg-background shadow-xs transition-colors dark:bg-input/30;
+          @apply absolute top-[0.42rem] left-0 size-4 rounded-xs border-2 border-muted-foreground/40;
           content: "";
         }
       }
@@ -159,6 +159,16 @@
           mask-position: center;
           mask-repeat: no-repeat;
           mask-size: 0.875rem;
+        }
+
+        /* Only the item's own content recedes. A nested list keeps the colour of wherever it sits,
+           so a checked parent cannot mute the tasks still open under it. */
+        & > :not(ul, ol) {
+          @apply text-muted-foreground;
+
+          strong {
+            @apply text-inherit;
+          }
         }
       }
     }

@@ -211,45 +211,37 @@
     }
 
     .tableWrapper {
-      @apply my-5 w-full overflow-x-auto rounded-md border border-border;
+      @apply my-5 w-full overflow-x-auto;
 
       table {
-        @apply my-0 table w-full overflow-visible rounded-none border-0;
+        @apply my-0;
       }
     }
 
+    /* Columns take their content's width rather than an equal share, and the table is free to
+       outrun the measure. */
     table {
-      @apply my-5 table w-full table-fixed border-separate border-spacing-0 overflow-x-auto rounded-md border border-border bg-background text-sm;
+      @apply my-5 table w-auto min-w-full table-auto border-separate border-spacing-0 text-sm;
     }
 
+    /* The floor is what makes a wide table scroll: without it the columns go on dividing the
+       measure between them, since wrapping at spaces takes a cell's minimum down to its longest
+       word. `break-normal` holds that word together against the root's `wrap-anywhere`. */
     th,
     td {
-      @apply border-r border-b border-border/60 px-3 py-2 text-left align-top;
+      @apply min-w-28 border-b border-border/60 px-3 py-2 text-left align-top break-normal;
 
       p {
         @apply m-0;
       }
     }
 
-    /* The wrapper draws the outer edge, so the cells along it drop their own. */
-    tr > *:last-child {
-      @apply border-r-0;
-    }
-
-    tr:last-child > * {
-      @apply border-b-0;
-    }
-
     th {
-      @apply border-b-border bg-muted/60 font-semibold text-foreground;
+      @apply border-b-border font-semibold text-foreground;
     }
 
     .selectedCell::after {
       @apply bg-primary/20;
-    }
-
-    .column-resize-handle {
-      @apply bg-primary;
     }
 
     img {

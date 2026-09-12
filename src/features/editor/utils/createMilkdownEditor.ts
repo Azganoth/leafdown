@@ -109,6 +109,7 @@ import {
   createLeafdownTableShapeGuardPlugin,
   createLeafdownTableShapePlugin,
 } from "../plugins/tableShape";
+import { createLeafdownTableViewPlugin } from "../plugins/tableView";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownThematicBreakPlugin } from "../plugins/thematicBreak";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
@@ -271,6 +272,7 @@ export const createMilkdownEditor = async ({
     .use(listener)
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
+    .use(createLeafdownTableViewPlugin())
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())

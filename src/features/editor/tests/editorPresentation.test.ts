@@ -46,11 +46,11 @@ const value = 1;
     expect(dom.querySelector("pre[data-language='typescript']")).toHaveTextContent(
       "const value = 1;",
     );
-    expect(dom.querySelector("table")).toHaveTextContent("Leafdown");
+    expect(dom.querySelector(".tableWrapper > table")).toHaveTextContent("Leafdown");
 
     expect(editorCss).toContain(".leafdown-editor {");
     expect(editorCss).toContain(".ProseMirror {");
-    expect(editorCss).toMatch(/table\s*\{[^}]*overflow-x-auto/su);
+    expect(editorCss).toMatch(/\.tableWrapper\s*\{[^}]*overflow-x-auto/su);
     expect(editorCss).toContain("overflow-x-auto");
     expect(editorCss).toContain('&[data-code-block-soft-wrap="true"]');
     expect(editorCss).toContain("whitespace-pre-wrap");

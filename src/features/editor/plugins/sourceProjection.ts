@@ -19,7 +19,6 @@ import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
-  createMarkSourceProjectionAdapter,
   createSourceProjectionProbeState,
   decodeSourceProjectionEscapes,
   findSourceProjectionInsertionCandidate,
@@ -32,14 +31,8 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "../utils/sourceProjectionAdapters";
-import {
-  createBoundarySourceProjectionAdapter,
-  isBoundarySourceProjectionTarget,
-} from "../utils/sourceProjectionBoundaryAdapter";
-import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
-import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
-import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
-import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
+import { createSourceProjectionAdapters } from "../utils/sourceProjectionAdapterSet";
+import { isBoundarySourceProjectionTarget } from "../utils/sourceProjectionBoundaryAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
@@ -193,42 +186,9 @@ export const createLeafdownSourceProjectionPlugin = () =>
     const remark = ctx.get(remarkCtx);
     const serializer = ctx.get(serializerCtx);
 
-    const objectAdapters = [
-      createLinkSourceProjectionAdapter({
-        parser,
-        remark,
-        serializer,
-      }),
-      createMarkSourceProjectionAdapter({
-        parser,
-        remark,
-        serializer,
-      }),
-      createFootnoteReferenceSourceProjectionAdapter({
-        parser,
-        serializer,
-      }),
-    ];
-
-    const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
-      findSourceProjectionLiteralSourceCommit(state, range, objectAdapters);
-    const sideAdapters = [
-      ...objectAdapters,
-      createCharacterReferenceSourceProjectionAdapter(),
-      createEscapeSourceProjectionAdapter({ findLiteralSourceCommit, serializer }),
-    ];
-
-    // A boundary owns the pair before either side owns itself, and it only claims a caret that two
-    // objects meet on, so ordinary precedence still answers everywhere else.
-    return createSourceProjectionProsePlugin([
-      createBoundarySourceProjectionAdapter({
-        findLiteralSourceCommit,
-        findSideTarget: (state) => findSourceProjectionTarget(state, sideAdapters),
-        parser,
-        remark,
-      }),
-      ...sideAdapters,
-    ]);
+    return createSourceProjectionProsePlugin(
+      createSourceProjectionAdapters({ parser, remark, serializer }),
+    );
   });
 
 // Entering, restoring, and committing a projection each land as their own transaction, and each one

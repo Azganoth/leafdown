@@ -240,6 +240,18 @@
       @apply border-b-border font-semibold text-foreground;
     }
 
+    /* A mirror of every cell in the source it would project, which the column measures alongside
+       the rendered content it already holds. Collapsing is what makes it free rather than hidden:
+       a collapsed row still asks its column for the width it needs and gives up the height it
+       would have taken. The inline padding stays, being part of what a column is sized to. */
+    .leafdown-table-metrics {
+      @apply collapse;
+
+      td {
+        @apply border-0 px-3 py-0;
+      }
+    }
+
     .selectedCell::after {
       @apply bg-primary/20;
     }

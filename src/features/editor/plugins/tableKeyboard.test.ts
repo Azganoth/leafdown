@@ -35,7 +35,7 @@ describe("table keyboard plugin", () => {
     setSelectionInTableCell(mounted, 2, 1);
 
     expect(runKeyDownHandlers(mounted.view, "Tab").handled).toBe(true);
-    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
+    expect(mounted.view.dom.querySelectorAll("tbody tr")).toHaveLength(4);
     expect(selectedTableCellRect(mounted)).toMatchObject({ left: 0, top: 3 });
   });
 
@@ -48,7 +48,7 @@ describe("table keyboard plugin", () => {
     expect(selectedTableCellRect(mounted)).toMatchObject({ left: 1, top: 2 });
 
     expect(runKeyDownHandlers(mounted.view, "Enter").handled).toBe(true);
-    expect(mounted.view.dom.querySelectorAll("tr")).toHaveLength(4);
+    expect(mounted.view.dom.querySelectorAll("tbody tr")).toHaveLength(4);
     expect(selectedTableCellRect(mounted)).toMatchObject({ left: 1, top: 3 });
   });
 

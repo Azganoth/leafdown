@@ -154,8 +154,8 @@ describe("editor block insertion commands", () => {
 
     const table = getEditorDomElement(mounted, "table");
 
-    expect(table.querySelectorAll("tr")).toHaveLength(2);
-    expect(table.querySelectorAll("th, td")).toHaveLength(4);
+    expect(table.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(table.querySelectorAll("tbody th, tbody td")).toHaveLength(4);
   });
 
   // A table read from a file writes the outer pipes it was authored with, so one the editor creates

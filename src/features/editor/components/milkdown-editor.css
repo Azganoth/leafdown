@@ -219,7 +219,7 @@
     }
 
     table {
-      @apply my-5 table w-full table-fixed border-collapse overflow-x-auto rounded-md border border-border bg-background text-sm;
+      @apply my-5 table w-full table-fixed border-separate border-spacing-0 overflow-x-auto rounded-md border border-border bg-background text-sm;
     }
 
     th,

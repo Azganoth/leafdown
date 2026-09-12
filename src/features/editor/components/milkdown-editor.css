@@ -116,32 +116,67 @@
       }
     }
 
+    /* One column opens every item and holds whatever marks it: the marker stands at the column's
+       start and the item's own text at its end. A list adds no indentation beyond that column, so
+       a nested one opens exactly where its parent's text does. */
     ul,
     ol {
-      @apply my-4 pl-6 text-base leading-7;
+      @apply my-4 text-base leading-7;
+      --leafdown-list-marker: 1.5rem;
+      list-style: none;
+      padding-inline-start: 0;
     }
 
-    ul {
-      @apply list-disc marker:text-primary;
+    ul > li::before {
+      @apply text-primary;
+      content: "•";
     }
 
+    /* A number is set against its dot rather than against its first digit, so the dots hold a
+       column of their own and a number long enough to outgrow the marker column reaches to the
+       left of it rather than moving its item's text right of every other item's. The dot stands
+       one digit in, so a single-digit number opens the column where a glyph or a checkbox does.
+       The counter is the built-in one rather than a counter of ours, because it is the counter an
+       `ol`'s own `start` sets. */
     ol {
-      @apply list-decimal marker:text-primary/70;
+      --leafdown-list-marker-dot: 0.875rem;
+
+      & > li::before {
+        @apply whitespace-nowrap text-primary/70;
+        content: counter(list-item) ".";
+        inset-inline-start: auto;
+        inset-inline-end: calc(100% - var(--leafdown-list-marker-dot));
+      }
+    }
+
+    /* A nested list continues the item holding it rather than opening a block of its own, so it
+       takes the gap between two items and nesting moves an item sideways without moving anything
+       below it. */
+    li > :is(ul, ol) {
+      @apply my-0;
     }
 
     li {
-      @apply my-1 pl-1;
+      @apply relative my-1;
+      padding-inline-start: var(--leafdown-list-marker);
+
+      &::before {
+        @apply absolute select-none;
+        inset-block-start: 0;
+        inset-inline-start: 0;
+      }
 
       & > p {
         @apply my-1;
       }
 
+      /* The box stands where the glyph would, centred on the line the item opens on rather than on
+         an item whose text may wrap onto more lines. */
       &[data-checked] {
-        @apply relative list-none pl-7;
-
         &::before {
-          @apply absolute top-[0.42rem] left-0 size-4 rounded-xs border-2 border-muted-foreground/40;
+          @apply size-4 rounded-xs border-2 border-muted-foreground/40;
           content: "";
+          inset-block-start: calc((1lh - 1rem) / 2);
         }
       }
 
@@ -153,8 +188,10 @@
         /* The tick is Lucide's `check`, drawn as a mask so the glyph matches the shadcn checkbox
            while its colour still comes from the theme. */
         &::after {
-          @apply absolute top-[0.42rem] left-0 size-4 bg-primary-foreground;
+          @apply absolute size-4 bg-primary-foreground;
           content: "";
+          inset-block-start: calc((1lh - 1rem) / 2);
+          inset-inline-start: 0;
           mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
           mask-position: center;
           mask-repeat: no-repeat;
@@ -347,7 +384,7 @@
        marker is showing, and centred on the block's first line rather than on the block. */
     .leafdown-marker-node--subtle::before,
     :is(h1, h2, h3, h4, h5, h6):hover::before {
-      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs whitespace-nowrap text-muted-foreground opacity-80 select-none;
+      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-sm leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
       inset-block-start: 0;
       inset-inline-end: calc(100% + var(--leafdown-gutter-gap));
       translate: 0 calc(var(--leafdown-block-line) / 2 - 50%);

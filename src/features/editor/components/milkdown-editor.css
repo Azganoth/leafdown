@@ -188,7 +188,7 @@
     }
 
     :not(pre) > code {
-      @apply rounded-sm border border-border bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border/50 bg-muted/50 px-1 py-0.5 font-mono text-sm text-muted-foreground;
     }
 
     pre {
@@ -451,7 +451,7 @@
     }
 
     .leafdown-source-projection__content--inline-code {
-      @apply rounded-sm border border-border bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border/50 bg-muted/50 px-1 py-0.5 font-mono text-sm text-muted-foreground;
     }
 
     .leafdown-source-projection__content--footnote-reference {

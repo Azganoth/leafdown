@@ -2,11 +2,14 @@ import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { findMenuItem, openMenu } from "../support/ui.js";
+import { findMenuItem, openMenu, openRecentPath } from "../support/ui.js";
 
 describe("desktop persistence before restart", () => {
   it("changes the sidebar setting through the assembled menu and persists it", async () => {
-    const { settingsPath } = await getDesktopE2ERunContext();
+    const { folder, settingsPath } = await getDesktopE2ERunContext();
+
+    await openRecentPath(folder.path);
+    await expect($("aria/Article navigator")).toExist();
 
     await openMenu("View");
     const sidebarItem = await findMenuItem((text) => text.startsWith("Toggle sidebar"));

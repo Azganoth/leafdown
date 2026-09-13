@@ -136,7 +136,9 @@ export const expandAllFolders = (context: AppCommandContext) => {
 /* State */
 
 export const getToggleSidebarState = (context: AppCommandContext) =>
-  checked(context.settings.sidebarVisible);
+  context.folderContext
+    ? checked(context.settings.sidebarVisible)
+    : disabled("No folder context is open.");
 
 export const getZoomInState = (context: AppCommandContext) =>
   context.ui.zoom >= MAXIMUM_ZOOM ? disabled("Zoom is already at maximum.") : enabled();

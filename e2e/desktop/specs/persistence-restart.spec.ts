@@ -2,11 +2,13 @@ import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { findMenuItem, openMenu } from "../support/ui.js";
+import { findMenuItem, openMenu, openRecentPath } from "../support/ui.js";
 
 describe("desktop persistence after restart", () => {
   it("restores the sidebar setting in a fresh packaged-app process", async () => {
-    const { settingsPath } = await getDesktopE2ERunContext();
+    const { folder, settingsPath } = await getDesktopE2ERunContext();
+
+    await openRecentPath(folder.path);
 
     await openMenu("View");
     const sidebarItem = await findMenuItem((text) => text.startsWith("Toggle sidebar"));

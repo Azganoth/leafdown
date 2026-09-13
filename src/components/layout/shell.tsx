@@ -50,6 +50,8 @@ export function Shell() {
   const folderContext = useSessionStore((state) => state.folderContext);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
+  const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
+  const sidebarShown = sidebarAvailable && sidebarVisible;
 
   return (
     <>
@@ -69,24 +71,30 @@ export function Shell() {
               <TooltipTrigger
                 render={
                   <Button
-                    aria-label={sidebarVisible ? "Hide sidebar" : "Show sidebar"}
-                    aria-pressed={sidebarVisible}
+                    aria-label={sidebarShown ? "Hide sidebar" : "Show sidebar"}
+                    aria-pressed={sidebarShown}
+                    disabled={!sidebarAvailable}
+                    focusableWhenDisabled
                     onClick={() => commands.executeCommand("view.toggleSidebar")}
                     size="icon-xs"
                     type="button"
                     variant="ghost"
-                    className="text-muted-foreground"
+                    className="text-muted-foreground aria-disabled:opacity-50"
                   />
                 }
               >
-                {sidebarVisible ? (
+                {sidebarShown ? (
                   <PanelLeftCloseIcon data-icon="inline-start" />
                 ) : (
                   <PanelLeftOpenIcon data-icon="inline-start" />
                 )}
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {sidebarVisible ? "Hide sidebar" : "Show sidebar"}
+                {sidebarAvailable
+                  ? sidebarShown
+                    ? "Hide sidebar"
+                    : "Show sidebar"
+                  : "Open a folder to show the sidebar"}
               </TooltipContent>
             </Tooltip>
           </>
@@ -109,7 +117,7 @@ export function Shell() {
         <UnexpectedErrorBoundary>
           <div data-testid="document-workspace-host" className="flex min-h-0 flex-1 px-3 pt-1 pb-3">
             <ResizablePanelGroup className="min-h-0 flex-1" orientation="horizontal">
-              {sidebarVisible && (
+              {folderContext && sidebarVisible && (
                 <>
                   <ResizablePanel
                     defaultSize={256}

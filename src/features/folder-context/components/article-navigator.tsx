@@ -58,7 +58,7 @@ const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
 
 interface ArticleNavigatorProps {
   activeArticlePath: string | null;
-  folderContext: FolderContextState | null;
+  folderContext: FolderContextState;
   onOpenArticle: (path: string) => void;
 }
 
@@ -72,34 +72,29 @@ export function ArticleNavigator({
   const toggleDirectory = useArticleNavigatorStore((state) => state.toggleDirectory);
   const [filterQuery, setFilterQuery] = useState("");
   const isFiltering = filterQuery.trim().length > 0;
-  const filteredTree = folderContext
-    ? filterArticleTreeByArticleName(folderContext.tree, filterQuery)
+  const filteredTree = filterArticleTreeByArticleName(folderContext.tree, filterQuery);
+  const expandedPaths = isFiltering
+    ? getArticleDirectoryPaths(filteredTree)
+    : expandedDirectoryPaths;
+  const articleCount = getArticleFileCount(folderContext.tree);
+  const activeFileAncestorDirectoryPaths = activeArticlePath
+    ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
     : null;
-  const expandedPaths =
-    isFiltering && filteredTree ? getArticleDirectoryPaths(filteredTree) : expandedDirectoryPaths;
-  const articleCount = folderContext ? getArticleFileCount(folderContext.tree) : 0;
-  const activeFileAncestorDirectoryPaths =
-    folderContext && activeArticlePath
-      ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
-      : null;
   const activeFileAncestorDirectoryPathSignature =
     activeFileAncestorDirectoryPaths?.join(PATH_SIGNATURE_SEPARATOR) ?? "";
-  const activeDocumentIsDetached =
-    folderContext && activeArticlePath
-      ? !isSameOrParentPath(folderContext.path, activeArticlePath)
-      : false;
-  const scanWarningCount = folderContext?.warnings.length ?? 0;
+  const activeDocumentIsDetached = activeArticlePath
+    ? !isSameOrParentPath(folderContext.path, activeArticlePath)
+    : false;
+  const scanWarningCount = folderContext.warnings.length;
   const emptyFolderMessage =
     scanWarningCount > 0
       ? "No supported Markdown files found in scanned entries."
       : "No supported Markdown files found.";
-  const rows = filteredTree
-    ? buildArticleNavigatorRows({
-        activeArticlePath,
-        expandedDirectoryPaths: expandedPaths,
-        tree: filteredTree,
-      })
-    : [];
+  const rows = buildArticleNavigatorRows({
+    activeArticlePath,
+    expandedDirectoryPaths: expandedPaths,
+    tree: filteredTree,
+  });
   const hasRows = rows.length > 0;
 
   useEffect(() => {
@@ -120,66 +115,58 @@ export function ArticleNavigator({
 
   return (
     <Card size="sm" className="min-h-0 min-w-0 flex-1">
-      {folderContext && (
-        <CardHeader className="shrink-0 border-b">
-          <CardTitle className="flex min-w-0 items-center gap-1.5">
-            <FolderTreeIcon className="size-4 shrink-0 text-muted-foreground" />
-            <span className="truncate">{folderContext.tree.name || folderContext.path}</span>
-          </CardTitle>
-          <CardDescription className="truncate text-xs" title={folderContext.path}>
-            {getArticleCountLabel(articleCount)}
-          </CardDescription>
-        </CardHeader>
-      )}
+      <CardHeader className="shrink-0 border-b">
+        <CardTitle className="flex min-w-0 items-center gap-1.5">
+          <FolderTreeIcon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate">{folderContext.tree.name || folderContext.path}</span>
+        </CardTitle>
+        <CardDescription className="truncate text-xs" title={folderContext.path}>
+          {getArticleCountLabel(articleCount)}
+        </CardDescription>
+      </CardHeader>
 
-      {folderContext ? (
-        <CardContent className="min-h-0 flex-1 gap-2">
-          {!folderContext.isEmpty && (
-            <InputGroup className="h-8">
-              <InputGroupInput
-                aria-label="Filter articles"
-                onChange={(event) => setFilterQuery(event.target.value)}
-                placeholder="Filter articles…"
-                type="text"
-                value={filterQuery}
-              />
-              <InputGroupAddon align="inline-start">
-                <SearchIcon />
-              </InputGroupAddon>
-              {filterQuery && (
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    aria-label="Clear article filter"
-                    onClick={() => setFilterQuery("")}
-                    size="icon-xs"
-                  >
-                    <XIcon data-icon="inline-end" />
-                  </InputGroupButton>
-                </InputGroupAddon>
-              )}
-            </InputGroup>
-          )}
-          {activeDocumentIsDetached && <DetachedDocumentNotice />}
-          {scanWarningCount > 0 && <FolderScanWarningNotice warningCount={scanWarningCount} />}
-          {folderContext.isEmpty && <EmptyFolderMessage message={emptyFolderMessage} />}
-          {hasRows && (
-            <ArticleNavigatorRows
-              onOpenArticle={handleOpenArticle}
-              onToggleDirectory={toggleDirectory}
-              rows={rows}
+      <CardContent className="min-h-0 flex-1 gap-2">
+        {!folderContext.isEmpty && (
+          <InputGroup className="h-8">
+            <InputGroupInput
+              aria-label="Filter articles"
+              onChange={(event) => setFilterQuery(event.target.value)}
+              placeholder="Filter articles…"
+              type="text"
+              value={filterQuery}
             />
-          )}
-          {!folderContext.isEmpty && !hasRows && (
-            <p className="py-3 text-xs leading-5 text-muted-foreground">
-              {isFiltering ? "No matching articles." : "No visible folder entries."}
-            </p>
-          )}
-        </CardContent>
-      ) : (
-        <CardContent className="min-h-0 flex-1">
-          <NoFolderContext />
-        </CardContent>
-      )}
+            <InputGroupAddon align="inline-start">
+              <SearchIcon />
+            </InputGroupAddon>
+            {filterQuery && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  aria-label="Clear article filter"
+                  onClick={() => setFilterQuery("")}
+                  size="icon-xs"
+                >
+                  <XIcon data-icon="inline-end" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
+        )}
+        {activeDocumentIsDetached && <DetachedDocumentNotice />}
+        {scanWarningCount > 0 && <FolderScanWarningNotice warningCount={scanWarningCount} />}
+        {folderContext.isEmpty && <EmptyFolderMessage message={emptyFolderMessage} />}
+        {hasRows && (
+          <ArticleNavigatorRows
+            onOpenArticle={handleOpenArticle}
+            onToggleDirectory={toggleDirectory}
+            rows={rows}
+          />
+        )}
+        {!folderContext.isEmpty && !hasRows && (
+          <p className="py-3 text-xs leading-5 text-muted-foreground">
+            {isFiltering ? "No matching articles." : "No visible folder entries."}
+          </p>
+        )}
+      </CardContent>
     </Card>
   );
 }
@@ -220,18 +207,6 @@ function FolderScanWarningNotice({ warningCount }: FolderScanWarningNoticeProps)
 
 const getScanWarningIssueText = (warningCount: number) =>
   warningCount === 1 ? "1 issue found." : `${warningCount} issues found.`;
-
-function NoFolderContext() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-      <FolderOpenIcon className="size-8 text-muted-foreground" />
-      <p className="mt-3 text-sm font-medium">No folder open</p>
-      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Open a Markdown file or folder to browse nearby documents.
-      </p>
-    </div>
-  );
-}
 
 interface ArticleNavigatorRowsProps {
   onOpenArticle: (path: string) => void;

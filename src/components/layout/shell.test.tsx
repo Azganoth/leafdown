@@ -51,7 +51,7 @@ const emptyFolderContext = createEmptyFolderContext({
 });
 
 describe("Shell", () => {
-  it("renders the welcome shell with menu, sidebar, document surface, and modal layer", () => {
+  it("renders the welcome shell with menu, document surface, and modal layer", () => {
     render(<Shell />);
 
     const titlebar = document.querySelector<HTMLElement>("#leafdown-titlebar");
@@ -66,18 +66,35 @@ describe("Shell", () => {
     expect(screen.getByRole("menuitem", { name: "View" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Help" })).toBeInTheDocument();
     expect(titlebar!).toContainElement(screen.getByRole("menuitem", { name: "File" }));
-    expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Hide sidebar" }));
-    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Show sidebar" }));
     expect(titlebar!.querySelector("h1")).toBeNull();
     expect(screen.getByText("No recent files.")).toBeInTheDocument();
     expect(screen.getByText("No recent folders.")).toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
-    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
-    const workspaceHost = screen.getByTestId("document-workspace-host");
-    expect(workspaceHost).toHaveClass("px-3", "pt-1", "pb-3");
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
+    expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
+    expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
+    expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+  });
+
+  it("withholds the sidebar and its toggle without a folder context", () => {
+    render(<Shell />);
+
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: "Resize article navigator" }),
+    ).not.toBeInTheDocument();
+
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+    expect(sidebarToggle).toHaveAttribute("aria-disabled", "true");
+    expect(sidebarToggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("frames the article navigator beside the document once a folder opens", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+
+    render(<Shell />);
+
     const navigatorHost = screen.getByTestId("article-navigator-host");
     expect(navigatorHost).not.toHaveClass("pl-3");
     expect(navigatorHost).not.toHaveClass("pr-3");
@@ -85,10 +102,10 @@ describe("Shell", () => {
     const resizeHandle = screen.getByRole("separator", { name: "Resize article navigator" });
     expect(resizeHandle).toHaveClass("w-2", "bg-transparent");
     expect(resizeHandle.querySelector("[data-slot=resizable-grip]")).toBeInTheDocument();
-    expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
-    expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
-    expect(screen.getByText("No folder open")).toBeInTheDocument();
-    expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("renders a folder-only placeholder while keeping nested articles collapsed", () => {
@@ -168,6 +185,7 @@ describe("Shell", () => {
   });
 
   it("hides the sidebar when the persisted sidebar setting is off", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
     setDefaultSettings({ sidebarVisible: false });
 
     render(<Shell />);
@@ -176,6 +194,7 @@ describe("Shell", () => {
   });
 
   it("keeps the workspace gutter once the sidebar is collapsed", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
     setDefaultSettings({ sidebarVisible: false });
 
     render(<Shell />);
@@ -184,6 +203,8 @@ describe("Shell", () => {
   });
 
   it("toggles the sidebar from the titlebar", async () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+
     const { user } = renderWithUser(<Shell />);
 
     await user.click(screen.getByRole("button", { name: "Hide sidebar" }));

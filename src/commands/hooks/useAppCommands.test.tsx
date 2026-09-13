@@ -8,6 +8,7 @@ import { documentEditorBridge } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
+import { createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession } from "@/test/utils/appStores";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
@@ -150,6 +151,7 @@ describe("useAppCommands shortcut routing", () => {
 
     APPLICATION_COMMANDS["view.toggleSidebar"].run = run;
     document.body.append(input);
+    setDefaultSession({ folderContext: createFolderContext() });
 
     try {
       render(<AppCommandsHarness />);

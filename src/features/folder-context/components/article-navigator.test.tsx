@@ -42,14 +42,6 @@ const folderContextWithScanWarning = createFolderContext({
 describe("article-navigator", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
 
-  it("keeps the empty sidebar card free of an explorer header", () => {
-    render(
-      <ArticleNavigator activeArticlePath={null} folderContext={null} onOpenArticle={vi.fn()} />,
-    );
-
-    expect(screen.getByText("No folder open")).toBeInTheDocument();
-    expect(document.querySelector("[data-slot=card-header]")).toBeNull();
-  });
   it("delegates article opening without importing session workflows", async () => {
     const onOpenArticle = vi.fn();
     const { user } = renderWithUser(

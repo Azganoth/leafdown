@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useId, useState } from "react";
 
 import { Label } from "@/components/ui/label";
@@ -28,11 +27,6 @@ export interface ListPreferenceFieldProps {
   items: string[];
   label: string;
   onItemsChange: (items: string[]) => void;
-}
-
-interface PreferenceSectionProps {
-  children: ReactNode;
-  title: string;
 }
 
 const formatListValue = (items: string[]) => items.join("\n");
@@ -109,18 +103,5 @@ export function ListPreferenceField({ items, label, onItemsChange }: ListPrefere
         className="min-h-24 font-mono text-sm"
       />
     </div>
-  );
-}
-
-export function PreferenceSection({ children, title }: PreferenceSectionProps) {
-  const titleId = useId();
-
-  return (
-    <section aria-labelledby={titleId} className="grid gap-4">
-      <h3 id={titleId} className="text-sm font-semibold">
-        {title}
-      </h3>
-      <div className="grid gap-4">{children}</div>
-    </section>
   );
 }

@@ -14,6 +14,11 @@ import {
   decodeWholeCharacterReference,
   getPreservedCharacterReferenceSource,
 } from "./characterReferenceMarkdown";
+import {
+  HARD_BREAK_MARKDOWN_TYPE,
+  HARD_BREAK_RUN_ATTRIBUTE_NAME,
+  readHardBreakRun,
+} from "./hardBreakMarkdown";
 import { serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getAugmentedParagraph, withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import {
@@ -24,8 +29,11 @@ import {
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import {
   createIdentityBoundaries,
+  findUnpositionedChildRange,
   getMarkdownSourcePosition as getMarkdownPosition,
+  readBreakSourceBounds,
   readTextSourceBoundaries,
+  type BreakSourceBounds,
 } from "./sourceProjectionInlineRunSyntax";
 import {
   createLinkSourceMap,
@@ -49,6 +57,12 @@ interface MarkedFragmentSourceSegmentBase {
   documentTo: number;
   sourceFrom: number;
   sourceTo: number;
+}
+
+// A soft line ending writes no run, so `runTo` is null.
+interface MarkedFragmentBreakSourceSegment
+  extends MarkedFragmentSourceSegmentBase, BreakSourceBounds {
+  type: "break";
 }
 
 interface MarkedFragmentCharacterReferenceSourceSegment extends MarkedFragmentSourceSegmentBase {
@@ -76,6 +90,7 @@ interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBas
 }
 
 export type MarkedFragmentSourceSegment =
+  | MarkedFragmentBreakSourceSegment
   | MarkedFragmentCharacterReferenceSourceSegment
   | MarkedFragmentLinkSourceSegment
   | MarkedFragmentReferenceSourceSegment
@@ -102,7 +117,8 @@ export interface MarkedFragmentSourceStructure {
 interface SerializedMarkedFragmentSource {
   // Whether the source spends characters the document does not hold, which is what decides
   // between projecting the source as literal text and wrapping the document's own text in
-  // markers. An inline object, a preserved reference, and an escape all spend them.
+  // markers. An inline object, a preserved reference, an escape, and a hard break's run all spend
+  // them.
   hasSourceOnlyContent: boolean;
   map: MarkedFragmentSourceMap;
   source: string;
@@ -112,6 +128,8 @@ type MarkdownValidationResult =
   | { children: MarkdownNode[]; type: "structured" }
   | { type: "invalidOuter" }
   | { type: "unsupportedInner" };
+
+const HARD_BREAK_SOURCE_PATTERN = /^(?:\\| {2,})(?:\r\n?|\n)/u;
 
 const MARKDOWN_MARK_TYPES = new Map<string, string>([
   ["emphasis", "emphasis"],
@@ -310,6 +328,7 @@ const getValidatedMarkdownChildren = (
 const isSupportedMarkedFragmentChild = (node: MarkdownNode): boolean => {
   if (
     node.type === "text" ||
+    node.type === HARD_BREAK_MARKDOWN_TYPE ||
     node.type === "footnoteReference" ||
     node.type === CHARACTER_REFERENCE_MARKDOWN_TYPE
   ) {
@@ -379,10 +398,21 @@ export const serializeMarkedFragmentSource = (
     const runNodes = nodes.slice(index, runEnd);
     const documentSize = runNodes.reduce((size, runNode) => size + runNode.nodeSize, 0);
     const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
+    const isSoftBreak = isBreak && node.attrs.isInline === true;
     const referenceSource = linkMark ? null : getPreservedCharacterReferenceSource(node);
     const isPlainText = !linkMark && !referenceSource && node.isText;
     const escapedStart = escapedOffset;
     const text = isBreak ? "\n" : (node.text ?? "");
+    // The serializer decides whether a recorded run of spaces still reads back as a break where it
+    // lands, so the run it wrote is the one shown, and the node's own record answers only where the
+    // written fragment stopped describing this one.
+    const breakSource = isSoftBreak
+      ? "\n"
+      : isBreak
+        ? ((escapedContent !== null
+            ? HARD_BREAK_SOURCE_PATTERN.exec(escapedContent.slice(escapedOffset))?.[0]
+            : undefined) ?? `${readHardBreakRun(node.attrs)}\n`)
+        : null;
     // A run the serializer escaped spends source characters the document does not hold, so its
     // slice is read off the escaped content rather than off the node.
     const escapedTextBoundaries =
@@ -406,11 +436,8 @@ export const serializeMarkedFragmentSource = (
         )
       : (referenceSource ??
         escapedText ??
-        (node.isText
-          ? text
-          : isBreak
-            ? "\n"
-            : serializeFootnoteReference(state, serializer, node)));
+        breakSource ??
+        (node.isText ? text : serializeFootnoteReference(state, serializer, node)));
     const sourceTo = sourceOffset + nodeSource.length;
 
     if (escapedContent !== null) {
@@ -444,7 +471,16 @@ export const serializeMarkedFragmentSource = (
         sourceTo,
         type: "characterReference",
       });
-    } else if (node.isText || isBreak) {
+    } else if (isBreak) {
+      innerSegments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + documentSize,
+        runTo: isSoftBreak ? null : sourceTo - (nodeSource.endsWith("\r\n") ? 2 : 1),
+        sourceFrom: sourceOffset,
+        sourceTo,
+        type: "break",
+      });
+    } else if (node.isText) {
       innerSegments.push(
         createTextSegment(
           documentOffset,
@@ -491,14 +527,16 @@ export const serializeMarkedFragmentSource = (
     ...(segment.type === "text"
       ? { sourceBoundaries: segment.sourceBoundaries.map((boundary) => boundary + from) }
       : {}),
+    ...(segment.type === "break" && segment.runTo !== null ? { runTo: segment.runTo + from } : {}),
     sourceFrom: segment.sourceFrom + from,
     sourceTo: segment.sourceTo + from,
   }));
 
   return {
-    hasSourceOnlyContent: segments.some(
-      (segment) =>
-        segment.type !== "text" || segment.sourceTo - segment.sourceFrom !== segment.text.length,
+    hasSourceOnlyContent: segments.some((segment) =>
+      segment.type === "text"
+        ? segment.sourceTo - segment.sourceFrom !== segment.text.length
+        : segment.type !== "break" || segment.runTo !== null,
     ),
     map: {
       contentFrom: from,
@@ -540,7 +578,8 @@ export const createMarkedFragmentSourceStructure = (
   let sourceOffset = contentBounds.from;
 
   for (const child of children) {
-    const position = getMarkdownPosition(child);
+    const position =
+      getMarkdownPosition(child) ?? findUnpositionedChildRange(source, sourceOffset, child);
 
     if (!position || position.from < sourceOffset || position.to > contentBounds.to) {
       return createMarkedLiteralStructure(source, parsed.marks);
@@ -554,7 +593,21 @@ export const createMarkedFragmentSourceStructure = (
       source,
     );
 
-    if (child.type === "link") {
+    let childTo = position.to;
+
+    if (child.type === HARD_BREAK_MARKDOWN_TYPE) {
+      const breakBounds = readBreakSourceBounds(source, position, child, contentBounds.to);
+
+      childTo = breakBounds.sourceTo;
+      segments.push({
+        ...breakBounds,
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        sourceFrom: position.from,
+        type: "break",
+      });
+      documentOffset += 1;
+    } else if (child.type === "link") {
       const map = createLinkSourceMap(
         remark,
         source.slice(position.from, position.to),
@@ -622,7 +675,7 @@ export const createMarkedFragmentSourceStructure = (
       documentOffset += value.length;
     }
 
-    sourceOffset = position.to;
+    sourceOffset = childTo;
   }
 
   documentOffset = addTextMapSegment(
@@ -666,6 +719,21 @@ export const parseMarkedFragmentSource = (
       const node = createTextNode(state, segment.text, documentMarks);
 
       return node ? [node] : [];
+    }
+
+    if (segment.type === "break") {
+      return [
+        state.schema.nodes[INLINE_BREAK_NODE_NAME].create(
+          segment.runTo === null
+            ? { isInline: true }
+            : {
+                isInline: false,
+                [HARD_BREAK_RUN_ATTRIBUTE_NAME]: source.slice(segment.sourceFrom, segment.runTo),
+              },
+          null,
+          documentMarks,
+        ),
+      ];
     }
 
     if (segment.type === "link") {
@@ -745,7 +813,11 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
         : segment.sourceTo;
   }
 
-  if (segment.type === "characterReference" || segment.type === "footnoteReference") {
+  if (
+    segment.type === "break" ||
+    segment.type === "characterReference" ||
+    segment.type === "footnoteReference"
+  ) {
     return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
   }
 
@@ -786,7 +858,7 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
         : segment.documentTo;
   }
 
-  if (segment.type === "characterReference") {
+  if (segment.type === "break" || segment.type === "characterReference") {
     return offset - segment.sourceFrom < segment.sourceTo - offset
       ? segment.documentFrom
       : segment.documentTo;

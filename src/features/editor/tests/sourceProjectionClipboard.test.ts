@@ -293,6 +293,34 @@ describe("source projection clipboard slices", () => {
     expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
   });
 
+  it.each([
+    { source: "[first\\\nwalk](./doc.md)" },
+    { source: "[first  \nwalk](./doc.md)" },
+    { source: "**first\\\nwalk**" },
+    { source: "**first  \nwalk**" },
+  ])("maps a complete hard break in $source but declines a partial run", async ({ source }) => {
+    const mounted = await mountEditor(`Before ${source} after`);
+
+    setTextSelection(
+      mounted.view,
+      getEditorNodePosition(mounted, "hardbreak", (node) => node.attrs.isInline === false),
+    );
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+
+    const firstFrom = getEditorTextPosition(mounted, "first");
+    const walkTo = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+    setTextSelection(mounted.view, firstFrom, walkTo);
+
+    const slice = getSourceProjectionClipboardSlice(mounted.view.state);
+
+    expect(slice).not.toBeNull();
+    expect(containsNodeType(slice!.content, "hardbreak")).toBe(true);
+
+    setTextSelection(mounted.view, firstFrom, firstFrom + "first".length + 1);
+    expect(getSourceProjectionClipboardSlice(mounted.view.state)).toBeNull();
+  });
+
   it("maps a complete image label but declines a partial image selection", async () => {
     mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
       kind: "renderable",

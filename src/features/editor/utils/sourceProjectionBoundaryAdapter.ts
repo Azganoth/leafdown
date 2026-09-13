@@ -9,6 +9,8 @@ import {
   findLinkSourceCharacterReferences,
   findSourceProjectionEscapeOffsets,
   getCharacterReferenceSpans,
+  getHardBreakSpans,
+  getLinkHardBreakSpans,
   getProjectionContentClassName,
   mapLiteralDocumentOffsetToSource,
   mapLiteralSourceOffsetToDocument,
@@ -146,6 +148,18 @@ const getRunPresentation = (
       continue;
     }
 
+    if (segment.type === "break") {
+      spans.push(
+        ...(segment.runTo === null
+          ? [{ className: contentClassName, from: segment.sourceFrom, to: segment.sourceTo }]
+          : getHardBreakSpans(
+              { from: segment.sourceFrom, runTo: segment.runTo, to: segment.sourceTo },
+              source,
+            )),
+      );
+      continue;
+    }
+
     if (segment.type === "characterReference") {
       sourceTypes.add("character-reference");
       previews.push({
@@ -188,6 +202,7 @@ const getRunPresentation = (
       { className: MARKER_CLASS_NAME, from: segment.sourceFrom, to: labelFrom },
       ...getCharacterReferenceSpans(labelClassName, { from: labelFrom, to: labelTo }, references),
       { className: MARKER_CLASS_NAME, from: labelTo, to: segment.sourceTo },
+      ...getLinkHardBreakSpans(segment.map, segment.sourceFrom, source),
     );
   }
 
@@ -209,7 +224,11 @@ const isSemanticRunSelection = (
   // A partial delimiter, atom, or reference has no semantic form of its own, so a selection that
   // takes part of one stays the literal characters it covers.
   return map.segments.every((segment) => {
-    if (segment.type === "text" || segment.type === "link") {
+    if (
+      segment.type === "text" ||
+      segment.type === "link" ||
+      (segment.type === "break" && segment.runTo === null)
+    ) {
       return true;
     }
 

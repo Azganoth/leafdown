@@ -17,6 +17,8 @@ interface TransformLogicalLinksResult {
 const LOGICAL_LINK_TOKEN_PREFIX = "LEAFDOWNLOGICALLINK";
 const LOGICAL_LINK_TOKEN_SUFFIX = "PLACEHOLDER";
 const LOGICAL_LINK_OUTER_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
+const HARD_BREAK_NODE_NAME = "hardbreak";
+const HEADING_NODE_NAME = "heading";
 
 const getLinkMark = (node: ProseMirrorNode) =>
   node.marks.find((mark) => mark.type.name === "link") ?? null;
@@ -27,12 +29,12 @@ const getMarksWithout = (marks: readonly Mark[], removedMarks: readonly Mark[]) 
 const getInnerLinkMarks = (node: ProseMirrorNode, linkMark: Mark) =>
   getMarksWithout(node.marks, [linkMark]);
 
-const isInlineSoftBreak = (node: ProseMirrorNode) =>
-  node.type.name === "hardbreak" && node.attrs.isInline === true;
+const isHardBreak = (node: ProseMirrorNode | null) =>
+  node?.type.name === HARD_BREAK_NODE_NAME && node.attrs.isInline !== true;
 
 const isSerializableLinkNode = (node: ProseMirrorNode) =>
   node.isText ||
-  isInlineSoftBreak(node) ||
+  node.type.name === HARD_BREAK_NODE_NAME ||
   node.type.name === "image" ||
   node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
@@ -65,6 +67,27 @@ const serializeInlineContent = (
   const temporaryDocument = document.type.create(null, paragraph);
 
   return serializer(temporaryDocument).replace(/\n$/u, "");
+};
+
+// A paragraph writes no hard break it ends on, while a label's is followed by the rest of the link,
+// so a label ending on one is written with the token standing after it and cut back to the token.
+const serializeLabelContent = (
+  serializer: Serializer,
+  document: ProseMirrorNode,
+  content: Fragment,
+  token: string,
+) => {
+  if (!isHardBreak(content.lastChild)) {
+    return serializeInlineContent(serializer, document, content);
+  }
+
+  const source = serializeInlineContent(
+    serializer,
+    document,
+    content.append(Fragment.from(document.type.schema.text(token))),
+  );
+
+  return source.slice(0, source.lastIndexOf(token));
 };
 
 const createLogicalLinkToken = (
@@ -100,7 +123,7 @@ const createLogicalLinkReplacement = (
   const labelContent = Fragment.fromArray(
     nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks))),
   );
-  const labelSource = serializeInlineContent(serializer, document, labelContent);
+  const labelSource = serializeLabelContent(serializer, document, labelContent, token);
   const linkedToken = document.type.schema.text(token, [linkMark]);
   const linkSource = serializeInlineContent(
     serializer,
@@ -148,7 +171,12 @@ const transformTextBlockContent = (
 
     const linkNodes = nodes.slice(index, runEnd);
 
-    if (!isMixedLinkRun(linkNodes, linkMark)) {
+    // A heading chooses between its forms by whether its content holds a break, which a placeholder
+    // standing in for the label would hide, so there a label holding a hard break is left in place.
+    if (
+      !isMixedLinkRun(linkNodes, linkMark) ||
+      (textBlock.type.name === HEADING_NODE_NAME && linkNodes.some(isHardBreak))
+    ) {
       transformedNodes.push(...linkNodes);
       index = runEnd;
       continue;

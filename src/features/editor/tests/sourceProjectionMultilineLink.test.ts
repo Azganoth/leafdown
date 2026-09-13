@@ -33,8 +33,32 @@ const MIXED_LINK_SOURCE =
 const MIXED_LINK_LABEL_SOURCE =
   "**calibration summary** with *field observations*, ~~retired wording~~,\nand `v2`";
 
+const HARD_BREAK_RUNS = [
+  { run: "\\", spelling: "a backslash" },
+  { run: "  ", spelling: "a run of spaces" },
+];
+
 const getInlineBreakPosition = (document: ProseMirrorNode) =>
   getEditorNodePosition(document, "hardbreak", (node) => node.attrs.isInline === true);
+
+const getHardBreakPosition = (document: ProseMirrorNode) =>
+  getEditorNodePosition(document, "hardbreak", (node) => node.attrs.isInline === false);
+
+const getLinkMarks = (document: ProseMirrorNode) => {
+  const linkMarks = new Set<string>();
+
+  document.descendants((node) => {
+    const linkMark = node.marks.find((mark) => mark.type.name === "link");
+
+    if (linkMark) {
+      linkMarks.add(JSON.stringify(linkMark.attrs));
+    }
+
+    return true;
+  });
+
+  return linkMarks;
+};
 
 describe("multiline logical-link source projection", () => {
   it.each([
@@ -392,4 +416,216 @@ describe("multiline logical-link source projection", () => {
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     expect(onContentChanged).toHaveBeenCalledTimes(2);
   });
+});
+
+describe("link source projection across an authored hard break", () => {
+  const getSource = (run: string) => `[first field${run}\nwalk](./doc.md "Review")`;
+
+  it.each(HARD_BREAK_RUNS)(
+    "projects the complete link from every label position across $spelling",
+    async ({ run }) => {
+      const source = getSource(run);
+      const mounted = await mountProjectionEditor(`Before ${source} after`);
+      const labelFrom = getEditorTextPosition(mounted, "first");
+      const labelTo = getEditorTextPosition(mounted, "walk") + "walk".length;
+
+      for (let position = labelFrom; position <= labelTo; position += 1) {
+        setSelectionAtDocumentEnd(mounted.view);
+        setTextSelection(mounted.view, position);
+
+        expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+        expect(getEditorTextContent(mounted)).toBe(`Before ${source} after`);
+      }
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS.flatMap((spelling) => [0, 1].map((offset) => ({ ...spelling, offset }))))(
+    "keeps the caret on its side of $spelling at offset $offset",
+    async ({ offset, run }) => {
+      const source = getSource(run);
+      const mounted = await mountProjectionEditor(`Before ${source} after`);
+
+      setTextSelection(mounted.view, getHardBreakPosition(mounted.view.state.doc) + offset);
+
+      const sourceStart = getEditorTextPosition(mounted, source);
+      const sourceOffset = offset ? source.indexOf("\n") + 1 : source.indexOf(run);
+
+      expect(mounted.view.state.selection.head).toBe(sourceStart + sourceOffset);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)("restores the original label across $spelling", async ({ run }) => {
+    const mounted = await mountProjectionEditor(`Before ${getSource(run)} after`);
+    const originalDocument = mounted.view.state.doc;
+
+    setTextSelection(mounted.view, getHardBreakPosition(originalDocument) + 1);
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
+  });
+
+  it.each(HARD_BREAK_RUNS)(
+    "commits an edit as one link keeping the run of $spelling",
+    async ({ run }) => {
+      const source = getSource(run);
+      const mounted = await mountProjectionEditor(`Before ${source} after`);
+
+      setTextSelection(mounted.view, getHardBreakPosition(mounted.view.state.doc));
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "walk") + "walk".length);
+      typeText(mounted.view, "!");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`Before ${source.replace("walk", "walk!")} after\n`);
+
+      const breakNode = mounted.view.state.doc.nodeAt(getHardBreakPosition(mounted.view.state.doc));
+
+      expect(breakNode?.attrs.run).toBe(run);
+      expect(getLinkMarks(mounted.view.state.doc).size).toBe(1);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)(
+    "commits a soft line ending once the run of $spelling no longer spells a break",
+    async ({ run }) => {
+      const mounted = await mountProjectionEditor(`Before ${getSource(run)} after`);
+
+      setTextSelection(mounted.view, getHardBreakPosition(mounted.view.state.doc));
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, `field${run}`) + 6);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`Before ${getSource("")} after\n`);
+      expect(getInlineBreakPosition(mounted.view.state.doc)).toBeGreaterThan(0);
+      expect(getLinkMarks(mounted.view.state.doc).size).toBe(1);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)(
+    "commits invalid source holding $spelling as the literal text it spells",
+    async ({ run }) => {
+      const source = getSource(run);
+      const mounted = await mountProjectionEditor(`Before ${source} after`);
+
+      setTextSelection(mounted.view, getHardBreakPosition(mounted.view.state.doc));
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, source) + source.length);
+      runKeyDownHandlers(mounted.view, "Backspace");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.dom.querySelector("a")).not.toBeInTheDocument();
+      expect(getEditorTextContent(mounted)).toBe(`Before ${source.slice(0, -1)} after`);
+    },
+  );
+
+  it("marks each space of a projected run and shows a backslash as a marker", async () => {
+    const mounted = await mountProjectionEditor(
+      `${getSource("  ")}\n\n${getSource("\\")}\n\nafter`,
+    );
+    const getBreakSpaces = () =>
+      Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker--break-spaces"),
+        (element) => element.textContent,
+      );
+    const getRunPosition = (run: string) =>
+      getEditorNodePosition(mounted, "hardbreak", (node) => node.attrs.run === run);
+
+    setTextSelection(mounted.view, getRunPosition("  "));
+
+    expect(getBreakSpaces()).toEqual(["  "]);
+
+    setSelectionAtDocumentEnd(mounted.view);
+    setTextSelection(mounted.view, getRunPosition("\\"));
+
+    expect(getBreakSpaces()).toEqual([]);
+    expect(
+      Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+        (element) => element.textContent,
+      ).join(""),
+    ).toContain("\\\n");
+  });
+
+  it.each(HARD_BREAK_RUNS)(
+    "maps $spelling to one segment over its run and line ending",
+    async ({ run }) => {
+      const source = `[first${run}\nwalk](./doc.md)`;
+      const mounted = await mountProjectionEditor(source);
+      const map = createLinkSourceMap(mounted.editor.ctx.get(remarkCtx), source);
+      const breakFrom = "[first".length;
+
+      expect(map?.segments).toEqual([
+        expect.objectContaining({ documentFrom: 0, documentTo: 5, type: "text" }),
+        expect.objectContaining({
+          documentFrom: 5,
+          documentTo: 6,
+          runTo: breakFrom + run.length,
+          sourceFrom: breakFrom,
+          sourceTo: breakFrom + run.length + 1,
+          type: "hardBreak",
+        }),
+        expect.objectContaining({ documentFrom: 6, documentTo: 10, type: "text" }),
+      ]);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)(
+    "writes back a mixed-format label ending on $spelling with its break",
+    async ({ run }) => {
+      const source = `Before [**calibration**${run}\n](./doc.md) after`;
+      const mounted = await mountProjectionEditor(source);
+      const written = mounted.getMarkdown();
+      const reopened = await mountProjectionEditor(written);
+
+      expect(written).toBe(`${source}\n`);
+      expect(getHardBreakPosition(reopened.view.state.doc)).toBeGreaterThan(0);
+      expect(getLinkMarks(reopened.view.state.doc).size).toBe(1);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)(
+    "keeps a heading made from a paragraph holding a mixed-format label with $spelling whole",
+    async ({ run }) => {
+      const mounted = await mountProjectionEditor(`[**a** b${run}\nc](./doc.md)\n\nend`);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const paragraph = mounted.view.state.doc.firstChild!;
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.setBlockType(
+          1,
+          1 + paragraph.content.size,
+          mounted.view.state.schema.nodes.heading,
+          { level: 1 },
+        ),
+      );
+
+      const reopened = await mountProjectionEditor(mounted.getMarkdown());
+
+      setSelectionAtDocumentEnd(reopened.view);
+
+      const heading = reopened.view.state.doc.firstChild!;
+
+      expect(reopened.view.state.doc.childCount).toBe(2);
+      expect(heading.type.name).toBe("heading");
+      expect(heading.textContent).toBe("a b\nc");
+      expect(getHardBreakPosition(heading)).toBeGreaterThanOrEqual(0);
+    },
+  );
+
+  it.each(HARD_BREAK_RUNS)(
+    "writes and projects a mixed-format label holding $spelling as one link",
+    async ({ run }) => {
+      const source = `[**calibration** summary${run}\nand \`v2\`](./doc.md)`;
+      const mounted = await mountProjectionEditor(source);
+
+      expect(mounted.getMarkdown()).toBe(`${source}\n`);
+      expect(getLinkMarks(mounted.view.state.doc).size).toBe(1);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "summary"));
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(getEditorTextContent(mounted)).toBe(source);
+    },
+  );
 });

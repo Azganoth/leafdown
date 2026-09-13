@@ -188,6 +188,10 @@ export interface SourceProjectionInsertionMatch {
   candidate: SourceProjectionInsertionCandidate;
 }
 
+interface HardBreakSourceRange extends TextRange {
+  runTo: number;
+}
+
 interface ActiveProjectionRange extends TextRange {
   marks: ProjectionMarkDescriptor[];
 }
@@ -199,9 +203,6 @@ interface ProjectionMarkSegment extends ActiveProjectionRange {
 }
 
 const LINK_MARK_NAME = "link";
-
-const isInlineBreak = (node: ProseMirrorNode) =>
-  node.type.name === "hardbreak" && node.attrs.isInline === true;
 
 const isLinkImage = (node: ProseMirrorNode) =>
   node.type.name === "image" && node.marks.some((mark) => mark.type.name === LINK_MARK_NAME);
@@ -416,15 +417,31 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
 
   const parentStart = $from.start();
   const segments: ProjectionMarkSegment[] = [];
+  let pendingHardBreakTo: number | null = null;
 
   $from.parent.forEach((node, offset) => {
     const from = parentStart + offset;
     const documentMarks = getWrappingMarks(state, node, from);
     const marks = getProjectionMarksFromInlineNode(node, documentMarks);
+    const previousSegment = segments.at(-1);
+    const continuesPreviousSegment =
+      previousSegment !== undefined &&
+      (previousSegment.to === from || pendingHardBreakTo === from) &&
+      Mark.sameSet(previousSegment.documentMarks, documentMarks);
 
     if (!marks.length) {
+      pendingHardBreakTo = null;
       return;
     }
+
+    // A hard break at either edge of a run cannot be written inside its delimiters, so like
+    // whitespace there it stays outside the fragment, and joins it only once the run carries on.
+    if (node.type.name === "hardbreak" && node.attrs.isInline !== true) {
+      pendingHardBreakTo = continuesPreviousSegment ? from + node.nodeSize : null;
+      return;
+    }
+
+    pendingHardBreakTo = null;
 
     // A preserved reference writes its own source, so the run reaches the delimiters as `&` or
     // `;` however the character it names is classified.
@@ -432,12 +449,8 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
       node.isText && getPreservedCharacterReferenceSource(node) === null ? (node.text ?? "") : "";
     const leadingWhitespaceLength = /^\s+/u.exec(text)?.[0].length ?? 0;
     const trailingWhitespaceLength = /\s+$/u.exec(text)?.[0].length ?? 0;
-    const previousSegment = segments.at(-1);
 
-    if (
-      previousSegment?.to === from &&
-      Mark.sameSet(previousSegment.documentMarks, documentMarks)
-    ) {
+    if (continuesPreviousSegment) {
       previousSegment.to = from + node.nodeSize;
       previousSegment.trailingWhitespaceLength = trailingWhitespaceLength;
       return;
@@ -491,7 +504,12 @@ const getProjectionMarksFromInlineNode = (
 ): ProjectionMarkDescriptor[] => {
   const isFootnoteReference = node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
-  if (!node.isText && !isFootnoteReference && !isInlineBreak(node) && !isLinkImage(node)) {
+  if (
+    !node.isText &&
+    !isFootnoteReference &&
+    node.type.name !== "hardbreak" &&
+    !isLinkImage(node)
+  ) {
     return [];
   }
 
@@ -684,6 +702,35 @@ export const getCharacterReferenceSpans = (
   return spans;
 };
 
+export const getHardBreakSpans = ({ from, runTo, to }: HardBreakSourceRange, source: string) => {
+  const run = source.slice(from, runTo);
+
+  return [
+    {
+      className: run.startsWith(" ")
+        ? "leafdown-source-projection__marker leafdown-source-projection__marker--break-spaces"
+        : "leafdown-source-projection__marker",
+      from,
+      to: runTo,
+    },
+    { className: "leafdown-source-projection__marker", from: runTo, to },
+  ];
+};
+
+export const getLinkHardBreakSpans = (map: LinkSourceMap, sourceFrom: number, source: string) =>
+  map.segments.flatMap((segment) =>
+    segment.type === "hardBreak"
+      ? getHardBreakSpans(
+          {
+            from: sourceFrom + segment.sourceFrom,
+            runTo: sourceFrom + segment.runTo,
+            to: sourceFrom + segment.sourceTo,
+          },
+          source,
+        )
+      : [],
+  );
+
 const getMarkedFragmentPresentation = (
   source: string,
   marks: ProjectionMarkDescriptor[],
@@ -701,6 +748,18 @@ const getMarkedFragmentPresentation = (
   const objectTypes = new Set<string>();
 
   for (const segment of map.segments) {
+    if (segment.type === "break") {
+      spans.push(
+        ...(segment.runTo === null
+          ? [{ className: contentClassName, from: segment.sourceFrom, to: segment.sourceTo }]
+          : getHardBreakSpans(
+              { from: segment.sourceFrom, runTo: segment.runTo, to: segment.sourceTo },
+              source,
+            )),
+      );
+      continue;
+    }
+
     if (segment.type === "characterReference") {
       const text = decodeWholeCharacterReference(
         source.slice(segment.sourceFrom, segment.sourceTo),
@@ -755,6 +814,7 @@ const getMarkedFragmentPresentation = (
           from: labelTo,
           to: segment.sourceTo,
         },
+        ...(segment.map ? getLinkHardBreakSpans(segment.map, segment.sourceFrom, source) : []),
       );
       continue;
     }
@@ -1049,7 +1109,11 @@ const getProjectionEditSelectionOffset = (
 
 const getAtomicSourceRanges = (map: MarkedFragmentSourceMap): TextRange[] =>
   map.segments.flatMap((segment) => {
-    if (segment.type === "characterReference" || segment.type === "footnoteReference") {
+    if (
+      segment.type === "characterReference" ||
+      segment.type === "footnoteReference" ||
+      (segment.type === "break" && segment.runTo !== null)
+    ) {
       return [{ from: segment.sourceFrom, to: segment.sourceTo }];
     }
 

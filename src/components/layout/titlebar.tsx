@@ -42,7 +42,7 @@ export function Titlebar({ actions, children }: TitlebarProps) {
       id="leafdown-titlebar"
       className="pointer-events-auto fixed top-0 right-0 left-0 z-90 mr-(--tauri-frame-controls-width,138px) flex h-8 items-center px-1"
     >
-      <img src="/app-icon.svg" alt="" className="mx-1 size-4" />
+      <img src="/app-icon.svg" alt="" className="mr-1 ml-4 size-6" />
       {children}
       <div data-tauri-drag-region className="h-full flex-1" />
       {actions && <div className="flex h-full items-center gap-1">{actions}</div>}

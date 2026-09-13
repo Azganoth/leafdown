@@ -56,12 +56,12 @@ export function PreferenceSwitch({
   const id = useId();
 
   return (
-    <Field orientation="horizontal">
+    <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
       <FieldContent>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {description && <FieldDescription>{description}</FieldDescription>}
       </FieldContent>
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch id={id} size="lg" checked={checked} onCheckedChange={onCheckedChange} />
     </Field>
   );
 }
@@ -76,7 +76,7 @@ export function PreferenceChoice<Value extends string>({
   const labelId = useId();
 
   return (
-    <Field orientation="horizontal">
+    <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
       <FieldContent>
         <FieldTitle id={labelId}>{label}</FieldTitle>
         {description && <FieldDescription>{description}</FieldDescription>}

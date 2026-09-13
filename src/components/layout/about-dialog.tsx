@@ -58,7 +58,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
           GPL-3.0-or-later
         </div>
 
-        <DialogFooter className="sm:justify-center" showCloseButton>
+        <DialogFooter className="sm:justify-center">
           <Button type="button" variant="outline" onClick={() => openExternal(LICENSE_URL)}>
             License
           </Button>

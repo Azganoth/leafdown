@@ -199,7 +199,7 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
           </Collapsible>
         </div>
 
-        <DialogFooter showCloseButton>
+        <DialogFooter>
           {loadError && (
             <Button variant="outline" onClick={reloadSummary}>
               <RotateCcwIcon data-icon="inline-start" />

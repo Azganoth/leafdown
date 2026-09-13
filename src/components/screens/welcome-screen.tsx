@@ -125,7 +125,7 @@ export function WelcomeScreen() {
               <Button
                 type="button"
                 variant="ghost"
-                size="xs"
+                size="sm"
                 onClick={clearRecentItems}
                 className="text-muted-foreground"
               >
@@ -148,7 +148,7 @@ function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
   }
 
   return (
-    <span aria-hidden="true" className="text-xs font-normal tracking-widest opacity-60">
+    <span aria-hidden="true" className="ml-2 text-xs font-normal tracking-widest opacity-60">
       {formatShortcut(shortcut)}
     </span>
   );
@@ -179,7 +179,7 @@ function RecentItemsSection({
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ul className="mt-2 flex flex-col gap-1">
+        <ul className="mt-2 flex flex-col">
           {items.map((path) => (
             <RecentItem icon={Icon} key={path} onOpenItem={onOpenItem} path={path} />
           ))}

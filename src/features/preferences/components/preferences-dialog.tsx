@@ -62,7 +62,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-4 sm:max-w-2xl">
+      <DialogContent className="gap-4 sm:max-w-3xl">
         <DialogHeader className="pr-10">
           <DialogTitle>Preferences</DialogTitle>
         </DialogHeader>
@@ -70,15 +70,11 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         <Tabs
           orientation="vertical"
           defaultValue="general"
-          className="h-[min(26rem,calc(100vh-16rem))] gap-5"
+          className="mt-4 h-[min(34rem,calc(100vh-12rem))] gap-6"
         >
-          <TabsList className="w-36 shrink-0 items-stretch p-1">
+          <TabsList className="w-44 shrink-0" variant="line">
             {PREFERENCE_TABS.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="h-auto justify-start gap-2 px-2 py-1.5"
-              >
+              <TabsTrigger key={value} value={value} className="h-auto gap-2 py-2">
                 <Icon data-icon="inline-start" />
                 {label}
               </TabsTrigger>
@@ -86,7 +82,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           </TabsList>
 
           <ScrollArea className="min-w-0 flex-1">
-            <div className="pr-3 pb-1">
+            <div className="px-3 pb-1">
               <TabsContent value="general">
                 <GeneralPreferences />
               </TabsContent>
@@ -103,7 +99,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           </ScrollArea>
         </Tabs>
 
-        <DialogFooter className="sm:justify-between" showCloseButton>
+        <DialogFooter className="sm:justify-start">
           <Button type="button" variant="ghost" onClick={reset}>
             Restore defaults
           </Button>

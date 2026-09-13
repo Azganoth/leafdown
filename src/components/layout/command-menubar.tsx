@@ -421,6 +421,7 @@ function LineEndingSubmenu() {
             <CommandRadioItem commandId={commandId} key={commandId} />
           ))}
         </MenubarRadioGroup>
+        <MenubarSeparator />
         <CommandCheckboxItem commandId="edit.insertFinalNewline" />
       </MenubarSubContent>
     </MenubarSub>

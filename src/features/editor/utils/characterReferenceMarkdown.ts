@@ -36,6 +36,11 @@ const REFERENCE_LENGTH_MAX = 33;
 // A backslash escapes ASCII punctuation and nothing else, so a backslash before ordinary text is
 // itself the character.
 const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
+// Marks serialize in `spec.priority` order, 50 unless declared and 100 for inline code, and the
+// mark written last stands innermost. The runner below writes the text node itself, which stops
+// every mark ordered after it from opening at all, so a reference is ordered past all of them
+// rather than only past the ones it nests inside.
+const CHARACTER_REFERENCE_MARK_PRIORITY = 125;
 
 interface DecodedReference {
   decoded: string;
@@ -607,6 +612,7 @@ export const serializeCharacterReference: NonNullable<RemarkStringifyHandlers["t
 
 export const characterReferenceMarkSchema: MarkSchema = {
   inclusive: false,
+  priority: CHARACTER_REFERENCE_MARK_PRIORITY,
   attrs: { [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: { default: "", validate: "string" } },
   parseDOM: [
     {
@@ -636,12 +642,30 @@ export const characterReferenceMarkSchema: MarkSchema = {
   },
   toMarkdown: {
     match: (mark) => mark.type.name === CHARACTER_REFERENCE_MARK_NAME,
-    runner: (state, mark) => {
-      state.withMark(mark, CHARACTER_REFERENCE_MARKDOWN_TYPE, undefined, {
-        [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: mark.attrs[
-          CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME
-        ] as string,
-      });
+    // The node a text node is written as is built here rather than through `withMark`, which lifts
+    // an ASCII space off either end of the mark it closes into a plain sibling, leaving the
+    // reference empty and the space to be written as itself. Returning `true` keeps the text node's
+    // own runner from writing the character a second time. Any other inline node keeps the mark
+    // around it, since only a text node writes the characters the reference stands for.
+    runner: (state, mark, node) => {
+      const source = mark.attrs[CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME] as string;
+
+      if (!node.isText) {
+        state.withMark(mark, CHARACTER_REFERENCE_MARKDOWN_TYPE, undefined, {
+          [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: source,
+        });
+
+        return;
+      }
+
+      state.addNode(
+        CHARACTER_REFERENCE_MARKDOWN_TYPE,
+        [{ type: "text", value: node.text ?? "" }],
+        undefined,
+        { [CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME]: source },
+      );
+
+      return true;
     },
   },
 };

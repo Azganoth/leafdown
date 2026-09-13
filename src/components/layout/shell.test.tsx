@@ -11,8 +11,16 @@ import {
   createFolderContext,
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
-import { TEST_MARKDOWN_FILE_PATH, TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
+import {
+  TEST_MARKDOWN_FILE_PATH,
+  TEST_NESTED_DIRECTORY_PATH,
+  TEST_NOTES_FOLDER_PATH,
+} from "@/test/fixtures/paths";
+import {
+  setDefaultRecentItems,
+  setDefaultSession,
+  setDefaultSettings,
+} from "@/test/utils/appStores";
 import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
@@ -68,13 +76,36 @@ describe("Shell", () => {
     expect(titlebar!).toContainElement(screen.getByRole("menuitem", { name: "File" }));
     expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Show sidebar" }));
     expect(titlebar!.querySelector("h1")).toBeNull();
-    expect(screen.getByText("No recent files.")).toBeInTheDocument();
-    expect(screen.getByText("No recent folders.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent folders" })).not.toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
     expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+  });
+
+  it("names a recent item by its own name and the folder holding it", async () => {
+    setDefaultRecentItems({
+      recentFiles: [SPEC_MARKDOWN_PATH],
+      recentFolders: [TEST_NESTED_DIRECTORY_PATH],
+    });
+
+    const { user } = renderWithUser(<Shell />);
+
+    const recentFile = screen.getByTitle(SPEC_MARKDOWN_PATH);
+    expect(recentFile).toHaveTextContent("spec.md");
+    expect(recentFile).toHaveTextContent(TEST_NESTED_DIRECTORY_PATH);
+
+    const recentFolder = screen.getByTitle(TEST_NESTED_DIRECTORY_PATH);
+    expect(recentFolder).toHaveTextContent("docs");
+    expect(recentFolder).toHaveTextContent(TEST_NOTES_FOLDER_PATH);
+
+    await user.click(screen.getByRole("button", { name: "Clear recent items" }));
+
+    expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear recent items" })).not.toBeInTheDocument();
   });
 
   it("withholds the sidebar and its toggle without a folder context", () => {

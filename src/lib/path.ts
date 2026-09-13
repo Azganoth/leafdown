@@ -21,6 +21,26 @@ const trimTrailingPathSeparators = (path: string) => {
   return path.replace(/\/+$/u, "");
 };
 
+export interface PathParts {
+  name: string;
+  parent: string;
+}
+
+export const getPathParts = (path: string): PathParts => {
+  const normalizedPath = trimTrailingPathSeparators(toSlashPath(path));
+  const separatorIndex = normalizedPath.lastIndexOf("/");
+
+  // A root keeps its separator through trimming, and a bare name never had one.
+  if (separatorIndex === -1 || normalizedPath.endsWith("/")) {
+    return { name: normalizedPath, parent: "" };
+  }
+
+  return {
+    name: normalizedPath.slice(separatorIndex + 1),
+    parent: trimTrailingPathSeparators(normalizedPath.slice(0, separatorIndex + 1)),
+  };
+};
+
 export const getPathIdentityKey = (path: string) => {
   const normalizedPath = trimTrailingPathSeparators(toSlashPath(path));
 

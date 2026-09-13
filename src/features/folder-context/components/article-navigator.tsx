@@ -141,16 +141,17 @@ export function ArticleNavigator({
 
       <CardContent className="min-h-0 flex-1 gap-2">
         {!folderContext.isEmpty && (
-          <InputGroup className="h-8">
+          <InputGroup className="h-7 border-transparent bg-muted/50 shadow-none dark:bg-muted/50">
             <InputGroupInput
               aria-label="Filter articles"
+              className="text-xs md:text-xs"
               onChange={(event) => setFilterQuery(event.target.value)}
-              placeholder="Filter articles…"
+              placeholder="Filter…"
               type="text"
               value={filterQuery}
             />
             <InputGroupAddon align="inline-start">
-              <SearchIcon />
+              <SearchIcon className="size-3.5" />
             </InputGroupAddon>
             {filterQuery && (
               <InputGroupAddon align="inline-end">

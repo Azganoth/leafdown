@@ -472,6 +472,16 @@
       font-weight: 400;
     }
 
+    /* A run of spaces spelling a hard break closes its line and draws nothing, so each space carries a
+       dot. The run is set monospaced so that one repetition of the dot is exactly one space wide. */
+    .leafdown-source-projection__marker--break-spaces {
+      @apply font-mono;
+      background-image: radial-gradient(circle, currentColor 0.08em, transparent 0.11em);
+      background-position: 0 center;
+      background-repeat: repeat-x;
+      background-size: 1ch 1em;
+    }
+
     /* The character a reference names stands beside its source, reading as the content it renders
        while the source stays a marker. It is drawn from an attribute so that whitespace it may
        name keeps its width and no selection, copy, or save can reach it. */

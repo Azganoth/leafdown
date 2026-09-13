@@ -35,7 +35,7 @@ const LINE_CONTENT_PATTERN = /[^\t\n\r ]$/u;
 const isHardBreakRun = (value: unknown): value is string =>
   typeof value === "string" && HARD_BREAK_RUN_PATTERN.test(value);
 
-const readSoftBreak = (source: object): boolean =>
+export const readSoftBreak = (source: object): boolean =>
   Boolean((source as { data?: Record<string, unknown> }).data?.[SOFT_BREAK_ATTRIBUTE_NAME]);
 
 export const readHardBreakRun = (source: object): string => {

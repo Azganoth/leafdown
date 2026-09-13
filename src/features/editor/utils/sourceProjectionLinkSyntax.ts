@@ -6,6 +6,7 @@ import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   readCharacterReference,
 } from "./characterReferenceMarkdown";
+import { findHardBreakRun, HARD_BREAK_MARKDOWN_TYPE } from "./hardBreakMarkdown";
 import { withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import { getFootnoteReferenceSourceBounds } from "./sourceProjectionFootnoteReferenceSyntax";
 import type { TextRange } from "./textRanges";
@@ -35,8 +36,16 @@ interface LinkInlineBreakSourceSegment extends LinkSourceSegmentBase {
   type: "inlineBreak";
 }
 
+// A break the file spells with a run, which is syntax the label spends on the line ending it closes
+// rather than text it holds, so the run ends at `runTo` and the line ending follows it.
+interface LinkHardBreakSourceSegment extends LinkSourceSegmentBase {
+  runTo: number;
+  type: "hardBreak";
+}
+
 export type LinkSourceSegment =
   | LinkFootnoteReferenceSourceSegment
+  | LinkHardBreakSourceSegment
   | LinkImageSourceSegment
   | LinkInlineBreakSourceSegment
   | LinkTextSourceSegment;
@@ -161,14 +170,8 @@ const getLinkContentClassName = (ancestorTypes: readonly string[]) =>
     .filter(isTruthy)
     .join(" ");
 
-const isInlineSoftBreak = (node: MarkdownNode) =>
-  node.type === "break" &&
-  // mdast's `Data` does not declare `isInline`, so the assertion is what reaches it.
-  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
-  (node.data as { isInline?: boolean } | undefined)?.isInline === true;
-
 export const isAtomicLinkSegment = (segment: LinkSourceSegment) =>
-  segment.type === "image" || segment.type === "footnoteReference";
+  segment.type === "image" || segment.type === "footnoteReference" || segment.type === "hardBreak";
 
 export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
   if (node.type === "text" || node.type === "inlineCode") {
@@ -179,7 +182,11 @@ export const isSupportedLinkChild = (node: MarkdownNode): boolean => {
     return true;
   }
 
-  if (node.type === "image" || node.type === "footnoteReference" || isInlineSoftBreak(node)) {
+  if (
+    node.type === "image" ||
+    node.type === "footnoteReference" ||
+    node.type === HARD_BREAK_MARKDOWN_TYPE
+  ) {
     return true;
   }
 
@@ -380,6 +387,30 @@ export const createLinkSourceMap = (
         sourceFrom: position.from,
         sourceTo: position.to,
         type: "image",
+      });
+      documentOffset += 1;
+
+      return true;
+    }
+
+    // A soft line ending is still text when the source is parsed, so the break reached here is one the
+    // file spells with a run.
+    if (node.type === HARD_BREAK_MARKDOWN_TYPE) {
+      const position = getMarkdownPosition(node);
+
+      if (!position) {
+        return false;
+      }
+
+      addSourceTypes(nextAncestorTypes);
+      segments.push({
+        className: getLinkContentClassName(nextAncestorTypes),
+        documentFrom: documentOffset,
+        documentTo: documentOffset + 1,
+        runTo: position.from + findHardBreakRun(source.slice(position.from, position.to)).length,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "hardBreak",
       });
       documentOffset += 1;
 

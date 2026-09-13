@@ -691,6 +691,7 @@ describe("source projection", () => {
         description: "a link the mark wraps",
         source: "**left[^note][link](https://example.com)right**",
       },
+      { description: "a hard break the mark wraps", source: "**left[^note]  \nright**" },
     ])("keeps $description inside one marked fragment", async ({ source }) => {
       const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
 
@@ -711,10 +712,6 @@ describe("source projection", () => {
       {
         boundary: "inline HTML",
         markdown: "**left[^note]<span>raw</span>right**",
-      },
-      {
-        boundary: "hard break",
-        markdown: "**left[^note]  \nright**",
       },
     ])("stops a marked footnote fragment at a $boundary", async ({ markdown }) => {
       const mounted = await mountProjectionEditor(`${markdown}\n\n[^note]: Detail`);

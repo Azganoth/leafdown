@@ -6,6 +6,7 @@ import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   decodeWholeCharacterReference,
 } from "./characterReferenceMarkdown";
+import { findHardBreakRun, HARD_BREAK_MARKDOWN_TYPE, readSoftBreak } from "./hardBreakMarkdown";
 import { getAugmentedParagraph, withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import {
   getFootnoteReferenceSourceBounds,
@@ -55,6 +56,11 @@ interface InlineRunLinkSourceSegment extends InlineRunSourceSegmentBase {
   type: "link";
 }
 
+// A soft line ending writes no run, so `runTo` is null.
+interface InlineRunBreakSourceSegment extends InlineRunSourceSegmentBase, BreakSourceBounds {
+  type: "break";
+}
+
 interface InlineRunCharacterReferenceSourceSegment extends InlineRunSourceSegmentBase {
   text: string;
   type: "characterReference";
@@ -73,6 +79,7 @@ interface InlineRunAtomSourceSegment extends InlineRunSourceSegmentBase {
 
 export type InlineRunSourceSegment =
   | InlineRunAtomSourceSegment
+  | InlineRunBreakSourceSegment
   | InlineRunCharacterReferenceSourceSegment
   | InlineRunFootnoteReferenceSourceSegment
   | InlineRunLinkSourceSegment
@@ -145,6 +152,53 @@ export const readTextSourceBoundaries = (source: string, from: number, value: st
 export const createIdentityBoundaries = (sourceFrom: number, length: number) =>
   Array.from({ length: length + 1 }, (_, offset) => sourceFrom + offset);
 
+export interface BreakSourceBounds {
+  runTo: number | null;
+  sourceTo: number;
+}
+
+// The whitespace a soft line ending spends closing its line, which the text before it does not hold.
+const SOFT_BREAK_SOURCE_PATTERN = /^[\t ]*(?:\r\n?|\n)/u;
+const LINE_INDENTATION_PATTERN = /^[\t ]*/u;
+
+// Splitting a soft line ending out of the text it was read in leaves neither the break nor the text
+// beside it a position, so each is read off the source from where the child before it ended.
+export const findUnpositionedChildRange = (
+  source: string,
+  from: number,
+  child: MarkdownNode,
+): TextRange | null => {
+  if (child.type === HARD_BREAK_MARKDOWN_TYPE) {
+    const lineEnding = SOFT_BREAK_SOURCE_PATTERN.exec(source.slice(from))?.[0];
+
+    return lineEnding === undefined ? null : { from, to: from + lineEnding.length };
+  }
+
+  if (child.type !== "text" || typeof child.value !== "string") {
+    return null;
+  }
+
+  const boundaries = readTextSourceBoundaries(source, from, child.value);
+
+  return boundaries ? { from, to: boundaries[boundaries.length - 1] } : null;
+};
+
+// A break stands for one document position however many characters the file spends on it: the run
+// a hard break is written with, the line ending, and the indentation the next line opens on, which
+// the text after it does not hold.
+export const readBreakSourceBounds = (
+  source: string,
+  { from, to }: TextRange,
+  child: MarkdownNode,
+  limit: number,
+): BreakSourceBounds => ({
+  runTo: readSoftBreak(child) ? null : from + findHardBreakRun(source.slice(from, to)).length,
+  sourceTo: Math.min(
+    to + (LINE_INDENTATION_PATTERN.exec(source.slice(to))?.[0].length ?? 0),
+    limit,
+  ),
+});
+
 const addRunTextSegment = (
   { segments, source }: InlineRunWalkContext,
   sourceFrom: number,
@@ -202,14 +256,23 @@ const addRunMarkSegments = (
   documentOffset: number,
 ): number | null => {
   const children = node.children ?? [];
-  const contentFrom = children.length ? getMarkdownSourcePosition(children[0])?.from : undefined;
-  const contentTo = children.length
-    ? getMarkdownSourcePosition(children[children.length - 1])?.to
-    : undefined;
 
-  if (contentFrom === undefined || contentTo === undefined) {
+  if (!children.length) {
     return null;
   }
+
+  // A child split out beside a soft line ending has no position, so the content is bounded by the
+  // delimiters the mark itself spells instead.
+  const delimiterLength =
+    markName === "emphasis"
+      ? 1
+      : markName === "strong"
+        ? 2
+        : (/^~+/u.exec(context.source.slice(position.from))?.[0].length ?? 0);
+  const contentFrom =
+    getMarkdownSourcePosition(children[0])?.from ?? position.from + delimiterLength;
+  const contentTo =
+    getMarkdownSourcePosition(children[children.length - 1])?.to ?? position.to - delimiterLength;
 
   const descriptor = createProjectionMarkDescriptor(markName, {
     marker: context.source[position.from],
@@ -407,13 +470,31 @@ const collectRunSegments = (
   let offset = documentOffset;
 
   for (const child of children) {
-    const position = getMarkdownSourcePosition(child);
+    const position =
+      getMarkdownSourcePosition(child) ??
+      findUnpositionedChildRange(context.source, sourceOffset, child);
 
     if (!position || position.from < sourceOffset || position.to > bounds.to) {
       return null;
     }
 
     offset = addRunTextSegment(context, sourceOffset, position.from, marks, offset);
+
+    if (child.type === HARD_BREAK_MARKDOWN_TYPE) {
+      const breakBounds = readBreakSourceBounds(context.source, position, child, bounds.to);
+
+      context.segments.push({
+        ...breakBounds,
+        documentFrom: offset,
+        documentTo: offset + 1,
+        marks,
+        sourceFrom: position.from,
+        type: "break",
+      });
+      offset += 1;
+      sourceOffset = breakBounds.sourceTo;
+      continue;
+    }
 
     const next = addRunChildSegment(context, child, position, marks, offset);
 
@@ -544,7 +625,11 @@ export const mapInlineRunSourceOffsetToDocument = (offset: number, map: InlineRu
     );
   }
 
-  if (segment.type === "atom" || segment.type === "characterReference") {
+  if (
+    segment.type === "atom" ||
+    segment.type === "break" ||
+    segment.type === "characterReference"
+  ) {
     return offset - segment.sourceFrom < segment.sourceTo - offset
       ? segment.documentFrom
       : segment.documentTo;
@@ -601,6 +686,7 @@ export const mapInlineRunDocumentOffsetToSource = (
 
   if (
     segment.type === "atom" ||
+    segment.type === "break" ||
     segment.type === "characterReference" ||
     segment.type === "footnoteReference"
   ) {

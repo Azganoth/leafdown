@@ -18,6 +18,7 @@ import {
   findLinkSourceCharacterReferences,
   findSourceProjectionEscapeOffsets,
   getCharacterReferenceSpans,
+  getHardBreakSpans,
   isPlainTextRange,
   mapLiteralSourceOffsetToDocument,
   shouldHandleInlineObjectTextInput,
@@ -58,12 +59,9 @@ const SUPPORTED_LINK_MARK_NAMES = new Set([
 ]);
 const OUTER_LINK_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 
-const isInlineSoftBreak = (node: ProseMirrorNode) =>
-  node.type.name === "hardbreak" && node.attrs.isInline === true;
-
 const isSupportedLinkNode = (node: ProseMirrorNode) =>
   node.isText ||
-  isInlineSoftBreak(node) ||
+  node.type.name === "hardbreak" ||
   node.type.name === "image" ||
   node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 
@@ -658,11 +656,16 @@ const getLinkPresentationSpans = (
     }
 
     spans.push(
-      ...getCharacterReferenceSpans(
-        segment.className,
-        { from: segment.sourceFrom, to: segment.sourceTo },
-        references,
-      ),
+      ...(segment.type === "hardBreak"
+        ? getHardBreakSpans(
+            { from: segment.sourceFrom, runTo: segment.runTo, to: segment.sourceTo },
+            source,
+          )
+        : getCharacterReferenceSpans(
+            segment.className,
+            { from: segment.sourceFrom, to: segment.sourceTo },
+            references,
+          )),
     );
     markerFrom = segment.sourceTo;
   }

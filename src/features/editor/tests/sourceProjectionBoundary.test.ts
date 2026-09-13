@@ -481,3 +481,54 @@ describe("boundary source projection", () => {
     expect(mounted.getMarkdown()).toBe("Z [ab](x)*cd* Z\n");
   });
 });
+
+describe("boundary source projection beside a marked fragment holding a line break", () => {
+  const HARD_BREAK_RUNS = [
+    { run: "\\", spelling: "a backslash" },
+    { run: "  ", spelling: "a run of spaces" },
+  ];
+
+  it.each([
+    { fragment: "**ab\ncd**", spelling: "a soft line ending" },
+    ...HARD_BREAK_RUNS.flatMap(({ run, spelling }) => [
+      { fragment: `**ab${run}\ncd**`, spelling },
+      { fragment: `**ab\ngh${run}\ncd**`, spelling: `${spelling} and a soft line ending` },
+    ]),
+  ])("writes a character at the seam after a fragment holding $spelling", async ({ fragment }) => {
+    const mounted = await mountProjectionEditor(`Z ${fragment}[^one] Z${FOOTNOTE_DEFINITIONS}`);
+
+    enterBoundary(mounted);
+
+    expect(getProjectionAdapterId(mounted)).toBe("boundary");
+
+    typeText(mounted.view, "X");
+    leaveProjection(mounted);
+
+    expect(mounted.getMarkdown()).toBe(`Z ${fragment}X[^one] Z${FOOTNOTE_DEFINITIONS}\n`);
+    expect(mounted.view.dom.querySelectorAll("strong")).toHaveLength(1);
+  });
+
+  it.each(HARD_BREAK_RUNS)(
+    "writes a character at the seam before a fragment holding $spelling",
+    async ({ run }) => {
+      const fragment = `**ab${run}\ncd**`;
+      const mounted = await mountProjectionEditor(`Z [ef](x)${fragment} Z`);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "ab"));
+
+      expect(getProjectionAdapterId(mounted)).toBe("boundary");
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker--break-spaces"),
+          (node) => node.textContent,
+        ),
+      ).toEqual(run === "\\" ? [] : [run]);
+
+      typeText(mounted.view, "X");
+      leaveProjection(mounted);
+
+      expect(mounted.getMarkdown()).toBe(`Z [ef](x)X${fragment} Z\n`);
+      expect(mounted.view.dom.querySelectorAll("strong")).toHaveLength(1);
+    },
+  );
+});

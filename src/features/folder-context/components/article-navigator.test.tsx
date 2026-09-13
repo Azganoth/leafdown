@@ -101,6 +101,24 @@ describe("article-navigator", () => {
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
+  it("counts the folder articles in a badge that names them in a tooltip", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const badge = screen.getByLabelText("3 articles");
+
+    expect(badge).toHaveTextContent(/^3$/u);
+
+    await user.hover(badge);
+
+    expect(await screen.findByText("3 articles")).toBeInTheDocument();
+  });
+
   it("reports nesting depth, sibling position, and expanded state on every row", () => {
     useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
 

@@ -4,7 +4,6 @@ import {
   FileTextIcon,
   FolderIcon,
   FolderOpenIcon,
-  FolderTreeIcon,
   InfoIcon,
   SearchIcon,
   TriangleAlertIcon,
@@ -12,14 +11,16 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   VirtualList,
   VirtualListContent,
@@ -77,6 +78,7 @@ export function ArticleNavigator({
     ? getArticleDirectoryPaths(filteredTree)
     : expandedDirectoryPaths;
   const articleCount = getArticleFileCount(folderContext.tree);
+  const articleCountLabel = getArticleCountLabel(articleCount);
   const activeFileAncestorDirectoryPaths = activeArticlePath
     ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
     : null;
@@ -115,14 +117,26 @@ export function ArticleNavigator({
 
   return (
     <Card size="sm" className="min-h-0 min-w-0 flex-1">
-      <CardHeader className="shrink-0 border-b">
-        <CardTitle className="flex min-w-0 items-center gap-1.5">
-          <FolderTreeIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate">{folderContext.tree.name || folderContext.path}</span>
+      <CardHeader className="shrink-0">
+        <CardTitle className="flex min-w-0 items-center gap-2">
+          <span className="min-w-0 flex-1 truncate" title={folderContext.path}>
+            {folderContext.tree.name || folderContext.path}
+          </span>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Badge
+                  aria-label={articleCountLabel}
+                  className="tabular-nums"
+                  variant="secondary"
+                />
+              }
+            >
+              {articleCount}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{articleCountLabel}</TooltipContent>
+          </Tooltip>
         </CardTitle>
-        <CardDescription className="truncate text-xs" title={folderContext.path}>
-          {getArticleCountLabel(articleCount)}
-        </CardDescription>
       </CardHeader>
 
       <CardContent className="min-h-0 flex-1 gap-2">

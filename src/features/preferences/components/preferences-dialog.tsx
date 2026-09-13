@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FieldGroup } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
@@ -16,30 +17,30 @@ import type { ArticleSortOrder } from "@/features/folder-context";
 
 import { type AppearanceTheme, useSettingsStore } from "../stores/settings";
 import {
+  type ChoiceOption,
   ListPreferenceField,
-  PreferenceRadioGroup,
+  PreferenceChoice,
   PreferenceSwitch,
-  type RadioOption,
 } from "./preference-controls";
 
-const APPEARANCE_THEME_OPTIONS: RadioOption<AppearanceTheme>[] = [
+const APPEARANCE_THEME_OPTIONS: ChoiceOption<AppearanceTheme>[] = [
   { label: "System", value: "system" },
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
 ];
 
-const ARTICLE_SORT_OPTIONS: RadioOption<ArticleSortOrder>[] = [
+const ARTICLE_SORT_OPTIONS: ChoiceOption<ArticleSortOrder>[] = [
   { label: "Name", value: "name" },
   { label: "Modified date", value: "modifiedDate" },
   { label: "Type", value: "type" },
 ];
 
-const NEW_DOCUMENT_EXTENSION_OPTIONS: RadioOption<MarkdownFileExtension>[] = [
+const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<MarkdownFileExtension>[] = [
   { label: ".md", value: ".md" },
   { label: ".markdown", value: ".markdown" },
 ];
 
-const LINE_ENDING_OPTIONS: RadioOption<LineEnding>[] = [
+const LINE_ENDING_OPTIONS: ChoiceOption<LineEnding>[] = [
   { label: "LF", value: "lf" },
   { label: "CRLF", value: "crlf" },
 ];
@@ -119,24 +120,26 @@ function GeneralPreferences() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <div className="grid gap-4">
+    <FieldGroup className="gap-5">
       <PreferenceSwitch
         label="Record recent files and folders"
+        description="Session history records the paths you open."
         checked={recordRecentItems}
         onCheckedChange={(checked) => updateSetting("recordRecentItems", checked)}
       />
       <PreferenceSwitch
         label="Sidebar visibility"
+        description="Applies while a folder context is open."
         checked={sidebarVisible}
         onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
       />
-      <PreferenceRadioGroup
+      <PreferenceChoice
         label="Sort articles by"
         value={articleSortOrder}
         options={ARTICLE_SORT_OPTIONS}
         onValueChange={(value) => updateSetting("articleSortOrder", value)}
       />
-    </div>
+    </FieldGroup>
   );
 }
 
@@ -153,14 +156,14 @@ function FilePreferences() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <div className="grid gap-4">
-      <PreferenceRadioGroup
+    <FieldGroup className="gap-5">
+      <PreferenceChoice
         label="Default extension for new documents"
         value={defaultNewDocumentExtension}
         options={NEW_DOCUMENT_EXTENSION_OPTIONS}
         onValueChange={(value) => updateSetting("defaultNewDocumentExtension", value)}
       />
-      <PreferenceRadioGroup
+      <PreferenceChoice
         label="Default line ending for new documents"
         value={defaultNewDocumentLineEnding}
         options={LINE_ENDING_OPTIONS}
@@ -168,20 +171,23 @@ function FilePreferences() {
       />
       <PreferenceSwitch
         label="Insert final newline on save"
+        description="Ends the saved file with a line break."
         checked={insertFinalNewline}
         onCheckedChange={(checked) => updateSetting("insertFinalNewline", checked)}
       />
       <ListPreferenceField
         label="Index file names for automatic folder open"
+        description="Base names, one per line, in the order they are tried."
         items={indexFileNames}
         onItemsChange={(items) => updateSetting("indexFileNames", items)}
       />
       <ListPreferenceField
         label="Ignored directories for folder scans"
+        description="Directory names, one per line. Matches are skipped with their contents."
         items={ignoredDirectories}
         onItemsChange={(items) => updateSetting("ignoredDirectories", items)}
       />
-    </div>
+    </FieldGroup>
   );
 }
 
@@ -191,18 +197,20 @@ function EditorPreferences() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <div className="grid gap-4">
+    <FieldGroup className="gap-5">
       <PreferenceSwitch
         label="Auto pair brackets and quotes"
+        description="Closes a bracket or quote as you open one."
         checked={autoPairBracketsAndQuotes}
         onCheckedChange={(checked) => updateSetting("autoPairBracketsAndQuotes", checked)}
       />
       <PreferenceSwitch
         label="Soft wrap for code blocks"
+        description="Wraps long lines instead of scrolling them."
         checked={softWrapCodeBlocks}
         onCheckedChange={(checked) => updateSetting("softWrapCodeBlocks", checked)}
       />
-    </div>
+    </FieldGroup>
   );
 }
 
@@ -211,13 +219,13 @@ function AppearancePreferences() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <div className="grid gap-4">
-      <PreferenceRadioGroup
+    <FieldGroup className="gap-5">
+      <PreferenceChoice
         label="Appearance theme"
         value={theme}
         options={APPEARANCE_THEME_OPTIONS}
         onValueChange={(value) => updateSetting("theme", value)}
       />
-    </div>
+    </FieldGroup>
   );
 }

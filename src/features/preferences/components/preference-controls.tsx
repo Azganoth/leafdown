@@ -1,29 +1,39 @@
+import type { ReactNode } from "react";
 import { useId, useState } from "react";
 
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export interface PreferenceSwitchProps {
   checked: boolean;
+  description?: ReactNode;
   label: string;
   onCheckedChange: (checked: boolean) => void;
 }
 
-export interface RadioOption<Value extends string> {
+export interface ChoiceOption<Value extends string> {
   label: string;
   value: Value;
 }
 
-export interface PreferenceRadioGroupProps<Value extends string> {
+export interface PreferenceChoiceProps<Value extends string> {
+  description?: ReactNode;
   label: string;
   onValueChange: (value: Value) => void;
-  options: RadioOption<Value>[];
+  options: ChoiceOption<Value>[];
   value: Value;
 }
 
 export interface ListPreferenceFieldProps {
+  description?: ReactNode;
   items: string[];
   label: string;
   onItemsChange: (items: string[]) => void;
@@ -37,52 +47,72 @@ const parseListValue = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-export function PreferenceSwitch({ checked, label, onCheckedChange }: PreferenceSwitchProps) {
+export function PreferenceSwitch({
+  checked,
+  description,
+  label,
+  onCheckedChange,
+}: PreferenceSwitchProps) {
   const id = useId();
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <Label htmlFor={id}>{label}</Label>
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        {description && <FieldDescription>{description}</FieldDescription>}
+      </FieldContent>
       <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
+    </Field>
   );
 }
 
-export function PreferenceRadioGroup<Value extends string>({
+export function PreferenceChoice<Value extends string>({
+  description,
   label,
   onValueChange,
   options,
   value,
-}: PreferenceRadioGroupProps<Value>) {
+}: PreferenceChoiceProps<Value>) {
   const labelId = useId();
 
   return (
-    <div className="grid gap-2">
-      <Label id={labelId}>{label}</Label>
-      <RadioGroup
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldTitle id={labelId}>{label}</FieldTitle>
+        {description && <FieldDescription>{description}</FieldDescription>}
+      </FieldContent>
+      <ToggleGroup
         aria-labelledby={labelId}
-        value={value}
-        onValueChange={(nextValue) => onValueChange(nextValue as Value)}
-        className="grid gap-2 sm:grid-cols-3"
-      >
-        {options.map((option) => {
-          const id = `${labelId}-${option.value}`;
+        value={[value]}
+        /* A setting always holds one option, so pressing the pressed one keeps it. */
+        onValueChange={(nextValue) => {
+          const [selected] = nextValue as Value[];
 
-          return (
-            <div key={option.value} className="flex items-center gap-2">
-              <RadioGroupItem id={id} value={option.value} />
-              <Label htmlFor={id} className="font-normal">
-                {option.label}
-              </Label>
-            </div>
-          );
-        })}
-      </RadioGroup>
-    </div>
+          if (selected) {
+            onValueChange(selected);
+          }
+        }}
+        spacing={0}
+        variant="outline"
+        size="sm"
+        className="shrink-0"
+      >
+        {options.map((option) => (
+          <ToggleGroupItem key={option.value} value={option.value}>
+            {option.label}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </Field>
   );
 }
 
-export function ListPreferenceField({ items, label, onItemsChange }: ListPreferenceFieldProps) {
+export function ListPreferenceField({
+  description,
+  items,
+  label,
+  onItemsChange,
+}: ListPreferenceFieldProps) {
   const id = useId();
   const [prevItems, setPrevItems] = useState(items);
   const [draftValue, setDraftValue] = useState(() => formatListValue(items));
@@ -93,8 +123,9 @@ export function ListPreferenceField({ items, label, onItemsChange }: ListPrefere
   }
 
   return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {description && <FieldDescription>{description}</FieldDescription>}
       <Textarea
         id={id}
         value={draftValue}
@@ -102,6 +133,6 @@ export function ListPreferenceField({ items, label, onItemsChange }: ListPrefere
         onBlur={() => onItemsChange(parseListValue(draftValue))}
         className="min-h-24 font-mono text-sm"
       />
-    </div>
+    </Field>
   );
 }

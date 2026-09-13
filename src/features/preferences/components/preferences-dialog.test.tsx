@@ -61,13 +61,24 @@ describe("preferences-dialog", () => {
     await user.tab();
 
     await user.click(screen.getByRole("tab", { name: "Appearance" }));
-    await user.click(screen.getByRole("radio", { name: "Dark" }));
+    await user.click(screen.getByRole("button", { name: "Dark" }));
 
     expect(useSettingsStore.getState()).toMatchObject({
       ignoredDirectories: [".git", "vendor"],
       sidebarVisible: false,
       theme: "dark",
     });
+  });
+
+  it("keeps a choice when its selected option is pressed again", async () => {
+    setDefaultSettings({ theme: "dark" });
+
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("tab", { name: "Appearance" }));
+    await user.click(screen.getByRole("button", { name: "Dark" }));
+
+    expect(useSettingsStore.getState()).toMatchObject({ theme: "dark" });
   });
 
   it("restores default settings", async () => {

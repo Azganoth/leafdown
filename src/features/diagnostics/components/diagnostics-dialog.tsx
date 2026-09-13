@@ -165,7 +165,7 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
           )}
 
           <Alert>
-            <ShieldIcon />
+            <ShieldIcon className="size-5" />
             <AlertTitle>Diagnostics stay on this device.</AlertTitle>
             <AlertDescription>
               Logs are not uploaded automatically. They may include local paths and user content
@@ -181,7 +181,7 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
             >
               <ChevronRightIcon
                 data-icon="inline-start"
-                className="transition-transform group-data-open/summary:rotate-90"
+                className="transition-transform group-data-panel-open/summary:rotate-90"
               />
               Show summary
             </CollapsibleTrigger>

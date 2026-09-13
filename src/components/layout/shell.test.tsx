@@ -11,8 +11,16 @@ import {
   createFolderContext,
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
-import { TEST_MARKDOWN_FILE_PATH, TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
+import {
+  TEST_MARKDOWN_FILE_PATH,
+  TEST_NESTED_DIRECTORY_PATH,
+  TEST_NOTES_FOLDER_PATH,
+} from "@/test/fixtures/paths";
+import {
+  setDefaultRecentItems,
+  setDefaultSession,
+  setDefaultSettings,
+} from "@/test/utils/appStores";
 import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
@@ -51,8 +59,11 @@ const emptyFolderContext = createEmptyFolderContext({
 });
 
 describe("Shell", () => {
-  it("renders the welcome shell with menu, sidebar, document surface, and modal layer", () => {
+  it("renders the welcome shell with menu, document surface, and modal layer", () => {
     render(<Shell />);
+
+    const titlebar = document.querySelector<HTMLElement>("#leafdown-titlebar");
+    expect(titlebar).not.toBeNull();
 
     expect(screen.getByRole("button", { name: "Open file" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open folder" })).toBeInTheDocument();
@@ -62,14 +73,70 @@ describe("Shell", () => {
     expect(screen.getByRole("menuitem", { name: "Format" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "View" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Help" })).toBeInTheDocument();
-    expect(screen.getByText("No recent files.")).toBeInTheDocument();
-    expect(screen.getByText("No recent folders.")).toBeInTheDocument();
+    expect(titlebar!).toContainElement(screen.getByRole("menuitem", { name: "File" }));
+    expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Show sidebar" }));
+    expect(titlebar!.querySelector("h1")).toBeNull();
+    expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Recent folders" })).not.toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
-    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
-    expect(screen.getByText("No folder open")).toBeInTheDocument();
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
+  });
+
+  it("names a recent item by its own name and the folder holding it", async () => {
+    setDefaultRecentItems({
+      recentFiles: [SPEC_MARKDOWN_PATH],
+      recentFolders: [TEST_NESTED_DIRECTORY_PATH],
+    });
+
+    const { user } = renderWithUser(<Shell />);
+
+    const recentFile = screen.getByTitle(SPEC_MARKDOWN_PATH);
+    expect(recentFile).toHaveTextContent("spec.md");
+    expect(recentFile).toHaveTextContent(TEST_NESTED_DIRECTORY_PATH);
+
+    const recentFolder = screen.getByTitle(TEST_NESTED_DIRECTORY_PATH);
+    expect(recentFolder).toHaveTextContent("docs");
+    expect(recentFolder).toHaveTextContent(TEST_NOTES_FOLDER_PATH);
+
+    await user.click(screen.getByRole("button", { name: "Clear recent items" }));
+
+    expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear recent items" })).not.toBeInTheDocument();
+  });
+
+  it("withholds the sidebar and its toggle without a folder context", () => {
+    render(<Shell />);
+
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("separator", { name: "Resize article navigator" }),
+    ).not.toBeInTheDocument();
+
+    const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
+    expect(sidebarToggle).toHaveAttribute("aria-disabled", "true");
+    expect(sidebarToggle).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("frames the article navigator beside the document once a folder opens", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+
+    render(<Shell />);
+
+    const navigatorHost = screen.getByTestId("article-navigator-host");
+    expect(navigatorHost).not.toHaveClass("pl-3");
+    expect(navigatorHost).not.toHaveClass("pr-3");
+    expect(navigatorHost.querySelector("[data-slot=card]")).toBeInTheDocument();
+    const resizeHandle = screen.getByRole("separator", { name: "Resize article navigator" });
+    expect(resizeHandle).toHaveClass("w-2", "bg-transparent");
+    expect(resizeHandle.querySelector("[data-slot=resizable-grip]")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide sidebar" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("renders a folder-only placeholder while keeping nested articles collapsed", () => {
@@ -149,6 +216,7 @@ describe("Shell", () => {
   });
 
   it("hides the sidebar when the persisted sidebar setting is off", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
     setDefaultSettings({ sidebarVisible: false });
 
     render(<Shell />);
@@ -156,6 +224,28 @@ describe("Shell", () => {
     expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
   });
 
+  it("keeps the workspace gutter once the sidebar is collapsed", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+    setDefaultSettings({ sidebarVisible: false });
+
+    render(<Shell />);
+
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
+  });
+
+  it("toggles the sidebar from the titlebar", async () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
+
+    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show sidebar" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
   it("reports article open failures from the sidebar", async () => {
     setDefaultSession({
       folderContext: nestedFolderContext,

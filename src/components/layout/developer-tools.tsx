@@ -96,39 +96,45 @@ export function DeveloperTools({ onSimulateRenderFailure }: DeveloperToolsProps)
   ];
 
   return (
-    <div className="fixed right-4 bottom-4 z-90">
-      <Popover>
-        <PopoverTrigger
+    <Popover>
+      <Tooltip>
+        <TooltipTrigger
           render={
-            <Button
-              aria-label="Open developer tools"
-              className="size-10 rounded-full shadow-lg shadow-black/25"
-              size="icon"
-              type="button"
+            <PopoverTrigger
+              render={
+                <Button
+                  aria-label="Open developer tools"
+                  className="text-muted-foreground"
+                  size="icon-xs"
+                  type="button"
+                  variant="ghost"
+                />
+              }
             />
           }
         >
-          <WrenchIcon className="size-4" />
-        </PopoverTrigger>
-        <PopoverContent
-          align="end"
-          className="z-90 w-auto gap-1 rounded-xl p-1.5"
-          side="top"
-          sideOffset={10}
+          <WrenchIcon />
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Developer tools</TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        align="end"
+        className="z-90 w-auto gap-1 rounded-xl p-1.5"
+        side="bottom"
+        sideOffset={6}
+      >
+        <div
+          className="flex flex-col items-center gap-1"
+          role="toolbar"
+          aria-label="Developer tools"
         >
-          <div
-            className="flex flex-col items-center gap-1"
-            role="toolbar"
-            aria-label="Developer tools"
-          >
-            {appActions.map((action) => (
-              <DeveloperToolIconButton key={action.label} action={action} />
-            ))}
-            <DeveloperToolErrorPopover actions={failureActions} />
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+          {appActions.map((action) => (
+            <DeveloperToolIconButton key={action.label} action={action} />
+          ))}
+          <DeveloperToolErrorPopover actions={failureActions} />
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -155,7 +161,7 @@ function DeveloperToolErrorPopover({ actions }: DeveloperToolErrorPopoverProps) 
             />
           }
         >
-          <BugIcon className="size-4" />
+          <BugIcon />
         </TooltipTrigger>
         <TooltipContent
           className="max-w-64 flex-col items-start gap-0.5"
@@ -206,7 +212,7 @@ function DeveloperToolIconButton({ action }: DeveloperToolIconButtonProps) {
           />
         }
       >
-        <Icon className="size-4" />
+        <Icon />
       </TooltipTrigger>
       <TooltipContent className="max-w-64 flex-col items-start gap-0.5" side="left" sideOffset={8}>
         <span className="text-xs font-medium">{action.label}</span>
@@ -230,7 +236,7 @@ function DeveloperToolActionButton({ action }: DeveloperToolActionButtonProps) {
       type="button"
       variant="ghost"
     >
-      <Icon className="mt-0.5 size-4 text-muted-foreground" />
+      <Icon className="mt-0.5 text-muted-foreground" />
       <span className="min-w-0">
         <span className="block text-xs font-medium">{action.label}</span>
         <span className="block text-[0.7rem] leading-4 font-normal text-muted-foreground">

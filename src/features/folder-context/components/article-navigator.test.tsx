@@ -101,6 +101,24 @@ describe("article-navigator", () => {
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
+  it("counts the folder articles in a badge that names them in a tooltip", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const badge = screen.getByLabelText("3 articles");
+
+    expect(badge).toHaveTextContent(/^3$/u);
+
+    await user.hover(badge);
+
+    expect(await screen.findByText("3 articles")).toBeInTheDocument();
+  });
+
   it("reports nesting depth, sibling position, and expanded state on every row", () => {
     useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
 
@@ -131,6 +149,34 @@ describe("article-navigator", () => {
     ]);
   });
 
+  it("filters articles through collapsed folders without changing the restored tree", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const filter = screen.getByRole("textbox", { name: "Filter articles" });
+    expect(filter).toHaveAttribute("type", "text");
+
+    await user.type(filter, "spec");
+
+    expect(screen.getByRole("button", { name: "Clear article filter" })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("treeitem", { name: "spec.md" })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "readme.md" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear article filter" }));
+
+    expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("treeitem", { name: "spec.md" })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toBeInTheDocument();
+  });
   it("keeps an empty directory reachable instead of disabling it", () => {
     render(
       <ArticleNavigator

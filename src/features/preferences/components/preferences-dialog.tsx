@@ -1,3 +1,7 @@
+import { FileTextIcon, PaletteIcon, PencilIcon, SlidersHorizontalIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -5,41 +9,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FieldGroup } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
 
 import { type AppearanceTheme, useSettingsStore } from "../stores/settings";
 import {
+  type ChoiceOption,
   ListPreferenceField,
-  PreferenceRadioGroup,
-  PreferenceSection,
+  PreferenceChoice,
   PreferenceSwitch,
-  type RadioOption,
 } from "./preference-controls";
 
-const APPEARANCE_THEME_OPTIONS: RadioOption<AppearanceTheme>[] = [
+const APPEARANCE_THEME_OPTIONS: ChoiceOption<AppearanceTheme>[] = [
   { label: "System", value: "system" },
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
 ];
 
-const ARTICLE_SORT_OPTIONS: RadioOption<ArticleSortOrder>[] = [
+const ARTICLE_SORT_OPTIONS: ChoiceOption<ArticleSortOrder>[] = [
   { label: "Name", value: "name" },
   { label: "Modified date", value: "modifiedDate" },
   { label: "Type", value: "type" },
 ];
 
-const NEW_DOCUMENT_EXTENSION_OPTIONS: RadioOption<MarkdownFileExtension>[] = [
+const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<MarkdownFileExtension>[] = [
   { label: ".md", value: ".md" },
   { label: ".markdown", value: ".markdown" },
 ];
 
-const LINE_ENDING_OPTIONS: RadioOption<LineEnding>[] = [
+const LINE_ENDING_OPTIONS: ChoiceOption<LineEnding>[] = [
   { label: "LF", value: "lf" },
   { label: "CRLF", value: "crlf" },
 ];
+
+const PREFERENCE_TABS = [
+  { value: "general", label: "General", icon: SlidersHorizontalIcon },
+  { value: "files", label: "Files", icon: FileTextIcon },
+  { value: "editor", label: "Editor", icon: PencilIcon },
+  { value: "appearance", label: "Appearance", icon: PaletteIcon },
+] satisfies { value: string; label: string; icon: LucideIcon }[];
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -47,60 +58,88 @@ interface PreferencesDialogProps {
 }
 
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
+  const reset = useSettingsStore((state) => state.reset);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl lg:max-w-4xl">
+      <DialogContent className="gap-4 sm:max-w-3xl">
         <DialogHeader className="pr-10">
           <DialogTitle>Preferences</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="h-[min(40rem,calc(100vh-12rem))] pr-4 pl-2">
-          <div className="grid gap-5 pb-8">
-            <GeneralPreferencesSection />
-            <Separator />
-            <FilePreferencesSection />
-            <Separator />
-            <EditorPreferencesSection />
-            <Separator />
-            <AppearancePreferencesSection />
-          </div>
-        </ScrollArea>
+        <Tabs
+          orientation="vertical"
+          defaultValue="general"
+          className="mt-4 h-[min(34rem,calc(100vh-12rem))] gap-6"
+        >
+          <TabsList className="w-44 shrink-0" variant="line">
+            {PREFERENCE_TABS.map(({ value, label, icon: Icon }) => (
+              <TabsTrigger key={value} value={value} className="h-auto gap-2 py-2">
+                <Icon data-icon="inline-start" />
+                {label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        <DialogFooter showCloseButton />
+          <ScrollArea className="min-w-0 flex-1">
+            <div className="px-3 pb-1">
+              <TabsContent value="general">
+                <GeneralPreferences />
+              </TabsContent>
+              <TabsContent value="files">
+                <FilePreferences />
+              </TabsContent>
+              <TabsContent value="editor">
+                <EditorPreferences />
+              </TabsContent>
+              <TabsContent value="appearance">
+                <AppearancePreferences />
+              </TabsContent>
+            </div>
+          </ScrollArea>
+        </Tabs>
+
+        <DialogFooter className="sm:justify-start">
+          <Button type="button" variant="ghost" onClick={reset}>
+            Restore defaults
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function GeneralPreferencesSection() {
+function GeneralPreferences() {
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const recordRecentItems = useSettingsStore((state) => state.recordRecentItems);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <PreferenceSection title="General">
+    <FieldGroup className="gap-5">
       <PreferenceSwitch
         label="Record recent files and folders"
+        description="Session history records the paths you open."
         checked={recordRecentItems}
         onCheckedChange={(checked) => updateSetting("recordRecentItems", checked)}
       />
       <PreferenceSwitch
         label="Sidebar visibility"
+        description="Applies while a folder context is open."
         checked={sidebarVisible}
         onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
       />
-      <PreferenceRadioGroup
+      <PreferenceChoice
         label="Sort articles by"
         value={articleSortOrder}
         options={ARTICLE_SORT_OPTIONS}
         onValueChange={(value) => updateSetting("articleSortOrder", value)}
       />
-    </PreferenceSection>
+    </FieldGroup>
   );
 }
 
-function FilePreferencesSection() {
+function FilePreferences() {
   const defaultNewDocumentExtension = useSettingsStore(
     (state) => state.defaultNewDocumentExtension,
   );
@@ -113,14 +152,14 @@ function FilePreferencesSection() {
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <PreferenceSection title="Files">
-      <PreferenceRadioGroup
+    <FieldGroup className="gap-5">
+      <PreferenceChoice
         label="Default extension for new documents"
         value={defaultNewDocumentExtension}
         options={NEW_DOCUMENT_EXTENSION_OPTIONS}
         onValueChange={(value) => updateSetting("defaultNewDocumentExtension", value)}
       />
-      <PreferenceRadioGroup
+      <PreferenceChoice
         label="Default line ending for new documents"
         value={defaultNewDocumentLineEnding}
         options={LINE_ENDING_OPTIONS}
@@ -128,56 +167,61 @@ function FilePreferencesSection() {
       />
       <PreferenceSwitch
         label="Insert final newline on save"
+        description="Ends the saved file with a line break."
         checked={insertFinalNewline}
         onCheckedChange={(checked) => updateSetting("insertFinalNewline", checked)}
       />
       <ListPreferenceField
         label="Index file names for automatic folder open"
+        description="Base names, one per line, in the order they are tried."
         items={indexFileNames}
         onItemsChange={(items) => updateSetting("indexFileNames", items)}
       />
       <ListPreferenceField
         label="Ignored directories for folder scans"
+        description="Directory names, one per line. Matches are skipped with their contents."
         items={ignoredDirectories}
         onItemsChange={(items) => updateSetting("ignoredDirectories", items)}
       />
-    </PreferenceSection>
+    </FieldGroup>
   );
 }
 
-function EditorPreferencesSection() {
+function EditorPreferences() {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <PreferenceSection title="Editor">
+    <FieldGroup className="gap-5">
       <PreferenceSwitch
         label="Auto pair brackets and quotes"
+        description="Closes a bracket or quote as you open one."
         checked={autoPairBracketsAndQuotes}
         onCheckedChange={(checked) => updateSetting("autoPairBracketsAndQuotes", checked)}
       />
       <PreferenceSwitch
         label="Soft wrap for code blocks"
+        description="Wraps long lines instead of scrolling them."
         checked={softWrapCodeBlocks}
         onCheckedChange={(checked) => updateSetting("softWrapCodeBlocks", checked)}
       />
-    </PreferenceSection>
+    </FieldGroup>
   );
 }
 
-function AppearancePreferencesSection() {
+function AppearancePreferences() {
   const theme = useSettingsStore((state) => state.theme);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
-    <PreferenceSection title="Appearance">
-      <PreferenceRadioGroup
+    <FieldGroup className="gap-5">
+      <PreferenceChoice
         label="Appearance theme"
         value={theme}
         options={APPEARANCE_THEME_OPTIONS}
         onValueChange={(value) => updateSetting("theme", value)}
       />
-    </PreferenceSection>
+    </FieldGroup>
   );
 }

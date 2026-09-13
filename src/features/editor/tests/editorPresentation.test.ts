@@ -46,11 +46,11 @@ const value = 1;
     expect(dom.querySelector("pre[data-language='typescript']")).toHaveTextContent(
       "const value = 1;",
     );
-    expect(dom.querySelector("table")).toHaveTextContent("Leafdown");
+    expect(dom.querySelector(".tableWrapper > table")).toHaveTextContent("Leafdown");
 
     expect(editorCss).toContain(".leafdown-editor {");
     expect(editorCss).toContain(".ProseMirror {");
-    expect(editorCss).toMatch(/table\s*\{[^}]*overflow-x-auto/su);
+    expect(editorCss).toMatch(/\.tableWrapper\s*\{[^}]*overflow-x-auto/su);
     expect(editorCss).toContain("overflow-x-auto");
     expect(editorCss).toContain('&[data-code-block-soft-wrap="true"]');
     expect(editorCss).toContain("whitespace-pre-wrap");
@@ -105,7 +105,7 @@ const value = 1;
     );
   });
 
-  it("adds bundled Shiki decorations to supported code block languages", async () => {
+  it("adds bundled Shiki decorations carrying a colour for each appearance", async () => {
     const mounted = await mountStyledEditor(`\`\`\`ts
 const value: number = 1;
 \`\`\``);
@@ -118,11 +118,16 @@ const value: number = 1;
     );
 
     const shikiToken = getEditorDomElement<HTMLElement>(mounted, ".shiki");
+    const editorCss = readFileSync(editorCssPath, "utf8");
 
     expect(mounted.view.dom.querySelector("pre[data-language='ts']")).toHaveTextContent(
       "const value",
     );
-    expect(shikiToken.getAttribute("style")).toContain("color");
+    expect(shikiToken.getAttribute("style")).toContain("--shiki-light:");
+    expect(shikiToken.getAttribute("style")).toContain("--shiki-dark:");
+    expect(shikiToken.getAttribute("style")).not.toMatch(/(?:^|;)\s*color:/u);
+    expect(editorCss).toMatch(/\.shiki\s*\{[^}]*color: var\(--shiki-light\)/su);
+    expect(editorCss).toMatch(/&:is\(\.dark \*\)\s*\{[^}]*color: var\(--shiki-dark\)/su);
   });
 
   it("keeps unknown code block languages editable without requiring remote assets", async () => {

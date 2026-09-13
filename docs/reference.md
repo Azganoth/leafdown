@@ -16,6 +16,7 @@ Global settings persist across application launches unless specified otherwise.
   - Recent lists are deduplicated by path, sorted by most recent first, and limited to 10 items each.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.
+  - The setting applies while a folder context is open. Without one the article navigator is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
 
 ### Files
@@ -291,7 +292,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
+- `Toggle sidebar`, `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 
 #### Search And Updates
 
@@ -305,7 +306,7 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 #### Boolean State
 
 - `Insert final newline on save` reflects the global save setting. It remains available without an active document.
-- `Toggle sidebar` reflects global sidebar visibility.
+- `Toggle sidebar` reflects global sidebar visibility while it is available.
 - `Toggle status bar` reflects global status bar visibility.
 - `Always on top` reflects current window state.
 - `Full screen` reflects current window state.

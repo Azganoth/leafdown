@@ -103,12 +103,14 @@ import {
   hasTransientSourceProjection,
 } from "../plugins/sourceProjection";
 import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
+import { createLeafdownTableColumnsPlugin } from "../plugins/tableColumns";
 import { createLeafdownTableFormPlugin } from "../plugins/tableForm";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import {
   createLeafdownTableShapeGuardPlugin,
   createLeafdownTableShapePlugin,
 } from "../plugins/tableShape";
+import { createLeafdownTableViewPlugin } from "../plugins/tableView";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownThematicBreakPlugin } from "../plugins/thematicBreak";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
@@ -271,6 +273,8 @@ export const createMilkdownEditor = async ({
     .use(listener)
     .use(highlight)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
+    .use(createLeafdownTableViewPlugin())
+    .use(createLeafdownTableColumnsPlugin())
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())

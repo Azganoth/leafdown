@@ -257,6 +257,20 @@
 - A label is valid when `[^` and `]:` can be written around it and read back unchanged, which covers empty, whitespace-only, and bracket- or newline-bearing labels without a rule for each.
 - `joinTextblocksAround` reads `isolating` only on nodes it descends through to reach a textblock, so the label needs an explicit guard against a backspace arriving from the body; a forward delete is already refused by `findCutAfter`.
 
+### Reserve a two-lane column beside the document for block affordances
+
+**Decision:** The document surface reserves a column on each side of the text for block-level affordances, held open whether or not anything occupies it. It carries two lanes: the inner one, adjacent to the text, for passive annotation such as the heading marker, and the outer one for a later interactive control. The column is padding inside the text block with the block's own width raised to match, so the text keeps its reading measure where the window has room for both and narrows where it does not. This is the separate specification that [Treat marker presentation as object-specific](#treat-marker-presentation-as-object-specific) requires before a layout-changing affordance is added. Decided in [issue #418](https://github.com/Azganoth/leafdown/issues/418).
+
+**Rationale:** The heading marker was generated content in the heading's own text flow, so a caret entering a heading pushed its text right by the marker's width and a wrapped heading reflowed both lines. Placing the marker in the page margin instead would hold only while the window is wide: the margin runs out at around a 1108px window, below which the marker meets the heading text and the document card clips it. A column inside the text block is bounded by the block rather than by the window, so the guarantee holds at every width, and the cost is paid where the surface can absorb it. The width is reserved for both lanes now because a reserved width is the expensive part to revisit once blocks are laid out against it; a heading fold toggle is the expected second occupant.
+
+**Consequences:**
+
+- No affordance appearing or disappearing moves document text, which is the property that makes further block affordances addable without re-deciding this.
+- The text measure is no longer the block's width. Where the window cannot hold the measure and both columns, the text narrows rather than the column collapsing, so the guarantee is never traded for width.
+- The marker decoration is unchanged. It stays a node decoration carrying a class and the marker text, and the column is presentation, so the two can move independently.
+- The outer lane stands empty until a control claims it. Whichever control claims it settles what happens where two would want it on the same block.
+- A block whose first line the column annotates publishes that line's height, so an occupant aligns with the line rather than with the block.
+
 ## Technical Decisions
 
 ### Use Tauri

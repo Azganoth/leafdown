@@ -11,6 +11,8 @@ describe("desktop diagnostics", () => {
     const dialog = $("aria/Diagnostics");
     await expect(dialog).toBeDisplayed();
 
+    await $("aria/Show summary").click();
+
     const summaryField = $("aria/Diagnostics summary");
     await expect(summaryField).toHaveValue(expect.stringContaining("Leafdown diagnostics"));
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPathIdentityKey,
+  getPathParts,
   isSameOrParentPath,
   isSamePath,
   PathMap,
@@ -12,6 +13,26 @@ import {
 describe("path utilities", () => {
   it("normalizes Windows separators to slash separators", () => {
     expect(toSlashPath("C:\\Notes\\readme.md")).toBe("C:/Notes/readme.md");
+  });
+
+  it("splits a path into its name and parent path", () => {
+    expect(getPathParts("C:\\Notes\\Docs\\readme.md")).toEqual({
+      name: "readme.md",
+      parent: "C:/Notes/Docs",
+    });
+    expect(getPathParts("C:/Notes/")).toEqual({ name: "Notes", parent: "C:/" });
+    expect(getPathParts("/Users/Ada")).toEqual({ name: "Ada", parent: "/Users" });
+    expect(getPathParts("/Users")).toEqual({ name: "Users", parent: "/" });
+    expect(getPathParts("\\\\Server\\Share\\notes.md")).toEqual({
+      name: "notes.md",
+      parent: "//Server/Share",
+    });
+  });
+
+  it("leaves a root or bare name without a parent path", () => {
+    expect(getPathParts("C:\\")).toEqual({ name: "C:/", parent: "" });
+    expect(getPathParts("/")).toEqual({ name: "/", parent: "" });
+    expect(getPathParts("readme.md")).toEqual({ name: "readme.md", parent: "" });
   });
 
   it("creates stable identity keys for Windows paths", () => {

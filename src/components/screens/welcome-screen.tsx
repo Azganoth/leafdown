@@ -1,16 +1,28 @@
-import { FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
+import { FilePlusIcon, FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
 
+import { COMMAND_DEFINITIONS, formatShortcut, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
 import {
+  createNewMarkdownDocument,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
   pickAndOpenMarkdownFile,
 } from "@/features/session";
+import { notifyOperationFailure } from "@/lib/errors";
+import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
+
+const handleNewDocument = async () => {
+  try {
+    await createNewMarkdownDocument();
+  } catch (error) {
+    notifyOperationFailure("Could not create document.", error, "createWelcomeDocument");
+  }
+};
 
 const handleOpenFile = async () => {
   try {
@@ -68,52 +80,77 @@ export function WelcomeScreen() {
           Leafdown
         </h2>
         <p className="mt-3 max-w-lg text-base text-muted-foreground">
-          Open a Markdown file or folder to start editing.
+          Start a document, or open a Markdown file or folder.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Button type="button" onClick={handleOpenFile} size="lg">
-            <FileTextIcon className="size-4" />
+          <Button type="button" onClick={handleNewDocument} size="lg">
+            <FilePlusIcon data-icon="inline-start" />
+            New document
+            <CommandShortcutHint commandId="file.new" />
+          </Button>
+          <Button type="button" onClick={handleOpenFile} variant="outline" size="lg">
+            <FileTextIcon data-icon="inline-start" />
             Open file
+            <CommandShortcutHint commandId="file.open" />
           </Button>
           <Button type="button" onClick={handleOpenFolder} variant="outline" size="lg">
-            <FolderOpenIcon className="size-4" />
+            <FolderOpenIcon data-icon="inline-start" />
             Open folder
+            <CommandShortcutHint commandId="file.openFolder" />
           </Button>
-          {hasRecentItems && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="lg"
-              onClick={clearRecentItems}
-              className="ml-auto"
-            >
-              <XIcon className="size-4" />
-              Clear recent items
-            </Button>
-          )}
         </div>
 
-        <div className="mt-12 grid gap-8 md:grid-cols-2">
-          <RecentItemsSection
-            title="Recent files"
-            titleId="recent-files-title"
-            emptyMessage="No recent files."
-            icon={FileTextIcon}
-            items={recentFiles}
-            onOpenItem={handleOpenRecentFile}
-          />
-          <RecentItemsSection
-            title="Recent folders"
-            titleId="recent-folders-title"
-            emptyMessage="No recent folders."
-            icon={FolderOpenIcon}
-            items={recentFolders}
-            onOpenItem={handleOpenRecentFolder}
-          />
-        </div>
+        {hasRecentItems && (
+          <div className="mt-12">
+            <div className="grid gap-8 md:grid-cols-2">
+              <RecentItemsSection
+                title="Recent files"
+                titleId="recent-files-title"
+                emptyMessage="No recent files."
+                icon={FileTextIcon}
+                items={recentFiles}
+                onOpenItem={handleOpenRecentFile}
+              />
+              <RecentItemsSection
+                title="Recent folders"
+                titleId="recent-folders-title"
+                emptyMessage="No recent folders."
+                icon={FolderOpenIcon}
+                items={recentFolders}
+                onOpenItem={handleOpenRecentFolder}
+              />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearRecentItems}
+                className="text-muted-foreground"
+              >
+                <XIcon data-icon="inline-start" />
+                Clear recent items
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </section>
+  );
+}
+
+function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
+  const shortcut = COMMAND_DEFINITIONS[commandId].shortcuts?.[0];
+
+  if (!shortcut) {
+    return null;
+  }
+
+  return (
+    <span aria-hidden="true" className="ml-2 text-xs font-normal tracking-widest opacity-60">
+      {formatShortcut(shortcut)}
+    </span>
   );
 }
 
@@ -142,24 +179,41 @@ function RecentItemsSection({
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 flex flex-col">
           {items.map((path) => (
-            <li key={path} className="min-w-0">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenItem(path)}
-                title={path}
-                className="w-full justify-start px-2"
-              >
-                <Icon className="size-4" />
-                <span className="min-w-0 truncate">{path}</span>
-              </Button>
-            </li>
+            <RecentItem icon={Icon} key={path} onOpenItem={onOpenItem} path={path} />
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+interface RecentItemProps {
+  icon: LucideIcon;
+  onOpenItem: (path: string) => void;
+  path: string;
+}
+
+function RecentItem({ icon: Icon, onOpenItem, path }: RecentItemProps) {
+  const { name, parent } = getPathParts(path);
+
+  return (
+    <li className="min-w-0">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => onOpenItem(path)}
+        title={path}
+        className="w-full justify-start gap-2 px-2"
+      >
+        <Icon />
+        <span className="min-w-0 truncate">{name}</span>
+        <span className="min-w-0 flex-1 truncate text-left text-xs font-normal text-muted-foreground">
+          {parent}
+        </span>
+      </Button>
+    </li>
   );
 }

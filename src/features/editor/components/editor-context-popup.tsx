@@ -29,13 +29,13 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Toolbar, ToolbarButton } from "@/components/ui/toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
@@ -491,30 +491,28 @@ function ContextCommandSubmenu({
         {...toolbarPosition(row, 0)}
       >
         <span className="min-w-24 flex-1 text-left">{label}</span>
-        <ChevronRightIcon className="size-4 text-muted-foreground" />
+        <ChevronRightIcon className="text-muted-foreground" />
       </ToolbarButton>
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
-        {commands.map(({ commandId, icon: CommandIcon }) => {
-          const commandLabel = EDITOR_COMMAND_LABELS[commandId];
-          const enabled = canExecute(commandId);
+        <DropdownMenuGroup aria-label={label}>
+          {commands.map(({ commandId, icon: CommandIcon }) => {
+            const commandLabel = EDITOR_COMMAND_LABELS[commandId];
+            const enabled = canExecute(commandId);
 
-          return (
-            <DropdownMenuItem
-              className={cn(!enabled && "pointer-events-none opacity-50")}
-              closeOnClick={false}
-              disabled={!enabled}
-              key={commandId}
-              onClick={() => onExecute(commandId)}
-            >
-              {CommandIcon ? (
-                <CommandIcon className="size-4" />
-              ) : (
-                <PilcrowIcon className="size-4 opacity-0" />
-              )}
-              {commandLabel}
-            </DropdownMenuItem>
-          );
-        })}
+            return (
+              <DropdownMenuItem
+                closeOnClick={false}
+                disabled={!enabled}
+                inset={!CommandIcon}
+                key={commandId}
+                onClick={() => onExecute(commandId)}
+              >
+                {CommandIcon && <CommandIcon />}
+                {commandLabel}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

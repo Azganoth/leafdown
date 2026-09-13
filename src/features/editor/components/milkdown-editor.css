@@ -1,8 +1,22 @@
 @reference "../../../app.css";
 
+/* Registered so `1lh` computes against the block's own line height and inherits into the gutter as
+   a length, which a plain custom property would re-resolve against the occupant's line height. */
+@property --leafdown-block-line {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 /* Keep editor presentation unlayered so it can override imported ProseMirror defaults. */
 .leafdown-editor {
   @apply min-h-full w-full px-6 py-8 text-foreground;
+
+  /* Two lanes: the inner one carries the marker, the outer one is reserved for a later control. */
+  --leafdown-gutter-lane: 2rem;
+  --leafdown-gutter-gap: 0.5rem;
+  --leafdown-gutter: calc(2 * var(--leafdown-gutter-lane) + var(--leafdown-gutter-gap));
+  --leafdown-measure: 48rem;
 
   @media (min-width: 40rem) {
     @apply px-8 py-10;
@@ -12,8 +26,12 @@
     @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
   }
 
+  /* The gutter is padding inside the block rather than page margin, so it holds at every window
+     width; below the combined width the text narrows rather than the gutter collapsing. */
   .ProseMirror {
-    @apply mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl wrap-anywhere outline-none;
+    @apply mx-auto min-h-[calc(100vh-9rem)] w-full wrap-anywhere caret-primary outline-none;
+    max-width: calc(var(--leafdown-measure) + 2 * var(--leafdown-gutter));
+    padding-inline: var(--leafdown-gutter);
 
     & > *:first-child {
       @apply mt-0;
@@ -27,34 +45,51 @@
       @apply my-4 text-base leading-7;
     }
 
+    /* The marker is positioned against the heading and centred on its first line, so the heading
+       carries the containing block and publishes its own line height whether or not the caret
+       decoration is on it. Hover has no decoration to read either from. */
     h1,
     h2,
     h3,
     h4,
     h5,
     h6 {
-      @apply mt-8 mb-3 scroll-m-20 font-heading font-semibold text-foreground;
+      @apply relative mt-8 mb-3 scroll-m-20 font-heading font-semibold text-foreground;
+      --leafdown-block-line: 1lh;
     }
 
     h1 {
-      @apply border-b border-border pb-3 text-3xl leading-tight;
+      @apply mt-10 text-3xl leading-tight;
     }
 
     h2 {
-      @apply border-b border-border/70 pb-2 text-2xl leading-tight;
+      @apply text-2xl leading-tight;
     }
 
     h3 {
-      @apply text-xl leading-snug;
+      @apply mt-7 text-xl leading-snug;
     }
 
     h4 {
-      @apply text-lg leading-snug;
+      @apply mt-6 text-lg leading-snug;
     }
 
     h5,
     h6 {
-      @apply text-base leading-snug text-muted-foreground;
+      @apply mt-5 text-base leading-snug text-muted-foreground;
+    }
+
+    /* A heading standing directly under another introduces it rather than following prose, so it
+       does not take the space that separates a heading from the text above it. */
+    :is(h1, h2, h3, h4, h5, h6) + :is(h1, h2, h3, h4, h5, h6) {
+      @apply mt-4;
+    }
+
+    /* The heading's own `mb-3` only reaches the page paired with this: adjacent margins collapse to
+       the larger, so the prose a heading introduces has to yield the same 12px for it to hold. A
+       block that carries its own frame keeps its usual gap, and a separator keeps all of its. */
+    :is(h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
+      @apply mt-3;
     }
 
     strong {
@@ -81,32 +116,67 @@
       }
     }
 
+    /* One column opens every item and holds whatever marks it: the marker stands at the column's
+       start and the item's own text at its end. A list adds no indentation beyond that column, so
+       a nested one opens exactly where its parent's text does. */
     ul,
     ol {
-      @apply my-4 pl-6 text-base leading-7;
+      @apply my-4 text-base leading-7;
+      --leafdown-list-marker: 1.5rem;
+      list-style: none;
+      padding-inline-start: 0;
     }
 
-    ul {
-      @apply list-disc;
+    ul > li::before {
+      @apply text-primary;
+      content: "•";
     }
 
+    /* A number is set against its dot rather than against its first digit, so the dots hold a
+       column of their own and a number long enough to outgrow the marker column reaches to the
+       left of it rather than moving its item's text right of every other item's. The dot stands
+       one digit in, so a single-digit number opens the column where a glyph or a checkbox does.
+       The counter is the built-in one rather than a counter of ours, because it is the counter an
+       `ol`'s own `start` sets. */
     ol {
-      @apply list-decimal;
+      --leafdown-list-marker-dot: 0.875rem;
+
+      & > li::before {
+        @apply whitespace-nowrap text-primary/70;
+        content: counter(list-item) ".";
+        inset-inline-start: auto;
+        inset-inline-end: calc(100% - var(--leafdown-list-marker-dot));
+      }
+    }
+
+    /* A nested list continues the item holding it rather than opening a block of its own, so it
+       takes the gap between two items and nesting moves an item sideways without moving anything
+       below it. */
+    li > :is(ul, ol) {
+      @apply my-0;
     }
 
     li {
-      @apply my-1 pl-1;
+      @apply relative my-1;
+      padding-inline-start: var(--leafdown-list-marker);
+
+      &::before {
+        @apply absolute select-none;
+        inset-block-start: 0;
+        inset-inline-start: 0;
+      }
 
       & > p {
         @apply my-1;
       }
 
+      /* The box stands where the glyph would, centred on the line the item opens on rather than on
+         an item whose text may wrap onto more lines. */
       &[data-checked] {
-        @apply relative list-none pl-7;
-
         &::before {
-          @apply absolute top-[0.42rem] left-0 size-4 rounded-sm border border-border bg-background;
+          @apply size-4 rounded-xs border-2 border-muted-foreground/40;
           content: "";
+          inset-block-start: calc((1lh - 1rem) / 2);
         }
       }
 
@@ -115,15 +185,33 @@
           @apply border-primary bg-primary;
         }
 
+        /* The tick is Lucide's `check`, drawn as a mask so the glyph matches the shadcn checkbox
+           while its colour still comes from the theme. */
         &::after {
-          @apply absolute top-[0.48rem] left-[0.34rem] h-2 w-1 rotate-45 border-r-2 border-b-2 border-primary-foreground;
+          @apply absolute size-4 bg-primary-foreground;
           content: "";
+          inset-block-start: calc((1lh - 1rem) / 2);
+          inset-inline-start: 0;
+          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+          mask-position: center;
+          mask-repeat: no-repeat;
+          mask-size: 0.875rem;
+        }
+
+        /* Only the item's own content recedes. A nested list keeps the colour of wherever it sits,
+           so a checked parent cannot mute the tasks still open under it. */
+        & > :not(ul, ol) {
+          @apply text-muted-foreground;
+
+          strong {
+            @apply text-inherit;
+          }
         }
       }
     }
 
     blockquote {
-      @apply my-5 border-l-4 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
+      @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
 
       & > :first-child {
         @apply mt-0;
@@ -134,23 +222,31 @@
       }
     }
 
+    /* The element keeps the measure, so what a click can reach is unchanged, and the mark is drawn
+       short and centred inside it. */
     hr {
-      @apply my-8 border-0 border-t border-border;
+      @apply my-8 h-px border-0;
+
+      &::before {
+        @apply mx-auto block h-px w-24 bg-border;
+        content: "";
+      }
     }
 
     :not(pre) > code {
-      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border/50 bg-muted/50 px-1 py-0.5 font-mono text-sm text-muted-foreground;
     }
 
     pre {
-      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border bg-muted p-4 font-mono text-sm leading-6 whitespace-pre text-foreground shadow-inner;
-      color: var(--prosemirror-highlight, var(--foreground));
+      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
 
+      /* The badge floats rather than anchoring to the block, because an absolute child of a
+         horizontally scrolling box travels with the content it is meant to label. */
       &[data-language] {
-        @apply pt-8;
+        @apply pt-9;
 
         &::before {
-          @apply float-right -mt-6 ml-4 font-mono text-xs text-muted-foreground;
+          @apply float-right -mt-7 -mr-1 ml-4 rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none;
           content: attr(data-language);
         }
       }
@@ -161,20 +257,30 @@
     }
 
     .tableWrapper {
-      @apply my-5 w-full overflow-x-auto rounded-md border border-border;
+      @apply my-5 w-full overflow-x-auto;
 
       table {
-        @apply my-0 table w-full overflow-visible rounded-none border-0;
+        @apply my-0;
       }
     }
 
+    /* Columns take their content's width rather than an equal share, and the table is free to
+       outrun the measure. Once fitted they are held in a `colgroup`, which only a fixed layout
+       reads, so that editing a cell cannot resize the column under the caret. */
     table {
-      @apply my-5 table w-full table-fixed border-collapse overflow-x-auto rounded-md border border-border bg-background text-sm;
+      @apply my-5 table w-auto min-w-full table-auto border-separate border-spacing-0 text-sm;
+
+      &[data-leafdown-table-columns] {
+        @apply table-fixed;
+      }
     }
 
+    /* The floor is what makes a wide table scroll: without it the columns go on dividing the
+       measure between them, since wrapping at spaces takes a cell's minimum down to its longest
+       word. `break-normal` holds that word together against the root's `wrap-anywhere`. */
     th,
     td {
-      @apply border border-border px-2 py-1.5 text-left align-top;
+      @apply min-w-28 border-b border-border/60 px-3 py-2 text-left align-top break-normal;
 
       p {
         @apply m-0;
@@ -182,19 +288,11 @@
     }
 
     th {
-      @apply bg-muted font-semibold text-foreground;
-    }
-
-    tr:nth-child(even) td {
-      @apply bg-card/35;
+      @apply border-b-border font-semibold text-foreground;
     }
 
     .selectedCell::after {
       @apply bg-primary/20;
-    }
-
-    .column-resize-handle {
-      @apply bg-primary;
     }
 
     img {
@@ -253,21 +351,73 @@
       @apply my-4 rounded-sm border border-border/60 bg-muted px-2 py-1 font-mono text-[0.9em] whitespace-pre-wrap text-muted-foreground;
 
       &.ProseMirror-selectednode {
-        @apply border-primary/40 ring-2 ring-primary/25;
+        @apply border-primary/40;
       }
     }
 
-    .shiki {
-      @apply bg-transparent;
+    /* `prosemirror-view` paints node selection as a fixed `#8cf`, which belongs to neither theme.
+       Its two rules are redrawn here on the token the rest of the selection chrome uses. */
+    .ProseMirror-selectednode {
+      @apply outline-2 outline-offset-2 outline-primary/40;
     }
 
-    .leafdown-marker-node {
-      @apply relative;
+    li.ProseMirror-selectednode {
+      @apply outline-none;
+
+      &::after {
+        @apply border-primary/40;
+      }
+    }
+
+    /* The dual-theme parser writes both variables onto every token and paints neither itself, so
+       the colour a token takes is chosen here. */
+    .shiki {
+      @apply bg-transparent;
+      color: var(--shiki-light);
+
+      &:is(.dark *) {
+        color: var(--shiki-dark);
+      }
+    }
+
+    /* Out of flow into the inner lane, so the heading's text holds its place whether or not the
+       marker is showing, and centred on the block's first line rather than on the block. */
+    .leafdown-marker-node--subtle::before,
+    :is(h1, h2, h3, h4, h5, h6):hover::before {
+      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-sm leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
+      inset-block-start: 0;
+      inset-inline-end: calc(100% + var(--leafdown-gutter-gap));
+      translate: 0 calc(var(--leafdown-block-line) / 2 - 50%);
     }
 
     .leafdown-marker-node--subtle::before {
-      @apply mr-2 inline-flex items-center rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground opacity-80 select-none;
       content: attr(data-leafdown-marker);
+    }
+
+    /* The caret marker reads its text from the decoration. A hovered heading has no decoration to
+       read, so the level is spelled here; `getSubtleMarkerForNode` is the other half of the pair. */
+    h1:hover::before {
+      content: "H1";
+    }
+
+    h2:hover::before {
+      content: "H2";
+    }
+
+    h3:hover::before {
+      content: "H3";
+    }
+
+    h4:hover::before {
+      content: "H4";
+    }
+
+    h5:hover::before {
+      content: "H5";
+    }
+
+    h6:hover::before {
+      content: "H6";
     }
 
     /* The label stands where the file spells it, on the line the definition opens on, with the body
@@ -344,7 +494,7 @@
     }
 
     .leafdown-source-projection__content--inline-code {
-      @apply rounded-sm border border-white/10 bg-muted px-1 py-1 font-mono text-sm text-muted-foreground;
+      @apply rounded-sm border border-border/50 bg-muted/50 px-1 py-0.5 font-mono text-sm text-muted-foreground;
     }
 
     .leafdown-source-projection__content--footnote-reference {

@@ -151,6 +151,27 @@ describe("editor-context-popup", () => {
     expect(screen.getByRole("button", { name: "Insert" })).toBeInTheDocument();
   });
 
+  it("leaves no indicator column beside submenu rows that already carry an icon", async () => {
+    const { user } = renderWithUser(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Block type" }));
+
+    const rows = await screen.findAllByRole("menuitem");
+
+    expect(rows.length).toBeGreaterThan(0);
+    rows.forEach((row) => {
+      expect(row).not.toHaveAttribute("data-inset");
+    });
+  });
+
   it("routes enabled icon commands and keeps disabled commands visible", async () => {
     const onExecute = vi.fn();
 

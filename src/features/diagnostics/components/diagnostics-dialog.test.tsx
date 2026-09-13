@@ -36,6 +36,14 @@ const diagnosticsSummaryInput = () =>
   // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
   screen.getByLabelText("Diagnostics summary") as HTMLTextAreaElement;
 
+const revealDiagnosticsSummary = async () => {
+  fireEvent.click(screen.getByRole("button", { name: "Show summary" }));
+
+  await waitFor(() => {
+    expect(diagnosticsSummaryInput()).toBeInTheDocument();
+  });
+};
+
 describe("diagnostics-dialog", () => {
   it("loads and displays diagnostics metadata", async () => {
     mockTauriApiCommand("getDiagnosticsSummary", () => TEST_DIAGNOSTICS_SUMMARY);
@@ -45,15 +53,19 @@ describe("diagnostics-dialog", () => {
     expect(screen.getByRole("dialog", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.getByText(/Logs are not uploaded automatically/u)).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(diagnosticsSummaryInput().value).toContain("Leafdown diagnostics");
-    });
-
-    expect(diagnosticsSummaryInput().value).toContain("App: Leafdown 0.1.0");
-    expect(diagnosticsSummaryInput().value).toContain("Run: run-test");
+    expect(await screen.findByText("Leafdown 0.1.0")).toBeInTheDocument();
+    expect(screen.getByText("com.azganoth.leafdown")).toBeInTheDocument();
+    expect(screen.getByText("windows x86_64")).toBeInTheDocument();
+    expect(screen.getByText("run-test")).toBeInTheDocument();
     expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logDirectoryPath)).toBeInTheDocument();
     expect(screen.getByText(TEST_DIAGNOSTICS_SUMMARY.logFilePath)).toBeInTheDocument();
     expect(screen.getByText("Current log plus 5 retained files, 1 MB each")).toBeInTheDocument();
+
+    await revealDiagnosticsSummary();
+
+    expect(diagnosticsSummaryInput().value).toContain("Leafdown diagnostics");
+    expect(diagnosticsSummaryInput().value).toContain("App: Leafdown 0.1.0");
+    expect(diagnosticsSummaryInput().value).toContain("Run: run-test");
   });
 
   it("copies the displayed diagnostics summary", async () => {
@@ -61,9 +73,7 @@ describe("diagnostics-dialog", () => {
 
     renderDiagnosticsDialog();
 
-    await waitFor(() => {
-      expect(diagnosticsSummaryInput().value).toContain("Leafdown diagnostics");
-    });
+    expect(await screen.findByText("Leafdown 0.1.0")).toBeInTheDocument();
     expect(navigator.clipboard).toBe(clipboard);
 
     const copyButton = screen.getByRole("button", { name: "Copy summary" });
@@ -118,8 +128,7 @@ describe("diagnostics-dialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    await waitFor(() => {
-      expect(diagnosticsSummaryInput().value).toContain("Leafdown diagnostics");
-    });
+    expect(await screen.findByText("Leafdown 0.1.0")).toBeInTheDocument();
+    expect(screen.queryByText("diagnostics unavailable")).not.toBeInTheDocument();
   });
 });

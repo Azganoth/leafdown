@@ -58,10 +58,12 @@ export function CommandMenubar({
 }: CommandMenubarProps) {
   return (
     <CommandMenuContext.Provider value={{ commandState, onExecute }}>
-      <Menubar className="border-0 bg-transparent p-0">
+      <Menubar className="border-0 bg-transparent p-0 text-muted-foreground shadow-none">
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.file}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.file}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandItems commandIds={["file.new"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["file.open", "file.openFolder"]} />
@@ -85,8 +87,10 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.edit}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.edit}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandItems commandIds={["edit.undo", "edit.redo"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["edit.cut", "edit.copy"]} />
@@ -122,8 +126,10 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.insert}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.insert}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandItems commandIds={["insert.paragraph"]} />
             <HeadingSubmenu prefix="insert" />
             <MenubarSeparator />
@@ -132,8 +138,10 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.format}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.format}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandItems commandIds={INLINE_FORMAT_COMMAND_IDS} />
             <MenubarSeparator />
             <CommandItems commandIds={["format.paragraph"]} />
@@ -147,11 +155,13 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.view}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.view}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandCheckboxItem commandId="view.toggleSidebar" />
             <MenubarSeparator />
-            <CommandItems commandIds={["view.zoomIn", "view.zoomOut", "view.resetZoom"]} />
+            <CommandItems commandIds={["view.zoomIn", "view.zoomOut", "view.resetZoom"]} inset />
             <CommandCheckboxItem commandId="view.fullscreen" />
             <MenubarSeparator />
             <RadioSubmenu
@@ -160,19 +170,23 @@ export function CommandMenubar({
                 "view.appearance.light",
                 "view.appearance.dark",
               ]}
+              inset
               label="Appearance"
             />
             <RadioSubmenu
               commandIds={["view.sort.name", "view.sort.modifiedDate", "view.sort.type"]}
+              inset
               label="Sort articles by"
             />
-            <CommandItems commandIds={["view.collapseAllFolders", "view.expandAllFolders"]} />
+            <CommandItems commandIds={["view.collapseAllFolders", "view.expandAllFolders"]} inset />
           </MenubarContent>
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger>{COMMAND_MENU_LABELS.help}</MenubarTrigger>
-          <MenubarContent className="w-auto">
+          <MenubarTrigger className="aria-expanded:text-foreground">
+            {COMMAND_MENU_LABELS.help}
+          </MenubarTrigger>
+          <MenubarContent>
             <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["help.about"]} />
@@ -248,6 +262,8 @@ const TABLE_COMMAND_IDS = [
 
 interface CommandItemsProps {
   commandIds: readonly AppCommandId[];
+  // Aligns rows to the indicator column of a menu that also holds checkbox or radio items.
+  inset?: boolean;
 }
 
 const areAllDisabled = (
@@ -255,22 +271,25 @@ const areAllDisabled = (
   commandIds: readonly AppCommandId[],
 ) => commandIds.every((commandId) => !commandState(commandId).enabled);
 
-function CommandItems({ commandIds }: CommandItemsProps) {
-  return commandIds.map((commandId) => <CommandMenuItem commandId={commandId} key={commandId} />);
+function CommandItems({ commandIds, inset }: CommandItemsProps) {
+  return commandIds.map((commandId) => (
+    <CommandMenuItem commandId={commandId} inset={inset} key={commandId} />
+  ));
 }
 
 interface CommandItemProps {
   commandId: AppCommandId;
+  inset?: boolean;
 }
 
-function CommandMenuItem({ commandId }: CommandItemProps) {
+function CommandMenuItem({ commandId, inset }: CommandItemProps) {
   const { commandState, onExecute } = useCommandMenu();
   const state = commandState(commandId);
   const command = COMMAND_DEFINITIONS[commandId];
   const primaryShortcut = command.shortcuts?.[0];
 
   return (
-    <MenubarItem disabled={!state.enabled} onClick={() => onExecute(commandId)}>
+    <MenubarItem disabled={!state.enabled} inset={inset} onClick={() => onExecute(commandId)}>
       {command.label}
       {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
     </MenubarItem>
@@ -351,12 +370,12 @@ interface CommandSubmenuProps extends CommandItemsProps {
   label: string;
 }
 
-function CommandSubmenu({ commandIds, label }: CommandSubmenuProps) {
+function CommandSubmenu({ commandIds, inset, label }: CommandSubmenuProps) {
   const { commandState } = useCommandMenu();
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)} inset={inset}>
         {label}
       </MenubarSubTrigger>
       <MenubarSubContent>
@@ -402,6 +421,7 @@ function LineEndingSubmenu() {
             <CommandRadioItem commandId={commandId} key={commandId} />
           ))}
         </MenubarRadioGroup>
+        <MenubarSeparator />
         <CommandCheckboxItem commandId="edit.insertFinalNewline" />
       </MenubarSubContent>
     </MenubarSub>
@@ -412,7 +432,7 @@ interface RadioSubmenuProps extends CommandItemsProps {
   label: string;
 }
 
-function RadioSubmenu({ commandIds, label }: RadioSubmenuProps) {
+function RadioSubmenu({ commandIds, inset, label }: RadioSubmenuProps) {
   const { commandState, onExecute } = useCommandMenu();
 
   const checkedId =
@@ -423,7 +443,7 @@ function RadioSubmenu({ commandIds, label }: RadioSubmenuProps) {
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)}>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)} inset={inset}>
         {label}
       </MenubarSubTrigger>
       <MenubarSubContent>

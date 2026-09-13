@@ -176,7 +176,7 @@ const main = async () => {
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
-    { name: "persistence-write" },
+    { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
     { name: "window-lifecycle" },
   ];

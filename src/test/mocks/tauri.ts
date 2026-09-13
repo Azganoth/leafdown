@@ -24,6 +24,7 @@ export const createTauriPathMock = () => ({
 });
 
 export const createTauriAppMock = () => ({
+  getVersion: vi.fn(async () => "0.0.0-test"),
   setTheme: vi.fn(async () => undefined),
 });
 

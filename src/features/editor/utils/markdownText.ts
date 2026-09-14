@@ -8,6 +8,7 @@ import {
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
 import { resolveLinePrefixes } from "./linePrefixMarkdown";
+import { removeLinkLabelEdges } from "./linkLabelMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -1390,6 +1391,8 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   state,
   info,
 ) => {
+  removeLinkLabelEdges(node);
+
   const { labels, parents } = mapDocument(node);
 
   lineParents = parents;

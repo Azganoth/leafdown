@@ -138,6 +138,7 @@ import {
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
+import { withLinkLabelWhitespace } from "./linkLabelMarkdown";
 import {
   serializeList,
   serializeListItem,
@@ -397,7 +398,9 @@ export const createMilkdownEditor = async ({
         linebreakReplacement: true,
       }));
       ctx.update(linkSchema.key, (getSchema) => (schemaCtx) => ({
-        ...withLinkReferenceForm(withBareAutolinkForm(getSchema(schemaCtx))),
+        ...withLinkLabelWhitespace(
+          withLinkReferenceForm(withBareAutolinkForm(getSchema(schemaCtx))),
+        ),
         priority: LINK_MARK_PRIORITY,
       }));
       // A `table_row+` content expression has no legal header-only table, so ProseMirror fills a

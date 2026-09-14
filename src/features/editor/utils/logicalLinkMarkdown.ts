@@ -19,6 +19,8 @@ const LOGICAL_LINK_TOKEN_SUFFIX = "PLACEHOLDER";
 const LOGICAL_LINK_OUTER_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 const HARD_BREAK_NODE_NAME = "hardbreak";
 const HEADING_NODE_NAME = "heading";
+const LEADING_WHITESPACE_PATTERN = /^[\t ]*/u;
+const TRAILING_WHITESPACE_PATTERN = /[\t ]*$/u;
 
 const getLinkMark = (node: ProseMirrorNode) =>
   node.marks.find((mark) => mark.type.name === "link") ?? null;
@@ -90,6 +92,51 @@ const serializeLabelContent = (
   return source.slice(0, source.lastIndexOf(token));
 };
 
+// Whitespace a delimiter mark holds is written outside its delimiters anyway, while a code span or a
+// character reference writes whitespace as source of its own, so the edge ends at either of those.
+const isPlainWhitespaceEdge = (node: ProseMirrorNode) =>
+  node.isText && node.marks.every((mark) => LOGICAL_LINK_OUTER_MARK_NAMES.has(mark.type.name));
+
+// The nodes are read from the edge inward, so each run is the whitespace that edge of the node holds.
+const readEdgeWhitespaceRuns = (nodes: readonly ProseMirrorNode[], pattern: RegExp) => {
+  const runs: string[] = [];
+
+  for (const node of nodes) {
+    const text = node.text ?? "";
+    const run = isPlainWhitespaceEdge(node) ? (pattern.exec(text)?.[0] ?? "") : "";
+
+    runs.push(run);
+
+    if (!run || run.length < text.length) {
+      break;
+    }
+  }
+
+  return runs;
+};
+
+// A label is written as a paragraph of its own, which drops the whitespace opening and closing it,
+// so that whitespace is written inside the link's brackets around the label instead.
+const splitLabelEdgeWhitespace = (content: Fragment) => {
+  const nodes: ProseMirrorNode[] = [];
+
+  content.forEach((node) => nodes.push(node));
+
+  const leading = readEdgeWhitespaceRuns(nodes, LEADING_WHITESPACE_PATTERN).join("");
+  const trailing =
+    leading.length === content.size
+      ? ""
+      : readEdgeWhitespaceRuns(nodes.toReversed(), TRAILING_WHITESPACE_PATTERN)
+          .toReversed()
+          .join("");
+
+  return {
+    content: content.cut(leading.length, content.size - trailing.length),
+    leading,
+    trailing,
+  };
+};
+
 const createLogicalLinkToken = (
   serializedDocument: string,
   tokenIndex: number,
@@ -120,11 +167,15 @@ const createLogicalLinkReplacement = (
   const commonOuterMarks = getCommonOuterMarks(nodes, linkMark);
   const token = createLogicalLinkToken(serializedDocument, tokenIndex, usedTokens);
   const removedMarks = [linkMark, ...commonOuterMarks];
-  const labelContent = Fragment.fromArray(
-    nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks))),
+  const {
+    content: labelContent,
+    leading,
+    trailing,
+  } = splitLabelEdgeWhitespace(
+    Fragment.fromArray(nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks)))),
   );
   const labelSource = serializeLabelContent(serializer, document, labelContent, token);
-  const linkedToken = document.type.schema.text(token, [linkMark]);
+  const linkedToken = document.type.schema.text(`${leading}${token}${trailing}`, [linkMark]);
   const linkSource = serializeInlineContent(
     serializer,
     document,

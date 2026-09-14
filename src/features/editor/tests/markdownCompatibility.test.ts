@@ -3524,6 +3524,104 @@ describe("Whitespace a character reference names", () => {
 
     expect(reloadedEndings).toStrictEqual(['hard "  "']);
   });
+
+  // A container repeats its markers or indentation on every line its paragraph continues onto, and
+  // the value the parser keeps holds neither.
+  it.each([
+    {
+      initial: "> quote &#x20;\n> more",
+      name: "a quote continues the line",
+      opened: "quote  \nmore",
+    },
+    {
+      initial: "> quote &#9;\n> more",
+      name: "a quote continues the line, naming a tab",
+      opened: "quote \t\nmore",
+    },
+    {
+      initial: "- item &#x20;\n  more",
+      name: "a list item continues the line",
+      opened: "item  \nmore",
+    },
+    {
+      initial: "[^a]: note &#x20;\n    more\n\nx[^a]",
+      name: "a footnote definition continues the line",
+      opened: "anote  \nmorex",
+    },
+    {
+      initial: "> a\n> b &#x20;\n> c",
+      name: "a quote continues its middle line",
+      opened: "a\nb  \nc",
+    },
+    {
+      initial: "> - item &#x20;\n>   more",
+      name: "a list item in a quote continues the line",
+      opened: "item  \nmore",
+    },
+    {
+      initial: "1. x\n\n   > quote &#x20;\n   > more",
+      name: "a quote in a list item continues the line",
+      opened: "xquote  \nmore",
+    },
+    {
+      initial: "> *a &#x20;\n> b*",
+      name: "a quote continues emphasis past the line",
+      opened: "a  \nb",
+    },
+    {
+      initial: "> quote &nbsp;\n> more",
+      name: "a quote continues the line, naming a no-break space",
+      opened: `quote ${String.fromCodePoint(0xa0)}\nmore`,
+    },
+    {
+      initial: "> a &copy;\n> b",
+      name: "a quote continues the line, naming a symbol",
+      opened: "a ©\nb",
+    },
+    {
+      initial: "> quote\n> &#x20;more",
+      name: "a reference opens the line a quote continues onto",
+      opened: "quote\n more",
+    },
+  ])(
+    "holds and writes the reference where $name as it was authored",
+    async ({ initial, opened }) => {
+      const { firstSave, openedText, reloadedText, secondSave, written } =
+        await openThenReload(initial);
+
+      expect(openedText).toBe(`${opened}${CARET_PARAGRAPH}`);
+      expect(firstSave).toBe(written);
+      expect(reloadedText).toBe(openedText);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+
+  it("reopens a quoted line a space and a reference end with as a soft line ending", async () => {
+    const { reloadedEndings } = await openThenReload("> quote &#x20;\n> more");
+
+    expect(reloadedEndings).toStrictEqual(["soft"]);
+  });
+
+  it.each([
+    { initial: "> quote &#x20;\r\n> more", name: "a carriage return and line feed" },
+    { initial: "> quote &#x20;\r> more", name: "a carriage return" },
+  ])("writes a reference ending a quoted line $name closes", async ({ initial }) => {
+    const { firstSave, openedText } = await openThenReload(initial);
+
+    expect(openedText).toBe(`quote  \nmore${CARET_PARAGRAPH}`);
+    expect(firstSave).toBe(`> quote &#x20;\n> more\n\n${CARET_PARAGRAPH}\n`);
+  });
+
+  it.each([
+    { initial: "> quote \n> more", name: "a space" },
+    { initial: "> quote\t\n> more", name: "a tab" },
+    { initial: "- item \n  more", name: "a space ending a list item's line" },
+  ])("still leaves out $name a parse trims where no reference names it", async ({ initial }) => {
+    const { firstSave, openedText } = await openThenReload(initial);
+
+    expect(openedText).not.toMatch(/[\t ]\n/u);
+    expect(firstSave).toBe(`${initial.replace(/[\t ]\n/u, "\n")}\n\n${CARET_PARAGRAPH}\n`);
+  });
 });
 
 describe("Typed inline mark source", () => {

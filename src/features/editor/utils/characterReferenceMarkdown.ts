@@ -36,6 +36,11 @@ const REFERENCE_LENGTH_MAX = 33;
 // A backslash escapes ASCII punctuation and nothing else, so a backslash before ordinary text is
 // itself the character.
 const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
+// A text node spanning lines inside a quote, a list item, or a footnote definition is cut from a
+// slice that still holds the markers and indentation each later line stands behind, which the
+// value never holds. A parse strips a continuation line's leading whitespace and reads a `>` there
+// as a quote, so neither can open the value's line and the whole run is skipped.
+const CONTINUATION_PREFIX_PATTERN = /(?:[\t ]*>)*[\t ]*/uy;
 // Marks serialize in `spec.priority` order, 50 unless declared and 100 for inline code, and the
 // mark written last stands innermost. The runner below writes the text node itself, which stops
 // every mark ordered after it from opening at all, so a reference is ordered past all of them
@@ -187,6 +192,11 @@ export const findCharacterReferences = (source: string, value: string): Referenc
 
     sourceIndex += 1;
     valueIndex += 1;
+
+    if (character === "\n" || (character === "\r" && source[sourceIndex] !== "\n")) {
+      CONTINUATION_PREFIX_PATTERN.lastIndex = sourceIndex;
+      sourceIndex += CONTINUATION_PREFIX_PATTERN.exec(source)?.[0].length ?? 0;
+    }
   }
 
   return spans;

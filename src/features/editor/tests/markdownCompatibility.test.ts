@@ -3171,8 +3171,7 @@ describe("Line-final whitespace", () => {
 
 // A parse trims what a line opens with just as it trims what a line closes with, so writing
 // that whitespace produces a file the next open reads as a different document. The corpus guard
-// cannot reach this either: only an edit, or a character reference an author wrote, puts it
-// there.
+// cannot reach this either: only an edit puts it there.
 describe("Line-initial whitespace", () => {
   const saveReloadSave = async (
     initial: string,
@@ -3263,34 +3262,15 @@ describe("Line-initial whitespace", () => {
     expect(secondSave).toBe(firstSave);
   });
 
-  it.each([
-    { expected: "plain\n", initial: "&#x20;plain", name: "a paragraph" },
-    { expected: "# head\n", initial: "# &#x20;head", name: "a heading" },
-  ])(
-    "converges on $name a character reference opens with a space",
-    async ({ expected, initial }) => {
-      const { firstSave, secondSave } = await saveReloadSave(initial);
-
-      expect(firstSave).toBe(expected);
-      expect(secondSave).toBe(firstSave);
-    },
-  );
-
   it("reloads the paragraph the editor showed before the space was typed", async () => {
     const { reloadedText } = await saveReloadSave("plain", typeBefore("plain", " "));
 
     expect(reloadedText).toBe("plain");
   });
 
-  it("reloads the paragraph without the space its character reference named", async () => {
-    const { reloadedText } = await saveReloadSave("&#x20;plain");
-
-    expect(reloadedText).toBe("plain");
-  });
-
   it.each([
     {
-      expected: "a b\n",
+      expected: "a&#x20;b\n",
       initial: "a&#x20;b",
       name: "a character reference away from a line edge",
     },
@@ -3320,6 +3300,107 @@ describe("Line-initial whitespace", () => {
 
     expect(firstSave).toBe("```\n code\n```\n");
     expect(secondSave).toBe(firstSave);
+  });
+});
+
+// No parse trims the character a reference names, so it is content the file keeps rather than the
+// whitespace the two blocks above leave out, and the reference is written wherever it stands. Two
+// spaces spell a hard break where a line ending follows them, which is the document a file written
+// with the character instead of the reference came back as.
+describe("Whitespace a character reference names", () => {
+  const readLineEndings = (mounted: MountedMilkdownEditor) => {
+    const endings: string[] = [];
+
+    mounted.view.state.doc.descendants((node) => {
+      if (node.type.name === "hardbreak") {
+        endings.push(node.attrs.isInline ? "soft" : `hard ${JSON.stringify(node.attrs.run)}`);
+      }
+
+      return true;
+    });
+
+    return endings;
+  };
+
+  // A mount leaves the caret at the start of the document, where a reference projects its source
+  // into the text, so every fixture carries a paragraph of its own for the caret to rest in.
+  const CARET_PARAGRAPH = "end";
+
+  const openThenReload = async (initial: string) => {
+    const opened = await mountEditor(`${initial}\n\n${CARET_PARAGRAPH}`);
+
+    setSelectionAtDocumentEnd(opened.view);
+
+    const openedText = opened.view.state.doc.textContent;
+    const firstSave = opened.getMarkdown();
+    const reloaded = await mountEditor(firstSave);
+
+    setSelectionAtDocumentEnd(reloaded.view);
+
+    return {
+      firstSave,
+      openedText,
+      reloadedEndings: readLineEndings(reloaded),
+      reloadedText: reloaded.view.state.doc.textContent,
+      secondSave: reloaded.getMarkdown(),
+      written: `${initial}\n\n${CARET_PARAGRAPH}\n`,
+    };
+  };
+
+  it.each([
+    { initial: "a &#x20;\nb", name: "a space the reference follows" },
+    { initial: "a &#32;\nb", name: "a decimal reference" },
+    { initial: "a&#x20;&#x20;\nb", name: "two references" },
+    { initial: "a &#x20;&#x20;\nb", name: "a space two references follow" },
+    { initial: "a&#x20;\nb", name: "a reference alone against the line ending" },
+    { initial: "a &#x20;", name: "a reference closing the paragraph" },
+    { initial: "a &nbsp;\nb", name: "a no-break space, which no parse trims either" },
+    { initial: "a&#9;\nb", name: "a tab a reference names" },
+  ])("writes $name ending a line as it was authored", async ({ initial }) => {
+    const { firstSave, openedText, reloadedText, secondSave, written } =
+      await openThenReload(initial);
+
+    expect(firstSave).toBe(written);
+    expect(reloadedText).toBe(openedText);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  // Nothing about a line edge decides the rule, so the same source is written wherever the
+  // reference stands, and a mark or a break beside it is written as the file spelled it.
+  it.each([
+    { initial: "&#x20;plain", name: "the start of a line" },
+    { initial: "# &#x20;head", name: "the start of a heading" },
+    { initial: "a&#x20;b", name: "the middle of a line" },
+    { initial: "# h &#x20;", name: "the end of a heading" },
+    { initial: "- item &#x20;", name: "the end of a list item" },
+    { initial: "> quote &#x20;", name: "the end of a quoted line" },
+    { initial: "| a &#x20; | b |\n| -------- | - |\n| c        | d |", name: "the end of a cell" },
+    { initial: "*a &#x20;*\nb", name: "the end of emphasis closing a line" },
+    { initial: "a&#x20;  \nb", name: "the line a spaces hard break closes" },
+    { initial: "a&#x20;\\\nb", name: "the line a backslash hard break closes" },
+  ])("writes a reference naming a space at $name as it was authored", async ({ initial }) => {
+    const { firstSave, openedText, reloadedText, secondSave, written } =
+      await openThenReload(initial);
+
+    expect(firstSave).toBe(written);
+    expect(reloadedText).toBe(openedText);
+    expect(secondSave).toBe(firstSave);
+  });
+
+  it.each([
+    { initial: "a &#x20;\nb", name: "a space and a reference" },
+    { initial: "a&#x20;&#x20;\nb", name: "two references" },
+    { initial: "a &#x20;&#x20;\nb", name: "a space and two references" },
+  ])("reopens the line $name ends with as a soft line ending", async ({ initial }) => {
+    const { reloadedEndings } = await openThenReload(initial);
+
+    expect(reloadedEndings).toStrictEqual(["soft"]);
+  });
+
+  it("keeps the run of the hard break a reference stands against", async () => {
+    const { reloadedEndings } = await openThenReload("a&#x20;  \nb");
+
+    expect(reloadedEndings).toStrictEqual(['hard "  "']);
   });
 });
 

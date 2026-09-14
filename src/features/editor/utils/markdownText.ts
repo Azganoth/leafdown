@@ -1428,9 +1428,8 @@ const closesTrimmedContent = (
 // opening a paragraph, a heading, or a cell is whitespace the next open drops. A line ending in
 // `before` marks the line a hard break leaves behind; the block's own first line is read off the
 // tree instead, because a heading hands its first child the marker as `before` and a cell hands
-// its own padding. Reading the tree is also what separates a hoisted space from an ordinary one:
-// Milkdown empties the character reference it lifts a space out of, and an emptied reference
-// writes nothing, while any sibling that writes even one character puts the space mid-line.
+// its own padding. Reading the tree is also what separates a space that opens the line from one
+// standing mid-line, since any earlier sibling writing even one character has already opened it.
 const opensTrimmedContent = (
   node: PhrasingNode,
   parent: { type: string; children: readonly PhrasingNode[] } | undefined,

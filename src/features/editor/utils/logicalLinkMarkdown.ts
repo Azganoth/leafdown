@@ -1,7 +1,9 @@
 import { Fragment, Mark, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
+import { writeAsLinkLabel } from "./linkLabelMarkdown";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 
 interface LogicalLinkReplacement {
@@ -23,6 +25,9 @@ const LOGICAL_LINK_TOKEN_DIGIT_START = 0xe002;
 const LOGICAL_LINK_TOKEN_DIGIT_COUNT = 0xf8ff - LOGICAL_LINK_TOKEN_DIGIT_START + 1;
 const LOGICAL_LINK_OUTER_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 const HARD_BREAK_NODE_NAME = "hardbreak";
+const TABLE_CELL_NODE_NAMES = new Set(["table_cell", "table_header"]);
+const LINK_LABEL_CONSTRUCT = "label" satisfies ConstructName;
+const TABLE_CELL_CONSTRUCT = "tableCell" satisfies ConstructName;
 const LEADING_WHITESPACE_PATTERN = /^[\t ]*/u;
 const TRAILING_WHITESPACE_PATTERN = /[\t ]*$/u;
 
@@ -82,15 +87,20 @@ const serializeLabelContent = (
   document: ProseMirrorNode,
   content: Fragment,
   token: string,
+  constructs: readonly ConstructName[],
 ) => {
   if (!isHardBreak(content.lastChild)) {
-    return serializeInlineContent(serializer, document, content);
+    return writeAsLinkLabel(constructs, () =>
+      serializeInlineContent(serializer, document, content),
+    );
   }
 
-  const source = serializeInlineContent(
-    serializer,
-    document,
-    content.append(Fragment.from(document.type.schema.text(token))),
+  const source = writeAsLinkLabel(constructs, () =>
+    serializeInlineContent(
+      serializer,
+      document,
+      content.append(Fragment.from(document.type.schema.text(token))),
+    ),
   );
 
   return source.slice(0, source.lastIndexOf(token));
@@ -177,6 +187,7 @@ const createLogicalLinkReplacement = (
   linkMark: Mark,
   serializedDocument: string,
   usedOpenings: Set<string>,
+  constructs: readonly ConstructName[],
 ) => {
   const commonOuterMarks = getCommonOuterMarks(nodes, linkMark);
   const token = createLogicalLinkToken(serializedDocument, 0, usedOpenings);
@@ -189,7 +200,7 @@ const createLogicalLinkReplacement = (
     Fragment.fromArray(nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks)))),
   );
   const { schema } = document.type;
-  const labelSource = serializeLabelContent(serializer, document, labelContent, token);
+  const labelSource = serializeLabelContent(serializer, document, labelContent, token, constructs);
   const linkedToken = schema.text(`${leading}${token}${trailing}`, [linkMark]);
   const linkSource = serializeInlineContent(serializer, document, Fragment.from(linkedToken))
     .replace(token, () => labelSource)
@@ -221,6 +232,7 @@ const transformTextBlockContent = (
   textBlock: ProseMirrorNode,
   serializedDocument: string,
   usedOpenings: Set<string>,
+  constructs: readonly ConstructName[],
 ): TransformLogicalLinksResult => {
   const nodes: ProseMirrorNode[] = [];
   const replacements: LogicalLinkReplacement[] = [];
@@ -260,6 +272,7 @@ const transformTextBlockContent = (
       linkMark,
       serializedDocument,
       usedOpenings,
+      constructs,
     );
 
     transformedNodes.push(...placeholder);
@@ -279,9 +292,17 @@ const transformLogicalLinks = (
   node: ProseMirrorNode,
   serializedDocument: string,
   usedOpenings = new Set<string>(),
+  constructs: readonly ConstructName[] = [LINK_LABEL_CONSTRUCT],
 ): TransformLogicalLinksResult => {
   if (node.isTextblock) {
-    return transformTextBlockContent(serializer, document, node, serializedDocument, usedOpenings);
+    return transformTextBlockContent(
+      serializer,
+      document,
+      node,
+      serializedDocument,
+      usedOpenings,
+      constructs,
+    );
   }
 
   if (node.isLeaf) {
@@ -298,6 +319,9 @@ const transformLogicalLinks = (
       child,
       serializedDocument,
       usedOpenings,
+      TABLE_CELL_NODE_NAMES.has(child.type.name)
+        ? [...constructs, TABLE_CELL_CONSTRUCT]
+        : constructs,
     );
 
     children.push(child.copy(result.content));

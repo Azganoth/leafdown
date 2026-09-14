@@ -1094,6 +1094,117 @@ describe("Escape precision", () => {
   });
 });
 
+// A label whose formatting is mixed is written on its own and stood into its block as a
+// placeholder, so each fixture pairs it with the uniform label that takes the ordinary path.
+describe("Escapes inside a mixed-format link label", () => {
+  it.each([
+    "a [**a** \\] b](./doc.md) c",
+    "a [a \\] b](./doc.md) c",
+    "a [**a** \\[x b](./doc.md) c",
+    "a [a \\[x b](./doc.md) c",
+    "a [**a** \\[x\\] \\]y\\[ b](./doc.md) c",
+    "a [**a** b\\]](./doc.md) c",
+    "> a [**a** \\] b](./doc.md) c",
+    "- a [**a** \\] b](./doc.md) c",
+    "a [**a** \\] b\nc](./doc.md) d",
+    "# a [**a** \\] b](./doc.md) c",
+    "x[^f]\n\n[^f]: a [**a** \\] b](./doc.md) c",
+    // A cell writes its own delimiter, which the label has to hold literal as any other cell content
+    // does, and the column is as wide as the source the link is written with.
+    "| h                          |\n| -------------------------- |\n| a [**b** \\| c](./doc.md) d |",
+    "| h                          |\n| -------------------------- |\n| a [**b** \\` c](./doc.md) d |",
+    "| h                          |\n| -------------------------- |\n| a [**b** \\] c](./doc.md) d |",
+  ])("writes %j as authored and reopens it as the same document", async (source) => {
+    const mounted = await mountEditor(`${source}\n`);
+    const document: unknown = mounted.view.state.doc.toJSON();
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(document);
+  });
+
+  // An escape the label has no use for is dropped here as it is anywhere else: a `(` closes nothing
+  // where the `]` before it is held literal.
+  it.each([
+    {
+      saved: "a [**a** \\](x) b](./doc.md) c",
+      source: "a [**a** \\]\\(x) b](./doc.md) c",
+    },
+    {
+      saved: "a [a \\](x) b](./doc.md) c",
+      source: "a [a \\]\\(x) b](./doc.md) c",
+    },
+  ])("writes $source as $saved", async ({ saved, source }) => {
+    const mounted = await mountEditor(`${source}\n`);
+
+    expect(mounted.getMarkdown()).toBe(`${saved}\n`);
+  });
+
+  // The standard is the label the ordinary path writes: the same text under one formatting reaches
+  // the same file. A run of attention markers is the exception, where a mixed label keeps an escape
+  // the ordinary path finds a use for dropping; it holds the same text either way.
+  it.each([
+    "\\]",
+    "\\[x",
+    "\\[x\\]",
+    "[x]",
+    "\\]\\(x)",
+    "\\`",
+    "`",
+    "\\_x\\_",
+    "&copy;",
+    "\\&copy;",
+    "a](b)",
+    "#x",
+  ])("writes %j in a mixed-format label as it writes it in a uniform one", async (interior) => {
+    const write = async (label: string) => {
+      const mounted = await mountEditor(`a [${label}](./doc.md) d\n`);
+
+      return mounted.getMarkdown();
+    };
+
+    expect((await write(`**b** ${interior} c`)).replace("**b**", "b")).toBe(
+      await write(`b ${interior} c`),
+    );
+  });
+
+  // A cell decides an escape against its own delimiter, so the pair is written there as well.
+  it.each(["\\]", "\\|", "\\`", "`", "\\[x", "[x]", "a](b)"])(
+    "writes %j in a mixed-format label in a table cell as it writes it in a uniform one",
+    async (interior) => {
+      const write = async (label: string) => {
+        const mounted = await mountEditor(`| h |\n| - |\n| a [${label}](./doc.md) d |\n`);
+
+        return mounted.getMarkdown().replaceAll(/[ -]+\|/gu, "|");
+      };
+
+      expect((await write(`**b** ${interior} c`)).replace("**b**", "b")).toBe(
+        await write(`b ${interior} c`),
+      );
+    },
+  );
+
+  it("keeps the link an escaped bracket holds together", async () => {
+    const mounted = await mountEditor("a [**a** \\] b](./doc.md) c\n");
+    const { saved, reopened } = await saveAndReopen("a [**a** \\] b](./doc.md) c\n");
+    const linkTexts: string[] = [];
+
+    reopened.view.state.doc.descendants((node) => {
+      if (node.marks.some((mark) => mark.type.name === "link")) {
+        linkTexts.push(node.text ?? "");
+      }
+
+      return true;
+    });
+
+    expect(saved).toBe("a [**a** \\] b](./doc.md) c\n");
+    expect(linkTexts.join("")).toBe("a ] b");
+    expect(mounted.view.state.doc.toJSON()).toEqual(reopened.view.state.doc.toJSON());
+  });
+});
+
 describe("Raw link destination parentheses", () => {
   it.each([
     {

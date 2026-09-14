@@ -37,12 +37,25 @@ const HARD_BREAK_RUNS = [
   { run: "\\", spelling: "a backslash" },
   { run: "  ", spelling: "a run of spaces" },
 ];
+const LINE_BREAK_RUNS = [{ run: "", spelling: "a soft line ending" }, ...HARD_BREAK_RUNS];
 
 const getInlineBreakPosition = (document: ProseMirrorNode) =>
   getEditorNodePosition(document, "hardbreak", (node) => node.attrs.isInline === true);
 
 const getHardBreakPosition = (document: ProseMirrorNode) =>
   getEditorNodePosition(document, "hardbreak", (node) => node.attrs.isInline === false);
+
+const holdsHardBreak = (document: ProseMirrorNode) => {
+  let found = false;
+
+  document.descendants((node) => {
+    found ||= node.type.name === "hardbreak" && node.attrs.isInline === false;
+
+    return !found;
+  });
+
+  return found;
+};
 
 const getLinkMarks = (document: ProseMirrorNode) => {
   const linkMarks = new Set<string>();
@@ -583,7 +596,7 @@ describe("link source projection across an authored hard break", () => {
     },
   );
 
-  it.each(HARD_BREAK_RUNS)(
+  it.each(LINE_BREAK_RUNS)(
     "keeps a heading made from a paragraph holding a mixed-format label with $spelling whole",
     async ({ run }) => {
       const mounted = await mountProjectionEditor(`[**a** b${run}\nc](./doc.md)\n\nend`);
@@ -600,16 +613,21 @@ describe("link source projection across an authored hard break", () => {
         ),
       );
 
-      const reopened = await mountProjectionEditor(mounted.getMarkdown());
+      const written = mounted.getMarkdown();
+      const reopened = await mountProjectionEditor(written);
 
       setSelectionAtDocumentEnd(reopened.view);
 
       const heading = reopened.view.state.doc.firstChild!;
 
+      expect(written).toBe(
+        `[**a** b${run}\nc](./doc.md)\n${"=".repeat("c](./doc.md)".length)}\n\nend\n`,
+      );
       expect(reopened.view.state.doc.childCount).toBe(2);
       expect(heading.type.name).toBe("heading");
       expect(heading.textContent).toBe("a b\nc");
-      expect(getHardBreakPosition(heading)).toBeGreaterThanOrEqual(0);
+      expect(getLinkMarks(heading).size).toBe(1);
+      expect(holdsHardBreak(heading)).toBe(run !== "");
     },
   );
 
@@ -628,4 +646,116 @@ describe("link source projection across an authored hard break", () => {
       expect(getEditorTextContent(mounted)).toBe(source);
     },
   );
+});
+
+describe("mixed-format link label written across the lines of its block", () => {
+  const CONTAINERS = [
+    { container: "a blockquote", getSource: (run: string) => `> [**a** b${run}\n> c](./doc.md)` },
+    { container: "a list item", getSource: (run: string) => `- [**a** b${run}\n  c](./doc.md)` },
+    {
+      container: "a footnote definition",
+      getSource: (run: string) => `x[^f]\n\n[^f]: [**a** b${run}\n    c](./doc.md)`,
+    },
+    {
+      container: "a blockquote inside a list item",
+      getSource: (run: string) => `- > [**a** b${run}\n  > c](./doc.md)`,
+    },
+    {
+      container: "a setext heading inside a blockquote",
+      getSource: (run: string) => `> [**a** b${run}\n> c](./doc.md)\n> ---`,
+    },
+  ];
+
+  it.each(
+    CONTAINERS.flatMap((container) =>
+      LINE_BREAK_RUNS.map((spelling) => ({ ...container, ...spelling })),
+    ),
+  )(
+    "writes a label across $spelling inside $container back unchanged",
+    async ({ getSource, run }) => {
+      const markdown = `${getSource(run)}\n\nend\n`;
+      const mounted = await mountProjectionEditor(markdown);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const written = mounted.getMarkdown();
+      const reopened = await mountProjectionEditor(written);
+
+      setSelectionAtDocumentEnd(reopened.view);
+
+      expect(written).toBe(markdown);
+      expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+      expect(getLinkMarks(reopened.view.state.doc).size).toBe(1);
+    },
+  );
+
+  // A heading below the second level cannot be underlined, so it writes its break the way it does
+  // for a label with no formatting of its own and for plain text.
+  it("keeps a heading no underline can carry whole", async () => {
+    const mounted = await mountProjectionEditor("[**a** b\nc](./doc.md)\n\nend");
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const paragraph = mounted.view.state.doc.firstChild!;
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.setBlockType(
+        1,
+        1 + paragraph.content.size,
+        mounted.view.state.schema.nodes.heading,
+        { level: 3 },
+      ),
+    );
+
+    const written = mounted.getMarkdown();
+    const reopened = await mountProjectionEditor(written);
+
+    setSelectionAtDocumentEnd(reopened.view);
+
+    const heading = reopened.view.state.doc.firstChild!;
+
+    expect(written).toBe("### [**a** b&#xA;c](./doc.md)\n\nend\n");
+    expect(heading.type.name).toBe("heading");
+    expect(heading.attrs.level).toBe(3);
+    expect(heading.textContent).toBe("a b\nc");
+    expect(getLinkMarks(heading).size).toBe(1);
+  });
+
+  it("writes a label across three lines inside a blockquote under every line's prefix", async () => {
+    const markdown = "> [**a**\n> b\n> *c*](./doc.md)\n\nend\n";
+    const mounted = await mountProjectionEditor(markdown);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(markdown);
+  });
+
+  it.each([
+    {
+      cell: "a body cell",
+      markdown: "| h               |\n| --------------- |\n| [**x** y](d.md) |\n",
+    },
+    {
+      cell: "a header cell",
+      markdown: "| [**x** y](d.md) |\n| --------------- |\n| h               |\n",
+    },
+  ])(
+    "pads a table column by the source a mixed-format link in $cell is written with",
+    async ({ markdown }) => {
+      const mounted = await mountProjectionEditor(`${markdown}\nend\n`);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe(`${markdown}\nend\n`);
+    },
+  );
+
+  it("writes a mixed-format label holding a replacement pattern as its text", async () => {
+    const markdown = "a [**a** $& $' b](./doc.md) c\n\nend\n";
+    const mounted = await mountProjectionEditor(markdown);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(mounted.getMarkdown()).toBe(markdown);
+  });
 });

@@ -499,9 +499,20 @@ describe("Markdown compatibility", () => {
     }
   });
 
+  // A placeholder is a private-use opening that spells its index, padded to the width of the source
+  // it stands for, so text holding the first few openings padded past any fixture's width holds
+  // every placeholder those openings could spell.
+  const placeholders = [0, 1, 2, 3]
+    .map((index) =>
+      String.fromCharCode(0xe000, 0xe002 + index).padEnd(64, String.fromCharCode(0xe001)),
+    )
+    .join(" ");
+
   it.each([
-    "[before](https://example.com/LEAFDOWNLOGICALLINK0PLACEHOLDER) [plain **bold**](target)",
-    '[before](https://example.com "LEAFDOWNLOGICALLINK0PLACEHOLDER") [plain **bold**](target)',
+    `[before](https://example.com/${placeholders}) [plain **bold**](target)`,
+    `[before](https://example.com "${placeholders}") [plain **bold**](target)`,
+    `${placeholders} [plain **bold**](target) [**second** link\nlines](target)`,
+    `[plain **bold** ${placeholders}](target)`,
   ])("avoids logical-link placeholder collisions in %s", async (source) => {
     const mounted = await mountEditor(source);
 

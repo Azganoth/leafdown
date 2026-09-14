@@ -14,11 +14,15 @@ interface TransformLogicalLinksResult {
   replacements: LogicalLinkReplacement[];
 }
 
-const LOGICAL_LINK_TOKEN_PREFIX = "LEAFDOWNLOGICALLINK";
-const LOGICAL_LINK_TOKEN_SUFFIX = "PLACEHOLDER";
+// A token is written from private-use characters, which escaping reads as it reads a letter. It opens
+// with its own mark, spells its index in digits that are neither mark nor filler, and closes with at
+// least one filler, so no token is the start of another.
+const LOGICAL_LINK_TOKEN_START = 0xe000;
+const LOGICAL_LINK_TOKEN_FILLER = 0xe001;
+const LOGICAL_LINK_TOKEN_DIGIT_START = 0xe002;
+const LOGICAL_LINK_TOKEN_DIGIT_COUNT = 0xf8ff - LOGICAL_LINK_TOKEN_DIGIT_START + 1;
 const LOGICAL_LINK_OUTER_MARK_NAMES = new Set(["emphasis", "strike_through", "strong"]);
 const HARD_BREAK_NODE_NAME = "hardbreak";
-const HEADING_NODE_NAME = "heading";
 const LEADING_WHITESPACE_PATTERN = /^[\t ]*/u;
 const TRAILING_WHITESPACE_PATTERN = /[\t ]*$/u;
 
@@ -137,22 +141,33 @@ const splitLabelEdgeWhitespace = (content: Fragment) => {
   };
 };
 
+const spellTokenIndex = (index: number): string =>
+  (index >= LOGICAL_LINK_TOKEN_DIGIT_COUNT
+    ? spellTokenIndex(Math.floor(index / LOGICAL_LINK_TOKEN_DIGIT_COUNT))
+    : "") +
+  String.fromCharCode(LOGICAL_LINK_TOKEN_DIGIT_START + (index % LOGICAL_LINK_TOKEN_DIGIT_COUNT));
+
+// A token is as wide as the source it stands for wherever it can be, because a table pads its
+// columns and a setext heading sizes its underline from what they write, before the source replaces
+// the token.
 const createLogicalLinkToken = (
   serializedDocument: string,
-  tokenIndex: number,
-  usedTokens: Set<string>,
+  width: number,
+  usedOpenings: Set<string>,
 ) => {
-  let index = tokenIndex;
-  let token = `${LOGICAL_LINK_TOKEN_PREFIX}${index}${LOGICAL_LINK_TOKEN_SUFFIX}`;
+  for (let index = usedOpenings.size; ; index += 1) {
+    const opening = String.fromCharCode(LOGICAL_LINK_TOKEN_START) + spellTokenIndex(index);
+    const token = opening.padEnd(
+      Math.max(width, opening.length + 1),
+      String.fromCharCode(LOGICAL_LINK_TOKEN_FILLER),
+    );
 
-  while (serializedDocument.includes(token) || usedTokens.has(token)) {
-    index += 1;
-    token = `${LOGICAL_LINK_TOKEN_PREFIX}${index}${LOGICAL_LINK_TOKEN_SUFFIX}`;
+    if (!serializedDocument.includes(opening) && !usedOpenings.has(opening)) {
+      usedOpenings.add(opening);
+
+      return token;
+    }
   }
-
-  usedTokens.add(token);
-
-  return token;
 };
 
 const createLogicalLinkReplacement = (
@@ -161,11 +176,10 @@ const createLogicalLinkReplacement = (
   nodes: readonly ProseMirrorNode[],
   linkMark: Mark,
   serializedDocument: string,
-  tokenIndex: number,
-  usedTokens: Set<string>,
+  usedOpenings: Set<string>,
 ) => {
   const commonOuterMarks = getCommonOuterMarks(nodes, linkMark);
-  const token = createLogicalLinkToken(serializedDocument, tokenIndex, usedTokens);
+  const token = createLogicalLinkToken(serializedDocument, 0, usedOpenings);
   const removedMarks = [linkMark, ...commonOuterMarks];
   const {
     content: labelContent,
@@ -174,18 +188,30 @@ const createLogicalLinkReplacement = (
   } = splitLabelEdgeWhitespace(
     Fragment.fromArray(nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks)))),
   );
+  const { schema } = document.type;
   const labelSource = serializeLabelContent(serializer, document, labelContent, token);
-  const linkedToken = document.type.schema.text(`${leading}${token}${trailing}`, [linkMark]);
-  const linkSource = serializeInlineContent(
-    serializer,
-    document,
-    Fragment.from(linkedToken),
-  ).replace(token, labelSource);
-  const placeholder = document.type.schema.text(token, commonOuterMarks);
+  const linkedToken = schema.text(`${leading}${token}${trailing}`, [linkMark]);
+  const linkSource = serializeInlineContent(serializer, document, Fragment.from(linkedToken))
+    .replace(token, () => labelSource)
+    .split("\n");
+  // The placeholder spans the lines the link is written across, one token to a line, so the block
+  // holding it writes each line under its own prefix and chooses its form knowing the lines break.
+  const tokens = linkSource.map((lineSource) =>
+    createLogicalLinkToken(serializedDocument, lineSource.length, usedOpenings),
+  );
+  const placeholder = tokens.flatMap((lineToken, line) => [
+    ...(line === 0
+      ? []
+      : [schema.nodes.hardbreak.create({ isInline: true }, null, commonOuterMarks)]),
+    schema.text(lineToken, commonOuterMarks),
+  ]);
 
   return {
     placeholder,
-    replacement: { source: linkSource, token } satisfies LogicalLinkReplacement,
+    replacements: tokens.map((lineToken, line): LogicalLinkReplacement => ({
+      source: linkSource[line],
+      token: lineToken,
+    })),
   };
 };
 
@@ -194,8 +220,7 @@ const transformTextBlockContent = (
   document: ProseMirrorNode,
   textBlock: ProseMirrorNode,
   serializedDocument: string,
-  replacementOffset: number,
-  usedTokens: Set<string>,
+  usedOpenings: Set<string>,
 ): TransformLogicalLinksResult => {
   const nodes: ProseMirrorNode[] = [];
   const replacements: LogicalLinkReplacement[] = [];
@@ -222,29 +247,23 @@ const transformTextBlockContent = (
 
     const linkNodes = nodes.slice(index, runEnd);
 
-    // A heading chooses between its forms by whether its content holds a break, which a placeholder
-    // standing in for the label would hide, so there a label holding a hard break is left in place.
-    if (
-      !isMixedLinkRun(linkNodes, linkMark) ||
-      (textBlock.type.name === HEADING_NODE_NAME && linkNodes.some(isHardBreak))
-    ) {
+    if (!isMixedLinkRun(linkNodes, linkMark)) {
       transformedNodes.push(...linkNodes);
       index = runEnd;
       continue;
     }
 
-    const { placeholder, replacement } = createLogicalLinkReplacement(
+    const { placeholder, replacements: linkReplacements } = createLogicalLinkReplacement(
       serializer,
       document,
       linkNodes,
       linkMark,
       serializedDocument,
-      replacementOffset + replacements.length,
-      usedTokens,
+      usedOpenings,
     );
 
-    transformedNodes.push(placeholder);
-    replacements.push(replacement);
+    transformedNodes.push(...placeholder);
+    replacements.push(...linkReplacements);
     index = runEnd;
   }
 
@@ -259,18 +278,10 @@ const transformLogicalLinks = (
   document: ProseMirrorNode,
   node: ProseMirrorNode,
   serializedDocument: string,
-  replacementOffset = 0,
-  usedTokens = new Set<string>(),
+  usedOpenings = new Set<string>(),
 ): TransformLogicalLinksResult => {
   if (node.isTextblock) {
-    return transformTextBlockContent(
-      serializer,
-      document,
-      node,
-      serializedDocument,
-      replacementOffset,
-      usedTokens,
-    );
+    return transformTextBlockContent(serializer, document, node, serializedDocument, usedOpenings);
   }
 
   if (node.isLeaf) {
@@ -286,8 +297,7 @@ const transformLogicalLinks = (
       document,
       child,
       serializedDocument,
-      replacementOffset + replacements.length,
-      usedTokens,
+      usedOpenings,
     );
 
     children.push(child.copy(result.content));
@@ -318,7 +328,8 @@ export const createLogicalLinkMarkdownSerializer =
     const transformedDocument = document.copy(content);
 
     return replacements.reduce(
-      (markdown, { source, token }) => markdown.replace(token, source),
+      // A replacement string spells patterns such as `$&`, which a label may hold as text.
+      (markdown, { source, token }) => markdown.replace(token, () => source),
       serializer(transformedDocument),
     );
   };

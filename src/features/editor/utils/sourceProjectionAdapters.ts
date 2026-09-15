@@ -467,6 +467,12 @@ const getProjectionMarkSegments = (state: EditorState): ProjectionMarkSegment[] 
   });
 
   return segments.flatMap((segment) => {
+    // A code span writes the whitespace it holds inside its delimiters, where the other marks
+    // write theirs outside.
+    if (segment.marks.some((mark) => mark.markName === "inlineCode")) {
+      return [segment];
+    }
+
     const from = segment.from + segment.leadingWhitespaceLength;
     const to = segment.to - segment.trailingWhitespaceLength;
 

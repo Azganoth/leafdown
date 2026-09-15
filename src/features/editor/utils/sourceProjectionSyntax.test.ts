@@ -241,6 +241,24 @@ describe("source projection syntax", () => {
     });
   });
 
+  it.each([
+    { source: "`  code  `", text: " code " },
+    { source: "`code `", text: "code " },
+    { source: "` code`", text: " code" },
+    { source: "` `", text: " " },
+    { source: "`   `", text: "   " },
+  ])("creates source that reads back $text for inline code", ({ source, text }) => {
+    const marks = [createProjectionMarkDescriptor("inlineCode", {})];
+
+    expect(createProjectionSource(marks, text)).toBe(source);
+    expectMarkSource(source, {
+      closing: "`",
+      marks: [expectedMark("inlineCode", "`")],
+      opening: "`",
+      text,
+    });
+  });
+
   it("normalizes inline-code edits that add a boundary backtick", () => {
     expect(
       normalizeProjectionSourceAfterEdit("`Code``", { delimiterSide: null, kind: "insert" }),

@@ -1205,6 +1205,30 @@ describe("Escapes inside a mixed-format link label", () => {
   });
 });
 
+describe("Raw HTML inside a mixed-format link label", () => {
+  it.each([
+    "a [**x** y<br>z](./doc.md) b",
+    "a [**x** y<br>](./doc.md) b",
+    "a [**x<br>y** z](./doc.md) b",
+    "a [**x** <!-- c --> z](./doc.md) b",
+    'a [*x* <span>y</span>](./doc.md "t") b',
+    "a [**x** <br>![i](./i.png) y[^f]](./doc.md) b\n\n[^f]: n",
+    "a [**x** y\n<span>z</span>](./doc.md) b",
+    "> a [**x** y<br>z](./doc.md) b",
+    "- > a [**x** y\n  > <br>z](./doc.md) b",
+    "# a [**x** y<br>z](./doc.md) b",
+    "a [**x** y\\\nz<br>w](./doc.md) b\n===",
+    "x[^f]\n\n[^f]: a [**x** y\n    <br>z](./doc.md) b",
+    "| h                        |\n| ------------------------ |\n| [**x** y<br>z](./doc.md) |",
+    '| h                                             |\n| --------------------------------------------- |\n| [**x** <span title="a\\|b">y</span>](./doc.md) |',
+  ])("writes %j as one link and reopens it as the same document", async (source) => {
+    const { mounted, reopened, saved } = await saveAndReopen(`${source}\n`);
+
+    expect(saved).toBe(`${source}\n`);
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+});
+
 describe("Raw link destination parentheses", () => {
   it.each([
     {

@@ -6,6 +6,7 @@ import {
   TextSelection,
 } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
 import { isTruthy } from "@/lib/predicates";
 
@@ -15,6 +16,8 @@ import {
   getPreservedCharacterReferenceSource,
   hasCharacterReferenceMark,
 } from "./characterReferenceMarkdown";
+import { isInsideTableCell } from "./codeMarkdown";
+import { readEnclosingInlineConstructs } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
@@ -63,6 +66,7 @@ export interface SourceProjectionTarget extends TextRange {
 
 interface MarkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "mark";
+  constructs: readonly ConstructName[];
   definitions: readonly string[];
   hasSourceOnlyContent: boolean;
   marks: ProjectionMarkDescriptor[];
@@ -300,6 +304,7 @@ const createMarkSourceProjectionTarget = (
   remark: RemarkParser,
 ): MarkSourceProjectionTarget => {
   const originalContent = state.doc.slice(range.from, range.to);
+  const constructs = readEnclosingInlineConstructs(state.doc.resolve(range.from));
   const definitions = getDocumentDefinitionSources(state.doc);
   const serialized = serializeMarkedFragmentSource(
     state,
@@ -308,10 +313,12 @@ const createMarkSourceProjectionTarget = (
     originalContent.content,
     range.marks,
     definitions,
+    constructs,
   );
 
   return {
     adapterId: "mark",
+    constructs,
     definitions,
     from: range.from,
     hasSourceOnlyContent: serialized.hasSourceOnlyContent,
@@ -332,6 +339,7 @@ const createMarkSourceProjectionTargetFromSource = (
   parsed: Extract<ParsedProjectionSource, { type: "mark" }>,
 ): MarkSourceProjectionTarget => ({
   adapterId: "mark",
+  constructs: readEnclosingInlineConstructs(state.doc.resolve(from)),
   // The source is text written this session, where a reference is the literal text it spells
   // until the file is read back.
   definitions: [],
@@ -1133,6 +1141,12 @@ const getAtomicSourceRanges = (map: MarkedFragmentSourceMap): TextRange[] =>
     }));
   });
 
+// A code span in a cell reads its escapes back out of its content, which only the structure maps.
+const readsSourceStructure = (target: MarkSourceProjectionTarget) =>
+  target.hasSourceOnlyContent ||
+  (isInsideTableCell(target.constructs) &&
+    target.marks.some((mark) => mark.markName === "inlineCode"));
+
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>
   !(
     from === to &&
@@ -1152,7 +1166,7 @@ export const createMarkSourceProjectionAdapter = ({
     canCopySelectionSemantically: (selection, session, parsed) => {
       const markTarget = session.target;
 
-      if (!markTarget.hasSourceOnlyContent) {
+      if (!readsSourceStructure(markTarget)) {
         return true;
       }
 
@@ -1161,6 +1175,7 @@ export const createMarkSourceProjectionAdapter = ({
         parser,
         remark,
         markTarget.definitions,
+        markTarget.constructs,
       );
 
       if (!structure) {
@@ -1201,12 +1216,13 @@ export const createMarkSourceProjectionAdapter = ({
     },
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
     getPresentation: (markTarget, source) => {
-      if (markTarget.hasSourceOnlyContent) {
+      if (readsSourceStructure(markTarget)) {
         const structure = createMarkedFragmentSourceStructure(
           source,
           parser,
           remark,
           markTarget.definitions,
+          markTarget.constructs,
         );
 
         if (structure) {
@@ -1247,12 +1263,13 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     mapSelectionFromSource: (selection, session, result) => {
-      if (session.target.hasSourceOnlyContent) {
+      if (readsSourceStructure(session.target)) {
         const structure = createMarkedFragmentSourceStructure(
           result.source,
           parser,
           remark,
           session.target.definitions,
+          session.target.constructs,
         );
 
         if (structure) {
@@ -1333,13 +1350,14 @@ export const createMarkSourceProjectionAdapter = ({
       };
     },
     parseSource: (state, source, markTarget) => {
-      if (markTarget.hasSourceOnlyContent) {
+      if (readsSourceStructure(markTarget)) {
         const richFragment = parseMarkedFragmentSource(
           state,
           source,
           parser,
           remark,
           markTarget.definitions,
+          markTarget.constructs,
         );
 
         if (richFragment) {

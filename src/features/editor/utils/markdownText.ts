@@ -8,7 +8,7 @@ import {
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
 import { resolveLinePrefixes } from "./linePrefixMarkdown";
-import { readLinkLabelConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
+import { readEnclosingConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -1394,10 +1394,8 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
   removeLinkLabelEdges(node);
 
   // `mdast-util-to-markdown` escapes a `]` only inside the label construct, and a `|` only inside a
-  // table cell, neither of which a label written on its own enters.
-  const exitConstructs = (readLinkLabelConstructs() ?? []).map((construct) =>
-    state.enter(construct),
-  );
+  // table cell, neither of which a fragment written on its own enters.
+  const exitConstructs = readEnclosingConstructs().map((construct) => state.enter(construct));
 
   const { labels, parents } = mapDocument(node);
 
@@ -1584,7 +1582,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
     },
     deferrable,
   );
-  if (readLinkLabelConstructs() === null) {
+  if (!readEnclosingConstructs().includes("label")) {
     relaxBracketEscapes(slots, lineNeighbors, documentLabels, deferrable);
   }
 

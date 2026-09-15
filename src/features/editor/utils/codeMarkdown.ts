@@ -1,6 +1,6 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import type { MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
-import { defaultHandlers } from "mdast-util-to-markdown";
+import { defaultHandlers, type ConstructName } from "mdast-util-to-markdown";
 
 import {
   BLOCK_ADJACENT_ATTRIBUTE_NAME,
@@ -402,6 +402,7 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
 const CODE_SPAN_RUN_PATTERN = /^`+/u;
 // The construct the serializer is inside while it writes a cell's content.
 const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
+const CELL_CODE_SPAN_ESCAPE_PATTERN = /\\([\\|])/gu;
 
 type CodeSpanNode = Parameters<typeof defaultHandlers.inlineCode>[0];
 
@@ -473,8 +474,39 @@ export const findCodeSpanRunSurplus = (raw: string, value: string) => {
 // be escaped for the span to survive the split. `mdast-util-gfm-table` carries that rule in an
 // `inlineCode` handler of its own, which a handler registered here replaces, so the rule is
 // reproduced rather than lost. It reaches only the content, since the delimiters are backticks.
+export const escapeCellCodeSpanPipes = (value: string) => value.replaceAll("|", String.raw`\|`);
+
 const withCellPipeEscapes = (value: string, state: StringifyState) =>
-  state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? value.replaceAll("|", String.raw`\|`) : value;
+  state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? escapeCellCodeSpanPipes(value) : value;
+
+// The read side of the same rule: the table takes a backslash back out before a pipe, and leaves one
+// before another backslash as it stands, so it cannot escape the pipe after them.
+export const readCellCodeSpanValue = (content: string) =>
+  content.replaceAll(CELL_CODE_SPAN_ESCAPE_PATTERN, (escape, character: string) =>
+    character === "|" ? character : escape,
+  );
+
+// The source offset each character of the value read from a cell's code span starts at, and the one
+// its content ends at.
+export const readCellCodeSpanBoundaries = (content: string, from: number) => {
+  const boundaries = [from];
+
+  for (let offset = 0; offset < content.length;) {
+    const escaped = content[offset] === "\\" ? content[offset + 1] : undefined;
+
+    if (escaped === "\\") {
+      boundaries.push(from + offset + 1);
+    }
+
+    offset += escaped === "|" || escaped === "\\" ? 2 : 1;
+    boundaries.push(from + offset);
+  }
+
+  return boundaries;
+};
+
+export const isInsideTableCell = (constructs: readonly ConstructName[]) =>
+  constructs.includes(TABLE_CELL_MARKDOWN_TYPE);
 
 // The handler sizes the run to the shortest length the content leaves free and pads the value where
 // a delimiter would otherwise touch a backtick or an edge space, so the run the file was written

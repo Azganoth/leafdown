@@ -1,7 +1,10 @@
+import type { ResolvedPos } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
 
+import { writeInsideConstructs } from "./linkLabelMarkdown";
+import { readEnclosingInlineConstructs } from "./logicalLinkMarkdown";
 import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
@@ -30,13 +33,17 @@ interface EscapeSourceProjectionAdapterDependencies {
   serializer: Serializer;
 }
 
-const serializeEscapedRun = (state: EditorState, serializer: Serializer, text: string) => {
+const serializeEscapedRun = (
+  state: EditorState,
+  serializer: Serializer,
+  text: string,
+  position: ResolvedPos,
+) => {
   const paragraph = state.schema.nodes.paragraph.create(null, state.schema.text(text));
 
-  return serializer(state.schema.nodes.doc.create(null, paragraph)).replace(
-    TRAILING_BLOCK_SEPARATOR_PATTERN,
-    "",
-  );
+  return writeInsideConstructs(readEnclosingInlineConstructs(position), () =>
+    serializer(state.schema.nodes.doc.create(null, paragraph)),
+  ).replace(TRAILING_BLOCK_SEPARATOR_PATTERN, "");
 };
 
 const findEscapeTarget = (
@@ -57,7 +64,7 @@ const findEscapeTarget = (
   }
 
   const text = getTextBetween(state.doc, commit.from, commit.to);
-  const source = serializeEscapedRun(state, serializer, text);
+  const source = serializeEscapedRun(state, serializer, text, selection.$from);
 
   // Do not offer a gesture that would commit serialization changes beyond escaping.
   if (source === text || decodeSourceProjectionEscapes(source) !== text) {

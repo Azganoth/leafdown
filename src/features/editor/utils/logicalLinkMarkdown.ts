@@ -1,9 +1,14 @@
-import { Fragment, Mark, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import {
+  Fragment,
+  Mark,
+  type Node as ProseMirrorNode,
+  type ResolvedPos,
+} from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
 import type { ConstructName } from "mdast-util-to-markdown";
 
-import { writeAsLinkLabel } from "./linkLabelMarkdown";
+import { writeInsideConstructs } from "./linkLabelMarkdown";
 import { readReferenceType } from "./referenceLinkMarkdown";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 
@@ -92,12 +97,12 @@ const serializeLabelContent = (
   constructs: readonly ConstructName[],
 ) => {
   if (!isHardBreak(content.lastChild)) {
-    return writeAsLinkLabel(constructs, () =>
+    return writeInsideConstructs(constructs, () =>
       serializeInlineContent(serializer, document, content),
     );
   }
 
-  const source = writeAsLinkLabel(constructs, () =>
+  const source = writeInsideConstructs(constructs, () =>
     serializeInlineContent(
       serializer,
       document,
@@ -368,7 +373,7 @@ const transformLogicalLinks = (
 };
 
 export const createLogicalLinkMarkdownSerializer =
-  (serializer: Serializer): Serializer =>
+  (serializer: Serializer, constructs: readonly ConstructName[] = []): Serializer =>
   (document) => {
     const serializedDocument = serializer(document);
     const { content, replacements } = transformLogicalLinks(
@@ -376,6 +381,8 @@ export const createLogicalLinkMarkdownSerializer =
       document,
       document,
       serializedDocument,
+      new Set(),
+      [LINK_LABEL_CONSTRUCT, ...constructs],
     );
 
     if (!replacements.length) {
@@ -391,13 +398,27 @@ export const createLogicalLinkMarkdownSerializer =
     );
   };
 
+// The constructs a fragment at this position is written inside, beyond the block holding it.
+export const readEnclosingInlineConstructs = (position: ResolvedPos): ConstructName[] => {
+  for (let depth = position.depth; depth > 0; depth -= 1) {
+    if (TABLE_CELL_NODE_NAMES.has(position.node(depth).type.name)) {
+      return [TABLE_CELL_CONSTRUCT];
+    }
+  }
+
+  return [];
+};
+
 export const serializeLinkRunSource = (
   state: EditorState,
   serializer: Serializer,
   nodes: readonly ProseMirrorNode[],
+  constructs: readonly ConstructName[] = [],
 ) => {
   const paragraph = state.schema.nodes.paragraph.create(null, Fragment.fromArray([...nodes]));
   const document = state.schema.nodes.doc.create(null, paragraph);
 
-  return createLogicalLinkMarkdownSerializer(serializer)(document).replace(/\n$/u, "");
+  return writeInsideConstructs(constructs, () =>
+    createLogicalLinkMarkdownSerializer(serializer, constructs)(document),
+  ).replace(/\n$/u, "");
 };

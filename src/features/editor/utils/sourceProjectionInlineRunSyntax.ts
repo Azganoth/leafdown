@@ -1,11 +1,17 @@
 import { Slice } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { MarkdownNode, Parser, RemarkParser } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   decodeWholeCharacterReference,
 } from "./characterReferenceMarkdown";
+import {
+  isInsideTableCell,
+  readCellCodeSpanBoundaries,
+  readCellCodeSpanValue,
+} from "./codeMarkdown";
 import { findHardBreakRun, HARD_BREAK_MARKDOWN_TYPE, readSoftBreak } from "./hardBreakMarkdown";
 import { getAugmentedParagraph, withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import {
@@ -98,6 +104,7 @@ export interface ParsedInlineRunSource {
 }
 
 interface InlineRunWalkContext {
+  constructs: readonly ConstructName[];
   definitions: readonly string[];
   parser: Parser;
   remark: RemarkParser;
@@ -303,14 +310,16 @@ const addRunInlineCodeSegments = (
   marks: ProjectionMarkDescriptor[],
   documentOffset: number,
 ): number | null => {
-  const value = typeof node.value === "string" ? node.value : null;
+  const content = typeof node.value === "string" ? node.value : null;
   const source = context.source.slice(position.from, position.to);
   const bounds = getProjectionSourceContentBounds(source);
 
-  if (value === null || source.slice(bounds.from, bounds.to) !== value) {
+  if (content === null || source.slice(bounds.from, bounds.to) !== content) {
     return null;
   }
 
+  const isCellCodeSpan = isInsideTableCell(context.constructs);
+  const value = isCellCodeSpan ? readCellCodeSpanValue(content) : content;
   const nested = [...marks, createProjectionMarkDescriptor("inlineCode")];
   const contentFrom = position.from + bounds.from;
   const contentTo = position.from + bounds.to;
@@ -322,8 +331,10 @@ const addRunInlineCodeSegments = (
       documentFrom: documentOffset,
       documentTo: documentOffset + value.length,
       marks: nested,
-      // A code span keeps every character it holds, so no source offset is spent on an escape.
-      sourceBoundaries: createIdentityBoundaries(contentFrom, value.length),
+      // A code span keeps every character it holds, so only the pipes a cell escapes spend source.
+      sourceBoundaries: isCellCodeSpan
+        ? readCellCodeSpanBoundaries(content, contentFrom)
+        : createIdentityBoundaries(contentFrom, value.length),
       sourceFrom: contentFrom,
       sourceTo: contentTo,
       text: value,
@@ -347,7 +358,7 @@ const addRunChildSegment = (
   marks: ProjectionMarkDescriptor[],
   documentOffset: number,
 ): number | null => {
-  const { definitions, parser, remark, segments, source } = context;
+  const { constructs, definitions, parser, remark, segments, source } = context;
   const nodeSource = source.slice(position.from, position.to);
   const markName = MARK_MARKDOWN_TYPES.get(node.type);
 
@@ -382,7 +393,7 @@ const addRunChildSegment = (
   }
 
   if (LINK_MARKDOWN_TYPES.has(node.type)) {
-    const map = createLinkSourceMap(remark, nodeSource, definitions);
+    const map = createLinkSourceMap(remark, nodeSource, definitions, constructs);
 
     if (!map) {
       return null;
@@ -514,8 +525,16 @@ export const createInlineRunSourceStructure = (
   parser: Parser,
   remark: RemarkParser,
   definitions: readonly string[] = [],
+  constructs: readonly ConstructName[] = [],
 ): InlineRunSourceMap | null => {
-  const context: InlineRunWalkContext = { definitions, parser, remark, segments: [], source };
+  const context: InlineRunWalkContext = {
+    constructs,
+    definitions,
+    parser,
+    remark,
+    segments: [],
+    source,
+  };
   const augmented = withProjectionDefinitions(source, definitions);
   let root: MarkdownNode;
 
@@ -558,8 +577,9 @@ export const parseInlineRunSource = (
   parser: Parser,
   remark: RemarkParser,
   definitions: readonly string[] = [],
+  constructs: readonly ConstructName[] = [],
 ): ParsedInlineRunSource | null => {
-  const map = createInlineRunSourceStructure(source, parser, remark, definitions);
+  const map = createInlineRunSourceStructure(source, parser, remark, definitions, constructs);
 
   if (!map) {
     return null;
@@ -573,7 +593,7 @@ export const parseInlineRunSource = (
     return null;
   }
 
-  const paragraph = getAugmentedParagraph(document);
+  const paragraph = getAugmentedParagraph(document, constructs);
 
   // The run commits as the content the file would read it as, so the map is only trusted where it
   // agrees with that content about how much document the source spells.

@@ -1,7 +1,9 @@
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
+import { readEnclosingInlineConstructs } from "./logicalLinkMarkdown";
 import {
   createLiteralSourceProjectionSlice,
   createSourceProjectionProbeState,
@@ -43,6 +45,7 @@ const FOOTNOTE_REFERENCE_CONTENT_CLASS_NAME =
 
 export interface BoundarySourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof BOUNDARY_ADAPTER_ID;
+  constructs: readonly ConstructName[];
   definitions: readonly string[];
   // A run holding an escaped literal run keeps that adapter's rules: it authors nothing, and its
   // commit lands while the caret is still inside it.
@@ -109,6 +112,7 @@ const findBoundaryTarget = (
 
   return {
     adapterId: BOUNDARY_ADAPTER_ID,
+    constructs: readEnclosingInlineConstructs($position),
     definitions: getDocumentDefinitionSources(state.doc),
     from: left.target.from,
     holdsEscape: left.adapter.id === ESCAPE_ADAPTER_ID || right.adapter.id === ESCAPE_ADAPTER_ID,
@@ -244,8 +248,10 @@ export const createBoundarySourceProjectionAdapter = ({
   parser,
   remark,
 }: BoundaryAdapterDependencies): SourceProjectionAdapter<BoundarySourceProjectionTarget> => {
-  const readSourceMap = (source: string, definitions: readonly string[]) =>
-    createInlineRunSourceStructure(source, parser, remark, definitions);
+  const readSourceMap = (
+    source: string,
+    { constructs, definitions }: BoundarySourceProjectionTarget,
+  ) => createInlineRunSourceStructure(source, parser, remark, definitions, constructs);
 
   const mapPositionFromSource = (
     position: number,
@@ -260,7 +266,7 @@ export const createBoundarySourceProjectionAdapter = ({
       return session.from + result.replacementSize + (position - session.to);
     }
 
-    const map = readSourceMap(result.source, session.target.definitions);
+    const map = readSourceMap(result.source, session.target);
     const offset = position - session.from;
     const documentOffset = map
       ? mapInlineRunSourceOffsetToDocument(offset, map)
@@ -292,7 +298,7 @@ export const createBoundarySourceProjectionAdapter = ({
       return target.from + target.seamSourceOffset;
     }
 
-    const map = readSourceMap(target.originalSource, target.definitions);
+    const map = readSourceMap(target.originalSource, target);
 
     return (
       target.from +
@@ -305,7 +311,7 @@ export const createBoundarySourceProjectionAdapter = ({
   return {
     id: BOUNDARY_ADAPTER_ID,
     canCopySelectionSemantically: (selection, session, parsed) => {
-      const map = readSourceMap(parsed.source, session.target.definitions);
+      const map = readSourceMap(parsed.source, session.target);
 
       return map ? isSemanticRunSelection(selection, session, map) : false;
     },
@@ -317,7 +323,7 @@ export const createBoundarySourceProjectionAdapter = ({
       ),
     findTarget: (state) => findBoundaryTarget(state, findSideTarget),
     getPresentation: (target, source) => {
-      const map = readSourceMap(source, target.definitions);
+      const map = readSourceMap(source, target);
 
       return map ? getRunPresentation(source, map) : { previews: [], sourceTypes: [], spans: [] };
     },
@@ -341,8 +347,8 @@ export const createBoundarySourceProjectionAdapter = ({
     // meet, or in the run written there since, which is what the two ends of the run leave over.
     // Once the caret moves into either object's own source, that object owns it and opens alone.
     ownsSelection: (selection, session, source) => {
-      const { definitions, originalContentSize, seamDocumentOffset } = session.target;
-      const map = readSourceMap(source, definitions);
+      const { originalContentSize, seamDocumentOffset } = session.target;
+      const map = readSourceMap(source, session.target);
 
       if (!map) {
         return true;
@@ -362,7 +368,14 @@ export const createBoundarySourceProjectionAdapter = ({
     // The run commits as the content the file would read it as, which is what keeps an object the
     // author did not touch whole and leaves a character written between two of them as text.
     parseSource: (state, source, target) => {
-      const parsed = parseInlineRunSource(state, source, parser, remark, target.definitions);
+      const parsed = parseInlineRunSource(
+        state,
+        source,
+        parser,
+        remark,
+        target.definitions,
+        target.constructs,
+      );
 
       if (parsed) {
         return { replacement: parsed.replacement, replacementSize: parsed.replacementSize, source };

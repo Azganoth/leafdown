@@ -368,7 +368,8 @@ const hasNormalizableInlineCodePadding = (text: string) =>
 
 const createInlineCodeProjectionSource = (text: string, surplus?: number) => {
   const marker = getInlineCodeMarker(text, surplus);
-  const padding = text.startsWith("`") || text.endsWith("`") ? " " : "";
+  const padding =
+    text.startsWith("`") || text.endsWith("`") || hasNormalizableInlineCodePadding(text) ? " " : "";
 
   return `${marker}${padding}${text}${padding}${marker}`;
 };

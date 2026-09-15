@@ -24,7 +24,11 @@ import {
 import { enterProjection, selectFootnoteReference } from "@/test/utils/sourceProjection";
 
 import { runEditorCommand } from "../commands";
-import { hasActiveSourceProjection, pasteIntoSourceProjection } from "./sourceProjection";
+import {
+  getActiveSourceProjectionRange,
+  hasActiveSourceProjection,
+  pasteIntoSourceProjection,
+} from "./sourceProjection";
 
 const mountProjectionEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
@@ -182,6 +186,48 @@ describe("source projection", () => {
       setSelectionAtDocumentEnd(mounted.view);
       expect(mounted.view.state.doc.eq(originalDocument)).toBe(true);
     });
+
+    it.each([
+      { markdown: "a `  code  ` b", source: "`  code  `", text: " code " },
+      { markdown: "a `code ` b", source: "`code `", text: "code " },
+      { markdown: "a ` ` b", source: "` `", text: " " },
+    ])(
+      "projects the whole of $source from every position inside it",
+      async ({ markdown, source, text }) => {
+        const mounted = await mountProjectionEditor(markdown);
+        const originalDocument = mounted.view.state.doc;
+        const paragraphStart = 1;
+        const codeFrom = paragraphStart + "a ".length;
+        const codeTo = codeFrom + text.length;
+        const positions = Array.from(
+          { length: originalDocument.textContent.length + 1 },
+          (_, offset) => paragraphStart + offset,
+        );
+        const observed = positions.map((position) => {
+          setTextSelection(mounted.view, position);
+
+          const range = getActiveSourceProjectionRange(mounted.view.state);
+          const projection = range && {
+            document: getEditorTextContent(mounted),
+            source: mounted.view.state.doc.textBetween(range.from, range.to),
+          };
+
+          setSelectionAtDocumentEnd(mounted.view);
+
+          return { position, projection, restored: mounted.view.state.doc.eq(originalDocument) };
+        });
+
+        expect(observed).toEqual(
+          positions.map((position) => ({
+            position,
+            projection:
+              codeFrom <= position && position <= codeTo ? { document: markdown, source } : null,
+            restored: true,
+          })),
+        );
+        expect(mounted.getMarkdown()).toBe(`${markdown}\n`);
+      },
+    );
 
     it("projects link source as real editable document text", async () => {
       const mounted = await mountProjectionEditor("[Link](https://example.com) plain");
@@ -1466,6 +1512,42 @@ describe("source projection", () => {
 
       expect(mounted.getMarkdown()).toBe("`` Code` `` plain\n");
       expect(getEditorDomElement(mounted, "code")).toHaveTextContent("Code`");
+    });
+
+    it("keeps a space typed against each end of projected inline code as its content", async () => {
+      const mounted = await mountProjectionEditor("a `code` b");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`code`");
+      setTextSelection(mounted.view, sourceStart + "`code".length);
+      typeText(mounted.view, " ");
+      setTextSelection(mounted.view, sourceStart + "`".length);
+      typeText(mounted.view, " ");
+
+      expect(getEditorTextContent(mounted)).toBe("a `  code  ` b");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("a `  code  ` b\n");
+      expect(getEditorDomElement(mounted, "code").textContent).toBe(" code ");
+    });
+
+    it("keeps the padding of inline code with boundary spaces through an edit", async () => {
+      const mounted = await mountProjectionEditor("a `  code  ` b");
+
+      enterProjection(mounted, "code");
+
+      const sourceStart = getEditorTextPosition(mounted, "`  code  `");
+      setTextSelection(mounted.view, sourceStart + "`  c".length);
+      typeText(mounted.view, "X");
+
+      expect(getEditorTextContent(mounted)).toBe("a `  cXode  ` b");
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(mounted.getMarkdown()).toBe("a `  cXode  ` b\n");
+      expect(getEditorDomElement(mounted, "code").textContent).toBe(" cXode ");
     });
 
     it.each([

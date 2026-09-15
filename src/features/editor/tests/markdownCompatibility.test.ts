@@ -2153,6 +2153,109 @@ describe("Code span form", () => {
     );
   });
 
+  describe("holding a backslash before a pipe in a table cell", () => {
+    const getCodeSpanTexts = (mounted: MountedMilkdownEditor) => {
+      const texts: string[] = [];
+
+      mounted.view.state.doc.descendants((node) => {
+        if (node.isText && getMarkNames(node).includes("inlineCode")) {
+          texts.push(node.text ?? "");
+        }
+      });
+
+      return texts;
+    };
+
+    it.each([
+      { content: "b | c", typed: String.raw`${"`"}b \| c${"`"}` },
+      { content: String.raw`b \\| c`, typed: String.raw`${"`"}b \\\| c${"`"}` },
+    ])("reads typed $typed as the cell reads it", async ({ content, typed }) => {
+      const mounted = await mountEditor("| h | i |\n| - | - |\n| a q d | x |\n\nend\n");
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "q") + 1);
+      typeText(mounted.view, typed);
+      setSelectionAtDocumentEnd(mounted.view);
+
+      expect(getCodeSpanTexts(mounted)).toEqual([content]);
+
+      const cell = `a q${typed} d`;
+      const saved = mounted.getMarkdown();
+
+      expect(saved).toBe(
+        `| ${"h".padEnd(cell.length)} | i |\n| ${"-".repeat(cell.length)} | - |\n| ${cell} | x |\n\nend\n`,
+      );
+
+      const reopened = await mountEditor(saved);
+
+      setSelectionAtDocumentEnd(reopened.view);
+
+      expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+    });
+
+    it("keeps the backslash in a span typed outside a table", async () => {
+      const typed = String.raw`${"`"}b \| c${"`"}`;
+      const mounted = await mountEditor("end\n");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      typeText(mounted.view, ` ${typed}`);
+
+      expect(getCodeSpanTexts(mounted)).toEqual([String.raw`b \| c`]);
+      expect(mounted.getMarkdown()).toBe(`end ${typed}\n`);
+    });
+
+    // The split pairs backslashes from the left, so content ending an odd run of them on a pipe has
+    // no spelling that reads back. It is written as it stands, which keeps the row.
+    it.each([
+      { cell: String.raw`${"`"}b \| c${"`"}`, reopened: "b | c", source: String.raw`b \| c` },
+      {
+        cell: String.raw`${"`"}b \\\| c${"`"}`,
+        reopened: String.raw`b \\| c`,
+        source: String.raw`b \\| c`,
+      },
+      {
+        cell: String.raw`${"`"}b \\\| c${"`"}`,
+        reopened: String.raw`b \\| c`,
+        source: String.raw`b \\\| c`,
+      },
+      {
+        cell: String.raw`${"`"}b \|\| c${"`"}`,
+        reopened: "b || c",
+        source: String.raw`b \|| c`,
+      },
+    ])(
+      "writes a span holding $source moved into a cell as $cell",
+      async ({ cell, reopened, source }) => {
+        const span = `\`${source}\``;
+        const mounted = await mountEditor(`| h |\n| - |\n| x |\n\n${span}\n\nend\n`);
+        const { view } = mounted;
+        const from = getEditorTextPosition(mounted, source);
+        const target = getEditorTextPosition(mounted, "x");
+
+        view.dispatch(
+          view.state.tr.replace(
+            target,
+            target + 1,
+            view.state.doc.slice(from, from + source.length),
+          ),
+        );
+        setSelectionAtDocumentEnd(view);
+
+        const saved = mounted.getMarkdown();
+
+        expect(saved).toBe(
+          `| ${"h".padEnd(cell.length)} |\n| ${"-".repeat(cell.length)} |\n| ${cell} |\n\n${span}\n\nend\n`,
+        );
+
+        const reopenedEditor = await mountEditor(saved);
+
+        setSelectionAtDocumentEnd(reopenedEditor.view);
+
+        expect(getTableCellTexts(reopenedEditor)).toEqual([["h"], [reopened]]);
+        expect(getCodeSpanTexts(reopenedEditor)).toEqual([reopened, source]);
+      },
+    );
+  });
+
   // A run has to be one the content leaves free, so the length the file wrote is a floor the
   // content can still raise rather than a number written back whatever the span now holds.
   it("raises a recorded run the content has outgrown", async () => {

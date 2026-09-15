@@ -25,6 +25,7 @@ import {
   headingSchema,
   hrSchema,
   htmlSchema,
+  inlineCodeInputRule,
   inlineCodeKeymap,
   inlineCodeSchema,
   linkSchema,
@@ -63,6 +64,7 @@ import {
 } from "../plugins/characterReference";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
+import { createLeafdownCodeSpanInputRule } from "../plugins/codeSpanInputRule";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
 import {
@@ -267,6 +269,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFootnoteNavigationPlugin())
     .use(createLeafdownFootnotePreviewPlugin(footnotePreview))
     .use(createLeafdownStrikethroughInputRule())
+    .use(createLeafdownCodeSpanInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
     .use(createLeafdownCommandKeymapPlugin(runCommand))
     .use(history)
@@ -491,6 +494,7 @@ export const createMilkdownEditor = async ({
   await configuredEditor.remove(remarkInlineLinkPlugin);
 
   await configuredEditor.remove(strikethroughInputRule);
+  await configuredEditor.remove(inlineCodeInputRule);
 
   return configuredEditor;
 };

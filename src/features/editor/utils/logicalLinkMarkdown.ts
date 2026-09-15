@@ -235,10 +235,15 @@ const createLogicalLinkReplacement = (
     Fragment.fromArray(nodes.map((node) => node.mark(getMarksWithout(node.marks, removedMarks)))),
   );
   const { schema } = document.type;
-  const labelSource = serializeLabelContent(serializer, document, labelContent, token, constructs);
+  const labelSource = serializeLabelContent(serializer, document, labelContent, token, [
+    LINK_LABEL_CONSTRUCT,
+    ...constructs,
+  ]);
   const linkedToken = schema.text(`${leading}${token}${trailing}`, [linkMark]);
   const linkSource = writeLinkSource(
-    serializeInlineContent(serializer, document, Fragment.from(linkedToken)),
+    writeInsideConstructs(constructs, () =>
+      serializeInlineContent(serializer, document, Fragment.from(linkedToken)),
+    ),
     token,
     labelSource,
     linkMark,
@@ -330,7 +335,7 @@ const transformLogicalLinks = (
   node: ProseMirrorNode,
   serializedDocument: string,
   usedOpenings = new Set<string>(),
-  constructs: readonly ConstructName[] = [LINK_LABEL_CONSTRUCT],
+  constructs: readonly ConstructName[] = [],
 ): TransformLogicalLinksResult => {
   if (node.isTextblock) {
     return transformTextBlockContent(
@@ -382,7 +387,7 @@ export const createLogicalLinkMarkdownSerializer =
       document,
       serializedDocument,
       new Set(),
-      [LINK_LABEL_CONSTRUCT, ...constructs],
+      constructs,
     );
 
     if (!replacements.length) {

@@ -1205,6 +1205,53 @@ describe("Escapes inside a mixed-format link label", () => {
   });
 });
 
+// A mixed-format link's text is written apart from the rest of the link, so what follows the text
+// has to keep the cell's delimiter literal on its own.
+describe("Escapes after a mixed-format link's text in a table cell", () => {
+  const createTable = (cell: string) =>
+    `| ${"h".padEnd(cell.length)} | i |\n| ${"-".repeat(cell.length)} | - |\n| ${cell} | x |\n`;
+  const createHeaderTable = (cell: string) =>
+    `| ${cell} | i |\n| ${"-".repeat(cell.length)} | - |\n| ${"x".padEnd(cell.length)} | y |\n`;
+
+  it.each([
+    { name: "a destination", source: createTable(String.raw`a [**b** c](./a\|b.md) d`) },
+    { name: "a title", source: createTable(String.raw`a [**b** c](./doc.md "t\|u") d`) },
+    {
+      name: "a destination and a title",
+      source: createTable(String.raw`a [**b** c](./a\|b.md "t\|u") d`),
+    },
+    {
+      name: "a destination in a header cell",
+      source: createHeaderTable(String.raw`a [**b** c](./a\|b.md) d`),
+    },
+  ])(
+    "writes the escaped pipe in $name as authored and reopens the same row",
+    async ({ source }) => {
+      const mounted = await mountEditor(source);
+      const document: unknown = mounted.view.state.doc.toJSON();
+
+      expect(mounted.getMarkdown()).toBe(source);
+
+      const reopened = await mountEditor(mounted.getMarkdown());
+
+      expect(reopened.view.state.doc.toJSON()).toEqual(document);
+    },
+  );
+
+  it.each([String.raw`(./a\|b.md)`, String.raw`(./doc.md "t\|u")`])(
+    "writes %j after a mixed-format link's text as it writes it after a uniform one",
+    async (tail) => {
+      const write = async (label: string) => {
+        const mounted = await mountEditor(`| h |\n| - |\n| a [${label}]${tail} d |\n`);
+
+        return mounted.getMarkdown().replaceAll(/[ -]+\|/gu, "|");
+      };
+
+      expect((await write("**b** c")).replace("**b**", "b")).toBe(await write("b c"));
+    },
+  );
+});
+
 describe("Raw HTML inside a mixed-format link label", () => {
   it.each([
     "a [**x** y<br>z](./doc.md) b",

@@ -147,17 +147,27 @@ export interface ReferenceSpan {
   start: number;
 }
 
+interface SourceWalk {
+  // Where in the source each value offset begins. An offset inside the text one reference names
+  // has no source of its own and is absent.
+  boundaries: Map<number, number>;
+  spans: ReferenceSpan[];
+}
+
 // Walks the authored source against the value the parser produced from it. The two run together
 // except where the source spends more characters than the value keeps, which is an escape or a
 // character reference; anything else means the value was not built from this slice, and the caller
 // falls back to holding no reference at all rather than to a guess.
-export const findCharacterReferences = (source: string, value: string): ReferenceSpan[] | null => {
+const walkValueSource = (source: string, value: string): SourceWalk | null => {
+  const boundaries = new Map<number, number>();
   const spans: ReferenceSpan[] = [];
   let sourceIndex = 0;
   let valueIndex = 0;
 
   while (sourceIndex < source.length || valueIndex < value.length) {
     const character = source[sourceIndex];
+
+    boundaries.set(valueIndex, sourceIndex);
 
     if (character === "&") {
       const reference = readCharacterReference(source, sourceIndex);
@@ -199,8 +209,13 @@ export const findCharacterReferences = (source: string, value: string): Referenc
     }
   }
 
-  return spans;
+  boundaries.set(valueIndex, sourceIndex);
+
+  return { boundaries, spans };
 };
+
+export const findCharacterReferences = (source: string, value: string): ReferenceSpan[] | null =>
+  walkValueSource(source, value)?.spans ?? null;
 
 const DESTINATION_WHITESPACE_PATTERN = /[\t\n\f\r ]/u;
 
@@ -537,6 +552,49 @@ const advanceSourcePoint = (
   }
 
   return { column, line, offset: point.offset + to - from };
+};
+
+export interface SourcePosition {
+  end: SourcePoint;
+  start: SourcePoint;
+}
+
+// The positions of consecutive pieces of one value, cut from the source that value was built from.
+// Returns null where the value was not built from this source, or where a piece ends inside the
+// text one reference names, which no source position describes.
+export const positionValuePieces = (
+  pieces: readonly string[],
+  source: string,
+  start: SourcePoint,
+): SourcePosition[] | null => {
+  const walk = walkValueSource(source, pieces.join(""));
+
+  if (!walk) {
+    return null;
+  }
+
+  const positions: SourcePosition[] = [];
+  let point = start;
+  let sourceCursor = 0;
+  let valueCursor = 0;
+
+  for (const piece of pieces) {
+    valueCursor += piece.length;
+
+    const sourceEnd = walk.boundaries.get(valueCursor);
+
+    if (sourceEnd === undefined) {
+      return null;
+    }
+
+    const end = advanceSourcePoint(point, source, sourceCursor, sourceEnd);
+
+    positions.push({ end, start: point });
+    point = end;
+    sourceCursor = sourceEnd;
+  }
+
+  return positions;
 };
 
 // Splits one text node into the runs a reference covers and the runs it does not, so the parser

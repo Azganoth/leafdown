@@ -2,6 +2,7 @@ import { Fragment, Mark, Slice, type Node as ProseMirrorNode } from "@milkdown/k
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
 import { isTruthy } from "@/lib/predicates";
 
@@ -10,7 +11,7 @@ import {
   getPreservedCharacterReferenceSource,
   hasCharacterReferenceMark,
 } from "./characterReferenceMarkdown";
-import { serializeLinkRunSource } from "./logicalLinkMarkdown";
+import { readEnclosingInlineConstructs, serializeLinkRunSource } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtSelection } from "./marks";
 import {
   createLiteralSourceProjectionSlice,
@@ -68,6 +69,7 @@ const isSupportedLinkNode = (node: ProseMirrorNode) =>
 interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof LINK_ADAPTER_ID;
   ambientMarks: readonly Mark[];
+  constructs: readonly ConstructName[];
   definitions: readonly string[];
   sourceMap: LinkSourceMap;
 }
@@ -147,11 +149,13 @@ const serializeLinkTarget = (
   serializer: Serializer,
   nodes: readonly ProseMirrorNode[],
   ambientMarks: readonly Mark[],
+  constructs: readonly ConstructName[],
 ) =>
   serializeLinkRunSource(
     state,
     serializer,
     nodes.map((node) => node.mark(node.marks.filter((mark) => !mark.isInSet(ambientMarks)))),
+    constructs,
   );
 
 // A link nested inside a projected label produces source the label cannot describe.
@@ -210,9 +214,10 @@ const findLinkTarget = (
   }
 
   const ambientMarks = getAmbientLinkMarks(state, nodes, linkMark, range.from, range.to);
-  const originalSource = serializeLinkTarget(state, serializer, nodes, ambientMarks);
+  const constructs = readEnclosingInlineConstructs(selection.$from);
+  const originalSource = serializeLinkTarget(state, serializer, nodes, ambientMarks, constructs);
   const definitions = getDocumentDefinitionSources(state.doc);
-  const sourceMap = createLinkSourceMap(remark, originalSource, definitions);
+  const sourceMap = createLinkSourceMap(remark, originalSource, definitions, constructs);
 
   if (!sourceMap || sourceMap.documentSize !== range.to - range.from) {
     return null;
@@ -221,6 +226,7 @@ const findLinkTarget = (
   return {
     adapterId: LINK_ADAPTER_ID,
     ambientMarks,
+    constructs,
     definitions,
     from: range.from,
     originalContent: state.doc.slice(range.from, range.to),
@@ -252,8 +258,9 @@ const parseLinkSource = (
   remark: RemarkParser,
   ambientMarks: readonly Mark[],
   definitions: readonly string[],
+  constructs: readonly ConstructName[],
 ): ParsedLinkSource | null => {
-  const map = createLinkSourceMap(remark, source, definitions);
+  const map = createLinkSourceMap(remark, source, definitions, constructs);
 
   if (!map) {
     return null;
@@ -267,7 +274,7 @@ const parseLinkSource = (
     return null;
   }
 
-  const paragraph = getAugmentedParagraph(document);
+  const paragraph = getAugmentedParagraph(document, constructs);
 
   if (!paragraph?.isTextblock || paragraph.type !== state.schema.nodes.paragraph) {
     return null;
@@ -353,7 +360,15 @@ const findLiteralLinkSourceCommit = (
   const source = text.slice(bounds.from, bounds.to);
   // A reference typed into the document stays the literal text it spells until the file is read
   // back, so the definitions the document holds are deliberately left out here.
-  const parsed = parseLinkSource(state, source, parser, remark, [], []);
+  const parsed = parseLinkSource(
+    state,
+    source,
+    parser,
+    remark,
+    [],
+    [],
+    readEnclosingInlineConstructs($position),
+  );
 
   if (parsed) {
     return { ...commitRange, replacement: parsed.replacement };
@@ -723,14 +738,24 @@ export const createLinkSourceProjectionAdapter = ({
     isLinkSelectionSemantic(
       selection,
       session,
-      createLinkSourceMap(remark, parsed.source, session.target.definitions),
+      createLinkSourceMap(
+        remark,
+        parsed.source,
+        session.target.definitions,
+        session.target.constructs,
+      ),
     ),
   createEnterTransaction: createEnterLinkProjectionTransaction,
   findLiteralSourceCommit: (state, range) =>
     findLiteralLinkSourceCommit(state, range, parser, remark),
   findTarget: (state) => findLinkTarget(state, serializer, remark),
   getPresentation: (linkTarget, source) => {
-    const parsedMap = createLinkSourceMap(remark, source, linkTarget.definitions);
+    const parsedMap = createLinkSourceMap(
+      remark,
+      source,
+      linkTarget.definitions,
+      linkTarget.constructs,
+    );
     const map = getLinkPresentationMap(parsedMap ?? linkTarget.sourceMap, linkTarget.ambientMarks);
     const references = parsedMap ? findLinkSourceCharacterReferences(source, map) : [];
 
@@ -753,7 +778,12 @@ export const createLinkSourceProjectionAdapter = ({
     };
   },
   mapSelectionFromSource: (selection, session, result) => {
-    const map = createLinkSourceMap(remark, result.source, session.target.definitions);
+    const map = createLinkSourceMap(
+      remark,
+      result.source,
+      session.target.definitions,
+      session.target.constructs,
+    );
 
     return {
       anchor: mapSelectionPositionFromSource(selection.anchor, session, result, map),
@@ -770,8 +800,16 @@ export const createLinkSourceProjectionAdapter = ({
       head: mapSelectionPositionToSource(selection.head, linkTarget, headAssociation),
     };
   },
-  parseSource: (state, source, { ambientMarks, definitions }) => {
-    const parsed = parseLinkSource(state, source, parser, remark, ambientMarks, definitions);
+  parseSource: (state, source, { ambientMarks, constructs, definitions }) => {
+    const parsed = parseLinkSource(
+      state,
+      source,
+      parser,
+      remark,
+      ambientMarks,
+      definitions,
+      constructs,
+    );
 
     if (parsed) {
       return {

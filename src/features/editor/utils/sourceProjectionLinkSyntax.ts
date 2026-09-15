@@ -1,4 +1,5 @@
 import type { MarkdownNode, RemarkParser } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
 import { isTruthy } from "@/lib/predicates";
 
@@ -6,6 +7,7 @@ import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   readCharacterReference,
 } from "./characterReferenceMarkdown";
+import { isInsideTableCell, readCellCodeSpanValue } from "./codeMarkdown";
 import { findHardBreakRun, HARD_BREAK_MARKDOWN_TYPE } from "./hardBreakMarkdown";
 import { withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import { getFootnoteReferenceSourceBounds } from "./sourceProjectionFootnoteReferenceSyntax";
@@ -262,6 +264,7 @@ export const createLinkSourceMap = (
   remark: RemarkParser,
   source: string,
   definitions: readonly string[] = [],
+  constructs: readonly ConstructName[] = [],
 ): LinkSourceMap | null => {
   const parseSource = withProjectionDefinitions(source, definitions);
   let root: MarkdownNode;
@@ -356,7 +359,10 @@ export const createLinkSourceMap = (
     const nextAncestorTypes = [...ancestorTypes, node.type];
 
     if (node.type === "text" || node.type === "inlineCode") {
-      const value = getMarkdownNodeValue(node);
+      const value =
+        node.type === "inlineCode" && isInsideTableCell(constructs)
+          ? readCellCodeSpanValue(getMarkdownNodeValue(node))
+          : getMarkdownNodeValue(node);
       const position =
         node.type === "inlineCode"
           ? getInlineCodeSourceRange(source, node)

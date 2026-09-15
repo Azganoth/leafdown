@@ -6,6 +6,7 @@ import {
 } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { MarkdownNode, Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
+import type { ConstructName } from "mdast-util-to-markdown";
 
 import {
   CHARACTER_REFERENCE_MARK_NAME,
@@ -14,6 +15,12 @@ import {
   decodeWholeCharacterReference,
   getPreservedCharacterReferenceSource,
 } from "./characterReferenceMarkdown";
+import {
+  escapeCellCodeSpanPipes,
+  isInsideTableCell,
+  readCellCodeSpanBoundaries,
+  readCellCodeSpanValue,
+} from "./codeMarkdown";
 import {
   HARD_BREAK_MARKDOWN_TYPE,
   HARD_BREAK_RUN_ATTRIBUTE_NAME,
@@ -46,6 +53,7 @@ import {
   createProjectionSource,
   getProjectionSourceContentBounds,
   parseProjectionSource,
+  type ParsedProjectionSource,
   type ProjectionMarkDescriptor,
 } from "./sourceProjectionSyntax";
 
@@ -163,6 +171,7 @@ const parseLinkSourceNodes = (
   marks: readonly Mark[],
   documentSize: number,
   definitions: readonly string[],
+  constructs: readonly ConstructName[],
 ) => {
   let document: ProseMirrorNode;
 
@@ -172,7 +181,7 @@ const parseLinkSourceNodes = (
     return null;
   }
 
-  const paragraph = getAugmentedParagraph(document);
+  const paragraph = getAugmentedParagraph(document, constructs);
 
   if (paragraph?.type !== state.schema.nodes.paragraph || paragraph.content.size !== documentSize) {
     return null;
@@ -227,6 +236,38 @@ const addTextMapSegment = (
   );
 
   return documentOffset + text.length;
+};
+
+const isCellCodeSpan = (
+  marks: readonly ProjectionMarkDescriptor[],
+  constructs: readonly ConstructName[],
+) => isInsideTableCell(constructs) && marks.some((mark) => mark.markName === "inlineCode");
+
+const createCellCodeSpanStructure = (
+  source: string,
+  parsed: Extract<ParsedProjectionSource, { type: "mark" }>,
+): MarkedFragmentSourceStructure | null => {
+  const { from, to } = getProjectionSourceContentBounds(source);
+  const content = source.slice(from, to);
+
+  // A line ending the content spells is read as a space, which no cell holds.
+  if (content !== parsed.text) {
+    return null;
+  }
+
+  const value = readCellCodeSpanValue(content);
+
+  return {
+    map: {
+      contentFrom: from,
+      contentTo: to,
+      documentSize: value.length,
+      segments: value
+        ? [createTextSegment(0, from, to, value, readCellCodeSpanBoundaries(content, from))]
+        : [],
+    },
+    marks: parsed.marks,
+  };
 };
 
 const createMarkedLiteralStructure = (
@@ -349,12 +390,13 @@ const getEscapedFragmentContent = (
   serializer: Serializer,
   nodes: readonly ProseMirrorNode[],
   marks: ProjectionMarkDescriptor[],
+  constructs: readonly ConstructName[],
 ) => {
   if (!nodes.length || marks.some((mark) => mark.markName === "inlineCode")) {
     return null;
   }
 
-  const serialized = serializeLinkRunSource(state, serializer, nodes);
+  const serialized = serializeLinkRunSource(state, serializer, nodes, constructs);
   const parsed = parseProjectionSource(serialized);
 
   if (
@@ -377,6 +419,7 @@ export const serializeMarkedFragmentSource = (
   content: Fragment,
   marks: ProjectionMarkDescriptor[],
   definitions: readonly string[],
+  constructs: readonly ConstructName[],
 ): SerializedMarkedFragmentSource => {
   const nodes: ProseMirrorNode[] = [];
 
@@ -388,7 +431,7 @@ export const serializeMarkedFragmentSource = (
   let documentOffset = 0;
   let sourceOffset = 0;
   let index = 0;
-  let escapedContent = getEscapedFragmentContent(state, serializer, nodes, marks);
+  let escapedContent = getEscapedFragmentContent(state, serializer, nodes, marks, constructs);
   let escapedOffset = 0;
 
   while (index < nodes.length) {
@@ -419,6 +462,9 @@ export const serializeMarkedFragmentSource = (
       isPlainText && escapedContent !== null
         ? readTextSourceBoundaries(escapedContent, escapedOffset, text)
         : null;
+    // A code span is written without the serializer, so the escape a cell needs is spelled here.
+    const cellCodeSource =
+      isPlainText && isCellCodeSpan(marks, constructs) ? escapeCellCodeSpanPipes(text) : null;
     const escapedText =
       escapedContent !== null && escapedTextBoundaries
         ? escapedContent.slice(
@@ -433,9 +479,11 @@ export const serializeMarkedFragmentSource = (
           runNodes.map((runNode) =>
             runNode.mark(runNode.marks.filter((mark) => !wrappingMarkNames.has(mark.type.name))),
           ),
+          constructs,
         )
       : (referenceSource ??
         escapedText ??
+        cellCodeSource ??
         breakSource ??
         (node.isText ? text : serializeFootnoteReference(state, serializer, node)));
     const sourceTo = sourceOffset + nodeSource.length;
@@ -453,7 +501,7 @@ export const serializeMarkedFragmentSource = (
     }
 
     if (linkMark) {
-      const map = createLinkSourceMap(remark, nodeSource, definitions);
+      const map = createLinkSourceMap(remark, nodeSource, definitions, constructs);
 
       innerSegments.push({
         documentFrom: documentOffset,
@@ -490,7 +538,9 @@ export const serializeMarkedFragmentSource = (
           // The walk ran over the fragment the serializer wrote, so its offsets are rebased onto
           // the source being joined here.
           escapedTextBoundaries?.map((boundary) => sourceOffset + boundary - escapedStart) ??
-            createIdentityBoundaries(sourceOffset, text.length),
+            (cellCodeSource === null
+              ? createIdentityBoundaries(sourceOffset, text.length)
+              : readCellCodeSpanBoundaries(cellCodeSource, sourceOffset)),
         ),
       );
     } else {
@@ -553,11 +603,18 @@ export const createMarkedFragmentSourceStructure = (
   parser: Parser,
   remark: RemarkParser,
   definitions: readonly string[] = [],
+  constructs: readonly ConstructName[] = [],
 ): MarkedFragmentSourceStructure | null => {
   const parsed = parseProjectionSource(source);
 
-  if (parsed.type !== "mark" || parsed.marks.some((mark) => mark.markName === "inlineCode")) {
+  if (parsed.type !== "mark") {
     return null;
+  }
+
+  if (parsed.marks.some((mark) => mark.markName === "inlineCode")) {
+    return isCellCodeSpan(parsed.marks, constructs)
+      ? createCellCodeSpanStructure(source, parsed)
+      : null;
   }
 
   const validation = getValidatedMarkdownChildren(source, remark, parsed.marks, definitions);
@@ -612,6 +669,7 @@ export const createMarkedFragmentSourceStructure = (
         remark,
         source.slice(position.from, position.to),
         definitions,
+        constructs,
       );
 
       if (!map) {
@@ -703,8 +761,15 @@ export const parseMarkedFragmentSource = (
   parser: Parser,
   remark: RemarkParser,
   definitions: readonly string[],
+  constructs: readonly ConstructName[],
 ): ParsedMarkedFragmentSource | null => {
-  const structure = createMarkedFragmentSourceStructure(source, parser, remark, definitions);
+  const structure = createMarkedFragmentSourceStructure(
+    source,
+    parser,
+    remark,
+    definitions,
+    constructs,
+  );
 
   if (!structure) {
     return null;
@@ -744,6 +809,7 @@ export const parseMarkedFragmentSource = (
         documentMarks,
         segment.documentTo - segment.documentFrom,
         definitions,
+        constructs,
       );
 
       isValid &&= linkNodes !== null;

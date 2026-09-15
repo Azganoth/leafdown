@@ -42,26 +42,30 @@ export const withLinkLabelWhitespace = (schema: MarkSchema): MarkSchema => {
   };
 };
 
-let linkLabelConstructs: readonly ConstructName[] | null = null;
+let enclosingConstructs: readonly ConstructName[] = [];
 
 // A label whose formatting is mixed is written on its own and stood into its block as a placeholder,
 // so neither pass sees the brackets the label is written between, nor the cell a table writes it in.
-// A `[`, a `]`, and the `(` a `]` stands before read as the label's own delimiters wherever they fall
-// in it, and a `|` closes the cell, so the constructs the label is written inside are named here for
-// the passes that decide an escape.
-export const writeAsLinkLabel = <T>(constructs: readonly ConstructName[], write: () => T): T => {
-  const enclosing = linkLabelConstructs;
+// A projected fragment is written on its own as well, outside the cell holding it. A `[`, a `]`, and
+// the `(` a `]` stands before read as a label's own delimiters wherever they fall in it, and a `|`
+// closes the cell, so the constructs the fragment is written inside are named here for the passes
+// that decide an escape.
+export const writeInsideConstructs = <T>(
+  constructs: readonly ConstructName[],
+  write: () => T,
+): T => {
+  const enclosing = enclosingConstructs;
 
-  linkLabelConstructs = constructs;
+  enclosingConstructs = constructs;
 
   try {
     return write();
   } finally {
-    linkLabelConstructs = enclosing;
+    enclosingConstructs = enclosing;
   }
 };
 
-export const readLinkLabelConstructs = () => linkLabelConstructs;
+export const readEnclosingConstructs = () => enclosingConstructs;
 
 export const removeLinkLabelEdges = (node: MarkdownTree) => {
   const children = node.children ?? [];

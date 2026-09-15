@@ -403,6 +403,7 @@ const CODE_SPAN_RUN_PATTERN = /^`+/u;
 // The construct the serializer is inside while it writes a cell's content.
 const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
 const CELL_CODE_SPAN_ESCAPE_PATTERN = /\\([\\|])/gu;
+const CELL_CODE_SPAN_PIPE_PATTERN = /(\\*)\|/gu;
 
 type CodeSpanNode = Parameters<typeof defaultHandlers.inlineCode>[0];
 
@@ -474,7 +475,13 @@ export const findCodeSpanRunSurplus = (raw: string, value: string) => {
 // be escaped for the span to survive the split. `mdast-util-gfm-table` carries that rule in an
 // `inlineCode` handler of its own, which a handler registered here replaces, so the rule is
 // reproduced rather than lost. It reaches only the content, since the delimiters are backticks.
-export const escapeCellCodeSpanPipes = (value: string) => value.replaceAll("|", String.raw`\|`);
+// The split pairs backslashes from the left, so an escape written after an odd run pairs with its
+// last backslash and leaves the pipe bare. No spelling reads such content back, so it is written as
+// it stands, which keeps the row and gives up that backslash.
+export const escapeCellCodeSpanPipes = (value: string) =>
+  value.replaceAll(CELL_CODE_SPAN_PIPE_PATTERN, (pipe, run: string) =>
+    run.length % 2 === 0 ? `${run}\\|` : pipe,
+  );
 
 const withCellPipeEscapes = (value: string, state: StringifyState) =>
   state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? escapeCellCodeSpanPipes(value) : value;
@@ -485,6 +492,12 @@ export const readCellCodeSpanValue = (content: string) =>
   content.replaceAll(CELL_CODE_SPAN_ESCAPE_PATTERN, (escape, character: string) =>
     character === "|" ? character : escape,
   );
+
+// The offset of each backslash the read takes out of a cell's code span content.
+export const findCellCodeSpanPipeEscapes = (content: string) =>
+  Array.from(content.matchAll(CELL_CODE_SPAN_ESCAPE_PATTERN))
+    .filter((escape) => escape[1] === "|")
+    .map((escape) => escape.index);
 
 // The source offset each character of the value read from a cell's code span starts at, and the one
 // its content ends at.

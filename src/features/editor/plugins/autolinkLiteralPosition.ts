@@ -86,8 +86,9 @@ const restorePositions = (node: MarkdownNode, source: string, record: ChildrenRe
   const recorded = record.get(node);
 
   if (recorded) {
+    const kept = new Set(children);
     const rebuilt = recorded.filter(
-      (child) => child.type === TEXT_MARKDOWN_TYPE && !children.includes(child),
+      (child) => child.type === TEXT_MARKDOWN_TYPE && !kept.has(child),
     );
     const runs: MarkdownNode[][] = [];
     let run: MarkdownNode[] | null = null;

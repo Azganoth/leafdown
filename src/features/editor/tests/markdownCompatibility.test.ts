@@ -4060,6 +4060,11 @@ describe("Autolink literals read from decoded text", () => {
       initial: "> quote\n> more &#x20;www.example.com",
       name: "a reference on a quote's later line",
     },
+    {
+      initial:
+        "| &#x20;www.example.com b | c |\n| ----------------------- | - |\n| d                       | e |",
+      name: "a reference opening a table cell",
+    },
     { initial: 'a "www.example.com"', name: "a quote" },
     { initial: "a;www.example.com", name: "a semicolon" },
     { initial: 'a "www.example.com" and "www.example.org"', name: "a quote, twice" },

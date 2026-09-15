@@ -4,6 +4,7 @@ import type { Serializer } from "@milkdown/kit/transformer";
 import type { ConstructName } from "mdast-util-to-markdown";
 
 import { writeAsLinkLabel } from "./linkLabelMarkdown";
+import { readReferenceType } from "./referenceLinkMarkdown";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
 
 interface LogicalLinkReplacement {
@@ -181,6 +182,34 @@ const createLogicalLinkToken = (
   }
 };
 
+// `mdast-util-to-markdown` writes a shortcut or collapsed reference only where the label it wrote
+// spells the reference, which a token never does, so the link is written with the full reference
+// and its authored form is chosen once the label's own source stands in for the token.
+const writeLinkSource = (
+  tokenSource: string,
+  token: string,
+  labelSource: string,
+  linkMark: Mark,
+) => {
+  const source = tokenSource.replace(token, () => labelSource);
+  const referenceType = readReferenceType(linkMark.attrs);
+
+  if (referenceType !== "collapsed" && referenceType !== "shortcut") {
+    return source;
+  }
+
+  // Only the whitespace at the label's edges stands beside the token, so the first `][` after it
+  // closes the label.
+  const labelEnd = tokenSource.indexOf("][", tokenSource.indexOf(token) + token.length);
+  const label = tokenSource.slice(1, labelEnd).replace(token, () => labelSource);
+
+  if (label !== tokenSource.slice(labelEnd + 2, -1)) {
+    return source;
+  }
+
+  return referenceType === "shortcut" ? `[${label}]` : `[${label}][]`;
+};
+
 const createLogicalLinkReplacement = (
   serializer: Serializer,
   document: ProseMirrorNode,
@@ -203,9 +232,12 @@ const createLogicalLinkReplacement = (
   const { schema } = document.type;
   const labelSource = serializeLabelContent(serializer, document, labelContent, token, constructs);
   const linkedToken = schema.text(`${leading}${token}${trailing}`, [linkMark]);
-  const linkSource = serializeInlineContent(serializer, document, Fragment.from(linkedToken))
-    .replace(token, () => labelSource)
-    .split("\n");
+  const linkSource = writeLinkSource(
+    serializeInlineContent(serializer, document, Fragment.from(linkedToken)),
+    token,
+    labelSource,
+    linkMark,
+  ).split("\n");
   // The placeholder spans the lines the link is written across, one token to a line, so the block
   // holding it writes each line under its own prefix and chooses its form knowing the lines break.
   const tokens = linkSource.map((lineSource) =>

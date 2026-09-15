@@ -2802,6 +2802,12 @@ describe("Reference link and image form", () => {
     // A reference inside a mark, and a mark inside a reference's label.
     `${DEFINITION}\n\n**[Full reference][garden report]**`,
     `${DEFINITION}\n\n[*Full* reference][garden report]`,
+    // A label mixing formatting is written apart from the link, and keeps the form it spells.
+    "[**Mixed** report]: /mixed\n\n[**Mixed** report]",
+    "[**Mixed** report]: /mixed\n\n[**Mixed** report][]",
+    "[**Mixed** report]: /mixed\n\n> [**Mixed** report]",
+    "[**Mixed** report]: /mixed\n\n[ **Mixed** report ] and [**MIXED**  report][]",
+    "[**Mixed** report]: /mixed\n\n| [**Mixed** report] |\n| ------------------ |",
   ])("writes the reference in %j as it was authored", async (source) => {
     mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
       kind: "renderable",

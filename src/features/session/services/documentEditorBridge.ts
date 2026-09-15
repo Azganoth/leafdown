@@ -15,7 +15,6 @@ interface ActiveDocumentEditorBridgeEntry {
 
 class DocumentEditorBridgeStore {
   private activeBridgeEntry: ActiveDocumentEditorBridgeEntry | null = null;
-  private commandStateVersion = 0;
   private readonly commandStateChanged = new SignalSource();
 
   readonly onDidChangeCommandState = this.commandStateChanged.signal;
@@ -61,11 +60,8 @@ class DocumentEditorBridgeStore {
   };
 
   fireCommandStateChanged = () => {
-    this.commandStateVersion += 1;
     this.commandStateChanged.notify();
   };
-
-  getCommandStateVersion = () => this.commandStateVersion;
 }
 
 export const documentEditorBridge = new DocumentEditorBridgeStore();

@@ -44,12 +44,6 @@ const subscribeToCommandStateChanges = (listener: () => void) => {
 };
 
 export const useAppCommands = () => {
-  useSyncExternalStore(
-    subscribeToCommandStateChanges,
-    documentEditorBridge.getCommandStateVersion,
-    documentEditorBridge.getCommandStateVersion,
-  );
-
   const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
   const diagnosticsOpen = useCommandUIStore((state) => state.diagnosticsOpen);
   const fullscreen = useCommandUIStore((state) => state.fullscreen);
@@ -70,7 +64,12 @@ export const useAppCommands = () => {
   const recentFiles = useRecentItemsStore((state) => state.recentFiles);
   const recentFolders = useRecentItemsStore((state) => state.recentFolders);
   const activeDocumentKey = activeDocument ? getActiveDocumentKey(activeDocument) : null;
-  const editor = documentEditorBridge.getCommandState(activeDocumentKey ?? "");
+  const getEditorCommandState = () => documentEditorBridge.getCommandState(activeDocumentKey ?? "");
+  const editor = useSyncExternalStore(
+    subscribeToCommandStateChanges,
+    getEditorCommandState,
+    getEditorCommandState,
+  );
 
   const context: AppCommandContext = {
     activeDocument,

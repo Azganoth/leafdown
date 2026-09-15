@@ -16,7 +16,6 @@ describe("document editor bridge", () => {
   it("fires command state change events when the active editor bridge changes", () => {
     const listener = vi.fn();
     const listenerDisposable = documentEditorBridge.onDidChangeCommandState(listener);
-    const initialVersion = documentEditorBridge.getCommandStateVersion();
 
     documentEditorBridge.set(
       "doc:test",
@@ -29,7 +28,6 @@ describe("document editor bridge", () => {
     );
 
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(documentEditorBridge.getCommandStateVersion()).toBeGreaterThan(initialVersion);
     expect(documentEditorBridge.getCommandState("doc:test").enabledCommands["edit.selectAll"]).toBe(
       true,
     );

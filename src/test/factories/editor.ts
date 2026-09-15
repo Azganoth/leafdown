@@ -55,9 +55,13 @@ export const createActiveEditorCommandState = (
 
 export const createMilkdownEditorBridge = (
   overrides: Partial<MilkdownEditorBridge> = {},
-): MilkdownEditorBridge => ({
-  getMarkdown: () => "",
-  getCommandState: () => createActiveEditorCommandState(),
-  runCommand: (_commandId: EditorCommandId) => false,
-  ...overrides,
-});
+): MilkdownEditorBridge => {
+  const commandState = createActiveEditorCommandState();
+
+  return {
+    getMarkdown: () => "",
+    getCommandState: () => commandState,
+    runCommand: (_commandId: EditorCommandId) => false,
+    ...overrides,
+  };
+};

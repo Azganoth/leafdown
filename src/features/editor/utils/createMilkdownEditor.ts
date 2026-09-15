@@ -56,6 +56,7 @@ import {
   type EditorCommandState,
 } from "../commands";
 import { createLeafdownAttentionPairingPlugin } from "../plugins/attentionPairing";
+import { createLeafdownAutolinkLiteralPositionPlugin } from "../plugins/autolinkLiteralPosition";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import {
@@ -246,6 +247,7 @@ export const createMilkdownEditor = async ({
   };
 
   const configuredEditor = editor
+    .use(createLeafdownAutolinkLiteralPositionPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownThematicBreakPlugin())

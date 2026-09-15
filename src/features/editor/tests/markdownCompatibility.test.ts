@@ -4021,6 +4021,90 @@ describe("Whitespace a character reference names", () => {
   });
 });
 
+// GFM reads a `www` literal the tokenizer passes over, one standing after a character other than
+// whitespace or a delimiter in the file, from the text once it is decoded.
+describe("Autolink literals read from decoded text", () => {
+  const CARET_PARAGRAPH = "end";
+
+  const openThenReload = async (initial: string) => {
+    const opened = await mountEditor(`${initial}\n\n${CARET_PARAGRAPH}`);
+
+    setSelectionAtDocumentEnd(opened.view);
+
+    const openedDocument = opened.view.state.doc.toJSON();
+    const firstSave = opened.getMarkdown();
+    const reloaded = await mountEditor(firstSave);
+
+    setSelectionAtDocumentEnd(reloaded.view);
+
+    return {
+      firstSave,
+      openedDocument,
+      reloaded,
+      reloadedDocument: reloaded.view.state.doc.toJSON(),
+      secondSave: reloaded.getMarkdown(),
+      written: `${initial}\n\n${CARET_PARAGRAPH}\n`,
+    };
+  };
+
+  it.each([
+    { initial: "a &#x20;www.example.com", name: "a reference naming a space" },
+    { initial: "a &#9;www.example.com", name: "a reference naming a tab" },
+    { initial: "a &nbsp;www.example.com", name: "a reference naming a no-break space" },
+    { initial: "a &#x20;www.example.com.", name: "a reference, before trimmed punctuation" },
+    { initial: "*a*&#x20;www.example.com", name: "a reference after emphasis" },
+    { initial: "&#x20;www.example.com", name: "a reference opening the paragraph" },
+    { initial: "# &#x20;www.example.com", name: "a reference opening a heading" },
+    { initial: "- item &#x20;www.example.com\n  more", name: "a reference in a list item" },
+    {
+      initial: "> quote\n> more &#x20;www.example.com",
+      name: "a reference on a quote's later line",
+    },
+    { initial: 'a "www.example.com"', name: "a quote" },
+    { initial: "a;www.example.com", name: "a semicolon" },
+    { initial: 'a "www.example.com" and "www.example.org"', name: "a quote, twice" },
+    { initial: '*"www.example.com"*', name: "a quote inside emphasis" },
+  ])("writes a literal set off by $name as it was authored", async ({ initial }) => {
+    const { firstSave, openedDocument, reloaded, reloadedDocument, secondSave, written } =
+      await openThenReload(initial);
+
+    expect(firstSave).toBe(written);
+    expect(reloadedDocument).toEqual(openedDocument);
+    expect(secondSave).toBe(firstSave);
+    expect(getEditorLinkHref(reloaded, "www.example.com")).toBe("http://www.example.com");
+  });
+
+  it.each([
+    "a  www.example.com",
+    "a &copy; www.example.com",
+    "x &copy; y www.example.com",
+    "&copy; https://example.com",
+    "https://example.com &copy;",
+  ])("still writes %j as it was authored", async (initial) => {
+    const { firstSave, openedDocument, reloadedDocument, written } = await openThenReload(initial);
+
+    expect(firstSave).toBe(written);
+    expect(reloadedDocument).toEqual(openedDocument);
+  });
+
+  // The tokenizer keeps a literal's text as the file spells it, so a bare literal spelled with a
+  // reference would not be read back as the target this one decodes to.
+  it.each([
+    'a "www.example.com/p?q=1&amp;r=2" b',
+    'a "&#119;ww.example.com"',
+    "a &#x20;&#119;ww.example.com",
+  ])(
+    "reopens a literal spelled with a reference in %j as the document that wrote it",
+    async (initial) => {
+      const { openedDocument, reloadedDocument, secondSave, firstSave } =
+        await openThenReload(initial);
+
+      expect(reloadedDocument).toEqual(openedDocument);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+});
+
 describe("Typed inline mark source", () => {
   const typeInto = async (initial: string, typed: string) => {
     const mounted = await mountEditor(initial);

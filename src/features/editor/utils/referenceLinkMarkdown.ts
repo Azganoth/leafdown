@@ -23,8 +23,7 @@ export const DEFINITION_MARKDOWN_TYPE = "definition";
 export const LINK_REFERENCE_MARKDOWN_TYPE = "linkReference";
 export const IMAGE_REFERENCE_MARKDOWN_TYPE = "imageReference";
 
-// A reference carries the form it was authored in and the label as it was written there, which is
-// what `mdast-util-to-markdown` prefers over the normalized identifier when it writes the tail.
+// A reference carries the form it was authored in and the label as it was spelled there.
 export const REFERENCE_TYPE_ATTRIBUTE_NAME = "referenceType";
 export const REFERENCE_LABEL_ATTRIBUTE_NAME = "referenceLabel";
 
@@ -82,6 +81,104 @@ const readString = (source: object, key: string) => {
 
   return typeof value === "string" ? value : "";
 };
+
+// `micromark` trims only the space its collapse leaves, and folds case through upper case as well,
+// which is what matches `ß` with `SS`.
+const toIdentifier = (label: string) =>
+  label
+    .replace(LABEL_WHITESPACE_PATTERN, " ")
+    .replace(/^ | $/gu, "")
+    .toLowerCase()
+    .toUpperCase()
+    .toLowerCase();
+
+// A container writes its own prefix before a label's continuation line, and a paragraph drops the
+// whitespace opening one, so neither belongs to the label. A `>` cannot open a continuation line a
+// label reads on, because it would open a block quote there instead.
+const CONTINUATION_PREFIX_PATTERN = /^[\t >]*/u;
+
+const withoutContinuationPrefixes = (raw: string) =>
+  raw
+    .split("\n")
+    .map((line, index) => (index === 0 ? line : line.replace(CONTINUATION_PREFIX_PATTERN, "")))
+    .join("\n");
+
+// A reference matches its definition on the label as the file spelled it, escapes included, so the
+// spelling is what both are written back with. The slice is trusted only where it spells the
+// identifier the parser matched on; otherwise the decoded label stands where it still spells it,
+// and the identifier itself where it does not, which keeps the match at the cost of case and
+// spacing.
+const chooseLabelSpelling = (node: object, authored: string | null) => {
+  const identifier = readString(node, "identifier");
+
+  if (!identifier) {
+    return null;
+  }
+
+  return (
+    [authored, readString(node, "label")].find(
+      (candidate) => candidate && toIdentifier(candidate) === identifier,
+    ) ?? identifier
+  );
+};
+
+const isEscaped = (source: string, index: number) => {
+  let backslashes = 0;
+
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === "\\"; cursor -= 1) {
+    backslashes += 1;
+  }
+
+  return backslashes % 2 === 1;
+};
+
+const COLLAPSED_REFERENCE_TAIL = "[]";
+
+// A label holds no unescaped bracket, so a full reference's label opens at the last unescaped `[`,
+// while the collapsed and shortcut forms spell their label as the text between the opening bracket
+// and the tail.
+const findReferenceLabelSource = (raw: string, node: object) => {
+  const source = withoutContinuationPrefixes(raw);
+  const opening = source.startsWith("!") ? 2 : 1;
+
+  if (!source.endsWith("]")) {
+    return null;
+  }
+
+  switch (readReferenceType(node)) {
+    case "full": {
+      for (let index = source.length - 2; index >= opening; index -= 1) {
+        if (source[index] === "[" && !isEscaped(source, index)) {
+          return source.slice(index + 1, -1);
+        }
+      }
+
+      return null;
+    }
+    case "collapsed": {
+      return source.endsWith(`]${COLLAPSED_REFERENCE_TAIL}`)
+        ? source.slice(opening, -COLLAPSED_REFERENCE_TAIL.length - 1)
+        : null;
+    }
+    case "shortcut": {
+      return source.slice(opening, -1);
+    }
+    default: {
+      return null;
+    }
+  }
+};
+
+const DEFINITION_LABEL_PATTERN = /^\[((?:[^\\\]]|\\[\S\s])*)\]:/u;
+
+export const findReferenceLabelSpelling = (raw: string, node: object) =>
+  chooseLabelSpelling(node, findReferenceLabelSource(raw, node));
+
+export const findDefinitionLabelSpelling = (raw: string, node: object) =>
+  chooseLabelSpelling(
+    node,
+    DEFINITION_LABEL_PATTERN.exec(withoutContinuationPrefixes(raw))?.[1] ?? null,
+  );
 
 const readReferenceAttrs = (node: MarkdownNode) => ({
   [REFERENCE_TYPE_ATTRIBUTE_NAME]: readReferenceType(node),

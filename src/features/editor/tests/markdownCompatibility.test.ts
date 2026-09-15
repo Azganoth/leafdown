@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
@@ -11,6 +11,7 @@ import {
   getEditorNodePosition,
   getEditorTextPosition,
   getMarkNames,
+  getTableCellTexts,
   runKeyDownHandlers,
   setSelectionAtDocumentEnd,
   setTextSelection,
@@ -1250,6 +1251,222 @@ describe("Escapes after a mixed-format link's text in a table cell", () => {
       expect((await write("**b** c")).replace("**b**", "b")).toBe(await write("b c"));
     },
   );
+});
+
+// A reference matches its definition on the label as the file spells it, escapes included, so the
+// reference and the definition both keep that spelling, and a cell keeps the escape its `|` needs.
+describe("Escapes in a reference label", () => {
+  const createTable = (cell: string) =>
+    `| ${"h".padEnd(cell.length)} | i |\n| ${"-".repeat(cell.length)} | - |\n| ${cell} | x |\n`;
+  const withDefinitions = (block: string, ...definitions: string[]) =>
+    `${block}\n${definitions.join("\n")}\n\nend\n`;
+  const readResolved = (mounted: MountedMilkdownEditor) => {
+    const resolved: string[] = [];
+
+    mounted.view.state.doc.descendants((node) => {
+      const link = node.marks.find((mark) => mark.type.name === "link");
+
+      if (link) {
+        resolved.push(`${node.text ?? ""} ${String(link.attrs.href)}`);
+      } else if (node.type.name === "image") {
+        resolved.push(`image ${String(node.attrs.src)}`);
+      }
+
+      return true;
+    });
+
+    return resolved;
+  };
+
+  const saveAndReopenResolved = async (source: string) => {
+    const mounted = await mountEditor(source);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const document: unknown = mounted.view.state.doc.toJSON();
+    const resolved = readResolved(mounted);
+    const saved = mounted.getMarkdown();
+    const reopened = await mountEditor(saved);
+
+    setSelectionAtDocumentEnd(reopened.view);
+
+    return {
+      document,
+      reopenedDocument: reopened.view.state.doc.toJSON() as unknown,
+      reopenedResolved: readResolved(reopened),
+      resolved,
+      saved,
+    };
+  };
+
+  beforeEach(() => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+  });
+
+  it.each([
+    {
+      name: "a full reference",
+      cell: String.raw`a [b c][r\|s] d`,
+      definition: String.raw`[r\|s]: ./doc.md`,
+      resolved: ["b c ./doc.md"],
+    },
+    {
+      name: "a collapsed reference",
+      cell: String.raw`a [b\|c][] d`,
+      definition: String.raw`[b\|c]: ./doc.md`,
+      resolved: ["b|c ./doc.md"],
+    },
+    {
+      name: "a shortcut reference",
+      cell: String.raw`a [b\|c] d`,
+      definition: String.raw`[b\|c]: ./doc.md`,
+      resolved: ["b|c ./doc.md"],
+    },
+    {
+      name: "a full reference whose text mixes formatting",
+      cell: String.raw`a [**b** c][r\|s] d`,
+      definition: String.raw`[r\|s]: ./doc.md`,
+      resolved: ["b ./doc.md", " c ./doc.md"],
+    },
+    {
+      name: "a shortcut reference whose text mixes formatting",
+      cell: String.raw`a [**b**\|c] d`,
+      definition: String.raw`[**b**\|c]: ./doc.md`,
+      resolved: ["b ./doc.md", "|c ./doc.md"],
+    },
+    {
+      name: "a full image reference",
+      cell: String.raw`a ![b][r\|s] d`,
+      definition: String.raw`[r\|s]: ./i.png`,
+      resolved: ["image ./i.png"],
+    },
+    {
+      name: "a collapsed image reference",
+      cell: String.raw`a ![b\|c][] d`,
+      definition: String.raw`[b\|c]: ./i.png`,
+      resolved: ["image ./i.png"],
+    },
+    {
+      name: "a shortcut image reference",
+      cell: String.raw`a ![b\|c] d`,
+      definition: String.raw`[b\|c]: ./i.png`,
+      resolved: ["image ./i.png"],
+    },
+  ])(
+    "writes $name in a table cell as authored and reopens the same row",
+    async ({ cell, definition, resolved }) => {
+      const source = withDefinitions(createTable(cell), definition);
+      const result = await saveAndReopenResolved(source);
+
+      expect(result.resolved).toEqual(resolved);
+      expect(result.saved).toBe(source);
+      expect(result.reopenedDocument).toEqual(result.document);
+      expect(result.reopenedResolved).toEqual(resolved);
+    },
+  );
+
+  it.each([
+    {
+      name: "an escaped pipe in a full reference",
+      block: String.raw`a [b c][r\|s] d`,
+      definitions: [String.raw`[r\|s]: ./doc.md`],
+      resolved: ["b c ./doc.md"],
+    },
+    {
+      name: "a bare pipe in a full reference",
+      block: "a [b c][r|s] d",
+      definitions: ["[r|s]: ./doc.md"],
+      resolved: ["b c ./doc.md"],
+    },
+    {
+      name: "an escaped pipe in a shortcut reference",
+      block: String.raw`a [b\|c] d`,
+      definitions: [String.raw`[b\|c]: ./doc.md`],
+      resolved: ["b|c ./doc.md"],
+    },
+    {
+      name: "an escaped backslash in a shortcut reference",
+      block: String.raw`a [b\\c] d`,
+      definitions: [String.raw`[b\\c]: ./doc.md`],
+      resolved: [String.raw`b\c ./doc.md`],
+    },
+    {
+      name: "an escaped pipe in a collapsed reference whose definition differs in case",
+      block: String.raw`a [Foo\|Bar][] d`,
+      definitions: [String.raw`[foo\|bar]: ./doc.md`],
+      resolved: ["Foo|Bar ./doc.md"],
+    },
+    {
+      name: "a character reference in a shortcut reference",
+      block: "a [b &amp; c] d",
+      definitions: ["[b &amp; c]: ./doc.md"],
+      resolved: ["b  ./doc.md", "& ./doc.md", " c ./doc.md"],
+    },
+    {
+      name: "an escaped pipe in a label broken across a block quote's lines",
+      block: String.raw`> a [x][r\|
+> s] d`,
+      definitions: [String.raw`[r\| s]: ./doc.md`],
+      resolved: ["x ./doc.md"],
+    },
+    // Two spellings of one text are two labels, each matching only its own definition.
+    {
+      name: "labels that differ only by an escape",
+      block: String.raw`a [x][r|s] [y][r\|s] d`,
+      definitions: ["[r|s]: ./a.md", String.raw`[r\|s]: ./b.md`],
+      resolved: ["x ./a.md", "y ./b.md"],
+    },
+  ])(
+    "writes $name outside a table as authored and reopens it resolved",
+    async ({ block, definitions, resolved }) => {
+      const source = withDefinitions(`${block}\n`, ...definitions);
+      const result = await saveAndReopenResolved(source);
+
+      expect(result.resolved).toEqual(resolved);
+      expect(result.saved).toBe(source);
+      expect(result.reopenedDocument).toEqual(result.document);
+      expect(result.reopenedResolved).toEqual(resolved);
+    },
+  );
+
+  // The label cannot keep both the row and the match, since the definition spells the bare pipe the
+  // cell cannot hold, so it keeps the row.
+  it("escapes a bare pipe in the label of a reference moved into a table cell", async () => {
+    const mounted = await mountEditor("| h |\n| - |\n| x |\n\nend [b][r|s]\n\n[r|s]: ./doc.md\n");
+    const { view } = mounted;
+    const link = getEditorTextPosition(mounted, "b");
+    const cell = getEditorTextPosition(mounted, "x");
+
+    view.dispatch(view.state.tr.replace(cell, cell + 1, view.state.doc.slice(link, link + 1)));
+    setSelectionAtDocumentEnd(view);
+
+    const saved = mounted.getMarkdown();
+
+    expect(saved).toBe(
+      String.raw`| h         |
+| --------- |
+| [b][r\|s] |
+
+end [b][r|s]
+
+[r|s]: ./doc.md
+`,
+    );
+
+    const reopened = await mountEditor(saved);
+
+    expect(getTableCellTexts(reopened)).toEqual([["h"], ["[b][r|s]"]]);
+  });
+
+  it("renders a definition with the escapes its label was written with", async () => {
+    const definition = String.raw`[r\|s]: ./doc.md`;
+    const mounted = await mountEditor(`${definition}\n`);
+
+    expect(mounted.root.querySelector('[data-type="definition"]')?.textContent).toBe(definition);
+  });
 });
 
 describe("Raw HTML inside a mixed-format link label", () => {

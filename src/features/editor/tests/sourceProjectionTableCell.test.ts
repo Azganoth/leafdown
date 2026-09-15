@@ -142,6 +142,47 @@ describe("source projection in a table cell", () => {
     expect(mounted.getMarkdown()).toBe(markdown);
   });
 
+  describe("where a reference's label holds an escaped pipe", () => {
+    const definition = String.raw`[r\|s]: ./doc.md`;
+    const createReferenceMarkdown = (cell: string) =>
+      createTableMarkdown(cell).replace(/end\n$/u, `${definition}\n\nend\n`);
+
+    it.each([String.raw`a [bee sea][r\|s] d`, String.raw`a [r\|s] d`])(
+      "shows the label %j spells and saves it unchanged",
+      async (cell) => {
+        const markdown = createReferenceMarkdown(cell);
+        const mounted = await mountProjectionEditor(markdown);
+
+        enterProjection(mounted, cell.includes("bee") ? "bee" : "r");
+
+        expect(getTableCellTexts(mounted)[1][0]).toBe(cell);
+        expect(mounted.getMarkdown()).toBe(markdown);
+      },
+    );
+
+    it("commits an edit that still names the definition", async () => {
+      const editedCell = String.raw`a [beeZ sea][r\|s] d`;
+      const mounted = await mountProjectionEditor(
+        createReferenceMarkdown(String.raw`a [bee sea][r\|s] d`),
+      );
+
+      enterProjection(mounted, "bee", "bee".length);
+      typeText(mounted.view, "Z");
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const saved = mounted.getMarkdown();
+
+      expect(saved).toBe(createReferenceMarkdown(editedCell));
+
+      const reopened = await mountProjectionEditor(saved);
+
+      setSelectionAtDocumentEnd(reopened.view);
+
+      expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+      expect(reopened.root.querySelector("td a")?.getAttribute("href")).toBe("./doc.md");
+    });
+  });
+
   it.each([
     { name: "a link", source: "[bee | sea](./doc.md)" },
     { name: "a strong fragment", source: "**bee | sea**" },

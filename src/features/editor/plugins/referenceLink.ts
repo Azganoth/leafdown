@@ -9,6 +9,8 @@ import {
   DESTINATION_MARKER_ATTRIBUTE_NAME,
   DESTINATION_SEPARATOR_ATTRIBUTE_NAME,
   findDefinitionForm,
+  findDefinitionLabelSpelling,
+  findReferenceLabelSpelling,
   IMAGE_REFERENCE_MARKDOWN_TYPE,
   LINK_REFERENCE_MARKDOWN_TYPE,
   normalizeReferenceLabel,
@@ -52,6 +54,8 @@ const readDefinitions = (tree: MarkdownNode, source: string) => {
         const form = findDefinitionForm(raw, start.column - 1);
         const authored = node as Record<string, unknown>;
 
+        authored.label = findDefinitionLabelSpelling(raw, node) ?? authored.label;
+
         authored[DESTINATION_MARKER_ATTRIBUTE_NAME] = form.destinationMarker;
         authored[DESTINATION_SEPARATOR_ATTRIBUTE_NAME] = form.destinationSeparator;
         authored[TITLE_SEPARATOR_ATTRIBUTE_NAME] = form.titleSeparator;
@@ -86,25 +90,37 @@ const readDefinitions = (tree: MarkdownNode, source: string) => {
 const resolveReferences = (
   node: MarkdownNode,
   definitions: ReadonlyMap<string, ResolvedDefinition>,
+  source: string,
 ) => {
   if (node.type === LINK_REFERENCE_MARKDOWN_TYPE || node.type === IMAGE_REFERENCE_MARKDOWN_TYPE) {
     const identifier = readIdentifier(node);
     const definition = identifier === null ? undefined : definitions.get(identifier);
+    const start = node.position?.start.offset;
+    const end = node.position?.end.offset;
 
     if (definition) {
       (node as { url?: string }).url = definition.url;
       (node as { title?: string | null }).title = definition.title;
     }
+
+    if (start !== undefined && end !== undefined) {
+      const label = findReferenceLabelSpelling(source.slice(start, end), node);
+
+      if (label !== null) {
+        (node as { label?: string }).label = label;
+      }
+    }
   }
 
   for (const child of node.children ?? []) {
-    resolveReferences(child, definitions);
+    resolveReferences(child, definitions, source);
   }
 };
 
 export const createLeafdownReferenceLinkPlugin = () =>
   $remark("leafdownReferenceLink", () => () => (tree, file) => {
     const root = tree as MarkdownNode;
+    const source = String(file);
 
-    resolveReferences(root, readDefinitions(root, String(file)));
+    resolveReferences(root, readDefinitions(root, source), source);
   });

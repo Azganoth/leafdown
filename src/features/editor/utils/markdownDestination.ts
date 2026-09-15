@@ -119,9 +119,9 @@ const scopeDestination = (
 };
 
 // A description the document carries is inline source rather than text, so it reaches the file as
-// it stands instead of through the escaping that would turn its markers into characters. Both
-// image handlers write the label before they open the destination or the reference tail, so the
-// first value the handler makes safe is the description and every value after it is not.
+// it stands instead of through the escaping that would turn its markers into characters. The image
+// handler writes the label before it opens the destination, so the first value the handler makes
+// safe is the description and every value after it is not.
 const scopeDescription = (state: StringifyState, description: string | null) => {
   if (description === null) {
     return () => {};
@@ -198,9 +198,83 @@ const withConstruct = (
   }
 };
 
-const writeDefinitionLabel = (node: DefinitionNode, state: StringifyState) =>
-  withConstruct(state, "label", () =>
-    state.safe(state.associationId(node), { before: "[", after: "]" }),
+type ReferenceNode = Parameters<typeof defaultHandlers.linkReference>[0];
+
+const UNESCAPED_PIPE_PATTERN = /(?<!\\)((?:\\\\)*)\|/gu;
+
+// A label is written as the file spelled it, because a reference matches its definition on that
+// spelling, escapes included, and `mdast-util-to-markdown` writes it from a stack it clears, so no
+// construct around it decides an escape. A cell still closes on a `|`, so a label spelled outside
+// one keeps the row by giving up the match rather than the cell.
+const writeLabel = (
+  state: StringifyState,
+  node: Parameters<StringifyState["associationId"]>[0],
+) => {
+  const label = state.associationId(node);
+
+  return state.stack.includes("tableCell") ? label.replace(UNESCAPED_PIPE_PATTERN, "$1\\|") : label;
+};
+
+const ESCAPE_PATTERN = /\\[!-/:-@[-`{-~]|[\S\s]/gu;
+
+// A text holding nothing but characters spells the same text with a backslash added before any of
+// its punctuation, which is what a label written with an escape its text does not need still is.
+const addsOnlyEscapes = (text: string, label: string) => {
+  const textUnits = text.match(ESCAPE_PATTERN) ?? [];
+  const labelUnits = label.match(ESCAPE_PATTERN) ?? [];
+
+  return (
+    textUnits.length === labelUnits.length &&
+    textUnits.every(
+      (unit, index) =>
+        unit === labelUnits[index] || (unit.length === 1 && `\\${unit}` === labelUnits[index]),
+    )
+  );
+};
+
+// The collapsed and shortcut forms spell their label once, as the text, so they are written only
+// where the text spells the label. Plain text spelled with fewer escapes than the label is written
+// as the label instead, which reads back as the same text.
+const writeReference = (
+  opening: string,
+  text: string,
+  label: string,
+  referenceType: ReferenceNode["referenceType"],
+  plain: boolean,
+) => {
+  if (referenceType === "full" || !text) {
+    return `${opening}${text}][${label}]`;
+  }
+
+  const spelled = text === label || (plain && addsOnlyEscapes(text, label)) ? label : null;
+
+  if (spelled === null) {
+    return `${opening}${text}][${label}]`;
+  }
+
+  return referenceType === "shortcut" ? `${opening}${spelled}]` : `${opening}${spelled}][]`;
+};
+
+export const serializeMarkdownLinkReference: NonNullable<RemarkStringifyHandlers["linkReference"]> =
+  Object.assign(
+    (...[node, , state, info]: Parameters<typeof defaultHandlers.linkReference>) => {
+      const tracker = state.createTracker(info);
+      const opening = tracker.move("[");
+      const text = withConstruct(state, "linkReference", () =>
+        withConstruct(state, "label", () =>
+          state.containerPhrasing(node, { before: opening, after: "]", ...tracker.current() }),
+        ),
+      );
+
+      return writeReference(
+        opening,
+        text,
+        writeLabel(state, node),
+        node.referenceType,
+        node.children.every((child) => child.type === "text"),
+      );
+    },
+    { peek: defaultHandlers.linkReference.peek },
   );
 
 const writeDefinitionDestination = (node: DefinitionNode, state: StringifyState, after: string) => {
@@ -241,7 +315,7 @@ export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["d
   const exit = state.enter("definition");
 
   try {
-    const label = writeDefinitionLabel(node, state);
+    const label = writeLabel(state, node);
     const destination = writeDefinitionDestination(node, state, trailing);
     const head = `[${label}]:${readDestinationSeparator(node)}${destination}`;
 
@@ -270,17 +344,27 @@ export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"
   { peek: defaultHandlers.image.peek },
 );
 
+// A description the document carries is inline source rather than text, so it reaches the file as
+// it stands and is never written as the label in its place.
 export const serializeMarkdownImageReference: NonNullable<
   RemarkStringifyHandlers["imageReference"]
 > = Object.assign(
-  (...[node, parent, state, info]: Parameters<typeof defaultHandlers.imageReference>) => {
-    const restore = scopeDescription(state, readAuthoredDescription(node));
+  (...[node, , state]: Parameters<typeof defaultHandlers.imageReference>) => {
+    const opening = "![";
+    const description = readAuthoredDescription(node);
+    const text =
+      description ??
+      withConstruct(state, "imageReference", () =>
+        withConstruct(state, "label", () => state.safe(node.alt, { before: opening, after: "]" })),
+      );
 
-    try {
-      return defaultHandlers.imageReference(node, parent, state, info);
-    } finally {
-      restore();
-    }
+    return writeReference(
+      opening,
+      text,
+      writeLabel(state, node),
+      node.referenceType,
+      description === null,
+    );
   },
   { peek: defaultHandlers.imageReference.peek },
 );

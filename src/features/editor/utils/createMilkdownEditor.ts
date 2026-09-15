@@ -150,6 +150,7 @@ import {
   serializeMarkdownDefinition,
   serializeMarkdownImage,
   serializeMarkdownImageReference,
+  serializeMarkdownLinkReference,
   serializeMarkdownLink,
 } from "./markdownDestination";
 import {
@@ -325,6 +326,7 @@ export const createMilkdownEditor = async ({
           imageReference: serializeMarkdownImageReference,
           inlineCode: serializeCodeSpan,
           link: serializeMarkdownLink,
+          linkReference: serializeMarkdownLinkReference,
           list: serializeList,
           listItem: serializeListItem,
           paragraph: serializeParagraph,

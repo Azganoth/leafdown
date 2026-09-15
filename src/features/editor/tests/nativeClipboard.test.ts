@@ -10,6 +10,7 @@ import {
   getEditorDomElement,
   getEditorTextContent,
   getEditorTextPosition,
+  setSelectionAtDocumentEnd,
   setSelectionAtElementTextEnd,
   setTextSelection,
 } from "@/test/utils/prosemirror";
@@ -145,5 +146,59 @@ describe("native editor clipboard events", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(BOLD_PLAIN_MARKDOWN);
+  });
+
+  describe("pasting a code span whose source escapes a pipe", () => {
+    const CODE = "`";
+    const createTableMarkdown = (cell: string) => `| h | i |\n| - | - |\n| ${cell} | x |\n\nend\n`;
+    const createParagraphMarkdown = (text: string) => `${text}\n\nend\n`;
+
+    const pasteAfterQ = async (markdown: string, source: string) => {
+      const mounted = await mountEditor(markdown);
+
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "q") + 1);
+      dispatchClipboardEvent(mounted.view.dom, "paste", { [TEXT_PLAIN_MIME_TYPE]: source });
+      setSelectionAtDocumentEnd(mounted.view);
+
+      return mounted;
+    };
+
+    const openDocument = async (markdown: string) => {
+      const mounted = await mountEditor(markdown);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      return mounted.view.state.doc;
+    };
+
+    const sources = [
+      { name: "a code span", source: String.raw`${CODE}b \| c${CODE}` },
+      {
+        name: "a code span holding a backslash pair",
+        source: String.raw`${CODE}b \\\| c${CODE}`,
+      },
+      {
+        name: "a link label holding a code span",
+        source: String.raw`[y ${CODE}b \| c${CODE}](./doc.md)`,
+      },
+    ];
+
+    it.each(sources)(
+      "reads $name pasted into a table cell as the cell reads it",
+      async ({ source }) => {
+        const mounted = await pasteAfterQ(createTableMarkdown("a q d"), source);
+        const opened = await openDocument(createTableMarkdown(`a q${source} d`));
+
+        expect(mounted.view.state.doc.toJSON()).toEqual(opened.toJSON());
+        expect((await openDocument(mounted.getMarkdown())).toJSON()).toEqual(opened.toJSON());
+      },
+    );
+
+    it.each(sources)("keeps $name pasted outside a table as it reads there", async ({ source }) => {
+      const mounted = await pasteAfterQ(createParagraphMarkdown("a q d"), source);
+      const opened = await openDocument(createParagraphMarkdown(`a q${source} d`));
+
+      expect(mounted.view.state.doc.toJSON()).toEqual(opened.toJSON());
+    });
   });
 });

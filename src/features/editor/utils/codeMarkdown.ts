@@ -1,4 +1,5 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import { Fragment, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 import { defaultHandlers, type ConstructName } from "mdast-util-to-markdown";
 
@@ -404,6 +405,7 @@ const CODE_SPAN_RUN_PATTERN = /^`+/u;
 const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
 const CELL_CODE_SPAN_ESCAPE_PATTERN = /\\([\\|])/gu;
 const CELL_CODE_SPAN_PIPE_PATTERN = /(\\*)\|/gu;
+const CODE_SPAN_MARK_NAME = "inlineCode";
 
 type CodeSpanNode = Parameters<typeof defaultHandlers.inlineCode>[0];
 
@@ -492,6 +494,24 @@ export const readCellCodeSpanValue = (content: string) =>
   content.replaceAll(CELL_CODE_SPAN_ESCAPE_PATTERN, (escape, character: string) =>
     character === "|" ? character : escape,
   );
+
+// Markdown parsed on its own, as projected source and pasted text are, reads a code span's content
+// as it stands, while the cell the result lands in reads its escaped pipes back out.
+export const readCellCodeSpans = (node: ProseMirrorNode): ProseMirrorNode => {
+  if (node.isText) {
+    return node.marks.some((mark) => mark.type.name === CODE_SPAN_MARK_NAME)
+      ? node.type.schema.text(readCellCodeSpanValue(node.text ?? ""), node.marks)
+      : node;
+  }
+
+  const children: ProseMirrorNode[] = [];
+
+  node.forEach((child) => {
+    children.push(readCellCodeSpans(child));
+  });
+
+  return node.copy(Fragment.fromArray(children));
+};
 
 // The offset of each backslash the read takes out of a cell's code span content.
 export const findCellCodeSpanPipeEscapes = (content: string) =>

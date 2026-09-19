@@ -1,6 +1,7 @@
 import type { MarkdownNode, RemarkPluginRaw } from "@milkdown/kit/transformer";
 import { $remark } from "@milkdown/kit/utils";
 
+import { endsBeforeFollowingCharacter } from "../utils/bareAutolinkMarkdown";
 import { positionValuePieces } from "../utils/characterReferenceMarkdown";
 
 type ChildrenRecord = WeakMap<MarkdownNode, readonly MarkdownNode[]>;
@@ -65,7 +66,12 @@ const positionRebuiltRun = (run: readonly MarkdownNode[], text: MarkdownNode, so
     // The tokenizer keeps a literal's text as the file spells it, while this search found the
     // literal in decoded text, so a literal spelled with an escape or a reference is left as it
     // was built rather than read back as a bare literal the tokenizer would read differently.
-    if (source.slice(position.start.offset, position.end.offset) === pieces[index]) {
+    // This search also trims characters off a literal, such as a `>`, that the bare form is not
+    // written before, and a literal marked bare there would reopen as a different document.
+    if (
+      source.slice(position.start.offset, position.end.offset) === pieces[index] &&
+      endsBeforeFollowingCharacter(node, pieces[index], source.charAt(position.end.offset))
+    ) {
       node.position = position;
       // A literal spans its target exactly, which is how its bare form is told from angle brackets.
       node.children?.forEach((child) => {

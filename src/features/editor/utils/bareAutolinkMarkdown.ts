@@ -152,28 +152,30 @@ const isFollowedByEscapedMarker = (node: MarkdownNode, parent: MarkdownNode | un
 const isEmailAutolink = (node: MarkdownNode) =>
   typeof node.url === "string" && node.url.startsWith(MAILTO_URL_PREFIX);
 
+export const endsBeforeFollowingCharacter = (
+  node: MarkdownNode,
+  value: string,
+  following: string,
+) =>
+  TRIMMED_FOLLOWING_PATTERN.test(following) ||
+  // GFM leaves a trailing `)` out of the target only while the literal closes every parenthesis
+  // it opens.
+  (following === ")" && countCharacter(value, "(") <= countCharacter(value, ")")) ||
+  // An email's domain admits no `>`, so the literal ends before the bracket instead of taking it
+  // into the target the way a URL path does.
+  (following === ">" && isEmailAutolink(node));
+
 const isReadableWhereItLands = (
   node: MarkdownNode,
   parent: MarkdownNode | undefined,
   value: string,
   before: string,
   after: string,
-) => {
-  const following = after.charAt(0);
-
-  return (
-    !PRECEDING_LETTER_PATTERN.test(before) &&
-    !isFollowedByEscapedMarker(node, parent) &&
-    (TRIMMED_FOLLOWING_PATTERN.test(following) ||
-      // GFM leaves a trailing `)` out of the target only while the literal closes every
-      // parenthesis it opens.
-      (following === ")" && countCharacter(value, "(") <= countCharacter(value, ")")) ||
-      // An email's domain admits no `>`, so the literal ends before the bracket instead of taking
-      // it into the target the way a URL path does.
-      (following === ">" && isEmailAutolink(node)) ||
-      isFollowedByTrimmedRuns(node, parent))
-  );
-};
+) =>
+  !PRECEDING_LETTER_PATTERN.test(before) &&
+  !isFollowedByEscapedMarker(node, parent) &&
+  (endsBeforeFollowingCharacter(node, value, after.charAt(0)) ||
+    isFollowedByTrimmedRuns(node, parent));
 
 export const serializeBareAutolink: NonNullable<RemarkStringifyHandlers["link"]> = (
   node,

@@ -4108,6 +4108,49 @@ describe("Autolink literals read from decoded text", () => {
       expect(secondSave).toBe(firstSave);
     },
   );
+
+  // The search trims these characters off a literal, while its bare form is only written before
+  // one that ends a literal wherever it stands.
+  it.each([
+    {
+      initial: "| a | b |\n| - | - |\n| x <www.example.com> | d |",
+      saved: "| x <[www.example.com](http://www.example.com)> | d |",
+    },
+    {
+      initial: "| a | b |\n| - | - |\n| x <www.example.com> y | d |",
+      saved: "| x <[www.example.com](http://www.example.com)> y | d |",
+    },
+    {
+      initial: "| a | b |\n| - | - |\n| <www.example.com> | d |",
+      saved: "| <[www.example.com](http://www.example.com)> | d |",
+    },
+    {
+      initial: "a <www.example.com>",
+      saved: "a <[www.example.com](http://www.example.com)>",
+    },
+    {
+      initial: 'a "www.example.com}" b',
+      saved: 'a "[www.example.com](http://www.example.com)}" b',
+    },
+    {
+      initial: 'a "www.example.com&" b',
+      saved: 'a "[www.example.com](http://www.example.com)&" b',
+    },
+    {
+      initial: 'a "www.example.com`c`" b',
+      saved: 'a "[www.example.com](http://www.example.com)`c`" b',
+    },
+  ])(
+    "writes the literal in $initial as an inline link on every save",
+    async ({ initial, saved }) => {
+      const { firstSave, openedDocument, reloadedDocument, secondSave } =
+        await openThenReload(initial);
+
+      expect(firstSave).toContain(`${saved}\n`);
+      expect(reloadedDocument).toEqual(openedDocument);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
 });
 
 describe("Typed inline mark source", () => {

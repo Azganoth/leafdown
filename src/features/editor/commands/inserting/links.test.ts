@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { getEditorTextContent, setTextSelection } from "@/test/utils/prosemirror";
 
-import { EMPTY_LINK_MARKER, insertLink, LINK_DESTINATION_MARKER } from "./links";
+import { EMPTY_LINK_MARKER, insertLink, insertLinkTarget, LINK_DESTINATION_MARKER } from "./links";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -35,5 +35,23 @@ describe("editor link insertion commands", () => {
     expect(insertLink(emptyLinkEditor.view)).toBe(true);
     expect(getEditorTextContent(emptyLinkEditor)).toBe(EMPTY_LINK_MARKER);
     expect(emptyLinkEditor.view.state.selection.from).toBe(2);
+  });
+
+  it("inserts a ready link target at the current selection", async () => {
+    const editor = await mountEditor("Read this");
+
+    setTextSelection(editor.view, 6, 10);
+
+    expect(insertLinkTarget(editor.view, { label: "guide.md", target: "docs/guide.md" })).toBe(
+      true,
+    );
+    expect(getEditorTextContent(editor)).toBe("Read [this](docs/guide.md)");
+
+    const emptyEditor = await mountEditor("");
+
+    expect(
+      insertLinkTarget(emptyEditor.view, { label: "guide.md", target: "C:/Notes/guide.md" }),
+    ).toBe(true);
+    expect(getEditorTextContent(emptyEditor)).toBe("[guide.md](C:/Notes/guide.md)");
   });
 });

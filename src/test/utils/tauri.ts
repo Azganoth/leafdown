@@ -1,7 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { documentDir, extname, join } from "@tauri-apps/api/path";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
-import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
+import { getCurrentWindow, type DragDropEvent, type Theme } from "@tauri-apps/api/window";
 import { confirm, open, save } from "@tauri-apps/plugin-dialog";
 import { debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -49,6 +49,14 @@ export const getWindowThemeChangedHandler = (): ((event: { payload: Theme }) => 
   return themeChangedCall?.[0] as (event: { payload: Theme }) => void;
 };
 
+export const getWindowDragDropHandler = () => {
+  const dragDropCall = vi.mocked(getCurrentWindow().onDragDropEvent).mock.calls.at(-1);
+
+  expect(dragDropCall).toBeDefined();
+
+  return dragDropCall?.[0] as (event: { payload: DragDropEvent }) => void;
+};
+
 export const mockInvokeCommands = (handlers: Record<string, InvokeCommandHandler>) => {
   vi.mocked(invoke).mockImplementation(async (commandName, args) => {
     const handler = handlers[commandName];
@@ -86,6 +94,7 @@ export const resetTauriMocks = () => {
   vi.mocked(appWindow.emit).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.isFullscreen).mockReset().mockResolvedValue(false);
   vi.mocked(appWindow.listen).mockReset().mockResolvedValue(vi.fn());
+  vi.mocked(appWindow.onDragDropEvent).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.onThemeChanged).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.setFullscreen).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.show).mockReset().mockResolvedValue(undefined);

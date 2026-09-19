@@ -46,3 +46,32 @@ export const insertLink = (view: EditorView) => {
 
   return true;
 };
+
+export interface InsertLinkTargetOptions {
+  label: string;
+  target: string;
+}
+
+export const insertLinkTarget = (view: EditorView, { label, target }: InsertLinkTargetOptions) => {
+  const { selection, schema } = view.state;
+
+  if (!(selection instanceof TextSelection)) {
+    return false;
+  }
+
+  const selectedText = selection.empty
+    ? label
+    : selection.content().content.textBetween(0, selection.content().content.size);
+
+  if (!selection.empty && !selection.$from.sameParent(selection.$to)) {
+    return false;
+  }
+
+  const linkMark = schema.marks.link.create({ href: target });
+  const tr = view.state.tr.replaceSelectionWith(schema.text(selectedText, [linkMark]), false);
+
+  view.focus();
+  view.dispatch(tr.scrollIntoView());
+
+  return true;
+};

@@ -71,6 +71,17 @@ describe("document editor bridge", () => {
     expect(runCommand).toHaveBeenCalledTimes(1);
   });
 
+  it("inserts links only through the active editor bridge", () => {
+    const insertLink = vi.fn(() => true);
+
+    documentEditorBridge.set("doc:test", createMilkdownEditorBridge({ insertLink }));
+
+    expect(documentEditorBridge.insertLink("doc:test", "Guide", "docs/guide.md")).toBe(true);
+    expect(insertLink).toHaveBeenCalledWith("Guide", "docs/guide.md");
+    expect(documentEditorBridge.insertLink("doc:other", "Guide", "docs/guide.md")).toBe(false);
+    expect(insertLink).toHaveBeenCalledTimes(1);
+  });
+
   it("notifies a stable listener snapshot", () => {
     const secondListener = vi.fn();
     const secondListenerDisposable = documentEditorBridge.onDidChangeCommandState(secondListener);

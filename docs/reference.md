@@ -53,6 +53,7 @@ Global settings persist across application launches unless specified otherwise.
 
 ### Appearance
 
+- **Accent color:** Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia. Default: Neutral.
 - **Appearance theme:** System, Light, or Dark. Default: System.
 - **Render/editor theme:** document typography, font, typography size, code highlight theme, and related editor rendering preferences. Default: Leafdown default theme. (Deferred)
 

@@ -24,6 +24,10 @@ const setDarkAppearance = (isDark: boolean) => {
   window.document.documentElement.classList.toggle("dark", isDark);
 };
 
+const setAccentColor = (accentColor: SettingsState["accentColor"]) => {
+  window.document.documentElement.dataset.accentColor = accentColor;
+};
+
 const updateTheme = async (theme: SettingsState["theme"]) => {
   await tauriSetTheme(theme === "system" ? null : theme);
 
@@ -95,6 +99,11 @@ export function App() {
   }, []);
 
   const theme = useSettingsStore((state) => state.theme);
+  const accentColor = useSettingsStore((state) => state.accentColor);
+
+  useEffect(() => {
+    setAccentColor(accentColor);
+  }, [accentColor]);
 
   useEffect(() => {
     const disposables = new DisposableStore();

@@ -9,6 +9,7 @@ export {
   type RecentItemsStore,
 } from "./stores/recentItems";
 export {
+  APPEARANCE_ACCENT_COLORS,
   createDefaultSettingsState,
   DEFAULT_IGNORED_DIRECTORIES,
   DEFAULT_INDEX_FILE_NAMES,
@@ -16,6 +17,7 @@ export {
   SETTINGS_VERSION,
   settingsStoreTauriHandler,
   useSettingsStore,
+  type AppearanceAccentColor,
   type AppearanceTheme,
   type SettingsPersistedState,
   type SettingsState,

@@ -14,6 +14,19 @@ import { booleanValue, listOf, numberValue, oneOf, stringValue } from "@/lib/val
 export const APPEARANCE_THEMES = ["light", "dark", "system"] as const;
 export type AppearanceTheme = (typeof APPEARANCE_THEMES)[number];
 
+export const APPEARANCE_ACCENT_COLORS = [
+  "neutral",
+  "red",
+  "orange",
+  "amber",
+  "emerald",
+  "cyan",
+  "blue",
+  "violet",
+  "fuchsia",
+] as const;
+export type AppearanceAccentColor = (typeof APPEARANCE_ACCENT_COLORS)[number];
+
 export const SETTINGS_VERSION = 1;
 
 // NOTE: src-tauri/src/folder/defaults.rs
@@ -30,6 +43,7 @@ export const DEFAULT_IGNORED_DIRECTORIES = [
 ] as const;
 
 export interface SettingsState {
+  accentColor: AppearanceAccentColor;
   theme: AppearanceTheme;
   recordRecentItems: boolean;
   sidebarVisible: boolean;
@@ -53,6 +67,7 @@ export interface SettingsStore extends SettingsPersistedState {
 }
 
 export const createDefaultSettingsState = (): SettingsState => ({
+  accentColor: "neutral",
   theme: "system",
   recordRecentItems: true,
   sidebarVisible: true,
@@ -75,6 +90,7 @@ const MARKDOWN_FILE_EXTENSION_VALUES = MARKDOWN_FILE_EXTENSIONS.map(
 );
 
 const SETTINGS_CONTRACT = definePersistedState({
+  accentColor: oneOf(APPEARANCE_ACCENT_COLORS),
   theme: oneOf(APPEARANCE_THEMES),
   recordRecentItems: booleanValue,
   sidebarVisible: booleanValue,

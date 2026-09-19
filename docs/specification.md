@@ -287,6 +287,11 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 
 See [Reference](./reference.md) for current and Deferred settings, command surfaces, contextual availability, and checked or radio state.
 
+### Appearance
+
+- **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.
+- Accent color is global and persists across launches. Every available accent keeps the foreground of filled primary controls readable in light and dark appearances.
+
 ## File And Folder Workflows
 
 Workflows execute upon successful completion of dirty-state checks. If a dirty check is cancelled, the workflow is aborted.

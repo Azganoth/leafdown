@@ -2,6 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
@@ -106,6 +107,32 @@ describe("Shell", () => {
 
     expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear recent items" })).not.toBeInTheDocument();
+  });
+
+  it("removes a single recent item without touching the rest", async () => {
+    setDefaultRecentItems({
+      recentFiles: [SPEC_MARKDOWN_PATH, TEST_MARKDOWN_FILE_PATH],
+      recentFolders: [TEST_NESTED_DIRECTORY_PATH, TEST_NOTES_FOLDER_PATH],
+    });
+
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("button", { name: "Remove spec.md from recent files" }));
+
+    expect(screen.queryByTitle(SPEC_MARKDOWN_PATH)).not.toBeInTheDocument();
+    expect(screen.getByTitle(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
+    expect(screen.getByTitle(TEST_NESTED_DIRECTORY_PATH)).toBeInTheDocument();
+    expect(screen.getByTitle(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove docs from recent folders" }));
+
+    expect(screen.queryByTitle(TEST_NESTED_DIRECTORY_PATH)).not.toBeInTheDocument();
+    expect(screen.getByTitle(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
+    expect(screen.getByTitle(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: [TEST_MARKDOWN_FILE_PATH],
+      recentFolders: [TEST_NOTES_FOLDER_PATH],
+    });
   });
 
   it("withholds the sidebar and its toggle without a folder context", () => {

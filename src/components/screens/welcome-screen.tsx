@@ -68,6 +68,8 @@ export function WelcomeScreen() {
   const recentFiles = useRecentItemsStore((state) => state.recentFiles);
   const recentFolders = useRecentItemsStore((state) => state.recentFolders);
   const clearRecentItems = useRecentItemsStore((state) => state.clearRecentItems);
+  const removeRecentFile = useRecentItemsStore((state) => state.removeRecentFile);
+  const removeRecentFolder = useRecentItemsStore((state) => state.removeRecentFolder);
   const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
 
   return (
@@ -111,6 +113,7 @@ export function WelcomeScreen() {
                 icon={FileTextIcon}
                 items={recentFiles}
                 onOpenItem={handleOpenRecentFile}
+                onRemoveItem={removeRecentFile}
               />
               <RecentItemsSection
                 title="Recent folders"
@@ -119,6 +122,7 @@ export function WelcomeScreen() {
                 icon={FolderOpenIcon}
                 items={recentFolders}
                 onOpenItem={handleOpenRecentFolder}
+                onRemoveItem={removeRecentFolder}
               />
             </div>
             <div className="mt-4 flex justify-end">
@@ -159,6 +163,7 @@ interface RecentItemsSectionProps {
   icon: LucideIcon;
   items: string[];
   onOpenItem: (path: string) => void;
+  onRemoveItem: (path: string) => void;
   title: string;
   titleId: string;
 }
@@ -168,6 +173,7 @@ function RecentItemsSection({
   icon: Icon,
   items,
   onOpenItem,
+  onRemoveItem,
   title,
   titleId,
 }: RecentItemsSectionProps) {
@@ -181,7 +187,14 @@ function RecentItemsSection({
       ) : (
         <ul className="mt-2 flex flex-col">
           {items.map((path) => (
-            <RecentItem icon={Icon} key={path} onOpenItem={onOpenItem} path={path} />
+            <RecentItem
+              icon={Icon}
+              key={path}
+              listName={title.toLowerCase()}
+              onOpenItem={onOpenItem}
+              onRemoveItem={onRemoveItem}
+              path={path}
+            />
           ))}
         </ul>
       )}
@@ -191,28 +204,41 @@ function RecentItemsSection({
 
 interface RecentItemProps {
   icon: LucideIcon;
+  listName: string;
   onOpenItem: (path: string) => void;
+  onRemoveItem: (path: string) => void;
   path: string;
 }
 
-function RecentItem({ icon: Icon, onOpenItem, path }: RecentItemProps) {
+function RecentItem({ icon: Icon, listName, onOpenItem, onRemoveItem, path }: RecentItemProps) {
   const { name, parent } = getPathParts(path);
 
   return (
-    <li className="min-w-0">
+    <li className="group/recent-item flex min-w-0 items-center gap-1">
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={() => onOpenItem(path)}
         title={path}
-        className="w-full justify-start gap-2 px-2"
+        className="min-w-0 flex-1 justify-start gap-2 px-2"
       >
         <Icon />
         <span className="min-w-0 truncate">{name}</span>
         <span className="min-w-0 flex-1 truncate text-left text-xs font-normal text-muted-foreground">
           {parent}
         </span>
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onRemoveItem(path)}
+        aria-label={`Remove ${name} from ${listName}`}
+        title={`Remove from ${listName}`}
+        className="text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 focus-visible:opacity-100"
+      >
+        <XIcon />
       </Button>
     </li>
   );

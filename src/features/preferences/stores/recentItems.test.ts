@@ -62,6 +62,34 @@ describe("recent items store", () => {
     });
   });
 
+  it("removes one recent file and leaves every other entry in place", () => {
+    setDefaultRecentItems({
+      recentFiles: ["C:/Notes/a.md", "C:/Notes/b.md", "C:/Notes/c.md"],
+      recentFolders: ["C:/Notes", "C:/Docs"],
+    });
+
+    useRecentItemsStore.getState().removeRecentFile("C:/Notes/b.md");
+
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: ["C:/Notes/a.md", "C:/Notes/c.md"],
+      recentFolders: ["C:/Notes", "C:/Docs"],
+    });
+  });
+
+  it("removes one recent folder and leaves every other entry in place", () => {
+    setDefaultRecentItems({
+      recentFiles: ["C:/Notes/a.md", "C:/Docs/b.md"],
+      recentFolders: ["C:/Notes", "C:/Docs", "C:/Drafts"],
+    });
+
+    useRecentItemsStore.getState().removeRecentFolder("C:/Notes");
+
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: ["C:/Notes/a.md", "C:/Docs/b.md"],
+      recentFolders: ["C:/Docs", "C:/Drafts"],
+    });
+  });
+
   it("deduplicates recent paths by path identity", () => {
     useRecentItemsStore.getState().recordRecentFile("C:/Notes/Readme.md");
     useRecentItemsStore.getState().recordRecentFile("c:\\notes\\readme.md");

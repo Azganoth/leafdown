@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
@@ -22,7 +22,7 @@ import {
   setDefaultSession,
   setDefaultSettings,
 } from "@/test/utils/appStores";
-import { render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { Shell } from "./shell";
@@ -121,6 +121,44 @@ describe("Shell", () => {
     const openedTime = within(screen.getByTitle(SPEC_MARKDOWN_PATH)).getByText("3 days ago");
     expect(openedTime).toHaveAttribute("datetime", new Date(threeDaysAgo).toISOString());
     expect(screen.getByTitle(TEST_NESTED_DIRECTORY_PATH).querySelector("time")).toBeNull();
+  });
+
+  describe("while the welcome screen stays open", () => {
+    const openedAt = Date.UTC(2026, 8, 19, 12);
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("advances the last opened time every minute", () => {
+      vi.useFakeTimers({ now: openedAt });
+      setDefaultRecentItems({ recentFiles: [{ openedAt, path: SPEC_MARKDOWN_PATH }] });
+
+      render(<Shell />);
+
+      const recentFile = screen.getByTitle(SPEC_MARKDOWN_PATH);
+      expect(recentFile).toHaveTextContent("just now");
+
+      act(() => {
+        vi.advanceTimersByTime(60 * 1000);
+      });
+
+      expect(recentFile).toHaveTextContent("1 minute ago");
+    });
+
+    it("refreshes the last opened time when the window regains focus", () => {
+      vi.useFakeTimers({ now: openedAt });
+      setDefaultRecentItems({ recentFiles: [{ openedAt, path: SPEC_MARKDOWN_PATH }] });
+
+      render(<Shell />);
+
+      vi.setSystemTime(openedAt + 3 * 60 * 60 * 1000);
+      act(() => {
+        window.dispatchEvent(new Event("focus"));
+      });
+
+      expect(screen.getByTitle(SPEC_MARKDOWN_PATH)).toHaveTextContent("3 hours ago");
+    });
   });
 
   it("removes a single recent item without touching the rest", async () => {

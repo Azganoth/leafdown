@@ -1,5 +1,5 @@
 import { FilePlusIcon, FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { COMMAND_DEFINITIONS, formatShortcut, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { notifyOperationFailure } from "@/lib/errors";
 import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
+
+const NOW_REFRESH_INTERVAL_MS = 60 * 1000;
 
 const handleNewDocument = async () => {
   try {
@@ -73,7 +75,7 @@ export function WelcomeScreen() {
   const removeRecentFile = useRecentItemsStore((state) => state.removeRecentFile);
   const removeRecentFolder = useRecentItemsStore((state) => state.removeRecentFolder);
   const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
-  const [now] = useState(Date.now);
+  const now = useNow();
 
   return (
     <section
@@ -147,6 +149,27 @@ export function WelcomeScreen() {
       </div>
     </section>
   );
+}
+
+// A minimized window may throttle or suspend the interval, so returning to it refreshes too.
+function useNow() {
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    const refresh = () => setNow(Date.now());
+    const intervalId = window.setInterval(refresh, NOW_REFRESH_INTERVAL_MS);
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  return now;
 }
 
 function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {

@@ -24,6 +24,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import type { RecentItem } from "@/features/preferences";
 import { invariant } from "@/lib/errors";
 
 interface CommandMenubarProps {
@@ -31,8 +32,8 @@ interface CommandMenubarProps {
   onExecute: (commandId: AppCommandId) => void;
   onOpenRecentFile: (path: string) => void;
   onOpenRecentFolder: (path: string) => void;
-  recentFiles: string[];
-  recentFolders: string[];
+  recentFiles: RecentItem[];
+  recentFolders: RecentItem[];
 }
 
 interface CommandMenuContextValue {
@@ -317,8 +318,8 @@ function CommandCheckboxItem({ commandId }: CommandItemProps) {
 interface RecentItemsSubmenuProps {
   onOpenRecentFile: CommandMenubarProps["onOpenRecentFile"];
   onOpenRecentFolder: CommandMenubarProps["onOpenRecentFolder"];
-  recentFiles: string[];
-  recentFolders: string[];
+  recentFiles: RecentItem[];
+  recentFolders: RecentItem[];
 }
 
 function RecentItemsSubmenu({
@@ -343,7 +344,7 @@ function RecentItemsSubmenu({
 
 interface RecentItemsProps {
   label: string;
-  items: string[];
+  items: RecentItem[];
   onOpen: (path: string) => void;
 }
 
@@ -356,7 +357,7 @@ function RecentItems({ label, items, onOpen }: RecentItemsProps) {
       {items.length === 0 ? (
         <MenubarItem disabled>No recent {label.toLowerCase().replace("recent ", "")}.</MenubarItem>
       ) : (
-        items.map((path) => (
+        items.map(({ path }) => (
           <MenubarItem key={path} onClick={() => onOpen(path)}>
             <span className="max-w-80 truncate">{path}</span>
           </MenubarItem>

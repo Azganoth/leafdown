@@ -72,8 +72,8 @@ describe("open session workflows", () => {
       }),
     });
     expect(useRecentItemsStore.getState()).toMatchObject({
-      recentFiles: [OTHER_MARKDOWN_PATH],
-      recentFolders: [TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: OTHER_MARKDOWN_PATH }],
+      recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],
     });
   });
 
@@ -95,7 +95,7 @@ describe("open session workflows", () => {
       }),
     });
     expect(useRecentItemsStore.getState()).toMatchObject({
-      recentFiles: [OTHER_MARKDOWN_PATH],
+      recentFiles: [{ path: OTHER_MARKDOWN_PATH }],
       recentFolders: [],
     });
   });
@@ -114,7 +114,9 @@ describe("open session workflows", () => {
       folderContext: { path: TEST_NOTES_FOLDER_PATH },
       activeDocument: null,
     });
-    expect(useRecentItemsStore.getState().recentFolders).toEqual([TEST_NOTES_FOLDER_PATH]);
+    expect(useRecentItemsStore.getState().recentFolders).toMatchObject([
+      { path: TEST_NOTES_FOLDER_PATH },
+    ]);
   });
 
   it("opens folders when the configured index fails and reports the index error", async () => {

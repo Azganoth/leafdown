@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { type AppCommandId, type CommandState } from "@/commands";
+import type { RecentItem } from "@/features/preferences";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { renderWithUser, screen, within } from "@/test/utils/react";
 
@@ -19,8 +20,8 @@ interface CommandMenuBarTestProps {
   onExecute?: (commandId: AppCommandId) => void;
   onOpenRecentFile?: (path: string) => void;
   onOpenRecentFolder?: (path: string) => void;
-  recentFiles?: string[];
-  recentFolders?: string[];
+  recentFiles?: RecentItem[];
+  recentFolders?: RecentItem[];
 }
 
 const renderCommandMenuBar = ({
@@ -208,8 +209,8 @@ describe("CommandMenubar", () => {
 
   it("groups recent entries under their section headings", async () => {
     const { user } = renderCommandMenuBar({
-      recentFiles: [TEST_MARKDOWN_FILE_PATH],
-      recentFolders: [TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }],
+      recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],
     });
 
     await user.click(screen.getByRole("menuitem", { name: "File" }));
@@ -229,8 +230,8 @@ describe("CommandMenubar", () => {
 
   it("opens recent files and folders from the submenu", async () => {
     const { onOpenRecentFile, onOpenRecentFolder, user } = renderCommandMenuBar({
-      recentFiles: [TEST_MARKDOWN_FILE_PATH],
-      recentFolders: [TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }],
+      recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],
     });
 
     await user.click(screen.getByRole("menuitem", { name: "File" }));
@@ -250,8 +251,8 @@ describe("CommandMenubar", () => {
 
   it("dispatches the clear recent command from the submenu", async () => {
     const { onExecute, user } = renderCommandMenuBar({
-      recentFiles: [TEST_MARKDOWN_FILE_PATH],
-      recentFolders: [TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }],
+      recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],
     });
 
     await user.click(screen.getByRole("menuitem", { name: "File" }));

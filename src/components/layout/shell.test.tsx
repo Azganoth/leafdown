@@ -22,7 +22,7 @@ import {
   setDefaultSession,
   setDefaultSettings,
 } from "@/test/utils/appStores";
-import { render, renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { Shell } from "./shell";
@@ -89,8 +89,8 @@ describe("Shell", () => {
 
   it("names a recent item by its own name and the folder holding it", async () => {
     setDefaultRecentItems({
-      recentFiles: [SPEC_MARKDOWN_PATH],
-      recentFolders: [TEST_NESTED_DIRECTORY_PATH],
+      recentFiles: [{ path: SPEC_MARKDOWN_PATH }],
+      recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }],
     });
 
     const { user } = renderWithUser(<Shell />);
@@ -109,10 +109,24 @@ describe("Shell", () => {
     expect(screen.queryByRole("button", { name: "Clear recent items" })).not.toBeInTheDocument();
   });
 
+  it("shows when a recent item was last opened, and nothing for one without a time", () => {
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    setDefaultRecentItems({
+      recentFiles: [{ openedAt: threeDaysAgo, path: SPEC_MARKDOWN_PATH }],
+      recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }],
+    });
+
+    render(<Shell />);
+
+    const openedTime = within(screen.getByTitle(SPEC_MARKDOWN_PATH)).getByText("3 days ago");
+    expect(openedTime).toHaveAttribute("datetime", new Date(threeDaysAgo).toISOString());
+    expect(screen.getByTitle(TEST_NESTED_DIRECTORY_PATH).querySelector("time")).toBeNull();
+  });
+
   it("removes a single recent item without touching the rest", async () => {
     setDefaultRecentItems({
-      recentFiles: [SPEC_MARKDOWN_PATH, TEST_MARKDOWN_FILE_PATH],
-      recentFolders: [TEST_NESTED_DIRECTORY_PATH, TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: SPEC_MARKDOWN_PATH }, { path: TEST_MARKDOWN_FILE_PATH }],
+      recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }, { path: TEST_NOTES_FOLDER_PATH }],
     });
 
     const { user } = renderWithUser(<Shell />);
@@ -130,8 +144,8 @@ describe("Shell", () => {
     expect(screen.getByTitle(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
     expect(screen.getByTitle(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
     expect(useRecentItemsStore.getState()).toMatchObject({
-      recentFiles: [TEST_MARKDOWN_FILE_PATH],
-      recentFolders: [TEST_NOTES_FOLDER_PATH],
+      recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }],
+      recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],
     });
   });
 

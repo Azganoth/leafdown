@@ -13,7 +13,11 @@ import {
   useSettingsStore,
   type SettingsState,
 } from "@/features/preferences";
-import { confirmDiscardActiveDocumentChanges, useDroppedPathListener } from "@/features/session";
+import {
+  confirmDiscardActiveDocumentChanges,
+  DroppedPathOverlay,
+  useDroppedPathListener,
+} from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
@@ -40,7 +44,7 @@ const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
 const WINDOW_CLOSE_DECLINED_EVENT = "leafdown://window-close-declined";
 
 export function App() {
-  useDroppedPathListener();
+  const droppedPathIndicator = useDroppedPathListener();
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -131,6 +135,7 @@ export function App() {
       <UnexpectedErrorBoundary>
         <Shell />
       </UnexpectedErrorBoundary>
+      <DroppedPathOverlay indicator={droppedPathIndicator} />
       <Toaster timeout={TOAST_TIMEOUT_MS} />
     </div>
   );

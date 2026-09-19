@@ -319,7 +319,7 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 ### Drop File Or Folder
 
-- A drop is accepted anywhere in the application window when it contains exactly one existing folder or supported Markdown file. A drop containing several items or an unsupported item shows a non-disruptive warning and changes nothing.
+- A drop is accepted anywhere in the application window when it contains exactly one existing folder or supported Markdown file. While an item is over the window, a non-interactive overlay states the action Leafdown will take or why the drop is unavailable. A drop containing several items or an unsupported item shows a non-disruptive warning and changes nothing.
 - `When dropping a folder` and `When dropping a Markdown file` independently choose Open or Insert link. Both default to Open.
 - Open follows the corresponding Open Folder or Open File workflow, including dirty-state handling, pinned folder context behavior, index-file opening, and recent-item recording.
 - Insert link requires an active document and inserts at its current editor selection. An inline text selection becomes the link label; otherwise the dropped item's name is used. A selection that cannot hold one inline link shows a non-disruptive warning and changes nothing.

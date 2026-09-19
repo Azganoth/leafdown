@@ -8,7 +8,7 @@ import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { mockInvokeCommands } from "@/test/utils/tauri";
 
 import { INSPECT_DROPPED_PATH_COMMAND } from "./dropApi";
-import { getRelativePath, handleDroppedPaths } from "./dropWorkflows";
+import { getRelativePath, handleDroppedPaths, prepareDroppedPaths } from "./dropWorkflows";
 
 const openSessionMocks = vi.hoisted(() => ({
   openFolderContextAtPath: vi.fn(async () => true),
@@ -24,6 +24,18 @@ const inspectAs = (result: { kind: "folder" | "markdownFile" | "unsupported"; pa
 };
 
 describe("dropped path workflows", () => {
+  it("prepares the configured action for drag feedback", async () => {
+    setDefaultSettings({ whenDroppingMarkdownFile: "insertLink" });
+    setDefaultSession({ activeDocument: createUntitledDocument() });
+    inspectAs({ kind: "markdownFile", path: "C:/Notes/guide.md" });
+
+    await expect(prepareDroppedPaths(["C:/Notes/guide.md"])).resolves.toEqual({
+      action: "insertMarkdownFileLink",
+      droppedPath: { kind: "markdownFile", path: "C:/Notes/guide.md" },
+      status: "ready",
+    });
+  });
+
   it("opens dropped Markdown files and folders under the default settings", async () => {
     inspectAs({ kind: "markdownFile", path: "C:/Notes/guide.md" });
 

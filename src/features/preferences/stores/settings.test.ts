@@ -18,6 +18,7 @@ describe("settings store", () => {
   it("resets persisted settings to documented defaults", () => {
     setDefaultSettings({
       theme: "dark",
+      accentColor: "violet",
       recordRecentItems: false,
       sidebarVisible: false,
       articleSortOrder: "modifiedDate",
@@ -34,6 +35,7 @@ describe("settings store", () => {
 
     expect(useSettingsStore.getState()).toMatchObject({
       theme: "system",
+      accentColor: "neutral",
       recordRecentItems: true,
       sidebarVisible: true,
       articleSortOrder: "name",
@@ -52,6 +54,7 @@ describe("settings store", () => {
     const settings = useSettingsStore.getState();
 
     settings.updateSetting("theme", "dark");
+    settings.updateSetting("accentColor", "fuchsia");
     settings.updateSetting("recordRecentItems", false);
     settings.updateSetting("sidebarVisible", false);
     settings.updateSetting("articleSortOrder", "type");
@@ -65,6 +68,7 @@ describe("settings store", () => {
 
     expect(useSettingsStore.getState()).toMatchObject({
       theme: "dark",
+      accentColor: "fuchsia",
       recordRecentItems: false,
       sidebarVisible: false,
       articleSortOrder: "type",
@@ -90,6 +94,7 @@ describe("settings store", () => {
     it("keeps every valid persisted setting", () => {
       const persistedState: SettingsPersistedState = {
         theme: "dark",
+        accentColor: "violet",
         recordRecentItems: false,
         sidebarVisible: false,
         articleSortOrder: "modifiedDate",
@@ -112,6 +117,7 @@ describe("settings store", () => {
     it("drops persisted settings that fail their value contract", () => {
       const corruptState = {
         theme: "midnight",
+        accentColor: "teal",
         sidebarVisible: "yes",
         articleSortOrder: 3,
         defaultNewDocumentExtension: "md",
@@ -130,13 +136,14 @@ describe("settings store", () => {
     it("drops unknown keys and non-numeric versions", () => {
       const corruptState = {
         theme: "light",
+        accentColor: "blue",
         injected: "value",
         version: "1",
       } as unknown as Partial<SettingsPersistedState>;
 
       expect(sanitizeSettingsPersistedState(corruptState)).toEqual({
         changed: true,
-        state: { theme: "light" },
+        state: { accentColor: "blue", theme: "light" },
       });
     });
   });

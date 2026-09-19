@@ -9,13 +9,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { FieldGroup } from "@/components/ui/field";
+import { Field, FieldContent, FieldGroup, FieldTitle } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
 
-import { type AppearanceTheme, useSettingsStore } from "../stores/settings";
+import {
+  type AppearanceAccentColor,
+  type AppearanceTheme,
+  useSettingsStore,
+} from "../stores/settings";
 import {
   type ChoiceOption,
   ListPreferenceField,
@@ -28,6 +40,32 @@ const APPEARANCE_THEME_OPTIONS: ChoiceOption<AppearanceTheme>[] = [
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
 ];
+
+const APPEARANCE_ACCENT_COLOR_OPTIONS = [
+  { label: "Neutral", value: "neutral" },
+  { label: "Red", value: "red" },
+  { label: "Orange", value: "orange" },
+  { label: "Amber", value: "amber" },
+  { label: "Emerald", value: "emerald" },
+  { label: "Cyan", value: "cyan" },
+  { label: "Blue", value: "blue" },
+  { label: "Violet", value: "violet" },
+  { label: "Fuchsia", value: "fuchsia" },
+] satisfies ChoiceOption<AppearanceAccentColor>[];
+
+interface AccentColorPreviewProps {
+  accentColor: AppearanceAccentColor;
+}
+
+function AccentColorPreview({ accentColor }: AccentColorPreviewProps) {
+  return (
+    <span
+      aria-hidden
+      data-accent-color-preview={accentColor}
+      className="size-3 shrink-0 rounded-full border border-black/10 dark:border-white/15"
+    />
+  );
+}
 
 const ARTICLE_SORT_OPTIONS: ChoiceOption<ArticleSortOrder>[] = [
   { label: "Name", value: "name" },
@@ -211,11 +249,16 @@ function EditorPreferences() {
 }
 
 function AppearancePreferences() {
+  const accentColor = useSettingsStore((state) => state.accentColor);
   const theme = useSettingsStore((state) => state.theme);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
     <FieldGroup className="gap-5">
+      <AccentColorPreference
+        accentColor={accentColor}
+        onAccentColorChange={(value) => updateSetting("accentColor", value)}
+      />
       <PreferenceChoice
         label="Appearance theme"
         value={theme}
@@ -223,5 +266,56 @@ function AppearancePreferences() {
         onValueChange={(value) => updateSetting("theme", value)}
       />
     </FieldGroup>
+  );
+}
+
+interface AccentColorPreferenceProps {
+  accentColor: AppearanceAccentColor;
+  onAccentColorChange: (accentColor: AppearanceAccentColor) => void;
+}
+
+function AccentColorPreference({ accentColor, onAccentColorChange }: AccentColorPreferenceProps) {
+  return (
+    <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
+      <FieldContent>
+        <FieldTitle>Accent color</FieldTitle>
+      </FieldContent>
+      <Select
+        items={APPEARANCE_ACCENT_COLOR_OPTIONS}
+        value={accentColor}
+        onValueChange={(value) => {
+          if (value) {
+            onAccentColorChange(value);
+          }
+        }}
+      >
+        <SelectTrigger className="w-[180px]" aria-label="Accent color">
+          <SelectValue>
+            {(value: AppearanceAccentColor | null) => {
+              const option = APPEARANCE_ACCENT_COLOR_OPTIONS.find(
+                (candidate) => candidate.value === value,
+              );
+
+              return option ? (
+                <>
+                  <AccentColorPreview accentColor={option.value} />
+                  <span>{option.label}</span>
+                </>
+              ) : null;
+            }}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {APPEARANCE_ACCENT_COLOR_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                <AccentColorPreview accentColor={option.value} />
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }

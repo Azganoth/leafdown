@@ -23,6 +23,7 @@ import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/uti
 describe("App", () => {
   beforeEach(() => {
     document.documentElement.className = "";
+    delete document.documentElement.dataset.accentColor;
   });
 
   it("starts persisted stores, applies the theme, and shows the window", async () => {
@@ -93,6 +94,22 @@ describe("App", () => {
     });
 
     expect(document.documentElement).not.toHaveClass("dark");
+  });
+
+  it("applies the selected accent color to the document root", async () => {
+    setDefaultSettings({ accentColor: "violet" });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(document.documentElement).toHaveAttribute("data-accent-color", "violet");
+    });
+
+    useSettingsStore.getState().updateSetting("accentColor", "fuchsia");
+
+    await waitFor(() => {
+      expect(document.documentElement).toHaveAttribute("data-accent-color", "fuchsia");
+    });
   });
 
   it("follows native theme changes while the system theme is selected", async () => {

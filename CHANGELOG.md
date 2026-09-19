@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Choose a Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia accent color from a previewed menu in Preferences. Neutral preserves Leafdown's original monochrome primary treatment; every choice carries links, editor selection and caret treatment, checked task checkboxes, quote bars, list glyphs, selection rings, active article rows, and filled primary controls in both appearances, and stays after restarting Leafdown.
 - Add a paragraph at the end of the document by clicking the empty space below it.
 - Close folder contexts from the File menu.
 - Add keyboard shortcuts for formatting task lists and toggling task items.

@@ -18,7 +18,7 @@ const MVP_SETTINGS_BY_TAB = {
     "Ignored directories for folder scans",
   ],
   Editor: ["Auto pair brackets and quotes", "Soft wrap for code blocks"],
-  Appearance: ["Appearance theme"],
+  Appearance: ["Accent color", "Appearance theme"],
 };
 
 const POST_MVP_SETTINGS = [
@@ -48,7 +48,7 @@ describe("preferences-dialog", () => {
   });
 
   it("updates persisted settings", async () => {
-    setDefaultSettings({ sidebarVisible: true, theme: "system" });
+    setDefaultSettings({ accentColor: "neutral", sidebarVisible: true, theme: "system" });
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
@@ -61,11 +61,25 @@ describe("preferences-dialog", () => {
     await user.tab();
 
     await user.click(screen.getByRole("tab", { name: "Appearance" }));
+    const accentColorSelect = screen.getByRole("combobox", { name: "Accent color" });
+    expect(accentColorSelect).toHaveTextContent("Neutral");
+    expect(
+      accentColorSelect.querySelector('[data-accent-color-preview="neutral"]'),
+    ).toBeInTheDocument();
+
+    await user.click(accentColorSelect);
+    await user.click(screen.getByRole("option", { name: "Violet" }));
     await user.click(screen.getByRole("button", { name: "Dark" }));
+
+    expect(accentColorSelect).toHaveTextContent("Violet");
+    expect(
+      accentColorSelect.querySelector('[data-accent-color-preview="violet"]'),
+    ).toBeInTheDocument();
 
     expect(useSettingsStore.getState()).toMatchObject({
       ignoredDirectories: [".git", "vendor"],
       sidebarVisible: false,
+      accentColor: "violet",
       theme: "dark",
     });
   });
@@ -82,7 +96,7 @@ describe("preferences-dialog", () => {
   });
 
   it("restores default settings", async () => {
-    setDefaultSettings({ sidebarVisible: false, theme: "dark" });
+    setDefaultSettings({ accentColor: "amber", sidebarVisible: false, theme: "dark" });
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
@@ -90,6 +104,7 @@ describe("preferences-dialog", () => {
 
     expect(useSettingsStore.getState()).toMatchObject({
       sidebarVisible: true,
+      accentColor: "neutral",
       theme: "system",
     });
   });

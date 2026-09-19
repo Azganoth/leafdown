@@ -119,6 +119,104 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+:root[data-accent-color] {
+  --primary: var(--accent-color-value);
+}
+
+:root[data-accent-color="neutral"],
+[data-accent-color-preview="neutral"] {
+  --accent-color-value: oklch(0.18 0 0);
+}
+
+:root[data-accent-color="red"],
+[data-accent-color-preview="red"] {
+  --accent-color-value: oklch(0.514 0.222 16.935);
+}
+
+:root[data-accent-color="orange"],
+[data-accent-color-preview="orange"] {
+  --accent-color-value: oklch(0.553 0.195 38.402);
+}
+
+:root[data-accent-color="amber"],
+[data-accent-color-preview="amber"] {
+  --accent-color-value: oklch(0.473 0.137 46.201);
+}
+
+:root[data-accent-color="emerald"],
+[data-accent-color-preview="emerald"] {
+  --accent-color-value: var(--chart-5);
+}
+
+:root[data-accent-color="cyan"],
+[data-accent-color-preview="cyan"] {
+  --accent-color-value: oklch(0.52 0.154 198.082);
+}
+
+:root[data-accent-color="blue"],
+[data-accent-color-preview="blue"] {
+  --accent-color-value: oklch(0.488 0.243 264.376);
+}
+
+:root[data-accent-color="violet"],
+[data-accent-color-preview="violet"] {
+  --accent-color-value: oklch(0.491 0.27 292.581);
+}
+
+:root[data-accent-color="fuchsia"],
+[data-accent-color-preview="fuchsia"] {
+  --accent-color-value: oklch(0.518 0.253 322.15);
+}
+
+[data-accent-color-preview] {
+  background-color: var(--accent-color-value);
+}
+
+.dark[data-accent-color="neutral"],
+.dark [data-accent-color-preview="neutral"] {
+  --accent-color-value: oklch(0.922 0 0);
+}
+
+.dark[data-accent-color="red"],
+.dark [data-accent-color-preview="red"] {
+  --accent-color-value: oklch(0.712 0.194 13.428);
+}
+
+.dark[data-accent-color="orange"],
+.dark [data-accent-color-preview="orange"] {
+  --accent-color-value: oklch(0.705 0.183 45.65);
+}
+
+.dark[data-accent-color="amber"],
+.dark [data-accent-color-preview="amber"] {
+  --accent-color-value: oklch(0.769 0.188 70.08);
+}
+
+.dark[data-accent-color="emerald"],
+.dark [data-accent-color-preview="emerald"] {
+  --accent-color-value: var(--chart-2);
+}
+
+.dark[data-accent-color="cyan"],
+.dark [data-accent-color-preview="cyan"] {
+  --accent-color-value: oklch(0.715 0.143 215.221);
+}
+
+.dark[data-accent-color="blue"],
+.dark [data-accent-color-preview="blue"] {
+  --accent-color-value: oklch(0.707 0.165 254.624);
+}
+
+.dark[data-accent-color="violet"],
+.dark [data-accent-color-preview="violet"] {
+  --accent-color-value: oklch(0.702 0.183 293.541);
+}
+
+.dark[data-accent-color="fuchsia"],
+.dark [data-accent-color-preview="fuchsia"] {
+  --accent-color-value: oklch(0.74 0.19 322.15);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

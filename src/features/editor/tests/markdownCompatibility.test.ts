@@ -299,6 +299,54 @@ describe("Markdown compatibility", () => {
     },
   );
 
+  // The cell handler names the pipe beyond a cell's padding as what follows its content.
+  it.each([
+    {
+      name: "a www literal",
+      source: "| a                 | b |\n| ----------------- | - |\n| x www.example.com | d |",
+    },
+    {
+      name: "a literal filling its cell",
+      source: "| a               | b |\n| --------------- | - |\n| www.example.com | d |",
+    },
+    {
+      name: "a literal ending the row's last cell",
+      source: "| a | b                 |\n| - | ----------------- |\n| d | x www.example.com |",
+    },
+    {
+      name: "an https literal",
+      source:
+        "| a                     | b |\n| --------------------- | - |\n| x https://example.com | d |",
+    },
+    {
+      name: "an email literal",
+      source: "| a               | b |\n| --------------- | - |\n| x a@example.com | d |",
+    },
+    {
+      name: "a literal in a header cell",
+      source: "| www.example.com | b |\n| --------------- | - |\n| c               | d |",
+    },
+    {
+      name: "a literal ending a row without outer pipes",
+      source: "ab | b\n-- | ---------------\ncd | www.example.com",
+    },
+    {
+      name: "a literal set off by a character reference",
+      source:
+        "| a                     | b |\n| --------------------- | - |\n| &#x20;www.example.com | d |",
+    },
+    {
+      name: "a literal followed by more text",
+      source:
+        "| a                   | b |\n| ------------------- | - |\n| x www.example.com b | d |",
+    },
+  ])("writes $name in a table cell as it was authored", async ({ source }) => {
+    const { mounted, reopened, saved } = await saveAndReopen(source);
+
+    expect(saved).toBe(`${source}\n`);
+    expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+  });
+
   // A trailing reference is trimmed off an autolink literal on the way back in, so a reference
   // typed after one costs the link neither its bare form nor an escape.
   it("keeps a bare autolink bare once a typed character reference converts after it", async () => {

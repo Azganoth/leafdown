@@ -7,8 +7,11 @@ import {
 } from "./blockSeparatorMarkdown";
 import {
   AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
+  AUTHORED_TITLE_ATTRIBUTE_NAME,
   AUTHORED_URL_ATTRIBUTE_NAME,
   readAuthoredDescription,
+  readAuthoredTitle,
+  readWrittenTitle,
 } from "./characterReferenceMarkdown";
 import {
   chooseTitleMarker,
@@ -48,6 +51,7 @@ export interface AuthoredDefinitionForm {
 }
 
 export interface DefinitionAttrs extends AuthoredDefinitionForm {
+  authoredTitle: string | null;
   label: string;
   title: string;
   titleMarker: TitleMarker;
@@ -313,6 +317,7 @@ export const findDefinitionForm = (raw: string, containerWidth = 0): AuthoredDef
 // The angle brackets close on the first unescaped `>`, so a destination spelling one of them gives
 // up a backslash here as it does in the file the serializer writes.
 export const serializeDefinitionMarkdown = ({
+  authoredTitle,
   destinationMarker,
   destinationSeparator,
   label,
@@ -330,12 +335,14 @@ export const serializeDefinitionMarkdown = ({
     return head;
   }
 
-  const [opening, closing] = TITLE_MARKER_PAIRS[chooseTitleMarker(title, titleMarker)];
+  const written = readWrittenTitle({ authoredTitle }, title).title;
+  const [opening, closing] = TITLE_MARKER_PAIRS[chooseTitleMarker(written, titleMarker)];
 
-  return `${head}${titleSeparator}${opening}${title}${closing}`;
+  return `${head}${titleSeparator}${opening}${written}${closing}`;
 };
 
 export const readDefinitionAttrs = (attrs: Record<string, unknown>): DefinitionAttrs => ({
+  authoredTitle: readAuthoredTitle(attrs),
   destinationMarker: readDestinationMarker(attrs),
   destinationSeparator: readDestinationSeparator(attrs),
   label: readString(attrs, "label"),
@@ -359,6 +366,7 @@ export const definitionNodeSchema: NodeSchema = {
     label: { default: "", validate: "string" },
     url: { default: "", validate: "string" },
     title: { default: "", validate: "string" },
+    [AUTHORED_TITLE_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
     [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     [DESTINATION_MARKER_ATTRIBUTE_NAME]: {
       default: DEFAULT_DEFINITION_FORM.destinationMarker,
@@ -387,6 +395,7 @@ export const definitionNodeSchema: NodeSchema = {
           label: element.getAttribute("data-label") ?? "",
           url: element.getAttribute("data-url") ?? "",
           title: element.getAttribute("data-title") ?? "",
+          [AUTHORED_TITLE_ATTRIBUTE_NAME]: element.getAttribute("data-authored-title"),
           [TITLE_MARKER_ATTRIBUTE_NAME]: element.getAttribute("data-title-marker"),
           [DESTINATION_MARKER_ATTRIBUTE_NAME]: element.getAttribute("data-destination-marker"),
           [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: element.getAttribute(
@@ -408,6 +417,7 @@ export const definitionNodeSchema: NodeSchema = {
         "data-label": attrs.label,
         "data-url": attrs.url,
         "data-title": attrs.title,
+        "data-authored-title": attrs.authoredTitle,
         "data-title-marker": attrs.titleMarker,
         "data-destination-marker": attrs.destinationMarker,
         "data-destination-separator": attrs.destinationSeparator,
@@ -423,6 +433,7 @@ export const definitionNodeSchema: NodeSchema = {
         label: readReferenceLabel(node),
         url: readString(node, "url"),
         title: readString(node, "title"),
+        [AUTHORED_TITLE_ATTRIBUTE_NAME]: readAuthoredTitle(node),
         [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
         [DESTINATION_MARKER_ATTRIBUTE_NAME]: readDestinationMarker(node),
         [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: readDestinationSeparator(node),
@@ -439,6 +450,7 @@ export const definitionNodeSchema: NodeSchema = {
         label: node.attrs.label,
         url: node.attrs.url,
         title: node.attrs.title || null,
+        [AUTHORED_TITLE_ATTRIBUTE_NAME]: node.attrs[AUTHORED_TITLE_ATTRIBUTE_NAME],
         [TITLE_MARKER_ATTRIBUTE_NAME]: node.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
         [DESTINATION_MARKER_ATTRIBUTE_NAME]: node.attrs[DESTINATION_MARKER_ATTRIBUTE_NAME],
         [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: node.attrs[DESTINATION_SEPARATOR_ATTRIBUTE_NAME],

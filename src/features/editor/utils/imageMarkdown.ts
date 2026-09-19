@@ -1,3 +1,4 @@
+import { decodeMarkdownText, escapeCharacterReferences } from "./characterReferenceMarkdown";
 import { chooseTitleMarker, TITLE_MARKER_PAIRS, type TitleMarker } from "./markdownTitle";
 import { normalizeReferenceLabel, type ReferenceType } from "./referenceLinkMarkdown";
 
@@ -80,7 +81,7 @@ export const parseImageMarkdown = (
   }
 
   const description = source.slice(2, altEnd);
-  const alt = unescapeMarkdownText(description);
+  const alt = decodeMarkdownText(description);
   const tail = source.slice(altEnd + 1);
 
   if (tail.startsWith("(") && source.endsWith(")")) {
@@ -104,7 +105,8 @@ const parseImageReference = (
   tail: string,
   resolveDefinition: ImageDefinitionResolver,
 ): ImageMarkdownAttrs | null => {
-  const reference = readImageReferenceTail(alt, tail);
+  // A label matches its definition on the references it spells rather than on what they name.
+  const reference = readImageReferenceTail(unescapeMarkdownText(description), tail);
   const definition = reference && resolveDefinition(normalizeReferenceLabel(reference.label));
 
   return definition
@@ -274,7 +276,10 @@ const normalizeImageSource = (value: string) => {
     : unescapeMarkdownText(source);
 };
 
-const escapeImageAlt = (value: string) => value.replace(/[\\[\]]/gu, "\\$&");
+// The input reads a description's references as the parser does, so an ampersand in the text that
+// would open one is escaped to stay the character it is.
+const escapeImageAlt = (value: string) =>
+  escapeCharacterReferences(value.replace(/[\\[\]]/gu, "\\$&"));
 
 const TITLE_ESCAPE_PATTERNS: Record<TitleMarker, RegExp> = {
   '"': /[\\"]/gu,

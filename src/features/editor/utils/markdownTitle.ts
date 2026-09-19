@@ -46,9 +46,9 @@ export const readTitleMarker = (node: object): TitleMarker => {
 // close with `)`; a definition ends at the title itself, which is what an empty `trailing` names. A
 // reference link carries its title from a definition rather than from a tail, which is why the
 // fallback is the marker the serializer would have chosen anyway rather than an absent one.
-export const findTitleMarker = (raw: string, trailing = ")"): TitleMarker => {
+const findTitleClosing = (raw: string, trailing: string) => {
   if (!raw.endsWith(trailing)) {
-    return '"';
+    return -1;
   }
 
   let index = raw.length - trailing.length - 1;
@@ -57,13 +57,31 @@ export const findTitleMarker = (raw: string, trailing = ")"): TitleMarker => {
     index -= 1;
   }
 
-  const closing = raw[index];
+  return index;
+};
+
+export const findTitleMarker = (raw: string, trailing = ")"): TitleMarker => {
+  const closing = raw[findTitleClosing(raw, trailing)];
 
   if (closing === '"' || closing === "'") {
     return closing;
   }
 
   return closing === ")" ? "(" : '"';
+};
+
+// The run a title was written with, between the markers that hold it. A title cannot hold its
+// opening marker unescaped, so the last unescaped one before the closing marker opens it. The
+// reading is a guess the caller confirms against the title the parser kept.
+export const findTitleSource = (raw: string, trailing = ")") => {
+  const closing = findTitleClosing(raw, trailing);
+  const marker = raw[closing];
+  const opening =
+    marker === '"' || marker === "'" || marker === ")"
+      ? findUnescapedIndex(raw, marker === ")" ? "(" : marker, closing - 1)
+      : -1;
+
+  return opening < 0 ? null : raw.slice(opening + 1, closing);
 };
 
 // The authored marker, which a quote keeps whatever the title holds, because the escapes that

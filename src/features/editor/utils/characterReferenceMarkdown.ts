@@ -41,6 +41,9 @@ const ESCAPABLE_PATTERN = /[!-/:-@[-`{-~]/u;
 // value never holds. A parse strips a continuation line's leading whitespace and reads a `>` there
 // as a quote, so neither can open the value's line and the whole run is skipped.
 const CONTINUATION_PREFIX_PATTERN = /(?:[\t ]*>)*[\t ]*/uy;
+// The same run ends its slice at the whitespace before a soft line break, which the parse drops
+// from the value, so the value's line ending stands where the source still holds that whitespace.
+const LINE_END_WHITESPACE_PATTERN = /[\t ]+(?=[\n\r])/uy;
 // Marks serialize in `spec.priority` order, 50 unless declared and 100 for inline code, and the
 // mark written last stands innermost. The runner below writes the text node itself, which stops
 // every mark ordered after it from opening at all, so a reference is ordered past all of them
@@ -155,8 +158,8 @@ interface SourceWalk {
 }
 
 // Walks the authored source against the value the parser produced from it. The two run together
-// except where the source spends more characters than the value keeps, which is an escape or a
-// character reference; anything else means the value was not built from this slice, and the caller
+// except where the source spends more characters than the value keeps, which is an escape, a
+// character reference, or whitespace a line ending drops; anything else means the value was not built from this slice, and the caller
 // falls back to holding no reference at all rather than to a guess.
 const walkValueSource = (source: string, value: string): SourceWalk | null => {
   const boundaries = new Map<number, number>();
@@ -194,6 +197,20 @@ const walkValueSource = (source: string, value: string): SourceWalk | null => {
       sourceIndex += 2;
       valueIndex += 1;
       continue;
+    }
+
+    if (character === " " || character === "\t") {
+      LINE_END_WHITESPACE_PATTERN.lastIndex = sourceIndex;
+
+      const lineEndWhitespace = LINE_END_WHITESPACE_PATTERN.exec(source)?.[0];
+
+      if (
+        lineEndWhitespace !== undefined &&
+        value[valueIndex] === source[sourceIndex + lineEndWhitespace.length]
+      ) {
+        sourceIndex += lineEndWhitespace.length;
+        continue;
+      }
     }
 
     if (character === undefined || character !== value[valueIndex]) {

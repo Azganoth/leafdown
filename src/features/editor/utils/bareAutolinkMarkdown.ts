@@ -16,9 +16,14 @@ type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
 >;
 
+type StringifyState = Parameters<NonNullable<RemarkStringifyHandlers["link"]>>[2];
+
 export const BARE_AUTOLINK_MARKDOWN_TYPE = "leafdownBareAutolink";
 
 const LINK_MARKDOWN_TYPE = "link";
+const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
+const CELL_DELIMITER = "|";
+const CELL_PADDING = " ";
 const BARE_AUTOLINK_ATTRIBUTE_NAME = "isBareAutolink";
 const BARE_AUTOLINK_DOM_ATTRIBUTE_NAME = "data-bare-autolink";
 const HTTP_URL_PATTERN = /^https?:\/\//iu;
@@ -177,6 +182,11 @@ const isReadableWhereItLands = (
   (endsBeforeFollowingCharacter(node, value, after.charAt(0)) ||
     isFollowedByTrimmedRuns(node, parent));
 
+// The cell handler names a pipe as what follows a cell's content, but the table is written with the
+// padding `markdown-table` defaults to, so in the file a space or the end of the line follows it.
+const readFollowingText = (state: StringifyState, after: string) =>
+  after === CELL_DELIMITER && state.stack.includes(TABLE_CELL_MARKDOWN_TYPE) ? CELL_PADDING : after;
+
 export const serializeBareAutolink: NonNullable<RemarkStringifyHandlers["link"]> = (
   node,
   parent,
@@ -191,7 +201,7 @@ export const serializeBareAutolink: NonNullable<RemarkStringifyHandlers["link"]>
       parent as MarkdownNode | undefined,
       value,
       info.before,
-      info.after,
+      readFollowingText(state, info.after),
     )
     ? value
     : state.handle({ ...node, type: LINK_MARKDOWN_TYPE }, parent, state, info);

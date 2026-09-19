@@ -11,7 +11,9 @@ import { isSameNullablePath } from "@/lib/path";
 
 import {
   AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
+  AUTHORED_TITLE_ATTRIBUTE_NAME,
   readAuthoredDescription,
+  readAuthoredTitle,
 } from "../utils/characterReferenceMarkdown";
 import {
   parseImageMarkdown,
@@ -174,6 +176,7 @@ class LeafdownImageNodeView implements NodeView {
     const nextAttrs = toNodeAttrs(
       keepsDescription ? { ...editedAttrs, alt: currentAttrs.alt } : editedAttrs,
       keepsDescription ? readAuthoredDescription(this.node.attrs) : null,
+      readAuthoredTitle(this.node.attrs),
     );
 
     if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
@@ -349,11 +352,15 @@ const isSameImageResolutionInput = (
 const toNodeAttrs = (
   { alt, referenceLabel, referenceType, src, title, titleMarker }: ImageMarkdownAttrs,
   authoredDescription: string | null,
+  authoredTitle: string | null,
 ) => ({
   alt,
   src,
   title,
   [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: authoredDescription,
+  // The serializer writes the authored title only while it still decodes to the title, so an edit
+  // to the title in the input leaves it describing text the node no longer holds.
+  [AUTHORED_TITLE_ATTRIBUTE_NAME]: authoredTitle,
   [TITLE_MARKER_ATTRIBUTE_NAME]: titleMarker,
   [REFERENCE_LABEL_ATTRIBUTE_NAME]: referenceLabel,
   [REFERENCE_TYPE_ATTRIBUTE_NAME]: referenceType,

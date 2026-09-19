@@ -1,6 +1,10 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $nodeSchema, $remark } from "@milkdown/kit/utils";
 
+import {
+  AUTHORED_TITLE_ATTRIBUTE_NAME,
+  findAuthoredTitle,
+} from "../utils/characterReferenceMarkdown";
 import { findTitleMarker, TITLE_MARKER_ATTRIBUTE_NAME } from "../utils/markdownTitle";
 import {
   DEFINITION_MARKDOWN_TYPE,
@@ -60,8 +64,9 @@ const readDefinitions = (tree: MarkdownNode, source: string) => {
         authored[DESTINATION_SEPARATOR_ATTRIBUTE_NAME] = form.destinationSeparator;
         authored[TITLE_SEPARATOR_ATTRIBUTE_NAME] = form.titleSeparator;
 
-        if (node.title) {
+        if (typeof node.title === "string" && node.title) {
           authored[TITLE_MARKER_ATTRIBUTE_NAME] = findTitleMarker(raw, "");
+          authored[AUTHORED_TITLE_ATTRIBUTE_NAME] = findAuthoredTitle(raw, node.title, "");
         }
       }
 

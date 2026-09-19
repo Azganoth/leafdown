@@ -4,7 +4,7 @@ import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transfo
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 
-import { TITLE_MARKER_ATTRIBUTE_NAME, readTitleMarker } from "./markdownTitle";
+import { findTitleSource, TITLE_MARKER_ATTRIBUTE_NAME, readTitleMarker } from "./markdownTitle";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -15,6 +15,7 @@ export const CHARACTER_REFERENCE_MARK_NAME = "leafdownCharacterReference";
 // A link and an image both carry the destination the author wrote where it differs from the one
 // the parser decoded, so the mark and the node name it the same way.
 export const AUTHORED_URL_ATTRIBUTE_NAME = "authoredUrl";
+export const AUTHORED_TITLE_ATTRIBUTE_NAME = "authoredTitle";
 // An image description holds inline content, and the parser keeps only the text it spells, so the
 // node carries the source the description was written with wherever that source says more.
 export const AUTHORED_DESCRIPTION_ATTRIBUTE_NAME = "authoredDescription";
@@ -341,6 +342,46 @@ export const decodeCharacterReferences = (value: string) => {
   return decoded;
 };
 
+// The text a run spells once its escapes and its references are read in the one pass CommonMark
+// reads them in, so an escaped ampersand opens no reference.
+export const decodeMarkdownText = (value: string) => {
+  let decoded = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+
+    if (character === "\\" && ESCAPABLE_PATTERN.test(value[index + 1] ?? "")) {
+      index += 1;
+      decoded += value[index];
+      continue;
+    }
+
+    const reference = character === "&" ? readCharacterReference(value, index) : null;
+
+    if (reference) {
+      decoded += reference.decoded;
+      index += reference.source.length - 1;
+      continue;
+    }
+
+    decoded += character;
+  }
+
+  return decoded;
+};
+
+// The value with a backslash before every ampersand that would open a reference, which is what
+// keeps text reading back as itself through `decodeMarkdownText`.
+export const escapeCharacterReferences = (value: string) => {
+  let escaped = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    escaped += value[index] === "&" && readCharacterReference(value, index) ? "\\&" : value[index];
+  }
+
+  return escaped;
+};
+
 // The distinct references the value spells out. An ampersand that names nothing, never closes, or
 // overruns its digit budget starts none of them and is ordinary text wherever it sits.
 export const findCharacterReferenceSources = (value: string) => {
@@ -382,6 +423,39 @@ export const readAuthoredUrl = (node: object) => {
   const authored = (node as { authoredUrl?: unknown }).authoredUrl;
 
   return typeof authored === "string" ? authored : null;
+};
+
+// The authored title with its escapes resolved and its references left standing, or null where the
+// two forms already agree. The markers it sits between and the escapes they take stay owned by the
+// title form, so this carries the reference difference and nothing else.
+export const findAuthoredTitle = (raw: string, title: string, trailing?: string): string | null => {
+  const source = findTitleSource(raw, trailing);
+
+  if (source === null) {
+    return null;
+  }
+
+  const withoutEscapes = resolveEscapes(source);
+
+  return withoutEscapes !== title && decodeCharacterReferences(withoutEscapes) === title
+    ? withoutEscapes
+    : null;
+};
+
+export const readAuthoredTitle = (node: object) => {
+  const authored = (node as { authoredTitle?: unknown }).authoredTitle;
+
+  return typeof authored === "string" ? authored : null;
+};
+
+// The title a node is written with: the authored one where its references still decode to the title
+// the document holds, and the title itself once an edit leaves the two disagreeing.
+export const readWrittenTitle = (node: object, title: string) => {
+  const authored = readAuthoredTitle(node);
+
+  return authored !== null && decodeCharacterReferences(authored) === title
+    ? { authored: true, title: authored }
+    : { authored: false, title };
 };
 
 interface DescriptionSource {
@@ -432,11 +506,10 @@ const findReferenceLabelSource = ({ description, tail }: DescriptionSource) => {
 };
 
 // A description is worth carrying only where it says more than the text the parser kept from it:
-// emphasis, inline code, a nested image, or anything else whose markers the alt text drops.
-// Escapes and character references are differences the alt text does answer for, and both belong
-// to the issues that settled them, so a description spelling only those is left as it is.
-const saysMoreThanAlt = (description: string, alt: string) =>
-  decodeCharacterReferences(resolveEscapes(description)) !== alt;
+// emphasis, inline code, a nested image, a character reference, or anything else the alt text
+// decodes or drops. An escape is a difference the alt text does answer for, because the file
+// escapes that text wherever it needs one, so a description spelling only escapes is left as it is.
+const saysMoreThanAlt = (description: string, alt: string) => resolveEscapes(description) !== alt;
 
 // The description an inline image was written with, or null where the slice does not spell the
 // image the node was built from. The destination the slice names is what confirms the description
@@ -484,6 +557,7 @@ const omitAuthoredAttributes = (attributes: Record<string, unknown>) => {
   const rendered = { ...attributes };
 
   delete rendered[AUTHORED_URL_ATTRIBUTE_NAME];
+  delete rendered[AUTHORED_TITLE_ATTRIBUTE_NAME];
   delete rendered[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME];
   delete rendered[TITLE_MARKER_ATTRIBUTE_NAME];
 
@@ -502,6 +576,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
     attrs: {
       ...schema.attrs,
       [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
+      [AUTHORED_TITLE_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
       [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
       [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     },
@@ -524,6 +599,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           alt: (node as { alt?: unknown }).alt,
           title: node.title,
           [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
+          [AUTHORED_TITLE_ATTRIBUTE_NAME]: readAuthoredTitle(node),
           [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: readAuthoredDescription(node),
           [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
         });
@@ -537,6 +613,7 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           url: node.attrs.src,
           alt: node.attrs.alt,
           [AUTHORED_URL_ATTRIBUTE_NAME]: node.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
+          [AUTHORED_TITLE_ATTRIBUTE_NAME]: node.attrs[AUTHORED_TITLE_ATTRIBUTE_NAME],
           [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: node.attrs[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME],
           [TITLE_MARKER_ATTRIBUTE_NAME]: node.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
         });

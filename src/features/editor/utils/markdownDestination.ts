@@ -5,6 +5,7 @@ import {
   decodeCharacterReferences,
   findCharacterReferenceSources,
   readAuthoredDescription,
+  readWrittenTitle,
 } from "./characterReferenceMarkdown";
 import {
   chooseTitleMarker,
@@ -61,6 +62,22 @@ const isAmpersand = (pattern: UnsafePattern) => pattern.character === "&";
 const DESTINATION_CONSTRUCTS = ["destinationLiteral", "destinationRaw"] as const;
 const REGULAR_EXPRESSION_SYNTAX_PATTERN = /[$()*+.?[\\\]^{|}]/gu;
 
+// The pattern that escapes exactly the ampersands opening a reference the value spells out, or
+// null where it spells none.
+const escapeReferences = (value: string): UnsafePattern | null => {
+  const references = findCharacterReferenceSources(value);
+
+  if (references.size === 0) {
+    return null;
+  }
+
+  const tails = [...references]
+    .map((source) => source.slice(1).replace(REGULAR_EXPRESSION_SYNTAX_PATTERN, String.raw`\$&`))
+    .join("|");
+
+  return { character: "&", after: `(?:${tails})` };
+};
+
 // A phrasing pattern stays in scope inside a destination, because the paragraph is still on the
 // stack, and it constrains its character by that construct rather than by what follows it. The
 // tail alone decides a reference, so the ones this destination spells out narrow the pattern to
@@ -77,20 +94,11 @@ const scopeAmpersand = (
   };
   // An authored destination is written where its references still decode to the target, so every
   // ampersand in it reaches the file bare.
-  const references = authored ? new Set<string>() : findCharacterReferenceSources(url);
+  const reference = authored ? null : escapeReferences(url);
 
-  if (references.size === 0) {
-    return [outsideDestination];
-  }
-
-  const tails = [...references]
-    .map((source) => source.slice(1).replace(REGULAR_EXPRESSION_SYNTAX_PATTERN, String.raw`\$&`))
-    .join("|");
-
-  return [
-    outsideDestination,
-    { character: "&", after: `(?:${tails})`, inConstruct: [...DESTINATION_CONSTRUCTS] },
-  ];
+  return reference
+    ? [outsideDestination, { ...reference, inConstruct: [...DESTINATION_CONSTRUCTS] }]
+    : [outsideDestination];
 };
 
 const scopeDestination = (
@@ -156,16 +164,71 @@ const withAuthoredUrl = <T extends { url?: string | null }>(node: T) => {
     : { authored: false, node };
 };
 
+const withWrittenTitle = <T extends { title?: string | null }>(node: T) => {
+  if (!node.title) {
+    return { authored: false, node };
+  }
+
+  const written = readWrittenTitle(node, node.title);
+
+  return { authored: written.authored, node: { ...node, title: written.title } };
+};
+
+// A title's ampersands are escaped by the one pattern given here, which is none for an authored
+// title, whose ampersands all reach the file bare because its references still decode to the title
+// the document holds.
+const withTitleAmpersands = (
+  state: StringifyState,
+  reference: UnsafePattern | null,
+  write: () => string,
+) => {
+  const enclosing = state.unsafe;
+  const scoped = enclosing.filter((pattern) => !isAmpersand(pattern));
+
+  state.unsafe = reference ? [...scoped, reference] : scoped;
+
+  try {
+    return write();
+  } finally {
+    state.unsafe = enclosing;
+  }
+};
+
+const TITLE_CONSTRUCT_NAMES: readonly string[] = ["titleApostrophe", "titleQuote"];
+
+// The default handler writes its own title one construct inside the one it opens for the object,
+// which tells that call apart from the title of anything its label holds.
+const scopeAuthoredTitle = (state: StringifyState, authored: boolean) => {
+  if (!authored) {
+    return () => {};
+  }
+
+  const enclosing = state.safe;
+  const depth = state.stack.length + 2;
+
+  state.safe = (value, config) =>
+    state.stack.length === depth && TITLE_CONSTRUCT_NAMES.includes(state.stack.at(-1) ?? "")
+      ? withTitleAmpersands(state, null, () => enclosing.call(state, value, config))
+      : enclosing.call(state, value, config);
+
+  return () => {
+    state.safe = enclosing;
+  };
+};
+
 export const serializeMarkdownLink: NonNullable<RemarkStringifyHandlers["link"]> = Object.assign(
   (...[node, parent, state, info]: Parameters<typeof defaultHandlers.link>) => {
     const { authored, node: destination } = withAuthoredUrl(node);
-    const restore = scopeDestination(state, destination.url, authored);
+    const { authored: titled, node: link } = withWrittenTitle(destination);
+    const restore = scopeDestination(state, link.url, authored);
+    const restoreTitle = scopeAuthoredTitle(state, titled);
 
     try {
-      return withAuthoredTitle(destination, state.options, () =>
-        defaultHandlers.link(destination, parent, state, info),
+      return withAuthoredTitle(link, state.options, () =>
+        defaultHandlers.link(link, parent, state, info),
       );
     } finally {
+      restoreTitle();
       restore();
     }
   },
@@ -289,12 +352,20 @@ const writeDefinitionDestination = (node: DefinitionNode, state: StringifyState,
     : withConstruct(state, "destinationRaw", () => state.safe(url, { before: " ", after }));
 };
 
+// A definition is written outside any paragraph, so no phrasing pattern escapes an ampersand in
+// its title, and a title spelling a reference the author escaped is given the escape here.
 const writeDefinitionTitle = (node: DefinitionNode, state: StringifyState, title: string) => {
-  const marker = chooseTitleMarker(title, readTitleMarker(node));
+  const written = readWrittenTitle(node, title);
+  const marker = chooseTitleMarker(written.title, readTitleMarker(node));
   const [opening, closing] = TITLE_MARKER_PAIRS[marker];
   const construct = TITLE_CONSTRUCTS[marker];
+  const reference = written.authored ? null : escapeReferences(written.title);
   const write = () =>
-    `${opening}${state.safe(title, { before: opening, after: closing })}${closing}`;
+    withTitleAmpersands(
+      state,
+      reference,
+      () => `${opening}${state.safe(written.title, { before: opening, after: closing })}${closing}`,
+    );
 
   return construct === null ? write() : withConstruct(state, construct, write);
 };
@@ -329,14 +400,17 @@ export const serializeMarkdownDefinition: NonNullable<RemarkStringifyHandlers["d
 export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"]> = Object.assign(
   (...[node, parent, state, info]: Parameters<typeof defaultHandlers.image>) => {
     const { authored, node: destination } = withAuthoredUrl(node);
+    const { authored: titled, node: image } = withWrittenTitle(destination);
     const restoreDescription = scopeDescription(state, readAuthoredDescription(node));
-    const restore = scopeDestination(state, destination.url, authored);
+    const restore = scopeDestination(state, image.url, authored);
+    const restoreTitle = scopeAuthoredTitle(state, titled);
 
     try {
-      return withAuthoredTitle(destination, state.options, () =>
-        defaultHandlers.image(destination, parent, state, info),
+      return withAuthoredTitle(image, state.options, () =>
+        defaultHandlers.image(image, parent, state, info),
       );
     } finally {
+      restoreTitle();
       restore();
       restoreDescription();
     }

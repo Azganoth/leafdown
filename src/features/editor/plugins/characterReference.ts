@@ -7,6 +7,7 @@ import {
   findAuthoredDescription,
   findAuthoredDestination,
   findAuthoredReferenceDescription,
+  findAuthoredTitle,
   splitCharacterReferences,
 } from "../utils/characterReferenceMarkdown";
 import { findTitleMarker, type TitleMarker } from "../utils/markdownTitle";
@@ -30,7 +31,7 @@ const markAuthoredDescription = (node: MarkdownNode, description: string | null)
 };
 
 // A reference is gone from the value by the time the tree exists, a title keeps its text without
-// its markers, and an image description keeps only the text its inline content spells, so all
+// its markers or the references it spelled, and an image description keeps only the text its inline content spells, so all
 // three are recovered by walking the tree against the slice of the file each node was built from.
 // A node the parser gave no position, or one another transformer has already rebuilt, is left
 // alone.
@@ -81,6 +82,12 @@ const markAuthoredSource = (node: MarkdownNode, source: string) => {
 
         if (child.title) {
           (child as { titleMarker?: TitleMarker }).titleMarker = findTitleMarker(raw);
+
+          const title = findAuthoredTitle(raw, readNodeString(child, "title") ?? "");
+
+          if (title !== null) {
+            (child as { authoredTitle?: string }).authoredTitle = title;
+          }
         }
       } else if (child.type === IMAGE_REFERENCE_MARKDOWN_TYPE) {
         const label = readNodeString(child, "label");

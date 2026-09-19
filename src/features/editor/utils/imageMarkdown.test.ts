@@ -244,6 +244,33 @@ describe("imageMarkdown", () => {
     );
   });
 
+  it.each([
+    [String.raw`![a &copy;](./assets/icon.png)`, "a ©"],
+    [String.raw`![a \&copy;](./assets/icon.png)`, "a &copy;"],
+    [String.raw`![a & b](./assets/icon.png)`, "a & b"],
+  ])("reads the references in %s as the file does", (markdown, alt) => {
+    expect(parseImageMarkdown(markdown)?.alt).toBe(alt);
+  });
+
+  it("escapes an ampersand in the alt text that would open a reference", () => {
+    const description = readImageDescription(null, "a &copy; & b");
+
+    expect(description).toBe(String.raw`a \&copy; & b`);
+    expect(parseImageMarkdown(`![${description}](./assets/icon.png)`)?.alt).toBe("a &copy; & b");
+  });
+
+  it("matches a shortcut reference on the references its label spells", () => {
+    const resolve = (label: string) => (label === "a &copy;" ? LEAF_DEFINITION : null);
+
+    expect(parseImageMarkdown("![a &copy;]", resolve)).toEqual({
+      alt: "a ©",
+      description: "a &copy;",
+      referenceLabel: "a &copy;",
+      referenceType: "shortcut",
+      ...LEAF_DEFINITION,
+    });
+  });
+
   it("keeps a reference whose description spells its label in the form it was written", () => {
     expect(
       serializeImageMarkdown({

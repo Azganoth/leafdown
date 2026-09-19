@@ -3445,6 +3445,85 @@ describe("Character references", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  // A title and an image description carry their authored form on the object, so a reference there
+  // is written back rather than decoded into the character it names.
+  it.each([
+    '[l](d.md "t &copy;")',
+    "[l](d.md 't &copy;')",
+    "[l](d.md (t &rpar;))",
+    '![a](d.png "t &copy;")',
+    '[l]: d.md "t &copy;"',
+    "[l]: d.md (t &rpar; &copy;)",
+    "![a &copy;](d.png)",
+    "![a &copy; *b*](d.png)",
+    "![a &copy;]\n\n[a &copy;]: d.png",
+    // Each object answers for its own title while one serializes inside the other.
+    String.raw`[![a](i.png "\&copy;")](t.md "&copy;")`,
+    String.raw`[![a](i.png "&copy;")](t.md "\&copy;")`,
+    // A definition is written outside any paragraph, and a reference its title escapes stays
+    // escaped there too.
+    String.raw`[l]: d.md "t \&copy;"`,
+  ])("writes the title or description in %j as it was authored", async (fixture) => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+      kind: "renderable",
+      path: `C:/Notes/${target}`,
+    }));
+
+    const source = `${fixture}\n\ntail\n`;
+    const mounted = await mountEditor(source);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const opened = mounted.view.state.doc.toJSON();
+    const saved = mounted.getMarkdown();
+    const reopened = await mountEditor(saved);
+
+    setSelectionAtDocumentEnd(reopened.view);
+
+    expect(saved).toBe(source);
+    expect(reopened.view.state.doc.toJSON()).toEqual(opened);
+  });
+
+  it.each([
+    { source: '[l](d.md "t &copy;")', saved: '[l](d.md "u ©")' },
+    { source: '![a](d.png "t &copy;")', saved: '![a](d.png "u ©")' },
+    { source: '[l]: d.md "t &copy;"', saved: '[l]: d.md "u ©"' },
+  ])(
+    "writes the character once an edit changes the title of $source",
+    async ({ source, saved }) => {
+      mockTauriApiCommand("resolveMarkdownImageTarget", ({ target }) => ({
+        kind: "renderable",
+        path: `C:/Notes/${target}`,
+      }));
+
+      const mounted = await mountEditor(`${source}\n\ntail\n`);
+
+      setSelectionAtDocumentEnd(mounted.view);
+
+      const { state } = mounted.view;
+      let tr = state.tr;
+
+      state.doc.descendants((node, position) => {
+        const link = node.marks.find((mark) => mark.type.name === "link");
+
+        if (link) {
+          tr = tr
+            .removeMark(position, position + node.nodeSize, link.type)
+            .addMark(
+              position,
+              position + node.nodeSize,
+              link.type.create({ ...link.attrs, title: "u ©" }),
+            );
+        } else if (node.type.name === "image" || node.type.name === "definition") {
+          tr = tr.setNodeMarkup(position, undefined, { ...node.attrs, title: "u ©" });
+        }
+      });
+      mounted.view.dispatch(tr);
+
+      expect(mounted.getMarkdown()).toBe(`${saved}\n\ntail\n`);
+    },
+  );
+
   it("writes the character rather than the reference once an edit replaces it", async () => {
     const mounted = await mountEditor("&copy;\n");
     const start = getEditorTextPosition(mounted, "©");

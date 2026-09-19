@@ -19,6 +19,7 @@ export {
   useSettingsStore,
   type AppearanceAccentColor,
   type AppearanceTheme,
+  type DropBehavior,
   type SettingsPersistedState,
   type SettingsState,
   type SettingsStore,

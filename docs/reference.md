@@ -31,8 +31,8 @@ Global settings persist across application launches unless specified otherwise.
 - **Ignored directories for folder scans:** directory name list. Default: `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
   - Directory name matching is case-sensitive on Unix-like systems and case-insensitive on Windows. Matching directories and their contents are recursively skipped.
 - **Auto save:** On or Off. Default: Off. (Deferred)
-- **When dropping a folder:** Open or Insert folder link. Default: Open. (Deferred)
-- **When dropping a Markdown file:** Open or Insert file link. Default: Open. (Deferred)
+- **When dropping a folder:** Open or Insert folder link. Default: Open.
+- **When dropping a Markdown file:** Open or Insert file link. Default: Open.
 
 ### Editor
 

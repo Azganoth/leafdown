@@ -19,6 +19,7 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "../commands";
+import { insertLinkTarget } from "../commands/inserting/links";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 import {
@@ -33,6 +34,7 @@ import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 export interface MilkdownEditorBridge {
   getMarkdown: () => string;
   getCommandState?: () => EditorCommandState;
+  insertLink?: (label: string, target: string) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
 }
 
@@ -112,6 +114,13 @@ export const useMilkdownEditorInstance = ({
         return getMilkdownEditorMarkdown(editorRef.current);
       },
       getCommandState: () => commandStateRef.current,
+      insertLink: (label, target) => {
+        if (!editorRef.current?.ctx) {
+          return false;
+        }
+
+        return insertLinkTarget(editorRef.current.ctx.get(editorViewCtx), { label, target });
+      },
       runCommand: (commandId) => {
         if (!editorRef.current) {
           return false;

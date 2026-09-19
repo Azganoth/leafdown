@@ -27,6 +27,8 @@ describe("settings store", () => {
       insertFinalNewline: false,
       indexFileNames: ["home"],
       ignoredDirectories: ["vendor"],
+      whenDroppingFolder: "insertLink",
+      whenDroppingMarkdownFile: "insertLink",
       autoPairBracketsAndQuotes: false,
       softWrapCodeBlocks: true,
     });
@@ -44,6 +46,8 @@ describe("settings store", () => {
       insertFinalNewline: true,
       indexFileNames: DEFAULT_INDEX_FILE_NAMES,
       ignoredDirectories: DEFAULT_IGNORED_DIRECTORIES,
+      whenDroppingFolder: "open",
+      whenDroppingMarkdownFile: "open",
       autoPairBracketsAndQuotes: true,
       softWrapCodeBlocks: false,
       version: SETTINGS_VERSION,
@@ -63,6 +67,8 @@ describe("settings store", () => {
     settings.updateSetting("insertFinalNewline", false);
     settings.updateSetting("indexFileNames", ["home", "index"]);
     settings.updateSetting("ignoredDirectories", [".git", "vendor"]);
+    settings.updateSetting("whenDroppingFolder", "insertLink");
+    settings.updateSetting("whenDroppingMarkdownFile", "insertLink");
     settings.updateSetting("autoPairBracketsAndQuotes", false);
     settings.updateSetting("softWrapCodeBlocks", true);
 
@@ -77,6 +83,8 @@ describe("settings store", () => {
       insertFinalNewline: false,
       indexFileNames: ["home", "index"],
       ignoredDirectories: [".git", "vendor"],
+      whenDroppingFolder: "insertLink",
+      whenDroppingMarkdownFile: "insertLink",
       autoPairBracketsAndQuotes: false,
       softWrapCodeBlocks: true,
     });
@@ -103,6 +111,8 @@ describe("settings store", () => {
         insertFinalNewline: false,
         indexFileNames: ["home"],
         ignoredDirectories: ["vendor"],
+        whenDroppingFolder: "insertLink",
+        whenDroppingMarkdownFile: "insertLink",
         autoPairBracketsAndQuotes: false,
         softWrapCodeBlocks: true,
         version: SETTINGS_VERSION,

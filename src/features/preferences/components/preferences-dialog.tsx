@@ -26,6 +26,7 @@ import type { ArticleSortOrder } from "@/features/folder-context";
 import {
   type AppearanceAccentColor,
   type AppearanceTheme,
+  type DropBehavior,
   useSettingsStore,
 } from "../stores/settings";
 import {
@@ -82,6 +83,14 @@ const LINE_ENDING_OPTIONS: ChoiceOption<LineEnding>[] = [
   { label: "LF", value: "lf" },
   { label: "CRLF", value: "crlf" },
 ];
+
+const createDropBehaviorOptions = (insertLabel: string): ChoiceOption<DropBehavior>[] => [
+  { label: "Open", value: "open" },
+  { label: insertLabel, value: "insertLink" },
+];
+
+const FOLDER_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert folder link");
+const MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert file link");
 
 const PREFERENCE_TABS = [
   { value: "general", label: "General", icon: SlidersHorizontalIcon },
@@ -187,6 +196,8 @@ function FilePreferences() {
   const ignoredDirectories = useSettingsStore((state) => state.ignoredDirectories);
   const indexFileNames = useSettingsStore((state) => state.indexFileNames);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
+  const whenDroppingFolder = useSettingsStore((state) => state.whenDroppingFolder);
+  const whenDroppingMarkdownFile = useSettingsStore((state) => state.whenDroppingMarkdownFile);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
@@ -208,6 +219,18 @@ function FilePreferences() {
         description="Ends the saved file with a line break."
         checked={insertFinalNewline}
         onCheckedChange={(checked) => updateSetting("insertFinalNewline", checked)}
+      />
+      <PreferenceChoice
+        label="When dropping a folder"
+        value={whenDroppingFolder}
+        options={FOLDER_DROP_BEHAVIOR_OPTIONS}
+        onValueChange={(value) => updateSetting("whenDroppingFolder", value)}
+      />
+      <PreferenceChoice
+        label="When dropping a Markdown file"
+        value={whenDroppingMarkdownFile}
+        options={MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS}
+        onValueChange={(value) => updateSetting("whenDroppingMarkdownFile", value)}
       />
       <ListPreferenceField
         label="Index file names for automatic folder open"

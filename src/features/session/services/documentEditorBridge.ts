@@ -46,6 +46,14 @@ class DocumentEditorBridgeStore {
       ? (this.activeBridgeEntry.bridge.getCommandState?.() ?? READY_DISABLED_EDITOR_COMMAND_STATE)
       : INACTIVE_EDITOR_COMMAND_STATE;
 
+  insertLink = (documentKey: string, label: string, target: string) => {
+    if (this.activeBridgeEntry?.documentKey !== documentKey) {
+      return false;
+    }
+
+    return this.activeBridgeEntry.bridge.insertLink?.(label, target) ?? false;
+  };
+
   runCommand = (documentKey: string, commandId: EditorCommandId) => {
     if (this.activeBridgeEntry?.documentKey !== documentKey) {
       return false;

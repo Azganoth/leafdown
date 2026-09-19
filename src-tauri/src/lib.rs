@@ -7,6 +7,7 @@ mod command_contract_tests;
 mod debug;
 mod diagnostics;
 mod document;
+mod drop;
 mod file_utils;
 mod folder;
 mod image;
@@ -82,6 +83,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
             document::save_markdown_file,
+            drop::inspect_dropped_path,
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,

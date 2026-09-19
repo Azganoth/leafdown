@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Open a Markdown file or folder by dropping it anywhere on the Leafdown window, with the same unsaved-change handling, pinned folder context, index-file behavior, and recent-item recording as the File menu. A window-wide overlay previews the configured action while the item is dragged over Leafdown, or explains why the drop is unavailable. Two persisted Files preferences can instead insert a link into the active document: saved documents receive a relative link when possible, while untitled documents receive an absolute one. Multi-item and unsupported drops are left alone with a warning.
 - Choose a Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia accent color from a previewed menu in Preferences. Neutral preserves Leafdown's original monochrome primary treatment; every choice carries links, editor selection and caret treatment, checked task checkboxes, quote bars, list glyphs, selection rings, active article rows, and filled primary controls in both appearances, and stays after restarting Leafdown.
 - Add a paragraph at the end of the document by clicking the empty space below it.
 - Close folder contexts from the File menu.

@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { setDefaultSettings } from "@/test/utils/appStores";
-import { renderWithUser, screen } from "@/test/utils/react";
+import { renderWithUser, screen, within } from "@/test/utils/react";
 
 import { useSettingsStore } from "../stores/settings";
 import { PreferencesDialog } from "./preferences-dialog";
@@ -14,6 +14,8 @@ const MVP_SETTINGS_BY_TAB = {
     "Default extension for new documents",
     "Default line ending for new documents",
     "Insert final newline on save",
+    "When dropping a folder",
+    "When dropping a Markdown file",
     "Index file names for automatic folder open",
     "Ignored directories for folder scans",
   ],
@@ -55,6 +57,13 @@ describe("preferences-dialog", () => {
     await user.click(screen.getByRole("switch", { name: "Sidebar visibility" }));
 
     await user.click(screen.getByRole("tab", { name: "Files" }));
+    const folderDropSetting = screen.getByRole("group", { name: "When dropping a folder" });
+    const fileDropSetting = screen.getByRole("group", {
+      name: "When dropping a Markdown file",
+    });
+
+    await user.click(within(folderDropSetting).getByRole("button", { name: "Insert folder link" }));
+    await user.click(within(fileDropSetting).getByRole("button", { name: "Insert file link" }));
     const ignoredDirectoriesInput = screen.getByLabelText("Ignored directories for folder scans");
     await user.clear(ignoredDirectoriesInput);
     await user.type(ignoredDirectoriesInput, ".git{enter}vendor");
@@ -78,6 +87,8 @@ describe("preferences-dialog", () => {
 
     expect(useSettingsStore.getState()).toMatchObject({
       ignoredDirectories: [".git", "vendor"],
+      whenDroppingFolder: "insertLink",
+      whenDroppingMarkdownFile: "insertLink",
       sidebarVisible: false,
       accentColor: "violet",
       theme: "dark",

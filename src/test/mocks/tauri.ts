@@ -34,6 +34,7 @@ const currentWindowMock = {
   emit: vi.fn(async () => undefined),
   isFullscreen: vi.fn(async () => false),
   listen: vi.fn(async () => vi.fn()),
+  onDragDropEvent: vi.fn(async () => vi.fn()),
   onThemeChanged: vi.fn(async () => vi.fn()),
   setFullscreen: vi.fn(async () => undefined),
   show: vi.fn(async () => undefined),

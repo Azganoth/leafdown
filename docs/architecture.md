@@ -115,6 +115,7 @@ Marker presentation remains separate from projection lifecycle. Decorations styl
 The Rust backend manages:
 
 - Native file dialogs and file IO.
+- Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Directory scanning and article-tree generation.
@@ -137,7 +138,7 @@ The React frontend manages:
 - Marker visibility rules, thematic styling, and error presentation.
 - Mirroring shared unexpected-error reports and feature-owned operational diagnostics into local logs as event-specific payloads, and exposing the Help diagnostics dialog.
 - Showing the window once startup initialization finishes or fails, and answering intercepted close requests by destroying the window or declining the request.
-- Suppressing default webview context menus and standard window-level drag-and-drop navigation.
+- Suppressing standard window-level drag-and-drop navigation and routing native file and folder drops through session workflows.
 
 The frontend calls feature-owned Rust commands only through feature-owned Tauri API modules. See [Engineering Patterns](./patterns.md#tauri-api-modules) for the implementation rules for that boundary.
 
@@ -152,6 +153,10 @@ The frontend calls feature-owned Rust commands only through feature-owned Tauri 
 ### Open Workflow
 
 Backend reads target document -> Session updates active document -> Session bootstraps folder context only when none exists.
+
+### Drop Workflow
+
+Tauri reports native paths -> Backend classifies one dropped path -> Session reads the matching persisted preference -> Session opens through the existing file or folder workflow, or inserts a path link through the active editor bridge.
 
 ### Save Workflow
 

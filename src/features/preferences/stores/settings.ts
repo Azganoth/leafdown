@@ -27,7 +27,10 @@ export const APPEARANCE_ACCENT_COLORS = [
 ] as const;
 export type AppearanceAccentColor = (typeof APPEARANCE_ACCENT_COLORS)[number];
 
-export const SETTINGS_VERSION = 1;
+export const DROP_BEHAVIORS = ["open", "insertLink"] as const;
+export type DropBehavior = (typeof DROP_BEHAVIORS)[number];
+
+export const SETTINGS_VERSION = 2;
 
 // NOTE: src-tauri/src/folder/defaults.rs
 export const DEFAULT_INDEX_FILE_NAMES = ["readme", "index"] as const;
@@ -53,6 +56,8 @@ export interface SettingsState {
   insertFinalNewline: boolean;
   indexFileNames: string[];
   ignoredDirectories: string[];
+  whenDroppingFolder: DropBehavior;
+  whenDroppingMarkdownFile: DropBehavior;
   autoPairBracketsAndQuotes: boolean;
   softWrapCodeBlocks: boolean;
 }
@@ -77,6 +82,8 @@ export const createDefaultSettingsState = (): SettingsState => ({
   insertFinalNewline: true,
   indexFileNames: [...DEFAULT_INDEX_FILE_NAMES],
   ignoredDirectories: [...DEFAULT_IGNORED_DIRECTORIES],
+  whenDroppingFolder: "open",
+  whenDroppingMarkdownFile: "open",
   autoPairBracketsAndQuotes: true,
   softWrapCodeBlocks: false,
 });
@@ -100,6 +107,8 @@ const SETTINGS_CONTRACT = definePersistedState({
   insertFinalNewline: booleanValue,
   indexFileNames: listOf(stringValue),
   ignoredDirectories: listOf(stringValue),
+  whenDroppingFolder: oneOf(DROP_BEHAVIORS),
+  whenDroppingMarkdownFile: oneOf(DROP_BEHAVIORS),
   autoPairBracketsAndQuotes: booleanValue,
   softWrapCodeBlocks: booleanValue,
   version: numberValue,

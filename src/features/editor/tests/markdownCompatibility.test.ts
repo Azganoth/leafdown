@@ -4057,6 +4057,36 @@ describe("Whitespace a character reference names", () => {
     expect(firstSave).toBe(`> quote &#x20;\n> more\n\n${CARET_PARAGRAPH}\n`);
   });
 
+  // The parse drops the whitespace ending the line from the value, while the text node's slice of
+  // the file still holds it.
+  it.each([
+    { initial: "&#x20;a \nb", name: "a space", opened: " a\nb" },
+    { initial: "&#x20;a\t\nb", name: "a tab", opened: " a\nb" },
+    { initial: "&#x20;a \t \nb", name: "mixed spaces and tabs", opened: " a\nb" },
+    { initial: "- &#x20;a \n  b", name: "a space in a list item", opened: " a\nb" },
+    { initial: "> &#x20;a \n> b", name: "a space in a quote", opened: " a\nb" },
+    { initial: "a &#x20;b \nc", name: "a space after a mid-line reference", opened: "a  b\nc" },
+    { initial: "&#x20;a \nb \nc", name: "a space on two lines", opened: " a\nb\nc" },
+    { initial: "a \n&#x20;b", name: "a space before a line a reference opens", opened: "a\n b" },
+  ])(
+    "writes a reference on a line ending in $name as authored without that whitespace",
+    async ({ initial, opened }) => {
+      const { firstSave, openedText, reloadedText, secondSave } = await openThenReload(initial);
+
+      expect(openedText).toBe(`${opened}${CARET_PARAGRAPH}`);
+      expect(firstSave).toBe(`${initial.replaceAll(/[\t ]+\n/gu, "\n")}\n\n${CARET_PARAGRAPH}\n`);
+      expect(reloadedText).toBe(openedText);
+      expect(secondSave).toBe(firstSave);
+    },
+  );
+
+  it("writes a reference on a line ending in a space as authored before a carriage return", async () => {
+    const { firstSave, openedText } = await openThenReload("&#x20;a \r\nb");
+
+    expect(openedText).toBe(` a\nb${CARET_PARAGRAPH}`);
+    expect(firstSave).toBe(`&#x20;a\nb\n\n${CARET_PARAGRAPH}\n`);
+  });
+
   it.each([
     { initial: "> quote \n> more", name: "a space" },
     { initial: "> quote\t\n> more", name: "a tab" },
@@ -4122,6 +4152,16 @@ describe("Autolink literals read from decoded text", () => {
       await openThenReload(initial);
 
     expect(firstSave).toBe(written);
+    expect(reloadedDocument).toEqual(openedDocument);
+    expect(secondSave).toBe(firstSave);
+    expect(getEditorLinkHref(reloaded, "www.example.com")).toBe("http://www.example.com");
+  });
+
+  it("writes a literal set off by a reference on a line ending in a space as authored", async () => {
+    const { firstSave, openedDocument, reloaded, reloadedDocument, secondSave } =
+      await openThenReload('&#x20;"www.example.com" \nb');
+
+    expect(firstSave).toBe(`&#x20;"www.example.com"\nb\n\n${CARET_PARAGRAPH}\n`);
     expect(reloadedDocument).toEqual(openedDocument);
     expect(secondSave).toBe(firstSave);
     expect(getEditorLinkHref(reloaded, "www.example.com")).toBe("http://www.example.com");

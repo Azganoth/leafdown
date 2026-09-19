@@ -17,6 +17,8 @@ export interface RecentItemsStore extends RecentItemsState {
   clearRecentItems: () => void;
   recordRecentFile: (path: string) => void;
   recordRecentFolder: (path: string) => void;
+  removeRecentFile: (path: string) => void;
+  removeRecentFolder: (path: string) => void;
   reset: () => void;
 }
 
@@ -39,6 +41,9 @@ const addRecentPath = (items: string[], path: string) =>
     ? [path, ...items.filter((item) => !isSamePath(item, path))].slice(0, RECENT_ITEM_LIMIT)
     : items;
 
+const removeRecentPath = (items: string[], path: string) =>
+  items.filter((item) => !isSamePath(item, path));
+
 export const useRecentItemsStore = create<RecentItemsStore>()((set) => ({
   ...createDefaultRecentItemsState(),
   clearRecentItems: () => set({ recentFiles: [], recentFolders: [] }),
@@ -46,6 +51,10 @@ export const useRecentItemsStore = create<RecentItemsStore>()((set) => ({
     set((state) => ({ recentFiles: addRecentPath(state.recentFiles, path) })),
   recordRecentFolder: (path) =>
     set((state) => ({ recentFolders: addRecentPath(state.recentFolders, path) })),
+  removeRecentFile: (path) =>
+    set((state) => ({ recentFiles: removeRecentPath(state.recentFiles, path) })),
+  removeRecentFolder: (path) =>
+    set((state) => ({ recentFolders: removeRecentPath(state.recentFolders, path) })),
   reset: () => set(createDefaultRecentItemsState()),
 }));
 

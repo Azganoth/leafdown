@@ -299,8 +299,8 @@ Example:
 
 ```ts
 const RECENT_ITEMS_CONTRACT = definePersistedState({
-  recentFiles: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
-  recentFolders: boundedList(listOf(stringValue), RECENT_ITEM_LIMIT),
+  recentFiles: boundedList(listOf(recentItemValue), RECENT_ITEM_LIMIT),
+  recentFolders: boundedList(listOf(recentItemValue), RECENT_ITEM_LIMIT),
   version: numberValue,
 } satisfies Record<keyof RecentItemsState, unknown>);
 ```

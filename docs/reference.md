@@ -14,6 +14,7 @@ Global settings persist across application launches unless specified otherwise.
   - The setting controls whether session history records opened paths; the recent lists themselves are persisted session history rather than preferences.
   - Recent files and recent folders are separate lists.
   - Recent lists are deduplicated by path, sorted by most recent first, and limited to 10 items each.
+  - Each recent item records when it was last opened, and the welcome screen shows that time beside it. Reopening an item updates its time. Items recorded before times were kept show no time.
   - A single recent file or folder can be removed from its list on the welcome screen; every other entry in both lists stays where it was.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.

@@ -1,10 +1,11 @@
 import { FilePlusIcon, FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { COMMAND_DEFINITIONS, formatShortcut, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
-import { useRecentItemsStore } from "@/features/preferences";
+import { useRecentItemsStore, type RecentItem } from "@/features/preferences";
 import {
   createNewMarkdownDocument,
   openFolderContextAtPath,
@@ -13,8 +14,11 @@ import {
   pickAndOpenMarkdownFile,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
 import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
+
+const NOW_REFRESH_INTERVAL_MS = 60 * 1000;
 
 const handleNewDocument = async () => {
   try {
@@ -71,6 +75,7 @@ export function WelcomeScreen() {
   const removeRecentFile = useRecentItemsStore((state) => state.removeRecentFile);
   const removeRecentFolder = useRecentItemsStore((state) => state.removeRecentFolder);
   const hasRecentItems = recentFiles.length > 0 || recentFolders.length > 0;
+  const now = useNow();
 
   return (
     <section
@@ -112,6 +117,7 @@ export function WelcomeScreen() {
                 emptyMessage="No recent files."
                 icon={FileTextIcon}
                 items={recentFiles}
+                now={now}
                 onOpenItem={handleOpenRecentFile}
                 onRemoveItem={removeRecentFile}
               />
@@ -121,6 +127,7 @@ export function WelcomeScreen() {
                 emptyMessage="No recent folders."
                 icon={FolderOpenIcon}
                 items={recentFolders}
+                now={now}
                 onOpenItem={handleOpenRecentFolder}
                 onRemoveItem={removeRecentFolder}
               />
@@ -144,6 +151,27 @@ export function WelcomeScreen() {
   );
 }
 
+// A minimized window may throttle or suspend the interval, so returning to it refreshes too.
+function useNow() {
+  const [now, setNow] = useState(Date.now);
+
+  useEffect(() => {
+    const refresh = () => setNow(Date.now());
+    const intervalId = window.setInterval(refresh, NOW_REFRESH_INTERVAL_MS);
+
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  return now;
+}
+
 function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
   const shortcut = COMMAND_DEFINITIONS[commandId].shortcuts?.[0];
 
@@ -161,7 +189,8 @@ function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
 interface RecentItemsSectionProps {
   emptyMessage: string;
   icon: LucideIcon;
-  items: string[];
+  items: RecentItem[];
+  now: number;
   onOpenItem: (path: string) => void;
   onRemoveItem: (path: string) => void;
   title: string;
@@ -172,6 +201,7 @@ function RecentItemsSection({
   emptyMessage,
   icon: Icon,
   items,
+  now,
   onOpenItem,
   onRemoveItem,
   title,
@@ -186,14 +216,15 @@ function RecentItemsSection({
         <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
       ) : (
         <ul className="mt-2 flex flex-col">
-          {items.map((path) => (
-            <RecentItem
+          {items.map((item) => (
+            <RecentItemRow
               icon={Icon}
-              key={path}
+              item={item}
+              key={item.path}
               listName={title.toLowerCase()}
+              now={now}
               onOpenItem={onOpenItem}
               onRemoveItem={onRemoveItem}
-              path={path}
             />
           ))}
         </ul>
@@ -202,15 +233,23 @@ function RecentItemsSection({
   );
 }
 
-interface RecentItemProps {
+interface RecentItemRowProps {
   icon: LucideIcon;
+  item: RecentItem;
   listName: string;
+  now: number;
   onOpenItem: (path: string) => void;
   onRemoveItem: (path: string) => void;
-  path: string;
 }
 
-function RecentItem({ icon: Icon, listName, onOpenItem, onRemoveItem, path }: RecentItemProps) {
+function RecentItemRow({
+  icon: Icon,
+  item: { openedAt, path },
+  listName,
+  now,
+  onOpenItem,
+  onRemoveItem,
+}: RecentItemRowProps) {
   const { name, parent } = getPathParts(path);
 
   return (
@@ -228,6 +267,14 @@ function RecentItem({ icon: Icon, listName, onOpenItem, onRemoveItem, path }: Re
         <span className="min-w-0 flex-1 truncate text-left text-xs font-normal text-muted-foreground">
           {parent}
         </span>
+        {openedAt !== undefined && (
+          <time
+            dateTime={new Date(openedAt).toISOString()}
+            className="shrink-0 text-xs font-normal text-muted-foreground"
+          >
+            {formatRelativeTime(openedAt, now)}
+          </time>
+        )}
       </Button>
       <Button
         type="button"

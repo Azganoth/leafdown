@@ -4,6 +4,7 @@ export {
   RECENT_ITEMS_VERSION,
   recentItemsStoreTauriHandler,
   useRecentItemsStore,
+  type RecentItem,
   type RecentItemsState,
   type RecentItemsStore,
 } from "./stores/recentItems";

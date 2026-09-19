@@ -44,7 +44,7 @@ const expectOversizedMarkdownFileToast = () => {
 
 describe("file actions", () => {
   it("clears recent items", () => {
-    setDefaultRecentItems({ recentFiles: [TEST_MARKDOWN_FILE_PATH] });
+    setDefaultRecentItems({ recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }] });
     clearRecentItems();
     expect(useRecentItemsStore.getState().recentFiles).toEqual([]);
   });
@@ -56,7 +56,9 @@ describe("file actions", () => {
     await openFile();
 
     expectOversizedMarkdownFileToast();
-    expect(useRecentItemsStore.getState().recentFiles).not.toContain(OVERSIZED_MARKDOWN_FILE_PATH);
+    expect(useRecentItemsStore.getState().recentFiles).not.toContainEqual(
+      expect.objectContaining({ path: OVERSIZED_MARKDOWN_FILE_PATH }),
+    );
   });
 
   it("reports oversized recent files", async () => {
@@ -65,7 +67,9 @@ describe("file actions", () => {
     await openRecentMarkdownFile(OVERSIZED_MARKDOWN_FILE_PATH);
 
     expectOversizedMarkdownFileToast();
-    expect(useRecentItemsStore.getState().recentFiles).not.toContain(OVERSIZED_MARKDOWN_FILE_PATH);
+    expect(useRecentItemsStore.getState().recentFiles).not.toContainEqual(
+      expect.objectContaining({ path: OVERSIZED_MARKDOWN_FILE_PATH }),
+    );
   });
 
   it("reveals the active article and opens the sidebar", () => {

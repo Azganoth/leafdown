@@ -308,7 +308,7 @@ const findDestinationSource = (raw: string): string | null => {
   return raw.slice(start, end);
 };
 
-const resolveEscapes = (value: string) => {
+export const resolveMarkdownEscapes = (value: string) => {
   let resolved = "";
 
   for (let index = 0; index < value.length; index += 1) {
@@ -412,7 +412,7 @@ export const findAuthoredDestination = (raw: string, url: string): string | null
     return null;
   }
 
-  const withoutEscapes = resolveEscapes(destination);
+  const withoutEscapes = resolveMarkdownEscapes(destination);
 
   return withoutEscapes !== url && decodeCharacterReferences(withoutEscapes) === url
     ? withoutEscapes
@@ -435,7 +435,7 @@ export const findAuthoredTitle = (raw: string, title: string, trailing?: string)
     return null;
   }
 
-  const withoutEscapes = resolveEscapes(source);
+  const withoutEscapes = resolveMarkdownEscapes(source);
 
   return withoutEscapes !== title && decodeCharacterReferences(withoutEscapes) === title
     ? withoutEscapes
@@ -509,7 +509,8 @@ const findReferenceLabelSource = ({ description, tail }: DescriptionSource) => {
 // emphasis, inline code, a nested image, a character reference, or anything else the alt text
 // decodes or drops. An escape is a difference the alt text does answer for, because the file
 // escapes that text wherever it needs one, so a description spelling only escapes is left as it is.
-const saysMoreThanAlt = (description: string, alt: string) => resolveEscapes(description) !== alt;
+const saysMoreThanAlt = (description: string, alt: string) =>
+  resolveMarkdownEscapes(description) !== alt;
 
 // The description an inline image was written with, or null where the slice does not spell the
 // image the node was built from. The destination the slice names is what confirms the description
@@ -521,7 +522,7 @@ export const findAuthoredDescription = (raw: string, alt: string, url: string) =
   if (
     source === null ||
     destination === null ||
-    decodeCharacterReferences(resolveEscapes(destination)) !== url
+    decodeCharacterReferences(resolveMarkdownEscapes(destination)) !== url
   ) {
     return null;
   }
@@ -540,7 +541,10 @@ export const findAuthoredReferenceDescription = (raw: string, alt: string, label
 
   const reference = findReferenceLabelSource(source);
 
-  if (reference === null || decodeCharacterReferences(resolveEscapes(reference)) !== label) {
+  if (
+    reference === null ||
+    decodeCharacterReferences(resolveMarkdownEscapes(reference)) !== label
+  ) {
     return null;
   }
 

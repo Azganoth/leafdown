@@ -1,3 +1,4 @@
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transformer";
 
 import {
@@ -23,6 +24,9 @@ import {
 
 export const DEFINITION_NODE_NAME = "definition";
 export const DEFINITION_MARKDOWN_TYPE = "definition";
+export const DEFINITION_LABEL_NODE_NAME = "definition_label";
+export const DEFINITION_DESTINATION_NODE_NAME = "definition_destination";
+export const DEFINITION_TITLE_NODE_NAME = "definition_title";
 export const LINK_REFERENCE_MARKDOWN_TYPE = "linkReference";
 export const IMAGE_REFERENCE_MARKDOWN_TYPE = "imageReference";
 
@@ -38,6 +42,9 @@ export const DESTINATION_SEPARATOR_ATTRIBUTE_NAME = "destinationSeparator";
 export const TITLE_SEPARATOR_ATTRIBUTE_NAME = "titleSeparator";
 
 const DEFINITION_DOM_TYPE = "definition";
+const DEFINITION_LABEL_DOM_TYPE = "definition-label";
+const DEFINITION_DESTINATION_DOM_TYPE = "definition-destination";
+const DEFINITION_TITLE_DOM_TYPE = "definition-title";
 const LABEL_WHITESPACE_PATTERN = /[\t\n\r ]+/gu;
 const REFERENCE_TYPES: readonly unknown[] = ["collapsed", "full", "shortcut"];
 
@@ -58,10 +65,24 @@ export interface DefinitionAttrs extends AuthoredDefinitionForm {
   url: string;
 }
 
+export interface DefinitionFieldNodes {
+  destination: ProseMirrorNode;
+  label: ProseMirrorNode;
+  title: ProseMirrorNode;
+}
+
 // CommonMark matches a reference to a definition on a label whose whitespace is collapsed, whose
 // ends are trimmed, and whose case is ignored.
 export const normalizeReferenceLabel = (label: string) =>
   label.replace(LABEL_WHITESPACE_PATTERN, " ").trim().toLowerCase();
+
+const MAX_REFERENCE_LABEL_LENGTH = 999;
+const WRITABLE_REFERENCE_LABEL_PATTERN = /^(?:[^\\[\]\r\n]|\\[^\r\n])+$/u;
+
+export const isWritableReferenceDefinitionLabel = (label: string) =>
+  label.length <= MAX_REFERENCE_LABEL_LENGTH &&
+  normalizeReferenceLabel(label).length > 0 &&
+  WRITABLE_REFERENCE_LABEL_PATTERN.test(label);
 
 export const readReferenceType = (node: object): ReferenceType | null => {
   const referenceType = (node as { referenceType?: unknown }).referenceType;
@@ -352,12 +373,75 @@ export const readDefinitionAttrs = (attrs: Record<string, unknown>): DefinitionA
   url: readString(attrs, "url"),
 });
 
-// A definition is a leaf: it holds a label, a destination, and an optional title, and nothing an
-// author types inside it. It renders the permanent source the file will be written with, which is
-// what a footnote definition's persistent marker does for a block that does hold content.
+const createDefinitionFieldSchema = (domType: string, className: string): NodeSchema => ({
+  content: "text*",
+  marks: "",
+  isolating: true,
+  parseDOM: [{ tag: `span[data-type="${domType}"]` }],
+  toDOM: () => ["span", { class: className, "data-type": domType }, 0],
+  parseMarkdown: {
+    match: () => false,
+    runner: () => {},
+  },
+  toMarkdown: {
+    match: () => false,
+    runner: () => {},
+  },
+});
+
+export const definitionLabelNodeSchema = createDefinitionFieldSchema(
+  DEFINITION_LABEL_DOM_TYPE,
+  "leafdown-definition-label",
+);
+
+export const definitionDestinationNodeSchema = createDefinitionFieldSchema(
+  DEFINITION_DESTINATION_DOM_TYPE,
+  "leafdown-definition-destination",
+);
+
+export const definitionTitleNodeSchema = createDefinitionFieldSchema(
+  DEFINITION_TITLE_DOM_TYPE,
+  "leafdown-definition-title",
+);
+
+export const getDefinitionFieldNodes = (
+  definition: ProseMirrorNode,
+): DefinitionFieldNodes | null => {
+  if (definition.childCount !== 3) {
+    return null;
+  }
+
+  const label = definition.child(0);
+  const destination = definition.child(1);
+  const title = definition.child(2);
+
+  return label.type.name === DEFINITION_LABEL_NODE_NAME &&
+    destination.type.name === DEFINITION_DESTINATION_NODE_NAME &&
+    title.type.name === DEFINITION_TITLE_NODE_NAME
+    ? { destination, label, title }
+    : null;
+};
+
+const addDefinitionField = (
+  state: Parameters<NonNullable<NodeSchema["parseMarkdown"]>["runner"]>[0],
+  type: Parameters<NonNullable<NodeSchema["parseMarkdown"]>["runner"]>[2],
+  value: string,
+) => {
+  state.openNode(type);
+
+  if (value) {
+    state.addText(value);
+  }
+
+  state.closeNode();
+};
+
+// The three fields are document text while the syntax around them remains generated chrome. The
+// parent keeps the committed values and authored form, which lets a plugin derive an in-flight edit
+// from disagreement with its child text without maintaining a second editing session.
 export const definitionNodeSchema: NodeSchema = {
   group: "block",
-  atom: true,
+  content: `${DEFINITION_LABEL_NODE_NAME} ${DEFINITION_DESTINATION_NODE_NAME} ${DEFINITION_TITLE_NODE_NAME}`,
   selectable: true,
   draggable: true,
   defining: true,
@@ -423,23 +507,35 @@ export const definitionNodeSchema: NodeSchema = {
         "data-destination-separator": attrs.destinationSeparator,
         "data-title-separator": attrs.titleSeparator,
       },
-      serializeDefinitionMarkdown(attrs),
+      0,
     ];
   },
   parseMarkdown: {
     match: (node) => node.type === DEFINITION_MARKDOWN_TYPE,
     runner: (state, node, type) => {
-      state.addNode(type, {
-        label: readReferenceLabel(node),
-        url: readString(node, "url"),
-        title: readString(node, "title"),
-        [AUTHORED_TITLE_ATTRIBUTE_NAME]: readAuthoredTitle(node),
-        [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
-        [DESTINATION_MARKER_ATTRIBUTE_NAME]: readDestinationMarker(node),
-        [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: readDestinationSeparator(node),
-        [TITLE_SEPARATOR_ATTRIBUTE_NAME]: readTitleSeparator(node),
+      const attrs = {
+        ...readDefinitionAttrs({
+          label: readReferenceLabel(node),
+          url: readString(node, "url"),
+          title: readString(node, "title"),
+          [AUTHORED_TITLE_ATTRIBUTE_NAME]: readAuthoredTitle(node),
+          [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
+          [DESTINATION_MARKER_ATTRIBUTE_NAME]: readDestinationMarker(node),
+          [DESTINATION_SEPARATOR_ATTRIBUTE_NAME]: readDestinationSeparator(node),
+          [TITLE_SEPARATOR_ATTRIBUTE_NAME]: readTitleSeparator(node),
+        }),
         [BLOCK_ADJACENT_ATTRIBUTE_NAME]: readBlockAdjacent(node),
-      });
+      };
+
+      state.openNode(type, attrs);
+      addDefinitionField(state, type.schema.nodes[DEFINITION_LABEL_NODE_NAME], attrs.label);
+      addDefinitionField(state, type.schema.nodes[DEFINITION_DESTINATION_NODE_NAME], attrs.url);
+      addDefinitionField(
+        state,
+        type.schema.nodes[DEFINITION_TITLE_NODE_NAME],
+        readWrittenTitle(attrs, attrs.title).title,
+      );
+      state.closeNode();
     },
   },
   toMarkdown: {

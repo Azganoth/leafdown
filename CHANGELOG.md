@@ -62,6 +62,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Flatten pasted HTML table cells that span columns into ordinary GFM cells immediately, so saving and reopening keeps their content in the column where it was pasted instead of carrying an unrepresentable table span.
 - Keep a character reference in a link or image title, a definition's title, or an image description as it was written, such as the `&copy;` in `[l](d.md "t &copy;")` or `![a &copy;](d.png)`. Saving wrote it as the character it names, so a file kept to plain ASCII did not stay that way. Once the title is edited, the reference is saved as its character, the same as anywhere else. An image description edited through the image's Markdown now reads a reference typed there as the character it names, the way the file does, where it used to keep the reference's characters as literal text. A definition title holding an escaped reference, such as `\&copy;`, lost its backslash on save and reopened as `©`; it is now saved as written.
 
 - Keep a character reference on a line that ends in a space or a tab, such as `&#x20;` in `&#x20;a ` followed by a second line, as it was written. Saving wrote every reference on such a line as the character it names, so a space a reference named at the start of a paragraph or list item was gone once the file reopened. The reference is now written back as it was; the space or tab ending the line is still left out.

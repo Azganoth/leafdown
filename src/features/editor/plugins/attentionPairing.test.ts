@@ -188,6 +188,47 @@ describe("typing a delimiter run into literal text", () => {
     },
   );
 
+  it.each([
+    { pending: "\\*\\*\\*text*", typed: "***text*", settled: "***text*" },
+    { pending: "_**text*", typed: "_**text*", settled: "_\\**text*" },
+    { pending: "*\\_\\_text_", typed: "*__text_", settled: "*\\__text_" },
+  ])(
+    "writes $typed as literal text until the caret leaves its pending closing run",
+    async ({ pending, settled, typed }) => {
+      const mounted = await typeIntoEmptyParagraph(typed);
+      const pendingMarkdown = `${pending}\n\ntail\n`;
+
+      expect(mounted.getMarkdown()).toBe(pendingMarkdown);
+
+      const reopenedPending = await mountEditor(pendingMarkdown);
+
+      expect(describeDocument(reopenedPending)).toBe(describeDocument(mounted));
+
+      settle(mounted);
+
+      const settledMarkdown = `${settled}\n\ntail\n`;
+
+      expect(mounted.getMarkdown()).toBe(settledMarkdown);
+
+      const reopenedSettled = await mountEditor(settledMarkdown);
+
+      expect(describeDocument(reopenedSettled)).toBe(describeDocument(mounted));
+      expect(reopenedSettled.getMarkdown()).toBe(settledMarkdown);
+    },
+  );
+
+  it.each(["_**text**", "_**text**_"])(
+    "writes completed $0 identically before and after the caret moves",
+    async (typed) => {
+      const mounted = await typeIntoEmptyParagraph(typed);
+      const savedBeforeCaretMoves = mounted.getMarkdown();
+
+      settle(mounted);
+
+      expect(mounted.getMarkdown()).toBe(savedBeforeCaretMoves);
+    },
+  );
+
   it("holds a run the author can still extend until the caret leaves it", async () => {
     const mounted = await typeIntoEmptyParagraph("***text*");
 

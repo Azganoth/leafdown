@@ -92,6 +92,8 @@
 
 [garden report]: /garden "Report"
 
+[garden report]: /garden
+
 [Full reference][garden report]
 
 [garden report][]

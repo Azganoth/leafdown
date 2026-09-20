@@ -21,6 +21,7 @@ import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { type EditorCommandId, runEditorCommand } from "../commands";
+import { DEFINITION_NODE_NAME, getDefinitionFieldNodes } from "../utils/referenceLinkMarkdown";
 import { toggleTaskCheckedAt } from "../utils/taskLists";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -1512,8 +1513,14 @@ end [b][r|s]
   it("renders a definition with the escapes its label was written with", async () => {
     const definition = String.raw`[r\|s]: ./doc.md`;
     const mounted = await mountEditor(`${definition}\n`);
+    const label = mounted.root.querySelector('[data-type="definition-label"]');
+    const destination = mounted.root.querySelector('[data-type="definition-destination"]');
 
-    expect(mounted.root.querySelector('[data-type="definition"]')?.textContent).toBe(definition);
+    expect(label).toHaveTextContent(String.raw`r\|s`);
+    expect(label).toHaveAttribute("data-before", "[");
+    expect(label).toHaveAttribute("data-after", "]:");
+    expect(destination).toHaveTextContent("./doc.md");
+    expect(destination).toHaveAttribute("data-before", " ");
   });
 });
 
@@ -3286,11 +3293,20 @@ describe("Reference link and image form", () => {
     expect(getMarkNames(reopened.view.state.doc)).not.toContain("link");
   });
 
-  it("renders a definition as the permanent source it is written with", async () => {
+  it("renders a definition as editable fields between permanent chrome", async () => {
     const mounted = await mountEditor(`${DEFINITION}\n`);
     const definition = mounted.root.querySelector('[data-type="definition"]');
+    const fields = mounted.view.state.doc.firstChild
+      ? getDefinitionFieldNodes(mounted.view.state.doc.firstChild)
+      : null;
 
-    expect(definition?.textContent).toBe(DEFINITION);
+    expect(definition?.querySelector('[data-type="definition-label"]')).toHaveTextContent(
+      "garden report",
+    );
+    expect(definition?.querySelector('[data-type="definition-destination"]')).toHaveTextContent(
+      "/garden",
+    );
+    expect(fields?.title.textContent).toBe("Report");
   });
 });
 
@@ -3347,13 +3363,24 @@ describe("Definition form", () => {
     expect(mounted.getMarkdown()).toBe("[a]: <field report.md>\n");
   });
 
-  // The block renders the source the file is written with, which is the whole of it wherever that
-  // source spans more than one line.
-  it("renders a definition written across two lines as both of them", async () => {
+  // A line ending belongs to the generated separator chrome, so it keeps the authored layout while
+  // staying outside the editable destination and title fields.
+  it("renders a definition written across two lines with its authored separator", async () => {
     const source = "[field report]: <field-report.md>\n    'Field report title'";
     const mounted = await mountEditor(`${source}\n`);
+    const destination = mounted.root.querySelector('[data-type="definition-destination"]');
+    const title = mounted.root.querySelector('[data-type="definition-title"]');
+    const titlePrefix = title?.querySelector("[data-definition-title-prefix]");
+    const fields = mounted.view.state.doc.firstChild
+      ? getDefinitionFieldNodes(mounted.view.state.doc.firstChild)
+      : null;
 
-    expect(mounted.root.querySelector('[data-type="definition"]')?.textContent).toBe(source);
+    expect(destination).toHaveTextContent("field-report.md");
+    expect(destination).toHaveAttribute("data-before", " <");
+    expect(destination).toHaveAttribute("data-after", ">");
+    expect(fields?.title.textContent).toBe("Field report title");
+    expect(titlePrefix?.textContent).toBe("\n    '");
+    expect(title).toHaveAttribute("data-after", "'");
   });
 
   // A blockquote's own form and a lazy continuation are settled elsewhere, so the layout is read
@@ -3514,8 +3541,16 @@ describe("Character references", () => {
               position + node.nodeSize,
               link.type.create({ ...link.attrs, title: "u ©" }),
             );
-        } else if (node.type.name === "image" || node.type.name === "definition") {
+        } else if (node.type.name === "image") {
           tr = tr.setNodeMarkup(position, undefined, { ...node.attrs, title: "u ©" });
+        } else if (node.type.name === DEFINITION_NODE_NAME) {
+          const fields = getDefinitionFieldNodes(node);
+
+          if (fields) {
+            const titleFrom = position + 2 + fields.label.nodeSize + fields.destination.nodeSize;
+
+            tr = tr.insertText("u ©", titleFrom, titleFrom + fields.title.content.size);
+          }
         }
       });
       mounted.view.dispatch(tr);

@@ -345,14 +345,45 @@
       @apply mt-10 border-t border-border pt-4 text-sm text-muted-foreground;
     }
 
-    /* The block renders the source the file is written with, whose line ending and indentation are
-       part of that source. */
     .leafdown-definition {
-      @apply my-4 rounded-sm border border-border/60 bg-muted px-2 py-1 font-mono text-[0.9em] whitespace-pre-wrap text-muted-foreground;
+      @apply my-4 whitespace-pre-wrap;
+    }
 
-      &.ProseMirror-selectednode {
-        @apply border-primary/40;
+    .leafdown-definition-label,
+    .leafdown-definition-destination,
+    .leafdown-definition-title {
+      @apply cursor-text text-foreground;
+
+      &::before,
+      &::after {
+        @apply font-mono font-normal text-muted-foreground not-italic;
+        white-space: pre-wrap;
       }
+
+      &::before {
+        content: attr(data-before);
+      }
+
+      &::after {
+        content: attr(data-after);
+      }
+    }
+
+    .leafdown-definition-label {
+      @apply font-semibold;
+    }
+
+    .leafdown-definition-title {
+      @apply italic;
+
+      &[data-placeholder] > br.ProseMirror-trailingBreak {
+        display: none;
+      }
+    }
+
+    .leafdown-definition-title-prefix {
+      @apply cursor-text font-mono font-normal text-muted-foreground not-italic;
+      white-space: pre-wrap;
     }
 
     /* `prosemirror-view` paints node selection as a fixed `#8cf`, which belongs to neither theme.

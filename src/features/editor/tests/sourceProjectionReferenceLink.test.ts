@@ -8,7 +8,6 @@ import {
 } from "@/test/factories/editor";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
-  getEditorTextContent,
   getEditorTextPosition,
   getMarkNames,
   setSelectionAtDocumentEnd,
@@ -17,6 +16,7 @@ import {
 } from "@/test/utils/prosemirror";
 
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
+import { readReferenceType } from "../utils/referenceLinkMarkdown";
 
 const mountProjectionEditor = setupMilkdownEditorMount({
   ...createMarkdownReferenceContext(),
@@ -35,6 +35,35 @@ const getLabelPresentation = (mounted: MountedMilkdownEditor) =>
     (fragment) => fragment.textContent,
   ).join("");
 
+const getReferenceTextPosition = (mounted: MountedMilkdownEditor, text: string) => {
+  let position = -1;
+
+  mounted.view.state.doc.descendants((node, pos) => {
+    if (
+      position < 0 &&
+      node.isText &&
+      node.marks.some((mark) => mark.type.name === "link" && readReferenceType(mark.attrs) !== null)
+    ) {
+      const offset = node.textContent.indexOf(text);
+
+      if (offset >= 0) {
+        position = pos + offset;
+      }
+    }
+
+    return position < 0;
+  });
+
+  if (position < 0) {
+    throw new Error(`Could not find reference text: ${text}`);
+  }
+
+  return position;
+};
+
+const getProjectedParagraphText = (mounted: MountedMilkdownEditor) =>
+  mounted.view.dom.querySelector("p")?.textContent;
+
 // A projection shows what the file will be written with, so a reference shows its own tail rather
 // than the destination its definition names.
 describe("reference link source projection", () => {
@@ -45,10 +74,10 @@ describe("reference link source projection", () => {
   ])("projects the source of $reference", async ({ label, reference }) => {
     const mounted = await mountReference(reference);
 
-    setTextSelection(mounted.view, getEditorTextPosition(mounted, label) + 1);
+    setTextSelection(mounted.view, getReferenceTextPosition(mounted, label) + 1);
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe(reference);
+    expect(getProjectedParagraphText(mounted)).toBe(reference);
     expect(getLabelPresentation(mounted)).toBe(label);
   });
 
@@ -56,16 +85,16 @@ describe("reference link source projection", () => {
     const wrapped = `**${FULL_REFERENCE}**`;
     const mounted = await mountReference(wrapped);
 
-    setTextSelection(mounted.view, getEditorTextPosition(mounted, "Full reference") + 1);
+    setTextSelection(mounted.view, getReferenceTextPosition(mounted, "Full reference") + 1);
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe(wrapped);
+    expect(getProjectedParagraphText(mounted)).toBe(wrapped);
   });
 
   it("restores a reference left unchanged", async () => {
     const mounted = await mountReference(FULL_REFERENCE);
 
-    setTextSelection(mounted.view, getEditorTextPosition(mounted, "Full reference") + 1);
+    setTextSelection(mounted.view, getReferenceTextPosition(mounted, "Full reference") + 1);
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(mounted.getMarkdown()).toBe(`${DEFINITION}\n\n${FULL_REFERENCE}\n`);
@@ -76,7 +105,7 @@ describe("reference link source projection", () => {
 
     setTextSelection(
       mounted.view,
-      getEditorTextPosition(mounted, "Full reference") + "Full reference".length,
+      getReferenceTextPosition(mounted, "Full reference") + "Full reference".length,
     );
     typeText(mounted.view, "!");
     setSelectionAtDocumentEnd(mounted.view);
@@ -87,7 +116,7 @@ describe("reference link source projection", () => {
   it("becomes the literal text its source spells when the tail is broken", async () => {
     const mounted = await mountReference(FULL_REFERENCE);
 
-    setTextSelection(mounted.view, getEditorTextPosition(mounted, "Full reference") + 1);
+    setTextSelection(mounted.view, getReferenceTextPosition(mounted, "Full reference") + 1);
 
     const { view } = mounted;
     const tailStart = getEditorTextPosition(mounted, "[garden report]");

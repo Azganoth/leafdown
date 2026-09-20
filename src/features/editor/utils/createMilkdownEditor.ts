@@ -96,6 +96,13 @@ import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresent
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
+  commitReferenceDefinitionFields,
+  createLeafdownReferenceDefinitionFieldsPlugin,
+  leafdownDefinitionDestinationSchema,
+  leafdownDefinitionLabelSchema,
+  leafdownDefinitionTitleSchema,
+} from "../plugins/referenceDefinitionFields";
+import {
   createLeafdownReferenceLinkPlugin,
   leafdownDefinitionSchema,
 } from "../plugins/referenceLink";
@@ -266,6 +273,10 @@ export const createMilkdownEditor = async ({
     .use(gfm)
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownDefinitionSchema)
+    .use(leafdownDefinitionLabelSchema)
+    .use(leafdownDefinitionDestinationSchema)
+    .use(leafdownDefinitionTitleSchema)
+    .use(createLeafdownReferenceDefinitionFieldsPlugin())
     .use(leafdownFootnoteDefinitionLabelSchema)
     .use(createLeafdownFootnoteDefinitionLabelPlugin())
     .use(createLeafdownFootnoteNavigationPlugin())
@@ -506,6 +517,7 @@ export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
 
   finalizeSourceProjection(view);
   commitFootnoteDefinitionLabels(view);
+  commitReferenceDefinitionFields(view);
 
   return editor.action(getMarkdown());
 };

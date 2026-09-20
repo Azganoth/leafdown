@@ -8,6 +8,10 @@ import { setSelectionAtDocumentEnd } from "@/test/utils/prosemirror";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { runEditorCommand } from "../commands";
+import {
+  DEFINITION_TITLE_NODE_NAME,
+  getDefinitionFieldNodes,
+} from "../utils/referenceLinkMarkdown";
 
 const mountEditor = setupMilkdownEditorMount(createMarkdownReferenceContext());
 
@@ -105,8 +109,20 @@ describe("Block separator", () => {
       // A definition holding no title cannot be followed by a quoted line in a file, because the
       // parse reads that line as the title. Clearing the title is the edit that reaches the pair.
       const mounted = await mountEditor('[a]: /1 "T"\n"Not a title"\n');
+      const definition = mounted.view.state.doc.firstChild;
+      const fields = definition ? getDefinitionFieldNodes(definition) : null;
 
-      mounted.view.dispatch(mounted.view.state.tr.setNodeAttribute(0, "title", ""));
+      expect(fields?.title.type.name).toBe(DEFINITION_TITLE_NODE_NAME);
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.delete(
+          2 + (fields?.label.nodeSize ?? 0) + (fields?.destination.nodeSize ?? 0),
+          2 +
+            (fields?.label.nodeSize ?? 0) +
+            (fields?.destination.nodeSize ?? 0) +
+            (fields?.title.content.size ?? 0),
+        ),
+      );
 
       expect(mounted.getMarkdown()).toBe('[a]: /1\n\n"Not a title"\n');
     });

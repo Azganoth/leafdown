@@ -83,6 +83,31 @@ const repairRow = (
   return tr;
 };
 
+const flattenRowColspans = (
+  state: EditorState,
+  row: ProseMirrorNode,
+  rowPos: number,
+  transaction: Transaction | null,
+) => {
+  let tr = transaction;
+  let cellPos = rowPos + 1;
+
+  row.forEach((cell) => {
+    if (cell.attrs.colspan > 1 && cell.attrs.rowspan === 1) {
+      tr ??= state.tr;
+      tr.setNodeMarkup(tr.mapping.map(cellPos), undefined, {
+        ...cell.attrs,
+        colspan: 1,
+        colwidth: null,
+      });
+    }
+
+    cellPos += cell.nodeSize;
+  });
+
+  return tr;
+};
+
 const repairTableRows = (
   state: EditorState,
   table: ProseMirrorNode,
@@ -101,8 +126,12 @@ const repairTableRows = (
   for (let index = 0; index < table.childCount; index += 1) {
     const row = table.child(index);
 
-    if (index > 0 && row.childCount !== headerRow.childCount) {
-      tr = repairRow(state, headerRow, row, rowPos, tr);
+    if (index > 0) {
+      tr = flattenRowColspans(state, row, rowPos, tr);
+
+      if (row.childCount !== headerRow.childCount) {
+        tr = repairRow(state, headerRow, row, rowPos, tr);
+      }
     }
 
     rowPos += row.nodeSize;

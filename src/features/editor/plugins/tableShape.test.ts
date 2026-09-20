@@ -19,6 +19,8 @@ const HEADER_ONLY_MARKDOWN = "| Header only | No body rows |\n| --- | --- |\n";
 const RAGGED_HTML =
   "<table><tr><th>A</th><th>B</th></tr><tr><td>one</td></tr>" +
   "<tr><td>two</td><td>three</td><td>ignored</td></tr></table>";
+const COLSPAN_HTML =
+  '<table><tr><th>A</th><th>B</th></tr><tr><td colspan="2">merged</td></tr></table>';
 
 const markdownCell = (value: string): MarkdownNode => ({
   type: "tableCell",
@@ -149,6 +151,28 @@ describe("table shape plugin", () => {
       ["one", ""],
       ["two", "three"],
     ]);
+  });
+
+  it("flattens a pasted colspan cell before it is saved", async () => {
+    const mounted = await mountEditor("");
+
+    dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_HTML_MIME_TYPE]: COLSPAN_HTML,
+      [TEXT_PLAIN_MIME_TYPE]: "merged",
+    });
+
+    const table = mounted.view.state.doc.firstChild;
+
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B"],
+      ["merged", ""],
+    ]);
+    expect(table?.child(1)?.child(0)?.attrs.colspan).toBe(1);
+
+    const beforeDoc: unknown = mounted.view.state.doc.toJSON();
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(reopened.view.state.doc.toJSON()).toEqual(beforeDoc);
   });
 
   it("matches every ragged table of one paste", async () => {

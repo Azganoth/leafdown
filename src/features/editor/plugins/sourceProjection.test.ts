@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { NodeSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, Selection } from "@milkdown/kit/prose/state";
 import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
@@ -25,6 +25,7 @@ import { enterProjection, selectFootnoteReference } from "@/test/utils/sourcePro
 
 import { runEditorCommand } from "../commands";
 import {
+  finalizeSourceProjection,
   getActiveSourceProjectionRange,
   hasActiveSourceProjection,
   pasteIntoSourceProjection,
@@ -48,6 +49,14 @@ const waitForMarkdownUpdateListener = async () => {
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
 
+const appendTextOutsideProjection = (mounted: MountedMilkdownEditor, text: string) => {
+  const position = getEditorTextPosition(mounted, "plain") + "plain".length;
+  const transaction = mounted.view.state.tr.insertText(text, position);
+
+  transaction.setSelection(Selection.atEnd(transaction.doc));
+  mounted.view.dispatch(transaction);
+};
+
 // ProseMirror finishes a composition on a timer and reconciles the DOM when it fires. Without the
 // wait that lands after the editor is gone.
 const PROSEMIRROR_COMPOSITION_END_MS = 20;
@@ -67,6 +76,45 @@ const composeText = async (mounted: MountedMilkdownEditor, position: number, tex
 };
 
 describe("source projection", () => {
+  describe("unrelated document changes", () => {
+    it("finalizes a projection before an unrelated change moves the selection outside it", async () => {
+      const onContentChanged = vi.fn();
+      const explicitlyFinalized = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);
+      const automaticallyFinalized = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN, {
+        onContentChanged,
+      });
+
+      enterProjection(explicitlyFinalized, "strong");
+      expect(finalizeSourceProjection(explicitlyFinalized.view)).toBe(true);
+      appendTextOutsideProjection(explicitlyFinalized, "!");
+
+      enterProjection(automaticallyFinalized, "strong");
+      appendTextOutsideProjection(automaticallyFinalized, "!");
+
+      expect(hasActiveSourceProjection(automaticallyFinalized.view.state)).toBe(false);
+      expect(automaticallyFinalized.view.state.doc.toJSON()).toEqual(
+        explicitlyFinalized.view.state.doc.toJSON(),
+      );
+      expect(automaticallyFinalized.view.state.selection.toJSON()).toEqual(
+        explicitlyFinalized.view.state.selection.toJSON(),
+      );
+      expect(automaticallyFinalized.getMarkdown()).toBe(explicitlyFinalized.getMarkdown());
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+
+      expect(await runCommand(automaticallyFinalized, "edit.undo")).toBe(true);
+      expect(await runCommand(explicitlyFinalized, "edit.undo")).toBe(true);
+      expect(automaticallyFinalized.view.state.doc.toJSON()).toEqual(
+        explicitlyFinalized.view.state.doc.toJSON(),
+      );
+
+      expect(await runCommand(automaticallyFinalized, "edit.redo")).toBe(true);
+      expect(await runCommand(explicitlyFinalized, "edit.redo")).toBe(true);
+      expect(automaticallyFinalized.view.state.doc.toJSON()).toEqual(
+        explicitlyFinalized.view.state.doc.toJSON(),
+      );
+    });
+  });
+
   describe("entry and rendering", () => {
     it("projects strong markers as real editable document text", async () => {
       const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN);

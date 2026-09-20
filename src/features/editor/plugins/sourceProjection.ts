@@ -138,6 +138,13 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
     // before the history plugin reads the meta.
     filterTransaction: (transaction, state) => {
       if (transaction.docChanged && hasActiveSourceProjection(state)) {
+        const { session } = getSourceProjectionState(state);
+
+        // The appended clean restore maps this native history event onto canonical content.
+        if (session && shouldFinalizeProjectionAfterTransaction(transaction, state, session)) {
+          return true;
+        }
+
         transaction.setMeta("addToHistory", false);
 
         if (!getProjectionMeta(transaction)) {
@@ -899,10 +906,7 @@ const applyProjectionSessionState = (
     };
   }
 
-  if (
-    transaction.docChanged &&
-    (!isRangeInside(newState.selection, session) || !isProjectionRangeFlatText(newState, session))
-  ) {
+  if (transaction.docChanged && !isProjectionRangeFlatText(newState, session)) {
     return {
       isLinkLabelHovered: false,
       pendingCommit: null,
@@ -1731,7 +1735,7 @@ const isRangeInside = (range: TextRange, bounds: TextRange) =>
 // node back as a newline. A hard break is the only node that survives that reading, since it
 // already stands for the newline it reports; any other node would commit as a line break the
 // author never wrote.
-const isProjectionRangeFlatText = (state: EditorState, { from, to }: TextRange) => {
+const isProjectionRangeFlatText = (state: Pick<EditorState, "doc">, { from, to }: TextRange) => {
   let isFlatText = state.doc.resolve(from).sameParent(state.doc.resolve(to));
 
   state.doc.nodesBetween(from, to, (node) => {
@@ -1743,6 +1747,21 @@ const isProjectionRangeFlatText = (state: EditorState, { from, to }: TextRange) 
   });
 
   return isFlatText;
+};
+
+const shouldFinalizeProjectionAfterTransaction = (
+  transaction: Transaction,
+  state: EditorState,
+  session: ProjectionSession,
+) => {
+  const mappedSession = mapProjectionSession(session, transaction);
+
+  return (
+    !isRangeInside(transaction.selection, mappedSession) &&
+    isProjectionRangeFlatText(transaction, mappedSession) &&
+    getProjectionSource(state, session) ===
+      getTextBetween(transaction.doc, mappedSession.from, mappedSession.to)
+  );
 };
 
 const mapProjectionSession = (session: ProjectionSession, transaction: Transaction) => {

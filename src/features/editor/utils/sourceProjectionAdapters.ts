@@ -24,6 +24,7 @@ import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenc
 import { isAtomicLinkSegment, type LinkSourceMap } from "./sourceProjectionLinkSyntax";
 import {
   createMarkedFragmentSourceStructure,
+  findMarkedFragmentSourceBounds,
   mapMarkedFragmentDocumentOffsetToSource,
   mapMarkedFragmentSourceOffsetToDocument,
   parseMarkedFragmentSource,
@@ -147,6 +148,7 @@ export interface SourceProjectionAdapter<
     parsed: SourceProjectionParseResult,
   ): boolean;
   createEnterTransaction(state: EditorState, target: TTarget): Transaction;
+  findEscapedLiteralSourceCommit?(state: EditorState, range: TextRange): LiteralSourceCommit | null;
   findInsertionCandidate?(
     state: EditorState,
     position: number,
@@ -1147,6 +1149,102 @@ const readsSourceStructure = (target: MarkSourceProjectionTarget) =>
   (isInsideTableCell(target.constructs) &&
     target.marks.some((mark) => mark.markName === "inlineCode"));
 
+const parseNestedMarkedTextSource = (
+  state: EditorState,
+  source: string,
+  parser: Parser,
+  target: MarkSourceProjectionTarget,
+) => {
+  let document: ProseMirrorNode;
+
+  try {
+    document = parser(source);
+  } catch {
+    return null;
+  }
+
+  const paragraph = document.firstChild;
+
+  if (document.childCount !== 1 || paragraph?.type !== state.schema.nodes.paragraph) {
+    return null;
+  }
+
+  const outerMarkNames = new Set(target.marks.map((mark) => mark.markName));
+  let hasNestedMark = false;
+  let isValid = paragraph.childCount > 0;
+
+  paragraph.forEach((node) => {
+    const markNames = new Set(node.marks.map((mark) => mark.type.name));
+
+    if (!node.isText || [...outerMarkNames].some((markName) => !markNames.has(markName))) {
+      isValid = false;
+      return;
+    }
+
+    hasNestedMark ||= node.marks.some(
+      (mark) => isProjectionMarkName(mark.type.name) && !outerMarkNames.has(mark.type.name),
+    );
+  });
+
+  return isValid && hasNestedMark ? new Slice(paragraph.content, 0, 0) : null;
+};
+
+const findLiteralMarkedSourceCommit = (
+  state: EditorState,
+  range: TextRange,
+  parser: Parser,
+  remark: RemarkParser,
+): LiteralSourceCommit | null => {
+  const $position = state.doc.resolve(range.from);
+  const textBlock = $position.parent;
+
+  if (!textBlock.isTextblock) {
+    return null;
+  }
+
+  const text = getTextBetween(textBlock, 0, textBlock.content.size);
+  const start = $position.start();
+  const bounds = findMarkedFragmentSourceBounds(remark, text, {
+    from: range.from - start,
+    to: range.to - start,
+  });
+
+  if (!bounds) {
+    return null;
+  }
+
+  const commitRange = { from: start + bounds.from, to: start + bounds.to };
+
+  if (!isPlainTextRange(state, commitRange.from, commitRange.to)) {
+    return null;
+  }
+
+  const source = text.slice(bounds.from, bounds.to);
+  const parsed = parseProjectionSource(source);
+
+  if (parsed.type !== "mark") {
+    return null;
+  }
+
+  if (parsed.marks.some((mark) => mark.markName === "inlineCode")) {
+    return {
+      ...commitRange,
+      replacement: createMarkedContentSlice(state, parsed.text, parsed.marks),
+    };
+  }
+
+  const fragment = parseMarkedFragmentSource(
+    state,
+    source,
+    parser,
+    remark,
+    [],
+    readEnclosingInlineConstructs($position),
+  );
+
+  return fragment ? { ...commitRange, replacement: fragment.replacement } : null;
+};
+
 const shouldHandleMarkTextInput = (source: string, { from, text, to }: SourceProjectionEdit) =>
   !(
     from === to &&
@@ -1215,6 +1313,8 @@ export const createMarkSourceProjectionAdapter = ({
       return range ? createMarkSourceProjectionTarget(state, range, serializer, remark) : null;
     },
     findInsertionCandidate: getSourceProjectionInsertionCandidate,
+    findEscapedLiteralSourceCommit: (state, range) =>
+      findLiteralMarkedSourceCommit(state, range, parser, remark),
     getPresentation: (markTarget, source) => {
       if (readsSourceStructure(markTarget)) {
         const structure = createMarkedFragmentSourceStructure(
@@ -1351,6 +1451,16 @@ export const createMarkSourceProjectionAdapter = ({
     },
     parseSource: (state, source, markTarget) => {
       if (readsSourceStructure(markTarget)) {
+        const nestedMarkedText = parseNestedMarkedTextSource(state, source, parser, markTarget);
+
+        if (nestedMarkedText) {
+          return {
+            replacement: nestedMarkedText,
+            replacementSize: nestedMarkedText.content.size,
+            source,
+          };
+        }
+
         const richFragment = parseMarkedFragmentSource(
           state,
           source,
@@ -1411,6 +1521,14 @@ export const createMarkSourceProjectionAdapter = ({
 
       return transaction;
     },
+    shouldFinalizeInPlace: (state, session) =>
+      session.target.hasSourceOnlyContent &&
+      parseNestedMarkedTextSource(
+        state,
+        getRangeText(state.doc, session),
+        parser,
+        session.target,
+      ) !== null,
     shouldHandleTextInput: shouldHandleMarkTextInput,
   };
 };
@@ -1469,6 +1587,25 @@ export const findSourceProjectionLiteralSourceCommit = (
 ): LiteralSourceCommit | null => {
   for (const adapter of adapters) {
     const commit = adapter.findLiteralSourceCommit?.(state, range) ?? null;
+
+    if (commit) {
+      return commit;
+    }
+  }
+
+  return null;
+};
+
+export const findSourceProjectionEscapedLiteralSourceCommit = (
+  state: EditorState,
+  range: TextRange,
+  adapters: readonly SourceProjectionAdapter[],
+): LiteralSourceCommit | null => {
+  for (const adapter of adapters) {
+    const commit =
+      adapter.findEscapedLiteralSourceCommit?.(state, range) ??
+      adapter.findLiteralSourceCommit?.(state, range) ??
+      null;
 
     if (commit) {
       return commit;

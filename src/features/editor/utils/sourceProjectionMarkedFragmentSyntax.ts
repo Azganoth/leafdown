@@ -56,6 +56,7 @@ import {
   type ParsedProjectionSource,
   type ProjectionMarkDescriptor,
 } from "./sourceProjectionSyntax";
+import type { TextRange } from "./textRanges";
 
 const INLINE_BREAK_NODE_NAME = "hardbreak";
 const LINK_MARK_NAME = "link";
@@ -144,9 +145,45 @@ const MARKDOWN_MARK_TYPES = new Map<string, string>([
   ["strike_through", "delete"],
   ["strong", "strong"],
 ]);
+const LITERAL_MARK_SOURCE_NODE_TYPES = new Set(["delete", "emphasis", "inlineCode", "strong"]);
 
 const getLinkMark = (node: ProseMirrorNode) =>
   node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
+
+const findMarkedFragmentNodeBounds = (node: MarkdownNode, range: TextRange): TextRange | null => {
+  const position = getMarkdownPosition(node);
+
+  if (
+    LITERAL_MARK_SOURCE_NODE_TYPES.has(node.type) &&
+    position &&
+    position.from <= range.from &&
+    range.to <= position.to
+  ) {
+    return position;
+  }
+
+  for (const child of node.children ?? []) {
+    const bounds = findMarkedFragmentNodeBounds(child, range);
+
+    if (bounds) {
+      return bounds;
+    }
+  }
+
+  return null;
+};
+
+export const findMarkedFragmentSourceBounds = (
+  remark: RemarkParser,
+  text: string,
+  range: TextRange,
+): TextRange | null => {
+  try {
+    return findMarkedFragmentNodeBounds(remark.parse(text) as MarkdownNode, range);
+  } catch {
+    return null;
+  }
+};
 
 const getLinkRunEnd = (nodes: readonly ProseMirrorNode[], from: number, linkMark: Mark) => {
   let runEnd = from + 1;

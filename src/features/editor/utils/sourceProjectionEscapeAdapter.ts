@@ -1,6 +1,6 @@
 import type { ResolvedPos } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { EditorState as ProseMirrorEditorState, TextSelection } from "@milkdown/kit/prose/state";
 import type { Serializer } from "@milkdown/kit/transformer";
 
 import { writeInsideConstructs } from "./linkLabelMarkdown";
@@ -113,6 +113,49 @@ const mapSelectionPositionFromSource = (
   return session.from + Math.min(offset, result.replacementSize);
 };
 
+const findEditedSourceCommit = (
+  state: EditorState,
+  source: string,
+  target: EscapeSourceProjectionTarget,
+  findLiteralSourceCommit: FindLiteralSourceCommit,
+) => {
+  const directCommit = findLiteralSourceCommit(state, {
+    from: target.from,
+    to: target.from,
+  });
+
+  if (directCommit?.from === target.from && directCommit.to === target.from + source.length) {
+    return directCommit;
+  }
+
+  if (
+    findSourceProjectionEscapeOffsets(source).length >=
+    findSourceProjectionEscapeOffsets(target.originalSource).length
+  ) {
+    return null;
+  }
+
+  const literal = decodeSourceProjectionEscapes(source);
+  const transaction = state.tr.replace(
+    target.from,
+    target.from + source.length,
+    createLiteralSourceProjectionSlice(state, literal),
+  );
+  const probeState = ProseMirrorEditorState.create({
+    doc: transaction.doc,
+    plugins: [],
+    selection: TextSelection.create(transaction.doc, target.from),
+  });
+  const decodedCommit = findLiteralSourceCommit(probeState, {
+    from: target.from,
+    to: target.from,
+  });
+
+  return decodedCommit?.from === target.from && decodedCommit.to === target.from + literal.length
+    ? decodedCommit
+    : null;
+};
+
 export const createEscapeSourceProjectionAdapter = ({
   findLiteralSourceCommit,
   serializer,
@@ -144,9 +187,9 @@ export const createEscapeSourceProjectionAdapter = ({
   }),
   // Object adapters can parse the projected document text directly.
   parseSource: (state, source, target) => {
-    const commit = findLiteralSourceCommit(state, { from: target.from, to: target.from });
+    const commit = findEditedSourceCommit(state, source, target, findLiteralSourceCommit);
 
-    if (commit && commit.from === target.from && commit.to === target.from + source.length) {
+    if (commit) {
       return {
         replacement: commit.replacement,
         replacementSize: commit.replacement.content.size,
@@ -165,8 +208,9 @@ export const createEscapeSourceProjectionAdapter = ({
   restoreCleanTarget: (state, session) =>
     state.tr.replace(session.from, session.to, session.target.originalContent),
   shouldFinalizeInPlace: (state, session) => {
-    const commit = findLiteralSourceCommit(state, { from: session.from, to: session.from });
+    const source = getTextBetween(state.doc, session.from, session.to);
+    const commit = findEditedSourceCommit(state, source, session.target, findLiteralSourceCommit);
 
-    return commit?.from === session.from && commit.to === session.to;
+    return commit !== null;
   },
 });

@@ -5,13 +5,17 @@ import { describe, expect, it } from "vitest";
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
+  findEditorTextNode,
   getEditorTextContent,
   getEditorTextPosition,
+  getMarkNames,
+  runKeyDownHandlers,
   setSelectionAtDocumentEnd,
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
 
+import { runEditorCommand } from "../commands";
 import { leafdownSourceProjectionPluginKey } from "../plugins/sourceProjection";
 
 const mountProjectionEditor = setupMilkdownEditorMount({
@@ -116,5 +120,26 @@ describe("escaped text inside a projected marked fragment", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
+  });
+
+  it("converts escaped emphasis inside a strong fragment and reverses it with Undo", async () => {
+    const source = String.raw`See **a \_b_ d** here.`;
+    const mounted = await mountProjectionEditor(source);
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "b"));
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "\\") + 1);
+    runKeyDownHandlers(mounted.view, "Backspace");
+    setTextSelection(mounted.view, 1);
+
+    expect(mounted.getMarkdown()).toBe("See **a _b_ d** here.\n");
+    expect(getMarkNames(findEditorTextNode(mounted, "b")!)).toEqual(
+      expect.arrayContaining(["strong", "emphasis"]),
+    );
+
+    await runEditorCommand(mounted.editor, "edit.undo");
+    setTextSelection(mounted.view, 1);
+
+    expect(mounted.getMarkdown()).toBe(`${source}\n`);
+    expect(getMarkNames(findEditorTextNode(mounted, "b")!)).toEqual(["strong"]);
   });
 });

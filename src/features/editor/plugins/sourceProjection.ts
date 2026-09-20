@@ -23,6 +23,7 @@ import {
   createSourceProjectionProbeState,
   decodeSourceProjectionEscapes,
   findSourceProjectionInsertionCandidate,
+  findSourceProjectionEscapedLiteralSourceCommit,
   findSourceProjectionLiteralSourceCommit,
   findSourceProjectionTarget,
   type LiteralSourceCommit,
@@ -211,7 +212,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
     ];
 
     const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
-      findSourceProjectionLiteralSourceCommit(state, range, objectAdapters);
+      findSourceProjectionEscapedLiteralSourceCommit(state, range, objectAdapters);
     const sideAdapters = [
       ...objectAdapters,
       createCharacterReferenceSourceProjectionAdapter(),

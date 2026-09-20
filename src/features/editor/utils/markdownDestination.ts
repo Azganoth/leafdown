@@ -2,10 +2,12 @@ import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { defaultHandlers } from "mdast-util-to-markdown";
 
 import {
+  IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME,
   decodeCharacterReferences,
   findCharacterReferenceSources,
   readAuthoredDescription,
   readWrittenTitle,
+  removeImageDestinationTrailingSpace,
 } from "./characterReferenceMarkdown";
 import {
   chooseTitleMarker,
@@ -406,9 +408,26 @@ export const serializeMarkdownImage: NonNullable<RemarkStringifyHandlers["image"
     const restoreTitle = scopeAuthoredTitle(state, titled);
 
     try {
-      return withAuthoredTitle(image, state.options, () =>
-        defaultHandlers.image(image, parent, state, info),
-      );
+      return withAuthoredTitle(image, state.options, () => {
+        if (
+          (node as unknown as Record<string, unknown>)[IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME] !==
+            "<" ||
+          /[\0- \u007F]/u.test(image.url)
+        ) {
+          return defaultHandlers.image(image, parent, state, info);
+        }
+
+        // The upstream handler chooses angle syntax only when a destination requires it. A temporary
+        // space takes that branch so an optional authored angle pair can be retained without
+        // duplicating the handler; the space is removed from its result immediately below.
+        const angled = defaultHandlers.image(
+          { ...image, url: `${image.url} ` },
+          parent,
+          state,
+          info,
+        );
+        return removeImageDestinationTrailingSpace(angled);
+      });
     } finally {
       restoreTitle();
       restore();

@@ -3,6 +3,14 @@ export const toSlashPath = (path: string) => path.replaceAll("\\", "/");
 const WINDOWS_DRIVE_PATH_PATTERN = /^[a-z]:($|\/)/iu;
 const SLASH_ONLY_PATH_PATTERN = /^\/+$/u;
 const WINDOWS_DRIVE_ROOT_PATTERN = /^([a-z]:)\/+$/iu;
+const WINDOWS_DRIVE_RELATIVE_ROOT_PATTERN = /^([a-z]:)(?:\/|$)/iu;
+const WINDOWS_UNC_ROOT_PATTERN = /^\/\/([^/]+)\/([^/]+)(?:\/|$)/u;
+
+interface PathRoot {
+  caseInsensitive: boolean;
+  components: string[];
+  root: string;
+}
 
 const isWindowsPath = (path: string) =>
   WINDOWS_DRIVE_PATH_PATTERN.test(path) || path.startsWith("//");
@@ -71,6 +79,69 @@ export const isSameNullablePath = (leftPath: string | null, rightPath: string | 
   leftPath === null || rightPath === null
     ? leftPath === rightPath
     : isSamePath(leftPath, rightPath);
+
+export const getRelativePath = (fromFolderPath: string, targetPath: string) => {
+  const from = splitPathRoot(fromFolderPath);
+  const target = splitPathRoot(targetPath);
+
+  if (!samePathComponent(from.root, target.root, from.caseInsensitive || target.caseInsensitive)) {
+    return null;
+  }
+
+  let sharedLength = 0;
+
+  while (
+    sharedLength < from.components.length &&
+    sharedLength < target.components.length &&
+    samePathComponent(
+      from.components[sharedLength],
+      target.components[sharedLength],
+      from.caseInsensitive,
+    )
+  ) {
+    sharedLength += 1;
+  }
+
+  const parentSegments = Array.from({ length: from.components.length - sharedLength }, () => "..");
+  const targetSegments = target.components.slice(sharedLength);
+
+  return [...parentSegments, ...targetSegments].join("/") || ".";
+};
+
+const splitPathRoot = (path: string): PathRoot => {
+  const slashPath = toSlashPath(path);
+  const driveMatch = slashPath.match(WINDOWS_DRIVE_RELATIVE_ROOT_PATTERN);
+
+  if (driveMatch) {
+    return {
+      caseInsensitive: true,
+      components: slashPath.slice(driveMatch[0].length).split("/").filter(Boolean),
+      root: driveMatch[1],
+    };
+  }
+
+  const uncMatch = slashPath.match(WINDOWS_UNC_ROOT_PATTERN);
+
+  if (uncMatch) {
+    return {
+      caseInsensitive: true,
+      components: slashPath.slice(uncMatch[0].length).split("/").filter(Boolean),
+      root: `//${uncMatch[1]}/${uncMatch[2]}`,
+    };
+  }
+
+  return {
+    caseInsensitive: false,
+    components: slashPath
+      .replace(/^\/+|\/+$/gu, "")
+      .split("/")
+      .filter(Boolean),
+    root: slashPath.startsWith("/") ? "/" : "",
+  };
+};
+
+const samePathComponent = (left: string, right: string, caseInsensitive: boolean) =>
+  caseInsensitive ? left.toLowerCase() === right.toLowerCase() : left === right;
 
 interface PathMapEntry<Value> {
   path: string;

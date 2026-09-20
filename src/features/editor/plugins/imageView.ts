@@ -9,19 +9,7 @@ import { getErrorDescription, handleUnexpectedError } from "@/lib/errors";
 import { MutableDisposable } from "@/lib/lifecycle";
 import { isSameNullablePath } from "@/lib/path";
 
-import {
-  AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
-  AUTHORED_TITLE_ATTRIBUTE_NAME,
-  readAuthoredDescription,
-  readAuthoredTitle,
-} from "../utils/characterReferenceMarkdown";
-import {
-  parseImageMarkdown,
-  readImageDescription,
-  serializeImageMarkdown,
-  type ImageDefinitionResolver,
-  type ImageMarkdownAttrs,
-} from "../utils/imageMarkdown";
+import { writeImageNodeAttrsToDom } from "../utils/characterReferenceMarkdown";
 import {
   resolveMarkdownImage,
   type MarkdownImageResolution,
@@ -31,16 +19,6 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "../utils/markdownReferences";
-import { readTitleMarker, TITLE_MARKER_ATTRIBUTE_NAME } from "../utils/markdownTitle";
-import {
-  DEFINITION_NODE_NAME,
-  normalizeReferenceLabel,
-  readDefinitionAttrs,
-  readReferenceType,
-  REFERENCE_LABEL_ATTRIBUTE_NAME,
-  REFERENCE_TYPE_ATTRIBUTE_NAME,
-  type DefinitionAttrs,
-} from "../utils/referenceLinkMarkdown";
 
 type ImageResolutionState =
   | { status: "pending" }
@@ -49,10 +27,10 @@ type ImageResolutionState =
 
 type ImageResolutionInput = ResolveMarkdownImageOptions & { allowOutsideFolder: boolean };
 
-interface RawMarkdownFocusState {
-  selectionDirection: "backward" | "forward" | "none" | null;
-  selectionEnd: number | null;
-  selectionStart: number | null;
+interface ImageAttrs {
+  alt: string;
+  src: string;
+  title: string;
 }
 
 export const createLeafdownImageViewPlugin = (
@@ -74,8 +52,6 @@ class LeafdownImageNodeView implements NodeView {
   private readonly currentResolutionCancellation = new MutableDisposable<CancellationTokenSource>();
   private currentResolutionInput: ImageResolutionInput | null = null;
   private resolutionState: ImageResolutionState = { status: "pending" };
-  private rawMarkdownDraft: string | null = null;
-  private rawMarkdownInputElement: HTMLInputElement | null = null;
 
   constructor(
     initialNode: ProseMirrorNode,
@@ -109,7 +85,7 @@ class LeafdownImageNodeView implements NodeView {
   }
 
   stopEvent(event: Event) {
-    return event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement;
+    return event.target instanceof HTMLButtonElement;
   }
 
   ignoreMutation() {
@@ -123,7 +99,6 @@ class LeafdownImageNodeView implements NodeView {
 
   deselectNode() {
     this.isSelected = false;
-    this.rawMarkdownDraft = null;
     this.render();
   }
 
@@ -134,7 +109,7 @@ class LeafdownImageNodeView implements NodeView {
   }
 
   private readonly handleMouseDown = (event: MouseEvent) => {
-    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement) {
+    if (event.target instanceof HTMLButtonElement) {
       return;
     }
 
@@ -158,35 +133,6 @@ class LeafdownImageNodeView implements NodeView {
     );
     this.view.focus();
   }
-
-  private readonly updateImageAttrs = (attrs: Partial<ImageMarkdownAttrs>) => {
-    const position = this.getPos();
-
-    if (typeof position !== "number" || !this.view.editable) {
-      return;
-    }
-
-    const currentAttrs = this.getImageAttrs();
-    const editedAttrs = { ...currentAttrs, ...attrs };
-    // The input holds the description the file was written with, so an edit to the destination or
-    // the title leaves that description standing. A description the author did change is the text
-    // they typed, because reading its markers back as inline content is the parse this input does
-    // not run, and the file escapes them for it.
-    const keepsDescription = editedAttrs.description === currentAttrs.description;
-    const nextAttrs = toNodeAttrs(
-      keepsDescription ? { ...editedAttrs, alt: currentAttrs.alt } : editedAttrs,
-      keepsDescription ? readAuthoredDescription(this.node.attrs) : null,
-      readAuthoredTitle(this.node.attrs),
-    );
-
-    if (attrs.src !== undefined && attrs.src !== currentAttrs.src) {
-      this.allowOutsideFolder = false;
-    }
-
-    const tr = this.view.state.tr.setNodeMarkup(position, undefined, nextAttrs);
-
-    this.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, position)).scrollIntoView());
-  };
 
   private createResolutionInput(): ImageResolutionInput {
     const attrs = this.getImageAttrs();
@@ -255,34 +201,18 @@ class LeafdownImageNodeView implements NodeView {
 
   private render() {
     const attrs = this.getImageAttrs();
-    const rawMarkdownFocusState = getRawMarkdownFocusState(this.rawMarkdownInputElement);
 
     this.dom.dataset.imageState = getImageStateValue(this.resolutionState);
     this.dom.classList.toggle("leafdown-image-view--selected", this.isSelected);
     this.dom.replaceChildren();
-    this.rawMarkdownInputElement = null;
-
-    if (this.isSelected) {
-      this.rawMarkdownInputElement = createRawMarkdownInput(
-        attrs,
-        this.updateImageAttrs,
-        createImageDefinitionResolver(this.view),
-        this.rawMarkdownDraft,
-        (value) => {
-          this.rawMarkdownDraft = value;
-        },
-      );
-      this.dom.append(this.rawMarkdownInputElement);
-      restoreRawMarkdownFocus(this.rawMarkdownInputElement, rawMarkdownFocusState);
-    } else {
-      this.rawMarkdownDraft = null;
-    }
 
     if (
       this.resolutionState.status === "resolved" &&
       this.resolutionState.resolution.kind === "renderable"
     ) {
-      this.dom.append(createImageElement(attrs, this.resolutionState.resolution.assetUrl));
+      this.dom.append(
+        createImageElement(attrs, this.node.attrs, this.resolutionState.resolution.assetUrl),
+      );
       return;
     }
 
@@ -301,44 +231,11 @@ const readNodeString = (node: ProseMirrorNode, key: string) => {
   return typeof value === "string" ? value : "";
 };
 
-const imageAttrsFromNode = (node: ProseMirrorNode): ImageMarkdownAttrs => ({
+const imageAttrsFromNode = (node: ProseMirrorNode): ImageAttrs => ({
   alt: readNodeString(node, "alt"),
-  description: readImageDescription(
-    readAuthoredDescription(node.attrs),
-    readNodeString(node, "alt"),
-  ),
-  referenceLabel: readNodeString(node, REFERENCE_LABEL_ATTRIBUTE_NAME),
-  referenceType: readReferenceType(node.attrs),
   src: readNodeString(node, "src"),
   title: readNodeString(node, "title"),
-  titleMarker: readTitleMarker(node.attrs),
 });
-
-// The input reads and writes the form the file holds, so a reference resolves against the same
-// definitions the document was built from rather than against the destination it happens to carry.
-const createImageDefinitionResolver =
-  (view: EditorView): ImageDefinitionResolver =>
-  (label) => {
-    const definitions: DefinitionAttrs[] = [];
-
-    view.state.doc.descendants((node) => {
-      if (node.type.name !== DEFINITION_NODE_NAME) {
-        return node.isBlock;
-      }
-
-      definitions.push(readDefinitionAttrs(node.attrs));
-
-      return false;
-    });
-
-    const definition = definitions.find(
-      (candidate) => normalizeReferenceLabel(candidate.label) === label,
-    );
-
-    return definition
-      ? { src: definition.url, title: definition.title, titleMarker: definition.titleMarker }
-      : null;
-  };
 
 const isSameImageResolutionInput = (
   currentInput: ImageResolutionInput,
@@ -349,24 +246,11 @@ const isSameImageResolutionInput = (
   isSameNullablePath(currentInput.folderContextPath, nextInput.folderContextPath) &&
   currentInput.target === nextInput.target;
 
-const toNodeAttrs = (
-  { alt, referenceLabel, referenceType, src, title, titleMarker }: ImageMarkdownAttrs,
-  authoredDescription: string | null,
-  authoredTitle: string | null,
-) => ({
-  alt,
-  src,
-  title,
-  [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: authoredDescription,
-  // The serializer writes the authored title only while it still decodes to the title, so an edit
-  // to the title in the input leaves it describing text the node no longer holds.
-  [AUTHORED_TITLE_ATTRIBUTE_NAME]: authoredTitle,
-  [TITLE_MARKER_ATTRIBUTE_NAME]: titleMarker,
-  [REFERENCE_LABEL_ATTRIBUTE_NAME]: referenceLabel,
-  [REFERENCE_TYPE_ATTRIBUTE_NAME]: referenceType,
-});
-
-const createImageElement = (attrs: ImageMarkdownAttrs, assetUrl: string) => {
+const createImageElement = (
+  attrs: ImageAttrs,
+  nodeAttrs: Record<string, unknown>,
+  assetUrl: string,
+) => {
   const image = document.createElement("img");
 
   image.className = "leafdown-markdown-image";
@@ -377,65 +261,9 @@ const createImageElement = (attrs: ImageMarkdownAttrs, assetUrl: string) => {
     image.title = attrs.title;
   }
 
+  writeImageNodeAttrsToDom(image, nodeAttrs);
+
   return image;
-};
-
-const createRawMarkdownInput = (
-  attrs: ImageMarkdownAttrs,
-  updateAttrs: (attrs: Partial<ImageMarkdownAttrs>) => void,
-  resolveDefinition: ImageDefinitionResolver,
-  draft: string | null,
-  updateDraft: (value: string) => void,
-) => {
-  const input = document.createElement("input");
-
-  input.className = "leafdown-image-markdown-input";
-  input.type = "text";
-  input.setAttribute("aria-label", "Image Markdown");
-  input.value = draft ?? serializeImageMarkdown(attrs);
-
-  input.addEventListener("input", () => {
-    updateDraft(input.value);
-
-    const parsed = parseImageMarkdown(input.value, resolveDefinition);
-
-    if (parsed) {
-      updateAttrs(parsed);
-    }
-  });
-
-  return input;
-};
-
-const getRawMarkdownFocusState = (input: HTMLInputElement | null): RawMarkdownFocusState | null => {
-  if (!input || document.activeElement !== input) {
-    return null;
-  }
-
-  return {
-    selectionDirection: input.selectionDirection,
-    selectionEnd: input.selectionEnd,
-    selectionStart: input.selectionStart,
-  };
-};
-
-const restoreRawMarkdownFocus = (
-  input: HTMLInputElement,
-  focusState: RawMarkdownFocusState | null,
-) => {
-  if (!focusState) {
-    return;
-  }
-
-  input.focus();
-
-  if (focusState.selectionStart !== null && focusState.selectionEnd !== null) {
-    input.setSelectionRange(
-      focusState.selectionStart,
-      focusState.selectionEnd,
-      focusState.selectionDirection ?? "none",
-    );
-  }
 };
 
 const createImagePlaceholder = (

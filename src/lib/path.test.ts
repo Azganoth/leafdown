@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getPathIdentityKey,
   getPathParts,
+  getRelativePath,
   isSameOrParentPath,
   isSamePath,
   PathMap,
@@ -62,6 +63,15 @@ describe("path utilities", () => {
     expect(isSameOrParentPath("/Users/Ada/Notes", "/users/ada/notes/readme.md")).toBe(false);
     expect(isSameOrParentPath("C:/Notes", "C:/Notes Archive/readme.md")).toBe(false);
     expect(isSameOrParentPath("", "/Users/Ada/Notes")).toBe(false);
+  });
+
+  it("derives portable relative paths without crossing path roots", () => {
+    expect(getRelativePath("C:/Notes/drafts", "c:\\Notes\\guides\\setup.md")).toBe(
+      "../guides/setup.md",
+    );
+    expect(getRelativePath("C:/Notes", "D:/Guides/setup.md")).toBeNull();
+    expect(getRelativePath("/home/notes", "/home/notes/guide.md")).toBe("guide.md");
+    expect(getRelativePath("//server/share/notes", "//SERVER/SHARE/guides")).toBe("../guides");
   });
 
   it("stores values by path identity", () => {

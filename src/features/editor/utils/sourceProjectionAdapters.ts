@@ -5,6 +5,7 @@ import {
   NodeSelection,
   TextSelection,
 } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 import type { ConstructName } from "mdast-util-to-markdown";
 
@@ -55,6 +56,7 @@ export type SourceProjectionAdapterId =
   | "character-reference"
   | "escape"
   | "footnote-reference"
+  | "image"
   | "link"
   | "mark";
 
@@ -116,7 +118,15 @@ export interface SourceProjectionPresentationPreview {
   text: string;
 }
 
+export interface SourceProjectionPresentationAction {
+  disabled?: boolean;
+  key: string;
+  label: string;
+  run: (view: EditorView, source: string) => Promise<string | null>;
+}
+
 export interface SourceProjectionPresentation {
+  actions?: SourceProjectionPresentationAction[];
   previews: SourceProjectionPresentationPreview[];
   sourceTypes: string[];
   spans: SourceProjectionPresentationSpan[];
@@ -210,8 +220,7 @@ interface ProjectionMarkSegment extends ActiveProjectionRange {
 
 const LINK_MARK_NAME = "link";
 
-const isLinkImage = (node: ProseMirrorNode) =>
-  node.type.name === "image" && node.marks.some((mark) => mark.type.name === LINK_MARK_NAME);
+const isProjectableImage = (node: ProseMirrorNode) => node.type.name === "image";
 
 const createTextSlice = (
   state: EditorState,
@@ -524,7 +533,7 @@ const getProjectionMarksFromInlineNode = (
     !node.isText &&
     !isFootnoteReference &&
     node.type.name !== "hardbreak" &&
-    !isLinkImage(node)
+    !isProjectableImage(node)
   ) {
     return [];
   }
@@ -832,6 +841,16 @@ const getMarkedFragmentPresentation = (
         },
         ...(segment.map ? getLinkHardBreakSpans(segment.map, segment.sourceFrom, source) : []),
       );
+      continue;
+    }
+
+    if (segment.type === "image") {
+      objectTypes.add("image");
+      spans.push({
+        className: "leafdown-source-projection__marker",
+        from: segment.sourceFrom,
+        to: segment.sourceTo,
+      });
       continue;
     }
 

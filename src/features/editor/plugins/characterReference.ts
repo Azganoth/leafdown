@@ -8,6 +8,8 @@ import {
   findAuthoredDestination,
   findAuthoredReferenceDescription,
   findAuthoredTitle,
+  findImageDestinationMarker,
+  IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME,
   splitCharacterReferences,
 } from "../utils/characterReferenceMarkdown";
 import { findTitleMarker, type TitleMarker } from "../utils/markdownTitle";
@@ -74,6 +76,8 @@ const markAuthoredSource = (node: MarkdownNode, source: string) => {
         }
 
         if (child.type === "image") {
+          (child as Record<string, unknown>)[IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME] =
+            findImageDestinationMarker(raw);
           markAuthoredDescription(
             child,
             findAuthoredDescription(raw, readNodeString(child, "alt") ?? "", child.url),

@@ -8,7 +8,7 @@ import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { mockInvokeCommands } from "@/test/utils/tauri";
 
 import { INSPECT_DROPPED_PATH_COMMAND } from "./dropApi";
-import { getRelativePath, handleDroppedPaths, prepareDroppedPaths } from "./dropWorkflows";
+import { handleDroppedPaths, prepareDroppedPaths } from "./dropWorkflows";
 
 const openSessionMocks = vi.hoisted(() => ({
   openFolderContextAtPath: vi.fn(async () => true),
@@ -98,14 +98,5 @@ describe("dropped path workflows", () => {
       title: "Drop a Markdown file or folder.",
       type: "warning",
     });
-  });
-
-  it("derives portable relative targets without crossing path roots", () => {
-    expect(getRelativePath("C:/Notes/drafts", "c:\\Notes\\guides\\setup.md")).toBe(
-      "../guides/setup.md",
-    );
-    expect(getRelativePath("C:/Notes", "D:/Guides/setup.md")).toBeNull();
-    expect(getRelativePath("/home/notes", "/home/notes/guide.md")).toBe("guide.md");
-    expect(getRelativePath("//server/share/notes", "//SERVER/SHARE/guides")).toBe("../guides");
   });
 });

@@ -307,14 +307,6 @@
       @apply my-0 block;
     }
 
-    .leafdown-image-markdown-input {
-      @apply mb-2 w-full min-w-64 rounded-sm border border-border bg-muted px-2 py-1 font-mono text-sm text-foreground outline-none;
-
-      &:focus-visible {
-        @apply border-primary ring-2 ring-primary/25;
-      }
-    }
-
     .leafdown-image-placeholder {
       @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-[3px] text-sm text-muted-foreground;
     }
@@ -495,6 +487,22 @@
 
     .leafdown-source-projection {
       color: inherit;
+    }
+
+    .leafdown-source-projection__action {
+      @apply mr-2 inline-flex h-6 items-center rounded-sm border border-border bg-muted px-2 text-xs font-medium text-foreground transition-colors;
+
+      &:hover:not(:disabled) {
+        @apply border-primary text-primary;
+      }
+
+      &:focus-visible {
+        @apply ring-2 ring-primary/30 outline-none;
+      }
+
+      &:disabled {
+        @apply cursor-not-allowed opacity-50;
+      }
     }
 
     .leafdown-source-projection__marker {

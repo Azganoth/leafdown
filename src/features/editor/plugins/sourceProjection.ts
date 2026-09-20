@@ -14,8 +14,10 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose, $proseAsync } from "@milkdown/kit/utils";
 
+import { handleUnexpectedError } from "@/lib/errors";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
+import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
@@ -29,6 +31,7 @@ import {
   type LiteralSourceCommit,
   type SourceProjectionAdapter,
   type SourceProjectionEdit,
+  type SourceProjectionPresentationAction,
   type SourceProjectionPresentationPreview,
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
@@ -40,6 +43,7 @@ import {
 import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
 import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
+import { createImageSourceProjectionAdapter } from "../utils/sourceProjectionImageAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
@@ -193,7 +197,9 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
   });
 };
 
-export const createLeafdownSourceProjectionPlugin = () =>
+export const createLeafdownSourceProjectionPlugin = (
+  getMarkdownReferenceContext: () => MarkdownReferenceContext,
+) =>
   $proseAsync(async (ctx) => {
     await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
 
@@ -210,6 +216,11 @@ export const createLeafdownSourceProjectionPlugin = () =>
       createMarkSourceProjectionAdapter({
         parser,
         remark,
+        serializer,
+      }),
+      createImageSourceProjectionAdapter({
+        getMarkdownReferenceContext,
+        parser,
         serializer,
       }),
       createFootnoteReferenceSourceProjectionAdapter({
@@ -543,7 +554,6 @@ const appendProjectionTransaction = (
   }
 
   const match = findSourceProjectionTarget(state, adapters);
-
   if (!match || !isProjectableTarget(match, projectionState)) {
     return null;
   }
@@ -1008,7 +1018,73 @@ const createProjectionDecorations = (state: EditorState) => {
     );
   }
 
+  for (const action of presentation.actions ?? []) {
+    decorations.push(
+      Decoration.widget(session.from, (view) => createProjectionActionElement(view, action), {
+        key: `source-projection-action:${action.key}`,
+        marks: [],
+        side: -1,
+        stopEvent: (event) => event.target instanceof HTMLButtonElement,
+      }),
+    );
+  }
+
   return DecorationSet.create(state.doc, decorations);
+};
+
+const createProjectionActionElement = (
+  view: EditorView,
+  action: SourceProjectionPresentationAction,
+) => {
+  const button = document.createElement("button");
+
+  button.className = "leafdown-source-projection__action";
+  button.disabled = action.disabled ?? false;
+  button.type = "button";
+  button.textContent = action.label;
+  button.addEventListener("mousedown", (event) => event.preventDefault());
+  button.addEventListener("click", () => {
+    void runProjectionAction(view, action, button);
+  });
+
+  return button;
+};
+
+const runProjectionAction = async (
+  view: EditorView,
+  action: SourceProjectionPresentationAction,
+  button: HTMLButtonElement,
+) => {
+  const session = getSourceProjectionState(view.state).session;
+
+  if (!session) {
+    return;
+  }
+
+  button.disabled = true;
+
+  try {
+    const replacement = await action.run(view, getProjectionSource(view.state, session));
+    const currentSession = getSourceProjectionState(view.state).session;
+
+    if (
+      replacement === null ||
+      !currentSession ||
+      currentSession.adapter !== session.adapter ||
+      currentSession.target !== session.target
+    ) {
+      return;
+    }
+
+    dispatchProjectionEdit(view, currentSession.from, currentSession.to, replacement);
+    view.focus();
+  } catch (error) {
+    handleUnexpectedError(error, "runSourceProjectionAction");
+  } finally {
+    if (button.isConnected) {
+      button.disabled = action.disabled ?? false;
+    }
+  }
 };
 
 // The character rides in an attribute the stylesheet draws, as a block marker already does, which

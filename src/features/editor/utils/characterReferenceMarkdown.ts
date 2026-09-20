@@ -4,7 +4,12 @@ import type { MarkdownNode, MarkSchema, NodeSchema } from "@milkdown/kit/transfo
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 import { decodeNumericCharacterReference } from "micromark-util-decode-numeric-character-reference";
 
-import { findTitleSource, TITLE_MARKER_ATTRIBUTE_NAME, readTitleMarker } from "./markdownTitle";
+import {
+  findTitleSource,
+  TITLE_MARKER_ATTRIBUTE_NAME,
+  TITLE_MARKER_PAIRS,
+  readTitleMarker,
+} from "./markdownTitle";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -19,6 +24,7 @@ export const AUTHORED_TITLE_ATTRIBUTE_NAME = "authoredTitle";
 // An image description holds inline content, and the parser keeps only the text it spells, so the
 // node carries the source the description was written with wherever that source says more.
 export const AUTHORED_DESCRIPTION_ATTRIBUTE_NAME = "authoredDescription";
+export const IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME = "imageDestinationMarker";
 
 export const CHARACTER_REFERENCE_SOURCE_ATTRIBUTE_NAME = "source";
 // Every reference closes on this character, named, decimal, and hexadecimal alike, so one
@@ -308,6 +314,21 @@ const findDestinationSource = (raw: string): string | null => {
   return raw.slice(start, end);
 };
 
+export const findImageDestinationMarker = (raw: string) => {
+  const destination = findDescriptionSource(raw)?.tail.match(/^\(\s*(<)?/u);
+
+  return destination?.[1] === "<" ? "<" : "";
+};
+
+export const removeImageDestinationTrailingSpace = (raw: string) => {
+  const source = findDescriptionSource(raw);
+  const destination = source?.tail.match(/^(\(\s*<[^>\r\n]*) >([\s\S]*)$/u);
+
+  return source && destination
+    ? `![${source.description}]${destination[1]}>${destination[2]}`
+    : raw;
+};
+
 export const resolveMarkdownEscapes = (value: string) => {
   let resolved = "";
 
@@ -568,10 +589,74 @@ const omitAuthoredAttributes = (attributes: Record<string, unknown>) => {
   return rendered;
 };
 
+const IMAGE_NODE_ATTRS_ATTRIBUTE_NAME = "data-leafdown-image-attrs";
+const IMAGE_REFERENCE_TYPES = new Set(["collapsed", "full", "shortcut"]);
+
+export const writeImageNodeAttrsToDom = (element: HTMLElement, attrs: Record<string, unknown>) => {
+  element.setAttribute(IMAGE_NODE_ATTRS_ATTRIBUTE_NAME, JSON.stringify(attrs));
+};
+
+const readImageNodeAttrsFromDom = (element: HTMLElement) => {
+  const serialized = element.getAttribute(IMAGE_NODE_ATTRS_ATTRIBUTE_NAME);
+
+  if (!serialized) {
+    return null;
+  }
+
+  try {
+    const attrs: unknown = JSON.parse(serialized);
+
+    if (!attrs || typeof attrs !== "object" || Array.isArray(attrs)) {
+      return null;
+    }
+
+    const candidate = attrs as Record<string, unknown>;
+    const titleMarker = candidate[TITLE_MARKER_ATTRIBUTE_NAME];
+    const destinationMarker = candidate[IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME];
+    const referenceType = candidate.referenceType;
+    const nullableStringKeys = [
+      "title",
+      AUTHORED_URL_ATTRIBUTE_NAME,
+      AUTHORED_TITLE_ATTRIBUTE_NAME,
+      AUTHORED_DESCRIPTION_ATTRIBUTE_NAME,
+    ];
+
+    if (
+      typeof candidate.src !== "string" ||
+      typeof candidate.alt !== "string" ||
+      typeof candidate.referenceLabel !== "string" ||
+      nullableStringKeys.some(
+        (key) => candidate[key] !== null && typeof candidate[key] !== "string",
+      ) ||
+      (destinationMarker !== "" && destinationMarker !== "<") ||
+      typeof titleMarker !== "string" ||
+      !(titleMarker in TITLE_MARKER_PAIRS) ||
+      (referenceType !== null && !IMAGE_REFERENCE_TYPES.has(referenceType as string))
+    ) {
+      return null;
+    }
+
+    return {
+      alt: candidate.alt,
+      src: candidate.src,
+      title: candidate.title,
+      [AUTHORED_URL_ATTRIBUTE_NAME]: candidate[AUTHORED_URL_ATTRIBUTE_NAME],
+      [AUTHORED_TITLE_ATTRIBUTE_NAME]: candidate[AUTHORED_TITLE_ATTRIBUTE_NAME],
+      [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: candidate[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME],
+      [IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME]: destinationMarker,
+      [TITLE_MARKER_ATTRIBUTE_NAME]: titleMarker,
+      referenceLabel: candidate.referenceLabel,
+      referenceType,
+    };
+  } catch {
+    return null;
+  }
+};
+
 // An image is a node rather than a mark, so the form it was authored in travels in node attributes.
-// The rendered `img` carries none of them and no parse rule reads them back, which leaves a copy
-// through the DOM holding the decoded destination, a double-quoted title, and a description flat
-// to its text — the same fallback an edit inside a reference takes.
+// Schema DOM output keeps those attributes internal; the image node view adds a validated copy to
+// its rendered `img` so a browser-driven move can reconstruct the authored form instead of reading
+// the resolved asset URL back as the destination.
 export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
   const { toDOM } = schema;
 
@@ -582,8 +667,23 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
       [AUTHORED_URL_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
       [AUTHORED_TITLE_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
       [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: { default: null, validate: "string|null" },
+      [IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME]: { default: "", validate: "string" },
       [TITLE_MARKER_ATTRIBUTE_NAME]: { default: '"', validate: "string" },
     },
+    parseDOM: schema.parseDOM?.map((rule) => ({
+      ...rule,
+      getAttrs: (dom) => {
+        const originalAttrs = rule.getAttrs?.(dom);
+
+        if (originalAttrs === false) {
+          return false;
+        }
+
+        const authoredAttrs = dom instanceof HTMLElement ? readImageNodeAttrsFromDom(dom) : null;
+
+        return authoredAttrs ? { ...originalAttrs, ...authoredAttrs } : (originalAttrs ?? null);
+      },
+    })),
     toDOM:
       toDOM &&
       ((node) => {
@@ -605,6 +705,8 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           [AUTHORED_URL_ATTRIBUTE_NAME]: readAuthoredUrl(node),
           [AUTHORED_TITLE_ATTRIBUTE_NAME]: readAuthoredTitle(node),
           [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: readAuthoredDescription(node),
+          [IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME]:
+            (node as Record<string, unknown>)[IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME] ?? "",
           [TITLE_MARKER_ATTRIBUTE_NAME]: readTitleMarker(node),
         });
       },
@@ -619,6 +721,8 @@ export const withAuthoredDestination = (schema: NodeSchema): NodeSchema => {
           [AUTHORED_URL_ATTRIBUTE_NAME]: node.attrs[AUTHORED_URL_ATTRIBUTE_NAME],
           [AUTHORED_TITLE_ATTRIBUTE_NAME]: node.attrs[AUTHORED_TITLE_ATTRIBUTE_NAME],
           [AUTHORED_DESCRIPTION_ATTRIBUTE_NAME]: node.attrs[AUTHORED_DESCRIPTION_ATTRIBUTE_NAME],
+          [IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME]:
+            node.attrs[IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME],
           [TITLE_MARKER_ATTRIBUTE_NAME]: node.attrs[TITLE_MARKER_ATTRIBUTE_NAME],
         });
       },

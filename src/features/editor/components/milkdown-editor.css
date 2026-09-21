@@ -296,11 +296,11 @@
     }
 
     img {
-      @apply my-5 max-w-full rounded-md border border-border bg-card;
+      @apply my-5 max-w-full rounded-md bg-card;
     }
 
     .leafdown-image-view {
-      @apply my-5 inline-flex max-w-full flex-col gap-2 align-middle;
+      @apply my-5 block min-h-7 max-w-full rounded-md;
     }
 
     .leafdown-markdown-image {
@@ -308,7 +308,7 @@
     }
 
     .leafdown-image-markdown-input {
-      @apply w-full min-w-64 rounded-sm border border-border bg-muted px-2 py-1 font-mono text-sm text-foreground outline-none;
+      @apply mb-2 w-full min-w-64 rounded-sm border border-border bg-muted px-2 py-1 font-mono text-sm text-foreground outline-none;
 
       &:focus-visible {
         @apply border-primary ring-2 ring-primary/25;
@@ -316,7 +316,7 @@
     }
 
     .leafdown-image-placeholder {
-      @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-2 text-sm text-muted-foreground;
+      @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-[3px] text-sm text-muted-foreground;
     }
 
     .leafdown-image-placeholder__message {

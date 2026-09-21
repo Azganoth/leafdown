@@ -132,6 +132,9 @@ const main = async () => {
 
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "leafdown-desktop-e2e-"));
   const documentPath = path.join(temporaryRoot, "document-lifecycle.md");
+  const imagesPath = path.join(temporaryRoot, "rendered-images.md");
+  const leafImagePath = path.join(temporaryRoot, "leaf.svg");
+  const tinyImagePath = path.join(temporaryRoot, "tiny-transparent.svg");
   const folderPath = path.join(temporaryRoot, "folder-context");
   const initialFolderFileName = "readme.md";
   const initialFolderFilePath = path.join(folderPath, initialFolderFileName);
@@ -145,6 +148,9 @@ const main = async () => {
       path: documentPath,
       savedMarkdown: `${savedMarker}\n`,
       savedMarker,
+    },
+    images: {
+      path: imagesPath,
     },
     folder: {
       addedFileName: addedFolderFileName,
@@ -169,12 +175,31 @@ const main = async () => {
     path.join(repositoryRoot, "e2e", "desktop", "fixtures", "folder-context", "readme.md"),
     initialFolderFilePath,
   );
+  await copyFile(path.join(repositoryRoot, "corpus", "assets", "leaf.svg"), leafImagePath);
+  await writeFile(
+    tinyImagePath,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="transparent" /></svg>',
+  );
+  await writeFile(
+    imagesPath,
+    [
+      "![Missing SVG](./missing.svg)",
+      "",
+      "![Visible SVG](./leaf.svg)",
+      "",
+      "[![Linked SVG](./leaf.svg)](https://example.com)",
+      "",
+      "![Tiny transparent SVG](./tiny-transparent.svg)",
+      "",
+    ].join("\n"),
+  );
   await writeJson(contextPath, context);
 
   const scenarios: Scenario[] = [
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
+    { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },

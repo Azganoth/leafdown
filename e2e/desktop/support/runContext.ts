@@ -7,6 +7,9 @@ export interface DesktopE2ERunContext {
     savedMarkdown: string;
     savedMarker: string;
   };
+  images: {
+    path: string;
+  };
   folder: {
     addedFileName: string;
     addedFilePath: string;

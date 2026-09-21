@@ -5,7 +5,6 @@ import {
   NodeSelection,
   TextSelection,
 } from "@milkdown/kit/prose/state";
-import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Parser, RemarkParser, Serializer } from "@milkdown/kit/transformer";
 import type { ConstructName } from "mdast-util-to-markdown";
 
@@ -118,18 +117,15 @@ export interface SourceProjectionPresentationPreview {
   text: string;
 }
 
-export interface SourceProjectionPresentationAction {
-  disabled?: boolean;
-  key: string;
-  label: string;
-  run: (view: EditorView, source: string) => Promise<string | null>;
-}
-
 export interface SourceProjectionPresentation {
-  actions?: SourceProjectionPresentationAction[];
   previews: SourceProjectionPresentationPreview[];
   sourceTypes: string[];
   spans: SourceProjectionPresentationSpan[];
+}
+
+export interface SourceProjectionEntryContext {
+  direction: "backward" | "forward" | null;
+  pointer: boolean;
 }
 
 export interface SourceProjectionInsertionCandidate<
@@ -167,12 +163,17 @@ export interface SourceProjectionAdapter<
   findLiteralSourceCommit?(state: EditorState, range: TextRange): LiteralSourceCommit | null;
   findTarget(state: EditorState): TTarget | null;
   getPresentation(target: TTarget, source: string): SourceProjectionPresentation;
+  getRestoreRange?(session: SourceProjectionSessionRange<TTarget>): TextRange;
   mapSelectionFromSource(
     selection: Selection,
     session: SourceProjectionSessionRange<TTarget>,
     parsed: SourceProjectionParseResult,
   ): { anchor: number; head: number };
-  mapSelectionToSource(selection: Selection, target: TTarget): { anchor: number; head: number };
+  mapSelectionToSource(
+    selection: Selection,
+    target: TTarget,
+    context: SourceProjectionEntryContext,
+  ): { anchor: number; head: number };
   // Whether the caret still sits on what this session was opened for. An adapter whose range
   // covers more than the caret's own object narrows it here, so the session gives way once the
   // caret moves onto something the range holds but the session does not answer for.

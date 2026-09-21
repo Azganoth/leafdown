@@ -308,15 +308,15 @@
     }
 
     .leafdown-image-placeholder {
-      @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-[3px] text-sm text-muted-foreground;
+      @apply flex h-7 max-w-full flex-nowrap items-center gap-2 overflow-hidden rounded-md border border-dashed border-border bg-card/70 px-2 text-sm text-muted-foreground;
     }
 
     .leafdown-image-placeholder__message {
-      @apply min-w-0 wrap-anywhere;
+      @apply min-w-0 flex-1 truncate;
     }
 
     .leafdown-image-placeholder__action {
-      @apply shrink-0 rounded-sm border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground transition-colors;
+      @apply h-6 shrink-0 rounded-sm border border-border bg-muted px-2 text-xs font-medium text-foreground transition-colors;
 
       &:hover {
         @apply border-primary text-primary;
@@ -489,19 +489,12 @@
       color: inherit;
     }
 
-    .leafdown-source-projection__action {
-      @apply mr-2 inline-flex h-6 items-center rounded-sm border border-border bg-muted px-2 text-xs font-medium text-foreground transition-colors;
+    .leafdown-source-projection[data-leafdown-source~="image"] {
+      @apply block h-7 max-w-full overflow-x-auto overflow-y-hidden font-mono whitespace-nowrap;
+      scrollbar-width: none;
 
-      &:hover:not(:disabled) {
-        @apply border-primary text-primary;
-      }
-
-      &:focus-visible {
-        @apply ring-2 ring-primary/30 outline-none;
-      }
-
-      &:disabled {
-        @apply cursor-not-allowed opacity-50;
+      &::-webkit-scrollbar {
+        display: none;
       }
     }
 

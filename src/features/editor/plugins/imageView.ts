@@ -1,6 +1,6 @@
 import { imageSchema } from "@milkdown/kit/preset/commonmark";
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { NodeSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 
@@ -19,6 +19,7 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "../utils/markdownReferences";
+import { SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META } from "./sourceProjection";
 
 type ImageResolutionState =
   | { status: "pending" }
@@ -94,12 +95,12 @@ class LeafdownImageNodeView implements NodeView {
 
   selectNode() {
     this.isSelected = true;
-    this.render();
+    this.updateSelectionPresentation();
   }
 
   deselectNode() {
     this.isSelected = false;
-    this.render();
+    this.updateSelectionPresentation();
   }
 
   destroy() {
@@ -128,8 +129,15 @@ class LeafdownImageNodeView implements NodeView {
       return;
     }
 
+    const isLinked = this.node.marks.some((mark) => mark.type.name === "link");
+    const selection = isLinked
+      ? TextSelection.create(this.view.state.doc, position + this.node.nodeSize)
+      : NodeSelection.create(this.view.state.doc, position);
+
     this.view.dispatch(
-      this.view.state.tr.setSelection(NodeSelection.create(this.view.state.doc, position)),
+      this.view.state.tr
+        .setSelection(selection)
+        .setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true),
     );
     this.view.focus();
   }
@@ -203,25 +211,37 @@ class LeafdownImageNodeView implements NodeView {
     const attrs = this.getImageAttrs();
 
     this.dom.dataset.imageState = getImageStateValue(this.resolutionState);
-    this.dom.classList.toggle("leafdown-image-view--selected", this.isSelected);
-    this.dom.replaceChildren();
+    this.updateSelectionPresentation();
 
     if (
       this.resolutionState.status === "resolved" &&
       this.resolutionState.resolution.kind === "renderable"
     ) {
-      this.dom.append(
-        createImageElement(attrs, this.node.attrs, this.resolutionState.resolution.assetUrl),
-      );
+      const existingImage = this.dom.querySelector<HTMLImageElement>(".leafdown-markdown-image");
+      const image =
+        existingImage?.src === this.resolutionState.resolution.assetUrl
+          ? existingImage
+          : createImageElement(attrs, this.node.attrs, this.resolutionState.resolution.assetUrl);
+
+      updateImageElement(image, attrs, this.node.attrs);
+
+      if (image !== existingImage) {
+        this.dom.replaceChildren(image);
+      }
+
       return;
     }
 
-    this.dom.append(
-      createImagePlaceholder(this.resolutionState, attrs.src, () => {
+    this.dom.replaceChildren(
+      createImagePlaceholder(this.resolutionState, () => {
         this.allowOutsideFolder = true;
         this.requestImageResolution();
       }),
     );
+  }
+
+  private updateSelectionPresentation() {
+    this.dom.classList.toggle("leafdown-image-view--selected", this.isSelected);
   }
 }
 
@@ -255,20 +275,30 @@ const createImageElement = (
 
   image.className = "leafdown-markdown-image";
   image.src = assetUrl;
-  image.alt = attrs.alt;
 
-  if (attrs.title) {
-    image.title = attrs.title;
-  }
-
-  writeImageNodeAttrsToDom(image, nodeAttrs);
+  updateImageElement(image, attrs, nodeAttrs);
 
   return image;
 };
 
+const updateImageElement = (
+  image: HTMLImageElement,
+  attrs: ImageAttrs,
+  nodeAttrs: Record<string, unknown>,
+) => {
+  image.alt = attrs.alt;
+
+  if (attrs.title) {
+    image.title = attrs.title;
+  } else {
+    image.removeAttribute("title");
+  }
+
+  writeImageNodeAttrsToDom(image, nodeAttrs);
+};
+
 const createImagePlaceholder = (
   resolutionState: ImageResolutionState,
-  target: string,
   allowOutsideFolderAccess: () => void,
 ) => {
   const placeholder = document.createElement("span");
@@ -281,7 +311,7 @@ const createImagePlaceholder = (
   placeholder.className = "leafdown-image-placeholder";
   placeholder.dataset.imageResolution = resolutionKind;
   message.className = "leafdown-image-placeholder__message";
-  message.textContent = getPlaceholderText(resolutionState, target);
+  message.textContent = getPlaceholderText(resolutionState);
   placeholder.append(message);
 
   if (
@@ -303,24 +333,24 @@ const createImagePlaceholder = (
 const getImageStateValue = (resolutionState: ImageResolutionState) =>
   resolutionState.status === "resolved" ? resolutionState.resolution.kind : resolutionState.status;
 
-const getPlaceholderText = (resolutionState: ImageResolutionState, target: string) => {
+const getPlaceholderText = (resolutionState: ImageResolutionState) => {
   if (resolutionState.status === "pending") {
     return "Resolving image...";
   }
 
   if (resolutionState.status === "failed") {
-    return resolutionState.message;
+    return "Image unavailable.";
   }
 
   switch (resolutionState.resolution.kind) {
     case "missing":
-      return `Image not found: ${target}`;
+      return "Image not found.";
 
     case "untitledRelative":
       return "Save the document to resolve this image.";
 
     case "outsideFolder":
-      return `Image is outside the current folder: ${resolutionState.resolution.path}`;
+      return "Image outside the current folder.";
 
     case "remoteBlocked":
       return "Remote images are blocked.";
@@ -332,19 +362,13 @@ const getPlaceholderText = (resolutionState: ImageResolutionState, target: strin
       return "Unsupported image target.";
 
     case "invalidPath":
-      return `Invalid image path: ${resolutionState.resolution.path}`;
+      return "Invalid image path.";
 
     case "permissionDenied":
-      return (
-        resolutionState.resolution.message ||
-        `Image access denied: ${resolutionState.resolution.path}`
-      );
+      return "Image access denied.";
 
     case "metadataFailed":
-      return (
-        resolutionState.resolution.message ||
-        `Image metadata unavailable: ${resolutionState.resolution.path}`
-      );
+      return "Image metadata unavailable.";
 
     case "renderable":
       return "";

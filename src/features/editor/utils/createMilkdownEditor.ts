@@ -295,7 +295,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableColumnsPlugin())
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
     .use(createLeafdownLinkPresentationPlugin())
-    .use(createLeafdownSourceProjectionPlugin(getMarkdownReferenceContext))
+    .use(createLeafdownSourceProjectionPlugin())
     .use(createLeafdownSourceProjectionContinuationPlugin())
     .use(createLeafdownAttentionPairingPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())

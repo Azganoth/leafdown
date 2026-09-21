@@ -74,7 +74,7 @@ describe("Markdown images", () => {
   it.each([
     {
       backendResult: { kind: "missing", path: "C:/Notes/assets/missing.png" },
-      expectedMessage: "Image not found: ./assets/missing.png",
+      expectedMessage: "Image not found.",
       markdown: "![Missing](./assets/missing.png)",
     },
     {
@@ -98,7 +98,7 @@ describe("Markdown images", () => {
         path: "C:/Notes/assets/private.png",
         message: "No image permission.",
       },
-      expectedMessage: "No image permission.",
+      expectedMessage: "Image access denied.",
       markdown: "![Denied](./assets/private.png)",
     },
     {
@@ -107,7 +107,7 @@ describe("Markdown images", () => {
         path: "C:/Notes/assets/image.png",
         message: "Could not inspect image.",
       },
-      expectedMessage: "Could not inspect image.",
+      expectedMessage: "Image metadata unavailable.",
       markdown: "![Metadata](./assets/image.png)",
     },
   ] as const)(
@@ -138,10 +138,10 @@ describe("Markdown images", () => {
     const mounted = await mountImageEditor("![Outside](../outside.png)");
 
     await waitFor(() => {
-      expect(mounted.view.dom).toHaveTextContent(
-        "Image is outside the current folder: C:\\Other\\outside.png",
-      );
+      expect(mounted.view.dom).toHaveTextContent("Image outside the current folder.");
     });
+
+    expect(mounted.view.dom).not.toHaveTextContent("C:\\Other\\outside.png");
 
     await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
 
@@ -156,18 +156,17 @@ describe("Markdown images", () => {
     });
   });
 
-  it("retries a failed resolution after a clean source-projection round trip", async () => {
+  it("keeps a failed resolution mounted through a clean source-projection round trip", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const resolveMarkdownImageTarget = vi
       .fn()
-      .mockRejectedValueOnce(new Error("Image resolver unavailable."))
-      .mockResolvedValueOnce({ kind: "renderable", path: "C:\\Notes\\assets\\icon.png" });
+      .mockRejectedValueOnce(new Error("Image resolver unavailable."));
     mockTauriApiCommand("resolveMarkdownImageTarget", resolveMarkdownImageTarget);
 
     const mounted = await mountImageEditor("![Retry](./assets/icon.png) tail");
 
     await waitFor(() => {
-      expect(mounted.view.dom).toHaveTextContent("Image resolver unavailable.");
+      expect(mounted.view.dom).toHaveTextContent("Image unavailable.");
     });
 
     const placeholder = mounted.view.dom.querySelector(".leafdown-image-placeholder");
@@ -179,11 +178,8 @@ describe("Markdown images", () => {
     dispatchMouseDown(placeholder);
     setSelectionAtDocumentEnd(mounted.view);
 
-    await waitFor(() => {
-      expect(within(mounted.view.dom).getByRole("img", { name: "Retry" })).toBeInTheDocument();
-    });
-
-    expect(countTauriApiCalls("resolveMarkdownImageTarget")).toBe(2);
+    expect(mounted.view.dom).toHaveTextContent("Image unavailable.");
+    expect(countTauriApiCalls("resolveMarkdownImageTarget")).toBe(1);
     consoleError.mockRestore();
   });
 

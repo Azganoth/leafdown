@@ -71,6 +71,7 @@ interface LinkSourceProjectionTarget extends SourceProjectionTarget {
   ambientMarks: readonly Mark[];
   constructs: readonly ConstructName[];
   definitions: readonly string[];
+  retainsImage: boolean;
   sourceMap: LinkSourceMap;
 }
 
@@ -232,6 +233,7 @@ const findLinkTarget = (
     originalContent: state.doc.slice(range.from, range.to),
     originalContentSize: range.to - range.from,
     originalSource,
+    retainsImage: nodes.length === 1 && nodes[0].type.name === IMAGE_NODE_NAME,
     sourceMap,
     to: range.to,
   };
@@ -554,6 +556,14 @@ const createEnterLinkProjectionTransaction = (
   state: EditorState,
   target: LinkSourceProjectionTarget,
 ) => {
+  if (target.retainsImage) {
+    return state.tr.replace(
+      target.from,
+      target.from,
+      createLiteralSourceProjectionSlice(state, target.originalSource),
+    );
+  }
+
   const transaction = state.tr.removeMark(target.from, target.to);
   const { enter } = getLinkProjectionTextEdits(target);
 
@@ -565,6 +575,11 @@ const createRestoreCleanLinkTransaction = (
   session: SourceProjectionSessionRange<LinkSourceProjectionTarget>,
 ) => {
   const { target } = session;
+
+  if (target.retainsImage) {
+    return state.tr.delete(session.from, session.to);
+  }
+
   const { restore } = getLinkProjectionTextEdits(target);
   const transaction = applyLinkProjectionTextEdits(state.tr, session.from, restore);
 
@@ -600,7 +615,7 @@ const mapSelectionPositionToSource = (
 
 const mapSelectionPositionFromSource = (
   position: number,
-  session: SourceProjectionSessionRange,
+  session: SourceProjectionSessionRange<LinkSourceProjectionTarget>,
   result: SourceProjectionParseResult,
   map: LinkSourceMap | null,
 ) => {
@@ -609,6 +624,14 @@ const mapSelectionPositionFromSource = (
   }
 
   if (position >= session.to) {
+    if (session.target.retainsImage) {
+      return (
+        session.from +
+        result.replacementSize +
+        Math.max(0, position - session.to - session.target.originalContentSize)
+      );
+    }
+
     return session.from + result.replacementSize + (position - session.to);
   }
 
@@ -777,6 +800,13 @@ export const createLinkSourceProjectionAdapter = ({
           })),
     };
   },
+  getRestoreRange: (session) =>
+    session.target.retainsImage
+      ? {
+          from: session.from,
+          to: session.to + session.target.originalContentSize,
+        }
+      : session,
   mapSelectionFromSource: (selection, session, result) => {
     const map = createLinkSourceMap(
       remark,
@@ -790,7 +820,24 @@ export const createLinkSourceProjectionAdapter = ({
       head: mapSelectionPositionFromSource(selection.head, session, result, map),
     };
   },
-  mapSelectionToSource: (selection, linkTarget) => {
+  mapSelectionToSource: (selection, linkTarget, context) => {
+    if (linkTarget.retainsImage && context.direction === "forward") {
+      return { anchor: linkTarget.from, head: linkTarget.from };
+    }
+
+    if (linkTarget.retainsImage && context.direction === "backward") {
+      const sourceEnd = linkTarget.from + linkTarget.originalSource.length;
+
+      return { anchor: sourceEnd, head: sourceEnd };
+    }
+
+    if (linkTarget.retainsImage && context.pointer) {
+      const image = linkTarget.sourceMap.segments.find((segment) => segment.type === "image");
+      const descriptionStart = linkTarget.from + (image?.sourceFrom ?? 1) + 2;
+
+      return { anchor: descriptionStart, head: descriptionStart };
+    }
+
     const isForwardSelection = selection.anchor <= selection.head;
     const anchorAssociation = selection.empty || isForwardSelection ? 1 : -1;
     const headAssociation = selection.empty || !isForwardSelection ? 1 : -1;

@@ -14,10 +14,8 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose, $proseAsync } from "@milkdown/kit/utils";
 
-import { handleUnexpectedError } from "@/lib/errors";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
-import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import {
   applyLiteralSourceProjectionEdit,
   createLiteralSourceProjectionSlice,
@@ -30,8 +28,8 @@ import {
   findSourceProjectionTarget,
   type LiteralSourceCommit,
   type SourceProjectionAdapter,
+  type SourceProjectionEntryContext,
   type SourceProjectionEdit,
-  type SourceProjectionPresentationAction,
   type SourceProjectionPresentationPreview,
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
@@ -60,6 +58,8 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
   "leafdownSourceProjection",
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
+export const SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META =
+  "leafdownSourceProjectionImagePointerEntry";
 export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
 const SOURCE_PROJECTION_SUPPRESSED_HISTORY_META = "leafdownSourceProjectionSuppressedHistory";
 const SOURCE_PROJECTION_DEFERRED_COMMIT_META = "leafdownSourceProjectionDeferredCommit";
@@ -129,14 +129,21 @@ type ProjectionMeta =
 
 export const createSourceProjectionProsePlugin = (adapters: readonly SourceProjectionAdapter[]) => {
   let compositionSource: string | null = null;
+  let keyboardEntryDirection: SourceProjectionEntryContext["direction"] = null;
 
   return new Plugin<SourceProjectionPluginState>({
     key: leafdownSourceProjectionPluginKey,
-    appendTransaction: (transactions, oldState, newState) =>
-      appendProjectionTransaction(transactions, oldState, newState, adapters)?.setMeta(
-        SOURCE_PROJECTION_APPENDED_META,
-        true,
-      ) ?? null,
+    appendTransaction: (transactions, oldState, newState) => {
+      const transaction = appendProjectionTransaction(
+        transactions,
+        oldState,
+        newState,
+        adapters,
+        keyboardEntryDirection,
+      );
+
+      return transaction?.setMeta(SOURCE_PROJECTION_APPENDED_META, true) ?? null;
+    },
     // A change captured in native history while the document holds projected source replays
     // against coordinates the commit discards. `filterTransaction` is the only hook that runs
     // before the history plugin reads the meta.
@@ -179,12 +186,28 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
 
           return false;
         },
+        keyup: (_view, event) => {
+          if (getKeyboardEntryDirection(event.key)) {
+            keyboardEntryDirection = null;
+          }
+
+          return false;
+        },
         mouseout: (view, event) => handleProjectionLinkLabelMouseOut(view, event),
         mouseover: (view, event) => handleProjectionLinkLabelMouseOver(view, event),
         paste: (view, event) => handleProjectionPaste(view, event),
       },
       handleDrop: (view, event, slice, moved) => handleProjectionDrop(view, event, slice, moved),
-      handleKeyDown: (view, event) => handleProjectionKeyDown(view, event),
+      handleKeyDown: (view, event) => {
+        keyboardEntryDirection = getKeyboardEntryDirection(event.key);
+        const handled = handleProjectionKeyDown(view, event);
+
+        if (handled) {
+          keyboardEntryDirection = null;
+        }
+
+        return handled;
+      },
       handlePaste: (view, event, slice) => handleProjectionPaste(view, event, slice),
       handleTextInput: (view, from, to, text) =>
         handleProjectionTextInput(view, from, to, text, adapters),
@@ -197,9 +220,7 @@ export const createSourceProjectionProsePlugin = (adapters: readonly SourceProje
   });
 };
 
-export const createLeafdownSourceProjectionPlugin = (
-  getMarkdownReferenceContext: () => MarkdownReferenceContext,
-) =>
+export const createLeafdownSourceProjectionPlugin = () =>
   $proseAsync(async (ctx) => {
     await Promise.all([ctx.wait(ParserReady), ctx.wait(SerializerReady)]);
 
@@ -219,7 +240,6 @@ export const createLeafdownSourceProjectionPlugin = (
         serializer,
       }),
       createImageSourceProjectionAdapter({
-        getMarkdownReferenceContext,
         parser,
         serializer,
       }),
@@ -260,12 +280,21 @@ export const createLeafdownSourceProjectionContinuationPlugin = () =>
   $prose(
     () =>
       new Plugin({
-        appendTransaction: (transactions, _oldState, state) =>
-          transactions.some(
-            (transaction) => transaction.getMeta(SOURCE_PROJECTION_APPENDED_META) === true,
-          )
-            ? state.tr
-            : null,
+        appendTransaction: (transactions, _oldState, state) => {
+          if (
+            !transactions.some(
+              (transaction) => transaction.getMeta(SOURCE_PROJECTION_APPENDED_META) === true,
+            )
+          ) {
+            return null;
+          }
+
+          const transaction = state.tr;
+
+          return hasImagePointerEntryIntent(transactions)
+            ? transaction.setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true)
+            : transaction;
+        },
       }),
   );
 
@@ -498,28 +527,37 @@ const appendProjectionTransaction = (
   oldState: EditorState,
   state: EditorState,
   adapters: readonly SourceProjectionAdapter[],
+  keyboardEntryDirection: SourceProjectionEntryContext["direction"],
 ) => {
   const projectionState = getSourceProjectionState(state);
+  const pointer = hasImagePointerEntryIntent(transactions);
 
   if (projectionState.pendingCommit) {
-    return hasDeferredProjectionCommit(transactions)
+    const transaction = hasDeferredProjectionCommit(transactions)
       ? null
       : createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
+
+    return preserveImagePointerEntryIntent(transaction, pointer);
   }
 
   if (projectionState.session) {
     if (!isRangeInside(state.selection, projectionState.session)) {
-      return createFinalizeProjectionTransaction(state, projectionState.session);
+      return preserveImagePointerEntryIntent(
+        createFinalizeProjectionTransaction(state, projectionState.session),
+        pointer,
+      );
     }
 
     // A session the caret has moved off gives way where it stands, rather than on the caret
     // leaving its range, so what the caret moved onto opens in its place.
-    return shouldKeepProjection(state, projectionState.session, transactions, adapters)
+    const transaction = shouldKeepProjection(state, projectionState.session, transactions, adapters)
       ? null
       : createFinalizeProjectionTransaction(state, projectionState.session, true);
+
+    return preserveImagePointerEntryIntent(transaction, pointer);
   }
 
-  if (areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
+  if (!pointer && areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
     return null;
   }
 
@@ -558,8 +596,21 @@ const appendProjectionTransaction = (
     return null;
   }
 
-  return createEnterProjectionTransaction(state, match);
+  return createEnterProjectionTransaction(state, match, {
+    direction: keyboardEntryDirection,
+    pointer,
+  });
 };
+
+const hasImagePointerEntryIntent = (transactions: readonly Transaction[]) =>
+  transactions.some(
+    (transaction) => transaction.getMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META) === true,
+  );
+
+const preserveImagePointerEntryIntent = (transaction: Transaction | null, pointer: boolean) =>
+  transaction && pointer
+    ? transaction.setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true)
+    : transaction;
 
 // An escaped run spells out source the file already holds, so the engine neither treats entering
 // it as authoring nor offers it over a run this session wrote. A boundary holding one carries the
@@ -612,7 +663,12 @@ const givesWayToDiscovery = (
     return false;
   }
 
-  const restored = state.tr.replace(session.from, session.to, session.target.originalContent).doc;
+  const restoreRange = session.adapter.getRestoreRange?.(session) ?? session;
+  const restored = state.tr.replace(
+    restoreRange.from,
+    restoreRange.to,
+    session.target.originalContent,
+  ).doc;
   const to = session.from + session.target.originalContentSize;
   const probe = createSourceProjectionProbeState(
     restored,
@@ -1018,73 +1074,7 @@ const createProjectionDecorations = (state: EditorState) => {
     );
   }
 
-  for (const action of presentation.actions ?? []) {
-    decorations.push(
-      Decoration.widget(session.from, (view) => createProjectionActionElement(view, action), {
-        key: `source-projection-action:${action.key}`,
-        marks: [],
-        side: -1,
-        stopEvent: (event) => event.target instanceof HTMLButtonElement,
-      }),
-    );
-  }
-
   return DecorationSet.create(state.doc, decorations);
-};
-
-const createProjectionActionElement = (
-  view: EditorView,
-  action: SourceProjectionPresentationAction,
-) => {
-  const button = document.createElement("button");
-
-  button.className = "leafdown-source-projection__action";
-  button.disabled = action.disabled ?? false;
-  button.type = "button";
-  button.textContent = action.label;
-  button.addEventListener("mousedown", (event) => event.preventDefault());
-  button.addEventListener("click", () => {
-    void runProjectionAction(view, action, button);
-  });
-
-  return button;
-};
-
-const runProjectionAction = async (
-  view: EditorView,
-  action: SourceProjectionPresentationAction,
-  button: HTMLButtonElement,
-) => {
-  const session = getSourceProjectionState(view.state).session;
-
-  if (!session) {
-    return;
-  }
-
-  button.disabled = true;
-
-  try {
-    const replacement = await action.run(view, getProjectionSource(view.state, session));
-    const currentSession = getSourceProjectionState(view.state).session;
-
-    if (
-      replacement === null ||
-      !currentSession ||
-      currentSession.adapter !== session.adapter ||
-      currentSession.target !== session.target
-    ) {
-      return;
-    }
-
-    dispatchProjectionEdit(view, currentSession.from, currentSession.to, replacement);
-    view.focus();
-  } catch (error) {
-    handleUnexpectedError(error, "runSourceProjectionAction");
-  } finally {
-    if (button.isConnected) {
-      button.disabled = action.disabled ?? false;
-    }
-  }
 };
 
 // The character rides in an attribute the stylesheet draws, as a block marker already does, which
@@ -1336,6 +1326,23 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
     return false;
   }
 
+  const restoreRange = session.adapter.getRestoreRange?.(session) ?? session;
+  const retainsOriginalContent = restoreRange.to > session.to;
+  const { selection } = view.state;
+
+  if (
+    retainsOriginalContent &&
+    selection instanceof TextSelection &&
+    selection.empty &&
+    ((event.key === "ArrowLeft" && selection.from === session.from) ||
+      (event.key === "ArrowRight" && selection.from === session.to))
+  ) {
+    event.preventDefault();
+    finalizeSourceProjection(view);
+
+    return true;
+  }
+
   if (event.key === "Enter") {
     finalizeSourceProjection(view);
 
@@ -1356,6 +1363,14 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   dispatchProjectionEdit(view, range.from, range.to, "");
 
   return true;
+};
+
+const getKeyboardEntryDirection = (key: string): SourceProjectionEntryContext["direction"] => {
+  if (key === "ArrowLeft" || key === "ArrowUp") {
+    return "backward";
+  }
+
+  return key === "ArrowRight" || key === "ArrowDown" ? "forward" : null;
 };
 
 const dispatchProjectionEdit = (view: EditorView, from: number, to: number, text: string) => {
@@ -1580,8 +1595,9 @@ const getNextCharacterRange = (
 const createEnterProjectionTransaction = (
   state: EditorState,
   { adapter, target }: SourceProjectionTargetMatch,
+  context: SourceProjectionEntryContext,
 ) => {
-  const selection = adapter.mapSelectionToSource(state.selection, target);
+  const selection = adapter.mapSelectionToSource(state.selection, target, context);
   const session = createProjectionSession(adapter, target);
   const transaction = adapter.createEnterTransaction(state, target);
 
@@ -1606,12 +1622,15 @@ const createFinalizeProjectionTransaction = (
   const source = getProjectionSource(state, session);
   const { adapter } = session;
   const parsed = adapter.parseSource(state, source, session.target);
+  const restoreRange = adapter.getRestoreRange?.(session) ?? session;
   const original = {
     ...adapter.parseSource(state, session.target.originalSource, session.target),
     replacement: session.target.originalContent,
     replacementSize: session.target.originalContentSize,
   };
-  const shouldSuppressProjectionAtSelection = isRangeInside(state.selection, session);
+  const shouldSuppressProjectionAtSelection =
+    isRangeInside(state.selection, session) ||
+    (state.selection instanceof TextSelection && isRangeInside(state.selection, restoreRange));
   const shouldMapCrossingTextSelection =
     state.selection instanceof TextSelection &&
     state.selection.from < session.to &&
@@ -1683,10 +1702,11 @@ const createRestoreBeforeCommitTransaction = ({
           suppressedSelection: isInPlace ? null : commitSelection,
           to: session.from + session.target.originalContentSize,
         };
+  const restoreRange = session.adapter.getRestoreRange?.(session) ?? session;
   const transaction = replaceProjectionRange(
     state.tr,
-    session.from,
-    session.to,
+    restoreRange.from,
+    restoreRange.to,
     session.target.originalContent,
   );
 

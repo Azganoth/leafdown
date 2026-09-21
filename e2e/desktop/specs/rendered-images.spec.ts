@@ -8,6 +8,11 @@ interface ElementBox {
   width: number;
 }
 
+interface ElementRect extends ElementBox {
+  x: number;
+  y: number;
+}
+
 const getBox = async (element: ReturnType<typeof $>): Promise<ElementBox> => {
   const result = await element.execute((node) => {
     const { height, width } = node.getBoundingClientRect();
@@ -16,6 +21,16 @@ const getBox = async (element: ReturnType<typeof $>): Promise<ElementBox> => {
   });
 
   return result as ElementBox;
+};
+
+const getRect = async (element: ReturnType<typeof $>): Promise<ElementRect> => {
+  const result = await element.execute((node) => {
+    const { height, width, x, y } = node.getBoundingClientRect();
+
+    return { height, width, x, y };
+  });
+
+  return result as ElementRect;
 };
 
 describe("desktop rendered images", () => {
@@ -27,11 +42,13 @@ describe("desktop rendered images", () => {
     const visibleImage = $('img[alt="Visible SVG"]');
     const linkedImage = $('img[alt="Linked SVG"]');
     const tinyImage = $('img[alt="Tiny transparent SVG"]');
-    const missingPlaceholder = $(".leafdown-image-placeholder");
 
     await expect(visibleImage).toBeDisplayed();
     await expect(linkedImage).toBeDisplayed();
     await expect(tinyImage).toBeDisplayed();
+
+    const missingPlaceholder = $(".leafdown-image-placeholder");
+
     await expect(missingPlaceholder).toBeDisplayed();
 
     const [visibleBox, linkedBox, tinyBox] = await Promise.all([
@@ -59,5 +76,44 @@ describe("desktop rendered images", () => {
     expect(selectionSurface.width).toBeGreaterThanOrEqual(32);
     expect(selectionSurface.height).toBe(28);
     expect(placeholderBox.height).toBe(28);
+
+    expect(await missingPlaceholder.getText()).toBe("Image not found.");
+
+    const linkedBefore = await getRect(linkedImage);
+
+    await visibleImage.execute((node) => {
+      (window as Window & { leafdownRetainedImage?: Element }).leafdownRetainedImage = node;
+    });
+    await visibleImage.execute((node) => {
+      node.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          button: 0,
+          cancelable: true,
+        }),
+      );
+    });
+
+    const projection = $('.leafdown-source-projection[data-leafdown-source~="image"]');
+    const projectedImage = $('img[alt="Visible SVG"]');
+
+    await expect(projection).toBeDisplayed();
+    await expect(projectedImage).toBeDisplayed();
+    const [projectionBox, projectionRect, projectedRect, linkedAfter, retainedImage] =
+      await Promise.all([
+        getBox(projection),
+        getRect(projection),
+        getRect(projectedImage),
+        getRect(linkedImage),
+        projectedImage.execute(
+          (node) =>
+            (window as Window & { leafdownRetainedImage?: Element }).leafdownRetainedImage === node,
+        ),
+      ]);
+
+    expect(projectionBox.height).toBe(28);
+    expect(projectionRect.y).toBeLessThan(projectedRect.y);
+    expect(linkedAfter.y).toBeGreaterThan(linkedBefore.y);
+    expect(retainedImage).toBe(true);
   });
 });

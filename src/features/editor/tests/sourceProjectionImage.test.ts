@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { open } from "@tauri-apps/plugin-dialog";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
+import { dispatchMouseDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   containsNodeType,
@@ -19,13 +19,14 @@ import {
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
-import { setupUser, waitFor, within } from "@/test/utils/react";
+import { waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import {
   hasActiveSourceProjection,
   getSourceProjectionClipboardSlice,
   redoSourceProjection,
+  SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META,
   undoSourceProjection,
 } from "../plugins/sourceProjection";
 
@@ -38,7 +39,9 @@ const selectImage = (mounted: Awaited<ReturnType<typeof mountProjectionEditor>>)
   const position = getEditorNodePosition(mounted, "image");
 
   mounted.view.dispatch(
-    mounted.view.state.tr.setSelection(NodeSelection.create(mounted.view.state.doc, position)),
+    mounted.view.state.tr
+      .setSelection(NodeSelection.create(mounted.view.state.doc, position))
+      .setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true),
   );
 };
 
@@ -67,19 +70,174 @@ describe("standalone image source projection", () => {
     );
   });
 
-  it("selects the complete source when the rendered image was selected", async () => {
+  it.each([
+    { entryPosition: "after" as const, expectedOffset: 0, key: "ArrowDown", side: "before" },
+    {
+      entryPosition: "before" as const,
+      expectedOffset: "end" as const,
+      key: "ArrowUp",
+      side: "after",
+    },
+  ])(
+    "uses keyboard direction when entering from the block $side the image",
+    async ({ entryPosition, expectedOffset, key }) => {
+      const source = "![alt](./pic.png)";
+      const mounted = await mountProjectionEditor(`before\n\n${source}\n\nafter`);
+      const imagePosition = getEditorNodePosition(mounted, "image");
+      const adjacentText = entryPosition === "after" ? "before" : "after";
+      const adjacentPosition = getEditorTextPosition(mounted, adjacentText);
+
+      setTextSelection(
+        mounted.view,
+        entryPosition === "after" ? adjacentPosition + adjacentText.length : adjacentPosition,
+      );
+      runKeyDownHandlers(mounted.view, key);
+      setTextSelection(mounted.view, imagePosition + (entryPosition === "after" ? 1 : 0));
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(mounted.view.state.selection.head).toBe(
+        imagePosition + (expectedOffset === "end" ? source.length : expectedOffset),
+      );
+    },
+  );
+
+  it("places the caret at the start of the alt text when the rendered image was selected", async () => {
     const source = "![alt](./pic.png)";
     const mounted = await mountProjectionEditor(`${source} tail`);
+    const imagePosition = getEditorNodePosition(mounted, "image");
 
     selectImage(mounted);
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.selection.empty).toBe(true);
+    expect(mounted.view.state.selection.head).toBe(imagePosition + 2);
+  });
+
+  it("enters source projection when the rendered image is clicked", async () => {
+    const source = "![alt](./pic.png)";
+    const mounted = await mountProjectionEditor(source);
+    const imagePosition = getEditorNodePosition(mounted, "image");
+
+    await waitFor(() => {
+      expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBeInTheDocument();
+    });
+
+    const image = within(mounted.view.dom).getByRole("img", { name: "alt" });
+
+    dispatchMouseDown(image);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(getEditorTextContent(mounted)).toBe(source);
+    expect(mounted.view.state.selection.empty).toBe(true);
+    expect(mounted.view.state.selection.head).toBe(imagePosition + 2);
+
+    setTextSelection(mounted.view, imagePosition + source.length);
+    dispatchMouseDown(image);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.selection.head).toBe(imagePosition + 2);
+  });
+
+  it.each([
+    { entryOffset: 0, exitOffset: -1, side: "before" },
+    { entryOffset: 1, exitOffset: 1, side: "after" },
+  ])(
+    "returns to the editor surface when the caret moves $side the source",
+    async ({ entryOffset, exitOffset }) => {
+      const source = "![alt](./pic.png)";
+      const mounted = await mountProjectionEditor(`lead ${source} tail`);
+      const imagePosition = getEditorNodePosition(mounted, "image");
+
+      setTextSelection(mounted.view, imagePosition + entryOffset);
+
+      const projectedBoundary = imagePosition + (entryOffset === 0 ? 0 : source.length);
+
+      setTextSelection(mounted.view, projectedBoundary + exitOffset);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(containsNodeType(mounted, "image")).toBe(true);
+    },
+  );
+
+  it.each([
+    { boundary: "start", expectedOffset: 0, key: "ArrowLeft" },
+    { boundary: "end", expectedOffset: 1, key: "ArrowRight" },
+  ])(
+    "leaves the retained image projection at its $boundary boundary",
+    async ({ boundary, expectedOffset, key }) => {
+      const source = "![alt](./pic.png)";
+      const mounted = await mountProjectionEditor(`lead ${source} tail`);
+      const imagePosition = getEditorNodePosition(mounted, "image");
+
+      setTextSelection(mounted.view, imagePosition);
+      setTextSelection(mounted.view, imagePosition + (boundary === "start" ? 0 : source.length));
+
+      expect(runKeyDownHandlers(mounted.view, key).handled).toBe(true);
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(mounted.view.state.selection.head).toBe(imagePosition + expectedOffset);
+    },
+  );
+
+  it("keeps the decoded image mounted after the source line while projection is active", async () => {
+    const source = "![alt](./pic.png)";
+    const mounted = await mountProjectionEditor(`${source} tail`);
+
+    await waitFor(() => {
+      expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBeInTheDocument();
+    });
+
+    const imageView = mounted.view.dom.querySelector<HTMLElement>(".leafdown-image-view");
+
+    if (!imageView) {
+      throw new Error("Expected the rendered image view.");
+    }
+
+    const renderedImage = within(imageView).getByRole("img", { name: "alt" });
+
+    selectImage(mounted);
+
+    const projection = mounted.view.dom.querySelector<HTMLElement>(
+      '.leafdown-source-projection[data-leafdown-source~="image"]',
+    );
+
+    expect(projection).not.toBeNull();
     expect(
-      mounted.view.state.doc.textBetween(
-        mounted.view.state.selection.from,
-        mounted.view.state.selection.to,
-      ),
-    ).toBe(source);
+      projection!.compareDocumentPosition(imageView) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(within(imageView).getByRole("img", { name: "alt" })).toBe(renderedImage);
+    expect(within(mounted.view.dom).queryByRole("button", { name: /image/iu })).toBeNull();
+    expect(getEditorTextContent(mounted)).toBe(`${source} tail`);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBe(renderedImage);
+  });
+
+  it("keeps an unavailable image placeholder visible after the source line", async () => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "missing",
+      path: "C:/Notes/missing.png",
+    }));
+    const mounted = await mountProjectionEditor("![missing](./missing.png)");
+
+    await waitFor(() => {
+      expect(mounted.view.dom).toHaveTextContent("Image not found.");
+    });
+
+    selectImage(mounted);
+
+    const projection = mounted.view.dom.querySelector<HTMLElement>(
+      '.leafdown-source-projection[data-leafdown-source~="image"]',
+    );
+    const imageView = mounted.view.dom.querySelector<HTMLElement>(".leafdown-image-view");
+
+    expect(projection).not.toBeNull();
+    expect(imageView).not.toBeNull();
+    expect(
+      projection!.compareDocumentPosition(imageView!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(imageView).toHaveTextContent("Image not found.");
+    expect(imageView).not.toHaveTextContent("./missing.png");
   });
 
   it.each([
@@ -148,12 +306,14 @@ describe("standalone image source projection", () => {
 
     selectImage(mounted);
 
+    const sourceFrom = getEditorTextPosition(mounted, source);
+
+    setTextSelection(mounted.view, sourceFrom, sourceFrom + source.length);
+
     const complete = getSourceProjectionClipboardSlice(mounted.view.state);
 
     expect(complete).not.toBeNull();
     expect(containsNodeType(complete!.content, "image")).toBe(true);
-
-    const sourceFrom = getEditorTextPosition(mounted, source);
 
     setTextSelection(mounted.view, sourceFrom + "![a".length, sourceFrom + "![alt](./pic".length);
 
@@ -174,52 +334,5 @@ describe("standalone image source projection", () => {
     setSelectionAtDocumentEnd(mounted.view);
 
     expect(mounted.getMarkdown()).toBe("**![alter](./pic.png)** tail\n");
-  });
-
-  it("chooses a relative image target without leaving projection", async () => {
-    const user = setupUser();
-    const source = "![alt](./pic.png 'Leaf')";
-    const mounted = await mountProjectionEditor(source);
-    const imagePosition = getEditorNodePosition(mounted, "image");
-
-    vi.mocked(open).mockResolvedValue("C:/Notes/assets/new leaf.png");
-    setTextSelection(mounted.view, imagePosition);
-
-    const button = within(mounted.view.dom).getByRole("button", { name: "Choose image" });
-
-    await user.click(button);
-
-    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
-    expect(getEditorTextContent(mounted)).toBe("![alt](<assets/new leaf.png> 'Leaf')");
-    expect(open).toHaveBeenCalledWith({
-      directory: false,
-      filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] }],
-      multiple: false,
-      title: "Choose image",
-    });
-
-    setSelectionAtDocumentEnd(mounted.view);
-
-    expect(mounted.getMarkdown()).toBe("![alt](<assets/new leaf.png> 'Leaf')\n");
-  });
-
-  it("routes a picked outside-folder target through the existing resolver policy", async () => {
-    const user = setupUser();
-    const mounted = await mountProjectionEditor("![alt](./pic.png)");
-    const imagePosition = getEditorNodePosition(mounted, "image");
-
-    mockTauriApiCommand("resolveMarkdownImageTarget", ({ target, allowOutsideFolder }) => ({
-      kind: target === "../Other/new.png" && !allowOutsideFolder ? "outsideFolder" : "renderable",
-      path: "C:/Other/new.png",
-    }));
-    vi.mocked(open).mockResolvedValue("C:/Other/new.png");
-    setTextSelection(mounted.view, imagePosition);
-    await user.click(within(mounted.view.dom).getByRole("button", { name: "Choose image" }));
-    setSelectionAtDocumentEnd(mounted.view);
-
-    expect(mounted.getMarkdown()).toBe("![alt](../Other/new.png)\n");
-    await waitFor(() => {
-      expect(mounted.view.dom).toHaveTextContent("Image is outside the current folder");
-    });
   });
 });

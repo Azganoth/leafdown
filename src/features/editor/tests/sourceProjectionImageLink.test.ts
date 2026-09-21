@@ -6,6 +6,7 @@ import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
+import { dispatchMouseDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   containsNodeType,
@@ -20,6 +21,7 @@ import {
   setTextSelection,
   typeText,
 } from "@/test/utils/prosemirror";
+import { waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
@@ -58,7 +60,7 @@ describe("image link label source projection", () => {
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
     expect(getEditorTextContent(mounted)).toBe(`${IMAGE_LINK_SOURCE} tail`);
-    expect(containsNodeType(mounted, "image")).toBe(false);
+    expect(containsNodeType(mounted, "image")).toBe(true);
     expect(getLabelPresentation(mounted)).toBe("![alt](./pic.png)");
 
     const sourceStart = getEditorTextPosition(mounted, IMAGE_LINK_SOURCE);
@@ -66,6 +68,59 @@ describe("image link label source projection", () => {
 
     expect(mounted.view.state.selection.anchor).toBe(sourceStart + expectedOffset);
   });
+
+  it("keeps a pure linked image mounted and places a click at the alt-text start", async () => {
+    const mounted = await mountProjectionEditor(`${IMAGE_LINK_SOURCE} tail`);
+    const imagePosition = getEditorNodePosition(mounted, "image");
+
+    await waitFor(() => {
+      expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBeInTheDocument();
+    });
+
+    const image = within(mounted.view.dom).getByRole("img", { name: "alt" });
+
+    dispatchMouseDown(image);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(containsNodeType(mounted, "image")).toBe(true);
+    expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBe(image);
+    expect(mounted.view.state.selection.empty).toBe(true);
+    expect(mounted.view.state.selection.head).toBe(imagePosition + "[![".length);
+
+    setTextSelection(mounted.view, imagePosition + IMAGE_LINK_SOURCE.length);
+    dispatchMouseDown(image);
+
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+    expect(mounted.view.state.selection.head).toBe(imagePosition + "[![".length);
+  });
+
+  it.each([
+    { entryOffset: 1, expectedOffset: 0, key: "ArrowDown", side: "before" },
+    {
+      entryOffset: 0,
+      expectedOffset: IMAGE_LINK_SOURCE.length,
+      key: "ArrowUp",
+      side: "after",
+    },
+  ])(
+    "uses keyboard direction when entering a pure image link from the block $side it",
+    async ({ entryOffset, expectedOffset, key, side }) => {
+      const mounted = await mountProjectionEditor(`before\n\n${IMAGE_LINK_SOURCE}\n\nafter`);
+      const imagePosition = getEditorNodePosition(mounted, "image");
+      const adjacentPosition = getEditorTextPosition(mounted, side);
+
+      setTextSelection(
+        mounted.view,
+        side === "before" ? adjacentPosition + side.length : adjacentPosition,
+      );
+      runKeyDownHandlers(mounted.view, key);
+      setTextSelection(mounted.view, imagePosition + entryOffset);
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(containsNodeType(mounted, "image")).toBe(true);
+      expect(mounted.view.state.selection.head).toBe(imagePosition + expectedOffset);
+    },
+  );
 
   it("projects a label mixing text and an image", async () => {
     const mounted = await mountProjectionEditor(`${MIXED_IMAGE_LINK_SOURCE} tail`);

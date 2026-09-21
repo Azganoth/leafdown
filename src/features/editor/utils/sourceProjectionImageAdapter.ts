@@ -1,19 +1,9 @@
 import { Fragment, Slice, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection } from "@milkdown/kit/prose/state";
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
-import type { EditorView } from "@milkdown/kit/prose/view";
 import type { Parser, Serializer } from "@milkdown/kit/transformer";
-import { open } from "@tauri-apps/plugin-dialog";
 
-import { getPathParts, getRelativePath, toSlashPath } from "@/lib/path";
-
-import { AUTHORED_URL_ATTRIBUTE_NAME } from "./characterReferenceMarkdown";
 import { readEnclosingInlineConstructs, serializeLinkRunSource } from "./logicalLinkMarkdown";
-import type { MarkdownReferenceContext } from "./markdownReferences";
-import {
-  REFERENCE_LABEL_ATTRIBUTE_NAME,
-  REFERENCE_TYPE_ATTRIBUTE_NAME,
-} from "./referenceLinkMarkdown";
 import {
   createLiteralSourceProjectionSlice,
   decodeSourceProjectionEscapes,
@@ -28,9 +18,7 @@ import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { isStandaloneImage, parseStandaloneImageSource } from "./sourceProjectionImageSyntax";
 
 const IMAGE_ADAPTER_ID = "image";
-const IMAGE_FILTERS = [
-  { name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "svg", "webp"] },
-];
+const IMAGE_DESCRIPTION_START_OFFSET = 2;
 
 interface ImageSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: typeof IMAGE_ADAPTER_ID;
@@ -38,7 +26,6 @@ interface ImageSourceProjectionTarget extends SourceProjectionTarget {
 }
 
 interface ImageAdapterDependencies {
-  getMarkdownReferenceContext: () => MarkdownReferenceContext;
   parser: Parser;
   serializer: Serializer;
 }
@@ -110,7 +97,9 @@ const mapAtomicSelectionPositionFromSource = (
   }
 
   return position >= session.to
-    ? session.from + result.replacementSize + (position - session.to)
+    ? session.from +
+        result.replacementSize +
+        Math.max(0, position - session.to - session.target.originalContentSize)
     : session.from;
 };
 
@@ -124,7 +113,11 @@ const mapLiteralSelectionPositionFromSource = (
   }
 
   if (position >= session.to) {
-    return session.from + result.replacementSize + (position - session.to);
+    return (
+      session.from +
+      result.replacementSize +
+      Math.max(0, position - session.to - session.target.originalContentSize)
+    );
   }
 
   return session.from + mapLiteralSourceOffsetToDocument(result.source, position - session.from);
@@ -146,59 +139,7 @@ const mapSelectionFromSource = (
   };
 };
 
-const getSelectedImageTarget = (selectedPath: string, context: MarkdownReferenceContext) => {
-  const slashPath = toSlashPath(selectedPath);
-
-  if (!context.documentPath) {
-    return slashPath;
-  }
-
-  return getRelativePath(getPathParts(context.documentPath).parent, slashPath) ?? slashPath;
-};
-
-const selectImageSource = async (
-  view: EditorView,
-  source: string,
-  target: ImageSourceProjectionTarget,
-  parser: Parser,
-  serializer: Serializer,
-  getMarkdownReferenceContext: () => MarkdownReferenceContext,
-) => {
-  const selectedPath = await open({
-    directory: false,
-    filters: IMAGE_FILTERS,
-    multiple: false,
-    title: "Choose image",
-  });
-
-  if (!selectedPath || Array.isArray(selectedPath)) {
-    return null;
-  }
-
-  const image = parseStandaloneImageSource(parser, source, target.definitions);
-
-  if (!image) {
-    return null;
-  }
-
-  const selectedTarget = getSelectedImageTarget(selectedPath, getMarkdownReferenceContext());
-  const updated = image.type.create(
-    {
-      ...image.attrs,
-      src: selectedTarget,
-      [AUTHORED_URL_ATTRIBUTE_NAME]: null,
-      [REFERENCE_LABEL_ATTRIBUTE_NAME]: "",
-      [REFERENCE_TYPE_ATTRIBUTE_NAME]: null,
-    },
-    image.content,
-    image.marks,
-  );
-
-  return serializeLinkRunSource(view.state, serializer, [updated]);
-};
-
 export const createImageSourceProjectionAdapter = ({
-  getMarkdownReferenceContext,
   parser,
   serializer,
 }: ImageAdapterDependencies): SourceProjectionAdapter<ImageSourceProjectionTarget> => ({
@@ -209,27 +150,11 @@ export const createImageSourceProjectionAdapter = ({
   createEnterTransaction: (state, target) =>
     state.tr.replace(
       target.from,
-      target.to,
+      target.from,
       createLiteralSourceProjectionSlice(state, target.originalSource),
     ),
   findTarget: (state) => findImageTarget(state, serializer),
-  getPresentation: (target, source) => ({
-    actions: [
-      {
-        disabled: parseStandaloneImageSource(parser, source, target.definitions) === null,
-        key: "choose-image",
-        label: "Choose image",
-        run: (view, currentSource) =>
-          selectImageSource(
-            view,
-            currentSource,
-            target,
-            parser,
-            serializer,
-            getMarkdownReferenceContext,
-          ),
-      },
-    ],
+  getPresentation: (_target, source) => ({
     previews: [],
     sourceTypes: [IMAGE_ADAPTER_ID],
     spans: [
@@ -240,14 +165,37 @@ export const createImageSourceProjectionAdapter = ({
       },
     ],
   }),
+  getRestoreRange: (session) => ({
+    from: session.from,
+    to: session.to + session.target.originalContentSize,
+  }),
   mapSelectionFromSource: (selection, session, result) =>
     mapSelectionFromSource(parser, selection, session, result),
-  mapSelectionToSource: (selection, target) => {
-    if (selection instanceof NodeSelection) {
+  mapSelectionToSource: (selection, target, context) => {
+    if (context.direction === "forward") {
+      return { anchor: target.from, head: target.from };
+    }
+
+    if (context.direction === "backward") {
+      const sourceEnd = target.from + target.originalSource.length;
+
+      return { anchor: sourceEnd, head: sourceEnd };
+    }
+
+    if (context.pointer && selection instanceof NodeSelection) {
+      const descriptionStart = Math.min(
+        target.from + IMAGE_DESCRIPTION_START_OFFSET,
+        target.from + target.originalSource.length,
+      );
+
       return {
-        anchor: target.from,
-        head: target.from + target.originalSource.length,
+        anchor: descriptionStart,
+        head: descriptionStart,
       };
+    }
+
+    if (selection instanceof NodeSelection) {
+      return { anchor: target.from, head: target.from };
     }
 
     return {
@@ -274,8 +222,7 @@ export const createImageSourceProjectionAdapter = ({
       source,
     };
   },
-  restoreCleanTarget: (state, session) =>
-    state.tr.replace(session.from, session.to, session.target.originalContent),
+  restoreCleanTarget: (state, session) => state.tr.delete(session.from, session.to),
   serializeInlineSource: (state, fragment) => {
     const image = fragment.childCount === 1 ? fragment.firstChild : null;
 

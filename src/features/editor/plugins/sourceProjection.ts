@@ -41,6 +41,7 @@ import {
 import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
 import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
+import { createHtmlSourceProjectionAdapter } from "../utils/sourceProjectionHtmlAdapter";
 import { createImageSourceProjectionAdapter } from "../utils/sourceProjectionImageAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
@@ -58,6 +59,8 @@ export const leafdownSourceProjectionPluginKey = new PluginKey<SourceProjectionP
   "leafdownSourceProjection",
 );
 export const SOURCE_PROJECTION_ENTRY_SUPPRESSION_META = "leafdownSourceProjectionSkipEntry";
+export const SOURCE_PROJECTION_HTML_POINTER_SOURCE_OFFSET_META =
+  "leafdownSourceProjectionHtmlPointerSourceOffset";
 export const SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META =
   "leafdownSourceProjectionImagePointerEntry";
 export const SOURCE_PROJECTION_RESTRUCTURE_META = "leafdownSourceProjectionRestructure";
@@ -247,6 +250,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
         parser,
         serializer,
       }),
+      createHtmlSourceProjectionAdapter(parser),
     ];
 
     const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
@@ -289,11 +293,7 @@ export const createLeafdownSourceProjectionContinuationPlugin = () =>
             return null;
           }
 
-          const transaction = state.tr;
-
-          return hasImagePointerEntryIntent(transactions)
-            ? transaction.setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true)
-            : transaction;
+          return preservePointerEntryIntent(state.tr, getPointerEntryIntent(transactions));
         },
       }),
   );
@@ -338,7 +338,12 @@ export const finalizeSourceProjection = (view: EditorView) => {
     return false;
   }
 
-  view.dispatch(transaction);
+  // A commit appended to the non-history restore would inherit its history exclusion.
+  view.dispatch(transaction.setMeta(SOURCE_PROJECTION_DEFERRED_COMMIT_META, true));
+  const { pendingCommit } = getSourceProjectionState(view.state);
+  if (pendingCommit) {
+    view.dispatch(createCommitAfterRestoreTransaction(view.state, pendingCommit));
+  }
 
   return true;
 };
@@ -530,21 +535,22 @@ const appendProjectionTransaction = (
   keyboardEntryDirection: SourceProjectionEntryContext["direction"],
 ) => {
   const projectionState = getSourceProjectionState(state);
-  const pointer = hasImagePointerEntryIntent(transactions);
+  const pointerEntry = getPointerEntryIntent(transactions);
+  const pointer = pointerEntry.image || pointerEntry.htmlSourceOffset !== null;
 
   if (projectionState.pendingCommit) {
     const transaction = hasDeferredProjectionCommit(transactions)
       ? null
       : createCommitAfterRestoreTransaction(state, projectionState.pendingCommit);
 
-    return preserveImagePointerEntryIntent(transaction, pointer);
+    return preservePointerEntryIntent(transaction, pointerEntry);
   }
 
   if (projectionState.session) {
     if (!isRangeInside(state.selection, projectionState.session)) {
-      return preserveImagePointerEntryIntent(
+      return preservePointerEntryIntent(
         createFinalizeProjectionTransaction(state, projectionState.session),
-        pointer,
+        pointerEntry,
       );
     }
 
@@ -554,7 +560,7 @@ const appendProjectionTransaction = (
       ? null
       : createFinalizeProjectionTransaction(state, projectionState.session, true);
 
-    return preserveImagePointerEntryIntent(transaction, pointer);
+    return preservePointerEntryIntent(transaction, pointerEntry);
   }
 
   if (!pointer && areSelectionsEqual(projectionState.suppressedSelection, state.selection)) {
@@ -599,7 +605,30 @@ const appendProjectionTransaction = (
   return createEnterProjectionTransaction(state, match, {
     direction: keyboardEntryDirection,
     pointer,
+    pointerSourceOffset: match.adapter.id === "html" ? pointerEntry.htmlSourceOffset : null,
   });
+};
+
+interface PointerEntryIntent {
+  htmlSourceOffset: number | null;
+  image: boolean;
+}
+
+const getPointerEntryIntent = (transactions: readonly Transaction[]): PointerEntryIntent => {
+  let htmlSourceOffset: number | null = null;
+
+  for (const transaction of transactions) {
+    const offset = transaction.getMeta(SOURCE_PROJECTION_HTML_POINTER_SOURCE_OFFSET_META);
+
+    if (typeof offset === "number") {
+      htmlSourceOffset = offset;
+    }
+  }
+
+  return {
+    htmlSourceOffset,
+    image: hasImagePointerEntryIntent(transactions),
+  };
 };
 
 const hasImagePointerEntryIntent = (transactions: readonly Transaction[]) =>
@@ -607,10 +636,24 @@ const hasImagePointerEntryIntent = (transactions: readonly Transaction[]) =>
     (transaction) => transaction.getMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META) === true,
   );
 
-const preserveImagePointerEntryIntent = (transaction: Transaction | null, pointer: boolean) =>
-  transaction && pointer
-    ? transaction.setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true)
-    : transaction;
+const preservePointerEntryIntent = (
+  transaction: Transaction | null,
+  { htmlSourceOffset, image }: PointerEntryIntent,
+) => {
+  if (!transaction) {
+    return null;
+  }
+
+  if (image) {
+    transaction.setMeta(SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META, true);
+  }
+
+  if (htmlSourceOffset !== null) {
+    transaction.setMeta(SOURCE_PROJECTION_HTML_POINTER_SOURCE_OFFSET_META, htmlSourceOffset);
+  }
+
+  return transaction;
+};
 
 // An escaped run spells out source the file already holds, so the engine neither treats entering
 // it as authoring nor offers it over a run this session wrote. A boundary holding one carries the
@@ -1344,6 +1387,12 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   }
 
   if (event.key === "Enter") {
+    const text = session.adapter.getEnterKeyText?.(event);
+    if (text != null) {
+      event.preventDefault();
+      dispatchProjectionEdit(view, selection.from, selection.to, text);
+      return true;
+    }
     finalizeSourceProjection(view);
 
     return false;

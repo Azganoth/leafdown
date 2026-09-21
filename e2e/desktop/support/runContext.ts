@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 
 export interface DesktopE2ERunContext {
+  html: { path: string };
   document: {
     initialMarker: string;
     path: string;

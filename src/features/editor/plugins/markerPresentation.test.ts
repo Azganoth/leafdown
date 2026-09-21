@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN, UNCHECKED_TASK_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import { dispatchInput, dispatchKeyDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
@@ -14,7 +13,7 @@ import {
   setSelectionAtElementTextEnd,
   setTextSelection,
 } from "@/test/utils/prosemirror";
-import { waitFor, within } from "@/test/utils/react";
+import { within } from "@/test/utils/react";
 
 const mountStyledEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
@@ -96,16 +95,13 @@ ${UNCHECKED_TASK_MARKDOWN}`);
 
     setTextSelection(mounted.view, htmlPos);
 
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Markdown source" });
-
-    expect(input).toHaveValue("<span>");
-
-    dispatchInput(input, "<mark>");
-    dispatchKeyDown(input, "Enter");
-
-    await waitFor(() => {
-      expect(mounted.getMarkdown()).toContain("<mark>HTML</span>");
-    });
+    expect(mounted.view.dom.querySelector('[data-leafdown-source~="html"]')).toHaveTextContent(
+      "<span>",
+    );
+    expect(
+      within(mounted.view.dom).queryByRole("textbox", { name: "Markdown source" }),
+    ).not.toBeInTheDocument();
+    expect(mounted.getMarkdown()).toBe("<span>HTML</span>\n");
   });
 
   it("keeps code blocks visual without MVP language controls", async () => {

@@ -133,6 +133,7 @@ const main = async () => {
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "leafdown-desktop-e2e-"));
   const documentPath = path.join(temporaryRoot, "document-lifecycle.md");
   const imagesPath = path.join(temporaryRoot, "rendered-images.md");
+  const htmlPath = path.join(temporaryRoot, "rendered-html.md");
   const leafImagePath = path.join(temporaryRoot, "leaf.svg");
   const tinyImagePath = path.join(temporaryRoot, "tiny-transparent.svg");
   const folderPath = path.join(temporaryRoot, "folder-context");
@@ -152,6 +153,7 @@ const main = async () => {
     images: {
       path: imagesPath,
     },
+    html: { path: htmlPath },
     folder: {
       addedFileName: addedFolderFileName,
       addedFilePath: addedFolderFilePath,
@@ -167,6 +169,10 @@ const main = async () => {
   };
 
   await mkdir(folderPath, { recursive: true });
+  await copyFile(
+    path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),
+    htmlPath,
+  );
   await copyFile(
     path.join(repositoryRoot, "e2e", "desktop", "fixtures", "document-lifecycle.md"),
     documentPath,
@@ -200,6 +206,7 @@ const main = async () => {
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
+    { name: "rendered-html", recentFiles: [htmlPath] },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },

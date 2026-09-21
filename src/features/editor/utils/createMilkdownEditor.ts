@@ -87,6 +87,7 @@ import {
 } from "../plugins/footnotePreview";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
+import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
@@ -300,6 +301,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAttentionPairingPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
+    .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))

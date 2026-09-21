@@ -55,6 +55,7 @@ export type SourceProjectionAdapterId =
   | "character-reference"
   | "escape"
   | "footnote-reference"
+  | "html"
   | "image"
   | "link"
   | "mark";
@@ -126,6 +127,7 @@ export interface SourceProjectionPresentation {
 export interface SourceProjectionEntryContext {
   direction: "backward" | "forward" | null;
   pointer: boolean;
+  pointerSourceOffset: number | null;
 }
 
 export interface SourceProjectionInsertionCandidate<
@@ -147,6 +149,7 @@ export interface SourceProjectionAdapter<
   TTarget extends SourceProjectionTarget = SourceProjectionTarget,
 > {
   id: SourceProjectionAdapterId;
+  getEnterKeyText?: (event: KeyboardEvent) => string | null;
   applyEdit?: (source: string, edit: SourceProjectionEdit) => SourceProjectionEditResult;
   canCopySelectionSemantically?(
     selection: Selection,

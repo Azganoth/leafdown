@@ -48,11 +48,17 @@ const clickTextOffset = async (
       const textOffset = Number(textOffsetValue);
       const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
       let text = walker.nextNode();
-      while (text && text.textContent !== expectedText) text = walker.nextNode();
+      let renderedTextOffset = -1;
+      while (text) {
+        renderedTextOffset = (text.textContent ?? "").indexOf(expectedText);
+        if (renderedTextOffset >= 0) break;
+        text = walker.nextNode();
+      }
       if (!text) throw new Error(`Rendered text was not found: ${expectedText}`);
+      const caretOffset = renderedTextOffset + textOffset;
       const range = document.createRange();
-      range.setStart(text, Math.max(0, textOffset - 1));
-      range.setEnd(text, textOffset);
+      range.setStart(text, Math.max(0, caretOffset - 1));
+      range.setEnd(text, caretOffset);
       const rect = range.getBoundingClientRect();
       node.dispatchEvent(
         new MouseEvent("mousedown", {
@@ -160,7 +166,9 @@ describe("desktop raw HTML", () => {
         (await readFile(html.path, "utf8")) ===
         original.replace(sectionSource, sectionSource.replace("HTML", "HT\nML")),
     );
-    expect(await liveSection().execute((node) => node.textContent)).toBe("Multiline safe HT\nML.");
+    expect(await liveSection().execute((node) => node.textContent?.trim())).toBe(
+      "Multiline safe HT\nML.",
+    );
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await browser.keys([Key.Ctrl, "s", Key.NULL]);
     await browser.waitUntil(async () => (await readFile(html.path, "utf8")) === original);

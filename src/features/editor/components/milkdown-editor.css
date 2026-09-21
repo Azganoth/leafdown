@@ -307,24 +307,16 @@
       @apply my-0 block;
     }
 
-    .leafdown-image-markdown-input {
-      @apply mb-2 w-full min-w-64 rounded-sm border border-border bg-muted px-2 py-1 font-mono text-sm text-foreground outline-none;
-
-      &:focus-visible {
-        @apply border-primary ring-2 ring-primary/25;
-      }
-    }
-
     .leafdown-image-placeholder {
-      @apply inline-flex max-w-full flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card/70 px-3 py-[3px] text-sm text-muted-foreground;
+      @apply flex h-7 max-w-full flex-nowrap items-center gap-2 overflow-hidden rounded-md border border-dashed border-border bg-card/70 px-2 text-sm text-muted-foreground;
     }
 
     .leafdown-image-placeholder__message {
-      @apply min-w-0 wrap-anywhere;
+      @apply min-w-0 flex-1 truncate;
     }
 
     .leafdown-image-placeholder__action {
-      @apply shrink-0 rounded-sm border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground transition-colors;
+      @apply h-6 shrink-0 rounded-sm border border-border bg-muted px-2 text-xs font-medium text-foreground transition-colors;
 
       &:hover {
         @apply border-primary text-primary;
@@ -495,6 +487,15 @@
 
     .leafdown-source-projection {
       color: inherit;
+    }
+
+    .leafdown-source-projection[data-leafdown-source~="image"] {
+      @apply block h-7 max-w-full overflow-x-auto overflow-y-hidden font-mono whitespace-nowrap;
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
     }
 
     .leafdown-source-projection__marker {

@@ -34,6 +34,7 @@ import {
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
 } from "./sourceProjectionFootnoteReferenceSyntax";
+import { parseStandaloneImageSource } from "./sourceProjectionImageSyntax";
 import {
   createIdentityBoundaries,
   findUnpositionedChildRange,
@@ -90,6 +91,10 @@ interface MarkedFragmentLinkSourceSegment extends MarkedFragmentSourceSegmentBas
   type: "link";
 }
 
+interface MarkedFragmentImageSourceSegment extends MarkedFragmentSourceSegmentBase {
+  type: "image";
+}
+
 interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBase {
   // One source offset per document offset the run covers, so a backslash the file spends on an
   // escape maps onto the character it keeps literal rather than onto a position of its own.
@@ -101,6 +106,7 @@ interface MarkedFragmentTextSourceSegment extends MarkedFragmentSourceSegmentBas
 export type MarkedFragmentSourceSegment =
   | MarkedFragmentBreakSourceSegment
   | MarkedFragmentCharacterReferenceSourceSegment
+  | MarkedFragmentImageSourceSegment
   | MarkedFragmentLinkSourceSegment
   | MarkedFragmentReferenceSourceSegment
   | MarkedFragmentTextSourceSegment;
@@ -408,6 +414,8 @@ const isSupportedMarkedFragmentChild = (node: MarkdownNode): boolean => {
     node.type === "text" ||
     node.type === HARD_BREAK_MARKDOWN_TYPE ||
     node.type === "footnoteReference" ||
+    node.type === "image" ||
+    node.type === "imageReference" ||
     node.type === CHARACTER_REFERENCE_MARKDOWN_TYPE
   ) {
     return true;
@@ -478,6 +486,7 @@ export const serializeMarkedFragmentSource = (
     const runNodes = nodes.slice(index, runEnd);
     const documentSize = runNodes.reduce((size, runNode) => size + runNode.nodeSize, 0);
     const isBreak = node.type.name === INLINE_BREAK_NODE_NAME;
+    const isImage = node.type.name === "image" && !linkMark;
     const isSoftBreak = isBreak && node.attrs.isInline === true;
     const referenceSource = linkMark ? null : getPreservedCharacterReferenceSource(node);
     const isPlainText = !linkMark && !referenceSource && node.isText;
@@ -518,11 +527,18 @@ export const serializeMarkedFragmentSource = (
           ),
           constructs,
         )
-      : (referenceSource ??
-        escapedText ??
-        cellCodeSource ??
-        breakSource ??
-        (node.isText ? text : serializeFootnoteReference(state, serializer, node)));
+      : isImage
+        ? serializeLinkRunSource(
+            state,
+            serializer,
+            [node.mark(node.marks.filter((mark) => !wrappingMarkNames.has(mark.type.name)))],
+            constructs,
+          )
+        : (referenceSource ??
+          escapedText ??
+          cellCodeSource ??
+          breakSource ??
+          (node.isText ? text : serializeFootnoteReference(state, serializer, node)));
     const sourceTo = sourceOffset + nodeSource.length;
 
     if (escapedContent !== null) {
@@ -547,6 +563,14 @@ export const serializeMarkedFragmentSource = (
         sourceFrom: sourceOffset,
         sourceTo,
         type: "link",
+      });
+    } else if (isImage) {
+      innerSegments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + documentSize,
+        sourceFrom: sourceOffset,
+        sourceTo,
+        type: "image",
       });
     } else if (referenceSource) {
       innerSegments.push({
@@ -722,6 +746,25 @@ export const createMarkedFragmentSourceStructure = (
         type: "link",
       });
       documentOffset += map.documentSize;
+    } else if (child.type === "image" || child.type === "imageReference") {
+      const image = parseStandaloneImageSource(
+        parser,
+        source.slice(position.from, position.to),
+        definitions,
+      );
+
+      if (!image) {
+        return createMarkedLiteralStructure(source, parsed.marks);
+      }
+
+      segments.push({
+        documentFrom: documentOffset,
+        documentTo: documentOffset + image.nodeSize,
+        sourceFrom: position.from,
+        sourceTo: position.to,
+        type: "image",
+      });
+      documentOffset += image.nodeSize;
     } else if (child.type === CHARACTER_REFERENCE_MARKDOWN_TYPE) {
       const text = decodeWholeCharacterReference(source.slice(position.from, position.to));
 
@@ -854,6 +897,14 @@ export const parseMarkedFragmentSource = (
       return linkNodes ?? [];
     }
 
+    if (segment.type === "image") {
+      const image = parseStandaloneImageSource(parser, segmentSource, definitions);
+
+      isValid &&= image !== null;
+
+      return image ? [image.mark(documentMarks)] : [];
+    }
+
     if (segment.type === "characterReference") {
       const text = decodeWholeCharacterReference(segmentSource);
 
@@ -919,6 +970,7 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
   if (
     segment.type === "break" ||
     segment.type === "characterReference" ||
+    segment.type === "image" ||
     segment.type === "footnoteReference"
   ) {
     return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
@@ -961,7 +1013,11 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
         : segment.documentTo;
   }
 
-  if (segment.type === "break" || segment.type === "characterReference") {
+  if (
+    segment.type === "break" ||
+    segment.type === "characterReference" ||
+    segment.type === "image"
+  ) {
     return offset - segment.sourceFrom < segment.sourceTo - offset
       ? segment.documentFrom
       : segment.documentTo;

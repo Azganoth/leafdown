@@ -1561,6 +1561,10 @@ describe("Raw link destination parentheses", () => {
     },
     { saved: '[Titled](garden(one).md "Garden")', source: '[Titled](garden(one).md "Garden")' },
     { saved: "![Image](garden(one).png)", source: "![Image](garden(one).png)" },
+    {
+      saved: '![a > b](<garden.png> "title > x")',
+      source: '![a > b](<garden.png> "title > x")',
+    },
   ])("writes $saved without an escape it does not need", async ({ saved, source }) => {
     const mounted = await mountEditor(`${source}\n`);
 
@@ -1579,9 +1583,9 @@ describe("Raw link destination parentheses", () => {
       source: "[Unbalanced close](<garden)section.md>)",
     },
     // The image serializes inside the link handler, which has already relaxed the escapes its own
-    // balanced destination does not need.
+    // balanced destination does not need. Its authored angle destination is preserved.
     {
-      saved: "[![alt](img\\(1.png)](target(2).md)",
+      saved: "[![alt](<img(1.png>)](target(2).md)",
       source: "[![alt](<img(1.png>)](target(2).md)",
     },
   ])("keeps the escape $saved needs", async ({ saved, source }) => {

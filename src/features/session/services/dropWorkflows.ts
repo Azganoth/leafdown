@@ -1,21 +1,12 @@
 import { getActiveDocumentKey } from "@/features/document";
 import { useSettingsStore } from "@/features/preferences";
-import { getPathParts, toSlashPath } from "@/lib/path";
+import { getPathParts, getRelativePath, toSlashPath } from "@/lib/path";
 import { notifyWarning } from "@/lib/toast";
 
 import { useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { inspectDroppedPath, type DroppedPath } from "./dropApi";
 import { openFolderContextAtPath, openMarkdownFileAtPath } from "./openSession";
-
-interface PathRoot {
-  caseInsensitive: boolean;
-  components: string[];
-  root: string;
-}
-
-const WINDOWS_DRIVE_ROOT_PATTERN = /^([a-z]:)(?:\/|$)/iu;
-const WINDOWS_UNC_ROOT_PATTERN = /^\/\/([^/]+)\/([^/]+)(?:\/|$)/u;
 
 type SupportedDroppedPath = Exclude<DroppedPath, { kind: "unsupported" }>;
 
@@ -136,66 +127,3 @@ const insertDroppedPathLink = (droppedPath: SupportedDroppedPath) => {
 
   return true;
 };
-
-export const getRelativePath = (fromFolderPath: string, targetPath: string) => {
-  const from = splitPath(fromFolderPath);
-  const target = splitPath(targetPath);
-
-  if (!sameComponent(from.root, target.root, from.caseInsensitive || target.caseInsensitive)) {
-    return null;
-  }
-
-  let sharedLength = 0;
-
-  while (
-    sharedLength < from.components.length &&
-    sharedLength < target.components.length &&
-    sameComponent(
-      from.components[sharedLength],
-      target.components[sharedLength],
-      from.caseInsensitive,
-    )
-  ) {
-    sharedLength += 1;
-  }
-
-  const parentSegments = Array.from({ length: from.components.length - sharedLength }, () => "..");
-  const targetSegments = target.components.slice(sharedLength);
-
-  return [...parentSegments, ...targetSegments].join("/") || ".";
-};
-
-const splitPath = (path: string): PathRoot => {
-  const slashPath = toSlashPath(path);
-  const driveMatch = slashPath.match(WINDOWS_DRIVE_ROOT_PATTERN);
-
-  if (driveMatch) {
-    return {
-      caseInsensitive: true,
-      components: slashPath.slice(driveMatch[0].length).split("/").filter(Boolean),
-      root: driveMatch[1],
-    };
-  }
-
-  const uncMatch = slashPath.match(WINDOWS_UNC_ROOT_PATTERN);
-
-  if (uncMatch) {
-    return {
-      caseInsensitive: true,
-      components: slashPath.slice(uncMatch[0].length).split("/").filter(Boolean),
-      root: `//${uncMatch[1]}/${uncMatch[2]}`,
-    };
-  }
-
-  return {
-    caseInsensitive: false,
-    components: slashPath
-      .replace(/^\/+|\/+$/gu, "")
-      .split("/")
-      .filter(Boolean),
-    root: slashPath.startsWith("/") ? "/" : "",
-  };
-};
-
-const sameComponent = (left: string, right: string, caseInsensitive: boolean) =>
-  caseInsensitive ? left.toLowerCase() === right.toLowerCase() : left === right;

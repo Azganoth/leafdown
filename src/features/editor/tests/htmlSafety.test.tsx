@@ -24,6 +24,7 @@ import {
 } from "@/test/utils/tauriApi";
 
 import { runEditorCommand } from "../commands";
+import { finalizeSourceProjection } from "../plugins/sourceProjection";
 
 const executionFlag = "__leafdownHtmlExecuted";
 const { clipboard, createClipboardItem } = setupClipboardMock();
@@ -265,6 +266,8 @@ describe("pasted HTML safety", () => {
         entryPath,
         '<p><img src="https://example.com/tracker.png" alt="Tracker"></p>',
       );
+
+      expect(finalizeSourceProjection(mounted.view)).toBe(true);
 
       await waitFor(() => {
         expect(mounted.view.dom).toHaveTextContent("Remote images are blocked.");

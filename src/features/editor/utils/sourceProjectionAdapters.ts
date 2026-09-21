@@ -55,6 +55,7 @@ export type SourceProjectionAdapterId =
   | "character-reference"
   | "escape"
   | "footnote-reference"
+  | "image"
   | "link"
   | "mark";
 
@@ -122,6 +123,11 @@ export interface SourceProjectionPresentation {
   spans: SourceProjectionPresentationSpan[];
 }
 
+export interface SourceProjectionEntryContext {
+  direction: "backward" | "forward" | null;
+  pointer: boolean;
+}
+
 export interface SourceProjectionInsertionCandidate<
   TTarget extends SourceProjectionTarget = SourceProjectionTarget,
 > extends TextRange {
@@ -157,12 +163,17 @@ export interface SourceProjectionAdapter<
   findLiteralSourceCommit?(state: EditorState, range: TextRange): LiteralSourceCommit | null;
   findTarget(state: EditorState): TTarget | null;
   getPresentation(target: TTarget, source: string): SourceProjectionPresentation;
+  getRestoreRange?(session: SourceProjectionSessionRange<TTarget>): TextRange;
   mapSelectionFromSource(
     selection: Selection,
     session: SourceProjectionSessionRange<TTarget>,
     parsed: SourceProjectionParseResult,
   ): { anchor: number; head: number };
-  mapSelectionToSource(selection: Selection, target: TTarget): { anchor: number; head: number };
+  mapSelectionToSource(
+    selection: Selection,
+    target: TTarget,
+    context: SourceProjectionEntryContext,
+  ): { anchor: number; head: number };
   // Whether the caret still sits on what this session was opened for. An adapter whose range
   // covers more than the caret's own object narrows it here, so the session gives way once the
   // caret moves onto something the range holds but the session does not answer for.
@@ -210,8 +221,7 @@ interface ProjectionMarkSegment extends ActiveProjectionRange {
 
 const LINK_MARK_NAME = "link";
 
-const isLinkImage = (node: ProseMirrorNode) =>
-  node.type.name === "image" && node.marks.some((mark) => mark.type.name === LINK_MARK_NAME);
+const isProjectableImage = (node: ProseMirrorNode) => node.type.name === "image";
 
 const createTextSlice = (
   state: EditorState,
@@ -524,7 +534,7 @@ const getProjectionMarksFromInlineNode = (
     !node.isText &&
     !isFootnoteReference &&
     node.type.name !== "hardbreak" &&
-    !isLinkImage(node)
+    !isProjectableImage(node)
   ) {
     return [];
   }
@@ -832,6 +842,16 @@ const getMarkedFragmentPresentation = (
         },
         ...(segment.map ? getLinkHardBreakSpans(segment.map, segment.sourceFrom, source) : []),
       );
+      continue;
+    }
+
+    if (segment.type === "image") {
+      objectTypes.add("image");
+      spans.push({
+        className: "leafdown-source-projection__marker",
+        from: segment.sourceFrom,
+        to: segment.sourceTo,
+      });
       continue;
     }
 

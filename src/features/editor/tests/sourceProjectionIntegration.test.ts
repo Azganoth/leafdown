@@ -456,20 +456,6 @@ describe("source projection integration", () => {
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(getEditorTextContent(mounted)).toBe(before);
     });
-
-    it("ends the session when a node is moved into projected source from the document", async () => {
-      const mounted = await mountProjectionEditor("[word](./doc.md) ![alt](./pic.png)");
-
-      enterProjection(mounted, "a");
-
-      const imagePosition = getEditorNodePosition(mounted, "image");
-      const labelPosition = getEditorTextPosition(mounted, "[word](./doc.md)") + "[wor".length;
-
-      dropNode(mounted, labelPosition, { nodePosition: imagePosition });
-
-      expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
-      expect(mounted.view.state.doc.nodeAt(labelPosition)?.type.name).toBe("image");
-    });
   });
 
   describe("projection history", () => {

@@ -785,6 +785,10 @@ describe("source projection", () => {
         description: "a link the mark wraps",
         source: "**left[^note][link](https://example.com)right**",
       },
+      {
+        description: "an image the mark wraps",
+        source: "**left[^note]![alt](image.png)right**",
+      },
       { description: "a hard break the mark wraps", source: "**left[^note]  \nright**" },
     ])("keeps $description inside one marked fragment", async ({ source }) => {
       const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
@@ -798,10 +802,6 @@ describe("source projection", () => {
       {
         boundary: "inline code",
         markdown: "**left[^note]`code`right**",
-      },
-      {
-        boundary: "image",
-        markdown: "**left[^note]![alt](image.png)right**",
       },
       {
         boundary: "inline HTML",
@@ -1062,7 +1062,7 @@ describe("source projection", () => {
 
     it("keeps a valid outer wrapper when marked reference content becomes unsupported", async () => {
       const source = "**Text[^note]**";
-      const imageSource = "![Text[^note]](./pic.png)";
+      const unsupportedSource = "<span>Text[^note]</span>";
       const mounted = await mountProjectionEditor(`${source}\n\n[^note]: Detail`);
 
       selectFootnoteReference(mounted);
@@ -1070,11 +1070,11 @@ describe("source projection", () => {
       const sourceStart = getEditorTextPosition(mounted, source);
 
       setTextSelection(mounted.view, sourceStart + 2, sourceStart + source.length - 2);
-      typeText(mounted.view, imageSource);
+      typeText(mounted.view, unsupportedSource);
       setSelectionAtDocumentEnd(mounted.view);
 
       const strongMark = mounted.view.state.schema.marks.strong;
-      const literalNode = findEditorTextNode(mounted, imageSource);
+      const literalNode = findEditorTextNode(mounted, unsupportedSource);
 
       expect(literalNode).not.toBeNull();
       expect(strongMark.isInSet(literalNode!.marks)).toBeDefined();

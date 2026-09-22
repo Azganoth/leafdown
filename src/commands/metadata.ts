@@ -66,6 +66,8 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.pasteAsMarkdown": editorCommandDef("edit.pasteAsMarkdown"),
   "edit.pasteAsRichText": editorCommandDef("edit.pasteAsRichText"),
   "edit.delete": editorCommandDef("edit.delete", { key: "Delete" }),
+  "edit.moveBlockUp": editorCommandDef("edit.moveBlockUp", { key: "ArrowUp", alt: true }),
+  "edit.moveBlockDown": editorCommandDef("edit.moveBlockDown", { key: "ArrowDown", alt: true }),
   "edit.deleteWordBackward": editorCommandDef("edit.deleteWordBackward", {
     key: "Backspace",
     mod: true,

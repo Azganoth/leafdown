@@ -125,6 +125,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
             return;
           }
 
+          const blockDragging = editorView.dom.hasAttribute("data-leafdown-block-dragging");
           window.requestAnimationFrame(() => {
             pointerSelecting = false;
             const suppressPopup = suppressPointerRelease;
@@ -134,7 +135,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               return;
             }
 
-            if (suppressPopup || editorView.dom.hasAttribute("data-leafdown-block-dragging")) {
+            if (suppressPopup || blockDragging) {
               dismissed = true;
               return;
             }

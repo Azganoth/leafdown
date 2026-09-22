@@ -181,8 +181,17 @@ export const useMilkdownEditorInstance = ({
       void Promise.resolve(runEditorCommand(editor, commandId)).catch((error) =>
         handleUnexpectedError(error, "runEditorContextCommand"),
       );
+      window.requestAnimationFrame(() => {
+        if (
+          editorRef.current === editor &&
+          !contextPopupOpenRef.current &&
+          document.activeElement === document.body
+        ) {
+          focusEditor();
+        }
+      });
     },
-    [closeContextPopup],
+    [closeContextPopup, focusEditor],
   );
 
   useEffect(() => {

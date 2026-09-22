@@ -431,13 +431,26 @@ describe("editor-context-popup", () => {
     });
 
     it("hides inline-only actions for a structural block selection", () => {
-      renderToolbar({ ...POINTER_REQUEST, selectionKind: "block" });
+      renderToolbar(
+        { ...POINTER_REQUEST, selectionKind: "block" },
+        {
+          commandState: {
+            ...enabledPopupCommandState,
+            enabledCommands: {
+              ...enabledPopupCommandState.enabledCommands,
+              "edit.moveBlockDown": true,
+            },
+          },
+        },
+      );
 
       expect(screen.queryByLabelText("Bold")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Italic")).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Inline code")).not.toBeInTheDocument();
       expect(screen.getByLabelText("Copy")).toBeInTheDocument();
       expect(screen.getByLabelText("Blockquote")).toBeInTheDocument();
+      expect(screen.getByLabelText("Move block up")).toBeDisabled();
+      expect(screen.getByLabelText("Move block down")).toBeEnabled();
     });
 
     it("keeps the toolbar to a single roving tab stop", () => {

@@ -2,6 +2,7 @@ import { type Editor } from "@milkdown/kit/core";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { canMoveSelectedBlocks, moveSelectedBlocks } from "../plugins/blockSelectionOperations";
 import { withEditorView } from "../utils/milkdown";
 import { EDITOR_COMMAND_IDS, type EditorCommandId, type EditorCommandState } from "./contract";
 import * as clipboard from "./editing/clipboard";
@@ -69,6 +70,14 @@ export const EDITOR_COMMANDS = {
   "edit.pasteAsRichText": editorCommand((editor) => clipboard.paste(editor, "richText")),
 
   "edit.delete": viewCommand(deletion.deleteForward),
+  "edit.moveBlockUp": viewCommand(
+    (view) => moveSelectedBlocks(view, -1),
+    (state) => canMoveSelectedBlocks(state, -1),
+  ),
+  "edit.moveBlockDown": viewCommand(
+    (view) => moveSelectedBlocks(view, 1),
+    (state) => canMoveSelectedBlocks(state, 1),
+  ),
   "edit.deleteWordBackward": viewCommand(
     deletion.deleteWordBackward,
     deletion.canDeleteWordBackward,

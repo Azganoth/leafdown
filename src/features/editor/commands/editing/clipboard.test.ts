@@ -16,6 +16,10 @@ import {
   setTextSelection,
 } from "@/test/utils/prosemirror";
 
+import {
+  createHierarchicalBlockSelection,
+  getSelectableBlockTargets,
+} from "../../plugins/blockSelection";
 import { hasActiveSourceProjection } from "../../plugins/sourceProjection";
 import { runEditorCommand } from "../index";
 import { copySelection, cutSelection, paste } from "./clipboard";
@@ -293,6 +297,42 @@ describe("editor clipboard commands", () => {
 
     expect(mounted.view.dom).toHaveTextContent("Rich text");
     expect(mounted.view.dom.querySelector("strong")).toBeInTheDocument();
+  });
+
+  it("replaces a nested block selection from external Markdown or HTML clipboard data", async () => {
+    const mounted = await mountEditor("- Parent\n  - First\n  - Second\n");
+    const items = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "list_item",
+    );
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(mounted.view.state.doc, items[1].pos),
+      ),
+    );
+    clipboard.read.mockResolvedValueOnce([]);
+    clipboard.readText.mockResolvedValueOnce("- Markdown replacement\n");
+
+    await expect(paste(mounted.editor, "default")).resolves.toBe(true);
+    expect(mounted.getMarkdown()).toContain("Markdown replacement");
+    expect(mounted.getMarkdown()).not.toContain("First");
+    expect(mounted.getMarkdown()).toContain("Second");
+
+    const replacement = getSelectableBlockTargets(mounted.view.state.doc).find(
+      ({ node }) => node.type.name === "list_item" && node.textContent === "Markdown replacement",
+    );
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(mounted.view.state.doc, replacement!.pos),
+      ),
+    );
+    clipboard.read.mockResolvedValueOnce([
+      createClipboardItem(TEXT_HTML_MIME_TYPE, "<li><p>HTML replacement</p></li>"),
+    ]);
+
+    await expect(paste(mounted.editor, "default")).resolves.toBe(true);
+    expect(mounted.getMarkdown()).toContain("HTML replacement");
+    expect(mounted.getMarkdown()).not.toContain("Markdown replacement");
+    expect(mounted.getMarkdown()).toContain("Second");
   });
 
   it.each([["default"], ["plainText"], ["markdown"], ["richText"]] as const)(

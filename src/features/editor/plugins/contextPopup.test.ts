@@ -332,7 +332,7 @@ describe("context popup plugin", () => {
     },
   );
 
-  it("opens from Select all, leaving focus in the editor", async () => {
+  it("opens from focused-editor Mod+A, leaving focus in the editor", async () => {
     const onContextPopupRequested = vi.fn();
     const mounted = await mountEditor(HELLO_WORLD_TEXT, { onContextPopupRequested });
 
@@ -341,7 +341,9 @@ describe("context popup plugin", () => {
     selectAll(mounted);
 
     expect(mounted.view.state.selection.empty).toBe(false);
-    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+    expect(onContextPopupRequested).toHaveBeenCalledWith(
+      expect.objectContaining({ selectionKind: "block", source: "pointer" }),
+    );
     expect(document.activeElement).toBe(mounted.view.dom);
   });
 

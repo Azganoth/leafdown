@@ -9,6 +9,7 @@ import {
   getSelectableBlockTargets,
   getSelectedBlockTargets,
 } from "./blockSelection";
+import { isStructuralBlockSelection } from "./blockSelectionKeyboard";
 
 export const leafdownBlockSelectionPluginKey = new PluginKey("leafdownBlockSelection");
 
@@ -318,8 +319,13 @@ class BlockSelectionView {
 
     const { selection } = this.view.state;
 
-    if (!(selection instanceof BlockSelection)) {
+    if (!isStructuralBlockSelection(this.view.state)) {
       this.status.textContent = "";
+      return;
+    }
+
+    if (!(selection instanceof BlockSelection)) {
+      this.status.textContent = "Document selected";
       return;
     }
 

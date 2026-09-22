@@ -93,6 +93,26 @@ const moveToHandle = async (handle: ReturnType<typeof $>) => {
     .perform();
 };
 
+const dispatchEditorKey = (key: string, init: KeyboardEventInit = {}) =>
+  browser.execute(
+    (eventKey, eventInit) => {
+      const editor = document.querySelector<HTMLElement>(".ProseMirror");
+
+      if (!editor) throw new Error("Editor was not found.");
+
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: eventKey,
+        ...eventInit,
+      });
+      editor.dispatchEvent(event);
+      return event.defaultPrevented;
+    },
+    key,
+    init,
+  );
+
 const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = false) => {
   if (shiftKey) {
     await handle.execute((node) => {
@@ -251,6 +271,25 @@ describe("desktop block selection", () => {
       const selected = document.querySelectorAll<HTMLElement>("li.leafdown-selected-block");
       selected[0]?.scrollIntoView({ block: "center" });
     });
+
+    await dispatchHandleGesture(first);
+    expect(
+      await browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
+    ).toBe(true);
+    expect(await dispatchEditorKey("a", { ctrlKey: true })).toBe(true);
+    await expect($("[role='status']")).toHaveText("2 blocks selected");
+    expect(await dispatchEditorKey("ArrowUp")).toBe(true);
+    await expect($("[role='status']")).toHaveText("List item selected");
+    expect(await dispatchEditorKey("ArrowDown", { shiftKey: true })).toBe(true);
+    await expect($("[role='status']")).toHaveText("2 blocks selected");
+    expect(await dispatchEditorKey("Enter")).toBe(true);
+    await expect($$(".leafdown-selected-block")).toBeElementsArrayOfSize(0);
+
+    await dispatchHandleGesture(first);
+    await dispatchEditorKey("a", { ctrlKey: true });
+    await dispatchEditorKey("a", { ctrlKey: true });
+    await dispatchEditorKey("a", { ctrlKey: true });
+    await expect($("[role='status']")).toHaveText("Document selected");
 
     await mkdir(ARTIFACTS_DIR, { recursive: true });
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection.png"));

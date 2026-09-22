@@ -134,7 +134,9 @@ describe("desktop block selection", () => {
     expect(wideGeometry.every(({ label, tabIndex }) => Boolean(label) && tabIndex === -1)).toBe(
       true,
     );
-    expect(wideGeometry.every(({ handleOpacity }) => handleOpacity === "0")).toBe(true);
+    await browser.waitUntil(async () =>
+      (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
+    );
 
     const listItemLefts = new Set(
       wideGeometry.filter(({ blockTag }) => blockTag === "LI").map(({ blockLeft }) => blockLeft),

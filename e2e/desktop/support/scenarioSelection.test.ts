@@ -31,6 +31,7 @@ void test("selects the persistence sequence and a bounded worker count in either
   for (const args of [
     ["--scenario", "persistence", "--workers", "2"],
     ["--workers", "2", "--scenario", "persistence"],
+    ["--", "--workers", "2", "--scenario", "persistence"],
   ]) {
     assert.deepEqual(selectDesktopE2ERun(args), {
       scenarioGroups: [["persistence-write", "persistence-restart"]],

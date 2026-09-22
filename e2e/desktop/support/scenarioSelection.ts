@@ -25,12 +25,13 @@ export interface DesktopE2ERunSelection {
 }
 
 export const selectDesktopE2ERun = (arguments_: readonly string[]): DesktopE2ERunSelection => {
+  const options = arguments_[0] === "--" ? arguments_.slice(1) : arguments_;
   let scenarioTarget: keyof typeof scenarioTargets | undefined;
   let workerCount = 1;
 
-  for (let index = 0; index < arguments_.length; index += 2) {
-    const option = arguments_[index];
-    const value = arguments_[index + 1];
+  for (let index = 0; index < options.length; index += 2) {
+    const option = options[index];
+    const value = options[index + 1];
 
     if (!value) {
       throw selectionError(`Expected a value after ${option ?? "the final option"}.`);
@@ -50,7 +51,7 @@ export const selectDesktopE2ERun = (arguments_: readonly string[]): DesktopE2ERu
     }
 
     if (option === "--workers") {
-      if (workerCount !== 1 || arguments_.slice(0, index).includes("--workers")) {
+      if (workerCount !== 1 || options.slice(0, index).includes("--workers")) {
         throw selectionError("The --workers option may only be provided once.");
       }
 

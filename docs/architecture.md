@@ -61,6 +61,7 @@ The runtime tracks three primary state values:
 - Managing the editor model, schema, parsing, serialization, and native command implementations.
 - Providing native history, structural keymaps, clipboard serialization and fallback primitives, event listeners, and default plugins.
 - Providing the installed CommonMark/GFM parsing and serialization behavior.
+- Retaining raw HTML as inline atoms carrying their authored `value`; Leafdown owns their safe live presentation and source-projection adapter.
 
 ### Leafdown Responsibilities
 
@@ -76,7 +77,7 @@ Shortcut execution follows the layer that owns the interaction. The window-level
 
 Focus ownership follows the same layering. A pointer-opened context popup leaves focus with the editor, which still owns the selection the popup acts on; a keyboard-opened popup takes focus, having no other route in, and returns it to the editor on close rather than leaving it on the document body. ProseMirror keeps its selection across a blur, so restoring the editor's focus restores the selection with it, and the popup holds no selection state of its own.
 
-Syntax highlighting uses bundled Shiki assets through Milkdown highlighting plugins. Raw Markdown HTML is preserved as text-like editor content instead of being rendered as browser DOM.
+Syntax highlighting uses bundled Shiki assets through Milkdown highlighting plugins. A raw HTML NodeView parses `value` into a source-located inert tree, validates the complete tree against the attribute-free allowlist and self-containment predicate, then constructs the corresponding DOM with element and text-node primitives. The retained source locations map pointer positions in that DOM back to exact offsets in the authored token without reparsing a string into executable markup. A rejected tree renders as muted source text. Rendering never rewrites `value`, and the schema's source-based serialization and clipboard representation remain unchanged.
 
 ### Clipboard Ownership
 
@@ -100,7 +101,7 @@ A restructure reads canonical content, so it finalizes an active projection befo
 
 A change that reaches the projected range without passing through the engine's edit path is an unauthored write; composition input is the path that produces one. The engine keeps an unauthored write out of native history, where it would replay against coordinates the commit discards, and otherwise treats it as the content change it is: the document becomes dirty and projection-local history can step back over it.
 
-Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, standalone image, standalone footnote reference, preserved character reference, then escaped literal run. Adapters that cannot preserve a semantic mapping fall back to literal text.
+Object adapters own target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. Ownership precedence is logical link, qualifying marked fragment, standalone image, standalone footnote reference, raw HTML, preserved character reference, then escaped literal run. Adapters that cannot preserve a semantic mapping fall back to literal text.
 
 A boundary adapter is asked before that precedence and claims only a caret two objects meet on, finding each side by putting the same precedence to a position inside it, on a state carrying no plugins so the probe cannot project what it is reading. Its target is the run the pair spells, and it commits by reading that run as the file would rather than by committing each side on its own, because the position the two meet on belongs to neither: a character written there would otherwise have to join one object, which would stop that object spelling itself and discard it. Reading the run whole also decides the seam without a rule of its own, since the file already says what the characters between two objects mean. Where one object owns the caret outright, precedence answers as it did.
 
@@ -169,7 +170,7 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 ## Security
 
 - Prevent script execution from Markdown content.
-- Do not parse or render raw HTML; escape it or preserve it as plain text.
+- Render raw HTML only through the source-located parse, validate, and safe-construction boundary. Accept only a self-contained, single HTML-namespace element whose entire tree consists of allowlisted elements without attributes and text. Reject the whole fragment if sanitization would change it; never insert a reparsed or partially sanitized string. CSP remains defense in depth, not the allowlist implementation.
 - Block automatic loading of remote images.
 - Open external links in the default system browser, and keep webview navigation on the local frontend origin.
 - Require confirmation before handing local non-Markdown links to the system default app.
@@ -186,7 +187,7 @@ Automated tests focus on:
 - Folder scanning, index-file auto-open, folder-context updates, ignored directories, and symlink behavior.
 - Recent-list persistence, deduplication, and bounds.
 - Relative link/image resolution, remote-image blocking, and outside-folder confirmation.
-- Literal HTML rendering and script-execution prevention.
+- Safe live HTML and literal fallback, attribute and namespace rejection, script/resource-load prevention, exact HTML round trips, and source-projection history and save finalization. Verify parsing and block-atom layout in the desktop WebView as well as the DOM test environment.
 - Context popup layout and caret-based marker visibility.
 
 The assembled desktop E2E suite complements those component and boundary tests without replacing them. It requires Windows and stays outside `pnpm check`, running through an explicit command locally and as its own CI job on every pull request and push to `main`. It runs one embedded WebDriver worker at a time against an isolated debug binary and starts fresh application processes for independent scenarios. The suite retains the Help → Diagnostics smoke path, then adds narrow assembled-boundary assertions for the document lifecycle, real folder-watcher refresh, typed backend error propagation, persisted settings across restart, injected frame controls, and the clean window-close handshake.

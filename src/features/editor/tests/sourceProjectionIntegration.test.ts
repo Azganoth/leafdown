@@ -301,6 +301,10 @@ describe("source projection integration", () => {
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
       expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+      expect(await runCommand(mounted, "edit.undo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n`);
+      expect(await runCommand(mounted, "edit.redo")).toBe(true);
+      expect(mounted.getMarkdown()).toBe("**Bolder** plain\n");
     });
 
     it("switches directly to another source projection when the selection moves", async () => {

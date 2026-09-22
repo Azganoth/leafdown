@@ -22,8 +22,16 @@
     @apply px-8 py-10;
   }
 
-  & [data-type="html"] {
-    @apply rounded-sm bg-muted px-1 py-0.5 font-mono text-[0.9em] text-muted-foreground;
+  & [data-type="html"][data-html-rendered="false"] {
+    @apply text-muted-foreground;
+  }
+
+  & [data-type="html"][data-html-rendered="true"] {
+    white-space: normal;
+
+    &[data-html-flow="block"] {
+      display: block;
+    }
   }
 
   /* The gutter is padding inside the block rather than page margin, so it holds at every window
@@ -556,14 +564,6 @@
 
       &.leafdown-source-projection__marker {
         @apply text-muted-foreground;
-      }
-    }
-
-    .leafdown-source-edit {
-      @apply mr-2 mb-1 inline-flex h-7 min-w-36 rounded-sm border border-border bg-muted px-2 font-mono text-xs text-foreground outline-none;
-
-      &:focus-visible {
-        @apply border-primary ring-2 ring-primary/25;
       }
     }
   }

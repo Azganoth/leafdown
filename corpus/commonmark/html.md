@@ -33,6 +33,14 @@ and closes after a blank line -->
 
 ## Block-level tags form an HTML block
 
+<div>Self-contained <strong>safe HTML</strong>.</div>
+
+<section>
+Multiline safe HTML.
+</section>
+
+<details><summary>Summary</summary><p>Self-contained details.</p></details>
+
 <section class="garden">
 *Markdown is raw until the blank line for this block type.*
 </section>

@@ -127,6 +127,19 @@
 
 ## Editor Decisions
 
+### Render self-contained, allowlisted raw HTML
+
+**Decision:** Render a stored raw-HTML token live only when it contains exactly one complete element accepted unchanged by the attribute-free allowlist in [Rendering](./specification.md#rendering). This supersedes the former text-only HTML policy. All other tokens retain their muted source presentation.
+
+**Rationale:** CommonMark HTML is a token stream, and an inline HTML atom cannot own the Markdown siblings between separate opening and closing tags. Parsing into a source-located inert tree, validating the entire tree, and constructing its DOM only with element and text-node primitives prevents partially sanitized output from disagreeing with the stored source while retaining the offsets needed for exact pointer entry. [Issue #61](https://github.com/Azganoth/leafdown/issues/61) records the accepted boundary.
+
+**Consequences:**
+
+- The atom's authored `value` remains the sole serialization source; rendering never rewrites it.
+- No attributes, URL-bearing elements, namespaced content, scripts, forms, or embedded documents are admitted. Markdown link and image resolution keep their existing ownership.
+- Raw HTML uses shared in-document source projection. Clean sessions restore the original token, valid edited source returns to safe rendering, and incomplete or unsupported edits become literal text without discarding characters.
+- URL-bearing HTML, configurable allowlists, and custom CSS remain deferred under the existing `Post-rendering HTML controls` Project draft.
+
 ### Use Milkdown Kit
 
 **Decision:** Use Milkdown Kit as the hybrid WYSIWYG Markdown editor foundation.

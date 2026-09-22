@@ -58,17 +58,33 @@ const value = 1;
     expect(editorCss).toContain("&[data-checked] {");
   });
 
-  it("keeps raw HTML code-like styling targetable from the editor root", async () => {
-    const mounted = await mountStyledEditor("<div>Block</div>");
+  it("draws unsupported raw HTML as layout-neutral muted text", async () => {
+    const mounted = await mountStyledEditor('<div class="note">Block</div>');
+    const htmlNode = getEditorDomElement(mounted, '[data-type="html"]');
+    const editorCss = readFileSync(editorCssPath, "utf8");
+    const htmlFallbackRule = editorCss.match(
+      /& \[data-type="html"\]\[data-html-rendered="false"\] \{(?<body>[^}]*)\}/su,
+    )?.groups?.body;
+
+    expect(mounted.getMarkdown()).toBe('<div class="note">Block</div>\n');
+    expect(htmlNode).toHaveAttribute("data-html-rendered", "false");
+    expect(htmlNode.closest(".leafdown-editor")).toBe(mounted.root);
+    expect(htmlFallbackRule).toContain("text-muted-foreground");
+    expect(htmlFallbackRule).not.toMatch(/bg-|font-mono|p[xy]-|text-\[/u);
+  });
+
+  it("uses ordinary HTML whitespace and block flow for rendered block roots", async () => {
+    const mounted = await mountStyledEditor(`<section>
+Multiline safe HTML.
+</section>`);
     const htmlNode = getEditorDomElement(mounted, '[data-type="html"]');
     const editorCss = readFileSync(editorCssPath, "utf8");
 
-    expect(mounted.getMarkdown()).toBe("<div>Block</div>\n");
-    expect(htmlNode.closest(".leafdown-editor")).toBe(mounted.root);
-    expect(editorCss).toContain('& [data-type="html"] {');
-    expect(editorCss).toContain("font-mono");
-    expect(editorCss).toContain("bg-muted");
-    expect(editorCss).toContain("text-muted-foreground");
+    expect(htmlNode).toHaveAttribute("data-html-rendered", "true");
+    expect(htmlNode).toHaveAttribute("data-html-flow", "block");
+    expect(htmlNode.querySelector("section")).toHaveTextContent("Multiline safe HTML.");
+    expect(editorCss).toMatch(/\[data-html-rendered="true"\]\s*\{[^}]*white-space: normal/su);
+    expect(editorCss).toMatch(/\[data-html-flow="block"\]\s*\{[^}]*display: block/su);
   });
 
   it("renders a footnote definition's label beside its marker runs", async () => {

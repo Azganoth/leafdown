@@ -77,6 +77,9 @@ importers:
       micromark-util-html-tag-name:
         specifier: 2.0.1
         version: 2.0.1
+      parse5:
+        specifier: 7.3.0
+        version: 7.3.0
       react:
         specifier: ^19.2.8
         version: 19.2.8

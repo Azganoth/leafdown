@@ -15,12 +15,8 @@ import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession } from "@/test/utils/appStores";
 import { dispatchKeyDown, type TestKeyboardEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
-import {
-  getEditorNodePosition,
-  setSelectionInTableCell,
-  setTextSelection,
-} from "@/test/utils/prosemirror";
-import { act, render, renderHook, waitFor, within } from "@/test/utils/react";
+import { setSelectionInTableCell, setTextSelection } from "@/test/utils/prosemirror";
+import { act, render, renderHook, waitFor } from "@/test/utils/react";
 
 import { APPLICATION_COMMANDS } from "../application";
 import { useAppCommands } from "./useAppCommands";
@@ -186,20 +182,15 @@ describe("useAppCommands shortcut routing", () => {
     },
   );
 
-  it("does not claim editor or native shortcuts in an embedded editor input", async () => {
-    const { mounted, runCommand } = await mountActiveEditor("<span>HTML</span>");
+  it("does not claim editor or native shortcuts in an editor-surface input", async () => {
+    const { mounted, runCommand } = await mountActiveEditor("Text");
 
     render(<AppCommandsHarness />);
-    setTextSelection(
-      mounted.view,
-      getEditorNodePosition(mounted, "html", (node) =>
-        String(node.attrs.value).startsWith("<span"),
-      ),
-    );
-
-    const input = within(mounted.view.dom).getByRole("textbox", { name: "Markdown source" });
+    const input = document.createElement("input");
+    mounted.root.append(input);
     const formatEvent = dispatchKeyDown(input, "b", { ctrl: true });
     const copyEvent = dispatchKeyDown(input, "c", { ctrl: true });
+    input.remove();
 
     expect(formatEvent.defaultPrevented).toBe(false);
     expect(copyEvent.defaultPrevented).toBe(false);

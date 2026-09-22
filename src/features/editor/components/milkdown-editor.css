@@ -16,6 +16,8 @@
   --leafdown-gutter-lane: 2rem;
   --leafdown-gutter-gap: 0.5rem;
   --leafdown-gutter: calc(2 * var(--leafdown-gutter-lane) + var(--leafdown-gutter-gap));
+  --leafdown-block-handle-slot: 1.25rem;
+  --leafdown-block-insertion-slot: 0.75rem;
   --leafdown-measure: 48rem;
 
   @media (min-width: 40rem) {
@@ -392,6 +394,16 @@
       @apply outline-2 outline-offset-2 outline-primary/40;
     }
 
+    .leafdown-selected-block {
+      @apply rounded-sm;
+      --leafdown-block-selection-fill: color-mix(in oklab, var(--foreground) 5%, transparent);
+      background-image: linear-gradient(
+        var(--leafdown-block-selection-fill),
+        var(--leafdown-block-selection-fill)
+      );
+      box-shadow: 0 0 0 0.25rem var(--leafdown-block-selection-fill);
+    }
+
     li.ProseMirror-selectednode {
       @apply outline-none;
 
@@ -417,7 +429,10 @@
     :is(h1, h2, h3, h4, h5, h6):hover::before {
       @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-sm leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
       inset-block-start: 0;
-      inset-inline-end: calc(100% + var(--leafdown-gutter-gap));
+      inset-inline-end: calc(
+        100% + var(--leafdown-gutter-gap) + var(--leafdown-block-handle-slot) +
+          var(--leafdown-block-insertion-slot)
+      );
       translate: 0 calc(var(--leafdown-block-line) / 2 - 50%);
     }
 
@@ -579,6 +594,55 @@
       }
     }
   }
+}
+
+.leafdown-block-gutter-layer {
+  @apply pointer-events-none fixed inset-0 z-20;
+  --leafdown-block-handle-slot: 1.25rem;
+  --leafdown-block-insertion-slot: 0.75rem;
+  --leafdown-block-first-line: 1.75rem;
+}
+
+.leafdown-block-gutter {
+  @apply pointer-events-none absolute flex -translate-x-full items-stretch;
+}
+
+.leafdown-block-gutter__marker-slot {
+  @apply w-4 shrink-0;
+}
+
+.leafdown-block-gutter__insertion-slot {
+  width: var(--leafdown-block-insertion-slot);
+}
+
+.leafdown-block-handle {
+  @apply pointer-events-auto relative flex h-full shrink-0 cursor-grab items-center justify-center border-0 bg-transparent p-0 opacity-0 transition-opacity duration-150 ease-out active:cursor-grabbing;
+  width: var(--leafdown-block-handle-slot);
+}
+
+.leafdown-block-handle::before {
+  @apply absolute block h-4 w-[3px] rounded-full bg-foreground/40 transition-[inset-block-start,height,background-color] duration-150 ease-out;
+  content: "";
+  inset-block-start: calc(var(--leafdown-block-first-line) / 2 - 0.5rem);
+}
+
+.leafdown-block-gutter[data-hovered] .leafdown-block-handle {
+  @apply opacity-100;
+}
+
+.leafdown-block-gutter[data-handle-hovered] .leafdown-block-handle,
+.leafdown-block-handle:hover {
+  @apply opacity-100;
+}
+
+.leafdown-block-gutter[data-handle-hovered] .leafdown-block-handle::before,
+.leafdown-block-handle:hover::before {
+  @apply h-full bg-foreground/70;
+  inset-block-start: 0;
+}
+
+.leafdown-block-selection-status {
+  @apply sr-only;
 }
 
 .leafdown-context-popup {

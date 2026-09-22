@@ -58,6 +58,7 @@ import {
 import { createLeafdownAttentionPairingPlugin } from "../plugins/attentionPairing";
 import { createLeafdownAutolinkLiteralPositionPlugin } from "../plugins/autolinkLiteralPosition";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
+import { createLeafdownBlockSelectionPlugin } from "../plugins/blockSelectionInteraction";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import {
   createLeafdownCharacterReferencePlugin,
@@ -303,6 +304,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
+    .use(createLeafdownBlockSelectionPlugin())
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
     .use(createLeafdownTaskListCheckboxPlugin())

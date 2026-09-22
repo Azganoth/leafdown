@@ -87,6 +87,19 @@ Multiline safe HTML.
     expect(editorCss).toMatch(/\[data-html-flow="block"\]\s*\{[^}]*display: block/su);
   });
 
+  it("paints a neutral padded wash without changing selectable-block geometry", () => {
+    const editorCss = readFileSync(editorCssPath, "utf8");
+    const selectedBlockRule = editorCss.match(/\.leafdown-selected-block\s*\{(?<body>[^}]*)\}/su)
+      ?.groups?.body;
+
+    expect(editorCss).not.toMatch(/\.leafdown-selectable-block\s*\{/u);
+    expect(selectedBlockRule).toContain("rounded-sm");
+    expect(selectedBlockRule).toContain("var(--foreground) 5%");
+    expect(selectedBlockRule).toContain("background-image: linear-gradient");
+    expect(selectedBlockRule).toContain("box-shadow: 0 0 0 0.25rem");
+    expect(selectedBlockRule).not.toMatch(/padding|margin|border|outline|primary/u);
+  });
+
   it("renders a footnote definition's label beside its marker runs", async () => {
     const mounted = await mountStyledEditor("Note[^a]\n\n[^a]: Detail");
     const definition = getEditorDomElement(mounted, "dl[data-type='footnote_definition']");

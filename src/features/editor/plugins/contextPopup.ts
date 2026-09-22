@@ -7,6 +7,7 @@ import {
   createContextPopupAnchor,
   type ContextPopupAnchor,
 } from "../utils/contextPopupAnchor";
+import { BlockSelection } from "./blockSelection";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
@@ -14,6 +15,7 @@ export type ContextPopupSource = "keyboard" | "pointer";
 
 export interface ContextPopupRequest {
   anchor: ContextPopupAnchor;
+  selectionKind: "block" | "text";
   source: ContextPopupSource;
 }
 
@@ -50,6 +52,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
     let dismissed = false;
     // The pointer path opens on release, so the selection a drag builds must not open the popup.
     let pointerSelecting = false;
+    let suppressPointerRelease = false;
 
     const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
       if (!canMeasureSelection(view)) {
@@ -59,7 +62,11 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       anchor ??= createContextPopupAnchor(view);
       openSource = source;
       dismissed = false;
-      options.onRequest?.({ anchor, source });
+      options.onRequest?.({
+        anchor,
+        selectionKind: view.state.selection instanceof BlockSelection ? "block" : "text",
+        source,
+      });
 
       return true;
     };
@@ -102,6 +109,17 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
     return new Plugin({
       key: leafdownContextPopupPluginKey,
       view: (editorView) => {
+        const handleRootMouseDown = (event: Event) => {
+          if (
+            event instanceof MouseEvent &&
+            event.button === 0 &&
+            event.target instanceof Element &&
+            event.target.closest("[data-leafdown-block-handle]")
+          ) {
+            pointerSelecting = true;
+            suppressPointerRelease = false;
+          }
+        };
         const handleRootMouseUp = (event: Event) => {
           if (!(event instanceof MouseEvent) || event.button !== 0 || !pointerSelecting) {
             return;
@@ -109,8 +127,15 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
 
           window.requestAnimationFrame(() => {
             pointerSelecting = false;
+            const suppressPopup = suppressPointerRelease;
+            suppressPointerRelease = false;
 
             if (editorView.isDestroyed) {
+              return;
+            }
+
+            if (suppressPopup || editorView.dom.hasAttribute("data-leafdown-block-dragging")) {
+              dismissed = true;
               return;
             }
 
@@ -125,15 +150,35 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
           });
         };
 
+        const handleRootDragStart = (event: Event) => {
+          if (
+            event.target instanceof Element &&
+            event.target.closest("[data-leafdown-block-handle]")
+          ) {
+            suppressPointerRelease = true;
+          }
+        };
+
+        const handleRootDragEnd = () => {
+          pointerSelecting = false;
+          dismissed = true;
+        };
+
         const root = editorView.root;
+        root.addEventListener("mousedown", handleRootMouseDown, true);
         root.addEventListener("mouseup", handleRootMouseUp);
+        root.addEventListener("dragstart", handleRootDragStart);
+        root.addEventListener("dragend", handleRootDragEnd);
 
         return {
           update: (view, previousState) => {
             syncPopupToSelection(view, previousState);
           },
           destroy: () => {
+            root.removeEventListener("mousedown", handleRootMouseDown, true);
             root.removeEventListener("mouseup", handleRootMouseUp);
+            root.removeEventListener("dragstart", handleRootDragStart);
+            root.removeEventListener("dragend", handleRootDragEnd);
           },
         };
       },

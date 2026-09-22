@@ -51,8 +51,16 @@ const flushPlacement = () =>
   );
 
 const ANCHOR = { contextElement: document.body, getRect: () => createAnchorRect() };
-const POINTER_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "pointer" };
-const KEYBOARD_REQUEST: ContextPopupRequest = { anchor: ANCHOR, source: "keyboard" };
+const POINTER_REQUEST: ContextPopupRequest = {
+  anchor: ANCHOR,
+  selectionKind: "text",
+  source: "pointer",
+};
+const KEYBOARD_REQUEST: ContextPopupRequest = {
+  anchor: ANCHOR,
+  selectionKind: "text",
+  source: "keyboard",
+};
 
 interface ClosingPopupHostProps {
   onReturnFocus?: () => void;
@@ -103,7 +111,11 @@ describe("editor-context-popup", () => {
     render(
       <StrictMode>
         <EditorContextPopup
-          request={{ anchor: { contextElement: document.body, getRect }, source: "pointer" }}
+          request={{
+            anchor: { contextElement: document.body, getRect },
+            selectionKind: "text",
+            source: "pointer",
+          }}
           commandState={enabledPopupCommandState}
           onClose={vi.fn()}
           onExecute={vi.fn()}
@@ -418,6 +430,16 @@ describe("editor-context-popup", () => {
       expect(screen.queryByRole("group")).not.toBeInTheDocument();
     });
 
+    it("hides inline-only actions for a structural block selection", () => {
+      renderToolbar({ ...POINTER_REQUEST, selectionKind: "block" });
+
+      expect(screen.queryByLabelText("Bold")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Italic")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Inline code")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Copy")).toBeInTheDocument();
+      expect(screen.getByLabelText("Blockquote")).toBeInTheDocument();
+    });
+
     it("keeps the toolbar to a single roving tab stop", () => {
       renderToolbar(POINTER_REQUEST);
 
@@ -617,7 +639,11 @@ describe("editor-context-popup", () => {
       measure: () => DOMRect = () => createAnchorRect(),
     ) => {
       const getRect = vi.fn((_mode: ContextPopupAnchorMode) => measure());
-      const request = { anchor: { contextElement: document.body, getRect }, source };
+      const request: ContextPopupRequest = {
+        anchor: { contextElement: document.body, getRect },
+        selectionKind: "text",
+        source,
+      };
       const view = render(
         <EditorContextPopup
           request={request}
@@ -658,6 +684,7 @@ describe("editor-context-popup", () => {
       let rect = createAnchorRect(openedAt);
       const request: ContextPopupRequest = {
         anchor: { contextElement: document.body, getRect: () => rect },
+        selectionKind: "text",
         source: "pointer",
       };
       const renderPopup = () => (
@@ -726,6 +753,7 @@ describe("editor-context-popup", () => {
         <EditorContextPopup
           request={{
             anchor: { contextElement: document.body, getRect: () => rect },
+            selectionKind: "text",
             source: "pointer",
           }}
           commandState={enabledPopupCommandState}
@@ -759,6 +787,7 @@ describe("editor-context-popup", () => {
               // follows the selection out of it.
               getRect: (mode) => createAnchorRect(mode === "pinned" ? 0 : -5000),
             },
+            selectionKind: "text",
             source: "keyboard",
           }}
           commandState={enabledPopupCommandState}
@@ -779,6 +808,7 @@ describe("editor-context-popup", () => {
     it("cancels selection easing before a scroll is positioned", async () => {
       const request: ContextPopupRequest = {
         anchor: ANCHOR,
+        selectionKind: "text",
         source: "pointer",
       };
       const renderPopup = () => (

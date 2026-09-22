@@ -1,5 +1,7 @@
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { BlockSelection, getSelectedBlockTargets } from "../plugins/blockSelection";
+
 // Roughly the popup's height. It only gates whether there is room beside the selection, so
 // measuring the real thing would buy nothing.
 const POPUP_CLEARANCE = 200;
@@ -41,6 +43,24 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const getSelectionRect = (view: EditorView): DOMRect | null => {
   const { selection } = view.state;
+
+  if (selection instanceof BlockSelection) {
+    const rects = getSelectedBlockTargets(selection)
+      .map(({ pos }) => view.nodeDOM(pos))
+      .filter((node): node is Element => node instanceof Element)
+      .map((element) => element.getBoundingClientRect());
+
+    if (rects.length === 0) {
+      return null;
+    }
+
+    return createRect(
+      Math.min(...rects.map(({ left }) => left)),
+      Math.min(...rects.map(({ top }) => top)),
+      Math.max(...rects.map(({ right }) => right)),
+      Math.max(...rects.map(({ bottom }) => bottom)),
+    );
+  }
 
   try {
     const from = view.coordsAtPos(selection.from, 1);

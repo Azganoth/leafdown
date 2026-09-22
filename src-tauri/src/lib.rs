@@ -36,6 +36,19 @@ pub fn run() {
         .plugin(tauri_plugin_wdio::init())
         .plugin(tauri_plugin_wdio_webdriver::init());
 
+    let context = tauri::generate_context!();
+
+    #[cfg(feature = "desktop-e2e")]
+    let context = {
+        let mut context = context;
+
+        if let Ok(identifier) = std::env::var("LEAFDOWN_E2E_APP_IDENTIFIER") {
+            context.config_mut().identifier = identifier;
+        }
+
+        context
+    };
+
     builder
         .plugin(
             tauri_plugin_window_state::Builder::new()
@@ -94,7 +107,7 @@ pub fn run() {
             folder::watch_markdown_folder,
             folder::unwatch_markdown_folder
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .unwrap_or_else(|error| {
             log::error!("error while running tauri application: {error}");
             panic!("error while running tauri application: {error}");

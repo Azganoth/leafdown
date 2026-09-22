@@ -1,6 +1,7 @@
 import { $, browser, expect } from "@wdio/globals";
 
 import { getDiagnosticsSummary } from "../support/diagnostics.js";
+import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { openMenu } from "../support/ui.js";
 
 describe("desktop diagnostics", () => {
@@ -17,9 +18,10 @@ describe("desktop diagnostics", () => {
     await expect(summaryField).toHaveValue(expect.stringContaining("Leafdown diagnostics"));
 
     const summary = await getDiagnosticsSummary();
+    const { appIdentifier } = await getDesktopE2ERunContext();
     const summaryText = await summaryField.getValue();
 
-    expect(summary.appIdentifier).toBe("com.azganoth.leafdown.e2e");
+    expect(summary.appIdentifier).toBe(appIdentifier);
     expect(summary.runId).not.toHaveLength(0);
     expect(summaryText).toContain(`Identifier: ${summary.appIdentifier}`);
     expect(summaryText).toContain(`Run: ${summary.runId}`);

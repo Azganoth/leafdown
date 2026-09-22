@@ -12,7 +12,7 @@
     "build:e2e:desktop": "tauri build --debug --no-bundle --features desktop-e2e --config e2e/desktop/tauri.conf.json -- --target-dir target/desktop-e2e",
     "test:e2e:desktop": "pnpm build:e2e:desktop && pnpm test:e2e:desktop:run",
     "test:e2e:desktop:run": "tsx e2e/desktop/run.ts",
-    "test:e2e:desktop:runner": "tsx --test e2e/desktop/support/scenarioSelection.test.ts",
+    "test:e2e:desktop:runner": "tsx --test e2e/desktop/support/scenarioSelection.test.ts e2e/desktop/support/workerPool.test.ts",
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "pnpm lint:frontend && pnpm lint:backend",

@@ -3,6 +3,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { isTextOnlySlice } from "@milkdown/kit/prose";
 import type { EditorProps, EditorView } from "@milkdown/kit/prose/view";
 
+import { deleteSelectedBlocks } from "../plugins/blockSelectionOperations";
 import {
   deleteSourceProjectionSelection,
   getSourceProjectionClipboardSlice,
@@ -54,6 +55,10 @@ export const deleteClipboardSelection = (
 ) => {
   if (sourceProjectionWasActive) {
     return deleteSourceProjectionSelection(view);
+  }
+
+  if (deleteSelectedBlocks(view)) {
+    return true;
   }
 
   if (view.state.selection.empty) {

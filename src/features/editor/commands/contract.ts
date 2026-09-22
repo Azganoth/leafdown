@@ -16,6 +16,8 @@ export const EDITOR_COMMAND_IDS = [
   "edit.pasteAsMarkdown",
   "edit.pasteAsRichText",
   "edit.delete",
+  "edit.moveBlockUp",
+  "edit.moveBlockDown",
   "edit.deleteWordBackward",
   "edit.deleteWordForward",
   "edit.selectAll",

@@ -1,4 +1,6 @@
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   BoldIcon,
   ChevronRightIcon,
   ClipboardPasteIcon,
@@ -56,6 +58,11 @@ const QUICK_ACTION_COMMANDS = [
   { commandId: "edit.copy", icon: CopyIcon },
   { commandId: "edit.paste", icon: ClipboardPasteIcon },
   { commandId: "edit.delete", icon: Trash2Icon },
+] satisfies readonly ContextButtonCommand[];
+
+const BLOCK_MOVEMENT_COMMANDS = [
+  { commandId: "edit.moveBlockUp", icon: ArrowUpIcon },
+  { commandId: "edit.moveBlockDown", icon: ArrowDownIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const INLINE_ACTION_COMMANDS = [
@@ -381,6 +388,14 @@ export function EditorContextPopup({
           canExecute={canExecute}
           row={0}
         />
+        {request.selectionKind === "block" && (
+          <ContextCommandRow
+            commands={BLOCK_MOVEMENT_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={1}
+          />
+        )}
         {request.selectionKind === "text" && (
           <ContextCommandRow
             commands={INLINE_ACTION_COMMANDS}

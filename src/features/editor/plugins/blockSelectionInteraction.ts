@@ -10,11 +10,15 @@ import {
   getSelectedBlockTargets,
 } from "./blockSelection";
 import { isStructuralBlockSelection } from "./blockSelectionKeyboard";
+import {
+  canMoveSelectedBlocksToBoundary,
+  moveSelectedBlocksToBoundary,
+} from "./blockSelectionOperations";
 
 export const leafdownBlockSelectionPluginKey = new PluginKey("leafdownBlockSelection");
 
-const BLOCK_DRAG_MIME = "application/x-leafdown-block-selection";
 const BLOCK_HANDLE_SELECTOR = "[data-leafdown-block-handle]";
+const BLOCK_DRAG_THRESHOLD = 5;
 
 const getBlockName = (node: ProseMirrorNode) => {
   switch (node.type.name) {
@@ -110,7 +114,6 @@ const createGutter = (doc: Document, node: ProseMirrorNode, pos: number) => {
   handle.className = "leafdown-block-handle";
   handle.dataset.leafdownBlockHandle = "";
   handle.dataset.leafdownBlockPos = String(pos);
-  handle.draggable = true;
   handle.tabIndex = -1;
   handle.type = "button";
   handle.setAttribute("aria-label", `Select ${blockName.toLocaleLowerCase()} block`);
@@ -127,6 +130,7 @@ class BlockSelectionView {
   private animationFrame: number | null = null;
   private hoveredPos: number | null = null;
   private pendingCollapsePos: number | null = null;
+  private pressedHandle: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
   constructor(private view: EditorView) {
@@ -144,8 +148,10 @@ class BlockSelectionView {
     this.overlay.addEventListener("mouseup", this.handleMouseUp);
     this.overlay.addEventListener("mouseover", this.handleHandleMouseOver);
     this.overlay.addEventListener("mouseout", this.handleHandleMouseOut);
-    this.overlay.addEventListener("dragstart", this.handleDragStart);
-    this.overlay.addEventListener("dragend", this.handleDragEnd);
+    doc.addEventListener("mousemove", this.handleDragMove);
+    doc.addEventListener("mouseup", this.handleDocumentMouseUp);
+    doc.addEventListener("mouseleave", this.cancelPendingDrag);
+    doc.defaultView?.addEventListener("blur", this.cancelPendingDrag);
     view.dom.addEventListener("mousemove", this.handleEditorMouseMove);
     view.dom.addEventListener("mouseleave", this.handleEditorMouseLeave);
     view.root.addEventListener("scroll", this.schedulePosition, true);
@@ -180,8 +186,10 @@ class BlockSelectionView {
     this.overlay.removeEventListener("mouseup", this.handleMouseUp);
     this.overlay.removeEventListener("mouseover", this.handleHandleMouseOver);
     this.overlay.removeEventListener("mouseout", this.handleHandleMouseOut);
-    this.overlay.removeEventListener("dragstart", this.handleDragStart);
-    this.overlay.removeEventListener("dragend", this.handleDragEnd);
+    this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleDragMove);
+    this.view.dom.ownerDocument.removeEventListener("mouseup", this.handleDocumentMouseUp);
+    this.view.dom.ownerDocument.removeEventListener("mouseleave", this.cancelPendingDrag);
+    this.view.dom.ownerDocument.defaultView?.removeEventListener("blur", this.cancelPendingDrag);
     this.view.dom.removeEventListener("mousemove", this.handleEditorMouseMove);
     this.view.dom.removeEventListener("mouseleave", this.handleEditorMouseLeave);
     this.view.root.removeEventListener("scroll", this.schedulePosition, true);
@@ -192,7 +200,7 @@ class BlockSelectionView {
       this.view.dom.ownerDocument.defaultView?.cancelAnimationFrame(this.animationFrame);
     }
 
-    this.view.dom.removeAttribute("data-leafdown-block-dragging");
+    this.cancelPendingDrag();
     this.overlay.remove();
     this.status.remove();
   }
@@ -354,6 +362,7 @@ class BlockSelectionView {
     }
 
     event.preventDefault();
+    this.pressedHandle = { x: event.clientX, y: event.clientY };
     const { selection } = this.view.state;
     let nextSelection: BlockSelection;
 
@@ -392,26 +401,47 @@ class BlockSelectionView {
     }
   };
 
-  private readonly handleDragStart = (event: DragEvent) => {
-    const handle = getHandle(event);
+  private getDropBoundary(event: MouseEvent) {
+    const block =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>("[data-leafdown-block-pos]")
+        : null;
+    const pos = block ? Number(block.dataset.leafdownBlockPos) : Number.NaN;
+    if (!Number.isSafeInteger(pos)) return null;
 
-    if (!handle || !(this.view.state.selection instanceof BlockSelection)) {
-      return;
-    }
+    const target = getSelectableBlockTargets(this.view.state.doc).find((item) => item.pos === pos);
+    if (!target) return null;
 
-    this.pendingCollapsePos = null;
-    this.view.dom.setAttribute("data-leafdown-block-dragging", "");
-    event.dataTransfer?.setData(
-      BLOCK_DRAG_MIME,
-      JSON.stringify(this.view.state.selection.toJSON()),
-    );
+    const { top, height } = block!.getBoundingClientRect();
+    return event.clientY >= top + height / 2 ? pos + target.node.nodeSize : pos;
+  }
 
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = "move";
+  private readonly handleDragMove = (event: MouseEvent) => {
+    const press = this.pressedHandle;
+    if (!press || (event.buttons & 1) === 0) return;
+    if (
+      !this.view.dom.hasAttribute("data-leafdown-block-dragging") &&
+      Math.hypot(event.clientX - press.x, event.clientY - press.y) >= BLOCK_DRAG_THRESHOLD
+    ) {
+      this.pendingCollapsePos = null;
+      this.view.dom.setAttribute("data-leafdown-block-dragging", "");
     }
   };
 
-  private readonly handleDragEnd = () => {
+  private readonly handleDocumentMouseUp = (event: MouseEvent) => {
+    if (!this.pressedHandle || event.button !== 0) return;
+    this.pressedHandle = null;
+    if (this.view.dom.hasAttribute("data-leafdown-block-dragging")) {
+      const boundary = this.getDropBoundary(event);
+      if (boundary !== null && canMoveSelectedBlocksToBoundary(this.view.state, boundary)) {
+        moveSelectedBlocksToBoundary(this.view, boundary);
+      }
+    }
+    this.cancelPendingDrag();
+  };
+
+  private readonly cancelPendingDrag = () => {
+    this.pressedHandle = null;
     this.pendingCollapsePos = null;
     this.view.dom.removeAttribute("data-leafdown-block-dragging");
   };

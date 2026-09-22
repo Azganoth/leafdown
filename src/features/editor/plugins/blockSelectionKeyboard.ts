@@ -42,6 +42,9 @@ export const leafdownBlockSelectionKeyboardPluginKey = new PluginKey<BlockSelect
 const getKeyboardState = (state: EditorState) =>
   leafdownBlockSelectionKeyboardPluginKey.getState(state) ?? EMPTY_KEYBOARD_STATE;
 
+export const getBlockSelectionEditingBookmark = (state: EditorState) =>
+  getKeyboardState(state).bookmark;
+
 export const isStructuralBlockSelection = (state: EditorState) => {
   const keyboardState = getKeyboardState(state);
 

@@ -1,6 +1,7 @@
 import { $, $$, browser, expect } from "@wdio/globals";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { Key } from "webdriverio";
 
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
@@ -293,5 +294,69 @@ describe("desktop block selection", () => {
 
     await mkdir(ARTIFACTS_DIR, { recursive: true });
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection.png"));
+
+    await browser.keys(Key.Escape);
+    await expect($("[data-testid='editor-context-popup']")).not.toExist();
+
+    const operationHandle = $(await getHandleSelectorForText("Nested first"));
+    await operationHandle.scrollIntoView();
+    await operationHandle.execute((node) => {
+      for (const type of ["mousedown", "mouseup"] as const) {
+        node.dispatchEvent(new MouseEvent(type, { bubbles: true, button: 0, cancelable: true }));
+      }
+    });
+    await expect($("[data-testid='editor-context-popup']")).toBeDisplayed();
+    await expect($("aria/Move block up")).toHaveAttribute("data-disabled");
+    await expect($("aria/Move block down")).not.toHaveAttribute("data-disabled");
+    await $("aria/Move block down").click();
+    const movedTexts = (await handleGeometry())
+      .filter(({ blockTag }) => blockTag === "LI")
+      .map(({ blockText }) => blockText);
+    expect(movedTexts.join(" | ")).toContain("Nested second | Nested first");
+    await browser.waitUntil(() =>
+      browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
+    );
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await browser.waitUntil(async () => {
+      const texts = (await handleGeometry())
+        .filter(({ blockTag }) => blockTag === "LI")
+        .map(({ blockText }) => blockText);
+      return texts.indexOf("Nested first") < texts.indexOf("Nested second");
+    });
+
+    await browser.keys([Key.Alt, Key.ArrowDown, Key.NULL]);
+    const keyboardMovedTexts = (await handleGeometry())
+      .filter(({ blockTag }) => blockTag === "LI")
+      .map(({ blockText }) => blockText);
+    expect(keyboardMovedTexts.join(" | ")).toContain("Nested second | Nested first");
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await browser.waitUntil(async () => {
+      const texts = (await handleGeometry())
+        .filter(({ blockTag }) => blockTag === "LI")
+        .map(({ blockText }) => blockText);
+      return texts.indexOf("Nested first") < texts.indexOf("Nested second");
+    });
+
+    const dragHandle = $(await getHandleSelectorForText("Nested first"));
+    await dragHandle.scrollIntoView();
+    const start = await getHandlePoint(dragHandle);
+    const target = await getGeometryForText("Nested second");
+    await browser
+      .action("pointer")
+      .move({ origin: "viewport", x: start.x, y: start.y })
+      .down({ button: 0 })
+      .move({ origin: "viewport", x: start.x, y: start.y + 8, duration: 200 })
+      .move({
+        origin: "viewport",
+        x: Math.round(target.blockLeft + 20),
+        y: Math.round(target.blockTop + target.blockHeight - 3),
+        duration: 400,
+      })
+      .up({ button: 0 })
+      .perform();
+    const textsAfterDrag = (await handleGeometry())
+      .filter(({ blockTag }) => blockTag === "LI")
+      .map(({ blockText }) => blockText);
+    expect(textsAfterDrag.join(" | ")).toContain("Nested second | Nested first");
   });
 });

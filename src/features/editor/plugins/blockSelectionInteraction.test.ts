@@ -4,7 +4,6 @@ import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createClipboardData,
   dispatchDOMEvent,
   dispatchMouseEvent,
   dispatchMouseDown,
@@ -215,18 +214,48 @@ describe("block selection interaction", () => {
 
     const handle = getHandle(paragraphs[0].pos);
     dispatchMouseDown(handle, { button: 0 });
-    const dataTransfer = createClipboardData();
-    const dragStart = new Event("dragstart", { bubbles: true, cancelable: true }) as DragEvent;
-    Object.defineProperty(dragStart, "dataTransfer", { value: dataTransfer });
-    handle.dispatchEvent(dragStart);
+    dispatchMouseEvent(document, "mousemove", { buttons: 1, clientX: 20, clientY: 20 });
+    expect(mounted.view.dom).toHaveAttribute("data-leafdown-block-dragging");
     dispatchMouseUp(document.body, { button: 0 });
-    handle.dispatchEvent(new Event("dragend", { bubbles: true }));
 
     await settleAnimationFrame();
 
-    expect(dataTransfer.types).toContain("application/x-leafdown-block-selection");
     expect(mounted.view.dom).not.toHaveAttribute("data-leafdown-block-dragging");
     expect(onContextPopupRequested).not.toHaveBeenCalled();
+  });
+
+  it("drops a handle-selected range at a valid sibling boundary", async () => {
+    const mounted = await mountEditor("First\n\nSecond\n\nThird\n");
+    const paragraphs = getSelectableBlockTargets(mounted.view.state.doc);
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(mounted.view.state.doc, paragraphs[0].pos),
+      ),
+    );
+    const handle = getHandle(paragraphs[0].pos);
+    const target = mounted.view.nodeDOM(paragraphs[2].pos);
+    if (!(target instanceof Element)) throw new Error("Expected rendered drop target.");
+    vi.spyOn(target, "getBoundingClientRect").mockReturnValue(createRect(100, 40));
+    dispatchMouseDown(handle, { button: 0 });
+    dispatchMouseEvent(document, "mousemove", { buttons: 1, clientX: 10, clientY: 20 });
+    dispatchMouseUp(target, { button: 0, clientY: 65 });
+    expect(mounted.getMarkdown()).toBe("Second\n\nThird\n\nFirst\n");
+    expect(mounted.view.state.selection).toBeInstanceOf(BlockSelection);
+  });
+
+  it("cancels a pending handle drag when the window loses focus", async () => {
+    const mounted = await mountEditor("First\n\nSecond\n");
+    const first = getSelectableBlockTargets(mounted.view.state.doc)[0];
+    const handle = getHandle(first.pos);
+
+    dispatchMouseDown(handle, { button: 0 });
+    dispatchMouseEvent(document, "mousemove", { buttons: 1, clientX: 20 });
+    expect(mounted.view.dom).toHaveAttribute("data-leafdown-block-dragging");
+    dispatchDOMEvent(window, "blur");
+    dispatchMouseUp(document.body, { button: 0 });
+
+    expect(mounted.view.dom).not.toHaveAttribute("data-leafdown-block-dragging");
+    expect(mounted.getMarkdown()).toBe("First\n\nSecond\n");
   });
 
   it("announces block type or count without adding a tab stop", async () => {

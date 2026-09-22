@@ -14,6 +14,8 @@ export const EDITOR_COMMAND_LABELS = {
   "edit.pasteAsMarkdown": "Markdown",
   "edit.pasteAsRichText": "Rich text / formatted text",
   "edit.delete": "Delete",
+  "edit.moveBlockUp": "Move block up",
+  "edit.moveBlockDown": "Move block down",
   "edit.deleteWordBackward": "Delete word backward",
   "edit.deleteWordForward": "Delete word forward",
   "edit.selectAll": "Select all",

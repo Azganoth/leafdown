@@ -106,7 +106,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Markdown**
   - **Rich text / formatted text**
 - **Delete**
-  - **Delete** (`Delete`)
+  - **Delete** (`Delete`): Removes a structural block selection as one range. `Backspace` does the same while that selection is active.
   - **Delete block** (Deferred)
   - **Delete sentence** (Deferred)
   - **Delete word backward** (`Mod+Backspace`)
@@ -123,8 +123,8 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to line start** (`Home`)
   - **Jump to line end** (`End`)
   - **Jump to footnote definition**
-- **Move block up** (`Alt+Up`, Deferred)
-- **Move block down** (`Alt+Down`, Deferred)
+- **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
+- **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
 - **Line ending**
   - **Windows line ending (CRLF)**
   - **Unix line ending (LF)**
@@ -276,6 +276,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Jump to selection` requires a selection.
 - `Jump to footnote definition` requires a footnote reference at the caret whose label a definition in the document answers to.
 - `Delete block` requires an active block.
+- `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.
 - `Delete sentence` and `Select sentence` require a sentence at or adjacent to the caret.
 - `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.

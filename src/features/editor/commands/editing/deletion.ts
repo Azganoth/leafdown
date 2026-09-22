@@ -7,6 +7,7 @@ import {
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { deleteSelectedBlocks } from "../../plugins/blockSelectionOperations";
 import { runProseMirrorCommand } from "../../utils/milkdown";
 import { isTextCaretSelection } from "../../utils/selections";
 import {
@@ -62,7 +63,9 @@ const deleteWordRange = (view: EditorView, getRange: typeof getTextWordRangeBefo
 /* Commands */
 
 export const deleteForward = (view: EditorView) =>
-  runProseMirrorCommand(view, deleteForwardCommand) || deleteNextTextCharacter(view);
+  deleteSelectedBlocks(view) ||
+  runProseMirrorCommand(view, deleteForwardCommand) ||
+  deleteNextTextCharacter(view);
 
 export const deleteWordBackward = (view: EditorView) =>
   deleteWordRange(view, getTextWordRangeBeforeSelection);

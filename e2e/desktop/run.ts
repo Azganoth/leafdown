@@ -8,6 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import type { DesktopE2ERunContext } from "./support/runContext.js";
+import { selectScenarioNames } from "./support/scenarioSelection.js";
 import { RUN_LABEL, WEBDRIVER_PORT } from "./support/suite.js";
 
 interface Scenario {
@@ -16,6 +17,8 @@ interface Scenario {
   recentFiles?: string[];
   recentFolders?: string[];
 }
+
+const selectedScenarioNames = selectScenarioNames(process.argv.slice(2));
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const artifactsRoot = path.join(repositoryRoot, "e2e", "desktop", "artifacts", RUN_LABEL);
@@ -212,11 +215,20 @@ const main = async () => {
     { name: "persistence-restart", continues: "persistence-write" },
     { name: "window-lifecycle" },
   ];
+  const selectedScenarios = selectedScenarioNames.map((name) => {
+    const scenario = scenarios.find((candidate) => candidate.name === name);
+
+    if (!scenario) {
+      throw new Error(`Desktop E2E scenario configuration is missing: ${name}.`);
+    }
+
+    return scenario;
+  });
 
   try {
-    for (const [index, scenario] of scenarios.entries()) {
+    for (const [index, scenario] of selectedScenarios.entries()) {
       if (scenario.continues) {
-        if (scenario.continues !== scenarios[index - 1]?.name) {
+        if (scenario.continues !== selectedScenarios[index - 1]?.name) {
           throw new Error(
             `Scenario ${scenario.name} must run directly after ${scenario.continues}.`,
           );

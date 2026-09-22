@@ -381,12 +381,14 @@ export function EditorContextPopup({
           canExecute={canExecute}
           row={0}
         />
-        <ContextCommandRow
-          commands={INLINE_ACTION_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-          row={1}
-        />
+        {request.selectionKind === "text" && (
+          <ContextCommandRow
+            commands={INLINE_ACTION_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={1}
+          />
+        )}
         <ContextCommandRow
           commands={BLOCK_FORMATTING_COMMANDS}
           onExecute={onExecute}

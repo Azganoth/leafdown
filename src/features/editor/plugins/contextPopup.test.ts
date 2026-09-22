@@ -18,6 +18,8 @@ import {
 import { runKeyDownHandlers, setTextSelection, typeText } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
+import { createHierarchicalBlockSelection, getSelectableBlockTargets } from "./blockSelection";
+
 const mountEditor = setupMilkdownEditorMount();
 
 const settleAnimationFrame = () =>
@@ -63,6 +65,7 @@ const trackPopupOpenState = () => {
 
 const popupRequest = (source: ContextPopupSource) => ({
   anchor: expect.objectContaining({ getRect: expect.any(Function) }),
+  selectionKind: "text",
   source,
 });
 
@@ -107,6 +110,43 @@ describe("context popup plugin", () => {
       top: 31,
       right: 26,
       bottom: 46,
+    });
+  });
+
+  it("anchors a block selection to the union of its rendered block bounds", async () => {
+    const { onContextPopupRequested, lastRequest } = collectRequests();
+    const mounted = await mountEditor("First\n\nSecond\n", { onContextPopupRequested });
+    const paragraphs = getSelectableBlockTargets(mounted.view.state.doc);
+    const rects = [
+      { bottom: 80, height: 30, left: 100, right: 300, top: 50, width: 200, x: 100, y: 50 },
+      { bottom: 150, height: 40, left: 120, right: 340, top: 110, width: 220, x: 120, y: 110 },
+    ];
+
+    paragraphs.forEach(({ pos }, index) => {
+      const node = mounted.view.nodeDOM(pos);
+      if (!(node instanceof Element)) throw new Error("Expected a rendered paragraph.");
+      vi.spyOn(node, "getBoundingClientRect").mockReturnValue({
+        ...rects[index],
+        toJSON: () => rects[index],
+      });
+    });
+
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(
+          mounted.view.state.doc,
+          paragraphs[0].pos,
+          paragraphs[1].pos,
+        ),
+      ),
+    );
+
+    expect(lastRequest()).toEqual(expect.objectContaining({ selectionKind: "block" }));
+    expect(lastRequest().anchor.getRect("live")).toMatchObject({
+      bottom: 150,
+      left: 100,
+      right: 340,
+      top: 50,
     });
   });
 

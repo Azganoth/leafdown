@@ -5,6 +5,7 @@ import { selectScenarioNames } from "./scenarioSelection.js";
 
 void test("runs every scenario when no focused target is requested", () => {
   assert.deepEqual(selectScenarioNames([]), [
+    "block-selection",
     "diagnostics",
     "document-lifecycle",
     "folder-watcher",
@@ -19,6 +20,10 @@ void test("runs every scenario when no focused target is requested", () => {
 
 void test("selects one independent scenario", () => {
   assert.deepEqual(selectScenarioNames(["--scenario", "folder-watcher"]), ["folder-watcher"]);
+});
+
+void test("selects the block-selection scenario", () => {
+  assert.deepEqual(selectScenarioNames(["--scenario", "block-selection"]), ["block-selection"]);
 });
 
 void test("selects the persistence write and restart sequence together", () => {

@@ -6,6 +6,10 @@ import { MIXED_HEADING_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { setTextSelection } from "@/test/utils/prosemirror";
 
+import {
+  createHierarchicalBlockSelection,
+  getSelectableBlockTargets,
+} from "../../plugins/blockSelection";
 import { selectAll } from "../editing/selection";
 import {
   canDecreaseListIndent,
@@ -90,6 +94,39 @@ describe("editor block formatting commands", () => {
 
     expect(toggleTaskList(mounted.view)).toBe(true);
     expect(mounted.view.dom.querySelector("li[data-checked]")).not.toBeInTheDocument();
+  });
+
+  it("changes only exact list-item endpoints in a cross-list block selection", async () => {
+    const mounted = await mountEditor(`- Hyphen item
+- Second hyphen item
+
++ Plus item starts another list
+
+* Asterisk item starts another list
+`);
+    const listItems = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "list_item",
+    );
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(
+          mounted.view.state.doc,
+          listItems[1].pos,
+          listItems[2].pos,
+        ),
+      ),
+    );
+
+    expect(toggleTaskList(mounted.view)).toBe(true);
+
+    const updatedItems = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "list_item",
+    );
+    expect(
+      updatedItems.map(({ node }) =>
+        node.attrs.checked === null ? null : Boolean(node.attrs.checked),
+      ),
+    ).toEqual([null, false, false, null]);
   });
 
   it("indents and outdents list items through formatting commands", async () => {

@@ -135,6 +135,7 @@ const main = async () => {
 
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "leafdown-desktop-e2e-"));
   const documentPath = path.join(temporaryRoot, "document-lifecycle.md");
+  const blocksPath = path.join(temporaryRoot, "block-selection.md");
   const imagesPath = path.join(temporaryRoot, "rendered-images.md");
   const htmlPath = path.join(temporaryRoot, "rendered-html.md");
   const leafImagePath = path.join(temporaryRoot, "leaf.svg");
@@ -147,6 +148,7 @@ const main = async () => {
   const missingDocumentPath = path.join(temporaryRoot, "missing-document.md");
   const savedMarker = "Saved fixture marker.";
   const context: DesktopE2ERunContext = {
+    blocks: { path: blocksPath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -172,6 +174,10 @@ const main = async () => {
   };
 
   await mkdir(folderPath, { recursive: true });
+  await copyFile(
+    path.join(repositoryRoot, "e2e", "desktop", "fixtures", "block-selection.md"),
+    blocksPath,
+  );
   await copyFile(
     path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),
     htmlPath,
@@ -205,6 +211,7 @@ const main = async () => {
   await writeJson(contextPath, context);
 
   const scenarios: Scenario[] = [
+    { name: "block-selection", recentFiles: [blocksPath] },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },

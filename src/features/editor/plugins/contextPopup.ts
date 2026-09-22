@@ -7,7 +7,7 @@ import {
   createContextPopupAnchor,
   type ContextPopupAnchor,
 } from "../utils/contextPopupAnchor";
-import { BlockSelection } from "./blockSelection";
+import { isStructuralBlockSelection } from "./blockSelectionKeyboard";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
@@ -64,7 +64,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       dismissed = false;
       options.onRequest?.({
         anchor,
-        selectionKind: view.state.selection instanceof BlockSelection ? "block" : "text",
+        selectionKind: isStructuralBlockSelection(view.state) ? "block" : "text",
         source,
       });
 

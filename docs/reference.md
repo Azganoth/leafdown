@@ -112,7 +112,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Delete word backward** (`Mod+Backspace`)
   - **Delete word forward** (`Mod+Delete`)
 - **Select**
-  - **Select all** (`Mod+A`)
+  - **Select all** (`Mod+A`): Selects the whole document immediately from the Edit menu. In a focused ordinary editor, `Mod+A` progressively selects the nearest block, its siblings, containing scopes, and then the document.
   - **Select block** (Deferred)
   - **Select sentence** (Deferred)
   - **Select word**

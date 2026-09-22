@@ -125,7 +125,7 @@ jobs:
         run: pnpm build:e2e:desktop
 
       - name: Run desktop E2E suite
-        run: pnpm test:e2e:desktop:run
+        run: pnpm test:e2e:desktop:run -- --workers 1
 
       - name: Upload failure evidence
         if: failure()
@@ -144,7 +144,7 @@ jobs:
           Start-Sleep -Seconds 10
 
           $orphans = Get-Process -Name leafdown-e2e, msedgedriver -ErrorAction SilentlyContinue
-          $listeners = Get-NetTCPConnection -LocalPort 4445 -State Listen -ErrorAction SilentlyContinue
+          $listeners = Get-NetTCPConnection -LocalPort (4445..4448) -State Listen -ErrorAction SilentlyContinue
 
           if ($orphans -or $listeners) {
             $orphans | Format-Table -AutoSize Name, Id, StartTime

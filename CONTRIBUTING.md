@@ -80,7 +80,15 @@ Run the assembled desktop E2E suite, which requires Windows, with:
 pnpm test:e2e:desktop
 ```
 
-This explicit suite is not part of `pnpm check`; CI runs it as its own job on every pull request and every push to `main`, so it is enforced without changing what you run locally. It builds an isolated debug binary with test-only WebDriver capabilities, then runs one embedded WebDriver worker at a time on port 4445 across fresh application sessions. The embedded provider does not require an external WebDriver. Keep port 4445 available while it runs. The test identifier, persisted store, and target directory are separate from ordinary Leafdown builds.
+This explicit suite is not part of `pnpm check`; CI runs it as its own job on every pull request and every push to `main`, so it is enforced without changing what you run locally. It builds one isolated debug binary with test-only WebDriver capabilities, then runs fresh application sessions through the embedded provider without requiring an external WebDriver. The runner defaults to one worker on port 4445. CI requests that deterministic single-worker mode explicitly until comparable hosted-run timings support a change.
+
+Run the full suite with two workers against an already built binary:
+
+```powershell
+pnpm test:e2e:desktop:run -- --workers 2
+```
+
+Worker counts from 1 through 4 are accepted. Workers use consecutive ports beginning at 4445, so keep that range available for the requested count. Each worker receives a distinct runtime application identifier, persisted-data and WebView2 roots, fixture tree, context file, and artifact directory. Independent scenario groups may overlap; the `persistence` target always keeps its write and fresh-process restart sequence ordered on one worker. One local Windows sample on 2026-09-22 ran the already-built full suite in about 123 seconds with one worker and 74 seconds with two. That sample supports opt-in local concurrency but is not treated as hosted-CI evidence.
 
 While iterating on an already built E2E binary, run one target without rebuilding it:
 
@@ -88,14 +96,14 @@ While iterating on an already built E2E binary, run one target without rebuildin
 pnpm test:e2e:desktop:run -- --scenario folder-watcher
 ```
 
-Valid targets are `block-selection`, `diagnostics`, `document-lifecycle`, `folder-watcher`, `rendered-images`, `rendered-html`, `missing-document-error`, `persistence`, and `window-lifecycle`. The `persistence` target runs its write and fresh-process restart scenarios in order. Focused runs create the same fixtures and isolated state, preserve the same failure evidence and cleanup, and start a fresh packaged-app process; they do not check whether the binary is current. Run `pnpm build:e2e:desktop` first whenever E2E binary inputs change. The default `pnpm test:e2e:desktop` command and CI still run the full suite.
+Valid targets are `block-selection`, `diagnostics`, `document-lifecycle`, `folder-watcher`, `rendered-images`, `rendered-html`, `missing-document-error`, `persistence`, and `window-lifecycle`. Focused runs create the same fixtures and isolated state, preserve the same failure evidence and cleanup, and start a fresh packaged-app process; they do not check whether the binary is current. Run `pnpm build:e2e:desktop` first whenever E2E binary inputs change. The default `pnpm test:e2e:desktop` command and CI still run the full suite.
 
-The runner resets only the isolated E2E persisted store, leaving the application to write its own defaults, creates temporary filesystem fixtures, and removes both after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. A failed run additionally writes `fixture-manifest.json` under `e2e/desktop/artifacts/<run>/`, recording each temporary fixture's path, expected and actual hash and size, and modification time before cleanup removes it. Local artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths. CI uploads the same evidence only when the job fails, retained for seven days; those artifacts contain runner paths rather than a contributor's.
+The runner resets only each worker's isolated E2E persisted store, leaving the application to write its own defaults, creates temporary filesystem fixtures, and removes the worker-owned state after the suite. Each run writes ignored runner, frontend, backend, and focused diagnostic evidence under `e2e/desktop/artifacts/<run>/worker-<n>/<scenario>/`. A failed test also captures a screenshot, the real diagnostics summary, the test error, and a semantic UI snapshot that excludes editor content. A failed worker additionally writes `fixture-manifest.json` under its worker directory, recording its scenario and port plus each temporary fixture's path, expected and actual hash and size, and modification time before cleanup removes it. Other workers finish their queued groups and clean up independently. Local artifacts are retained until manually deleted. Treat them as potentially sensitive because diagnostics and errors may contain local paths. CI uploads the same evidence only when the job fails, retained for seven days; those artifacts contain runner paths rather than a contributor's.
 
 To verify the failure-evidence path, run the suite with the forced-failure flag:
 
 ```powershell
-$env:LEAFDOWN_E2E_FORCE_FAILURE=1; pnpm test:e2e:desktop; $env:LEAFDOWN_E2E_FORCE_FAILURE=$null
+$env:LEAFDOWN_E2E_FORCE_FAILURE=1; pnpm test:e2e:desktop:run -- --workers 2; $env:LEAFDOWN_E2E_FORCE_FAILURE=$null
 ```
 
 The Diagnostics scenario should fail, retain its evidence, clean its fixture and store state, and return a nonzero exit code.

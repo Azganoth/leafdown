@@ -8,6 +8,11 @@ import { RUN_LABEL } from "./suite.js";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const scenarioLabel = process.env.LEAFDOWN_E2E_SCENARIO;
+const workerLabel = process.env.LEAFDOWN_E2E_WORKER;
+
+if (!scenarioLabel || !workerLabel) {
+  throw new Error("Desktop E2E artifact capture requires a worker and scenario identity.");
+}
 
 export const ARTIFACTS_DIR = path.join(
   repositoryRoot,
@@ -15,7 +20,8 @@ export const ARTIFACTS_DIR = path.join(
   "desktop",
   "artifacts",
   RUN_LABEL,
-  ...(scenarioLabel ? [scenarioLabel] : []),
+  workerLabel,
+  scenarioLabel,
 );
 
 const writeJson = async (fileName: string, value: unknown) => {

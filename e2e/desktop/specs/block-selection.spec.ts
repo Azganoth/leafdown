@@ -114,6 +114,17 @@ const dispatchEditorKey = (key: string, init: KeyboardEventInit = {}) =>
     init,
   );
 
+const cutSelectedBlocks = () =>
+  browser.execute(() => {
+    const clipboardData = new DataTransfer();
+    const event = new ClipboardEvent("cut", { bubbles: true, cancelable: true, clipboardData });
+    document.querySelector(".ProseMirror")?.dispatchEvent(event);
+    return {
+      text: clipboardData.getData("text/plain"),
+      html: clipboardData.getData("text/html"),
+    };
+  });
+
 const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = false) => {
   if (shiftKey) {
     await handle.execute((node) => {
@@ -145,6 +156,7 @@ describe("desktop block selection", () => {
     const { blocks } = await getDesktopE2ERunContext();
     await openRecentPath(blocks.path);
     await expect($(".ProseMirror")).toBeDisplayed();
+
     await browser.action("pointer").move({ origin: "viewport", x: 1, y: 1 }).perform();
 
     const wideGeometry = await handleGeometry();
@@ -358,5 +370,92 @@ describe("desktop block selection", () => {
       .filter(({ blockTag }) => blockTag === "LI")
       .map(({ blockText }) => blockText);
     expect(textsAfterDrag.join(" | ")).toContain("Nested second | Nested first");
+
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await browser.waitUntil(async () => {
+      const texts = (await handleGeometry())
+        .filter(({ blockTag }) => blockTag === "LI")
+        .map(({ blockText }) => blockText);
+      return texts.indexOf("Nested first") < texts.indexOf("Nested second");
+    });
+
+    const firstNested = $(await getHandleSelectorForText("Nested first"));
+    const secondNested = $(await getHandleSelectorForText("Nested second"));
+    await dispatchHandleGesture(firstNested);
+    await dispatchHandleGesture(secondNested, true);
+    await expect($("[role='status']")).toHaveText("2 blocks selected");
+    const cutPayload = await cutSelectedBlocks();
+    expect(cutPayload.text).toContain("Nested first");
+    expect(cutPayload.text).toContain("Nested second");
+    expect(cutPayload.html).toContain("Nested first");
+    await browser.waitUntil(async () =>
+      browser.execute(
+        () => !document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+      ),
+    );
+    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Parent item"));
+    await expect($(".ProseMirror")).not.toHaveText(expect.stringContaining("Nested second"));
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-cut.png"));
+
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await browser.waitUntil(async () =>
+      browser.execute(() =>
+        document.querySelector(".ProseMirror")?.textContent?.includes("Nested second"),
+      ),
+    );
+    await expect($$(".leafdown-selected-block")).toBeElementsArrayOfSize(2);
+    await browser.execute(({ text, html }) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", text);
+      clipboardData.setData("text/html", html);
+      const event = new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData });
+      document.querySelector(".ProseMirror")?.dispatchEvent(event);
+    }, cutPayload);
+    await browser.waitUntil(async () =>
+      browser.execute(() =>
+        document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+      ),
+    );
+    const pastedItems = (await handleGeometry())
+      .filter(({ blockTag }) => blockTag === "LI")
+      .map(({ blockText }) => blockText);
+    expect(pastedItems.join(" | ")).toContain("Parent itemNested firstNested second");
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-pasted.png"));
+
+    const pastedFirst = $(await getHandleSelectorForText("Nested first"));
+    await dispatchHandleGesture(pastedFirst);
+    expect(await dispatchEditorKey("Delete")).toBe(true);
+    await browser.waitUntil(async () =>
+      browser.execute(
+        () => !document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+      ),
+    );
+    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Nested second"));
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-deleted.png"));
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Nested first"));
+
+    const crossParentStart = $(await getHandleSelectorForText("Second hyphen item"));
+    const crossParentEnd = $(await getHandleSelectorForText("Plus item starts another list"));
+    await dispatchHandleGesture(crossParentStart);
+    await dispatchHandleGesture(crossParentEnd, true);
+    await expect($("[role='status']")).toHaveText("2 blocks selected");
+    const crossParentPayload = await cutSelectedBlocks();
+    expect(crossParentPayload.text).toContain("Second hyphen item");
+    expect(crossParentPayload.text).toContain("Plus item starts another list");
+    expect(crossParentPayload.text).not.toContain("Hyphen item\n");
+    expect(crossParentPayload.text).not.toContain("Asterisk item starts another list");
+    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Hyphen item"));
+    await expect($(".ProseMirror")).toHaveText(
+      expect.stringContaining("Asterisk item starts another list"),
+    );
+    await expect($(".ProseMirror")).not.toHaveText(expect.stringContaining("Second hyphen item"));
+    await expect($(".ProseMirror")).not.toHaveText(
+      expect.stringContaining("Plus item starts another list"),
+    );
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await expect($(".ProseMirror")).toHaveText(
+      expect.stringContaining("Plus item starts another list"),
+    );
   });
 });

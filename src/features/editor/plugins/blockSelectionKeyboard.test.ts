@@ -5,8 +5,9 @@ import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
 import { selectAll } from "@/features/editor/commands/editing/selection";
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN } from "@/test/fixtures/editorMarkdown";
-import { dispatchKeyDown } from "@/test/utils/events";
+import { createClipboardData, dispatchClipboardEvent, dispatchKeyDown } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import {
   getEditorTextPosition,
@@ -17,6 +18,7 @@ import {
 } from "@/test/utils/prosemirror";
 import { enterProjection } from "@/test/utils/sourceProjection";
 
+import { runEditorCommand } from "../commands";
 import {
   BlockSelection,
   createHierarchicalBlockSelection,
@@ -176,7 +178,7 @@ After
     expect(mounted.view.state.selection.empty).toBe(true);
   });
 
-  it("finalizes active source projection before Mod+A enters structural selection", async () => {
+  it("finalizes projected source before selecting, cutting, undoing, and replacing its block", async () => {
     const mounted = await mountEditor(`${BOLD_PLAIN_MARKDOWN}\n\nSecond\n`);
     enterProjection(mounted, "strong");
 
@@ -184,6 +186,22 @@ After
 
     expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
     expect(mounted.view.state.selection).toBeInstanceOf(BlockSelection);
+    expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n\nSecond\n`);
+
+    const clipboardData = createClipboardData();
+    dispatchClipboardEvent(mounted.view.dom, "cut", clipboardData);
+    expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toContain("**");
+    expect(clipboardData.getData(TEXT_HTML_MIME_TYPE)).toContain("<strong>");
+    expect(mounted.getMarkdown()).toBe("Second\n");
+
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n\nSecond\n`);
+    expect(mounted.view.state.selection).toBeInstanceOf(BlockSelection);
+
+    dispatchClipboardEvent(mounted.view.dom, "paste", {
+      [TEXT_PLAIN_MIME_TYPE]: clipboardData.getData(TEXT_PLAIN_MIME_TYPE),
+      [TEXT_HTML_MIME_TYPE]: clipboardData.getData(TEXT_HTML_MIME_TYPE),
+    });
     expect(mounted.getMarkdown()).toBe(`${BOLD_PLAIN_MARKDOWN}\n\nSecond\n`);
   });
 

@@ -297,7 +297,7 @@
 - The selection stores exact directional block boundaries, returns ProseMirror's open structural slice between them, and maps its bookmark through document changes and source-projection finalization.
 - Extending across separate list wrappers does not promote an endpoint or absorb an adjacent list item. If a selected owning block contains selectable descendants, only the owner is painted so the presentation does not duplicate one structural selection.
 - Block handles are pointer controls with no per-block tab stop. Selection changes are announced while the editor retains focus; keyboard entry and navigation consume the same selection model in their own focused interaction layer.
-- The insertion slot is present but inactive until insertion behavior is implemented. Handle dragging prepares the selected range and suppresses the popup, while completed structural movement remains separately owned.
+- The insertion slot is present but inactive until insertion behavior is implemented. Handle dragging suppresses the popup and moves the selected range among valid siblings through the same boundary rules as keyboard and popup movement; it does not reparent blocks across depths.
 - The context popup has one selection-aware anchor and filters inline-only actions for structural selection instead of introducing a second handle menu.
 
 ## Technical Decisions

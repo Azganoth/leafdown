@@ -34,6 +34,10 @@ import {
   parseInlineRunSource,
   type InlineRunSourceMap,
 } from "./sourceProjectionInlineRunSyntax";
+import {
+  getImageSourcePresentationSpans,
+  getLinkSourceSuffixSpans,
+} from "./sourceProjectionLinkPresentation";
 import { getRangeText, type TextRange } from "./textRanges";
 
 const BOUNDARY_ADAPTER_ID = "boundary";
@@ -142,7 +146,19 @@ const getRunPresentation = (
       sourceTypes.add(mark.markName);
     }
 
-    if (segment.type === "marker" || segment.type === "atom") {
+    if (segment.type === "atom") {
+      spans.push(
+        ...getImageSourcePresentationSpans(
+          source,
+          segment.sourceFrom,
+          segment.sourceTo,
+          contentClassName,
+        ),
+      );
+      continue;
+    }
+
+    if (segment.type === "marker") {
       spans.push({ className: MARKER_CLASS_NAME, from: segment.sourceFrom, to: segment.sourceTo });
       continue;
     }
@@ -205,7 +221,7 @@ const getRunPresentation = (
     spans.push(
       { className: MARKER_CLASS_NAME, from: segment.sourceFrom, to: labelFrom },
       ...getCharacterReferenceSpans(labelClassName, { from: labelFrom, to: labelTo }, references),
-      { className: MARKER_CLASS_NAME, from: labelTo, to: segment.sourceTo },
+      ...getLinkSourceSuffixSpans(source, labelTo, segment.sourceTo),
       ...getLinkHardBreakSpans(segment.map, segment.sourceFrom, source),
     );
   }

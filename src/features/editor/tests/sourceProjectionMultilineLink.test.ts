@@ -183,13 +183,13 @@ describe("multiline logical-link source projection", () => {
         .join(""),
     ).toBe(MIXED_LINK_LABEL_SOURCE);
 
+    const projectedDocument = mounted.view.state.doc;
+    const presentationClasses = getLabelFragments().map((fragment) => fragment.className);
+
     dispatchMouseEvent(firstFragment, "mouseover");
 
-    expect(
-      getLabelFragments().every((fragment) =>
-        fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
-      ),
-    ).toBe(true);
+    expect(getLabelFragments().map((fragment) => fragment.className)).toEqual(presentationClasses);
+    expect(mounted.view.state.doc.eq(projectedDocument)).toBe(true);
   });
 
   it.each([

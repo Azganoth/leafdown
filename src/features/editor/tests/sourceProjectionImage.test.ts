@@ -53,6 +53,25 @@ describe("standalone image source projection", () => {
     }));
   });
 
+  it("styles description, destination, and title as content in the source lane", async () => {
+    const mounted = await mountProjectionEditor('![alt](<two words> "title") tail');
+
+    selectImage(mounted);
+
+    expect(
+      Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+        (fragment) => fragment.textContent,
+      ).join(""),
+    ).toBe('![](<two words> "")');
+    expect(
+      Array.from(
+        mounted.view.dom.querySelectorAll(".leafdown-source-projection__content"),
+        (fragment) => fragment.textContent,
+      ).join(""),
+    ).toBe("alttitle");
+  });
+
   it.each([
     { offset: 0, side: "left" },
     { offset: 1, side: "right" },

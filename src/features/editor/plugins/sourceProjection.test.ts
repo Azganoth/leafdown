@@ -507,13 +507,27 @@ describe("source projection", () => {
           (fragment) => fragment.textContent,
         ).join(""),
       ).toBe("Plain label");
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker"),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe('[](./article.md "")');
+      expect(
+        Array.from(
+          mounted.view.dom.querySelectorAll(
+            ".leafdown-source-projection__content:not(.leafdown-source-projection__content--link-label)",
+          ),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ).toBe("Reference");
 
       setSelectionAtDocumentEnd(mounted.view);
 
       expect(mounted.getMarkdown()).toBe(`${source}\n`);
     });
 
-    it("synchronizes projected link-label hover across presentation fragments", async () => {
+    it("keeps projected link-label presentation stable across pointer entry and exit", async () => {
       const onContentChanged = vi.fn();
       const mounted = await mountProjectionEditor(
         "[**Bold** and *soft*](https://example.com) plain",
@@ -524,7 +538,7 @@ describe("source projection", () => {
 
       enterProjection(mounted, "a");
 
-      const projectedDocument = mounted.view.state.doc;
+      const projectedState = mounted.view.state;
       const getLabelFragments = () =>
         Array.from(
           mounted.view.dom.querySelectorAll(".leafdown-source-projection__content--link-label"),
@@ -536,33 +550,29 @@ describe("source projection", () => {
         throw new Error("Expected projected link-label presentation fragments.");
       }
 
+      const presentationClasses = getLabelFragments().map((fragment) => fragment.className);
+
       dispatchMouseEvent(firstFragment, "mouseover");
 
-      expect(
-        getLabelFragments().every((fragment) =>
-          fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
-        ),
-      ).toBe(true);
-      expect(mounted.view.state.doc.eq(projectedDocument)).toBe(true);
+      expect(getLabelFragments().map((fragment) => fragment.className)).toEqual(
+        presentationClasses,
+      );
+      expect(mounted.view.state).toBe(projectedState);
       expect(onContentChanged).not.toHaveBeenCalled();
 
       dispatchMouseEvent(firstFragment, "mouseout", { relatedTarget: lastFragment });
 
-      expect(
-        getLabelFragments().every((fragment) =>
-          fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
-        ),
-      ).toBe(true);
+      expect(getLabelFragments().map((fragment) => fragment.className)).toEqual(
+        presentationClasses,
+      );
+      expect(mounted.view.state).toBe(projectedState);
 
       dispatchMouseEvent(getLabelFragments().at(-1)!, "mouseout");
 
-      expect(
-        getLabelFragments().every(
-          (fragment) =>
-            !fragment.classList.contains("leafdown-source-projection__content--link-label-hovered"),
-        ),
-      ).toBe(true);
-      expect(mounted.view.state.doc.eq(projectedDocument)).toBe(true);
+      expect(getLabelFragments().map((fragment) => fragment.className)).toEqual(
+        presentationClasses,
+      );
+      expect(mounted.view.state).toBe(projectedState);
       expect(onContentChanged).not.toHaveBeenCalled();
     });
 
@@ -619,7 +629,7 @@ describe("source projection", () => {
       ).toBe("Link containing a reference[^follow-up]");
       expect(
         mounted.view.dom.querySelector(".leafdown-source-projection__content--footnote-reference"),
-      ).toHaveTextContent("[^follow-up]");
+      ).toHaveTextContent("follow-up");
 
       setSelectionAtDocumentEnd(mounted.view);
 

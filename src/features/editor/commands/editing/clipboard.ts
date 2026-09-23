@@ -7,6 +7,7 @@ import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 
 import {
   hasActiveSourceProjection,
+  getSourceProjectionClipboardSlice,
   pasteIntoSourceProjection,
 } from "../../plugins/sourceProjection";
 import {
@@ -26,7 +27,7 @@ interface ClipboardWithRichAccess {
   writeText: (text: string) => Promise<void>;
 }
 
-type ClipboardCopyFormat = "default" | "markdown" | "plainText";
+type ClipboardCopyFormat = "default" | "markdown" | "plainText" | "html" | "richText";
 type ClipboardPasteFormat = "default" | "markdown" | "plainText" | "richText";
 
 const getClipboard = (): ClipboardWithRichAccess | null => navigator.clipboard ?? null;
@@ -44,6 +45,30 @@ const getSelectedClipboardPayload = (
   }
 
   const slice = view.state.selection.content();
+
+  if (format === "html" || format === "richText") {
+    const payload = getDefaultClipboardPayload(view);
+    if (!payload) {
+      return null;
+    }
+
+    const container = document.createElement("div");
+    container.innerHTML = payload.html;
+    for (const element of container.querySelectorAll("[data-pm-slice]")) {
+      element.removeAttribute("data-pm-slice");
+    }
+    const html = container.innerHTML;
+
+    if (format === "html") {
+      return { text: html };
+    }
+
+    const semanticSlice = getSourceProjectionClipboardSlice(view.state) ?? slice;
+    return {
+      html,
+      text: semanticSlice.content.textBetween(0, semanticSlice.content.size, "\n\n"),
+    };
+  }
 
   if (format === "plainText") {
     return {

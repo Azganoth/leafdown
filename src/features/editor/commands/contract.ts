@@ -6,6 +6,8 @@ export const EDITOR_COMMAND_IDS = [
   "edit.copy",
   "edit.copyAsPlainText",
   "edit.copyAsMarkdown",
+  "edit.copyAsHtml",
+  "edit.copyAsRichText",
   "edit.paste",
   "edit.pasteAsPlainText",
   "edit.pasteAsMarkdown",

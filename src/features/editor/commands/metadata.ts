@@ -7,6 +7,8 @@ export const EDITOR_COMMAND_LABELS = {
   "edit.copy": "Copy",
   "edit.copyAsPlainText": "Plain text",
   "edit.copyAsMarkdown": "Markdown",
+  "edit.copyAsHtml": "HTML",
+  "edit.copyAsRichText": "Rich text",
   "edit.paste": "Paste",
   "edit.pasteAsPlainText": "Plain text",
   "edit.pasteAsMarkdown": "Markdown",

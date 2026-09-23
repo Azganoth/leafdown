@@ -96,7 +96,12 @@ export function CommandMenubar({
             <MenubarSeparator />
             <CommandItems commandIds={["edit.cut", "edit.copy"]} />
             <CommandSubmenu
-              commandIds={["edit.copyAsPlainText", "edit.copyAsMarkdown"]}
+              commandIds={[
+                "edit.copyAsPlainText",
+                "edit.copyAsMarkdown",
+                "edit.copyAsHtml",
+                "edit.copyAsRichText",
+              ]}
               label="Copy as"
             />
             <CommandItems commandIds={["edit.paste"]} />

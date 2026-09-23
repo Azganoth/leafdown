@@ -16,6 +16,7 @@ import {
 } from "./sourceProjectionAdapters";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { isStandaloneImage, parseStandaloneImageSource } from "./sourceProjectionImageSyntax";
+import { getImageSourcePresentationSpans } from "./sourceProjectionLinkPresentation";
 
 const IMAGE_ADAPTER_ID = "image";
 const IMAGE_DESCRIPTION_START_OFFSET = 2;
@@ -157,13 +158,7 @@ export const createImageSourceProjectionAdapter = ({
   getPresentation: (_target, source) => ({
     previews: [],
     sourceTypes: [IMAGE_ADAPTER_ID],
-    spans: [
-      {
-        className: "leafdown-source-projection__marker",
-        from: 0,
-        to: source.length,
-      },
-    ],
+    spans: getImageSourcePresentationSpans(source),
   }),
   getRestoreRange: (session) => ({
     from: session.from,

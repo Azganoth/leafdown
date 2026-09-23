@@ -36,7 +36,14 @@ import {
   getDocumentDefinitionSources,
   withProjectionDefinitions,
 } from "./sourceProjectionDefinitions";
-import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  FOOTNOTE_REFERENCE_NODE_NAME,
+  getFootnoteReferenceSourceBounds,
+} from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  getImageSourcePresentationSpans,
+  getLinkSourceSuffixSpans,
+} from "./sourceProjectionLinkPresentation";
 import {
   createLinkSourceMap,
   findLinkSourceBounds,
@@ -693,28 +700,69 @@ const getLinkPresentationSpans = (
       });
     }
 
-    spans.push(
-      ...(segment.type === "hardBreak"
-        ? getHardBreakSpans(
-            { from: segment.sourceFrom, runTo: segment.runTo, to: segment.sourceTo },
-            source,
-          )
-        : getCharacterReferenceSpans(
-            segment.className,
-            { from: segment.sourceFrom, to: segment.sourceTo },
-            references,
-          )),
-    );
+    if (segment.type === "image") {
+      spans.push(
+        ...getImageSourcePresentationSpans(
+          source,
+          segment.sourceFrom,
+          segment.sourceTo,
+          `${segment.className} leafdown-source-projection__content--link-label`,
+        ),
+      );
+    } else if (segment.type === "footnoteReference") {
+      const bounds = getFootnoteReferenceSourceBounds(
+        source.slice(segment.sourceFrom, segment.sourceTo),
+      );
+      if (bounds) {
+        spans.push(
+          {
+            className: "leafdown-source-projection__marker",
+            from: segment.sourceFrom,
+            to: segment.sourceFrom + bounds.labelFrom,
+          },
+          {
+            className: segment.className,
+            from: segment.sourceFrom + bounds.labelFrom,
+            to: segment.sourceFrom + bounds.labelTo,
+          },
+          {
+            className: "leafdown-source-projection__marker",
+            from: segment.sourceFrom + bounds.labelTo,
+            to: segment.sourceTo,
+          },
+        );
+      } else {
+        spans.push({
+          className: "leafdown-source-projection__marker",
+          from: segment.sourceFrom,
+          to: segment.sourceTo,
+        });
+      }
+    } else {
+      spans.push(
+        ...(segment.type === "hardBreak"
+          ? getHardBreakSpans(
+              { from: segment.sourceFrom, runTo: segment.runTo, to: segment.sourceTo },
+              source,
+            )
+          : getCharacterReferenceSpans(
+              segment.className,
+              { from: segment.sourceFrom, to: segment.sourceTo },
+              references,
+            )),
+      );
+    }
     markerFrom = segment.sourceTo;
   }
 
-  if (markerFrom < source.length) {
+  if (markerFrom < map.labelTo) {
     spans.push({
       className: "leafdown-source-projection__marker",
       from: markerFrom,
-      to: source.length,
+      to: map.labelTo,
     });
   }
+  spans.push(...getLinkSourceSuffixSpans(source, map.labelTo, source.length));
 
   return spans;
 };

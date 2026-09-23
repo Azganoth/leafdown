@@ -136,9 +136,7 @@ describe("boundary source projection", () => {
 
     enterBoundary(mounted);
 
-    // Each side keeps the styling it has on its own: the link's brackets and destination and the
-    // emphasis delimiters read as markers, while the label and the emphasised text read as content.
-    expect(getMarkerTexts(mounted)).toEqual(["[", "](x)", "*", "*"]);
+    expect(getMarkerTexts(mounted)).toEqual(["[", "](", "x", ")", "*", "*"]);
   });
 
   it("keeps a projected reference's character beside its source across the pair", async () => {

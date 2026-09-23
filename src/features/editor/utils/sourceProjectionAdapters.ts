@@ -21,6 +21,10 @@ import { readEnclosingInlineConstructs } from "./logicalLinkMarkdown";
 import { getCandidateMarksAtSelection, getMarkRangeAtPosition } from "./marks";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { FOOTNOTE_REFERENCE_NODE_NAME } from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  getImageSourcePresentationSpans,
+  getLinkSourceSuffixSpans,
+} from "./sourceProjectionLinkPresentation";
 import { isAtomicLinkSegment, type LinkSourceMap } from "./sourceProjectionLinkSyntax";
 import {
   createMarkedFragmentSourceStructure,
@@ -838,11 +842,7 @@ const getMarkedFragmentPresentation = (
           to: labelFrom,
         },
         ...getCharacterReferenceSpans(labelClassName, { from: labelFrom, to: labelTo }, references),
-        {
-          className: "leafdown-source-projection__marker",
-          from: labelTo,
-          to: segment.sourceTo,
-        },
+        ...getLinkSourceSuffixSpans(source, labelTo, segment.sourceTo),
         ...(segment.map ? getLinkHardBreakSpans(segment.map, segment.sourceFrom, source) : []),
       );
       continue;
@@ -850,11 +850,7 @@ const getMarkedFragmentPresentation = (
 
     if (segment.type === "image") {
       objectTypes.add("image");
-      spans.push({
-        className: "leafdown-source-projection__marker",
-        from: segment.sourceFrom,
-        to: segment.sourceTo,
-      });
+      spans.push(...getImageSourcePresentationSpans(source, segment.sourceFrom, segment.sourceTo));
       continue;
     }
 

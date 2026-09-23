@@ -9,7 +9,8 @@ import {
   TriangleAlertIcon,
   XIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -194,12 +195,9 @@ function EmptyFolderMessage({ message }: { message: string }) {
 }
 function DetachedDocumentNotice() {
   return (
-    <div className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
-      <div className="flex gap-2 rounded-md border border-border bg-card/65 px-2 py-1.5">
-        <InfoIcon className="mt-0.5 size-3.5 shrink-0" />
-        <span>Current document is outside this folder context.</span>
-      </div>
-    </div>
+    <NavigatorNotice icon={InfoIcon}>
+      Current document is outside this folder context.
+    </NavigatorNotice>
   );
 }
 
@@ -209,12 +207,18 @@ interface FolderScanWarningNoticeProps {
 
 function FolderScanWarningNotice({ warningCount }: FolderScanWarningNoticeProps) {
   return (
+    <NavigatorNotice icon={TriangleAlertIcon}>
+      Some folder entries could not be scanned. {getScanWarningIssueText(warningCount)}
+    </NavigatorNotice>
+  );
+}
+
+function NavigatorNotice({ children, icon: Icon }: { children: ReactNode; icon: LucideIcon }) {
+  return (
     <div className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
       <div className="flex gap-2 rounded-md border border-border bg-card/65 px-2 py-1.5">
-        <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0" />
-        <span>
-          Some folder entries could not be scanned. {getScanWarningIssueText(warningCount)}
-        </span>
+        <Icon className="mt-0.5 size-3.5 shrink-0" />
+        <span>{children}</span>
       </div>
     </div>
   );

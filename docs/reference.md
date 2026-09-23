@@ -59,7 +59,7 @@ Global settings persist across application launches unless specified otherwise.
 
 ## Command Surfaces
 
-App commands are unified across menus, keyboard shortcuts, and the context popup. Availability and checked states are defined in [Command State](#command-state).
+Menus, keyboard shortcuts, and the context popup share command IDs and state. Execution follows the interaction ownership in [Architecture](./architecture.md#editor-architecture). Availability and checked states are defined in [Command State](#command-state).
 
 ### Menu Commands
 

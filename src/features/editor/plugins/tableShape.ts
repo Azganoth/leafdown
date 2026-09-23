@@ -9,7 +9,7 @@ import { getNodeType } from "../utils/milkdown";
 
 const createEmptyMarkdownCell = (): MarkdownNode => ({ type: "tableCell", children: [] });
 
-/// GFM renders a ragged table as the columns its header declares. Exported for colocated tests.
+// GFM renders ragged rows against the header's column count.
 export const matchTableRowsToHeader = (tree: MarkdownNode) => {
   if (tree.type !== "table") {
     tree.children?.forEach(matchTableRowsToHeader);

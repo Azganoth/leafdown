@@ -52,7 +52,7 @@ pub fn run() {
     builder
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                // Prevent auto showing the window
+                // Startup shows the window after frontend initialization, including failure.
                 .with_state_flags(StateFlags::all() ^ StateFlags::VISIBLE)
                 .build(),
         )

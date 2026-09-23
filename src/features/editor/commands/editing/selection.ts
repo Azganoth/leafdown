@@ -24,8 +24,6 @@ const dispatchTextSelection = (view: EditorView, from: number, to = from) => {
   return true;
 };
 
-/* Commands */
-
 export const selectAll = (view: EditorView) => runProseMirrorCommand(view, proseSelectAll);
 
 export const selectWord = (view: EditorView) => {
@@ -82,8 +80,6 @@ export const jumpToFootnoteDefinition = (view: EditorView) => {
 
   return dispatchTextSelection(view, position);
 };
-
-/* State */
 
 export const canSelectWord = (state: EditorState) => getTextWordRangeAtSelection(state) !== null;
 

@@ -32,10 +32,7 @@ Example:
 
 ```ts
 const expandedPaths = new PathSet(expandedDirectoryPaths);
-
-if (expandedPaths.has(node.path)) {
-  // Same folder identity, regardless of Windows casing or slash style.
-}
+const isExpanded = expandedPaths.has(node.path);
 ```
 
 ### Disposables And Lifecycle

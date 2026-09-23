@@ -6,13 +6,11 @@ export interface InspectDroppedPathArgs {
   path: string;
 }
 
-/* NOTE: src-tauri/src/drop.rs (DroppedPath). */
 export type DroppedPath =
   | { kind: "folder"; path: string }
   | { kind: "markdownFile"; path: string }
   | { kind: "unsupported"; path: string };
 
-/* NOTE: src-tauri/src/drop.rs (InspectDroppedPathError). */
 export type InspectDroppedPathError =
   | { kind: "invalidPath"; path: string }
   | { kind: "missingPath"; path: string }

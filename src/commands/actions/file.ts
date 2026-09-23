@@ -74,8 +74,6 @@ export const openRecentFolderContext = async (path: string) => {
   }
 };
 
-/* Commands */
-
 export const createNewFile = async () => {
   try {
     const created = await createNewMarkdownDocument();
@@ -177,8 +175,6 @@ export const closeWindow = async () => {
     notifyOperationFailure("Could not close window.", error, "closeWindow");
   }
 };
-
-/* State */
 
 export const getClearRecentItemsState = (context: AppCommandContext) =>
   context.recentItems.recentFiles.length > 0 || context.recentItems.recentFolders.length > 0

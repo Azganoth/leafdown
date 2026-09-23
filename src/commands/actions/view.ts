@@ -64,8 +64,6 @@ const getSortCommandState = (
 
 const isZoomAt = (zoom: number, targetZoom: number) => Math.abs(zoom - targetZoom) < ZOOM_EPSILON;
 
-/* Commands */
-
 export const toggleSidebar = () => {
   const settings = useSettingsStore.getState();
   settings.updateSetting("sidebarVisible", !settings.sidebarVisible);
@@ -132,8 +130,6 @@ export const expandAllFolders = (context: AppCommandContext) => {
       .expandDirectories(getArticleDirectoryPaths(context.folderContext.tree));
   }
 };
-
-/* State */
 
 export const getToggleSidebarState = (context: AppCommandContext) =>
   context.folderContext

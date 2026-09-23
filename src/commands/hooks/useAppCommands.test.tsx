@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getEditorCommandState, runEditorCommand, type EditorCommandId } from "@/features/editor";
-// Deep import by design; see @/features/editor/commands/contract.ts.
 import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor/commands/contract";
 import { documentEditorBridge, useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";

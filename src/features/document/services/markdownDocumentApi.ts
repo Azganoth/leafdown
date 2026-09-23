@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { FileMetadataSnapshot, LineEnding } from "../utils/documentState";
 
-/* NOTE: src-tauri/src/document.rs (MARKDOWN_FILE_EXTENSIONS). */
 export const MARKDOWN_FILE_EXTENSIONS = ["md", "markdown"] as const;
 
 export type MarkdownFileExtension = `.${(typeof MARKDOWN_FILE_EXTENSIONS)[number]}`;
@@ -14,7 +13,6 @@ export interface OpenMarkdownFileArgs {
   path: string;
 }
 
-/* NOTE: src-tauri/src/document.rs (OpenMarkdownFileResult). */
 export interface OpenMarkdownFileResult {
   path: string;
   parentFolderPath: string;
@@ -23,7 +21,6 @@ export interface OpenMarkdownFileResult {
   lineEnding: LineEnding | null;
 }
 
-/* NOTE: src-tauri/src/document.rs (OpenMarkdownFileError). */
 export type OpenMarkdownFileError =
   | { kind: "unsupportedFileType"; path: string }
   | { kind: "invalidPath"; path: string }
@@ -46,14 +43,12 @@ export interface SaveMarkdownFileArgs {
   overwrite: boolean;
 }
 
-/* NOTE: src-tauri/src/document.rs (SaveMarkdownFileResult). */
 export interface SaveMarkdownFileResult {
   path: string;
   parentFolderPath: string;
   metadata: FileMetadataSnapshot;
 }
 
-/* NOTE: src-tauri/src/document.rs (SaveMarkdownFileError). */
 export type SaveMarkdownFileError =
   | { kind: "unsupportedFileType"; path: string }
   | { kind: "invalidPath"; path: string }

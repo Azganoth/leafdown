@@ -1,4 +1,4 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+// A Windows release build needs no console alongside its desktop window.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {

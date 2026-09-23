@@ -9,7 +9,6 @@ export interface ResolveMarkdownLinkTargetArgs {
   target: string;
 }
 
-/* NOTE: src-tauri/src/link.rs (ResolveMarkdownLinkTargetResult). */
 export type ResolveMarkdownLinkTargetResult =
   | { kind: "externalWeb"; url: string }
   | { kind: "localMarkdown"; path: string }
@@ -44,7 +43,6 @@ export interface OpenMarkdownLinkTargetArgs {
   target: string;
 }
 
-/* NOTE: src-tauri/src/link.rs (OpenMarkdownLinkTargetError). */
 export type OpenMarkdownLinkTargetError =
   | { kind: "unsupportedTarget" }
   | { kind: "openFailed"; path: string; message: string };

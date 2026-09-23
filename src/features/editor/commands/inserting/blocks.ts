@@ -260,8 +260,6 @@ const insertBlockAfterSelection = (
   return true;
 };
 
-/* Commands */
-
 export const insertParagraph = (view: EditorView) =>
   insertBlockAfterSelection(view, createNode(view.state, "paragraph"));
 

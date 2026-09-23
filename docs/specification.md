@@ -136,7 +136,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 ### Blocks
 
 - Headings render structurally. When the caret is inside a heading, or the pointer rests on one, show a subtle heading marker in the local gutter's passive outer slot, beside the heading's first line. Either trigger shows the same marker, and both may show at once on different headings. The marker belongs to the heading's pointer area, so moving onto the marker does not dismiss it.
-- Lists render structurally with visual list markers.
+- Lists render structurally with visual list markers. Adjacent items have an 8-pixel vertical gap, including across adjacent lists split by different Markdown markers or ordered-list delimiters. A list and an adjacent paragraph keep the 16-pixel block gap. This presentation does not change authored list markers or tightness.
 - Blockquotes render structurally.
 - Horizontal rules render as 2-pixel separators spanning the available editor width without exposing the raw marker used to create them. Each separator occupies a row at least 28 pixels tall with 20-pixel vertical margins; selecting it directly or through its block handle shows the same block-selection wash across that row while keeping the line visible.
 - List items and blockquotes may contain other block-level elements.
@@ -386,7 +386,7 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 - Remote image Markdown is preserved, but network images are currently blocked completely; loading them is deferred.
 - Local images that resolve outside the current folder context require explicit confirmation before rendering. Instead of a blocking modal, the editor displays an inline placeholder in place of the image, prompting the user to click to load/render it.
 - Moving the caret onto a rendered image or placeholder exposes its complete Markdown source in a 28-pixel line immediately before the image for editing the description, target, optional title, or reference form. Moving the caret beyond either source boundary restores the ordinary editor surface. The decoded image remains mounted below the source while projection is active, and unavailable-image placeholders remain one line tall.
-- A rendered image keeps its intrinsic aspect ratio and stays within the document width. Its editor surface never collapses, so a tiny or transparent image keeps its authored pixels while remaining reliably selectable with the usual selected-node treatment.
+- A rendered image keeps its intrinsic aspect ratio and stays within the document width. Its editor surface never collapses, so a tiny or transparent image keeps its authored pixels while remaining reliably selectable with the usual selected-node treatment. When an image ends a paragraph, its selectable row ends at the image surface; the 20-pixel gap below it sits outside that row.
 - An image description keeps the Markdown it was written with, including emphasis, strong, inline code, strikethrough, a link, and a nested image. It is source the image carries rather than content the document holds, so a nested image is written back as it was authored rather than rendered as a second image, and the image is named by the text its description spells.
 - The projected image Markdown is the source the file holds. Editing a description reads its inline Markdown through the shared parser, so supported inline content in the description returns as image description content rather than being escaped as plain text.
 

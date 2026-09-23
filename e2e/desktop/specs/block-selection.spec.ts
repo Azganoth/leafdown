@@ -161,6 +161,31 @@ describe("desktop block selection", () => {
 
     const wideGeometry = await handleGeometry();
     expect(wideGeometry.length).toBeGreaterThanOrEqual(9);
+    const itemGap = (before: string, after: string) => {
+      const first = wideGeometry.find(({ blockText }) => blockText === before);
+      const second = wideGeometry.find(({ blockText }) => blockText === after);
+      if (!first || !second) throw new Error(`List items were not found: ${before}, ${after}`);
+      return second.blockTop - first.blockTop - first.blockHeight;
+    };
+    for (const [before, after] of [
+      ["Nested first", "Nested second"],
+      ["Hyphen item", "Second hyphen item"],
+      ["Second hyphen item", "Plus item starts another list"],
+      ["Plus item starts another list", "Asterisk item starts another list"],
+    ]) {
+      expect(Math.abs(itemGap(before, after) - 8)).toBeLessThan(0.5);
+    }
+    const paragraphToListGap = await browser.execute(() => {
+      const paragraph = Array.from(document.querySelectorAll<HTMLElement>(".ProseMirror > p")).find(
+        (node) => node.textContent?.startsWith("Root paragraph with"),
+      );
+      const list = paragraph?.nextElementSibling;
+      if (!paragraph || !list || list.tagName !== "UL") {
+        throw new Error("Root paragraph and adjacent list were not found.");
+      }
+      return list.getBoundingClientRect().top - paragraph.getBoundingClientRect().bottom;
+    });
+    expect(Math.abs(paragraphToListGap - 16)).toBeLessThan(0.5);
     expect(wideGeometry.every(({ handleRight, blockLeft }) => handleRight <= blockLeft + 0.5)).toBe(
       true,
     );

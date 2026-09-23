@@ -152,6 +152,144 @@ const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = fa
 };
 
 describe("desktop block selection", () => {
+  it("inserts a nested sibling from the moving gutter control and cancels without editing", async () => {
+    const { blocks } = await getDesktopE2ERunContext();
+    const originalWindowSize = await browser.getWindowSize();
+    await openRecentPath(blocks.path);
+    await expect($(".ProseMirror")).toBeDisplayed();
+    const target = await getGeometryForText("Nested first");
+    const root = await getGeometryForText("Root paragraph with projected source.");
+    const rootPoint = (await $(
+      `.leafdown-block-gutter[data-leafdown-block-pos="${root.pos}"] .leafdown-block-gutter__insertion-slot`,
+    ).execute((node) => {
+      const rect = node.getBoundingClientRect();
+      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + 4) };
+    })) as { x: number; y: number };
+    await browser
+      .action("pointer")
+      .move({ origin: "viewport", x: rootPoint.x, y: rootPoint.y })
+      .perform();
+    const button = $("[data-leafdown-block-insert]");
+    await expect(button).toBeDisplayed();
+    const rootButtonX = (await button.execute(
+      (node) => node.getBoundingClientRect().left,
+    )) as number;
+    const selector = `.leafdown-block-gutter[data-leafdown-block-pos="${target.pos}"] .leafdown-block-gutter__insertion-slot`;
+    const point = (await $(selector).execute((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        x: Math.round(rect.left + rect.width / 2),
+        y: Math.round(rect.top + Math.min(rect.height - 2, 20)),
+      };
+    })) as { x: number; y: number };
+    await browser.action("pointer").move({ origin: "viewport", x: point.x, y: point.y }).perform();
+    await expect(button).toBeDisplayed();
+    expect(await button.execute((node) => node.getBoundingClientRect().left)).toBeGreaterThan(
+      rootButtonX,
+    );
+    expect(await button.getAttribute("tabindex")).toBe("-1");
+    await button.moveTo();
+    await expect($(".leafdown-block-insertion-indicator")).toBeDisplayed();
+    await browser
+      .action("pointer")
+      .move({ origin: "viewport", x: point.x, y: Math.round(target.blockTop + 2) })
+      .perform();
+    const lineTop = (await $(".leafdown-block-insertion-indicator").execute(
+      (node) => node.getBoundingClientRect().top,
+    )) as number;
+    expect(lineTop).toBeCloseTo(target.blockTop, 0);
+    await browser.action("pointer").move({ origin: "viewport", x: point.x, y: point.y }).perform();
+    await button.click();
+    await expect($("[data-testid='editor-block-insertion-menu']")).toBeDisplayed();
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-insertion-menu.png"));
+    await expect($("[data-testid='editor-block-insertion-menu'] [role='menuitem']")).toHaveText(
+      "List item",
+    );
+    await browser.keys(Key.Escape);
+    await expect($("[data-testid='editor-block-insertion-menu']")).not.toExist();
+
+    await browser.setWindowSize(640, 720);
+    await browser.execute(() => {
+      const editor = document.querySelector<HTMLElement>(".ProseMirror");
+      if (!editor) throw new Error("Editor was not found.");
+      editor.dir = "rtl";
+      window.dispatchEvent(new Event("resize"));
+    });
+    await browser.waitUntil(() =>
+      browser.execute(
+        (pos) =>
+          document
+            .querySelector(`.leafdown-block-gutter[data-leafdown-block-pos="${pos}"]`)
+            ?.hasAttribute("data-rtl") ?? false,
+        target.pos,
+      ),
+    );
+    const rtlSlot = $(selector);
+    const rtlPoint = (await rtlSlot.execute((node) => {
+      const rect = node.getBoundingClientRect();
+      return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + 4) };
+    })) as { x: number; y: number };
+    await browser
+      .action("pointer")
+      .move({ origin: "viewport", x: rtlPoint.x, y: rtlPoint.y })
+      .perform();
+    await expect(button).toBeDisplayed();
+    const rtlPlacement = await browser.execute((pos) => {
+      const block = document.querySelector<HTMLElement>(
+        `.ProseMirror [data-leafdown-block-pos="${pos}"]`,
+      );
+      const gutter = document.querySelector<HTMLElement>(
+        `.leafdown-block-gutter[data-leafdown-block-pos="${pos}"]`,
+      );
+      if (!block || !gutter) throw new Error("Nested block and gutter were not found.");
+      return {
+        blockRight: block.getBoundingClientRect().right,
+        gutterLeft: gutter.getBoundingClientRect().left,
+      };
+    }, target.pos);
+    expect(rtlPlacement.gutterLeft).toBeGreaterThanOrEqual(rtlPlacement.blockRight - 0.5);
+    await browser.execute(() => {
+      document.querySelector<HTMLElement>(".ProseMirror")?.removeAttribute("dir");
+      window.dispatchEvent(new Event("resize"));
+    });
+    await browser.waitUntil(() =>
+      browser.execute(
+        (pos) =>
+          !document
+            .querySelector(`.leafdown-block-gutter[data-leafdown-block-pos="${pos}"]`)
+            ?.hasAttribute("data-rtl"),
+        target.pos,
+      ),
+    );
+    await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
+    expect((await handleGeometry()).filter(({ blockTag }) => blockTag === "LI")).toHaveLength(7);
+
+    await browser.action("pointer").move({ origin: "viewport", x: point.x, y: point.y }).perform();
+    await button.click();
+    await $("[data-testid='editor-block-insertion-menu'] [role='menuitem']").click();
+    await browser.waitUntil(
+      async () => (await handleGeometry()).filter(({ blockTag }) => blockTag === "LI").length === 8,
+    );
+    expect(
+      await browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
+    ).toBe(true);
+    await browser.keys([Key.Ctrl, "z", Key.NULL]);
+    await browser.waitUntil(
+      async () => (await handleGeometry()).filter(({ blockTag }) => blockTag === "LI").length === 7,
+    );
+    expect(await dispatchEditorKey("i", { ctrlKey: true, altKey: true })).toBe(true);
+    await expect($("[data-testid='editor-block-insertion-menu']")).toBeDisplayed();
+    expect(await browser.execute(() => document.activeElement?.getAttribute("role"))).toBe(
+      "menuitem",
+    );
+    await browser.keys(Key.Escape);
+    await expect($("[data-testid='editor-block-insertion-menu']")).not.toExist();
+    await browser.waitUntil(() =>
+      browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
+    );
+  });
+
   it("renders and operates hierarchical gutters in the assembled app", async () => {
     const { blocks } = await getDesktopE2ERunContext();
     await openRecentPath(blocks.path);

@@ -17,7 +17,7 @@
   --leafdown-gutter-gap: 0.5rem;
   --leafdown-gutter: calc(2 * var(--leafdown-gutter-lane) + var(--leafdown-gutter-gap));
   --leafdown-block-handle-slot: 1.25rem;
-  --leafdown-block-insertion-slot: 0.75rem;
+  --leafdown-block-insertion-slot: 1.5rem;
   --leafdown-measure: 48rem;
 
   @media (min-width: 40rem) {
@@ -640,7 +640,7 @@
 .leafdown-block-gutter-layer {
   @apply pointer-events-none fixed inset-0 z-20;
   --leafdown-block-handle-slot: 1.25rem;
-  --leafdown-block-insertion-slot: 0.75rem;
+  --leafdown-block-insertion-slot: 1.5rem;
   --leafdown-block-first-line: 1.75rem;
 }
 
@@ -648,12 +648,34 @@
   @apply pointer-events-none absolute flex -translate-x-full items-stretch;
 }
 
+.leafdown-block-gutter[data-rtl] {
+  @apply translate-x-0 flex-row-reverse;
+}
+
 .leafdown-block-gutter__marker-slot {
-  @apply w-4 shrink-0;
+  @apply w-3 shrink-0;
 }
 
 .leafdown-block-gutter__insertion-slot {
   width: var(--leafdown-block-insertion-slot);
+}
+
+.leafdown-block-insertion-button {
+  @apply pointer-events-auto absolute z-10 flex size-6 -translate-1/2 items-center justify-center rounded-full border border-border bg-popover p-0 text-foreground shadow-sm hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-hidden;
+}
+
+.leafdown-block-insertion-button svg {
+  @apply size-4 fill-none stroke-current stroke-2;
+  stroke-linecap: round;
+}
+
+.leafdown-block-insertion-button[hidden],
+.leafdown-block-insertion-indicator[hidden] {
+  display: none;
+}
+
+.leafdown-block-insertion-indicator {
+  @apply pointer-events-none absolute h-0.5 bg-primary/40;
 }
 
 .leafdown-block-handle {

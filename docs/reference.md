@@ -125,6 +125,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to footnote definition**
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
 - **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
+- **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the local insertion menu after the current eligible block. Its items depend on the parent schema; inside a list, it offers a sibling list item.
 - **Line ending**
   - **Windows line ending (CRLF)**
   - **Unix line ending (LF)**

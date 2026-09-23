@@ -12,6 +12,7 @@ import {
 import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
+import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
 
@@ -43,10 +44,13 @@ export function MilkdownEditor({
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
   const {
+    blockInsertionRequest,
+    closeBlockInsertion,
     closeContextPopup,
     commandState,
     contextPopupRequest,
     executeContextCommand,
+    executeBlockInsertion,
     focusEditor,
     footnotePreviewRequest,
     rootRef,
@@ -75,6 +79,12 @@ export function MilkdownEditor({
         onExecute={executeContextCommand}
         onReturnFocus={focusEditor}
         request={contextPopupRequest}
+      />
+      <EditorBlockInsertionMenu
+        request={blockInsertionRequest}
+        onClose={closeBlockInsertion}
+        onExecute={executeBlockInsertion}
+        onReturnFocus={focusEditor}
       />
       <EditorFootnotePreview request={footnotePreviewRequest} />
     </div>

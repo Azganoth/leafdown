@@ -8,6 +8,7 @@ import {
   dispatchMouseEvent,
   dispatchMouseDown,
   dispatchMouseUp,
+  dispatchKeyDown,
 } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { selectTableCellRange } from "@/test/utils/prosemirror";
@@ -19,6 +20,7 @@ import {
   getSelectableBlockTargets,
   getSelectedBlockTargets,
 } from "./blockSelection";
+import type { BlockInsertionRequest } from "./blockSelectionInteraction";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -40,19 +42,129 @@ const settleAnimationFrame = () =>
     window.requestAnimationFrame(() => resolve());
   });
 
-const createRect = (left: number, top: number, height = 28): DOMRect => ({
+const createRect = (left: number, top: number, height = 28, width = 200): DOMRect => ({
   bottom: top + height,
   height,
   left,
-  right: left + 200,
+  right: left + width,
   top,
-  width: 200,
+  width,
   x: left,
   y: top,
   toJSON: () => ({}),
 });
 
 describe("block selection interaction", () => {
+  it("keeps one indicator position between adjacent sibling blocks", async () => {
+    const onBlockInsertionRequested = vi.fn();
+    const mounted = await mountEditor("First\n\nSecond\n", { onBlockInsertionRequested });
+    const paragraphs = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "paragraph",
+    );
+    paragraphs.forEach(({ pos }, index) => {
+      const node = mounted.view.nodeDOM(pos);
+      const gutter = getHandle(pos).parentElement;
+      if (!(node instanceof Element) || !gutter) throw new Error("Expected paragraph gutter.");
+      const top = index === 0 ? 40 : 88;
+      vi.spyOn(node, "getBoundingClientRect").mockReturnValue(createRect(100, top));
+      vi.spyOn(gutter, "getBoundingClientRect").mockReturnValue(createRect(50, top, 28, 52));
+      vi.spyOn(gutter.firstElementChild!, "getBoundingClientRect").mockReturnValue(
+        createRect(50, top, 28, 12),
+      );
+    });
+    dispatchDOMEvent(window, "resize");
+    await settleAnimationFrame();
+    const button = document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!;
+    const indicator = document.querySelector<HTMLElement>(".leafdown-block-insertion-indicator")!;
+
+    dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 60 });
+    expect(button.style.top).toBe("60px");
+    expect(indicator.style.top).toBe("78px");
+    dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 78 });
+    expect(button).not.toHaveAttribute("hidden");
+    expect(button.style.top).toBe("78px");
+    expect(indicator.style.top).toBe("78px");
+    dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 94 });
+    expect(button.style.top).toBe("94px");
+    expect(indicator.style.top).toBe("78px");
+    dispatchMouseEvent(button, "click");
+    expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+      expect.objectContaining({ boundary: paragraphs[0].pos + paragraphs[0].node.nodeSize }),
+    );
+  });
+
+  it("tracks one insertion button across local depths and paints only the hovered boundary", async () => {
+    const onBlockInsertionRequested = vi.fn((_request: BlockInsertionRequest) => {});
+    const mounted = await mountEditor("- Parent\n  - First\n  - Second\n", {
+      onBlockInsertionRequested,
+    });
+    const items = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "list_item",
+    );
+    items.forEach(({ pos }, index) => {
+      const node = mounted.view.nodeDOM(pos);
+      const gutter = getHandle(pos).parentElement;
+      if (!(node instanceof Element) || !gutter) throw new Error("Expected local list gutter.");
+      vi.spyOn(node, "getBoundingClientRect").mockReturnValue(
+        createRect(100 + index * 24, 40 + index * 28, index === 0 ? 84 : 28),
+      );
+      vi.spyOn(gutter, "getBoundingClientRect").mockReturnValue(
+        createRect(50 + index * 24, 40 + index * 28, index === 0 ? 84 : 28, 52),
+      );
+      vi.spyOn(gutter.firstElementChild!, "getBoundingClientRect").mockReturnValue(
+        createRect(50 + index * 24, 40 + index * 28, index === 0 ? 84 : 28, 12),
+      );
+    });
+    dispatchDOMEvent(window, "resize");
+    await settleAnimationFrame();
+    const button = document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!;
+    const indicator = document.querySelector<HTMLElement>(".leafdown-block-insertion-indicator")!;
+
+    dispatchMouseEvent(document, "mousemove", { clientX: 55, clientY: 72 });
+    expect(button).toHaveAttribute("hidden");
+    dispatchMouseEvent(document, "mousemove", { clientX: 95, clientY: 50 });
+    expect(button).not.toHaveAttribute("hidden");
+    expect(indicator).toHaveAttribute("hidden");
+    dispatchMouseEvent(document, "mousemove", { clientX: 92, clientY: 90 });
+    expect(button.style.top).toBe("90px");
+    dispatchMouseEvent(button, "mousemove", { clientX: 92, clientY: 93 });
+    expect(button.style.top).toBe("93px");
+    expect(button.querySelector("svg path")).toHaveAttribute("d", "M12 5v14m-7-7h14");
+    dispatchMouseEvent(button, "mouseenter");
+    expect(indicator).not.toHaveAttribute("hidden");
+    expect(indicator.style.top).toBe("96px");
+    dispatchMouseEvent(button, "click");
+    expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+      expect.objectContaining({
+        boundary: items[1].pos + items[1].node.nodeSize,
+        kinds: ["listItem"],
+        source: "pointer",
+      }),
+    );
+    expect(mounted.getMarkdown()).toBe("- Parent\n  - First\n  - Second\n");
+    onBlockInsertionRequested.mock.lastCall![0].onDismiss();
+    expect(button).toHaveAttribute("hidden");
+    expect(indicator).toHaveAttribute("hidden");
+    dispatchMouseEvent(document, "mousemove", { clientX: 92, clientY: 90 });
+    dispatchMouseEvent(document, "mouseleave");
+    expect(button).toHaveAttribute("hidden");
+  });
+
+  it("opens the same boundary menu from the focused editor without adding a tab stop", async () => {
+    const onBlockInsertionRequested = vi.fn();
+    const mounted = await mountEditor("First\n\nSecond\n", { onBlockInsertionRequested });
+    mounted.view.focus();
+    dispatchKeyDown(mounted.view.dom, "i", { ctrl: true, alt: true });
+    expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "keyboard",
+        boundary: getSelectableBlockTargets(mounted.view.state.doc)[0].node.nodeSize,
+      }),
+    );
+    expect(
+      document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")?.tabIndex,
+    ).toBe(-1);
+  });
   it("renders local non-tabbable handle, insertion, and marker slots for nested blocks", async () => {
     const mounted = await mountEditor("- Parent\n  - First\n  - Second\n\n> Quote\n");
     const targets = getSelectableBlockTargets(mounted.view.state.doc);

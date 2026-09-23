@@ -4,6 +4,7 @@ import { afterEach } from "vitest";
 
 import {
   type ContextPopupRequest,
+  type BlockInsertionRequest,
   createMilkdownEditor,
   type FootnotePreviewRequest,
   type EditorCommandState,
@@ -30,6 +31,7 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onContextPopupClosed?: () => void;
   onContextPopupRequested?: (request: ContextPopupRequest) => void;
+  onBlockInsertionRequested?: (request: BlockInsertionRequest) => void;
   getContextPopupOpen?: () => boolean;
   onFootnotePreviewClosed?: () => void;
   onFootnotePreviewRequested?: (request: FootnotePreviewRequest) => void;
@@ -52,6 +54,7 @@ export const mountMilkdownEditor = async (
       onClose: options.onContextPopupClosed,
       onRequest: options.onContextPopupRequested,
     },
+    blockInsertion: { onRequest: options.onBlockInsertionRequested },
     footnotePreview: {
       onClose: options.onFootnotePreviewClosed,
       onRequest: options.onFootnotePreviewRequested,

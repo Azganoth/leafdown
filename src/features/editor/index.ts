@@ -15,6 +15,7 @@ export {
   type MilkdownEditorProps,
 } from "./components/milkdown-editor";
 export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextPopup";
+export type { BlockInsertionRequest } from "./plugins/blockSelectionInteraction";
 export type { FootnotePreviewRequest, FootnotePreviewSource } from "./plugins/footnotePreview";
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
 export {

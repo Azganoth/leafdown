@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { undo } from "@milkdown/kit/prose/history";
 import { describe, expect, it } from "vitest";
 
 import { TWO_PARAGRAPH_MARKDOWN } from "@/test/fixtures/editorMarkdown";
@@ -11,10 +12,15 @@ import {
   setSelectionAtElementTextEnd,
   setTextSelection,
 } from "@/test/utils/prosemirror";
+import { enterProjection } from "@/test/utils/sourceProjection";
 
+import { getSelectableBlockTargets } from "../../plugins/blockSelection";
+import { hasActiveSourceProjection } from "../../plugins/sourceProjection";
 import { selectAll } from "../editing/selection";
 import {
   IMAGE_MARKER,
+  canInsertBlockAtBoundary,
+  insertBlockAtBoundary,
   insertBlockquote,
   insertCodeBlock,
   insertHeading,
@@ -30,6 +36,57 @@ import {
 const mountEditor = setupMilkdownEditorMount();
 
 describe("editor block insertion commands", () => {
+  it("inserts before a root block at an explicit boundary as one undoable action", async () => {
+    const mounted = await mountEditor("First\n\nSecond\n");
+    const second = getSelectableBlockTargets(mounted.view.state.doc)[1];
+    expect(canInsertBlockAtBoundary(mounted.view.state, second.pos, "paragraph")).toBe(true);
+    expect(insertBlockAtBoundary(mounted.view, second.pos, "paragraph")).toBe(true);
+    expect([...mounted.view.dom.children].map((node) => node.tagName)).toEqual(["P", "P", "P"]);
+    expect(mounted.view.state.selection.$from.parent.type.name).toBe("paragraph");
+    expect(undo(mounted.view.state, mounted.view.dispatch)).toBe(true);
+    expect(mounted.getMarkdown()).toBe("First\n\nSecond\n");
+  });
+
+  it("creates a sibling list item at the nested list boundary", async () => {
+    const mounted = await mountEditor("- Parent\n  - First\n  - Second\n");
+    const items = getSelectableBlockTargets(mounted.view.state.doc).filter(
+      ({ node }) => node.type.name === "list_item",
+    );
+    const boundary = items[2].pos;
+    expect(canInsertBlockAtBoundary(mounted.view.state, boundary, "paragraph")).toBe(false);
+    expect(canInsertBlockAtBoundary(mounted.view.state, boundary, "listItem")).toBe(true);
+    expect(insertBlockAtBoundary(mounted.view, boundary, "listItem")).toBe(true);
+    expect(mounted.view.dom.querySelectorAll("li li")).toHaveLength(3);
+    expect(mounted.view.state.selection.$from.parent.type.name).toBe("paragraph");
+  });
+
+  it("keeps quote-child insertion inside the quote and table boundaries outside its cells", async () => {
+    const quote = await mountEditor("> First\n>\n> Second\n");
+    const quoteChildren = getSelectableBlockTargets(quote.view.state.doc).filter(
+      ({ node }) => node.type.name === "paragraph",
+    );
+    expect(insertBlockAtBoundary(quote.view, quoteChildren[1].pos, "heading2")).toBe(true);
+    expect(
+      [...quote.view.dom.querySelector("blockquote")!.children].map((node) => node.tagName),
+    ).toEqual(["P", "H2", "P"]);
+
+    const table = await mountEditor("| A | B |\n| - | - |\n| C | D |\n");
+    const target = getSelectableBlockTargets(table.view.state.doc)[0];
+    expect(target.node.type.name).toBe("table");
+    expect(canInsertBlockAtBoundary(table.view.state, target.pos, "paragraph")).toBe(true);
+    expect(insertBlockAtBoundary(table.view, target.pos, "paragraph")).toBe(true);
+    expect(table.view.dom.firstElementChild?.tagName).toBe("P");
+    expect(table.view.dom.querySelectorAll("table")).toHaveLength(1);
+  });
+
+  it("commits active inline source before inserting at a later boundary", async () => {
+    const mounted = await mountEditor("**Bold** plain\n\nSecond\n");
+    enterProjection(mounted, "strong");
+    const second = getSelectableBlockTargets(mounted.view.state.doc)[1];
+    expect(insertBlockAtBoundary(mounted.view, second.pos, "paragraph")).toBe(true);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
+    expect(mounted.getMarkdown()).toBe("**Bold** plain\n\n\n\nSecond\n");
+  });
   it("inserts block content after the current block", async () => {
     const cases = [
       {

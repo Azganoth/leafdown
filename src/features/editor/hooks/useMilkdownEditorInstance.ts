@@ -19,7 +19,9 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "../commands";
+import { insertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import { insertLinkTarget } from "../commands/inserting/links";
+import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 import {
@@ -67,6 +69,10 @@ export const useMilkdownEditorInstance = ({
     INACTIVE_EDITOR_COMMAND_STATE,
   );
   const [contextPopupRequest, setContextPopupRequest] = useState<ContextPopupRequest | null>(null);
+  const [blockInsertionRequest, setBlockInsertionRequest] = useState<BlockInsertionRequest | null>(
+    null,
+  );
+  const blockInsertionRequestRef = useRef<BlockInsertionRequest | null>(null);
   const [footnotePreviewRequest, setFootnotePreviewRequest] =
     useState<FootnotePreviewRequest | null>(null);
 
@@ -142,6 +148,27 @@ export const useMilkdownEditorInstance = ({
     setContextPopupRequest(request);
   }, []);
 
+  const closeBlockInsertion = useCallback(() => {
+    blockInsertionRequestRef.current?.onDismiss();
+    blockInsertionRequestRef.current = null;
+    setBlockInsertionRequest(null);
+  }, []);
+
+  const executeBlockInsertion = useCallback(
+    (kind: BoundaryInsertKind) => {
+      const request = blockInsertionRequest;
+      const editor = editorRef.current;
+      closeBlockInsertion();
+      if (!request || !editor?.ctx) return;
+      const view = editor.ctx.get(editorViewCtx);
+      if (view.state.doc === request.document) {
+        insertBlockAtBoundary(view, request.boundary, kind);
+      }
+      view.focus();
+    },
+    [blockInsertionRequest, closeBlockInsertion],
+  );
+
   const closeFootnotePreview = useCallback(() => setFootnotePreviewRequest(null), []);
 
   const requestFootnotePreview = useCallback(
@@ -216,6 +243,14 @@ export const useMilkdownEditorInstance = ({
           onClose: closeContextPopup,
           onRequest: requestContextPopup,
         },
+        blockInsertion: {
+          onRequest: (request) => {
+            closeContextPopup();
+            blockInsertionRequestRef.current?.onDismiss();
+            blockInsertionRequestRef.current = request;
+            setBlockInsertionRequest(request);
+          },
+        },
         footnotePreview: {
           onClose: closeFootnotePreview,
           onRequest: requestFootnotePreview,
@@ -278,10 +313,12 @@ export const useMilkdownEditorInstance = ({
       }
 
       closeContextPopup();
+      closeBlockInsertion();
       closeFootnotePreview();
     };
   }, [
     closeContextPopup,
+    closeBlockInsertion,
     closeFootnotePreview,
     requestContextPopup,
     requestFootnotePreview,
@@ -289,10 +326,13 @@ export const useMilkdownEditorInstance = ({
   ]);
 
   return {
+    blockInsertionRequest,
+    closeBlockInsertion,
     closeContextPopup,
     commandState,
     contextPopupRequest,
     executeContextCommand,
+    executeBlockInsertion,
     focusEditor,
     footnotePreviewRequest,
     rootRef,

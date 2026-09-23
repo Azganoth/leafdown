@@ -58,7 +58,10 @@ import {
 import { createLeafdownAttentionPairingPlugin } from "../plugins/attentionPairing";
 import { createLeafdownAutolinkLiteralPositionPlugin } from "../plugins/autolinkLiteralPosition";
 import { createLeafdownAutoPairPlugin } from "../plugins/autoPair";
-import { createLeafdownBlockSelectionPlugin } from "../plugins/blockSelectionInteraction";
+import {
+  createLeafdownBlockSelectionPlugin,
+  type BlockInsertionOptions,
+} from "../plugins/blockSelectionInteraction";
 import { createLeafdownBlockSelectionKeyboardPlugin } from "../plugins/blockSelectionKeyboard";
 import { createLeafdownBlockSelectionOperationsPlugin } from "../plugins/blockSelectionOperations";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
@@ -190,6 +193,7 @@ export interface CreateMilkdownEditorOptions {
   root: HTMLElement;
   initialMarkdown: string;
   contextPopup?: LeafdownContextPopupPluginOptions;
+  blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
@@ -231,6 +235,7 @@ export const createMilkdownEditor = async ({
   root,
   initialMarkdown,
   contextPopup,
+  blockInsertion,
   footnotePreview,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
@@ -306,7 +311,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
-    .use(createLeafdownBlockSelectionPlugin())
+    .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))

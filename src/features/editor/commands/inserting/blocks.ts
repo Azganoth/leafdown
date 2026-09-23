@@ -137,6 +137,98 @@ const createHorizontalRuleFragment = (state: EditorState) => {
   return Fragment.fromArray([hr, paragraph]);
 };
 
+export type BoundaryInsertKind =
+  | "paragraph"
+  | "heading1"
+  | "heading2"
+  | "heading3"
+  | "heading4"
+  | "heading5"
+  | "heading6"
+  | "image"
+  | "blockquote"
+  | "unorderedList"
+  | "orderedList"
+  | "taskList"
+  | "codeBlock"
+  | "table"
+  | "horizontalRule"
+  | "listItem";
+
+const createBoundaryFragment = (state: EditorState, kind: BoundaryInsertKind) => {
+  let node: ProseMirrorNode | Fragment | null;
+  switch (kind) {
+    case "paragraph":
+      node = createNode(state, "paragraph");
+      break;
+    case "heading1":
+    case "heading2":
+    case "heading3":
+    case "heading4":
+    case "heading5":
+    case "heading6":
+      node = createNode(state, "heading", { level: Number(kind.slice(-1)) });
+      break;
+    case "image":
+      node = createImageMarkdownParagraph(state);
+      break;
+    case "blockquote":
+      node = createWrappedParagraphNode(state, "blockquote");
+      break;
+    case "unorderedList":
+      node = createListNode(state, "bullet_list");
+      break;
+    case "orderedList":
+      node = createListNode(state, "ordered_list");
+      break;
+    case "taskList":
+      node = createListNode(state, "bullet_list", false);
+      break;
+    case "codeBlock":
+      node = createNode(state, "code_block", { language: "" });
+      break;
+    case "table":
+      node = createDefaultTableNode(state);
+      break;
+    case "horizontalRule":
+      node = createHorizontalRuleFragment(state);
+      break;
+    case "listItem":
+      node = createNode(state, "list_item");
+      break;
+  }
+  return node ? Fragment.from(node) : null;
+};
+
+export const canInsertBlockAtBoundary = (
+  state: EditorState,
+  boundary: number,
+  kind: BoundaryInsertKind,
+) => {
+  if (boundary < 0 || boundary > state.doc.content.size) return false;
+  const fragment = createBoundaryFragment(state, kind);
+  return fragment !== null && canInsertFragmentAt(state, boundary, fragment);
+};
+
+export const insertBlockAtBoundary = (
+  view: EditorView,
+  boundary: number,
+  kind: BoundaryInsertKind,
+) => {
+  if (!canInsertBlockAtBoundary(view.state, boundary, kind)) return false;
+  const fragment = createBoundaryFragment(view.state, kind);
+  if (!fragment) return false;
+  const tr = view.state.tr.insert(boundary, fragment);
+  if (kind === "image") {
+    setImageTargetSelection(tr, boundary);
+  } else {
+    setSelectionNear(tr, boundary + (kind === "listItem" ? 2 : kind === "horizontalRule" ? 3 : 1));
+  }
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  return true;
+};
+
 const insertBlockAfterSelection = (
   view: EditorView,
   insertNode: ProseMirrorNode | Fragment | null,

@@ -17,8 +17,6 @@ const setActiveDocumentLineEnding = (
   useSessionStore.getState().setActiveDocumentLineEnding(activeDocumentKey, lineEnding);
 };
 
-/* Commands */
-
 export const setCrlfLineEnding = (context: AppCommandContext) => {
   setActiveDocumentLineEnding(context.activeDocument, "crlf");
 };
@@ -31,8 +29,6 @@ export const toggleFinalNewline = () => {
   const settings = useSettingsStore.getState();
   settings.updateSetting("insertFinalNewline", !settings.insertFinalNewline);
 };
-
-/* State */
 
 export const getCrlfLineEndingState = (context: AppCommandContext) =>
   context.activeDocument

@@ -32,7 +32,7 @@ export type DropBehavior = (typeof DROP_BEHAVIORS)[number];
 
 export const SETTINGS_VERSION = 2;
 
-// NOTE: src-tauri/src/folder/defaults.rs
+// Rust commands can omit these arguments, so their fallback defaults must match these settings.
 export const DEFAULT_INDEX_FILE_NAMES = ["readme", "index"] as const;
 export const DEFAULT_IGNORED_DIRECTORIES = [
   ".git",

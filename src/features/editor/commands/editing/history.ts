@@ -34,15 +34,11 @@ const canUseHistory = (
   );
 };
 
-/* Commands */
-
 export const undo = (view: EditorView) =>
   undoSourceProjection(view) || runProseMirrorCommand(view, milkdownUndo);
 
 export const redo = (view: EditorView) =>
   redoSourceProjection(view) || runProseMirrorCommand(view, milkdownRedo);
-
-/* State */
 
 export const canUndo = (state: EditorState) =>
   canUseHistory(state, canUndoSourceProjection, undoDepth);

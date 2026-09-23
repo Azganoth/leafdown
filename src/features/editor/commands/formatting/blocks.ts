@@ -315,8 +315,6 @@ const updateSelectedTaskState = (
   return true;
 };
 
-/* Commands */
-
 export const setParagraph = (view: EditorView) => setSelectionTextBlockType(view, "paragraph");
 
 export const toggleHeading = (view: EditorView, level: HeadingLevel) =>
@@ -422,8 +420,6 @@ export const clearBlockFormat = (view: EditorView) => {
 
   return didSetParagraph || handled;
 };
-
-/* State */
 
 export const canChangeHeadingLevel = (state: EditorState, delta: number) =>
   getTextBlocksInSelection(state).some(({ node }) => {

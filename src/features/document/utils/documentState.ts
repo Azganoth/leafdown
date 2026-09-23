@@ -1,10 +1,8 @@
 import { isSamePath } from "@/lib/path";
 
-/* NOTE: src-tauri/src/document.rs (LineEnding). */
 export const LINE_ENDINGS = ["crlf", "lf"] as const;
 export type LineEnding = (typeof LINE_ENDINGS)[number];
 
-/* NOTE: src-tauri/src/document.rs (FileMetadataSnapshot). */
 export interface FileMetadataSnapshot {
   sizeBytes: number;
   modifiedAtUnixMs: number;

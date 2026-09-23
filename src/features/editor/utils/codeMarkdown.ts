@@ -37,37 +37,26 @@ export const CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME = "runSurplus";
 
 export type CodeFence = "`" | "~";
 
-// The form a block is written in when it has none of its own: one the editor created, and one
-// whose authored form cannot be recovered. A fence is the form that carries every block, because
-// it is the only one an info string can be written on; backticks no longer than the content needs,
-// opened directly onto that info string, at column zero, and closed.
+// Fences are the fallback because indented code cannot carry an info string.
 export const DEFAULT_CODE_FENCED = true;
 export const DEFAULT_CODE_FENCE: CodeFence = "`";
 export const DEFAULT_CODE_FENCE_LENGTH = 3;
 export const DEFAULT_CODE_FENCE_SURPLUS = 0;
 export const DEFAULT_CODE_SEPARATOR = "";
 export const DEFAULT_CODE_INDENT = 0;
-// The lines an indented block carries when it holds no record of them: one the editor created,
-// and one whose authored lines cannot be recovered. Each is then written behind the four spaces
-// that open the form.
 export const DEFAULT_CODE_LINE_PREFIXES: readonly string[] = [];
 export const DEFAULT_CODE_CLOSED = true;
-// A span the editor created is delimited by the shortest run its content leaves free, the way one
-// whose authored run cannot be recovered is.
 export const DEFAULT_CODE_SPAN_RUN_SURPLUS = 0;
 
 // Four spaces open indented code instead, so three is the widest a fence can be indented by.
 const CODE_INDENT_MAX = 3;
 
-// What the preset's indented branch writes every non-blank line behind, which is the run a
-// record stands in place of and the one a withdrawn record leaves standing.
 const INDENTED_CODE_PREFIX = "    ";
 // Everything a record may stand for: the quote markers the containers spell and the whitespace
 // around them. A prefix reaching any other character has taken in a marker another container
 // owns, which the record would write back over the one the document now holds. A quote is safe
 // because the resolver compares where each one stands, and no other marker is compared at all.
 const CODE_LINE_PREFIX_PATTERN = /^(?:[\t ]*>)*[\t ]*$/u;
-// CommonMark ends a line on a carriage return, a line feed, or the pair.
 const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;
 
 // A fence opens on three or more of one character. Indented code opens on the four spaces that
@@ -80,7 +69,6 @@ const CODE_FENCE_HEAD_PATTERN = /^(`{3,}|~{3,})([\t ]*)(\S)?/u;
 // A closing fence carries its run and nothing else. Only the prefix a container wrote and the
 // block's own indentation stand before it, and neither says anything the run does not.
 const CODE_FENCE_CLOSING_PATTERN = /^[\t >]*(`{3,}|~{3,})[\t ]*$/u;
-// The run the handler wrote, which the recorded surplus is added to rather than replacing.
 const WRITTEN_CODE_FENCE_PATTERN = /^(`+|~+)/u;
 
 const CODE_SEPARATOR_PATTERN = /^[\t ]*$/u;
@@ -169,12 +157,8 @@ export const readCodeLinePrefixes = (source: object): string[] => {
     : [...DEFAULT_CODE_LINE_PREFIXES];
 };
 
-/// Reads what each line of an indented block stood behind in the file. The prefix ends where the
-/// line's own content begins, which the value the parse kept is what names: a whitespace run before
-/// it is the block's indentation, and one the parse left in the value is content the block holds.
-/// The slice a block was built from opens at its own indentation rather than at the head of the
-/// line, so the prefix the containers wrote before it is only on the first line and is passed in.
-/// Exported for colocated tests.
+// Parsed content identifies where indentation ends; the first line needs its container prefix
+// supplied separately because mdast begins the slice at the code block's own indentation.
 export const findCodeLinePrefixes = (raw: string, value: string, opening: string): string[] => {
   const lines = raw.split(LINE_ENDING_PATTERN);
   const content = value.split(LINE_ENDING_PATTERN);
@@ -233,9 +217,7 @@ const findFenceClosed = (raw: string, fence: string, length: number) => {
 };
 
 export interface CodeFormSource {
-  // The slice of the file the node was built from.
   raw: string;
-  // The value the parse kept from it, whose lines run against the slice's own.
   value: string;
   column: number;
   atRoot: boolean;
@@ -399,9 +381,7 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
   },
 });
 
-// A span's slice opens on the run that delimits it, whatever the content it holds.
 const CODE_SPAN_RUN_PATTERN = /^`+/u;
-// The construct the serializer is inside while it writes a cell's content.
 const TABLE_CELL_MARKDOWN_TYPE = "tableCell";
 const CELL_CODE_SPAN_ESCAPE_PATTERN = /\\([\\|])/gu;
 const CELL_CODE_SPAN_PIPE_PATTERN = /(\\*)\|/gu;
@@ -417,7 +397,6 @@ export const readCodeSpanRunSurplus = (source: object): number => {
     : DEFAULT_CODE_SPAN_RUN_SURPLUS;
 };
 
-// The run lengths the content spells, which are the lengths that cannot delimit it.
 const findCodeSpanRuns = (value: string) => {
   const runs = new Set<number>();
   let current = 0;

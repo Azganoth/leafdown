@@ -9,7 +9,6 @@ export interface ResolveMarkdownImageTargetArgs {
   target: string;
 }
 
-/* NOTE: src-tauri/src/image.rs (ResolveMarkdownImageTargetResult). */
 export type ResolveMarkdownImageTargetResult =
   | { kind: "renderable"; path: string }
   | { kind: "missing"; path: string }

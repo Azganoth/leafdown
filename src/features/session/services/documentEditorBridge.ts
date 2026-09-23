@@ -1,5 +1,4 @@
 import type { MilkdownEditorBridge } from "@/features/editor";
-// Deep import by design; see @/features/editor/commands/contract.ts.
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
   READY_DISABLED_EDITOR_COMMAND_STATE,

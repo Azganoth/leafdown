@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 
 export const GET_DIAGNOSTICS_SUMMARY_COMMAND = "get_diagnostics_summary";
 
-/* NOTE: src-tauri/src/diagnostics.rs (DiagnosticsSummary). */
 export interface DiagnosticsSummary {
   appIdentifier: string;
   appName: string;
@@ -17,7 +16,6 @@ export interface DiagnosticsSummary {
   runId: string;
 }
 
-/* NOTE: src-tauri/src/diagnostics.rs (DiagnosticsError). */
 export type DiagnosticsError =
   | { kind: "logDirectoryUnavailable"; message: string }
   | { kind: "createLogDirectoryFailed"; path: string; message: string };

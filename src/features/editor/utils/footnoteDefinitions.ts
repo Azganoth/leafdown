@@ -14,7 +14,6 @@ import {
 } from "./sourceProjectionFootnoteReferenceSyntax";
 import { getRangeText, type TextRange } from "./textRanges";
 
-/** How much of a definition a preview shows before it is cut short. */
 export const FOOTNOTE_PREVIEW_CHARACTER_LIMIT = 280;
 
 const FOOTNOTE_PREVIEW_ELLIPSIS = "…";
@@ -51,18 +50,11 @@ export const findFootnoteDefinitionByLabel = (doc: ProseMirrorNode, label: strin
   findFootnoteDefinitions(doc).find(({ node }) => getFootnoteDefinitionLabel(node) === label) ??
   null;
 
-/**
- * The first position inside the definition's body. The label sits before it, so a caret sent here
- * reaches the definition's content without opening the label's rename edit.
- */
+// Skip the label so navigation enters the body without opening a rename edit.
 export const getFootnoteDefinitionBodyPosition = ({ node, pos }: FootnoteDefinitionMatch) =>
   pos + 1 + (getFootnoteDefinitionLabelNode(node)?.nodeSize ?? 0);
 
-/**
- * The definition's body as one line of plain text, cut to {@link FOOTNOTE_PREVIEW_CHARACTER_LIMIT}.
- * The label is left out because the reference already names it, and the body is flattened because a
- * preview reports what the definition says rather than reproducing the blocks it says it in.
- */
+// A preview reports the definition's text, while the reference already supplies its label.
 export const getFootnoteDefinitionPreviewText = (definition: ProseMirrorNode) => {
   const blocks: string[] = [];
 

@@ -321,8 +321,6 @@ const removeColumns = (view: EditorView) => {
   return true;
 };
 
-/* Commands */
-
 const restructuring = (command: (view: EditorView) => boolean) => (view: EditorView) => {
   finalizeSourceProjection(view);
 
@@ -352,8 +350,6 @@ export const moveRowDown = restructuring((view) => moveRows(view, 1));
 export const moveColumnLeft = restructuring((view) => moveColumns(view, -1));
 
 export const moveColumnRight = restructuring((view) => moveColumns(view, 1));
-
-/* State */
 
 export const canUseTable = (state: EditorState) => getSelectedTableRect(state) !== null;
 

@@ -8,8 +8,6 @@ const LINK_TEXT_CURSOR_OFFSET = EMPTY_LINK_MARKER.indexOf("]");
 
 const getLinkDestinationCursorOffset = (marker: string) => marker.indexOf(")");
 
-/* Commands */
-
 export const insertLink = (view: EditorView) => {
   const { selection } = view.state;
 

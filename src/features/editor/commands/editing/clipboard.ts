@@ -154,8 +154,6 @@ const pasteSourceProjectionText = async (view: EditorView) => {
   return pasteIntoSourceProjection(view, text);
 };
 
-/* Commands */
-
 export const copySelection = (view: EditorView, format: ClipboardCopyFormat) => {
   const payload = getSelectedClipboardPayload(view, format);
 
@@ -212,7 +210,5 @@ export const paste = async (editor: Editor, format: ClipboardPasteFormat) => {
     }
   }
 };
-
-/* State */
 
 export const canCopy = (state: EditorState) => !state.selection.empty;

@@ -1,4 +1,3 @@
-// Deep import by design; see @/features/editor/commands/contract.ts.
 import { isEditorCommandId } from "@/features/editor/commands/contract";
 
 import { APPLICATION_COMMANDS, isApplicationCommandId } from "./application";

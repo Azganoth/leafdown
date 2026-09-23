@@ -7,24 +7,19 @@ export const OPEN_MARKDOWN_FOLDER_COMMAND = "open_markdown_folder";
 export const WATCH_MARKDOWN_FOLDER_COMMAND = "watch_markdown_folder";
 export const UNWATCH_MARKDOWN_FOLDER_COMMAND = "unwatch_markdown_folder";
 
-/* NOTE: src-tauri/src/folder/watch.rs (FOLDER_CHANGED_EVENT). */
 export const FOLDER_CONTEXT_CHANGED_EVENT = "leafdown://folder-changed";
 
-/* NOTE: src-tauri/src/folder/watch.rs (FOLDER_WATCH_ERROR_EVENT). */
 export const FOLDER_CONTEXT_WATCH_ERROR_EVENT = "leafdown://folder-watch-error";
 
-/* NOTE: src-tauri/src/folder.rs (FileTreeSortOrder). */
 export const ARTICLE_SORT_ORDERS = ["name", "modifiedDate", "type"] as const;
 export type ArticleSortOrder = (typeof ARTICLE_SORT_ORDERS)[number];
 
-/* NOTE: src-tauri/src/folder.rs (MarkdownFolderTree). */
 export interface ArticleTree {
   name: string;
   path: string;
   children: ArticleTreeNode[];
 }
 
-/* NOTE: src-tauri/src/folder.rs (MarkdownFolderTreeNode::Directory). */
 export interface ArticleDirectoryNode {
   kind: "directory";
   name: string;
@@ -32,17 +27,14 @@ export interface ArticleDirectoryNode {
   children: ArticleTreeNode[];
 }
 
-/* NOTE: src-tauri/src/folder.rs (MarkdownFolderTreeNode::File). */
 export interface ArticleFileNode {
   kind: "file";
   name: string;
   path: string;
 }
 
-/* NOTE: src-tauri/src/folder.rs (MarkdownFolderTreeNode). */
 export type ArticleTreeNode = ArticleDirectoryNode | ArticleFileNode;
 
-/* NOTE: src-tauri/src/document.rs (OpenMarkdownFileResult). */
 export interface FolderIndexDocument {
   path: string;
   content: string;
@@ -56,7 +48,6 @@ export interface ScanMarkdownFolderArgs {
   sortOrder: ArticleSortOrder;
 }
 
-/* NOTE: src-tauri/src/folder.rs (MarkdownFolderScanResult). */
 export interface ScanMarkdownFolderResult {
   path: string;
   tree: ArticleTree;
@@ -64,7 +55,6 @@ export interface ScanMarkdownFolderResult {
   warnings: ScanMarkdownFolderWarning[];
 }
 
-/* NOTE: src-tauri/src/folder.rs (ScanMarkdownFolderError). */
 export type ScanMarkdownFolderError =
   | { kind: "invalidPath"; path: string }
   | { kind: "missingFolder"; path: string }
@@ -73,7 +63,6 @@ export type ScanMarkdownFolderError =
   | { kind: "notDirectory"; path: string }
   | { kind: "readDirectoryFailed"; path: string; message: string };
 
-/* NOTE: src-tauri/src/folder.rs (ScanMarkdownFolderWarning). */
 export type ScanMarkdownFolderWarning =
   | { kind: "invalidPath"; path: string }
   | { kind: "missingFolder"; path: string }
@@ -86,14 +75,12 @@ export interface OpenMarkdownFolderArgs extends ScanMarkdownFolderArgs {
   indexFileNames: string[];
 }
 
-/* NOTE: src-tauri/src/folder.rs (OpenMarkdownFolderResult). */
 export interface OpenMarkdownFolderResult {
   folder: ScanMarkdownFolderResult;
   indexDocument: FolderIndexDocument | null;
   indexError: OpenMarkdownFileError | null;
 }
 
-/* NOTE: src-tauri/src/folder.rs (OpenMarkdownFolderError). */
 export type OpenMarkdownFolderError = { kind: "scanFailed"; error: ScanMarkdownFolderError };
 
 export interface WatchMarkdownFolderArgs {
@@ -108,7 +95,6 @@ export interface UnwatchMarkdownFolderArgs {
   scopeGeneration: number;
 }
 
-/* NOTE: src-tauri/src/folder/watch.rs (WatchMarkdownFolderError). */
 export type WatchMarkdownFolderError =
   | { kind: "invalidPath"; path: string }
   | { kind: "missingFolder"; path: string }
@@ -118,13 +104,11 @@ export type WatchMarkdownFolderError =
   | { kind: "watchFailed"; path: string; message: string }
   | { kind: "watcherStateFailed"; message: string };
 
-/* NOTE: src-tauri/src/folder/watch.rs (MarkdownFolderChangedEvent). */
 export interface FolderContextChangedEventPayload {
   folderPath: string;
   paths: string[];
 }
 
-/* NOTE: src-tauri/src/folder/watch.rs (MarkdownFolderWatchErrorEvent). */
 export interface FolderContextWatchErrorEventPayload {
   folderPath: string;
   error: WatchMarkdownFolderError;

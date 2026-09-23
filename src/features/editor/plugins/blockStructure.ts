@@ -40,7 +40,7 @@ const needsParagraphWrapper = (parent: MarkdownNode, child: MarkdownNode) =>
 
 /// Restores the blank paragraphs a blank-line run represents, records the pairs written with no
 /// blank line between them, and puts block-position raw HTML somewhere the schema accepts. Runs
-/// before the preset's own mdast transformers. Exported for colocated tests.
+/// before the preset's own mdast transformers.
 export const restoreBlockStructure = (tree: MarkdownNode) => {
   const children = tree.children;
 

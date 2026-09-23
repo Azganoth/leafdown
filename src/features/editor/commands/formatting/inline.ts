@@ -198,8 +198,6 @@ const toggleInlineFormatting = (view: EditorView, markName: InlineMarkName) => {
   return true;
 };
 
-/* Commands */
-
 export const toggleStrong = (view: EditorView) => toggleInlineFormatting(view, "strong");
 
 export const toggleEmphasis = (view: EditorView) => toggleInlineFormatting(view, "emphasis");
@@ -266,8 +264,6 @@ export const clearInlineFormat = (view: EditorView) => {
 
   return true;
 };
-
-/* State */
 
 export const canClearInlineFormat = (state: EditorState) => {
   if (hasActiveSourceProjection(state)) {

@@ -8,8 +8,6 @@ import type { TableCellCoordinates } from "@/features/editor";
 import { createKeyboardEvent, type TestKeyboardEventOptions } from "./events";
 import type { MountedMilkdownEditor } from "./milkdown";
 
-/* Document */
-
 export const getEditorTextContent = (mounted: MountedMilkdownEditor) =>
   mounted.view.state.doc.textContent;
 
@@ -117,8 +115,6 @@ export const containsNodeType = (
   return found;
 };
 
-/* DOM */
-
 export function getEditorDomElement<K extends keyof HTMLElementTagNameMap>(
   mounted: MountedMilkdownEditor,
   selector: K,
@@ -174,8 +170,6 @@ export const flushEditorDomObserver = (view: EditorView) => {
   (view as unknown as { domObserver: { flush: () => void } }).domObserver.flush();
 };
 
-/* Input */
-
 // Returns whether every character was consumed by a `handleTextInput` handler, which
 // distinguishes plugin-driven input from a plain insertion.
 export const typeText = (view: EditorView, text: string) => {
@@ -208,8 +202,6 @@ export const runKeyDownHandlers = (
 
   return { event, handled };
 };
-
-/* Selection */
 
 const getLastTextNode = (node: Node): Text | null => {
   if (node.nodeType === Node.TEXT_NODE) {
@@ -251,8 +243,6 @@ export const setSelectionAtElementTextEnd = (view: EditorView, element: Element)
 
   return position;
 };
-
-/* Table */
 
 const getFirstTable = (mounted: MountedMilkdownEditor) => {
   const tables: { node: ProseMirrorNode; start: number }[] = [];

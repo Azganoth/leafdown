@@ -60,8 +60,6 @@ const deleteWordRange = (view: EditorView, getRange: typeof getTextWordRangeBefo
   return true;
 };
 
-/* Commands */
-
 export const deleteForward = (view: EditorView) =>
   deleteSelectedBlocks(view) ||
   runProseMirrorCommand(view, deleteForwardCommand) ||
@@ -72,8 +70,6 @@ export const deleteWordBackward = (view: EditorView) =>
 
 export const deleteWordForward = (view: EditorView) =>
   deleteWordRange(view, getTextWordRangeAfterSelection);
-
-/* State */
 
 export const canDeleteWordBackward = (state: EditorState) =>
   getTextWordRangeBeforeSelection(state) !== null;

@@ -27,6 +27,7 @@
 ## Verification And Completion
 
 - Run the smallest relevant checks while iterating, then expand verification in proportion to the final scope and risk.
+- For editor presentation changes, use focused tests to check source ranges and state while iterating. Run the relevant desktop E2E scenario when rendered geometry or native interaction is the remaining question; avoid running the full desktop suite for each adjustment. Rebuild the E2E binary when its inputs change, as described in `CONTRIBUTING.md`, and run the appropriate full area check before completion.
 - Use `pnpm check:frontend` for frontend-only changes, `pnpm check:backend` for Rust/Tauri-only changes, and `pnpm check` for cross-cutting changes.
 - For documentation-only or repository-metadata changes, run targeted formatting or validation rather than the full application suite unless executable configuration is affected.
 - Do not start browser or application verification for trivial UI or copy-only changes unless requested or the behavior depends on rendered interaction.

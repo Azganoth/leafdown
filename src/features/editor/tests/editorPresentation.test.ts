@@ -89,8 +89,9 @@ Multiline safe HTML.
 
   it("paints a neutral padded wash without changing selectable-block geometry", () => {
     const editorCss = readFileSync(editorCssPath, "utf8");
-    const selectedBlockRule = editorCss.match(/\.leafdown-selected-block\s*\{(?<body>[^}]*)\}/su)
-      ?.groups?.body;
+    const selectedBlockRule = editorCss.match(
+      /\.leafdown-selected-block,\s*hr\.ProseMirror-selectednode\s*\{(?<body>[^}]*)\}/su,
+    )?.groups?.body;
 
     expect(editorCss).not.toMatch(/\.leafdown-selectable-block\s*\{/u);
     expect(selectedBlockRule).toContain("rounded-sm");
@@ -98,6 +99,7 @@ Multiline safe HTML.
     expect(selectedBlockRule).toContain("background-image: linear-gradient");
     expect(selectedBlockRule).toContain("box-shadow: 0 0 0 0.25rem");
     expect(selectedBlockRule).not.toMatch(/padding|margin|border|outline|primary/u);
+    expect(editorCss).toMatch(/hr\.ProseMirror-selectednode\s*\{[^}]*outline-none/su);
   });
 
   it("renders a footnote definition's label beside its marker runs", async () => {

@@ -123,6 +123,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const settingsPath = path.join(storeDirectory, "settings.dev.json");
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
+  const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const imagesPath = path.join(fixtureRoot, "rendered-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
@@ -137,6 +138,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const context: DesktopE2ERunContext = {
     appIdentifier,
     blocks: { path: blocksPath },
+    separator: { path: separatorPath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -166,6 +168,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
+    { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
@@ -203,6 +206,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "block-selection.md"),
         blocksPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "separator-presentation.md"),
+        separatorPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),

@@ -138,7 +138,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Headings render structurally. When the caret is inside a heading, or the pointer rests on one, show a subtle heading marker in the local gutter's passive outer slot, beside the heading's first line. Either trigger shows the same marker, and both may show at once on different headings. The marker belongs to the heading's pointer area, so moving onto the marker does not dismiss it.
 - Lists render structurally with visual list markers.
 - Blockquotes render structurally.
-- Horizontal rules render as separators without exposing the raw marker used to create them.
+- Horizontal rules render as 2-pixel separators spanning the available editor width without exposing the raw marker used to create them. Each separator occupies a row at least 28 pixels tall with 20-pixel vertical margins; selecting it directly or through its block handle shows the same block-selection wash across that row while keeping the line visible.
 - List items and blockquotes may contain other block-level elements.
 - Ordered lists render with visual continuation.
 - Clicking a task-list checkbox toggles it checked or unchecked.

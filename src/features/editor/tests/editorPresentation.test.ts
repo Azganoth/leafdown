@@ -111,9 +111,8 @@ Multiline safe HTML.
     expect(label).toHaveTextContent(/^a$/u);
     expect(definition).not.toHaveAttribute("data-leafdown-marker");
     expect(definition.querySelector("p")).toHaveTextContent("Detail");
-    expect(editorCss).toMatch(
-      /dl\[data-type="footnote_definition"\]\s*\{[^}]*grid items-baseline/su,
-    );
+    expect(editorCss).toMatch(/dl\[data-type="footnote_definition"\]\s*\{[^}]*grid items-start/su);
+    expect(editorCss).toMatch(/& > dt\s*\{[^}]*leading-7/su);
     expect(editorCss).toMatch(
       /dl\[data-type="footnote_definition"\]\s*>\s*dt\s*\{.*?content:\s*"\[\^";.*?content:\s*"\]:";/su,
     );

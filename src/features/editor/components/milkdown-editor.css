@@ -507,11 +507,11 @@
        in a second column so a body of several blocks stays under one heading rather than splitting
        across the row. */
     dl[data-type="footnote_definition"] {
-      @apply my-4 grid items-baseline gap-x-2;
+      @apply my-4 grid items-start gap-x-2;
       grid-template-columns: auto minmax(0, 1fr);
 
       & > dt {
-        @apply col-start-1 row-start-1 font-bold;
+        @apply col-start-1 row-start-1 leading-7 font-bold;
       }
 
       & > :not(dt) {

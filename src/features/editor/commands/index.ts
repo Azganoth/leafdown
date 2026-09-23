@@ -64,6 +64,14 @@ export const EDITOR_COMMANDS = {
     (view) => clipboard.copySelection(view, "markdown"),
     clipboard.canCopy,
   ),
+  "edit.copyAsHtml": viewCommand(
+    (view) => clipboard.copySelection(view, "html"),
+    clipboard.canCopy,
+  ),
+  "edit.copyAsRichText": viewCommand(
+    (view) => clipboard.copySelection(view, "richText"),
+    clipboard.canCopy,
+  ),
   "edit.paste": editorCommand((editor) => clipboard.paste(editor, "default")),
   "edit.pasteAsPlainText": editorCommand((editor) => clipboard.paste(editor, "plainText")),
   "edit.pasteAsMarkdown": editorCommand((editor) => clipboard.paste(editor, "markdown")),

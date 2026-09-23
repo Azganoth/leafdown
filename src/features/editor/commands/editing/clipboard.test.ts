@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
+import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { BOLD_PLAIN_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
 import { setupClipboardMock } from "@/test/mocks/clipboard";
 import { parseClipboardHtml } from "@/test/utils/events";
@@ -28,6 +28,8 @@ import { selectAll } from "./selection";
 const mountEditor = setupMilkdownEditorMount();
 const { clipboard, createClipboardItem, expectClipboardTextWritten, getClipboardHtmlWritten } =
   setupClipboardMock();
+const getRichClipboardText = async () =>
+  clipboard.write.mock.lastCall?.[0][0]?.getType(TEXT_PLAIN_MIME_TYPE).then((blob) => blob.text());
 
 describe("editor clipboard commands", () => {
   it("copies selections in plain text and Markdown formats", async () => {
@@ -55,6 +57,66 @@ describe("editor clipboard commands", () => {
     const fragment = parseClipboardHtml(await getClipboardHtmlWritten());
     expect(fragment.querySelector("em")).toHaveTextContent("Emphasis");
     expect(fragment.querySelector("strong")).toHaveTextContent("Strong");
+  });
+
+  it("copies portable HTML as source text and rich text with an unformatted fallback", async () => {
+    const mounted = await mountEditor("*Emphasis* and **Strong**");
+    setTextSelection(mounted.view, 1, mounted.view.state.doc.content.size - 1);
+    const stateBefore = mounted.view.state;
+
+    await expect(copySelection(mounted.view, "html")).resolves.toBe(true);
+    expect(clipboard.write).not.toHaveBeenCalled();
+    const html = clipboard.writeText.mock.lastCall?.[0] ?? "";
+    expect(html).toContain("<em>Emphasis</em>");
+    expect(html).toContain("<strong>Strong</strong>");
+    expect(html).not.toContain("data-pm-slice");
+
+    await expect(copySelection(mounted.view, "richText")).resolves.toBe(true);
+    expect(await getClipboardHtmlWritten()).toBe(html);
+    await expect(getRichClipboardText()).resolves.toBe("Emphasis and Strong");
+    expect(mounted.view.state).toBe(stateBefore);
+  });
+
+  it("exports projected semantic content and keeps unmappable source literal", async () => {
+    const mounted = await mountEditor("**Bold** plain");
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "strong"));
+    const sourceStart = getEditorTextPosition(mounted, "**Bold**");
+    setTextSelection(mounted.view, sourceStart, sourceStart + 8);
+    const stateBefore = mounted.view.state;
+
+    await expect(copySelection(mounted.view, "richText")).resolves.toBe(true);
+    expect(await getClipboardHtmlWritten()).toContain("<strong>Bold</strong>");
+    await expect(getRichClipboardText()).resolves.toBe("Bold");
+    await expect(copySelection(mounted.view, "html")).resolves.toBe(true);
+    expect(clipboard.writeText.mock.lastCall?.[0]).toContain("<strong>Bold</strong>");
+
+    setTextSelection(mounted.view, sourceStart, sourceStart + 2);
+    await expect(copySelection(mounted.view, "richText")).resolves.toBe(true);
+    expect(await getClipboardHtmlWritten()).not.toContain("<strong>");
+    await expect(getRichClipboardText()).resolves.toBe("**");
+    expect(mounted.view.state.doc).toBe(stateBefore.doc);
+    expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+  });
+
+  it("exports a structural block selection without Markdown in the rich fallback", async () => {
+    const mounted = await mountEditor("- Parent\n  - First\n  - Second\n");
+    const item = getSelectableBlockTargets(mounted.view.state.doc).find(
+      ({ node }) => node.type.name === "list_item" && node.textContent === "First",
+    );
+    mounted.view.dispatch(
+      mounted.view.state.tr.setSelection(
+        createHierarchicalBlockSelection(mounted.view.state.doc, item!.pos),
+      ),
+    );
+    const stateBefore = mounted.view.state;
+
+    await expect(copySelection(mounted.view, "richText")).resolves.toBe(true);
+    expect(
+      parseClipboardHtml(await getClipboardHtmlWritten()).querySelector("li"),
+    ).toHaveTextContent("First");
+    expect(await getRichClipboardText()).toContain("First");
+    expect(await getRichClipboardText()).not.toContain("- First");
+    expect(mounted.view.state).toBe(stateBefore);
   });
 
   it("cuts the current selection after copying it", async () => {

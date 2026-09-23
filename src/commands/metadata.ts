@@ -56,6 +56,8 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.copy": editorCommandDef("edit.copy", { key: "c", mod: true }),
   "edit.copyAsPlainText": editorCommandDef("edit.copyAsPlainText"),
   "edit.copyAsMarkdown": editorCommandDef("edit.copyAsMarkdown"),
+  "edit.copyAsHtml": editorCommandDef("edit.copyAsHtml"),
+  "edit.copyAsRichText": editorCommandDef("edit.copyAsRichText"),
   "edit.paste": editorCommandDef("edit.paste", { key: "v", mod: true }),
   "edit.pasteAsPlainText": editorCommandDef("edit.pasteAsPlainText", {
     key: "v",

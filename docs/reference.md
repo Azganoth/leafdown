@@ -99,8 +99,8 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Copy as**
   - **Plain text**
   - **Markdown**
-  - **HTML** (Deferred)
-  - **Rich text** (Deferred)
+  - **HTML**
+  - **Rich text**
 - **Paste as**
   - **Plain text** (`Mod+Shift+V`)
   - **Markdown**

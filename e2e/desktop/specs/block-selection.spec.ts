@@ -147,8 +147,8 @@ const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = fa
     .action("pointer")
     .move({ duration: 0, origin: "viewport", x: point.x, y: point.y })
     .down({ button: 0 })
-    .up({ button: 0 })
     .perform();
+  await browser.action("pointer").up({ button: 0 }).perform();
 };
 
 describe("desktop block selection", () => {

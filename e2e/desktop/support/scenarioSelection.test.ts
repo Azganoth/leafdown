@@ -12,6 +12,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["folder-watcher"],
       ["rendered-images"],
       ["rendered-html"],
+      ["separator-presentation"],
       ["missing-document-error"],
       ["persistence-write", "persistence-restart"],
       ["window-lifecycle"],

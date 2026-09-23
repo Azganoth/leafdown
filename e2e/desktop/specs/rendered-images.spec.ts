@@ -33,6 +33,17 @@ const getRect = async (element: ReturnType<typeof $>): Promise<ElementRect> => {
   return result as ElementRect;
 };
 
+const getTrailingImageLayout = (element: ReturnType<typeof $>) =>
+  element.execute((node) => {
+    const view = node.closest(".leafdown-image-view");
+    const paragraph = node.closest("p");
+    if (!view || !paragraph) throw new Error("Image paragraph was not found.");
+    return {
+      insideGap: paragraph.getBoundingClientRect().bottom - view.getBoundingClientRect().bottom,
+      marginBottom: getComputedStyle(paragraph).marginBottom,
+    };
+  }) as Promise<{ insideGap: number; marginBottom: string }>;
+
 describe("desktop rendered images", () => {
   it("keeps decoded SVGs visible and tiny images on an editor surface", async () => {
     const { images } = await getDesktopE2ERunContext();
@@ -50,6 +61,19 @@ describe("desktop rendered images", () => {
     const missingPlaceholder = $(".leafdown-image-placeholder");
 
     await expect(missingPlaceholder).toBeDisplayed();
+
+    for (const element of [visibleImage, linkedImage, tinyImage, missingPlaceholder]) {
+      const layout = await getTrailingImageLayout(element);
+      expect(Math.abs(layout.insideGap)).toBeLessThan(0.5);
+      expect(layout.marginBottom).toBe("20px");
+    }
+    const adjacentImageGap = (await missingPlaceholder.execute((node) => {
+      const first = node.closest(".leafdown-image-view");
+      const next = node.closest("p")?.nextElementSibling?.querySelector(".leafdown-image-view");
+      if (!first || !next) throw new Error("Adjacent image paragraphs were not found.");
+      return next.getBoundingClientRect().top - first.getBoundingClientRect().bottom;
+    })) as number;
+    expect(Math.abs(adjacentImageGap - 20)).toBeLessThan(0.5);
 
     const [visibleBox, linkedBox, tinyBox] = await Promise.all([
       getBox(visibleImage),
@@ -128,6 +152,7 @@ describe("desktop rendered images", () => {
     expect(projectionRect.y).toBeLessThan(projectedRect.y);
     expect(linkedAfter.y).toBeGreaterThan(linkedBefore.y);
     expect(retainedImage).toBe(true);
+    expect(Math.abs((await getTrailingImageLayout(projectedImage)).insideGap)).toBeLessThan(0.5);
   });
 
   it("keeps a long projected image source on one scrollable line", async () => {

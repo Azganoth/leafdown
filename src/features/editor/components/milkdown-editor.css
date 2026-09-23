@@ -137,6 +137,14 @@
       padding-inline-start: 0;
     }
 
+    :is(ul, ol):has(+ :is(ul, ol)) {
+      @apply mb-2;
+    }
+
+    :is(ul, ol) + :is(ul, ol) {
+      @apply mt-2;
+    }
+
     ul > li::before {
       @apply text-primary;
       content: "•";
@@ -167,7 +175,7 @@
     }
 
     li {
-      @apply relative my-1;
+      @apply relative my-2;
       padding-inline-start: var(--leafdown-list-marker);
 
       &::before {
@@ -310,6 +318,27 @@
 
     .leafdown-image-view {
       @apply my-5 block min-h-7 max-w-full rounded-md;
+    }
+
+    /* ProseMirror's cursor separator and trailing break otherwise leave an empty line after a block image. */
+    p:has(> br.ProseMirror-trailingBreak):has(.leafdown-image-view) {
+      @apply mb-5;
+
+      .leafdown-image-view {
+        @apply mb-0;
+      }
+
+      > a:has(> .leafdown-image-view) {
+        @apply block;
+      }
+
+      .leafdown-image-view + img.ProseMirror-separator {
+        @apply absolute;
+      }
+
+      > br.ProseMirror-trailingBreak {
+        @apply hidden;
+      }
     }
 
     .leafdown-markdown-image {

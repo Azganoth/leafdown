@@ -1,5 +1,4 @@
 import { documentDir, join } from "@tauri-apps/api/path";
-import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
 
 import {
   ensureMarkdownExtension,
@@ -18,6 +17,7 @@ import {
 import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import { SequentialTaskQueue } from "@/lib/async";
+import { requestConfirmation } from "@/lib/confirmation";
 import { isSameOrParentPath } from "@/lib/path";
 
 import { useSessionStore } from "../stores/session";
@@ -76,7 +76,7 @@ export const saveActiveMarkdownDocumentAs = () =>
   saveTaskQueue.run(saveActiveMarkdownDocumentAsNow);
 
 const saveActiveMarkdownDocumentNow = async () => {
-  const activeDocument = useSessionStore.getState().activeDocument;
+  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
 
   if (!activeDocument) {
     return false;
@@ -89,11 +89,12 @@ const saveActiveMarkdownDocumentNow = async () => {
   return saveExistingMarkdownDocument(
     activeDocument,
     serializeActiveDocumentForSave(activeDocument),
+    activeDocumentGeneration,
   );
 };
 
 const saveActiveMarkdownDocumentAsNow = async () => {
-  const activeDocument = useSessionStore.getState().activeDocument;
+  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
 
   if (!activeDocument) {
     return false;
@@ -109,7 +110,7 @@ const saveActiveMarkdownDocumentAsNow = async () => {
 
   const { defaultNewDocumentExtension } = useSettingsStore.getState();
   const path = await ensureMarkdownExtension(selectedPath, defaultNewDocumentExtension);
-  const latestDocument = getActiveDocumentByKey(documentKey);
+  const latestDocument = getActiveDocumentByKey(documentKey, activeDocumentGeneration);
 
   if (!latestDocument) {
     return false;
@@ -124,7 +125,7 @@ const saveActiveMarkdownDocumentAsNow = async () => {
     existingFolderContext,
   );
 
-  if (!getActiveDocumentByKey(documentKey)) {
+  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
     return false;
   }
 
@@ -161,6 +162,7 @@ const serializeActiveDocumentForSave = (
 const saveExistingMarkdownDocument = async (
   activeDocument: SavedDocumentState,
   serializedDocument: SerializedDocumentForSave,
+  activeDocumentGeneration: number,
   overwrite = false,
 ): Promise<boolean> => {
   try {
@@ -169,7 +171,7 @@ const saveExistingMarkdownDocument = async (
       overwrite,
     });
 
-    if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument))) {
+    if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
       return false;
     }
 
@@ -185,29 +187,34 @@ const saveExistingMarkdownDocument = async (
     return true;
   } catch (error) {
     if (isMissingFileSaveError(error)) {
-      return handleMissingSavedFile(getActiveDocumentKey(activeDocument));
+      if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
+        return false;
+      }
+
+      return handleMissingSavedFile(getActiveDocumentKey(activeDocument), activeDocumentGeneration);
     }
 
     if (isExternalModificationSaveError(error)) {
-      return handleExternalModification(activeDocument);
+      if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
+        return false;
+      }
+
+      return handleExternalModification(activeDocument, activeDocumentGeneration);
     }
 
     throw error;
   }
 };
 
-const handleMissingSavedFile = async (documentKey: string) => {
-  const shouldSaveAs = await showConfirmDialog(
-    "The saved Markdown file no longer exists. Save this document to a new path?",
-    {
-      title: "File missing",
-      kind: "warning",
-      okLabel: "Save as",
-      cancelLabel: "Cancel",
-    },
-  );
+const handleMissingSavedFile = async (documentKey: string, activeDocumentGeneration: number) => {
+  const shouldSaveAs = await requestConfirmation({
+    title: "File missing",
+    message: "The saved Markdown file no longer exists. Save this document to a new path?",
+    confirmLabel: "Save as",
+    cancelLabel: "Cancel",
+  });
 
-  if (!getActiveDocumentByKey(documentKey)) {
+  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
     return false;
   }
 
@@ -218,22 +225,23 @@ const handleMissingSavedFile = async (documentKey: string) => {
   return saveActiveMarkdownDocumentAsNow();
 };
 
-const handleExternalModification = async (activeDocument: SavedDocumentState) => {
-  const shouldOverwrite = await showConfirmDialog(
-    "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
-    {
-      title: "File changed",
-      kind: "warning",
-      okLabel: "Overwrite anyway",
-      cancelLabel: "Cancel save",
-    },
-  );
+const handleExternalModification = async (
+  activeDocument: SavedDocumentState,
+  activeDocumentGeneration: number,
+) => {
+  const shouldOverwrite = await requestConfirmation({
+    title: "File changed",
+    message:
+      "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
+    confirmLabel: "Overwrite anyway",
+    cancelLabel: "Cancel save",
+  });
 
   if (!shouldOverwrite) {
     return false;
   }
 
-  const latestDocument = useSessionStore.getState().activeDocument;
+  const latestDocument = getActiveDocumentByKey(activeDocument.path, activeDocumentGeneration);
 
   if (
     latestDocument?.status !== "saved" ||
@@ -245,6 +253,7 @@ const handleExternalModification = async (activeDocument: SavedDocumentState) =>
   return saveExistingMarkdownDocument(
     latestDocument,
     serializeActiveDocumentForSave(latestDocument),
+    activeDocumentGeneration,
     true,
   );
 };
@@ -255,10 +264,15 @@ const isMissingFileSaveError = (error: unknown) =>
 const isExternalModificationSaveError = (error: unknown) =>
   isSaveMarkdownFileError(error) && error.kind === "externalModification";
 
-const getActiveDocumentByKey = (documentKey: string) => {
-  const activeDocument = useSessionStore.getState().activeDocument;
+const getActiveDocumentByKey = (documentKey: string, activeDocumentGeneration: number) => {
+  const session = useSessionStore.getState();
+  const activeDocument = session.activeDocument;
 
-  if (!activeDocument || !matchesActiveDocumentKey(activeDocument, documentKey)) {
+  if (
+    !activeDocument ||
+    session.activeDocumentGeneration !== activeDocumentGeneration ||
+    !matchesActiveDocumentKey(activeDocument, documentKey)
+  ) {
     return null;
   }
 

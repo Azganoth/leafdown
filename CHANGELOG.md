@@ -27,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Show document and local-link confirmations in Leafdown dialogs with consistent cancellation and keyboard focus behavior, while keeping file, folder, and Save as path pickers native.
 - Distinguish image descriptions and titles from muted Markdown syntax while source projection is active, keep projected destinations, reference IDs, and reference-definition destinations muted, keep projected link underlines steady on hover, and keep image source on one horizontally scrollable line.
 - Copy, cut, delete, replace, and move selected block ranges as structural content, including nested list items. `Alt+Up` and `Alt+Down` move a range among siblings, and block-handle dragging uses the same boundaries.
 - Let focused-editor `Mod+A` grow a structural block selection from the nearest eligible block through sibling and containing scopes before reaching the document. `Escape`, arrows, `Shift+arrows`, and `Enter` now enter, navigate, extend, leave, and restore that selection without taking ownership from table cells, node selections, the Edit menu's immediate `Select all`, or an open popup or footnote preview.

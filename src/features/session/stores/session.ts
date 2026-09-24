@@ -10,6 +10,7 @@ import type { FolderContextState } from "@/features/folder-context";
 export interface SessionState {
   folderContext: FolderContextState | null;
   activeDocument: ActiveDocumentState | null;
+  activeDocumentGeneration: number;
 }
 
 export type SessionMode = "document" | "folder-only" | "welcome";
@@ -31,17 +32,29 @@ export interface SessionStore extends SessionState {
 const INITIAL_SESSION_STATE: SessionState = {
   folderContext: null,
   activeDocument: null,
+  activeDocumentGeneration: 0,
 };
 
-export const getSessionMode = (state: SessionState): SessionMode =>
+export const getSessionMode = (
+  state: Pick<SessionState, "activeDocument" | "folderContext">,
+): SessionMode =>
   state.activeDocument ? "document" : state.folderContext ? "folder-only" : "welcome";
 
 export const useSessionStore = create<SessionStore>()((set) => ({
   ...INITIAL_SESSION_STATE,
 
   setFolderContext: (folderContext) => set({ folderContext }),
-  setFolderOnlySession: (folderContext) => set({ activeDocument: null, folderContext }),
-  setActiveDocument: (activeDocument) => set({ activeDocument }),
+  setFolderOnlySession: (folderContext) =>
+    set((state) => ({
+      activeDocument: null,
+      activeDocumentGeneration: state.activeDocumentGeneration + 1,
+      folderContext,
+    })),
+  setActiveDocument: (activeDocument) =>
+    set((state) => ({
+      activeDocument,
+      activeDocumentGeneration: state.activeDocumentGeneration + 1,
+    })),
   setActiveDocumentContent: (documentKey, content) =>
     set((state) =>
       updateActiveDocumentByKey(state, documentKey, (activeDocument) => ({
@@ -68,8 +81,16 @@ export const useSessionStore = create<SessionStore>()((set) => ({
       ),
     ),
   setActiveDocumentSession: (folderContext, activeDocument) =>
-    set({ folderContext, activeDocument }),
-  reset: () => set(INITIAL_SESSION_STATE),
+    set((state) => ({
+      folderContext,
+      activeDocument,
+      activeDocumentGeneration: state.activeDocumentGeneration + 1,
+    })),
+  reset: () =>
+    set((state) => ({
+      ...INITIAL_SESSION_STATE,
+      activeDocumentGeneration: state.activeDocumentGeneration + 1,
+    })),
 }));
 
 const updateActiveDocumentByKey = (

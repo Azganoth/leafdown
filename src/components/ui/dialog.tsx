@@ -5,6 +5,10 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+const isWindowControlTarget = (target: EventTarget | null) =>
+  target instanceof Element &&
+  Boolean(target.closest("#frame-tb-minimize,#frame-tb-maximize,#frame-tb-close"));
+
 const isWindowDragOrControlTarget = (target: EventTarget | null) =>
   target instanceof Element &&
   Boolean(
@@ -14,6 +18,31 @@ const isWindowDragOrControlTarget = (target: EventTarget | null) =>
   );
 
 function Dialog({ onOpenChange, ...props }: DialogPrimitive.Root.Props) {
+  React.useEffect(() => {
+    if (!props.open) {
+      return undefined;
+    }
+
+    const restoreFocusAfterWindowControl = (event: MouseEvent) => {
+      if (!isWindowControlTarget(event.target)) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        const popup = document.querySelector<HTMLElement>(
+          '[data-slot="dialog-content"][data-open]',
+        );
+
+        if (popup && !popup.contains(document.activeElement)) {
+          (popup.querySelector<HTMLElement>('[data-slot="button"]') ?? popup).focus();
+        }
+      });
+    };
+
+    document.addEventListener("click", restoreFocusAfterWindowControl, true);
+    return () => document.removeEventListener("click", restoreFocusAfterWindowControl, true);
+  }, [props.open]);
+
   return (
     <DialogPrimitive.Root
       data-slot="dialog"

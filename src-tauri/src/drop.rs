@@ -1,8 +1,11 @@
-use std::{fs, io::ErrorKind, path::PathBuf};
+use std::{fs, path::PathBuf};
 
 use serde::Serialize;
 
-use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
+use crate::{
+    document::is_supported_markdown_path,
+    path_utils::{IoErrorClass, classify_io_error, path_to_string},
+};
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(
@@ -48,22 +51,23 @@ pub(crate) async fn inspect_dropped_path(
 
 fn classify_dropped_path(path: PathBuf) -> Result<DroppedPath, InspectDroppedPathError> {
     let serialized_path = path_to_string(path.as_path());
-    let metadata = fs::metadata(path.as_path()).map_err(|error| match error.kind() {
-        ErrorKind::InvalidInput => InspectDroppedPathError::InvalidPath {
-            path: serialized_path.clone(),
-        },
-        ErrorKind::NotFound => InspectDroppedPathError::MissingPath {
-            path: serialized_path.clone(),
-        },
-        ErrorKind::PermissionDenied => InspectDroppedPathError::PermissionDenied {
-            path: serialized_path.clone(),
-            message: error.to_string(),
-        },
-        _ => InspectDroppedPathError::MetadataFailed {
-            path: serialized_path.clone(),
-            message: error.to_string(),
-        },
-    })?;
+    let metadata =
+        fs::metadata(path.as_path()).map_err(|error| match classify_io_error(error) {
+            IoErrorClass::InvalidPath => InspectDroppedPathError::InvalidPath {
+                path: serialized_path.clone(),
+            },
+            IoErrorClass::Missing => InspectDroppedPathError::MissingPath {
+                path: serialized_path.clone(),
+            },
+            IoErrorClass::PermissionDenied(message) => InspectDroppedPathError::PermissionDenied {
+                path: serialized_path.clone(),
+                message,
+            },
+            IoErrorClass::Failed(message) => InspectDroppedPathError::MetadataFailed {
+                path: serialized_path.clone(),
+                message,
+            },
+        })?;
 
     if metadata.is_dir() {
         return Ok(DroppedPath::Folder {

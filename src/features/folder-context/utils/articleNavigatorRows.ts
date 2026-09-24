@@ -1,5 +1,5 @@
 import { isSamePath, PathSet } from "@/lib/path";
-import { findTreeNodeAncestors, flattenTree } from "@/lib/tree";
+import { findTreeNodeAncestors, flattenTree, type TreeTraversalEntry } from "@/lib/tree";
 
 import type { ArticleTree, ArticleTreeNode } from "../services/folderContext";
 
@@ -18,12 +18,12 @@ export interface ArticleNavigatorDirectoryRow extends ArticleNavigatorRowBase {
   isExpanded: boolean;
 }
 
-export interface ArticleNavigatorArticleRow extends ArticleNavigatorRowBase {
+export interface ArticleNavigatorFileRow extends ArticleNavigatorRowBase {
   kind: "file";
   isActive: boolean;
 }
 
-export type ArticleNavigatorRow = ArticleNavigatorArticleRow | ArticleNavigatorDirectoryRow;
+export type ArticleNavigatorRow = ArticleNavigatorFileRow | ArticleNavigatorDirectoryRow;
 
 interface BuildArticleNavigatorRowsOptions {
   activeArticlePath: string | null;
@@ -37,12 +37,10 @@ export const buildArticleNavigatorRows = ({
   tree,
 }: BuildArticleNavigatorRowsOptions): ArticleNavigatorRow[] => {
   const expandedDirectoryPathSet = new PathSet(expandedDirectoryPaths);
-  const entries = flattenTree({
-    getChildren: getArticleTreeNodeChildren,
-    roots: tree.children,
-    shouldTraverseChildren: ({ node }) =>
-      node.kind === "directory" && expandedDirectoryPathSet.has(node.path),
-  });
+  const entries = flattenArticleTree(
+    tree,
+    ({ node }) => node.kind === "directory" && expandedDirectoryPathSet.has(node.path),
+  );
   const positions = getTreePositions(entries.map(({ depth }) => depth));
 
   return entries.map(({ depth, node }, index): ArticleNavigatorRow => {
@@ -74,16 +72,10 @@ export const buildArticleNavigatorRows = ({
 };
 
 export const getArticleDirectoryPaths = (tree: ArticleTree) =>
-  flattenTree({
-    getChildren: getArticleTreeNodeChildren,
-    roots: tree.children,
-  }).flatMap(({ node }) => (node.kind === "directory" ? [node.path] : []));
+  flattenArticleTree(tree).flatMap(({ node }) => (node.kind === "directory" ? [node.path] : []));
 
 export const getArticleFileCount = (tree: ArticleTree) =>
-  flattenTree({
-    getChildren: getArticleTreeNodeChildren,
-    roots: tree.children,
-  }).filter(({ node }) => node.kind === "file").length;
+  flattenArticleTree(tree).filter(({ node }) => node.kind === "file").length;
 
 export const filterArticleTreeByArticleName = (tree: ArticleTree, query: string): ArticleTree => {
   const normalizedQuery = query.trim().toLowerCase();
@@ -123,6 +115,16 @@ export const getArticleAncestorDirectoryPaths = (
 
 const getArticleTreeNodeChildren = (node: ArticleTreeNode) =>
   node.kind === "directory" ? node.children : [];
+
+const flattenArticleTree = (
+  tree: ArticleTree,
+  shouldTraverseChildren?: (entry: TreeTraversalEntry<ArticleTreeNode>) => boolean,
+) =>
+  flattenTree({
+    getChildren: getArticleTreeNodeChildren,
+    roots: tree.children,
+    shouldTraverseChildren,
+  });
 
 interface ArticleNavigatorRowTreePosition {
   parentIndex: number | null;

@@ -11,6 +11,7 @@ import { isInsideTableCell, readCellCodeSpanValue } from "./codeMarkdown";
 import { findHardBreakRun, HARD_BREAK_MARKDOWN_TYPE } from "./hardBreakMarkdown";
 import { withProjectionDefinitions } from "./sourceProjectionDefinitions";
 import { getFootnoteReferenceSourceBounds } from "./sourceProjectionFootnoteReferenceSyntax";
+import { getMarkdownSourcePosition } from "./sourceProjectionMarkdown";
 import type { TextRange } from "./textRanges";
 
 interface LinkSourceSegmentBase {
@@ -60,11 +61,6 @@ export interface LinkSourceMap {
   sourceTypes: string[];
 }
 
-interface MarkdownPosition {
-  end?: { offset?: number };
-  start?: { offset?: number };
-}
-
 const LINK_MARK_NAME = "link";
 const LINK_MARKDOWN_TYPES = new Set(["link", "linkReference"]);
 const FOOTNOTE_REFERENCE_SOURCE_TYPE = "footnote-reference";
@@ -72,14 +68,6 @@ const FOOTNOTE_REFERENCE_CONTENT_CLASS_NAME =
   "leafdown-source-projection__content--footnote-reference";
 const INLINE_BREAK_PATTERN = /\r\n?|\n/gu;
 const SOURCE_INLINE_BREAK_PATTERN = /^[\t ]*(?:\r\n?|\n)/u;
-
-const getMarkdownPosition = (node: MarkdownNode) => {
-  const position = node.position as MarkdownPosition | undefined;
-  const from = position?.start?.offset;
-  const to = position?.end?.offset;
-
-  return typeof from === "number" && typeof to === "number" ? { from, to } : null;
-};
 
 const getMarkdownNodeValue = (node: MarkdownNode) =>
   typeof node.value === "string" ? node.value : "";
@@ -139,7 +127,7 @@ const getTextSourceBoundaries = (source: string, value: string, sourceFrom: numb
 };
 
 const getInlineCodeSourceRange = (source: string, node: MarkdownNode) => {
-  const position = getMarkdownPosition(node);
+  const position = getMarkdownSourcePosition(node);
 
   if (!position) {
     return null;
@@ -203,7 +191,9 @@ const getLogicalLinkNode = (root: MarkdownNode, sourceLength: number) => {
   if (
     root.type !== "root" ||
     !root.children?.length ||
-    root.children.slice(1).some((node) => (getMarkdownPosition(node)?.from ?? -1) < sourceLength)
+    root.children
+      .slice(1)
+      .some((node) => (getMarkdownSourcePosition(node)?.from ?? -1) < sourceLength)
   ) {
     return null;
   }
@@ -237,11 +227,11 @@ const getLogicalLinkNode = (root: MarkdownNode, sourceLength: number) => {
 };
 
 const getLinkLabelBounds = (link: MarkdownNode) => {
-  const linkPosition = getMarkdownPosition(link);
+  const linkPosition = getMarkdownSourcePosition(link);
   const firstChild = link.children?.[0];
-  const firstChildPosition = firstChild ? getMarkdownPosition(firstChild) : null;
+  const firstChildPosition = firstChild ? getMarkdownSourcePosition(firstChild) : null;
   const lastChild = link.children?.at(-1);
-  const lastChildPosition = lastChild ? getMarkdownPosition(lastChild) : null;
+  const lastChildPosition = lastChild ? getMarkdownSourcePosition(lastChild) : null;
 
   if (
     !linkPosition ||
@@ -366,7 +356,7 @@ export const createLinkSourceMap = (
       const position =
         node.type === "inlineCode"
           ? getInlineCodeSourceRange(source, node)
-          : getMarkdownPosition(node);
+          : getMarkdownSourcePosition(node);
 
       if (!position) {
         return false;
@@ -379,7 +369,7 @@ export const createLinkSourceMap = (
     }
 
     if (node.type === "image") {
-      const position = getMarkdownPosition(node);
+      const position = getMarkdownSourcePosition(node);
 
       if (!position) {
         return false;
@@ -402,7 +392,7 @@ export const createLinkSourceMap = (
     // A soft line ending is still text when the source is parsed, so the break reached here is one the
     // file spells with a run.
     if (node.type === HARD_BREAK_MARKDOWN_TYPE) {
-      const position = getMarkdownPosition(node);
+      const position = getMarkdownSourcePosition(node);
 
       if (!position) {
         return false;
@@ -424,7 +414,7 @@ export const createLinkSourceMap = (
     }
 
     if (node.type === "footnoteReference") {
-      const position = getMarkdownPosition(node);
+      const position = getMarkdownSourcePosition(node);
 
       if (
         !position ||
@@ -477,7 +467,7 @@ export const createLinkSourceMap = (
 const LITERAL_SOURCE_NODE_TYPES = new Set(["image", "link"]);
 
 const findLinkNodeBounds = (node: MarkdownNode, range: TextRange): TextRange | null => {
-  const position = getMarkdownPosition(node);
+  const position = getMarkdownSourcePosition(node);
 
   if (
     LITERAL_SOURCE_NODE_TYPES.has(node.type) &&

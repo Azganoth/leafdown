@@ -25,6 +25,10 @@ import {
   parseFootnoteReferenceSource,
   serializeFootnoteReference,
 } from "./sourceProjectionFootnoteReferenceSyntax";
+import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
 
 const FOOTNOTE_REFERENCE_ADAPTER_ID = "footnote-reference";
 const AMBIENT_MARK_CLASS_NAMES: Readonly<Record<string, string>> = {
@@ -97,15 +101,7 @@ const mapSelectionPositionToSource = (
   position: number,
   target: FootnoteReferenceSourceProjectionTarget,
 ) => {
-  if (position <= target.from) {
-    return position;
-  }
-
-  if (position >= target.to) {
-    return target.from + target.originalSource.length + (position - target.to);
-  }
-
-  return target.from;
+  return mapSelectionPositionOutsideSourceProjection(position, target) ?? target.from;
 };
 
 const mapLiteralSelectionPositionFromSource = (
@@ -113,12 +109,10 @@ const mapLiteralSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(position, session, result);
 
-  if (position >= session.to) {
-    return session.from + result.replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   return session.from + mapLiteralSourceOffsetToDocument(result.source, position - session.from);
@@ -129,12 +123,10 @@ const mapAtomicSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(position, session, result);
 
-  if (position >= session.to) {
-    return session.from + result.replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   const sourceOffset = position - session.from;

@@ -38,7 +38,6 @@ import { parseStandaloneImageSource } from "./sourceProjectionImageSyntax";
 import {
   createIdentityBoundaries,
   findUnpositionedChildRange,
-  getMarkdownSourcePosition as getMarkdownPosition,
   readBreakSourceBounds,
   readTextSourceBoundaries,
   type BreakSourceBounds,
@@ -50,6 +49,15 @@ import {
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
+import {
+  findSourceProjectionDocumentSegment,
+  findSourceProjectionSegment,
+  mapNearestSourceProjectionBoundaryToDocument,
+  mapSourceProjectionDocumentOffsetToSource,
+  mapSourceProjectionDocumentEdgeToSource,
+  mapSourceProjectionSourceEdgeToDocument,
+} from "./sourceProjectionMap";
+import { getMarkdownSourcePosition } from "./sourceProjectionMarkdown";
 import {
   createProjectionSource,
   getProjectionSourceContentBounds,
@@ -157,7 +165,7 @@ const getLinkMark = (node: ProseMirrorNode) =>
   node.marks.find((mark) => mark.type.name === LINK_MARK_NAME) ?? null;
 
 const findMarkedFragmentNodeBounds = (node: MarkdownNode, range: TextRange): TextRange | null => {
-  const position = getMarkdownPosition(node);
+  const position = getMarkdownSourcePosition(node);
 
   if (
     LITERAL_MARK_SOURCE_NODE_TYPES.has(node.type) &&
@@ -697,7 +705,7 @@ export const createMarkedFragmentSourceStructure = (
 
   for (const child of children) {
     const position =
-      getMarkdownPosition(child) ?? findUnpositionedChildRange(source, sourceOffset, child);
+      getMarkdownSourcePosition(child) ?? findUnpositionedChildRange(source, sourceOffset, child);
 
     if (!position || position.from < sourceOffset || position.to > contentBounds.to) {
       return createMarkedLiteralStructure(source, parsed.marks);
@@ -943,12 +951,7 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
   association: -1 | 1 = 1,
 ) => {
   const normalizedOffset = Math.min(Math.max(offset, 0), map.documentSize);
-  const matchingSegments = map.segments.filter(
-    ({ documentFrom, documentTo }) =>
-      documentFrom <= normalizedOffset && normalizedOffset <= documentTo,
-  );
-  const segment =
-    (association < 0 ? matchingSegments[0] : matchingSegments.at(-1)) ?? map.segments.at(-1);
+  const segment = findSourceProjectionDocumentSegment(map.segments, normalizedOffset, association);
 
   if (!segment) {
     return map.contentFrom;
@@ -973,15 +976,10 @@ export const mapMarkedFragmentDocumentOffsetToSource = (
     segment.type === "image" ||
     segment.type === "footnoteReference"
   ) {
-    return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
+    return mapSourceProjectionDocumentEdgeToSource(normalizedOffset, segment);
   }
 
-  return segment.sourceBoundaries[
-    Math.min(
-      Math.max(normalizedOffset - segment.documentFrom, 0),
-      segment.sourceBoundaries.length - 1,
-    )
-  ];
+  return mapSourceProjectionDocumentOffsetToSource(normalizedOffset, segment);
 };
 
 export const mapMarkedFragmentSourceOffsetToDocument = (
@@ -996,9 +994,7 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
     return map.documentSize;
   }
 
-  const segment = map.segments.find(
-    ({ sourceFrom, sourceTo }) => sourceFrom <= offset && offset <= sourceTo,
-  );
+  const segment = findSourceProjectionSegment(map.segments, offset);
 
   if (!segment) {
     return offset - map.contentFrom;
@@ -1008,9 +1004,7 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
     return segment.map
       ? segment.documentFrom +
           mapLinkSourcePositionToDocument(offset - segment.sourceFrom, segment.map)
-      : offset - segment.sourceFrom < segment.sourceTo - offset
-        ? segment.documentFrom
-        : segment.documentTo;
+      : mapSourceProjectionSourceEdgeToDocument(offset, segment);
   }
 
   if (
@@ -1018,9 +1012,7 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
     segment.type === "characterReference" ||
     segment.type === "image"
   ) {
-    return offset - segment.sourceFrom < segment.sourceTo - offset
-      ? segment.documentFrom
-      : segment.documentTo;
+    return mapSourceProjectionSourceEdgeToDocument(offset, segment);
   }
 
   if (segment.type === "footnoteReference") {
@@ -1033,17 +1025,5 @@ export const mapMarkedFragmentSourceOffsetToDocument = (
     );
   }
 
-  let closestOffset = segment.documentFrom;
-  let closestDistance = Number.POSITIVE_INFINITY;
-
-  for (const [documentOffset, sourcePosition] of segment.sourceBoundaries.entries()) {
-    const distance = Math.abs(offset - sourcePosition);
-
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestOffset = segment.documentFrom + documentOffset;
-    }
-  }
-
-  return closestOffset;
+  return mapNearestSourceProjectionBoundaryToDocument(offset, segment);
 };

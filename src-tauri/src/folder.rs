@@ -1,5 +1,5 @@
 use std::{
-    io::{self, ErrorKind},
+    io,
     path::{Path, PathBuf},
 };
 
@@ -8,7 +8,7 @@ use tauri::{AppHandle, State};
 
 use crate::{
     document::{OpenMarkdownFileError, OpenMarkdownFileResult, read_markdown_file},
-    path_utils::path_to_string,
+    path_utils::{IoErrorClass, classify_io_error, path_to_string},
 };
 
 mod defaults;
@@ -233,34 +233,28 @@ fn scan_folder(
 fn scan_folder_metadata_error(error: io::Error, path: &Path) -> ScanMarkdownFolderError {
     let path = path_to_string(path);
 
-    match error.kind() {
-        ErrorKind::InvalidInput => ScanMarkdownFolderError::InvalidPath { path },
-        ErrorKind::NotFound => ScanMarkdownFolderError::MissingFolder { path },
-        ErrorKind::PermissionDenied => ScanMarkdownFolderError::PermissionDenied {
-            path,
-            message: error.to_string(),
-        },
-        _ => ScanMarkdownFolderError::MetadataFailed {
-            path,
-            message: error.to_string(),
-        },
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => ScanMarkdownFolderError::InvalidPath { path },
+        IoErrorClass::Missing => ScanMarkdownFolderError::MissingFolder { path },
+        IoErrorClass::PermissionDenied(message) => {
+            ScanMarkdownFolderError::PermissionDenied { path, message }
+        }
+        IoErrorClass::Failed(message) => ScanMarkdownFolderError::MetadataFailed { path, message },
     }
 }
 
 fn scan_folder_read_error(error: io::Error, path: &Path) -> ScanMarkdownFolderError {
     let path = path_to_string(path);
 
-    match error.kind() {
-        ErrorKind::InvalidInput => ScanMarkdownFolderError::InvalidPath { path },
-        ErrorKind::NotFound => ScanMarkdownFolderError::MissingFolder { path },
-        ErrorKind::PermissionDenied => ScanMarkdownFolderError::PermissionDenied {
-            path,
-            message: error.to_string(),
-        },
-        _ => ScanMarkdownFolderError::ReadDirectoryFailed {
-            path,
-            message: error.to_string(),
-        },
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => ScanMarkdownFolderError::InvalidPath { path },
+        IoErrorClass::Missing => ScanMarkdownFolderError::MissingFolder { path },
+        IoErrorClass::PermissionDenied(message) => {
+            ScanMarkdownFolderError::PermissionDenied { path, message }
+        }
+        IoErrorClass::Failed(message) => {
+            ScanMarkdownFolderError::ReadDirectoryFailed { path, message }
+        }
     }
 }
 
@@ -270,34 +264,30 @@ pub(super) fn scan_folder_metadata_warning(
 ) -> ScanMarkdownFolderWarning {
     let path = path_to_string(path);
 
-    match error.kind() {
-        ErrorKind::InvalidInput => ScanMarkdownFolderWarning::InvalidPath { path },
-        ErrorKind::NotFound => ScanMarkdownFolderWarning::MissingFolder { path },
-        ErrorKind::PermissionDenied => ScanMarkdownFolderWarning::PermissionDenied {
-            path,
-            message: error.to_string(),
-        },
-        _ => ScanMarkdownFolderWarning::MetadataFailed {
-            path,
-            message: error.to_string(),
-        },
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => ScanMarkdownFolderWarning::InvalidPath { path },
+        IoErrorClass::Missing => ScanMarkdownFolderWarning::MissingFolder { path },
+        IoErrorClass::PermissionDenied(message) => {
+            ScanMarkdownFolderWarning::PermissionDenied { path, message }
+        }
+        IoErrorClass::Failed(message) => {
+            ScanMarkdownFolderWarning::MetadataFailed { path, message }
+        }
     }
 }
 
 pub(super) fn scan_folder_read_warning(error: io::Error, path: &Path) -> ScanMarkdownFolderWarning {
     let path = path_to_string(path);
 
-    match error.kind() {
-        ErrorKind::InvalidInput => ScanMarkdownFolderWarning::InvalidPath { path },
-        ErrorKind::NotFound => ScanMarkdownFolderWarning::MissingFolder { path },
-        ErrorKind::PermissionDenied => ScanMarkdownFolderWarning::PermissionDenied {
-            path,
-            message: error.to_string(),
-        },
-        _ => ScanMarkdownFolderWarning::ReadDirectoryFailed {
-            path,
-            message: error.to_string(),
-        },
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => ScanMarkdownFolderWarning::InvalidPath { path },
+        IoErrorClass::Missing => ScanMarkdownFolderWarning::MissingFolder { path },
+        IoErrorClass::PermissionDenied(message) => {
+            ScanMarkdownFolderWarning::PermissionDenied { path, message }
+        }
+        IoErrorClass::Failed(message) => {
+            ScanMarkdownFolderWarning::ReadDirectoryFailed { path, message }
+        }
     }
 }
 

@@ -17,6 +17,10 @@ import {
   type SourceProjectionSessionRange,
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
+import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
 import { getTextBetween, type TextRange } from "./textRanges";
 
 const ESCAPE_ADAPTER_ID = "escape";
@@ -82,12 +86,10 @@ const findEscapeTarget = (
 };
 
 const mapSelectionPositionToSource = (position: number, target: EscapeSourceProjectionTarget) => {
-  if (position <= target.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionOutsideSourceProjection(position, target);
 
-  if (position >= target.to) {
-    return target.from + target.originalSource.length + (position - target.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   return (
@@ -100,12 +102,10 @@ const mapSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(position, session, result);
 
-  if (position >= session.to) {
-    return session.from + result.replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   const offset = mapLiteralSourceOffsetToDocument(result.source, position - session.from);

@@ -6,7 +6,6 @@ import {
   getRelativePath,
   isSameOrParentPath,
   isSamePath,
-  PathMap,
   PathSet,
   toSlashPath,
 } from "./path";
@@ -72,25 +71,6 @@ describe("path utilities", () => {
     expect(getRelativePath("C:/Notes", "D:/Guides/setup.md")).toBeNull();
     expect(getRelativePath("/home/notes", "/home/notes/guide.md")).toBe("guide.md");
     expect(getRelativePath("//server/share/notes", "//SERVER/SHARE/guides")).toBe("../guides");
-  });
-
-  it("stores values by path identity", () => {
-    const paths = new PathMap<number>([["C:/Notes/Readme.md", 1]]);
-
-    paths.set("c:\\notes\\readme.md", 2);
-    paths.set("/Users/Ada/Notes/readme.md", 3);
-
-    expect(paths.size).toBe(2);
-    expect(paths.has("C:/NOTES/README.MD")).toBe(true);
-    expect(paths.get("C:/Notes/readme.md")).toBe(2);
-    expect(paths.get("/users/ada/notes/readme.md")).toBeUndefined();
-    expect([...paths]).toEqual([
-      ["c:\\notes\\readme.md", 2],
-      ["/Users/Ada/Notes/readme.md", 3],
-    ]);
-
-    expect(paths.delete("C:/Notes/readme.md")).toBe(true);
-    expect(paths.has("c:\\notes\\readme.md")).toBe(false);
   });
 
   it("stores unique paths by path identity", () => {

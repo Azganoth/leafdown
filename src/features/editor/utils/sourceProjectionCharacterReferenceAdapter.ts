@@ -28,6 +28,10 @@ import {
   type SourceProjectionSessionRange,
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
+import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
 import { getTextBetween } from "./textRanges";
 
 const CHARACTER_REFERENCE_ADAPTER_ID = "character-reference";
@@ -205,13 +209,7 @@ const mapSelectionPositionToSource = (
   position: number,
   target: CharacterReferenceSourceProjectionTarget,
 ) => {
-  if (position <= target.from) {
-    return position;
-  }
-
-  return position >= target.to
-    ? target.from + target.originalSource.length + (position - target.to)
-    : target.from;
+  return mapSelectionPositionOutsideSourceProjection(position, target) ?? target.from;
 };
 
 const mapAtomicSelectionPositionFromSource = (
@@ -219,13 +217,7 @@ const mapAtomicSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
-
-  return position >= session.to
-    ? session.from + result.replacementSize + (position - session.to)
-    : session.from;
+  return mapSelectionPositionFromSourceProjection(position, session, result) ?? session.from;
 };
 
 const mapLiteralSelectionPositionFromSource = (
@@ -233,12 +225,10 @@ const mapLiteralSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(position, session, result);
 
-  if (position >= session.to) {
-    return session.from + result.replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   return session.from + mapLiteralSourceOffsetToDocument(result.source, position - session.from);

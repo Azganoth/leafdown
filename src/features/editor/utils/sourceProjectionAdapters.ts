@@ -36,6 +36,10 @@ import {
   type MarkedFragmentSourceMap,
 } from "./sourceProjectionMarkedFragmentSyntax";
 import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
+import {
   createProjectionMarkDescriptor,
   createProjectionSource,
   getProjectionDelimiterBounds,
@@ -888,12 +892,14 @@ const getMarkedFragmentPresentation = (
 };
 
 const mapSelectionToSourcePosition = (position: number, target: MarkSourceProjectionTarget) => {
-  if (position < target.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionOutsideSourceProjection(
+    position,
+    target,
+    "exclusive",
+  );
 
-  if (position > target.to) {
-    return target.from + target.originalSource.length + (position - target.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   const sourceContentBounds = getProjectionSourceContentBounds(target.originalSource);
@@ -928,12 +934,12 @@ const mapSelectionFromSourcePosition = (
   parsed: ParsedProjectionSource,
   replacementSize: number,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(position, session, {
+    replacementSize,
+  });
 
-  if (position >= session.to) {
-    return session.from + replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   const sourceOffset = position - session.from;

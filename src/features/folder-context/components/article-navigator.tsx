@@ -42,7 +42,7 @@ import {
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
   getArticleFileCount,
-  type ArticleNavigatorArticleRow,
+  type ArticleNavigatorFileRow,
   type ArticleNavigatorDirectoryRow,
   type ArticleNavigatorRow,
 } from "../utils/articleNavigatorRows";
@@ -487,7 +487,7 @@ function DirectoryRowContent({ row }: { row: ArticleNavigatorDirectoryRow }) {
   );
 }
 
-function ArticleRowContent({ row }: { row: ArticleNavigatorArticleRow }) {
+function ArticleRowContent({ row }: { row: ArticleNavigatorFileRow }) {
   return (
     <>
       <FileTextIcon className="size-3.5 text-muted-foreground" />

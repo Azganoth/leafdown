@@ -1,7 +1,6 @@
 use std::{
     cmp::Ordering,
     fs,
-    io::ErrorKind,
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -10,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     file_utils::{ReadUtf8FileError, read_utf8_file_with_size_limit, write_file_atomically},
-    path_utils::path_to_string,
+    path_utils::{IoErrorClass, classify_io_error, path_to_string},
 };
 
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
@@ -347,11 +346,11 @@ impl std::fmt::Display for FileMetadataReadError {
 }
 
 fn read_file_metadata(path: &Path) -> Result<FileMetadataSnapshot, FileMetadataReadError> {
-    let metadata = fs::metadata(path).map_err(|error| match error.kind() {
-        ErrorKind::InvalidInput => FileMetadataReadError::InvalidPath,
-        ErrorKind::NotFound => FileMetadataReadError::MissingFile,
-        ErrorKind::PermissionDenied => FileMetadataReadError::PermissionDenied(error.to_string()),
-        _ => FileMetadataReadError::Failed(error.to_string()),
+    let metadata = fs::metadata(path).map_err(|error| match classify_io_error(error) {
+        IoErrorClass::InvalidPath => FileMetadataReadError::InvalidPath,
+        IoErrorClass::Missing => FileMetadataReadError::MissingFile,
+        IoErrorClass::PermissionDenied(message) => FileMetadataReadError::PermissionDenied(message),
+        IoErrorClass::Failed(message) => FileMetadataReadError::Failed(message),
     })?;
     let modified_at_unix_ms = metadata
         .modified()
@@ -392,20 +391,20 @@ fn open_metadata_error(error: FileMetadataReadError, path: &str) -> OpenMarkdown
 }
 
 fn open_read_error(error: std::io::Error, path: &str) -> OpenMarkdownFileError {
-    match error.kind() {
-        ErrorKind::InvalidInput => OpenMarkdownFileError::InvalidPath {
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => OpenMarkdownFileError::InvalidPath {
             path: path.to_owned(),
         },
-        ErrorKind::NotFound => OpenMarkdownFileError::MissingFile {
+        IoErrorClass::Missing => OpenMarkdownFileError::MissingFile {
             path: path.to_owned(),
         },
-        ErrorKind::PermissionDenied => OpenMarkdownFileError::PermissionDenied {
+        IoErrorClass::PermissionDenied(message) => OpenMarkdownFileError::PermissionDenied {
             path: path.to_owned(),
-            message: error.to_string(),
+            message,
         },
-        _ => OpenMarkdownFileError::ReadFailed {
+        IoErrorClass::Failed(message) => OpenMarkdownFileError::ReadFailed {
             path: path.to_owned(),
-            message: error.to_string(),
+            message,
         },
     }
 }
@@ -436,18 +435,18 @@ fn save_write_error(
     path: &Path,
     serialized_path: &str,
 ) -> SaveMarkdownFileError {
-    match error.kind() {
-        ErrorKind::InvalidInput => SaveMarkdownFileError::InvalidPath {
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => SaveMarkdownFileError::InvalidPath {
             path: serialized_path.to_owned(),
         },
-        ErrorKind::NotFound => save_missing_write_target_error(path, serialized_path),
-        ErrorKind::PermissionDenied => SaveMarkdownFileError::PermissionDenied {
+        IoErrorClass::Missing => save_missing_write_target_error(path, serialized_path),
+        IoErrorClass::PermissionDenied(message) => SaveMarkdownFileError::PermissionDenied {
             path: serialized_path.to_owned(),
-            message: error.to_string(),
+            message,
         },
-        _ => SaveMarkdownFileError::WriteFailed {
+        IoErrorClass::Failed(message) => SaveMarkdownFileError::WriteFailed {
             path: serialized_path.to_owned(),
-            message: error.to_string(),
+            message,
         },
     }
 }

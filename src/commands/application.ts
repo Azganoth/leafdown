@@ -21,9 +21,9 @@ const appCommand = (
 ): AppCommand => ({ getState, run });
 
 export const APPLICATION_COMMANDS = {
-  "file.new": appCommand(file.createNewFile),
-  "file.open": appCommand(file.openFile),
-  "file.openFolder": appCommand(file.openFolder),
+  "file.new": appCommand(file.createUntitledDocument),
+  "file.open": appCommand(file.openMarkdownFile),
+  "file.openFolder": appCommand(file.openFolderContext),
   "file.clearRecentItems": appCommand(file.clearRecentItems, file.getClearRecentItemsState),
   "file.save": appCommand(file.saveDocument, file.getSaveDocumentState),
   "file.saveAs": appCommand(file.saveDocumentAs, file.getSaveDocumentAsState),
@@ -31,7 +31,7 @@ export const APPLICATION_COMMANDS = {
   "file.revealInSidebar": appCommand(file.revealInSidebar, file.getRevealInSidebarState),
   "file.preferences": appCommand(file.openPreferences),
   "file.closeDocument": appCommand(file.closeDocument, file.getCloseDocumentState),
-  "file.closeFolder": appCommand(file.closeFolder, file.getCloseFolderState),
+  "file.closeFolder": appCommand(file.closeFolderContext, file.getCloseFolderState),
   "file.closeWindow": appCommand(file.closeWindow),
 
   "edit.lineEnding.crlf": appCommand(edit.setCrlfLineEnding, edit.getCrlfLineEndingState),

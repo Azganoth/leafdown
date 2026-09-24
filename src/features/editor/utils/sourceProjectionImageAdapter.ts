@@ -17,6 +17,10 @@ import {
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import { isStandaloneImage, parseStandaloneImageSource } from "./sourceProjectionImageSyntax";
 import { getImageSourcePresentationSpans } from "./sourceProjectionLinkPresentation";
+import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
 
 const IMAGE_ADAPTER_ID = "image";
 const IMAGE_DESCRIPTION_START_OFFSET = 2;
@@ -79,13 +83,7 @@ const findImageTarget = (
 };
 
 const mapSelectionPositionToSource = (position: number, target: ImageSourceProjectionTarget) => {
-  if (position <= target.from) {
-    return position;
-  }
-
-  return position >= target.to
-    ? target.from + target.originalSource.length + (position - target.to)
-    : target.from;
+  return mapSelectionPositionOutsideSourceProjection(position, target) ?? target.from;
 };
 
 const mapAtomicSelectionPositionFromSource = (
@@ -93,15 +91,14 @@ const mapAtomicSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
-
-  return position >= session.to
-    ? session.from +
-        result.replacementSize +
-        Math.max(0, position - session.to - session.target.originalContentSize)
-    : session.from;
+  return (
+    mapSelectionPositionFromSourceProjection(
+      position,
+      session,
+      result,
+      session.target.originalContentSize,
+    ) ?? session.from
+  );
 };
 
 const mapLiteralSelectionPositionFromSource = (
@@ -109,16 +106,15 @@ const mapLiteralSelectionPositionFromSource = (
   session: SourceProjectionSessionRange,
   result: SourceProjectionParseResult,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(
+    position,
+    session,
+    result,
+    session.target.originalContentSize,
+  );
 
-  if (position >= session.to) {
-    return (
-      session.from +
-      result.replacementSize +
-      Math.max(0, position - session.to - session.target.originalContentSize)
-    );
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   return session.from + mapLiteralSourceOffsetToDocument(result.source, position - session.from);

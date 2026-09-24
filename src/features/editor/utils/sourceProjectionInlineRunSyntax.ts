@@ -26,6 +26,15 @@ import {
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
 import {
+  findSourceProjectionDocumentSegment,
+  findSourceProjectionSegment,
+  mapNearestSourceProjectionBoundaryToDocument,
+  mapSourceProjectionDocumentOffsetToSource,
+  mapSourceProjectionDocumentEdgeToSource,
+  mapSourceProjectionSourceEdgeToDocument,
+} from "./sourceProjectionMap";
+import { getMarkdownSourcePosition } from "./sourceProjectionMarkdown";
+import {
   createProjectionMarkDescriptor,
   getProjectionSourceContentBounds,
   type ProjectionMarkDescriptor,
@@ -120,16 +129,6 @@ const MARK_MARKDOWN_TYPES = new Map<string, ProjectionMarkName>([
 
 const LINK_MARKDOWN_TYPES = new Set(["link", "linkReference"]);
 const IMAGE_MARKDOWN_TYPES = new Set(["image", "imageReference"]);
-
-export const getMarkdownSourcePosition = (node: MarkdownNode) => {
-  const position = node.position as
-    | { end?: { offset?: number }; start?: { offset?: number } }
-    | undefined;
-  const from = position?.start?.offset;
-  const to = position?.end?.offset;
-
-  return typeof from === "number" && typeof to === "number" ? { from, to } : null;
-};
 
 // Walks the source against the text a run holds, returning the source offset each document offset
 // falls on. A preserved reference is a segment of its own, so the only character a run spends
@@ -616,9 +615,7 @@ export const mapInlineRunSourceOffsetToDocument = (offset: number, map: InlineRu
     return 0;
   }
 
-  const segment = map.segments.find(
-    ({ sourceFrom, sourceTo }) => sourceFrom <= offset && offset <= sourceTo,
-  );
+  const segment = findSourceProjectionSegment(map.segments, offset);
 
   if (!segment) {
     return map.documentSize;
@@ -650,24 +647,10 @@ export const mapInlineRunSourceOffsetToDocument = (offset: number, map: InlineRu
     segment.type === "break" ||
     segment.type === "characterReference"
   ) {
-    return offset - segment.sourceFrom < segment.sourceTo - offset
-      ? segment.documentFrom
-      : segment.documentTo;
+    return mapSourceProjectionSourceEdgeToDocument(offset, segment);
   }
 
-  let closestOffset = segment.documentFrom;
-  let closestDistance = Number.POSITIVE_INFINITY;
-
-  for (const [documentOffset, sourcePosition] of segment.sourceBoundaries.entries()) {
-    const distance = Math.abs(offset - sourcePosition);
-
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      closestOffset = segment.documentFrom + documentOffset;
-    }
-  }
-
-  return closestOffset;
+  return mapNearestSourceProjectionBoundaryToDocument(offset, segment);
 };
 
 export const mapInlineRunDocumentOffsetToSource = (
@@ -676,14 +659,12 @@ export const mapInlineRunDocumentOffsetToSource = (
   association: -1 | 1 = 1,
 ) => {
   const normalizedOffset = Math.min(Math.max(offset, 0), map.documentSize);
-  const matchingSegments = map.segments.filter(
-    (segment) =>
-      segment.type !== "marker" &&
-      segment.documentFrom <= normalizedOffset &&
-      normalizedOffset <= segment.documentTo,
+  const segment = findSourceProjectionDocumentSegment(
+    map.segments,
+    normalizedOffset,
+    association,
+    (candidate) => candidate.type !== "marker",
   );
-  const segment =
-    (association < 0 ? matchingSegments[0] : matchingSegments.at(-1)) ?? map.segments.at(-1);
 
   if (!segment) {
     return 0;
@@ -710,13 +691,8 @@ export const mapInlineRunDocumentOffsetToSource = (
     segment.type === "characterReference" ||
     segment.type === "footnoteReference"
   ) {
-    return normalizedOffset <= segment.documentFrom ? segment.sourceFrom : segment.sourceTo;
+    return mapSourceProjectionDocumentEdgeToSource(normalizedOffset, segment);
   }
 
-  return segment.sourceBoundaries[
-    Math.min(
-      Math.max(normalizedOffset - segment.documentFrom, 0),
-      segment.sourceBoundaries.length - 1,
-    )
-  ];
+  return mapSourceProjectionDocumentOffsetToSource(normalizedOffset, segment);
 };

@@ -78,6 +78,6 @@ export const useArticleNavigatorStore = create<ArticleNavigatorStore>()((set) =>
     set((state) => ({
       expandedDirectoryPaths: hasPath(state.expandedDirectoryPaths, path)
         ? removePath(state.expandedDirectoryPaths, path)
-        : [...state.expandedDirectoryPaths, path],
+        : addUniquePaths(state.expandedDirectoryPaths, [path]),
     })),
 }));

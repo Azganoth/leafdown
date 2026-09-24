@@ -1,11 +1,28 @@
 use std::{
     fs,
-    io::ErrorKind,
+    io::{self, ErrorKind},
     path::{Component, Path, PathBuf, Prefix},
 };
 
 pub(crate) fn path_to_string(path: &Path) -> String {
     path.to_string_lossy().into_owned()
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum IoErrorClass {
+    InvalidPath,
+    Missing,
+    PermissionDenied(String),
+    Failed(String),
+}
+
+pub(crate) fn classify_io_error(error: io::Error) -> IoErrorClass {
+    match error.kind() {
+        ErrorKind::InvalidInput => IoErrorClass::InvalidPath,
+        ErrorKind::NotFound => IoErrorClass::Missing,
+        ErrorKind::PermissionDenied => IoErrorClass::PermissionDenied(error.to_string()),
+        _ => IoErrorClass::Failed(error.to_string()),
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -139,20 +156,20 @@ pub(crate) fn resolve_existing_path(path: &Path) -> ExistingPathResolution {
             is_file: metadata.is_file(),
             path: canonicalize_or_original(path),
         },
-        Err(error) => match error.kind() {
-            ErrorKind::InvalidInput => ExistingPathResolution::InvalidPath {
+        Err(error) => match classify_io_error(error) {
+            IoErrorClass::InvalidPath => ExistingPathResolution::InvalidPath {
                 path: path_to_string(path),
             },
-            ErrorKind::NotFound => ExistingPathResolution::Missing {
+            IoErrorClass::Missing => ExistingPathResolution::Missing {
                 path: path_to_string(path),
             },
-            ErrorKind::PermissionDenied => ExistingPathResolution::PermissionDenied {
+            IoErrorClass::PermissionDenied(message) => ExistingPathResolution::PermissionDenied {
                 path: path_to_string(path),
-                message: error.to_string(),
+                message,
             },
-            _ => ExistingPathResolution::MetadataFailed {
+            IoErrorClass::Failed(message) => ExistingPathResolution::MetadataFailed {
                 path: path_to_string(path),
-                message: error.to_string(),
+                message,
             },
         },
     }
@@ -219,8 +236,8 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use super::{
-        MarkdownReferencePathResolution, canonicalize_or_original, has_uri_scheme,
-        is_network_or_device_target, normalize_path_lexically, parse_file_url_path,
+        IoErrorClass, MarkdownReferencePathResolution, canonicalize_or_original, classify_io_error,
+        has_uri_scheme, is_network_or_device_target, normalize_path_lexically, parse_file_url_path,
         resolve_markdown_reference_path, resolves_outside_folder,
     };
     use crate::test_utils::TestDirectory;
@@ -230,6 +247,22 @@ mod tests {
         let path = parse_file_url_path("file:///tmp/a%20b.md").expect("file URL should parse");
 
         assert!(path.to_string_lossy().contains("a b.md"));
+    }
+
+    #[test]
+    fn classifies_common_io_errors() {
+        assert_eq!(
+            classify_io_error(std::io::Error::from(std::io::ErrorKind::InvalidInput)),
+            IoErrorClass::InvalidPath,
+        );
+        assert_eq!(
+            classify_io_error(std::io::Error::from(std::io::ErrorKind::NotFound)),
+            IoErrorClass::Missing,
+        );
+        assert_eq!(
+            classify_io_error(std::io::Error::from(std::io::ErrorKind::PermissionDenied)),
+            IoErrorClass::PermissionDenied("permission denied".to_owned()),
+        );
     }
 
     #[cfg(windows)]

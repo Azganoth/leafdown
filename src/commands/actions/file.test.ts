@@ -19,7 +19,7 @@ import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 import { useCommandUIStore } from "../stores/commandUi";
 import {
   clearRecentItems,
-  openFile,
+  openMarkdownFile,
   openLocation,
   openPreferences,
   openRecentMarkdownFile,
@@ -53,7 +53,7 @@ describe("file actions", () => {
     vi.mocked(open).mockResolvedValueOnce(OVERSIZED_MARKDOWN_FILE_PATH);
     mockTauriApiCommand("openMarkdownFile", () => Promise.reject(OVERSIZED_MARKDOWN_FILE_ERROR));
 
-    await openFile();
+    await openMarkdownFile();
 
     expectOversizedMarkdownFileToast();
     expect(useRecentItemsStore.getState().recentFiles).not.toContainEqual(

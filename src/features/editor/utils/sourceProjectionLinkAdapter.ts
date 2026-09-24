@@ -52,6 +52,10 @@ import {
   mapLinkSourcePositionToDocument,
   type LinkSourceMap,
 } from "./sourceProjectionLinkSyntax";
+import {
+  mapSelectionPositionFromSourceProjection,
+  mapSelectionPositionOutsideSourceProjection,
+} from "./sourceProjectionSelection";
 import { getTextBetween, type TextRange } from "./textRanges";
 
 const LINK_ADAPTER_ID = "link";
@@ -606,12 +610,14 @@ const mapSelectionPositionToSource = (
   target: LinkSourceProjectionTarget,
   association: -1 | 1,
 ) => {
-  if (position < target.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionOutsideSourceProjection(
+    position,
+    target,
+    "exclusive",
+  );
 
-  if (position > target.to) {
-    return target.from + target.originalSource.length + (position - target.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   return (
@@ -626,20 +632,15 @@ const mapSelectionPositionFromSource = (
   result: SourceProjectionParseResult,
   map: LinkSourceMap | null,
 ) => {
-  if (position <= session.from) {
-    return position;
-  }
+  const outsidePosition = mapSelectionPositionFromSourceProjection(
+    position,
+    session,
+    result,
+    session.target.retainsImage ? session.target.originalContentSize : 0,
+  );
 
-  if (position >= session.to) {
-    if (session.target.retainsImage) {
-      return (
-        session.from +
-        result.replacementSize +
-        Math.max(0, position - session.to - session.target.originalContentSize)
-      );
-    }
-
-    return session.from + result.replacementSize + (position - session.to);
+  if (outsidePosition !== null) {
+    return outsidePosition;
   }
 
   const sourceOffset = position - session.from;

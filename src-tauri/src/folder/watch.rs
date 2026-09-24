@@ -1,6 +1,5 @@
 use std::{
-    fs,
-    io::{self, ErrorKind},
+    fs, io,
     path::{Component, Path, PathBuf},
     sync::Mutex,
 };
@@ -13,7 +12,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
 use super::{ScanDepth, defaults, scan};
-use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
+use crate::{
+    document::is_supported_markdown_path,
+    path_utils::{IoErrorClass, classify_io_error, path_to_string},
+};
 
 pub(crate) const FOLDER_CHANGED_EVENT: &str = "leafdown://folder-changed";
 pub(crate) const FOLDER_WATCH_ERROR_EVENT: &str = "leafdown://folder-watch-error";
@@ -201,17 +203,13 @@ fn create_folder_watcher(
 fn watch_folder_metadata_error(error: io::Error, path: &Path) -> WatchMarkdownFolderError {
     let path = path_to_string(path);
 
-    match error.kind() {
-        ErrorKind::InvalidInput => WatchMarkdownFolderError::InvalidPath { path },
-        ErrorKind::NotFound => WatchMarkdownFolderError::MissingFolder { path },
-        ErrorKind::PermissionDenied => WatchMarkdownFolderError::PermissionDenied {
-            path,
-            message: error.to_string(),
-        },
-        _ => WatchMarkdownFolderError::MetadataFailed {
-            path,
-            message: error.to_string(),
-        },
+    match classify_io_error(error) {
+        IoErrorClass::InvalidPath => WatchMarkdownFolderError::InvalidPath { path },
+        IoErrorClass::Missing => WatchMarkdownFolderError::MissingFolder { path },
+        IoErrorClass::PermissionDenied(message) => {
+            WatchMarkdownFolderError::PermissionDenied { path, message }
+        }
+        IoErrorClass::Failed(message) => WatchMarkdownFolderError::MetadataFailed { path, message },
     }
 }
 

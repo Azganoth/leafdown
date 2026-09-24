@@ -12,7 +12,7 @@ import {
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import {
   closeActiveMarkdownDocument,
-  closeFolderContext,
+  closeFolderContext as closeFolderContextWorkflow,
   createNewMarkdownDocument,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
@@ -43,68 +43,65 @@ const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
   }
 };
 
+const runBooleanCommand = async (
+  operation: () => Promise<boolean>,
+  successMessage: string,
+  handleError: (error: unknown) => void,
+) => {
+  try {
+    if (await operation()) {
+      notifySuccess(successMessage);
+    }
+  } catch (error) {
+    handleError(error);
+  }
+};
+
 const documentOnly = (activeDocument: AppCommandContext["activeDocument"]) =>
   activeDocument ? enabled() : disabled("No document is open.");
 
 export const openRecentMarkdownFile = async (path: string) => {
-  try {
-    const opened = await openMarkdownFileAtPath(path);
-    if (opened) {
-      notifySuccess("Document opened.");
-    }
-  } catch (error) {
-    const message = getOpenMarkdownFileErrorMessage(error, {
-      title: "Could not open recent Markdown file.",
-    });
-    notifyError(message);
-  }
+  await runBooleanCommand(
+    () => openMarkdownFileAtPath(path),
+    "Document opened.",
+    (error) =>
+      notifyError(
+        getOpenMarkdownFileErrorMessage(error, {
+          title: "Could not open recent Markdown file.",
+        }),
+      ),
+  );
 };
 
 export const openRecentFolderContext = async (path: string) => {
-  try {
-    const opened = await openFolderContextAtPath(path);
-    if (opened) {
-      notifySuccess("Folder opened.");
-    }
-  } catch (error) {
-    const message = getOpenFolderContextErrorMessage(error, {
-      title: "Could not open recent folder.",
-    });
-    notifyError(message);
-  }
+  await runBooleanCommand(
+    () => openFolderContextAtPath(path),
+    "Folder opened.",
+    (error) =>
+      notifyError(
+        getOpenFolderContextErrorMessage(error, {
+          title: "Could not open recent folder.",
+        }),
+      ),
+  );
 };
 
-export const createNewFile = async () => {
-  try {
-    const created = await createNewMarkdownDocument();
-    if (created) {
-      notifySuccess("Document created.");
-    }
-  } catch (error) {
-    notifyOperationFailure("Could not create document.", error, "createNewFile");
-  }
+export const createUntitledDocument = async () => {
+  await runBooleanCommand(createNewMarkdownDocument, "Document created.", (error) =>
+    notifyOperationFailure("Could not create document.", error, "createUntitledDocument"),
+  );
 };
 
-export const openFile = async () => {
-  try {
-    const opened = await pickAndOpenMarkdownFile();
-    if (opened) {
-      notifySuccess("Document opened.");
-    }
-  } catch (error) {
-    notifyError(getOpenMarkdownFileErrorMessage(error));
-  }
+export const openMarkdownFile = async () => {
+  await runBooleanCommand(pickAndOpenMarkdownFile, "Document opened.", (error) =>
+    notifyError(getOpenMarkdownFileErrorMessage(error)),
+  );
 };
 
-export const openFolder = async () => {
-  try {
-    const opened = await pickAndOpenFolderContext();
-    if (opened) {
-      notifySuccess("Folder opened.");
-    }
-  } catch (error) {
-    notifyError(getOpenFolderContextErrorMessage(error));
-  }
+export const openFolderContext = async () => {
+  await runBooleanCommand(pickAndOpenFolderContext, "Folder opened.", (error) =>
+    notifyError(getOpenFolderContextErrorMessage(error)),
+  );
 };
 
 export const clearRecentItems = () => {
@@ -147,25 +144,15 @@ export const openPreferences = () => {
 };
 
 export const closeDocument = async () => {
-  try {
-    const closed = await closeActiveMarkdownDocument();
-    if (closed) {
-      notifySuccess("Document closed.");
-    }
-  } catch (error) {
-    notifyOperationFailure("Could not close document.", error, "closeDocument");
-  }
+  await runBooleanCommand(closeActiveMarkdownDocument, "Document closed.", (error) =>
+    notifyOperationFailure("Could not close document.", error, "closeDocument"),
+  );
 };
 
-export const closeFolder = async () => {
-  try {
-    const closed = await closeFolderContext();
-    if (closed) {
-      notifySuccess("Folder closed.");
-    }
-  } catch (error) {
-    notifyOperationFailure("Could not close folder.", error, "closeFolder");
-  }
+export const closeFolderContext = async () => {
+  await runBooleanCommand(closeFolderContextWorkflow, "Folder closed.", (error) =>
+    notifyOperationFailure("Could not close folder.", error, "closeFolderContext"),
+  );
 };
 
 export const closeWindow = async () => {

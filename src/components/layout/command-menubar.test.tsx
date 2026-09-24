@@ -188,8 +188,18 @@ describe("CommandMenubar", () => {
     const { onExecute, user } = renderCommandMenuBar();
 
     await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    expect(menuItem("Report issue")).toBeInTheDocument();
+    expect(menuItem("Request feature")).toBeInTheDocument();
     expect(menuItem("Diagnostics...")).toBeInTheDocument();
 
+    await user.click(menuItem("Report issue"));
+    expect(onExecute).toHaveBeenCalledWith("help.reportIssue");
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(menuItem("Request feature"));
+    expect(onExecute).toHaveBeenCalledWith("help.requestFeature");
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
     await user.click(menuItem("Open DevTools"));
 
     expect(onExecute).toHaveBeenCalledWith("help.openDevTools");

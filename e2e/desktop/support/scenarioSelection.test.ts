@@ -13,6 +13,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["rendered-images"],
       ["rendered-html"],
       ["separator-presentation"],
+      ["support-links"],
       ["missing-document-error"],
       ["persistence-write", "persistence-restart"],
       ["window-lifecycle"],

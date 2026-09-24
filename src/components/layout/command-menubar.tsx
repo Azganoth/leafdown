@@ -194,6 +194,8 @@ export function CommandMenubar({
             {COMMAND_MENU_LABELS.help}
           </MenubarTrigger>
           <MenubarContent>
+            <CommandItems commandIds={["help.reportIssue", "help.requestFeature"]} />
+            <MenubarSeparator />
             <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["help.about"]} />

@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Open the repository's bug report and feature request forms from Help, leaving what to submit entirely to the user.
 - Copy a selection as portable HTML source or as rich text with an unformatted plain-text fallback from Edit > Copy as.
 - Insert a block from one pointer-following button in the local gutter. Its indicator shows the chosen nested sibling boundary, its menu offers only valid block types, and `Mod+Alt+I` opens the same menu from the focused editor. Insertion focuses the new block and can be undone in one step.
 - Select complete Markdown blocks from local gutters that follow root paragraphs, nested list items, blockquotes, tables, and other indivisible blocks. `Shift`-click extends or reverses an exact block range across structural parents without absorbing adjacent list items, selected blocks receive one theme-aware wash, and the existing context popup follows the rendered range without offering inline-only actions. Block selection keeps editor focus, announces the selected type or count, finalizes in-place Markdown source safely, and prepares handle drags for the structural-movement follow-up without changing the saved file.

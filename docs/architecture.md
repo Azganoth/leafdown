@@ -37,6 +37,8 @@ Arrows define direction, not required intermediate dependencies: a layer may imp
 
 Global scope does not make code shared. Domain-owned global behavior stays in its feature; only domain-agnostic reuse belongs in shared UI or `lib`.
 
+Session and editor workflows request yes/no decisions through the shared confirmation service in `src/lib/`. The app shell renders its queued request using the shared dialog UI. Each feature keeps its own prompt wording and verifies the relevant document or link state after the decision; session tracks document activation separately from its path so a reopened file cannot satisfy an older confirmation.
+
 ## Domain Vocabulary
 
 - **Folder context:** the runtime root folder used for scanning, navigation, path resolution, and watching. It creates no metadata.
@@ -109,7 +111,7 @@ Marker presentation is independent of session lifetime. Decorations style projec
 
 The Rust backend manages:
 
-- Native file dialogs and file IO.
+- Native file and folder path pickers and file IO.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
@@ -126,6 +128,7 @@ The Rust backend manages:
 The React frontend manages:
 
 - User interface rendering and application commands.
+- App-rendered confirmation dialogs for document and local-link decisions.
 - Milkdown integration and custom editor elements.
 - Application state (folder context, active document, settings).
 - Updating the article navigator in response to backend file events.

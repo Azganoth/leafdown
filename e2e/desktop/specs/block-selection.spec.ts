@@ -293,6 +293,8 @@ describe("desktop block selection", () => {
   it("renders and operates hierarchical gutters in the assembled app", async () => {
     const { blocks } = await getDesktopE2ERunContext();
     await openRecentPath(blocks.path);
+    await expect($("aria/Unsaved changes")).toBeDisplayed();
+    await $("aria/Discard changes").click();
     await expect($(".ProseMirror")).toBeDisplayed();
 
     await browser.action("pointer").move({ origin: "viewport", x: 1, y: 1 }).perform();

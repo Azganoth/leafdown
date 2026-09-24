@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderWithUser, screen } from "@/test/utils/react";
+import { renderWithUser, screen, waitFor } from "@/test/utils/react";
 
 import { Dialog, DialogContent, DialogTitle } from "./dialog";
 
@@ -16,6 +16,9 @@ const renderOpenDialog = () => {
         <header id="leafdown-titlebar" style={{ pointerEvents: "auto" }}>
           <div data-tauri-drag-region>Titlebar</div>
         </header>
+        <button id="frame-tb-maximize" type="button">
+          Maximize window
+        </button>
         <Dialog open onOpenChange={onOpenChange}>
           <DialogContent>
             <DialogTitle>Preferences</DialogTitle>
@@ -53,5 +56,16 @@ describe("Dialog", () => {
       false,
       expect.objectContaining({ reason: "outside-press" }),
     );
+  });
+
+  it("keeps the dialog open and returns focus after using a window control", async () => {
+    const { onOpenChange, user } = renderOpenDialog();
+
+    const maximize = document.querySelector<HTMLButtonElement>("#frame-tb-maximize");
+    expect(maximize).not.toBeNull();
+    await user.click(maximize!);
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Preferences" })).toHaveFocus());
   });
 });

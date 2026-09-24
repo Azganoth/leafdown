@@ -1,10 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { confirm, save } from "@tauri-apps/plugin-dialog";
+import { save } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SavedMarkdownDocument } from "@/features/document";
 import { DEFAULT_IGNORED_DIRECTORIES } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
+import { requestConfirmation } from "@/lib/confirmation";
 import {
   createSavedDocument,
   createSavedMarkdownDocumentResult,
@@ -31,6 +32,8 @@ import {
   saveActiveMarkdownDocumentAs,
 } from "./documentWorkflows";
 
+vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
+
 const DRAFT_MARKDOWN_PATH = "C:/Notes/draft.markdown";
 const DRAFT_MD_PATH = "C:/Notes/draft.md";
 const OUTSIDE_DRAFT_MD_PATH = "C:/Other/draft.md";
@@ -52,6 +55,7 @@ const createNextUntitledDocument = () =>
 
 describe("document workflows", () => {
   beforeEach(() => {
+    vi.mocked(requestConfirmation).mockReset().mockResolvedValue(false);
     documentEditorBridge.clear();
     resetDocumentWorkflowIdsForTests();
   });
@@ -85,7 +89,7 @@ describe("document workflows", () => {
 
       await expect(createNewMarkdownDocument()).resolves.toBe(false);
 
-      expect(confirm).toHaveBeenCalledOnce();
+      expect(requestConfirmation).toHaveBeenCalledOnce();
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         status: "untitled",
         id: TEST_UNTITLED_DOCUMENT_ID,
@@ -375,7 +379,7 @@ describe("document workflows", () => {
 
       await expect(closeActiveMarkdownDocument()).resolves.toBe(true);
 
-      expect(confirm).not.toHaveBeenCalled();
+      expect(requestConfirmation).not.toHaveBeenCalled();
       expect(useSessionStore.getState()).toMatchObject({
         folderContext: { path: "C:/Notes" },
         activeDocument: null,
@@ -398,6 +402,20 @@ describe("document workflows", () => {
   });
 
   describe("save conflicts", () => {
+    it("surfaces unexpected save failures after the active document changes", async () => {
+      const result = Promise.withResolvers<never>();
+      setDefaultSession({ activeDocument: createSavedDocument() });
+      mockTauriApiCommand("saveMarkdownFile", () => result.promise);
+
+      const saving = saveActiveMarkdownDocument();
+      await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
+
+      useSessionStore.getState().setActiveDocument(createUntitledDocument());
+      result.reject(new Error("Disk unavailable"));
+
+      await expect(saving).rejects.toThrow("Disk unavailable");
+    });
+
     it("routes missing saved files to Save As when confirmed", async () => {
       setDefaultSession({
         folderContext: notesFolderContext,
@@ -417,20 +435,17 @@ describe("document workflows", () => {
         saveMarkdownFile,
         scanMarkdownFolder: () => updatedFolderContext,
       });
-      vi.mocked(confirm).mockResolvedValue(true);
+      vi.mocked(requestConfirmation).mockResolvedValue(true);
       vi.mocked(save).mockResolvedValue(RECOVERED_MARKDOWN_PATH);
 
       await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
 
-      expect(confirm).toHaveBeenCalledWith(
-        "The saved Markdown file no longer exists. Save this document to a new path?",
-        {
-          title: "File missing",
-          kind: "warning",
-          okLabel: "Save as",
-          cancelLabel: "Cancel",
-        },
-      );
+      expect(requestConfirmation).toHaveBeenCalledWith({
+        title: "File missing",
+        message: "The saved Markdown file no longer exists. Save this document to a new path?",
+        confirmLabel: "Save as",
+        cancelLabel: "Cancel",
+      });
       expect(save).toHaveBeenCalledWith({
         title: "Save Markdown document",
         filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
@@ -467,6 +482,24 @@ describe("document workflows", () => {
       expect(useSessionStore.getState().activeDocument).toMatchObject(activeDocument);
     });
 
+    it("does not open Save As for a reopened document at the same path", async () => {
+      const decision = Promise.withResolvers<boolean>();
+      setDefaultSession({ activeDocument: createSavedDocument() });
+      mockTauriApiCommand("saveMarkdownFile", () =>
+        Promise.reject({ kind: "missingFile", path: TEST_MARKDOWN_FILE_PATH }),
+      );
+      vi.mocked(requestConfirmation).mockReturnValue(decision.promise);
+
+      const saving = saveActiveMarkdownDocument();
+      await vi.waitFor(() => expect(requestConfirmation).toHaveBeenCalledOnce());
+
+      useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "Reopened" }));
+      decision.resolve(true);
+
+      await expect(saving).resolves.toBe(false);
+      expect(save).not.toHaveBeenCalled();
+    });
+
     it("overwrites external modifications only after confirmation", async () => {
       const activeDocument = createSavedDocument({
         content: "# Local",
@@ -488,19 +521,17 @@ describe("document workflows", () => {
           }),
         );
       mockTauriApiCommand("saveMarkdownFile", saveMarkdownFile);
-      vi.mocked(confirm).mockResolvedValue(true);
+      vi.mocked(requestConfirmation).mockResolvedValue(true);
 
       await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
 
-      expect(confirm).toHaveBeenCalledWith(
-        "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
-        {
-          title: "File changed",
-          kind: "warning",
-          okLabel: "Overwrite anyway",
-          cancelLabel: "Cancel save",
-        },
-      );
+      expect(requestConfirmation).toHaveBeenCalledWith({
+        title: "File changed",
+        message:
+          "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
+        confirmLabel: "Overwrite anyway",
+        cancelLabel: "Cancel save",
+      });
       expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {
         path: TEST_MARKDOWN_FILE_PATH,
         content: "# Local\n",
@@ -530,6 +561,24 @@ describe("document workflows", () => {
 
       expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
       expect(useSessionStore.getState().activeDocument).toMatchObject(activeDocument);
+    });
+
+    it("does not overwrite through a previous document's confirmation", async () => {
+      const decision = Promise.withResolvers<boolean>();
+      setDefaultSession({ activeDocument: createSavedDocument() });
+      mockTauriApiCommand("saveMarkdownFile", () =>
+        Promise.reject({ kind: "externalModification", path: TEST_MARKDOWN_FILE_PATH }),
+      );
+      vi.mocked(requestConfirmation).mockReturnValue(decision.promise);
+
+      const saving = saveActiveMarkdownDocument();
+      await vi.waitFor(() => expect(requestConfirmation).toHaveBeenCalledOnce());
+
+      useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "Reopened" }));
+      decision.resolve(true);
+
+      await expect(saving).resolves.toBe(false);
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
     });
   });
 });

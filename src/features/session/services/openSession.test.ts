@@ -1,11 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { describe, expect, it, vi } from "vitest";
 
 import type { OpenedMarkdownDocument } from "@/features/document";
 import type { FolderContextState } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
+import { requestConfirmation } from "@/lib/confirmation";
 import { toastManager } from "@/lib/toast";
 import {
   createOpenedMarkdownDocument,
@@ -23,6 +23,8 @@ import {
 } from "@/test/utils/tauriApi";
 
 import { openFolderContextAtPath, openMarkdownFileAtPath } from "./openSession";
+
+vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
 
 const OTHER_MARKDOWN_PATH = "C:/Notes/other.md";
 const OTHER_FOLDER_PATH = "C:/Other";
@@ -63,7 +65,7 @@ describe("open session workflows", () => {
 
     await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(requestConfirmation).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toMatchObject({
       folderContext: { path: TEST_NOTES_FOLDER_PATH },
       activeDocument: createSavedDocument({
@@ -109,7 +111,7 @@ describe("open session workflows", () => {
 
     await expect(openFolderContextAtPath(TEST_NOTES_FOLDER_PATH)).resolves.toBe(true);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(requestConfirmation).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toMatchObject({
       folderContext: { path: TEST_NOTES_FOLDER_PATH },
       activeDocument: null,

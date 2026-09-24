@@ -52,8 +52,27 @@ describe("desktop window lifecycle", () => {
       await expect(control).toHaveAttribute("tabindex", "-1");
     }
 
+    await $("aria/New document").click();
+    const editor = $('[contenteditable="true"]');
+    await expect(editor).toBeDisplayed();
+    await editor.click();
+    await editor.addValue(" Unsaved before exit");
+    await expect(editor).toHaveText(expect.stringContaining("Unsaved before exit"));
+
     const closeControl = $("aria/Close window");
     await closeControl.click();
+    const prompt = $('[data-slot="dialog-content"][data-open]');
+    await expect(prompt).toBeDisplayed();
+    await expect($("aria/Unsaved changes")).toBeDisplayed();
+    await browser.keys("Escape");
+    await expect(prompt).not.toExist();
+    await expect(editor).toBeDisplayed();
+    expect(isProcessRunning(processId)).toBe(true);
+
+    await closeControl.click();
+    const secondPrompt = $('[data-slot="dialog-content"][data-open]');
+    await expect(secondPrompt).toBeDisplayed();
+    await $("aria/Discard changes").click();
 
     await waitForNodeCondition(
       () => !isProcessRunning(processId),

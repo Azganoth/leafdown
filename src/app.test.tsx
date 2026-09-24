@@ -2,9 +2,9 @@
 
 import { setTheme } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as confirmation from "@/lib/confirmation";
 import { toastManager } from "@/lib/toast";
 
 import { App } from "./app";
@@ -17,7 +17,7 @@ import { createUntitledDocument } from "./test/factories/document";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
 import { getLastDiagnosticPayload } from "./test/utils/diagnostics";
 import { dispatchDOMEvent } from "./test/utils/events";
-import { render, waitFor } from "./test/utils/react";
+import { render, renderWithUser, screen, waitFor } from "./test/utils/react";
 import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/utils/tauri";
 
 describe("App", () => {
@@ -186,7 +186,7 @@ describe("App", () => {
     );
     await handleCloseRequested({ payload: undefined });
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(confirmation.useConfirmationStore.getState().current).toBeNull();
     await waitFor(() => {
       expect(getLastDiagnosticPayload("info")).toMatchObject({
         event: "operationLifecycle",
@@ -205,7 +205,7 @@ describe("App", () => {
       activeDocument: createUntitledDocument({ isDirty: true }),
     });
 
-    render(<App />);
+    const { user } = renderWithUser(<App />);
 
     await waitFor(() => {
       expect(appWindow.listen).toHaveBeenCalledWith(
@@ -217,12 +217,11 @@ describe("App", () => {
     const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
       "leafdown://window-close-requested",
     );
-    await handleCloseRequested({ payload: undefined });
-
-    expect(confirm).toHaveBeenCalledWith(
-      expect.stringContaining("unsaved changes"),
-      expect.objectContaining({ kind: "warning" }),
-    );
+    const closeRequest = handleCloseRequested({ payload: undefined });
+    const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
+    expect(prompt).toHaveTextContent("The active document has unsaved changes.");
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await closeRequest;
     expect(appWindow.destroy).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(appWindow.emit).toHaveBeenCalledWith("leafdown://window-close-declined");
@@ -232,7 +231,9 @@ describe("App", () => {
   it("leaves a failed close request unanswered so the backend fallback can close the window", async () => {
     const appWindow = getCurrentWindow();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    vi.mocked(confirm).mockRejectedValue(new Error("Dialog unavailable."));
+    const failedConfirmation = vi
+      .spyOn(confirmation, "requestConfirmation")
+      .mockRejectedValue(new Error("Dialog unavailable."));
     setDefaultSession({
       activeDocument: createUntitledDocument({ isDirty: true }),
     });
@@ -261,6 +262,7 @@ describe("App", () => {
       expect(appWindow.emit).not.toHaveBeenCalled();
       expect(appWindow.destroy).not.toHaveBeenCalled();
     } finally {
+      failedConfirmation.mockRestore();
       consoleError.mockRestore();
     }
   });

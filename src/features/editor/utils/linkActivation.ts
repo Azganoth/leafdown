@@ -1,6 +1,6 @@
-import { confirm as showConfirmDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
+import { requestConfirmation } from "@/lib/confirmation";
 import { notifyOperationFailure } from "@/lib/errors";
 import { notifyWarning } from "@/lib/toast";
 
@@ -37,18 +37,20 @@ const resolveMarkdownLink = ({
   });
 
 const confirmLocalFileLink = (path: string) =>
-  showConfirmDialog(`Open this local file with the system default app?\n\n${path}`, {
+  requestConfirmation({
     title: "Open local file?",
-    kind: "warning",
-    okLabel: "Open file",
+    message: "Open this local file with the system default app?",
+    detail: path,
+    confirmLabel: "Open file",
     cancelLabel: "Cancel",
   });
 
 const confirmOutsideFolderMarkdownLink = (path: string) =>
-  showConfirmDialog(`Open this Markdown file outside the current folder?\n\n${path}`, {
+  requestConfirmation({
     title: "Open outside folder?",
-    kind: "warning",
-    okLabel: "Open file",
+    message: "Open this Markdown file outside the current folder?",
+    detail: path,
+    confirmLabel: "Open file",
     cancelLabel: "Cancel",
   });
 

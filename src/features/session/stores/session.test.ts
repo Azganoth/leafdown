@@ -52,6 +52,17 @@ describe("session store", () => {
     });
   });
 
+  it("tracks document replacement separately from edits to the current document", () => {
+    useSessionStore.getState().setActiveDocument(createSavedDocument());
+    const generation = useSessionStore.getState().activeDocumentGeneration;
+
+    useSessionStore.getState().setActiveDocumentContent(TEST_MARKDOWN_FILE_PATH, "Edited");
+    expect(useSessionStore.getState().activeDocumentGeneration).toBe(generation);
+
+    useSessionStore.getState().setActiveDocument(createSavedDocument());
+    expect(useSessionStore.getState().activeDocumentGeneration).toBe(generation + 1);
+  });
+
   it("updates saved active document content only for matching document keys", () => {
     useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "# Original" }));
 

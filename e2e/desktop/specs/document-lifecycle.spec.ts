@@ -46,8 +46,66 @@ describe("desktop document lifecycle", () => {
     await expect($('[contenteditable="true"]')).not.toExist();
 
     await openRecentPath(document.path);
-    await expect($('[contenteditable="true"]')).toHaveText(
-      expect.stringContaining(document.savedMarker),
+    const reopenedEditor = $('[contenteditable="true"]');
+    await expect(reopenedEditor).toHaveText(expect.stringContaining(document.savedMarker));
+
+    await reopenedEditor.click();
+    await browser.keys([Key.Ctrl, Key.End, Key.NULL]);
+    await reopenedEditor.addValue(" Unsent edit");
+    await expect(reopenedEditor).toHaveText(expect.stringContaining("Unsent edit"));
+    const unsavedSaveItem = await getSaveMenuItem();
+    await expect(unsavedSaveItem).not.toHaveAttribute("data-disabled");
+    await browser.keys("Escape");
+    await reopenedEditor.click();
+    await browser.keys([Key.Ctrl, "w", Key.NULL]);
+
+    const prompt = $('[data-slot="dialog-content"][data-open]');
+    await expect(prompt).toBeDisplayed();
+    await expect(prompt).toHaveAttribute("aria-labelledby");
+    await expect($("aria/Unsaved changes")).toBeDisplayed();
+    await expect($("aria/Keep editing")).toBeDisplayed();
+    await expect($("aria/Discard changes")).toBeDisplayed();
+    await $("#leafdown-titlebar [data-tauri-drag-region]").click();
+    await expect(prompt).toBeDisplayed();
+    expect(
+      await browser.execute(() =>
+        Boolean(globalThis.document.activeElement?.closest('[role="dialog"]')),
+      ),
+    ).toBe(true);
+    await $("aria/Maximize window").click();
+    await expect(prompt).toBeDisplayed();
+    await browser.waitUntil(
+      () =>
+        browser.execute(() =>
+          Boolean(globalThis.document.activeElement?.closest('[role="dialog"]')),
+        ),
+      { timeoutMsg: "Focus did not return to the dialog after using a window control." },
     );
+
+    await browser.keys(Key.Tab);
+    expect(
+      await browser.execute(() =>
+        Boolean(globalThis.document.activeElement?.closest('[role="dialog"]')),
+      ),
+    ).toBe(true);
+
+    await browser.keys("Escape");
+    await expect(prompt).not.toExist();
+    await expect(reopenedEditor).toBeDisplayed();
+    await expect(reopenedEditor).toHaveText(expect.stringContaining("Unsent edit"));
+    await browser.waitUntil(
+      () =>
+        browser.execute(() =>
+          Boolean(globalThis.document.activeElement?.closest('[contenteditable="true"]')),
+        ),
+      { timeoutMsg: "Focus did not return to the editor after dismissing the prompt." },
+    );
+
+    await browser.keys([Key.Ctrl, "w", Key.NULL]);
+    const secondPrompt = $('[data-slot="dialog-content"][data-open]');
+    await expect(secondPrompt).toBeDisplayed();
+    await $("aria/Discard changes").click();
+    await expect(reopenedEditor).not.toExist();
+    expect(await readFile(document.path, "utf8")).toBe(document.savedMarkdown);
   });
 });

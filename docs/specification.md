@@ -96,6 +96,7 @@ These state axes compose. A document session, for example, can have a folder con
 - `Close folder` closes the active folder context and active document after dirty-state handling, returning to the welcome screen.
 - `Close window` closes the current app window after dirty-state handling.
 - Closing, switching files, or exiting with a dirty document prompts the user.
+- Discard, missing-file, and external-change decisions use an app dialog. The dialog puts focus inside, keeps keyboard focus within it, and returns focus to the initiating control or editor when it closes. Escape, the cancel action, and dismissing the dialog leave the pending action unperformed. A decision for a document no longer active cannot discard, save, or overwrite the newly active document, even when it has the same path.
 
 ### Marker Visibility State
 
@@ -380,6 +381,7 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 - External web links open in the system browser.
 - Broken link targets show a non-disruptive message.
 - A single link activation shows at most one confirmation for the same non-Markdown target.
+- Link confirmations use an app dialog that displays the resolved target path. Escape, Cancel, or dismissing the dialog leaves the target unopened.
 
 ### Images
 
@@ -412,6 +414,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - If the active saved file no longer exists when saving, Leafdown shows a missing-file error and offers `Save as` or `Cancel`.
 - Before saving, compare current file metadata with metadata from open/last save. If the file changed externally, warn before overwriting.
 - External-change options are `Overwrite anyway` and `Cancel save`.
+- The missing-file and external-change prompts use the app dialog. Confirming `Save as` from the missing-file prompt opens the native Save as picker; file-open, folder-open, and Save as path selection remain native.
 
 ### Loading Limits
 

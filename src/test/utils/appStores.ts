@@ -64,6 +64,7 @@ export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {
   useSessionStore.setState({
     folderContext: null,
     activeDocument: toTestActiveDocumentState(activeDocument),
+    activeDocumentGeneration: 0,
     ...sessionRest,
   });
 };

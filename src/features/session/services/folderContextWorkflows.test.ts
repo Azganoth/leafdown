@@ -1,7 +1,7 @@
-import { confirm } from "@tauri-apps/plugin-dialog";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useSettingsStore } from "@/features/preferences";
+import { requestConfirmation } from "@/lib/confirmation";
 import { createSavedDocument } from "@/test/factories/document";
 import {
   createArticleTree,
@@ -14,15 +14,21 @@ import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 import { useSessionStore } from "../stores/session";
 import { changeArticleSortOrder, closeFolderContext } from "./folderContextWorkflows";
 
+vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
+
 const notesFolderContext = createEmptyFolderContext();
 
 describe("folder context workflows", () => {
+  beforeEach(() => {
+    vi.mocked(requestConfirmation).mockReset().mockResolvedValue(false);
+  });
+
   it("closes folder-only sessions back to the welcome state", async () => {
     setDefaultSession({ folderContext: notesFolderContext });
 
     await expect(closeFolderContext()).resolves.toBe(true);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(requestConfirmation).not.toHaveBeenCalled();
     expect(useSessionStore.getState()).toMatchObject({
       activeDocument: null,
       folderContext: null,
@@ -37,7 +43,7 @@ describe("folder context workflows", () => {
 
     await expect(closeFolderContext()).resolves.toBe(false);
 
-    expect(confirm).toHaveBeenCalledOnce();
+    expect(requestConfirmation).toHaveBeenCalledOnce();
     expect(useSessionStore.getState()).toMatchObject({
       activeDocument: {
         isDirty: true,
@@ -53,7 +59,7 @@ describe("folder context workflows", () => {
 
     await expect(closeFolderContext()).resolves.toBe(false);
 
-    expect(confirm).not.toHaveBeenCalled();
+    expect(requestConfirmation).not.toHaveBeenCalled();
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       status: "saved",
     });

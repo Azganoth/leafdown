@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
 import { CommandMenubar } from "@/components/layout/command-menubar";
+import { ConfirmationDialog } from "@/components/layout/confirmation-dialog";
 import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-boundary";
 import { DocumentScreen } from "@/components/screens/document-screen";
 import { EmptyFolderScreen } from "@/components/screens/empty-folder-screen";
@@ -177,6 +178,7 @@ export function Shell() {
           onOpenChange={commands.setDiagnosticsOpen}
         />
         <AboutDialog open={commands.aboutOpen} onOpenChange={commands.setAboutOpen} />
+        <ConfirmationDialog />
       </div>
     </>
   );

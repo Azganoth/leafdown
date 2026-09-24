@@ -53,6 +53,8 @@ export const APPLICATION_COMMANDS = {
   "view.expandAllFolders": appCommand(view.expandAllFolders, view.getExpandAllFoldersState),
 
   "help.openDevTools": appCommand(help.openDevTools),
+  "help.reportIssue": appCommand(help.reportIssue),
+  "help.requestFeature": appCommand(help.requestFeature),
   "help.diagnostics": appCommand(help.openDiagnostics),
   "help.about": appCommand(help.openAbout),
 } satisfies Record<string, AppCommand>;

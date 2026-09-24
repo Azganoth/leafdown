@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { notifyOperationFailure } from "@/lib/errors";
 
@@ -23,3 +24,15 @@ export const openDiagnostics = () => {
 export const openAbout = () => {
   useCommandUIStore.getState().setAboutOpen(true);
 };
+
+const openFeedbackForm = async (template: "bug.yml" | "feature.yml") => {
+  try {
+    await openUrl(`https://github.com/Azganoth/leafdown/issues/new?template=${template}`);
+  } catch (error) {
+    notifyOperationFailure("Could not open the link.", error, "help.openFeedbackForm");
+  }
+};
+
+export const reportIssue = () => openFeedbackForm("bug.yml");
+
+export const requestFeature = () => openFeedbackForm("feature.yml");

@@ -6,6 +6,7 @@ const scenarioTargets = {
   "rendered-images": ["rendered-images"],
   "rendered-html": ["rendered-html"],
   "separator-presentation": ["separator-presentation"],
+  "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],
   persistence: ["persistence-write", "persistence-restart"],
   "window-lifecycle": ["window-lifecycle"],

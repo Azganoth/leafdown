@@ -169,6 +169,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
+    { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },

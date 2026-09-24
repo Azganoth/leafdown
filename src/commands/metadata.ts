@@ -182,6 +182,8 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "view.collapseAllFolders": commandDef("Collapse all folders"),
   "view.expandAllFolders": commandDef("Expand all folders"),
   "help.openDevTools": commandDef("Open DevTools"),
+  "help.reportIssue": commandDef("Report issue"),
+  "help.requestFeature": commandDef("Request feature"),
   "help.diagnostics": commandDef("Diagnostics..."),
   "help.about": commandDef("About"),
 };

@@ -226,8 +226,8 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Getting started** (Deferred)
 - **File and folder workflows** (Deferred)
 - **Settings reference** (Deferred)
-- **Report issue** (Deferred)
-- **Request feature** (Deferred)
+- **Report issue**
+- **Request feature**
 - **Changelog** (Deferred)
 - **Check for updates** (Deferred)
 - **Support / Donate** (Deferred)

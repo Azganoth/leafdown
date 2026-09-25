@@ -9,7 +9,9 @@ import {
   type SaveMarkdownFileResult,
 } from "@/features/document/services/markdownDocumentApi";
 import {
+  FETCH_REMOTE_IMAGE_COMMAND,
   RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
+  type FetchRemoteImageArgs,
   type ResolveMarkdownImageTargetArgs,
   type ResolveMarkdownImageTargetResult,
 } from "@/features/editor/services/markdownImageApi";
@@ -48,6 +50,7 @@ interface TauriApiCommandArgs {
   watchMarkdownFolder: WatchMarkdownFolderArgs;
   unwatchMarkdownFolder: UnwatchMarkdownFolderArgs;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
+  fetchRemoteImage: FetchRemoteImageArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
   openWebviewDevtools: undefined;
@@ -62,6 +65,7 @@ interface TauriApiCommandResults {
   watchMarkdownFolder: void;
   unwatchMarkdownFolder: void;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
+  fetchRemoteImage: ArrayBuffer;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
   openWebviewDevtools: void;
@@ -86,6 +90,7 @@ const TAURI_API_COMMANDS = {
   watchMarkdownFolder: WATCH_MARKDOWN_FOLDER_COMMAND,
   unwatchMarkdownFolder: UNWATCH_MARKDOWN_FOLDER_COMMAND,
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
+  fetchRemoteImage: FETCH_REMOTE_IMAGE_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,

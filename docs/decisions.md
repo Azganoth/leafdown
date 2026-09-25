@@ -99,6 +99,7 @@
 - Core workflows function offline.
 - Configuration and recent lists persist locally.
 - Network access is not required for standard operations.
+- Loading a remote image is optional network use that only an explicit per-image action starts; nothing depends on it.
 
 ### User-accessible debugging
 
@@ -400,6 +401,20 @@
 - The CLI writes kebab-case files into `src/components/ui/`, which is why component file names follow that convention rather than React's `PascalCase`.
 - Base UI Toast supplies no default styling and no fixed set of toast types, so toast presentation, types, and announcement behavior are Leafdown's to own.
 - Where a Base UI default disagrees with behavior Leafdown already had, the wrapper carries the override, so consult the wrapper rather than Base UI's documentation for what a primitive does here.
+
+### Load approved remote images through a backend fetch
+
+**Decision:** An approved remote image is fetched by the Rust backend and presented through a `blob:` object URL, so the WebView never contacts the remote host. The fetch uses `reqwest` with `native-tls`, no proxy, cookies, automatic decompression, or `Referer`, and a DNS resolver that returns only public addresses; IP literals, which bypass the resolver, are checked separately, and every redirect hop is re-validated. The only CSP change is `blob:` in `img-src`. Decided in [issue #514](https://github.com/Azganoth/leafdown/issues/514).
+
+**Rationale:** Tauri's CSP is static, so letting the WebView load an approved image would mean `img-src https:` for the whole app, and every image-bearing path, CSS `url()` included, would reach the network with the CSP no longer a backstop. The WebView also gives the app no hook for redirects to private addresses, size limits, type checks, or its own HTTP cache, and it sends a referrer and client hints. A temporary file served through the asset protocol writes remote content to disk and needs cleanup across crashes; a custom URI scheme adds backend state and a release lifecycle; a `data:` URL is broader than `blob:`. `native-tls` uses the operating system's trust store and TLS stack and costs the least binary size of the TLS backends measured.
+
+**Consequences:**
+
+- Filtering at resolution means the connector dials only addresses already judged public, with no window for DNS rebinding between a check and the connection.
+- A proxy would resolve names outside that filter, so networks that require a proxy cannot load remote images.
+- A `blob:` URL shares the app's origin, so remote SVG is refused. Supporting it needs a separate-origin presentation such as a custom URI scheme.
+- Images are decoded only by the WebView renderer, never in the Rust process.
+- On Linux, `native-tls` links the system OpenSSL.
 
 ## Platform Decisions
 

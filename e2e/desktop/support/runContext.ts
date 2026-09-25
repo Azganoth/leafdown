@@ -14,6 +14,13 @@ export interface DesktopE2ERunContext {
   images: {
     path: string;
   };
+  remoteImages: {
+    certificatePath: string;
+    host: string;
+    imagePath: string;
+    keyPath: string;
+    path: string;
+  };
   folder: {
     addedFileName: string;
     addedFilePath: string;

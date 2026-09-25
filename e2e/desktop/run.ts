@@ -35,6 +35,14 @@ interface WorkerContext {
 const selection = selectDesktopE2ERun(process.argv.slice(2));
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
 const artifactsRoot = path.join(repositoryRoot, "e2e", "desktop", "artifacts", RUN_LABEL);
+const remoteImageFixtureRoot = path.join(
+  repositoryRoot,
+  "e2e",
+  "desktop",
+  "fixtures",
+  "remote-images",
+);
+const REMOTE_IMAGE_HOST = "remote-images.leafdown.test";
 
 const writeJson = (filePath: string, value: unknown) =>
   writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`);
@@ -125,6 +133,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const imagesPath = path.join(fixtureRoot, "rendered-images.md");
+  const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
@@ -146,6 +155,13 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       savedMarker,
     },
     images: { path: imagesPath },
+    remoteImages: {
+      certificatePath: path.join(remoteImageFixtureRoot, "server.pem"),
+      host: REMOTE_IMAGE_HOST,
+      imagePath: path.join(repositoryRoot, "src-tauri", "icons", "32x32.png"),
+      keyPath: path.join(remoteImageFixtureRoot, "server.key"),
+      path: remoteImagesPath,
+    },
     html: { path: htmlPath },
     folder: {
       addedFileName: addedFolderFileName,
@@ -167,6 +183,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
+    { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "support-links" },
@@ -229,6 +246,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         tinyImagePath,
         '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="transparent" /></svg>',
       ),
+      writeFile(remoteImagesPath, ""),
       writeFile(
         imagesPath,
         [
@@ -300,6 +318,9 @@ const runWdio = (scenario: Scenario, worker: WorkerContext) =>
         LEAFDOWN_E2E_APP_IDENTIFIER: worker.context.appIdentifier,
         LEAFDOWN_E2E_ARTIFACT_RUN: RUN_LABEL,
         LEAFDOWN_E2E_CONTEXT_PATH: worker.contextPath,
+        LEAFDOWN_E2E_REMOTE_IMAGE_ADDRESS: "127.0.0.1",
+        LEAFDOWN_E2E_REMOTE_IMAGE_CERTIFICATE: path.join(remoteImageFixtureRoot, "ca.pem"),
+        LEAFDOWN_E2E_REMOTE_IMAGE_HOST: REMOTE_IMAGE_HOST,
         LEAFDOWN_E2E_SCENARIO: scenario.name,
         LEAFDOWN_E2E_SPEC: `e2e/desktop/specs/${scenario.name}.spec.ts`,
         LEAFDOWN_E2E_WEBDRIVER_PORT: String(worker.port),

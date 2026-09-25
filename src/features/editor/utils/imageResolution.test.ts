@@ -39,14 +39,17 @@ describe("imageResolution", () => {
   });
 
   it("returns blocked and placeholder states without asset URL conversion", async () => {
-    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "remoteBlocked",
+      host: "example.com",
+    }));
 
     await expect(
       resolveMarkdownImage({
         ...createMarkdownReferenceContext(),
         target: "https://example.com/icon.png",
       }),
-    ).resolves.toEqual({ kind: "remoteBlocked" });
+    ).resolves.toEqual({ kind: "remoteBlocked", host: "example.com" });
     expect(convertFileSrc).not.toHaveBeenCalled();
   });
 

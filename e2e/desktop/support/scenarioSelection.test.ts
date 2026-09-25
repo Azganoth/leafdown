@@ -11,6 +11,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["document-lifecycle"],
       ["folder-watcher"],
       ["rendered-images"],
+      ["remote-images"],
       ["rendered-html"],
       ["separator-presentation"],
       ["support-links"],

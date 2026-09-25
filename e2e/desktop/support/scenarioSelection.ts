@@ -4,6 +4,7 @@ const scenarioTargets = {
   "document-lifecycle": ["document-lifecycle"],
   "folder-watcher": ["folder-watcher"],
   "rendered-images": ["rendered-images"],
+  "remote-images": ["remote-images"],
   "rendered-html": ["rendered-html"],
   "separator-presentation": ["separator-presentation"],
   "support-links": ["support-links"],

@@ -360,6 +360,10 @@
         @apply border-primary text-primary;
       }
 
+      &[aria-disabled="true"] {
+        @apply cursor-default border-border text-muted-foreground;
+      }
+
       &:focus-visible {
         @apply ring-2 ring-primary/30 outline-none;
       }

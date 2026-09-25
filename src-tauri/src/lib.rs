@@ -14,6 +14,7 @@ mod image;
 mod link;
 mod navigation;
 mod path_utils;
+mod remote_image;
 #[cfg(test)]
 mod test_utils;
 mod window;
@@ -100,6 +101,7 @@ pub fn run() {
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
+            remote_image::fetch_remote_image,
             link::resolve_markdown_link_target,
             link::open_markdown_link_target,
             folder::scan_markdown_folder,

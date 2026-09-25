@@ -240,7 +240,7 @@ describe("pasted HTML safety", () => {
     async (_name, entryPath, transport, fragment, survivingText) => {
       resetExecutionFlag();
       mockTauriApi({
-        resolveMarkdownImageTarget: () => ({ kind: "remoteBlocked" }),
+        resolveMarkdownImageTarget: () => ({ kind: "remoteBlocked", host: null }),
         resolveMarkdownLinkTarget: () => ({ kind: "unsupportedTarget" }),
       });
 
@@ -257,7 +257,10 @@ describe("pasted HTML safety", () => {
   it.each(PASTE_ENTRY_PATHS)(
     "resolves a pasted remote image instead of loading it through %s Paste",
     async (entryPath) => {
-      mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+      mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+        kind: "remoteBlocked",
+        host: "example.com",
+      }));
 
       const mounted = await mountReferenceEditor("");
 
@@ -270,11 +273,12 @@ describe("pasted HTML safety", () => {
       expect(finalizeSourceProjection(mounted.view)).toBe(true);
 
       await waitFor(() => {
-        expect(mounted.view.dom).toHaveTextContent("Remote images are blocked.");
+        expect(mounted.view.dom).toHaveTextContent("Remote image from example.com.");
       });
       expect(getLastTauriApiArgs("resolveMarkdownImageTarget")).toMatchObject({
         target: "https://example.com/tracker.png",
       });
+      expect(countTauriApiCalls("fetchRemoteImage")).toBe(0);
       expect(mounted.view.dom.querySelector(".leafdown-markdown-image")).not.toBeInTheDocument();
       expect(convertFileSrc).not.toHaveBeenCalled();
     },

@@ -115,6 +115,7 @@ The Rust backend manages:
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
+- Fetching a user-approved remote image under the remote image policy: `https:` only, public destination addresses checked at DNS resolution and for IP literals, re-validated redirects, bounded time and size, and a PNG, JPEG, GIF, or WebP signature. Image resolution never fetches.
 - Directory scanning and article-tree generation.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit, and closing the window on the next request when the frontend leaves one unanswered.
@@ -133,6 +134,7 @@ The React frontend manages:
 - Application state (folder context, active document, settings).
 - Updating the article navigator in response to backend file events.
 - Path normalization and local image loading via Tauri's custom asset protocol.
+- Presenting a fetched remote image through a `blob:` object URL owned by its image node view, which revokes it when the target changes or the view is destroyed and discards results that arrive after either.
 - Marker visibility rules, thematic styling, and error presentation.
 - Mirroring shared unexpected-error reports and feature-owned operational diagnostics into local logs as event-specific payloads, and exposing the Help diagnostics dialog.
 - Showing the window once startup initialization finishes or fails, and answering intercepted close requests by destroying the window or declining the request.
@@ -168,7 +170,7 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 
 - Prevent script execution from Markdown content.
 - Render raw HTML only through the source-located parse, validate, and safe-construction boundary. Accept only a self-contained, single HTML-namespace element whose entire tree consists of allowlisted elements without attributes and text. Reject the whole fragment if sanitization would change it; never insert a reparsed or partially sanitized string. CSP remains defense in depth, not the allowlist implementation.
-- Block automatic loading of remote images.
+- Block automatic loading of remote images. A remote image loads only through the backend fetch after its own explicit activation, and the WebView CSP admits `blob:` images but never a remote image origin.
 - Open external links in the default system browser, and keep webview navigation on the local frontend origin.
 - Require confirmation before handing local non-Markdown links to the system default app.
 - Bundle Shiki themes and grammars to avoid runtime network dependencies.
@@ -178,8 +180,8 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 
 Automated tests cover Markdown round trips; editor commands and projection; file, folder, watcher, and persistence workflows; path, encoding, size, symlink, and permission boundaries; local resource resolution; safe raw HTML; and context popup behavior. Rendered HTML parsing, block layout, and native interactions also need the desktop WebView.
 
-The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, backend errors, persisted settings, frame controls, diagnostics, and window-close handling.
+The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
 
-Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build.
+Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build, as does the allowance that lets the remote image fetch trust one runner-named host on loopback with a test certificate authority.
 
 The manual [Markdown corpus](../corpus/README.md) covers parsing, rendering, editing, serialization, folder navigation, and local resources. Keep it aligned with the specification when supported behavior changes.

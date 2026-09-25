@@ -372,7 +372,10 @@ describe("source projection clipboard slices", () => {
   });
 
   it("pastes an image into a projected link label through a clipboard event", async () => {
-    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "remoteBlocked",
+      host: "example.com",
+    }));
 
     const image = "![](https://example.com/pic.png)";
     const mounted = await mountEditor("[word](./doc.md)");
@@ -413,7 +416,10 @@ describe("source projection clipboard slices", () => {
   );
 
   it("pastes an image into a projected link label as its Markdown source", async () => {
-    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "remoteBlocked",
+      host: "example.com",
+    }));
 
     const image = "![alt](https://example.com/pic.png)";
     const mounted = await mountEditor(`[word](./doc.md) ${image}`);

@@ -4,11 +4,16 @@ import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 
-import { CancellationTokenSource, isCancellationError } from "@/lib/cancellation";
+import {
+  CancellationTokenSource,
+  isCancellationError,
+  raceWithCancellation,
+} from "@/lib/cancellation";
 import { getErrorDescription, handleUnexpectedError } from "@/lib/errors";
-import { MutableDisposable } from "@/lib/lifecycle";
+import { MutableDisposable, toDisposable } from "@/lib/lifecycle";
 import { isSameNullablePath } from "@/lib/path";
 
+import { fetchRemoteImage } from "../services/markdownImageApi";
 import { writeImageNodeAttrsToDom } from "../utils/characterReferenceMarkdown";
 import {
   resolveMarkdownImage,
@@ -19,6 +24,7 @@ import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   type MarkdownReferenceContext,
 } from "../utils/markdownReferences";
+import { getRemoteImageErrorMessage, isFetchRemoteImageError } from "../utils/remoteImageErrors";
 import { SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META } from "./sourceProjection";
 
 type ImageResolutionState =
@@ -27,6 +33,12 @@ type ImageResolutionState =
   | { status: "failed"; message: string };
 
 type ImageResolutionInput = ResolveMarkdownImageOptions & { allowOutsideFolder: boolean };
+
+type RemoteImageState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "loaded"; objectUrl: string }
+  | { status: "failed"; message: string };
 
 interface ImageAttrs {
   alt: string;
@@ -53,6 +65,9 @@ class LeafdownImageNodeView implements NodeView {
   private readonly currentResolutionCancellation = new MutableDisposable<CancellationTokenSource>();
   private currentResolutionInput: ImageResolutionInput | null = null;
   private resolutionState: ImageResolutionState = { status: "pending" };
+  private remoteImageState: RemoteImageState = { status: "idle" };
+  private readonly remoteImageLoadCancellation = new MutableDisposable<CancellationTokenSource>();
+  private readonly remoteImageObjectUrl = new MutableDisposable();
 
   constructor(
     initialNode: ProseMirrorNode,
@@ -79,6 +94,7 @@ class LeafdownImageNodeView implements NodeView {
 
     if (nextAttrs.src !== previousAttrs.src) {
       this.allowOutsideFolder = false;
+      this.resetRemoteImage();
     }
 
     this.requestImageResolution();
@@ -105,6 +121,7 @@ class LeafdownImageNodeView implements NodeView {
 
   destroy() {
     this.cancelCurrentResolution();
+    this.resetRemoteImage();
     this.dom.removeEventListener("mousedown", this.handleMouseDown);
     this.dom.remove();
   }
@@ -207,29 +224,83 @@ class LeafdownImageNodeView implements NodeView {
     this.currentResolutionCancellation.clear();
   }
 
+  // Approval covers this view and its current target only: nothing about it
+  // survives a target edit or the view's destruction.
+  private resetRemoteImage() {
+    this.remoteImageLoadCancellation.clear();
+    this.remoteImageObjectUrl.clear();
+    this.remoteImageState = { status: "idle" };
+  }
+
+  private async loadRemoteImage() {
+    if (this.remoteImageState.status === "loading" || this.remoteImageState.status === "loaded") {
+      return;
+    }
+
+    const target = this.getImageAttrs().src;
+    const loadCancellation = new CancellationTokenSource();
+
+    this.remoteImageLoadCancellation.value = loadCancellation;
+    this.remoteImageState = { status: "loading" };
+    this.render();
+
+    try {
+      const bytes = await raceWithCancellation(loadCancellation.token, () =>
+        fetchRemoteImage({ target }),
+      );
+
+      if (this.remoteImageLoadCancellation.value !== loadCancellation) {
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(new Blob([bytes]));
+
+      this.remoteImageObjectUrl.value = toDisposable(() => URL.revokeObjectURL(objectUrl));
+      this.remoteImageState = { status: "loaded", objectUrl };
+    } catch (error) {
+      if (
+        isCancellationError(error) ||
+        this.remoteImageLoadCancellation.value !== loadCancellation
+      ) {
+        return;
+      }
+
+      if (!isFetchRemoteImageError(error)) {
+        handleUnexpectedError(error, "fetchRemoteImage");
+      }
+
+      this.remoteImageState = { status: "failed", message: getRemoteImageErrorMessage(error) };
+    }
+
+    this.render();
+  }
+
   private render() {
     const attrs = this.getImageAttrs();
 
-    this.dom.dataset.imageState = getImageStateValue(this.resolutionState);
+    this.dom.dataset.imageState =
+      this.remoteImageState.status === "loaded"
+        ? "remoteLoaded"
+        : getImageStateValue(this.resolutionState);
     this.updateSelectionPresentation();
 
-    if (
-      this.resolutionState.status === "resolved" &&
-      this.resolutionState.resolution.kind === "renderable"
-    ) {
-      const existingImage = this.dom.querySelector<HTMLImageElement>(".leafdown-markdown-image");
-      const image =
-        existingImage?.src === this.resolutionState.resolution.assetUrl
-          ? existingImage
-          : createImageElement(attrs, this.node.attrs, this.resolutionState.resolution.assetUrl);
+    if (this.remoteImageState.status === "loaded") {
+      this.renderImage(attrs, this.remoteImageState.objectUrl);
+      return;
+    }
 
-      updateImageElement(image, attrs, this.node.attrs);
+    if (this.resolutionState.status === "resolved") {
+      const { resolution } = this.resolutionState;
 
-      if (image !== existingImage) {
-        this.dom.replaceChildren(image);
+      if (resolution.kind === "renderable") {
+        this.renderImage(attrs, resolution.assetUrl);
+        return;
       }
 
-      return;
+      if (resolution.kind === "remoteBlocked" && resolution.host) {
+        this.renderRemoteImagePlaceholder(resolution.host);
+        return;
+      }
     }
 
     this.dom.replaceChildren(
@@ -238,6 +309,48 @@ class LeafdownImageNodeView implements NodeView {
         this.requestImageResolution();
       }),
     );
+  }
+
+  private renderImage(attrs: ImageAttrs, url: string) {
+    const existingImage = this.dom.querySelector<HTMLImageElement>(".leafdown-markdown-image");
+    const image =
+      existingImage?.src === url ? existingImage : createImageElement(attrs, this.node.attrs, url);
+
+    updateImageElement(image, attrs, this.node.attrs);
+
+    if (image !== existingImage) {
+      this.dom.replaceChildren(image);
+    }
+  }
+
+  // Updated in place so the action keeps focus while a load moves through its states.
+  private renderRemoteImagePlaceholder(host: string) {
+    const existingPlaceholder = this.dom.querySelector<HTMLElement>(
+      REMOTE_IMAGE_PLACEHOLDER_SELECTOR,
+    );
+    const placeholder =
+      existingPlaceholder ??
+      createRemoteImagePlaceholder(() => {
+        void this.loadRemoteImage();
+      });
+    const message = placeholder.querySelector(".leafdown-image-placeholder__message");
+    const action = placeholder.querySelector("button");
+    const state = this.remoteImageState;
+
+    placeholder.dataset.remoteImageState = state.status;
+
+    if (message) {
+      message.textContent = getRemoteImagePlaceholderText(state, host);
+    }
+
+    if (action) {
+      action.textContent = state.status === "failed" ? "Retry" : "Load image";
+      action.setAttribute("aria-disabled", String(state.status === "loading"));
+    }
+
+    if (placeholder !== existingPlaceholder) {
+      this.dom.replaceChildren(placeholder);
+    }
   }
 
   private updateSelectionPresentation() {
@@ -295,6 +408,40 @@ const updateImageElement = (
   }
 
   writeImageNodeAttrsToDom(image, nodeAttrs);
+};
+
+const REMOTE_IMAGE_PLACEHOLDER_SELECTOR =
+  '.leafdown-image-placeholder[data-image-resolution="remoteBlocked"]';
+
+const createRemoteImagePlaceholder = (loadImage: () => void) => {
+  const placeholder = document.createElement("span");
+  const message = document.createElement("span");
+  const button = document.createElement("button");
+
+  placeholder.className = "leafdown-image-placeholder";
+  placeholder.dataset.imageResolution = "remoteBlocked";
+  message.className = "leafdown-image-placeholder__message";
+  message.setAttribute("aria-live", "polite");
+  button.className = "leafdown-image-placeholder__action";
+  button.type = "button";
+  button.addEventListener("click", loadImage);
+  placeholder.append(message, button);
+
+  return placeholder;
+};
+
+const getRemoteImagePlaceholderText = (state: RemoteImageState, host: string) => {
+  switch (state.status) {
+    case "idle":
+    case "loaded":
+      return `Remote image from ${host}.`;
+
+    case "loading":
+      return `Loading image from ${host}...`;
+
+    case "failed":
+      return state.message;
+  }
 };
 
 const createImagePlaceholder = (

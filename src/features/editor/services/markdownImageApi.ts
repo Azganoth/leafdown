@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export const RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND = "resolve_markdown_image_target";
+export const FETCH_REMOTE_IMAGE_COMMAND = "fetch_remote_image";
 
 export interface ResolveMarkdownImageTargetArgs {
   allowOutsideFolder: boolean;
@@ -14,7 +15,7 @@ export type ResolveMarkdownImageTargetResult =
   | { kind: "missing"; path: string }
   | { kind: "untitledRelative" }
   | { kind: "outsideFolder"; path: string }
-  | { kind: "remoteBlocked" }
+  | { kind: "remoteBlocked"; host: string | null }
   | { kind: "unsupportedFormat" }
   | { kind: "unsupportedTarget" }
   | { kind: "invalidPath"; path: string }
@@ -33,3 +34,22 @@ export const resolveMarkdownImageTarget = ({
     folderContextPath,
     target,
   });
+
+export interface FetchRemoteImageArgs {
+  target: string;
+}
+
+export type FetchRemoteImageError =
+  | { kind: "invalidTarget" }
+  | { kind: "insecureScheme" }
+  | { kind: "blockedDestination" }
+  | { kind: "insecureRedirect" }
+  | { kind: "tooManyRedirects" }
+  | { kind: "httpStatus"; status: number }
+  | { kind: "tooLarge" }
+  | { kind: "unsupportedType" }
+  | { kind: "timeout" }
+  | { kind: "network" };
+
+export const fetchRemoteImage = ({ target }: FetchRemoteImageArgs) =>
+  invoke<ArrayBuffer>(FETCH_REMOTE_IMAGE_COMMAND, { target });

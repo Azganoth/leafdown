@@ -155,6 +155,71 @@ describe("desktop rendered images", () => {
     expect(Math.abs((await getTrailingImageLayout(projectedImage)).insideGap)).toBeLessThan(0.5);
   });
 
+  it("puts a projected unavailable image's source line in its placeholder's place", async () => {
+    const { images } = await getDesktopE2ERunContext();
+
+    await openRecentPath(images.path);
+
+    const missingPlaceholder = $(".leafdown-image-placeholder");
+    const visibleImage = $('img[alt="Visible SVG"]');
+    const tinyImage = $('img[alt="Tiny transparent SVG"]');
+
+    await expect(missingPlaceholder).toBeDisplayed();
+    await expect(visibleImage).toBeDisplayed();
+
+    // Reopening the document keeps an earlier projection, so it is moved below the measured rows.
+    await tinyImage.execute((node) => {
+      node.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, button: 0, cancelable: true }),
+      );
+    });
+    await expect(
+      $("p:has(> [data-leafdown-source~='image']) img[alt='Tiny transparent SVG']"),
+    ).toBeDisplayed();
+
+    const getRows = () =>
+      missingPlaceholder.execute((node) => {
+        const paragraph = node.closest("p")!;
+        const editorTop = node.closest(".ProseMirror")!.getBoundingClientRect().top;
+        const next = paragraph.nextElementSibling!.querySelector(".leafdown-image-view")!;
+        const { height, top } = paragraph.getBoundingClientRect();
+
+        return {
+          height,
+          nextTop: next.getBoundingClientRect().top - editorTop,
+          top: top - editorTop,
+        };
+      }) as Promise<{ height: number; nextTop: number; top: number }>;
+    const before = await getRows();
+
+    await missingPlaceholder.execute((node) => {
+      node.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, button: 0, cancelable: true }),
+      );
+    });
+
+    const projection = $('.leafdown-source-projection[data-leafdown-source~="image"]');
+
+    await expect(projection).toBeDisplayed();
+    await expect(missingPlaceholder).not.toBeDisplayed();
+
+    const after = await getRows();
+
+    expect(
+      await projection.execute((node) =>
+        Array.from(
+          node.parentElement!.querySelectorAll(
+            '.leafdown-source-projection[data-leafdown-source~="image"]',
+          ),
+          (fragment) => fragment.textContent,
+        ).join(""),
+      ),
+    ).toBe("![Missing SVG](./missing.svg)");
+    expect(Math.abs(after.top - before.top)).toBeLessThan(0.5);
+    expect(Math.abs(after.height - before.height)).toBeLessThan(0.5);
+    expect(Math.abs(after.nextTop - before.nextTop)).toBeLessThan(0.5);
+  });
+
   it("keeps a long projected image source on one scrollable line", async () => {
     const { images } = await getDesktopE2ERunContext();
 

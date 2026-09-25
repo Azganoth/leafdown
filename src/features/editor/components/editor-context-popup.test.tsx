@@ -209,6 +209,41 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("edit.copy");
   });
 
+  it("offers the footnote rename only where the footnote context supports it", async () => {
+    const onExecute = vi.fn();
+    const { rerender, user } = renderWithUser(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Rename footnote")).not.toBeInTheDocument();
+
+    rerender(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={{
+          ...enabledPopupCommandState,
+          enabledCommands: {
+            ...enabledPopupCommandState.enabledCommands,
+            "edit.renameFootnote": true,
+          },
+        }}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Rename footnote"));
+
+    expect(onExecute).toHaveBeenCalledWith("edit.renameFootnote");
+  });
+
   it("disables commands while editor command state is inactive", async () => {
     const onExecute = vi.fn();
 

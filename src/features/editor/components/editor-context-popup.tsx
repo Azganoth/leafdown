@@ -18,6 +18,7 @@ import {
   ListOrderedIcon,
   ListTodoIcon,
   MinusIcon,
+  PencilLineIcon,
   PilcrowIcon,
   ScissorsIcon,
   TableIcon,
@@ -70,6 +71,10 @@ const INLINE_ACTION_COMMANDS = [
   { commandId: "format.emphasis", icon: ItalicIcon },
   { commandId: "format.inlineCode", icon: Code2Icon },
   { commandId: "insert.link", icon: Link2Icon },
+] satisfies readonly ContextButtonCommand[];
+
+const FOOTNOTE_COMMANDS = [
+  { commandId: "edit.renameFootnote", icon: PencilLineIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const BLOCK_FORMATTING_COMMANDS = [
@@ -404,25 +409,33 @@ export function EditorContextPopup({
             row={1}
           />
         )}
+        {canExecute("edit.renameFootnote") && (
+          <ContextCommandRow
+            commands={FOOTNOTE_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={2}
+          />
+        )}
         <ContextCommandRow
           commands={BLOCK_FORMATTING_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={2}
+          row={3}
         />
         <ContextCommandSubmenu
           label="Block type"
           commands={BLOCK_TYPE_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={3}
+          row={4}
         />
         <ContextCommandSubmenu
           commands={INSERT_COMMANDS}
           label="Insert"
           onExecute={onExecute}
           canExecute={canExecute}
-          row={4}
+          row={5}
         />
       </PopoverContent>
     </Popover>

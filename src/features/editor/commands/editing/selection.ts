@@ -8,9 +8,12 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { getActiveSourceProjectionRange } from "../../plugins/sourceProjection";
 import {
+  findFootnoteDefinitionAtLabelSelection,
   findFootnoteDefinitionByLabel,
   findFootnoteReferenceAtSelection,
+  findSoleFootnoteDefinitionByLabel,
   getFootnoteDefinitionBodyPosition,
+  getFootnoteDefinitionLabelRange,
 } from "../../utils/footnoteDefinitions";
 import { runProseMirrorCommand } from "../../utils/milkdown";
 import { getTextWordRangeAtSelection } from "../../utils/textRanges";
@@ -60,10 +63,25 @@ export const jumpToLineEnd = (view: EditorView) => runProseMirrorCommand(view, s
 
 // Resolution runs against the label the caret reads, so a reference the author is still typing
 // resolves to whatever that label currently names rather than to the one it opened as.
-const findFootnoteDefinitionAtSelection = (state: EditorState) => {
-  const reference = findFootnoteReferenceAtSelection(state, getActiveSourceProjectionRange(state));
+const readFootnoteReferenceLabelAtSelection = (state: EditorState) =>
+  findFootnoteReferenceAtSelection(state, getActiveSourceProjectionRange(state))?.label ?? null;
 
-  return reference ? findFootnoteDefinitionByLabel(state.doc, reference.label) : null;
+const findFootnoteDefinitionAtSelection = (state: EditorState) => {
+  const label = readFootnoteReferenceLabelAtSelection(state);
+
+  return label === null ? null : findFootnoteDefinitionByLabel(state.doc, label);
+};
+
+const findRenamedFootnoteDefinition = (state: EditorState) => {
+  const definition = findFootnoteDefinitionAtLabelSelection(state);
+
+  if (definition) {
+    return definition;
+  }
+
+  const label = readFootnoteReferenceLabelAtSelection(state);
+
+  return label === null ? null : findSoleFootnoteDefinitionByLabel(state.doc, label);
 };
 
 export const jumpToFootnoteDefinition = (view: EditorView) => {
@@ -81,9 +99,27 @@ export const jumpToFootnoteDefinition = (view: EditorView) => {
   return dispatchTextSelection(view, position);
 };
 
+// Renaming is the label edit the definition already supports, so the command only hands it the
+// selection. A reference's projection settles as that selection leaves it, the way any caret move
+// out of one does.
+export const renameFootnote = (view: EditorView) => {
+  const definition = findRenamedFootnoteDefinition(view.state);
+
+  if (!definition) {
+    return false;
+  }
+
+  const { from, to } = getFootnoteDefinitionLabelRange(definition);
+
+  return dispatchTextSelection(view, from, to);
+};
+
 export const canSelectWord = (state: EditorState) => getTextWordRangeAtSelection(state) !== null;
 
 export const canJumpToFootnoteDefinition = (state: EditorState) =>
   findFootnoteDefinitionAtSelection(state) !== null;
+
+export const canRenameFootnote = (state: EditorState) =>
+  findRenamedFootnoteDefinition(state) !== null;
 
 export const canJumpToSelection = (state: EditorState) => !state.selection.empty;

@@ -26,6 +26,7 @@ export const EDITOR_COMMAND_LABELS = {
   "edit.jumpToLineStart": "Jump to line start",
   "edit.jumpToLineEnd": "Jump to line end",
   "edit.jumpToFootnoteDefinition": "Jump to footnote definition",
+  "edit.renameFootnote": "Rename footnote",
   "insert.paragraph": "Paragraph",
   "insert.heading1": "Heading 1",
   "insert.heading2": "Heading 2",

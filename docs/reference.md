@@ -125,6 +125,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to line start** (`Home`)
   - **Jump to line end** (`End`)
   - **Jump to footnote definition**
+- **Rename footnote**: Selects the complete label of the footnote definition in context for replacement, moving to the definition first when invoked from a reference.
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
 - **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
 - **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the local insertion menu after the current eligible block. Its items depend on the parent schema; inside a list, it offers a sibling list item.
@@ -253,9 +254,10 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 
 1. Quick actions: Cut, Copy, Paste, Delete.
 2. Inline formatting: Strong, Emphasis, Inline code, Link.
-3. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-4. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
-5. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
+3. Footnote: Rename footnote, shown only while that command is available.
+4. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
+5. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
+6. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
 
 ## Command State
 
@@ -278,6 +280,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Undo` and `Redo` require available editor history.
 - `Jump to selection` requires a selection.
 - `Jump to footnote definition` requires a footnote reference at the caret whose label a definition in the document answers to.
+- `Rename footnote` requires the caret or selection within a footnote definition label, or a footnote reference at the caret whose label exactly one definition in the document answers to.
 - `Delete block` requires an active block.
 - `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.

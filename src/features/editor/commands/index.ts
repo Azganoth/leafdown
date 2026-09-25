@@ -103,6 +103,7 @@ export const EDITOR_COMMANDS = {
     selection.jumpToFootnoteDefinition,
     selection.canJumpToFootnoteDefinition,
   ),
+  "edit.renameFootnote": viewCommand(selection.renameFootnote, selection.canRenameFootnote),
 
   "format.paragraph": viewCommand(blockFormatting.setParagraph),
   "format.heading1": formatHeadingCommand(1),

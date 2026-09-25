@@ -5,6 +5,7 @@ import {
   FOOTNOTE_DEFINITION_NODE_NAME,
   getFootnoteDefinitionLabel,
   getFootnoteDefinitionLabelNode,
+  getFootnoteDefinitionLabelText,
   isFootnoteDefinitionLabel,
 } from "./footnoteDefinitionLabel";
 import { decodeSourceProjectionEscapes } from "./sourceProjectionAdapters";
@@ -49,6 +50,38 @@ export const findFootnoteDefinitions = (doc: ProseMirrorNode) => {
 export const findFootnoteDefinitionByLabel = (doc: ProseMirrorNode, label: string) =>
   findFootnoteDefinitions(doc).find(({ node }) => getFootnoteDefinitionLabel(node) === label) ??
   null;
+
+// A reference that more than one definition answers to has no single definition to name.
+export const findSoleFootnoteDefinitionByLabel = (doc: ProseMirrorNode, label: string) => {
+  const matches = findFootnoteDefinitions(doc).filter(
+    ({ node }) => getFootnoteDefinitionLabel(node) === label,
+  );
+
+  return matches.length === 1 ? matches[0] : null;
+};
+
+export const findFootnoteDefinitionAtLabelSelection = (
+  state: EditorState,
+): FootnoteDefinitionMatch | null => {
+  const { $from, $to } = state.selection;
+
+  if (!isFootnoteDefinitionLabel($from.parent) || !$from.sameParent($to)) {
+    return null;
+  }
+
+  const depth = $from.depth - 1;
+
+  return { node: $from.node(depth), pos: $from.before(depth) };
+};
+
+export const getFootnoteDefinitionLabelRange = ({
+  node,
+  pos,
+}: FootnoteDefinitionMatch): TextRange => {
+  const from = pos + 2;
+
+  return { from, to: from + getFootnoteDefinitionLabelText(node).length };
+};
 
 // Skip the label so navigation enters the body without opening a rename edit.
 export const getFootnoteDefinitionBodyPosition = ({ node, pos }: FootnoteDefinitionMatch) =>

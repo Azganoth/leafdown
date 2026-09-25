@@ -25,6 +25,7 @@ export const EDITOR_COMMAND_IDS = [
   "edit.jumpToLineStart",
   "edit.jumpToLineEnd",
   "edit.jumpToFootnoteDefinition",
+  "edit.renameFootnote",
   "format.paragraph",
   "format.heading1",
   "format.heading2",

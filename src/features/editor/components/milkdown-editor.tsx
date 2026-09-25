@@ -26,6 +26,7 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentChanged?: () => void;
   onCommandStateChanged?: () => void;
+  onDocumentStatusChanged?: () => void;
   autoPairBracketsAndQuotes?: boolean;
   softWrapCodeBlocks?: boolean;
 }
@@ -40,6 +41,7 @@ export function MilkdownEditor({
   onMarkdownUpdated,
   onContentChanged,
   onCommandStateChanged,
+  onDocumentStatusChanged,
   autoPairBracketsAndQuotes = true,
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
@@ -62,6 +64,7 @@ export function MilkdownEditor({
     onMarkdownUpdated,
     onContentChanged,
     onCommandStateChanged,
+    onDocumentStatusChanged,
     onOpenMarkdownPath,
     ref,
   });

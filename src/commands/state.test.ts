@@ -63,6 +63,7 @@ describe("command state", () => {
         articleSortOrder: "type",
         insertFinalNewline: false,
         sidebarVisible: false,
+        statusBarVisible: false,
         theme: "dark",
       },
       ui: {
@@ -84,6 +85,12 @@ describe("command state", () => {
         ...context,
         folderContext: createFolderContext(),
       }),
+    ).toMatchObject({
+      checked: false,
+      enabled: true,
+    });
+    expect(
+      getCommandState("view.toggleStatusBar", { ...context, activeDocument: null }),
     ).toMatchObject({
       checked: false,
       enabled: true,

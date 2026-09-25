@@ -60,6 +60,7 @@ export const useAppCommands = () => {
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const theme = useSettingsStore((state) => state.theme);
   const recentFiles = useRecentItemsStore((state) => state.recentFiles);
   const recentFolders = useRecentItemsStore((state) => state.recentFolders);
@@ -83,6 +84,7 @@ export const useAppCommands = () => {
       articleSortOrder,
       insertFinalNewline,
       sidebarVisible,
+      statusBarVisible,
       theme,
     },
     ui: {

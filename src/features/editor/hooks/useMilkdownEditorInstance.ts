@@ -30,12 +30,18 @@ import {
   type MilkdownEditorInstance,
   type MilkdownMarkdownUpdate,
 } from "../utils/createMilkdownEditor";
+import {
+  getEditorDocumentStatus,
+  INACTIVE_EDITOR_DOCUMENT_STATUS,
+  type EditorDocumentStatus,
+} from "../utils/documentStatus";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 
 export interface MilkdownEditorBridge {
   getMarkdown: () => string;
   getCommandState?: () => EditorCommandState;
+  getDocumentStatus?: () => EditorDocumentStatus;
   insertLink?: (label: string, target: string) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
 }
@@ -45,6 +51,7 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   initialMarkdown: string;
   onCommandStateChanged?: () => void;
   onContentChanged?: () => void;
+  onDocumentStatusChanged?: () => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   ref?: Ref<MilkdownEditorBridge>;
@@ -59,6 +66,7 @@ export const useMilkdownEditorInstance = ({
   initialMarkdown,
   onCommandStateChanged,
   onContentChanged,
+  onDocumentStatusChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   ref,
@@ -77,6 +85,7 @@ export const useMilkdownEditorInstance = ({
     useState<FootnotePreviewRequest | null>(null);
 
   const commandStateRef = useRef<EditorCommandState>(INACTIVE_EDITOR_COMMAND_STATE);
+  const documentStatusRef = useRef<EditorDocumentStatus>(INACTIVE_EDITOR_DOCUMENT_STATUS);
   const liveOptionsRef = useRef({
     autoPairBracketsAndQuotes,
     documentPath,
@@ -84,6 +93,7 @@ export const useMilkdownEditorInstance = ({
     initialMarkdown,
     onCommandStateChanged,
     onContentChanged,
+    onDocumentStatusChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
   });
@@ -97,6 +107,7 @@ export const useMilkdownEditorInstance = ({
       initialMarkdown,
       onCommandStateChanged,
       onContentChanged,
+      onDocumentStatusChanged,
       onMarkdownUpdated,
       onOpenMarkdownPath,
     };
@@ -107,6 +118,7 @@ export const useMilkdownEditorInstance = ({
     folderContextPath,
     onCommandStateChanged,
     onContentChanged,
+    onDocumentStatusChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
   ]);
@@ -120,6 +132,7 @@ export const useMilkdownEditorInstance = ({
         return getMilkdownEditorMarkdown(editorRef.current);
       },
       getCommandState: () => commandStateRef.current,
+      getDocumentStatus: () => documentStatusRef.current,
       insertLink: (label, target) => {
         if (!editorRef.current?.ctx) {
           return false;
@@ -194,6 +207,11 @@ export const useMilkdownEditorInstance = ({
     commandStateRef.current = nextCommandState;
     setCommandState(nextCommandState);
     liveOptionsRef.current.onCommandStateChanged?.();
+  }, []);
+
+  const updateDocumentStatus = useCallback((nextDocumentStatus: EditorDocumentStatus) => {
+    documentStatusRef.current = nextDocumentStatus;
+    liveOptionsRef.current.onDocumentStatusChanged?.();
   }, []);
 
   const executeContextCommand = useCallback(
@@ -275,6 +293,11 @@ export const useMilkdownEditorInstance = ({
             updateCommandState(nextCommandState);
           }
         },
+        onDocumentStatusChanged: (nextDocumentStatus) => {
+          if (isActiveEditorCallback()) {
+            updateDocumentStatus(nextDocumentStatus);
+          }
+        },
         onOpenMarkdownPath: (path) => {
           if (!isActiveEditorCallback()) {
             return false;
@@ -300,6 +323,7 @@ export const useMilkdownEditorInstance = ({
 
       editorRef.current = editor;
       updateCommandState(readEditorCommandState(editor));
+      updateDocumentStatus(readEditorDocumentStatus(editor));
     };
 
     void createEditor().catch((error) => handleUnexpectedError(error, "createMilkdownEditor"));
@@ -323,6 +347,7 @@ export const useMilkdownEditorInstance = ({
     requestContextPopup,
     requestFootnotePreview,
     updateCommandState,
+    updateDocumentStatus,
   ]);
 
   return {
@@ -349,5 +374,18 @@ const readEditorCommandState = (editor: MilkdownEditorInstance) => {
   } catch (error) {
     handleUnexpectedError(error, "readEditorCommandState");
     return READY_DISABLED_EDITOR_COMMAND_STATE;
+  }
+};
+
+const readEditorDocumentStatus = (editor: MilkdownEditorInstance) => {
+  if (!editor.ctx) {
+    return INACTIVE_EDITOR_DOCUMENT_STATUS;
+  }
+
+  try {
+    return getEditorDocumentStatus(editor.ctx.get(editorViewCtx).state);
+  } catch (error) {
+    handleUnexpectedError(error, "readEditorDocumentStatus");
+    return INACTIVE_EDITOR_DOCUMENT_STATUS;
   }
 };

@@ -7,7 +7,7 @@ import {
 } from "@milkdown/kit/core";
 import { customInputRulesKey } from "@milkdown/kit/prose";
 import { closeHistory, isHistoryTransaction } from "@milkdown/kit/prose/history";
-import { DOMParser, type Slice } from "@milkdown/kit/prose/model";
+import { DOMParser, type Node as ProseMirrorNode, type Slice } from "@milkdown/kit/prose/model";
 import type { EditorState, Selection, Transaction } from "@milkdown/kit/prose/state";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
@@ -361,16 +361,7 @@ export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | n
     return null;
   }
 
-  const source = getProjectionSource(state, session);
-  const parsed = session.adapter.parseSource(state, source, session.target);
-  const semantic =
-    source === session.target.originalSource
-      ? {
-          ...parsed,
-          replacement: session.target.originalContent,
-          replacementSize: session.target.originalContentSize,
-        }
-      : parsed;
+  const semantic = parseProjectionSemantics(state, session);
 
   if (
     session.adapter.canCopySelectionSemantically &&
@@ -398,6 +389,32 @@ export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | n
   );
 
   return selectionInCanonicalDocument.content();
+};
+
+/** The document and selection an active projection stands for once its source is read back. */
+export const getSourceProjectionCanonicalState = (
+  state: EditorState,
+): { doc: ProseMirrorNode; anchor: number; head: number } | null => {
+  const { session } = getSourceProjectionState(state);
+
+  if (!session) {
+    return null;
+  }
+
+  const semantic = parseProjectionSemantics(state, session);
+  const { anchor, head } = session.adapter.mapSelectionFromSource(
+    state.selection,
+    session,
+    semantic,
+  );
+  const transaction = replaceProjectionRange(
+    state.tr,
+    session.from,
+    session.to,
+    semantic.replacement,
+  );
+
+  return { doc: transaction.doc, anchor, head };
 };
 
 export const hasTransientSourceProjection = (state: EditorState) => {
@@ -1871,6 +1888,19 @@ const mapProjectionSession = (session: ProjectionSession, transaction: Transacti
 
 const getProjectionSource = (state: EditorState, session: ProjectionSession) =>
   getRangeText(state.doc, session);
+
+const parseProjectionSemantics = (state: EditorState, session: ProjectionSession) => {
+  const source = getProjectionSource(state, session);
+  const parsed = session.adapter.parseSource(state, source, session.target);
+
+  return source === session.target.originalSource
+    ? {
+        ...parsed,
+        replacement: session.target.originalContent,
+        replacementSize: session.target.originalContentSize,
+      }
+    : parsed;
+};
 
 const createProjectionHistoryEntry = (
   state: EditorState,

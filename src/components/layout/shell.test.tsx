@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useRecentItemsStore } from "@/features/preferences";
+import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
@@ -310,6 +310,41 @@ describe("Shell", () => {
     render(<Shell />);
 
     expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
+  });
+
+  it("shows the status bar beneath the workspace while a document is open", () => {
+    setDefaultSession({
+      activeDocument: createSavedDocument(),
+      folderContext: nestedFolderContext,
+    });
+
+    render(<Shell />);
+
+    const statusBar = screen.getByRole("contentinfo", { name: "Status bar" });
+
+    expect(screen.getByTestId("document-workspace-host").nextElementSibling).toBe(statusBar);
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("pb-0");
+  });
+
+  it("has no status bar without an open document", () => {
+    setDefaultSession({ folderContext: nestedFolderContext });
+
+    render(<Shell />);
+
+    expect(screen.queryByRole("contentinfo", { name: "Status bar" })).not.toBeInTheDocument();
+  });
+
+  it("toggles the status bar from the View menu", async () => {
+    setDefaultSession({ activeDocument: createSavedDocument() });
+
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("menuitem", { name: "View" }));
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Toggle status bar" }));
+
+    expect(screen.queryByRole("contentinfo", { name: "Status bar" })).not.toBeInTheDocument();
+    expect(useSettingsStore.getState().statusBarVisible).toBe(false);
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass("pb-3");
   });
 
   it("toggles the sidebar from the titlebar", async () => {

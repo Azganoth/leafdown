@@ -24,7 +24,9 @@ import {
   useSessionStore,
 } from "@/features/session";
 import { notifyError } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
+import { StatusBar } from "./status-bar";
 import { Titlebar } from "./titlebar";
 
 const DeveloperTools = import.meta.env.DEV
@@ -50,9 +52,11 @@ export function Shell() {
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
   const sidebarShown = sidebarAvailable && sidebarVisible;
+  const statusBarShown = activeDocument !== null && statusBarVisible;
 
   return (
     <>
@@ -116,7 +120,10 @@ export function Shell() {
         {/* Scoped below the titlebar so a surface crash leaves the window draggable and the
             developer tools reachable. */}
         <UnexpectedErrorBoundary>
-          <div data-testid="document-workspace-host" className="flex min-h-0 flex-1 px-3 pt-1 pb-3">
+          <div
+            data-testid="document-workspace-host"
+            className={cn("flex min-h-0 flex-1 px-3 pt-1", statusBarShown ? "pb-0" : "pb-3")}
+          >
             <ResizablePanelGroup className="min-h-0 flex-1" orientation="horizontal">
               {folderContext && sidebarVisible && (
                 <>
@@ -159,6 +166,13 @@ export function Shell() {
               </ResizablePanel>
             </ResizablePanelGroup>
           </div>
+          {statusBarShown && (
+            <StatusBar
+              activeDocument={activeDocument}
+              commandState={commands.commandState}
+              onExecute={commands.executeCommand}
+            />
+          )}
           {simulatedRenderFailureId > 0 && (
             <DeveloperRenderFailure key={simulatedRenderFailureId} />
           )}

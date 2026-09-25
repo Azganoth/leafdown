@@ -38,6 +38,32 @@ describe("document editor bridge", () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it("reads document status from the active editor bridge only", () => {
+    const listener = vi.fn();
+    const listenerDisposable = documentEditorBridge.onDidChangeDocumentStatus(listener);
+    const status = {
+      blockPath: ["Paragraph"],
+      document: { characters: 5, charactersWithoutSpaces: 5, words: 1 },
+      selection: null,
+    };
+
+    documentEditorBridge.set(
+      "doc:test",
+      createMilkdownEditorBridge({ getDocumentStatus: () => status }),
+    );
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(documentEditorBridge.getDocumentStatus("doc:test")).toBe(status);
+    expect(documentEditorBridge.getDocumentStatus("doc:other")).toBeNull();
+
+    documentEditorBridge.set("doc:test", null);
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(documentEditorBridge.getDocumentStatus("doc:test")).toBeNull();
+
+    listenerDisposable.dispose();
+  });
+
   it("returns inactive command state for stale document keys", () => {
     documentEditorBridge.set(
       "doc:test",

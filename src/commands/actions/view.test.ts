@@ -21,6 +21,7 @@ import {
   sortByType,
   toggleFullscreen,
   toggleSidebar,
+  toggleStatusBar,
   zoomIn,
   zoomOut,
 } from "./view";
@@ -30,6 +31,14 @@ describe("view actions", () => {
     setDefaultSettings({ sidebarVisible: true });
     toggleSidebar();
     expect(useSettingsStore.getState().sidebarVisible).toBe(false);
+  });
+
+  it("toggles the status bar visibility", () => {
+    setDefaultSettings({ statusBarVisible: true });
+    toggleStatusBar();
+    expect(useSettingsStore.getState().statusBarVisible).toBe(false);
+    toggleStatusBar();
+    expect(useSettingsStore.getState().statusBarVisible).toBe(true);
   });
 
   it("collapses all article navigator directories", () => {

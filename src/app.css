@@ -246,3 +246,13 @@
     }
   }
 }
+
+:root {
+  --status-bar-height: 1.75rem;
+}
+
+/* Unlayered so the toast viewport's utility classes cannot outrank it. The margin adds to the
+   viewport's own bottom offset rather than restating it. */
+:root:has([data-status-bar]) [data-slot="toast-viewport"] {
+  margin-bottom: var(--status-bar-height);
+}

@@ -39,6 +39,7 @@ export const APPLICATION_COMMANDS = {
   "edit.insertFinalNewline": appCommand(edit.toggleFinalNewline, edit.getFinalNewlineState),
 
   "view.toggleSidebar": appCommand(view.toggleSidebar, view.getToggleSidebarState),
+  "view.toggleStatusBar": appCommand(view.toggleStatusBar, view.getToggleStatusBarState),
   "view.zoomIn": appCommand(view.zoomIn, view.getZoomInState),
   "view.zoomOut": appCommand(view.zoomOut, view.getZoomOutState),
   "view.resetZoom": appCommand(view.resetZoom, view.getResetZoomState),

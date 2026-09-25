@@ -8,6 +8,7 @@ import {
   createMilkdownEditor,
   type FootnotePreviewRequest,
   type EditorCommandState,
+  type EditorDocumentStatus,
   getMilkdownEditorMarkdown,
   type MarkdownReferenceContext,
   type MilkdownEditorInstance,
@@ -27,6 +28,7 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   autoPairBracketsAndQuotes?: boolean;
   onContentChanged?: () => void;
   onCommandStateChanged?: (state: EditorCommandState) => void;
+  onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onContextPopupClosed?: () => void;
@@ -67,6 +69,7 @@ export const mountMilkdownEditor = async (
     isAutoPairEnabled: () => options.autoPairBracketsAndQuotes ?? true,
     onContentChanged: options.onContentChanged,
     onCommandStateChanged: options.onCommandStateChanged,
+    onDocumentStatusChanged: options.onDocumentStatusChanged,
     onMarkdownUpdated: options.onMarkdownUpdated,
     onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
   });

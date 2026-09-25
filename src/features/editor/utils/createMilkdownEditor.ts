@@ -80,6 +80,7 @@ import {
 } from "../plugins/contextPopup";
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
+import { createLeafdownDocumentStatusPlugin } from "../plugins/documentStatus";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import {
   commitFootnoteDefinitionLabels,
@@ -146,6 +147,7 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
+import type { EditorDocumentStatus } from "./documentStatus";
 import { withFootnoteDefinitionLabelContent } from "./footnoteDefinitionLabel";
 import {
   HARD_BREAK_MARKDOWN_TYPE,
@@ -199,6 +201,7 @@ export interface CreateMilkdownEditorOptions {
   isAutoPairEnabled?: () => boolean;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onContentChanged?: () => void;
+  onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
 }
@@ -241,6 +244,7 @@ export const createMilkdownEditor = async ({
   isAutoPairEnabled = () => true,
   onCommandStateChanged,
   onContentChanged,
+  onDocumentStatusChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
 }: CreateMilkdownEditorOptions) => {
@@ -316,6 +320,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownBlockSelectionOperationsPlugin())
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
+    .use(createLeafdownDocumentStatusPlugin((status) => onDocumentStatusChanged?.(status)))
     .use(createLeafdownTaskListCheckboxPlugin())
     .use(createLeafdownPrevailingFormPlugin())
     .use(createLeafdownTrailingParagraphPlugin())

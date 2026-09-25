@@ -167,6 +167,7 @@ export function CommandMenubar({
           </MenubarTrigger>
           <MenubarContent>
             <CommandCheckboxItem commandId="view.toggleSidebar" />
+            <CommandCheckboxItem commandId="view.toggleStatusBar" />
             <MenubarSeparator />
             <CommandItems commandIds={["view.zoomIn", "view.zoomOut", "view.resetZoom"]} inset />
             <CommandCheckboxItem commandId="view.fullscreen" />

@@ -160,6 +160,7 @@ function GeneralPreferences() {
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const recordRecentItems = useSettingsStore((state) => state.recordRecentItems);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
@@ -175,6 +176,12 @@ function GeneralPreferences() {
         description="Applies while a folder context is open."
         checked={sidebarVisible}
         onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
+      />
+      <PreferenceSwitch
+        label="Status bar visibility"
+        description="Applies while a document is open."
+        checked={statusBarVisible}
+        onCheckedChange={(checked) => updateSetting("statusBarVisible", checked)}
       />
       <PreferenceChoice
         label="Sort articles by"

@@ -33,4 +33,35 @@ describe("desktop persistence before restart", () => {
       { timeoutMsg: "The sidebar setting was not persisted before restart." },
     );
   });
+
+  it("hides the status bar through the assembled menu and persists it", async () => {
+    const { settingsPath } = await getDesktopE2ERunContext();
+
+    await expect($("aria/Status bar")).toExist();
+
+    // Choosing an item leaves the menubar holding the next trigger click, so the earlier
+    // sidebar toggle is dismissed before the menu is opened again.
+    await browser.keys("Escape");
+    await openMenu("View");
+    const statusBarItem = await findMenuItem((text) => text.startsWith("Toggle status bar"));
+    await expect(statusBarItem).toHaveAttribute("aria-checked", "true");
+    await statusBarItem.click();
+
+    await expect($("aria/Status bar")).not.toExist();
+
+    await browser.waitUntil(
+      async () => {
+        try {
+          const persisted = JSON.parse(await readFile(settingsPath, "utf8")) as Record<
+            string,
+            unknown
+          >;
+          return persisted.statusBarVisible === false;
+        } catch {
+          return false;
+        }
+      },
+      { timeoutMsg: "The status bar setting was not persisted before restart." },
+    );
+  });
 });

@@ -19,6 +19,8 @@ Global settings persist across application launches unless specified otherwise.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.
   - The setting applies while a folder context is open. Without one the article navigator is not shown, and the setting is preserved rather than changed.
+- **Status bar visibility:** Visible or hidden. Default: Visible.
+  - The setting applies while a document is open. Without one the status bar is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
 
 ### Files
@@ -199,7 +201,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 #### View Menu
 
 - **Toggle sidebar** (`Mod+Shift+E`)
-- **Toggle status bar** (Deferred)
+- **Toggle status bar**
 - **Outline** (Deferred)
 - **Zoom in** (`Mod+=`)
 - **Zoom out** (`Mod+-`)

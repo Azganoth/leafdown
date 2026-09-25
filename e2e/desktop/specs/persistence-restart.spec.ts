@@ -22,4 +22,20 @@ describe("desktop persistence after restart", () => {
     >;
     expect(persistedSettings.sidebarVisible).toBe(false);
   });
+
+  it("restores the status bar setting in a fresh packaged-app process", async () => {
+    const { settingsPath } = await getDesktopE2ERunContext();
+
+    await openMenu("View");
+    const statusBarItem = await findMenuItem((text) => text.startsWith("Toggle status bar"));
+    await expect(statusBarItem).toHaveAttribute("aria-checked", "false");
+    await browser.keys("Escape");
+    await expect($("aria/Status bar")).not.toExist();
+
+    const persistedSettings = JSON.parse(await readFile(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    expect(persistedSettings.statusBarVisible).toBe(false);
+  });
 });

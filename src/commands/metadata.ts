@@ -169,6 +169,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "format.table.deleteColumn": editorCommandDef("format.table.deleteColumn"),
   "format.clearBlock": editorCommandDef("format.clearBlock"),
   "view.toggleSidebar": commandDef("Toggle sidebar", { key: "e", mod: true, shift: true }),
+  "view.toggleStatusBar": commandDef("Toggle status bar"),
   "view.zoomIn": commandDef("Zoom in", { key: "=", mod: true }),
   "view.zoomOut": commandDef("Zoom out", { key: "-", mod: true }),
   "view.resetZoom": commandDef("Reset zoom", { key: "0", mod: true }),

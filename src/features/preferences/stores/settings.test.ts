@@ -105,6 +105,7 @@ describe("settings store", () => {
         accentColor: "violet",
         recordRecentItems: false,
         sidebarVisible: false,
+        statusBarVisible: false,
         articleSortOrder: "modifiedDate",
         defaultNewDocumentExtension: ".markdown",
         defaultNewDocumentLineEnding: "lf",

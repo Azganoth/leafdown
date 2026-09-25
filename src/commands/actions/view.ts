@@ -69,6 +69,11 @@ export const toggleSidebar = () => {
   settings.updateSetting("sidebarVisible", !settings.sidebarVisible);
 };
 
+export const toggleStatusBar = () => {
+  const settings = useSettingsStore.getState();
+  settings.updateSetting("statusBarVisible", !settings.statusBarVisible);
+};
+
 export const zoomIn = () => {
   const { zoom, setZoom } = useCommandUIStore.getState();
   void updateZoom(Math.min(MAXIMUM_ZOOM, zoom + ZOOM_STEP), setZoom);
@@ -135,6 +140,9 @@ export const getToggleSidebarState = (context: AppCommandContext) =>
   context.folderContext
     ? checked(context.settings.sidebarVisible)
     : disabled("No folder context is open.");
+
+export const getToggleStatusBarState = (context: AppCommandContext) =>
+  checked(context.settings.statusBarVisible);
 
 export const getZoomInState = (context: AppCommandContext) =>
   context.ui.zoom >= MAXIMUM_ZOOM ? disabled("Zoom is already at maximum.") : enabled();

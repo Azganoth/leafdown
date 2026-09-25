@@ -60,6 +60,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
               onContentChanged={() => markActiveDocumentDirty(documentKey)}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
+              onDocumentStatusChanged={documentEditorBridge.fireDocumentStatusChanged}
             />
           </ScrollArea>
         </CardContent>

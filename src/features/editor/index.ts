@@ -18,6 +18,7 @@ export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextP
 export type { BlockInsertionRequest } from "./plugins/blockSelectionInteraction";
 export type { FootnotePreviewRequest, FootnotePreviewSource } from "./plugins/footnotePreview";
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
+export type { EditorDocumentStatus, TextStatistics } from "./utils/documentStatus";
 export {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,

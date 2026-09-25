@@ -108,9 +108,24 @@ describe("CommandMenubar", () => {
     expect(menuItem("Sort articles by")).toBeInTheDocument();
     expect(menuItem("Collapse all folders")).toHaveAttribute("data-disabled");
     expect(menuItem("Expand all folders")).toHaveAttribute("data-disabled");
-    expect(screen.queryByText("Toggle status bar")).not.toBeInTheDocument();
     expect(screen.queryByText("Toggle DevTools")).not.toBeInTheDocument();
     expect(screen.queryByText("Always on top")).not.toBeInTheDocument();
+  });
+
+  it("checks and dispatches the status bar toggle", async () => {
+    const { onExecute, user } = renderCommandMenuBar({
+      commandState: (commandId) =>
+        commandId === "view.toggleStatusBar" ? { enabled: true, checked: true } : enabledState,
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "View" }));
+    const toggle = screen.getByRole("menuitemcheckbox", { name: "Toggle status bar" });
+
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    await user.click(toggle);
+
+    expect(onExecute).toHaveBeenCalledWith("view.toggleStatusBar");
   });
 
   it("disables a submenu trigger when every command it contains is disabled", async () => {

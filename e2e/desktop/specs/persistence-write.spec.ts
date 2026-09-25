@@ -39,9 +39,6 @@ describe("desktop persistence before restart", () => {
 
     await expect($("aria/Status bar")).toExist();
 
-    // Choosing an item leaves the menubar holding the next trigger click, so the earlier
-    // sidebar toggle is dismissed before the menu is opened again.
-    await browser.keys("Escape");
     await openMenu("View");
     const statusBarItem = await findMenuItem((text) => text.startsWith("Toggle status bar"));
     await expect(statusBarItem).toHaveAttribute("aria-checked", "true");

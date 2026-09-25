@@ -52,6 +52,21 @@ export const changeArticleSortOrder = async (sortOrder: ArticleSortOrder) => {
   }
 };
 
+export const refreshFolderContext = async () => {
+  const folderPath = useSessionStore.getState().folderContext?.path;
+
+  if (!folderPath) {
+    return;
+  }
+
+  const nextFolderContext = await scanFolderContext(folderPath, getSessionFolderScanOptions());
+  const activeFolderPath = useSessionStore.getState().folderContext?.path;
+
+  if (activeFolderPath && isSamePath(activeFolderPath, folderPath)) {
+    useSessionStore.getState().setFolderContext(nextFolderContext);
+  }
+};
+
 export const getSessionFolderScanOptions = () => {
   const { articleSortOrder, ignoredDirectories } = useSettingsStore.getState();
 

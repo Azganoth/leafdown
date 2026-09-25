@@ -23,14 +23,23 @@ import {
   type ResolveMarkdownLinkTargetResult,
 } from "@/features/editor/services/markdownLinkApi";
 import {
+  CREATE_ARTICLE_DIRECTORY_COMMAND,
+  CREATE_MARKDOWN_ARTICLE_COMMAND,
   OPEN_MARKDOWN_FOLDER_COMMAND,
+  RENAME_FOLDER_ENTRY_COMMAND,
   SCAN_MARKDOWN_FOLDER_COMMAND,
+  TRASH_FOLDER_ENTRY_COMMAND,
   UNWATCH_MARKDOWN_FOLDER_COMMAND,
   WATCH_MARKDOWN_FOLDER_COMMAND,
+  type CreateArticleDirectoryArgs,
+  type CreateMarkdownArticleArgs,
+  type FolderEntryResult,
   type OpenMarkdownFolderArgs,
   type OpenMarkdownFolderResult,
+  type RenameFolderEntryArgs,
   type ScanMarkdownFolderArgs,
   type ScanMarkdownFolderResult,
+  type TrashFolderEntryArgs,
   type UnwatchMarkdownFolderArgs,
   type WatchMarkdownFolderArgs,
 } from "@/features/folder-context/services/folderContextApi";
@@ -49,6 +58,10 @@ interface TauriApiCommandArgs {
   openMarkdownFolder: OpenMarkdownFolderArgs;
   watchMarkdownFolder: WatchMarkdownFolderArgs;
   unwatchMarkdownFolder: UnwatchMarkdownFolderArgs;
+  createMarkdownArticle: CreateMarkdownArticleArgs;
+  createArticleDirectory: CreateArticleDirectoryArgs;
+  renameFolderEntry: RenameFolderEntryArgs;
+  trashFolderEntry: TrashFolderEntryArgs;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   fetchRemoteImage: FetchRemoteImageArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
@@ -64,6 +77,10 @@ interface TauriApiCommandResults {
   openMarkdownFolder: OpenMarkdownFolderResult;
   watchMarkdownFolder: void;
   unwatchMarkdownFolder: void;
+  createMarkdownArticle: FolderEntryResult;
+  createArticleDirectory: FolderEntryResult;
+  renameFolderEntry: FolderEntryResult;
+  trashFolderEntry: void;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   fetchRemoteImage: ArrayBuffer;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
@@ -89,6 +106,10 @@ const TAURI_API_COMMANDS = {
   openMarkdownFolder: OPEN_MARKDOWN_FOLDER_COMMAND,
   watchMarkdownFolder: WATCH_MARKDOWN_FOLDER_COMMAND,
   unwatchMarkdownFolder: UNWATCH_MARKDOWN_FOLDER_COMMAND,
+  createMarkdownArticle: CREATE_MARKDOWN_ARTICLE_COMMAND,
+  createArticleDirectory: CREATE_ARTICLE_DIRECTORY_COMMAND,
+  renameFolderEntry: RENAME_FOLDER_ENTRY_COMMAND,
+  trashFolderEntry: TRASH_FOLDER_ENTRY_COMMAND,
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   fetchRemoteImage: FETCH_REMOTE_IMAGE_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,

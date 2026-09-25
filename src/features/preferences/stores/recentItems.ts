@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { isSamePath } from "@/lib/path";
+import { isSamePath, rebasePath } from "@/lib/path";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
 import {
   boundedList,
@@ -28,6 +28,7 @@ export interface RecentItemsState {
 
 export interface RecentItemsStore extends RecentItemsState {
   clearRecentItems: () => void;
+  moveRecentPaths: (fromPath: string, toPath: string) => void;
   recordRecentFile: (path: string) => void;
   recordRecentFolder: (path: string) => void;
   removeRecentFile: (path: string) => void;
@@ -83,12 +84,24 @@ const addRecentItem = (items: RecentItem[], path: string) =>
       ].slice(0, RECENT_ITEM_LIMIT)
     : items;
 
+const moveRecentItems = (items: RecentItem[], fromPath: string, toPath: string) =>
+  items.map((item) => {
+    const path = rebasePath(item.path, fromPath, toPath);
+
+    return path === null ? item : { ...item, path };
+  });
+
 const removeRecentItem = (items: RecentItem[], path: string) =>
   items.filter((item) => !isSamePath(item.path, path));
 
 export const useRecentItemsStore = create<RecentItemsStore>()((set) => ({
   ...createDefaultRecentItemsState(),
   clearRecentItems: () => set({ recentFiles: [], recentFolders: [] }),
+  moveRecentPaths: (fromPath, toPath) =>
+    set((state) => ({
+      recentFiles: moveRecentItems(state.recentFiles, fromPath, toPath),
+      recentFolders: moveRecentItems(state.recentFolders, fromPath, toPath),
+    })),
   recordRecentFile: (path) =>
     set((state) => ({ recentFiles: addRecentItem(state.recentFiles, path) })),
   recordRecentFolder: (path) =>

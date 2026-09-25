@@ -138,6 +138,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
+  const actionsFolderPath = path.join(fixtureRoot, "folder-actions");
   const initialFolderFileName = "readme.md";
   const initialFolderFilePath = path.join(folderPath, initialFolderFileName);
   const addedFolderFileName = "watcher-added.md";
@@ -163,6 +164,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       path: remoteImagesPath,
     },
     html: { path: htmlPath },
+    folderActions: { path: actionsFolderPath },
     folder: {
       addedFileName: addedFolderFileName,
       addedFilePath: addedFolderFilePath,
@@ -182,6 +184,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
+    { name: "folder-actions", recentFolders: [actionsFolderPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
@@ -218,6 +221,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
 
     await settleTasks(`Failed to create directories for ${label}.`, [
       mkdir(folderPath, { recursive: true }),
+      mkdir(path.join(actionsFolderPath, "notes"), { recursive: true }),
       mkdir(workerArtifactsRoot, { recursive: true }),
     ]);
     await settleTasks(`Failed to create fixtures for ${label}.`, [
@@ -247,6 +251,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="transparent" /></svg>',
       ),
       writeFile(remoteImagesPath, ""),
+      writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
+      writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),
       writeFile(
         imagesPath,
         [

@@ -107,7 +107,11 @@ pub fn run() {
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
             folder::watch_markdown_folder,
-            folder::unwatch_markdown_folder
+            folder::unwatch_markdown_folder,
+            folder::create_markdown_article,
+            folder::create_article_directory,
+            folder::rename_folder_entry,
+            folder::trash_folder_entry
         ])
         .run(context)
         .unwrap_or_else(|error| {

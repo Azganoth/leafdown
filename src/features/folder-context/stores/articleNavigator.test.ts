@@ -66,26 +66,24 @@ describe("article navigator store", () => {
   it("requests article reveal by expanding ancestors and incrementing request ids", () => {
     const store = useArticleNavigatorStore.getState();
 
-    store.requestRevealArticle("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
-    store.requestRevealArticle("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
+    store.requestReveal("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
+    store.requestReveal("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
 
     expect(useArticleNavigatorStore.getState()).toMatchObject({
       expandedDirectoryPaths: ["C:/Notes/docs"],
-      revealArticlePath: "C:/Notes/docs/readme.md",
+      revealPath: "C:/Notes/docs/readme.md",
       revealRequestId: 2,
     });
   });
 
   it("resets navigator state", () => {
-    useArticleNavigatorStore
-      .getState()
-      .requestRevealArticle("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
+    useArticleNavigatorStore.getState().requestReveal("C:/Notes/docs/readme.md", ["C:/Notes/docs"]);
 
     useArticleNavigatorStore.getState().reset();
 
     expect(useArticleNavigatorStore.getState()).toMatchObject({
       expandedDirectoryPaths: [],
-      revealArticlePath: null,
+      revealPath: null,
       revealRequestId: 0,
     });
   });

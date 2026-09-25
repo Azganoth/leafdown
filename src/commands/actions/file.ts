@@ -116,14 +116,22 @@ export const saveDocumentAs = async () => {
   await saveWithFeedback(saveActiveMarkdownDocumentAs);
 };
 
+export const revealPathInFileManager = async (
+  path: string,
+  failureTitle: string,
+  operation: string,
+) => {
+  try {
+    await revealItemInDir(path);
+  } catch (error) {
+    notifyOperationFailure(failureTitle, error, operation);
+  }
+};
+
 export const openLocation = async (context: AppCommandContext) => {
   const activeFilePath = getActiveSavedFilePath(context);
   if (activeFilePath) {
-    try {
-      await revealItemInDir(activeFilePath);
-    } catch (error) {
-      notifyOperationFailure("Could not open file location.", error, "openLocation");
-    }
+    await revealPathInFileManager(activeFilePath, "Could not open file location.", "openLocation");
   }
 };
 
@@ -133,9 +141,7 @@ export const revealInSidebar = (context: AppCommandContext) => {
 
   if (activeFilePath && activeArticleAncestorPaths) {
     useSettingsStore.getState().updateSetting("sidebarVisible", true);
-    useArticleNavigatorStore
-      .getState()
-      .requestRevealArticle(activeFilePath, activeArticleAncestorPaths);
+    useArticleNavigatorStore.getState().requestReveal(activeFilePath, activeArticleAncestorPaths);
   }
 };
 

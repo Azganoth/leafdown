@@ -21,6 +21,7 @@ export interface DesktopE2ERunContext {
     keyPath: string;
     path: string;
   };
+  folderActions: { path: string };
   folder: {
     addedFileName: string;
     addedFilePath: string;

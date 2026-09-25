@@ -87,7 +87,7 @@ describe("file actions", () => {
     expect(useSettingsStore.getState().sidebarVisible).toBe(true);
     expect(useArticleNavigatorStore.getState()).toMatchObject({
       expandedDirectoryPaths: [TEST_NESTED_DIRECTORY_PATH],
-      revealArticlePath: TEST_NESTED_MARKDOWN_FILE_PATH,
+      revealPath: TEST_NESTED_MARKDOWN_FILE_PATH,
       revealRequestId: 1,
     });
   });

@@ -6,6 +6,10 @@ export const SCAN_MARKDOWN_FOLDER_COMMAND = "scan_markdown_folder";
 export const OPEN_MARKDOWN_FOLDER_COMMAND = "open_markdown_folder";
 export const WATCH_MARKDOWN_FOLDER_COMMAND = "watch_markdown_folder";
 export const UNWATCH_MARKDOWN_FOLDER_COMMAND = "unwatch_markdown_folder";
+export const CREATE_MARKDOWN_ARTICLE_COMMAND = "create_markdown_article";
+export const CREATE_ARTICLE_DIRECTORY_COMMAND = "create_article_directory";
+export const RENAME_FOLDER_ENTRY_COMMAND = "rename_folder_entry";
+export const TRASH_FOLDER_ENTRY_COMMAND = "trash_folder_entry";
 
 export const FOLDER_CONTEXT_CHANGED_EVENT = "leafdown://folder-changed";
 
@@ -155,4 +159,87 @@ export const unwatchMarkdownFolder = ({ scopeGeneration, scopeId }: UnwatchMarkd
   invoke<void>(UNWATCH_MARKDOWN_FOLDER_COMMAND, {
     scopeId,
     scopeGeneration,
+  });
+
+export interface CreateMarkdownArticleArgs {
+  folderPath: string;
+  parentPath: string;
+  name: string;
+  defaultExtension: string;
+}
+
+export interface CreateArticleDirectoryArgs {
+  folderPath: string;
+  parentPath: string;
+  name: string;
+}
+
+export interface RenameFolderEntryArgs {
+  folderPath: string;
+  path: string;
+  name: string;
+}
+
+export interface TrashFolderEntryArgs {
+  folderPath: string;
+  path: string;
+}
+
+export interface FolderEntryResult {
+  path: string;
+}
+
+export type InvalidFolderEntryNameReason =
+  | "empty"
+  | "reservedName"
+  | "invalidCharacter"
+  | "trailingDotOrSpace";
+
+export type FolderEntryApiError =
+  | { kind: "invalidName"; name: string; reason: InvalidFolderEntryNameReason }
+  | { kind: "unsupportedExtension"; name: string }
+  | { kind: "alreadyExists"; path: string }
+  | { kind: "outsideFolder"; path: string }
+  | { kind: "invalidPath"; path: string }
+  | { kind: "missingEntry"; path: string }
+  | { kind: "notDirectory"; path: string }
+  | { kind: "permissionDenied"; path: string; message: string }
+  | { kind: "operationFailed"; path: string; message: string }
+  | { kind: "trashFailed"; path: string; message: string };
+
+export const createMarkdownArticle = ({
+  defaultExtension,
+  folderPath,
+  name,
+  parentPath,
+}: CreateMarkdownArticleArgs) =>
+  invoke<FolderEntryResult>(CREATE_MARKDOWN_ARTICLE_COMMAND, {
+    folderPath,
+    parentPath,
+    name,
+    defaultExtension,
+  });
+
+export const createArticleDirectory = ({
+  folderPath,
+  name,
+  parentPath,
+}: CreateArticleDirectoryArgs) =>
+  invoke<FolderEntryResult>(CREATE_ARTICLE_DIRECTORY_COMMAND, {
+    folderPath,
+    parentPath,
+    name,
+  });
+
+export const renameFolderEntry = ({ folderPath, name, path }: RenameFolderEntryArgs) =>
+  invoke<FolderEntryResult>(RENAME_FOLDER_ENTRY_COMMAND, {
+    folderPath,
+    path,
+    name,
+  });
+
+export const trashFolderEntry = ({ folderPath, path }: TrashFolderEntryArgs) =>
+  invoke<void>(TRASH_FOLDER_ENTRY_COMMAND, {
+    folderPath,
+    path,
   });

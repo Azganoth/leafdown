@@ -10,6 +10,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["diagnostics"],
       ["document-lifecycle"],
       ["folder-watcher"],
+      ["folder-actions"],
       ["rendered-images"],
       ["remote-images"],
       ["rendered-html"],

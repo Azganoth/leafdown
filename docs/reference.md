@@ -259,6 +259,14 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 5. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
 6. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
 
+### Article Navigator Context Menu
+
+The article navigator's context menu opens on right-click, or with `Shift+F10` or the `Menu` key on the focused row. Its actions are not application commands and have no shortcuts; [Specification](./specification.md#article-navigator-actions) defines their behavior.
+
+- **Markdown file row:** Open; New file, New folder; Rename, Delete; Open file location, Copy path, Copy relative path.
+- **Directory row:** New file, New folder; Rename, Delete; Open folder location, Copy path, Copy relative path.
+- **Empty navigator space (folder context root):** New file, New folder; Open folder location, Copy path, Copy relative path.
+
 ## Command State
 
 Availability rules apply to implemented commands across menus, keyboard shortcuts, and the context popup. Implemented commands are active by default unless disabled by context or build constraints; inactive commands are disabled rather than hidden.

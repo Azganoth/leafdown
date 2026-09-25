@@ -9,11 +9,15 @@ import {
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { act, render, renderWithUser, screen, setupUser } from "@/test/utils/react";
+import { act, render, renderWithUser, screen, setupUser, waitFor } from "@/test/utils/react";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS } from "../utils/articleNavigatorTraversal";
-import { ArticleNavigator } from "./article-navigator";
+import {
+  ArticleNavigator,
+  type ArticleNavigatorEntryActionResult,
+  type ArticleNavigatorEntryActions,
+} from "./article-navigator";
 
 const folderContext = createFolderContext();
 
@@ -391,9 +395,7 @@ describe("article-navigator", () => {
     act(() =>
       useArticleNavigatorStore
         .getState()
-        .requestRevealArticle(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [
-          TEST_NESTED_DIRECTORY_PATH,
-        ]),
+        .requestReveal(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [TEST_NESTED_DIRECTORY_PATH]),
     );
 
     const revealedRow = screen.getByRole("treeitem", { name: "spec.md" });
@@ -414,9 +416,7 @@ describe("article-navigator", () => {
     act(() =>
       useArticleNavigatorStore
         .getState()
-        .requestRevealArticle(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [
-          TEST_NESTED_DIRECTORY_PATH,
-        ]),
+        .requestReveal(`${TEST_NESTED_DIRECTORY_PATH}/spec.md`, [TEST_NESTED_DIRECTORY_PATH]),
     );
     await user.keyboard("{Home}");
 
@@ -562,5 +562,307 @@ describe("article-navigator", () => {
       screen.getByText("No supported Markdown files found in scanned entries."),
     ).toBeInTheDocument();
     expect(screen.queryByText("No supported Markdown files found.")).not.toBeInTheDocument();
+  });
+});
+
+const createEntryActions = (): ArticleNavigatorEntryActions => ({
+  copyPath: vi.fn(),
+  createEntry: vi.fn(async (): Promise<ArticleNavigatorEntryActionResult> => ({
+    outcome: "cancelled",
+  })),
+  deleteEntry: vi.fn(),
+  renameEntry: vi.fn(async (): Promise<ArticleNavigatorEntryActionResult> => ({
+    outcome: "cancelled",
+  })),
+  revealEntry: vi.fn(),
+});
+
+const renderNavigatorWithActions = (actions = createEntryActions()) => ({
+  actions,
+  ...renderWithUser(
+    <ArticleNavigator
+      actions={actions}
+      activeArticlePath={null}
+      folderContext={nestedFolderContext}
+      onOpenArticle={vi.fn()}
+    />,
+  ),
+});
+
+const getMenuItemNames = () =>
+  screen.getAllByRole("menuitem").map((item) => item.textContent?.trim());
+
+describe("article-navigator entry actions", () => {
+  beforeEach(() => useArticleNavigatorStore.getState().reset());
+
+  it("offers file actions on a file row", async () => {
+    const { user } = renderNavigatorWithActions();
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "readme.md" }),
+    });
+
+    expect(await screen.findByRole("menu", { name: "File actions" })).toBeInTheDocument();
+    expect(getMenuItemNames()).toEqual([
+      "Open",
+      "New file",
+      "New folder",
+      "Rename",
+      "Delete",
+      "Open file location",
+      "Copy path",
+      "Copy relative path",
+    ]);
+  });
+
+  it("offers folder actions on a directory row", async () => {
+    const { user } = renderNavigatorWithActions();
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "docs" }),
+    });
+
+    expect(await screen.findByRole("menu", { name: "Folder actions" })).toBeInTheDocument();
+    expect(getMenuItemNames()).toEqual([
+      "New file",
+      "New folder",
+      "Rename",
+      "Delete",
+      "Open folder location",
+      "Copy path",
+      "Copy relative path",
+    ]);
+  });
+
+  it("opens the focused row's menu from the keyboard and returns focus on Escape", async () => {
+    const { user } = renderNavigatorWithActions();
+    const docsRow = screen.getByRole("treeitem", { name: "docs" });
+
+    docsRow.focus();
+    await user.keyboard("{Shift>}{F10}{/Shift}");
+
+    expect(await screen.findByRole("menu", { name: "Folder actions" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    await waitFor(() => expect(docsRow).toHaveFocus());
+
+    screen.getByRole("treeitem", { name: "readme.md" }).focus();
+    await user.keyboard("{ContextMenu}");
+
+    expect(await screen.findByRole("menu", { name: "File actions" })).toBeInTheDocument();
+  });
+
+  it("offers folder context actions on empty navigator space", async () => {
+    const { actions, user } = renderNavigatorWithActions();
+
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByRole("tree") });
+    await screen.findByRole("menu", { name: "Folder context actions" });
+
+    expect(getMenuItemNames()).toEqual([
+      "New file",
+      "New folder",
+      "Open folder location",
+      "Copy path",
+      "Copy relative path",
+    ]);
+
+    await user.click(screen.getByRole("menuitem", { name: "Copy relative path" }));
+
+    expect(actions.copyPath).toHaveBeenCalledWith(".");
+  });
+
+  it("targets the invoked row for location, path, and delete actions", async () => {
+    const { actions, user } = renderNavigatorWithActions();
+    const openMenuOn = async (name: string) => {
+      await user.pointer({
+        keys: "[MouseRight]",
+        target: screen.getByRole("treeitem", { name }),
+      });
+      await screen.findByRole("menu");
+    };
+
+    await user.click(screen.getByRole("treeitem", { name: "docs" }));
+    await openMenuOn("spec.md");
+    await user.click(screen.getByRole("menuitem", { name: "Copy relative path" }));
+    await openMenuOn("spec.md");
+    await user.click(screen.getByRole("menuitem", { name: "Copy path" }));
+    await openMenuOn("docs");
+    await user.click(screen.getByRole("menuitem", { name: "Open folder location" }));
+    await openMenuOn("empty");
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+
+    expect(actions.copyPath).toHaveBeenNthCalledWith(1, "docs/spec.md");
+    expect(actions.copyPath).toHaveBeenNthCalledWith(2, `${TEST_NESTED_DIRECTORY_PATH}/spec.md`);
+    expect(actions.revealEntry).toHaveBeenCalledWith(TEST_NESTED_DIRECTORY_PATH);
+    expect(actions.deleteEntry).toHaveBeenCalledWith("C:/Notes/empty", "directory");
+  });
+
+  it("renames a row inline and commits on Enter", async () => {
+    const actions = createEntryActions();
+    vi.mocked(actions.renameEntry).mockResolvedValue({
+      outcome: "applied",
+      path: "C:/Notes/intro.md",
+    });
+    const { user } = renderNavigatorWithActions(actions);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "readme.md" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
+
+    const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "File name" });
+
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveValue("readme.md");
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, "readme".length]);
+
+    await user.keyboard("intro{Enter}");
+
+    expect(actions.renameEntry).toHaveBeenCalledWith("C:/Notes/readme.md", "intro.md");
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "File name" })).not.toBeInTheDocument(),
+    );
+    expect(useArticleNavigatorStore.getState().focusPath).toBe("C:/Notes/intro.md");
+  });
+
+  it("cancels an inline rename on Escape without renaming", async () => {
+    const { actions, user } = renderNavigatorWithActions();
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "docs" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    await user.keyboard("guides{Escape}");
+
+    expect(actions.renameEntry).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Folder name" })).not.toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "docs" })).toBeInTheDocument();
+  });
+
+  it("keeps editing after a refused rename on Enter", async () => {
+    const actions = createEntryActions();
+    vi.mocked(actions.renameEntry).mockResolvedValue({ outcome: "failed" });
+    const { user } = renderNavigatorWithActions(actions);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "readme.md" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "Rename" }));
+    await user.keyboard("draft{Enter}");
+
+    await waitFor(() => expect(actions.renameEntry).toHaveBeenCalledOnce());
+    expect(screen.getByRole("textbox", { name: "File name" })).toHaveValue("draft.md");
+  });
+
+  it("creates a file beside a file row and a folder inside a directory row", async () => {
+    const actions = createEntryActions();
+    vi.mocked(actions.createEntry).mockResolvedValue({
+      outcome: "applied",
+      path: `${TEST_NESTED_DIRECTORY_PATH}/guides`,
+    });
+    const { user } = renderNavigatorWithActions(actions);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "readme.md" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "New file" }));
+
+    expect(screen.getByRole("treeitem", { name: "New file" })).toHaveAttribute("aria-level", "1");
+
+    await user.keyboard("{Escape}");
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "docs" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "New folder" }));
+
+    expect(screen.getByRole("treeitem", { name: "New folder" })).toHaveAttribute("aria-level", "2");
+
+    await user.keyboard("guides{Enter}");
+
+    expect(actions.createEntry).toHaveBeenCalledOnce();
+    expect(actions.createEntry).toHaveBeenCalledWith(
+      TEST_NESTED_DIRECTORY_PATH,
+      "directory",
+      "guides",
+    );
+  });
+
+  it("focuses a created folder once the refreshed tree holds it", async () => {
+    const createdPath = `${TEST_NESTED_DIRECTORY_PATH}/archive`;
+    const refreshedFolderContext = createFolderContext({
+      tree: createNestedArticleTree({
+        children: createNestedArticleTree().children.map((child) =>
+          child.kind === "directory" && child.path === TEST_NESTED_DIRECTORY_PATH
+            ? {
+                ...child,
+                children: [
+                  { kind: "directory", name: "archive", path: createdPath, children: [] },
+                  ...child.children,
+                ],
+              }
+            : child,
+        ),
+      }),
+    });
+    const actions = createEntryActions();
+    const { rerender, user } = renderNavigatorWithActions(actions);
+    vi.mocked(actions.createEntry).mockImplementation(async () => {
+      rerender(
+        <ArticleNavigator
+          actions={actions}
+          activeArticlePath={null}
+          folderContext={refreshedFolderContext}
+          onOpenArticle={vi.fn()}
+        />,
+      );
+
+      return { outcome: "applied", path: createdPath };
+    });
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "docs" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "New folder" }));
+    await user.keyboard("archive{Enter}");
+
+    await waitFor(() => expect(screen.getByRole("treeitem", { name: "archive" })).toHaveFocus());
+  });
+
+  it("keeps editing when the window loses focus", async () => {
+    const { actions, user } = renderNavigatorWithActions();
+
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByRole("tree") });
+    await user.click(await screen.findByRole("menuitem", { name: "New file" }));
+    await user.keyboard("notes");
+
+    const input = screen.getByRole("textbox", { name: "File name" });
+    const hasFocus = vi.spyOn(document, "hasFocus").mockReturnValue(false);
+
+    act(() => input.blur());
+    hasFocus.mockRestore();
+
+    expect(actions.createEntry).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "File name" })).toHaveValue("notes");
+  });
+
+  it("commits a pending name when the editor loses focus", async () => {
+    const { actions, user } = renderNavigatorWithActions();
+
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByRole("tree") });
+    await user.click(await screen.findByRole("menuitem", { name: "New file" }));
+    await user.keyboard("notes");
+    await user.click(screen.getByRole("textbox", { name: "Filter articles" }));
+
+    expect(actions.createEntry).toHaveBeenCalledWith("C:/Notes", "file", "notes");
   });
 });

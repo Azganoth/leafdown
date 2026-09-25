@@ -70,6 +70,8 @@ export const closeActiveMarkdownDocument = async () => {
   return true;
 };
 
+export const runAfterPendingSaves = <T>(task: () => Promise<T>) => saveTaskQueue.run(task);
+
 export const saveActiveMarkdownDocument = () => saveTaskQueue.run(saveActiveMarkdownDocumentNow);
 
 export const saveActiveMarkdownDocumentAs = () =>

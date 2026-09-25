@@ -1,6 +1,6 @@
 import { $, $$, browser, expect } from "@wdio/globals";
 import { execFile } from "node:child_process";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -17,16 +17,23 @@ const runPowerShell = async (script: string) =>
 
 const quotePowerShell = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
-// Restoring the item proves it reached the Recycle Bin and leaves the host's bin as it was.
+// Restoring the item proves it reached the Recycle Bin and leaves the host's bin as it was. The
+// bin records the long form of the folder, while a temporary directory can carry an 8.3 short
+// name such as `RUNNER~1`, so the folder is resolved before comparing.
 const restoreFromRecycleBin = async (originalPath: string) => {
   const { dir, name } = path.parse(originalPath);
+  const deletedFrom = await realpath(dir);
   const output = await runPowerShell(`
     $bin = (New-Object -ComObject Shell.Application).Namespace(10)
     $item = $bin.Items() | Where-Object {
-      $_.ExtendedProperty('System.Recycle.DeletedFrom') -eq ${quotePowerShell(dir)} -and
+      $_.ExtendedProperty('System.Recycle.DeletedFrom') -eq ${quotePowerShell(deletedFrom)} -and
       [IO.Path]::GetFileNameWithoutExtension($_.Name) -eq ${quotePowerShell(name)}
     } | Select-Object -First 1
-    if ($null -eq $item) { 'missing' } else { $item.InvokeVerb('undelete'); 'restored' }
+    if ($null -eq $item) {
+      'missing; same name deleted from: ' + (($bin.Items() | Where-Object {
+        [IO.Path]::GetFileNameWithoutExtension($_.Name) -eq ${quotePowerShell(name)}
+      } | ForEach-Object { $_.ExtendedProperty('System.Recycle.DeletedFrom') }) -join '; ')
+    } else { $item.InvokeVerb('undelete'); 'restored' }
   `);
 
   return output;

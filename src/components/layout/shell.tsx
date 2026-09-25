@@ -1,7 +1,7 @@
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
 
-import { useAppCommands } from "@/commands";
+import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
 import { CommandMenubar } from "@/components/layout/command-menubar";
 import { ConfirmationDialog } from "@/components/layout/confirmation-dialog";
@@ -140,6 +140,7 @@ export function Shell() {
                       className="flex size-full min-h-0 min-w-0"
                     >
                       <ArticleNavigator
+                        actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
                         activeArticlePath={activeArticlePath}
                         folderContext={folderContext}
                         onOpenArticle={handleOpenArticle}

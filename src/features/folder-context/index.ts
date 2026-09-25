@@ -1,4 +1,9 @@
-export { ArticleNavigator } from "./components/article-navigator";
+export {
+  ArticleNavigator,
+  type ArticleNavigatorEntryActionResult,
+  type ArticleNavigatorEntryActions,
+  type ArticleNavigatorEntryKind,
+} from "./components/article-navigator";
 export {
   openFolderContext,
   scanFolderContext,
@@ -19,18 +24,28 @@ export {
   type FolderContextChangedEventPayload,
   type FolderContextWatchErrorEventPayload,
 } from "./services/folderContextApi";
+export {
+  createFolderArticle,
+  createFolderDirectory,
+  getTrashName,
+  renameFolderContextEntry,
+  trashFolderContextEntry,
+} from "./services/folderEntries";
 export { useArticleNavigatorStore } from "./stores/articleNavigator";
 export {
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
 } from "./utils/articleNavigatorRows";
 export {
+  getFolderEntryErrorMessage,
   getOpenFolderContextErrorMessage,
   getScanFolderContextErrorMessage,
   getWatchFolderContextErrorMessage,
+  isFolderEntryError,
   isOpenFolderContextError,
   isScanFolderContextError,
   isWatchFolderContextError,
+  type FolderEntryError,
   type OpenFolderContextError,
   type ScanFolderContextError,
   type WatchFolderContextError,

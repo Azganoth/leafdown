@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getFolderEntryErrorMessage,
   getOpenFolderContextErrorMessage,
   getScanFolderContextErrorMessage,
   getWatchFolderContextErrorMessage,
@@ -146,5 +147,32 @@ describe("folder context errors", () => {
     expect(getWatchFolderContextErrorMessage({ kind: "unknown" })).toEqual({
       title: "Could not watch folder.",
     });
+  });
+
+  it("maps folder entry errors to feature messages", () => {
+    const fallback = { title: "Could not rename item." };
+
+    expect(
+      getFolderEntryErrorMessage(
+        { kind: "invalidName", name: "a:b", reason: "invalidCharacter" },
+        fallback,
+      ),
+    ).toEqual({
+      title: "Invalid name.",
+      description: "The name contains a character file names cannot hold.",
+    });
+    expect(
+      getFolderEntryErrorMessage({ kind: "alreadyExists", path: "C:/Notes/b.md" }, fallback),
+    ).toEqual({
+      title: "An item with that name already exists.",
+      description: "C:/Notes/b.md",
+    });
+    expect(
+      getFolderEntryErrorMessage(
+        { kind: "operationFailed", path: "C:/Notes/b.md", message: "disk full" },
+        fallback,
+      ),
+    ).toEqual({ title: "Could not rename item.", description: "disk full" });
+    expect(getFolderEntryErrorMessage(new Error("boom"), fallback)).toBe(fallback);
   });
 });

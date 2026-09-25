@@ -23,28 +23,75 @@ export interface ArticleNavigatorFileRow extends ArticleNavigatorRowBase {
   isActive: boolean;
 }
 
-export type ArticleNavigatorRow = ArticleNavigatorFileRow | ArticleNavigatorDirectoryRow;
+export type ArticleNavigatorEntryKind = "directory" | "file";
+
+/** The row that holds the name of an entry being created, before it exists on disk. */
+export interface ArticleNavigatorDraftRow extends ArticleNavigatorRowBase {
+  kind: "draft";
+  entryKind: ArticleNavigatorEntryKind;
+}
+
+export type ArticleNavigatorRow =
+  | ArticleNavigatorFileRow
+  | ArticleNavigatorDirectoryRow
+  | ArticleNavigatorDraftRow;
+
+export interface ArticleNavigatorDraft {
+  entryKind: ArticleNavigatorEntryKind;
+  parentPath: string;
+}
 
 interface BuildArticleNavigatorRowsOptions {
   activeArticlePath: string | null;
+  draft?: ArticleNavigatorDraft | null;
   expandedDirectoryPaths: string[];
   tree: ArticleTree;
 }
 
+interface ArticleNavigatorDraftNode {
+  kind: "draft";
+  entryKind: ArticleNavigatorEntryKind;
+  name: string;
+  path: string;
+}
+
+type ArticleNavigatorNode = ArticleTreeNode | ArticleNavigatorDraftNode;
+
+// NUL cannot appear in a native path, so the draft key never matches a real entry.
+export const getArticleNavigatorDraftPath = (parentPath: string) => `${parentPath}\u0000draft`;
+
 export const buildArticleNavigatorRows = ({
   activeArticlePath,
+  draft = null,
   expandedDirectoryPaths,
   tree,
 }: BuildArticleNavigatorRowsOptions): ArticleNavigatorRow[] => {
   const expandedDirectoryPathSet = new PathSet(expandedDirectoryPaths);
-  const entries = flattenArticleTree(
-    tree,
-    ({ node }) => node.kind === "directory" && expandedDirectoryPathSet.has(node.path),
-  );
+  const roots: ArticleNavigatorNode[] = tree.children;
+  const entries = flattenTree<ArticleNavigatorNode>({
+    getChildren: (node) => getNavigatorNodeChildren(node, draft),
+    roots:
+      draft && isSamePath(draft.parentPath, tree.path) ? [toDraftNode(draft), ...roots] : roots,
+    shouldTraverseChildren: ({ node }) =>
+      node.kind === "directory" && expandedDirectoryPathSet.has(node.path),
+  });
   const positions = getTreePositions(entries.map(({ depth }) => depth));
 
   return entries.map(({ depth, node }, index): ArticleNavigatorRow => {
     const { parentIndex, posInSet, setSize } = positions[index];
+
+    if (node.kind === "draft") {
+      return {
+        kind: "draft",
+        depth,
+        entryKind: node.entryKind,
+        name: node.name,
+        parentIndex,
+        path: node.path,
+        posInSet,
+        setSize,
+      };
+    }
 
     return node.kind === "file"
       ? {
@@ -115,6 +162,29 @@ export const getArticleAncestorDirectoryPaths = (
 
 const getArticleTreeNodeChildren = (node: ArticleTreeNode) =>
   node.kind === "directory" ? node.children : [];
+
+const toDraftNode = ({
+  entryKind,
+  parentPath,
+}: ArticleNavigatorDraft): ArticleNavigatorDraftNode => ({
+  kind: "draft",
+  entryKind,
+  name: "",
+  path: getArticleNavigatorDraftPath(parentPath),
+});
+
+const getNavigatorNodeChildren = (
+  node: ArticleNavigatorNode,
+  draft: ArticleNavigatorDraft | null,
+): ArticleNavigatorNode[] => {
+  if (node.kind !== "directory") {
+    return [];
+  }
+
+  return draft && isSamePath(draft.parentPath, node.path)
+    ? [toDraftNode(draft), ...node.children]
+    : node.children;
+};
 
 const flattenArticleTree = (
   tree: ArticleTree,

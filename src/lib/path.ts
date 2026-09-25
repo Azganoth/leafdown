@@ -80,6 +80,29 @@ export const isSameNullablePath = (leftPath: string | null, rightPath: string | 
     ? leftPath === rightPath
     : isSamePath(leftPath, rightPath);
 
+/**
+ * Moves `path` from under `fromPath` to under `toPath`, keeping the separators and casing of the
+ * part below `fromPath`. Returns `null` when `path` is not `fromPath` or inside it.
+ */
+export const rebasePath = (path: string, fromPath: string, toPath: string) => {
+  if (isSamePath(path, fromPath)) {
+    return toPath;
+  }
+
+  if (!isSameOrParentPath(fromPath, path)) {
+    return null;
+  }
+
+  const fromPrefixLength = trimTrailingPathSeparators(toSlashPath(fromPath)).replace(
+    /\/$/u,
+    "",
+  ).length;
+  const childSuffix = path.slice(fromPrefixLength).replace(/^[\\/]+/u, "");
+  const separator = toPath.includes("\\") ? "\\" : "/";
+
+  return `${toPath.replace(/[\\/]+$/u, "")}${separator}${childSuffix}`;
+};
+
 export const getRelativePath = (fromFolderPath: string, targetPath: string) => {
   const from = splitPathRoot(fromFolderPath);
   const target = splitPathRoot(targetPath);

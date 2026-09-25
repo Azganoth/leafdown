@@ -117,6 +117,7 @@ The Rust backend manages:
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Fetching a user-approved remote image under the remote image policy: `https:` only, public destination addresses checked at DNS resolution and for IP literals, re-validated redirects, bounded time and size, and a PNG, JPEG, GIF, or WebP signature. Image resolution never fetches.
 - Directory scanning and article-tree generation.
+- Creating Markdown files and folders, renaming entries, and moving entries to the system Recycle Bin or Trash inside the current folder context. Each operation resolves its target's parent through the filesystem and refuses one outside the folder context, so the root itself is never renamed or trashed. It refuses names the platform cannot hold, never replaces an existing entry, and never falls back to permanent deletion.
 - Filesystem watching to monitor directory changes.
 - Intercepting window close requests to prompt for unsaved changes before exit, and closing the window on the next request when the frontend leaves one unanswered.
 - Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
@@ -158,6 +159,12 @@ Backend reads target document -> Session updates active document -> Session boot
 
 Tauri reports native paths -> Backend classifies one dropped path -> Session reads the matching persisted preference -> Session opens through the existing file or folder workflow, or inserts a path link through the active editor bridge.
 
+### Folder Entry Workflow
+
+The article navigator names a target row and hands the action to the application layer; it holds no filesystem or session behavior of its own. Session confirms a deletion, and asks about unsaved changes before creating a file or deleting an entry that holds the active document -> Backend validates and changes the filesystem -> Session moves the active document path, recent items, and expanded folders under a renamed path, or closes a trashed active document -> Session rescans the folder context -> The watcher's later refresh produces the same tree.
+
+Renames and deletions queue behind a pending save, so a save in flight cannot recreate a file at its old path. The editor is keyed by document path, so a renamed active document remounts from the Markdown the editor held, keeping its unsaved changes and its metadata snapshot for the next freshness check.
+
 ### Save Workflow
 
 Serialize editor state to Markdown -> Verify metadata freshness via backend -> Write file to disk -> Update dirty state and cached metadata.
@@ -180,7 +187,7 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 
 Automated tests cover Markdown round trips; editor commands and projection; file, folder, watcher, and persistence workflows; path, encoding, size, symlink, and permission boundaries; local resource resolution; safe raw HTML; and context popup behavior. Rendered HTML parsing, block layout, and native interactions also need the desktop WebView.
 
-The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
+The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
 
 Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build, as does the allowance that lets the remote image fetch trust one runner-named host on loopback with a test certificate authority.
 

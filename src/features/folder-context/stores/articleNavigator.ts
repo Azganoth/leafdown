@@ -1,17 +1,21 @@
 import { create } from "zustand";
 
-import { isSamePath, PathSet } from "@/lib/path";
+import { isSamePath, PathSet, rebasePath } from "@/lib/path";
 
 export interface ArticleNavigatorState {
   expandedDirectoryPaths: string[];
-  revealArticlePath: string | null;
+  focusPath: string | null;
+  focusRequestId: number;
+  revealPath: string | null;
   revealRequestId: number;
 }
 
 export interface ArticleNavigatorStore extends ArticleNavigatorState {
   collapseAll: () => void;
   expandDirectories: (paths: string[]) => void;
-  requestRevealArticle: (articlePath: string, ancestorDirectoryPaths: string[]) => void;
+  moveDirectoryPaths: (fromPath: string, toPath: string) => void;
+  requestFocus: (path: string) => void;
+  requestReveal: (path: string, ancestorDirectoryPaths: string[]) => void;
   reset: () => void;
   setDirectoryExpanded: (path: string, expanded: boolean) => void;
   toggleDirectory: (path: string) => void;
@@ -19,7 +23,9 @@ export interface ArticleNavigatorStore extends ArticleNavigatorState {
 
 const INITIAL_ARTICLE_NAVIGATOR_STATE: ArticleNavigatorState = {
   expandedDirectoryPaths: [],
-  revealArticlePath: null,
+  focusPath: null,
+  focusRequestId: 0,
+  revealPath: null,
   revealRequestId: 0,
 };
 
@@ -51,12 +57,20 @@ export const useArticleNavigatorStore = create<ArticleNavigatorStore>()((set) =>
     set((state) => ({
       expandedDirectoryPaths: addUniquePaths(state.expandedDirectoryPaths, paths),
     })),
-  requestRevealArticle: (articlePath, ancestorDirectoryPaths) =>
+  requestReveal: (path, ancestorDirectoryPaths) =>
     set((state) => ({
       expandedDirectoryPaths: addUniquePaths(state.expandedDirectoryPaths, ancestorDirectoryPaths),
-      revealArticlePath: articlePath,
+      revealPath: path,
       revealRequestId: state.revealRequestId + 1,
     })),
+  moveDirectoryPaths: (fromPath, toPath) =>
+    set((state) => ({
+      expandedDirectoryPaths: state.expandedDirectoryPaths.map(
+        (path) => rebasePath(path, fromPath, toPath) ?? path,
+      ),
+    })),
+  requestFocus: (path) =>
+    set((state) => ({ focusPath: path, focusRequestId: state.focusRequestId + 1 })),
   reset: () => set(INITIAL_ARTICLE_NAVIGATOR_STATE),
   setDirectoryExpanded: (path, expanded) =>
     set((state) => {

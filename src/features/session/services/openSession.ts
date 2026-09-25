@@ -26,9 +26,19 @@ import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
 
 const openTransitionRunner = new RestartableTaskRunner();
 
-export const openMarkdownFileAtPath = (path: string) =>
+interface OpenMarkdownFileOptions {
+  discardConfirmed?: boolean;
+}
+
+export const openMarkdownFileAtPath = (
+  path: string,
+  { discardConfirmed = false }: OpenMarkdownFileOptions = {},
+) =>
   runLatestOpenTransition(async (cancellationToken) => {
-    if (!(await runWithCancellation(cancellationToken, confirmDiscardActiveDocumentChanges))) {
+    if (
+      !discardConfirmed &&
+      !(await runWithCancellation(cancellationToken, confirmDiscardActiveDocumentChanges))
+    ) {
       return false;
     }
 

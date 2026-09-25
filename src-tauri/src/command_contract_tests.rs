@@ -336,6 +336,108 @@ fn resolved_link_paths_match_folder_scan_paths() {
     assert_tree_contains_path(&scan_value["tree"], json_string(&link_value, "path"));
 }
 
+#[test]
+fn folder_entry_commands_return_paths_the_folder_scan_reports() {
+    let root = TestDirectory::new("command-contract-folder-entries");
+    let root_path_string = canonical_path_string(root.path.as_path());
+
+    let directory = serialized(
+        tauri::async_runtime::block_on(folder::create_article_directory(
+            root_path_string.clone(),
+            root_path_string.clone(),
+            "guides".to_owned(),
+        ))
+        .expect("command should create a directory"),
+    );
+    let directory_path = json_string(&directory, "path").to_owned();
+    let article = serialized(
+        tauri::async_runtime::block_on(folder::create_markdown_article(
+            root_path_string.clone(),
+            directory_path.clone(),
+            "setup".to_owned(),
+            ".md".to_owned(),
+        ))
+        .expect("command should create an article"),
+    );
+    let renamed = serialized(
+        tauri::async_runtime::block_on(folder::rename_folder_entry(
+            root_path_string.clone(),
+            json_string(&article, "path").to_owned(),
+            "install".to_owned(),
+        ))
+        .expect("command should rename the article"),
+    );
+    let scan_value = serialized(
+        tauri::async_runtime::block_on(folder::scan_markdown_folder(
+            root_path_string.clone(),
+            Some(Vec::new()),
+            None,
+        ))
+        .expect("command should scan the folder"),
+    );
+
+    assert_tree_contains_path(&scan_value["tree"], directory_path.as_str());
+    assert_tree_contains_path(&scan_value["tree"], json_string(&renamed, "path"));
+    assert!(json_string(&renamed, "path").ends_with("install.md"));
+}
+
+#[test]
+fn folder_entry_errors_serialize_with_frontend_error_kinds() {
+    let root = TestDirectory::new("command-contract-folder-entry-errors");
+    let root_path_string = path_string(root.path.as_path());
+    root.write_file("taken.md");
+
+    let invalid_name = serialized(
+        tauri::async_runtime::block_on(folder::create_article_directory(
+            root_path_string.clone(),
+            root_path_string.clone(),
+            "a/b".to_owned(),
+        ))
+        .expect_err("invalid name should fail"),
+    );
+    let collision = serialized(
+        tauri::async_runtime::block_on(folder::create_markdown_article(
+            root_path_string.clone(),
+            root_path_string.clone(),
+            "taken".to_owned(),
+            ".md".to_owned(),
+        ))
+        .expect_err("collision should fail"),
+    );
+    let unsupported = serialized(
+        tauri::async_runtime::block_on(folder::create_markdown_article(
+            root_path_string.clone(),
+            root_path_string.clone(),
+            "notes.txt".to_owned(),
+            ".md".to_owned(),
+        ))
+        .expect_err("unsupported extension should fail"),
+    );
+    let root_entry = serialized(
+        tauri::async_runtime::block_on(folder::trash_folder_entry(
+            root_path_string.clone(),
+            root_path_string.clone(),
+        ))
+        .expect_err("folder context root should be refused"),
+    );
+    let missing = serialized(
+        tauri::async_runtime::block_on(folder::rename_folder_entry(
+            root_path_string.clone(),
+            path_string(root.path("missing.md").as_path()),
+            "other".to_owned(),
+        ))
+        .expect_err("missing entry should fail"),
+    );
+
+    assert_eq!(json_string(&invalid_name, "kind"), "invalidName");
+    assert_eq!(json_string(&invalid_name, "reason"), "invalidCharacter");
+    assert_eq!(json_string(&collision, "kind"), "alreadyExists");
+    assert_eq!(json_string(&unsupported, "kind"), "unsupportedExtension");
+    assert_eq!(json_string(&unsupported, "name"), "notes.txt");
+    assert_eq!(json_string(&root_entry, "kind"), "outsideFolder");
+    assert_eq!(json_string(&missing, "kind"), "missingEntry");
+}
+
 fn serialized(value: impl serde::Serialize) -> Value {
     serde_json::to_value(value).expect("command payload should serialize")
 }

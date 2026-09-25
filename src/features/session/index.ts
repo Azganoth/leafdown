@@ -11,6 +11,13 @@ export {
 } from "./services/documentWorkflows";
 export { changeArticleSortOrder, closeFolderContext } from "./services/folderContextWorkflows";
 export {
+  createArticleInFolder,
+  createDirectoryInFolder,
+  deleteFolderEntry,
+  renameFolderEntry,
+  type FolderEntryKind,
+} from "./services/folderEntryWorkflows";
+export {
   openFolderContextAtPath,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,

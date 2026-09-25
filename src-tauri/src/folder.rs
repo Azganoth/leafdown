@@ -12,10 +12,12 @@ use crate::{
 };
 
 mod defaults;
+mod entries;
 mod index;
 mod scan;
 mod watch;
 
+pub(crate) use entries::{FolderEntryError, FolderEntryResult};
 pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError};
 
 #[derive(Debug, Serialize)]
@@ -196,6 +198,81 @@ pub(crate) fn unwatch_markdown_folder(
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
     watch::unwatch_markdown_folder(state, scope_id, scope_generation)
+}
+
+#[tauri::command]
+pub(crate) async fn create_markdown_article(
+    folder_path: String,
+    parent_path: String,
+    name: String,
+    default_extension: String,
+) -> Result<FolderEntryResult, FolderEntryError> {
+    run_folder_entry_operation(parent_path.clone(), move || {
+        entries::create_markdown_article(
+            Path::new(folder_path.as_str()),
+            Path::new(parent_path.as_str()),
+            name.as_str(),
+            default_extension.as_str(),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn create_article_directory(
+    folder_path: String,
+    parent_path: String,
+    name: String,
+) -> Result<FolderEntryResult, FolderEntryError> {
+    run_folder_entry_operation(parent_path.clone(), move || {
+        entries::create_article_directory(
+            Path::new(folder_path.as_str()),
+            Path::new(parent_path.as_str()),
+            name.as_str(),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn rename_folder_entry(
+    folder_path: String,
+    path: String,
+    name: String,
+) -> Result<FolderEntryResult, FolderEntryError> {
+    run_folder_entry_operation(path.clone(), move || {
+        entries::rename_folder_entry(
+            Path::new(folder_path.as_str()),
+            Path::new(path.as_str()),
+            name.as_str(),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+pub(crate) async fn trash_folder_entry(
+    folder_path: String,
+    path: String,
+) -> Result<(), FolderEntryError> {
+    run_folder_entry_operation(path.clone(), move || {
+        entries::trash_folder_entry(Path::new(folder_path.as_str()), Path::new(path.as_str()))
+    })
+    .await
+}
+
+async fn run_folder_entry_operation<T: Send + 'static>(
+    error_path: String,
+    operation: impl FnOnce() -> Result<T, FolderEntryError> + Send + 'static,
+) -> Result<T, FolderEntryError> {
+    tauri::async_runtime::spawn_blocking(operation)
+        .await
+        .unwrap_or_else(|error| {
+            Err(FolderEntryError::OperationFailed {
+                path: error_path,
+                message: error.to_string(),
+            })
+        })
 }
 
 fn open_folder(

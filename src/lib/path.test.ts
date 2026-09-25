@@ -7,6 +7,7 @@ import {
   isSameOrParentPath,
   isSamePath,
   PathSet,
+  rebasePath,
   toSlashPath,
 } from "./path";
 
@@ -71,6 +72,20 @@ describe("path utilities", () => {
     expect(getRelativePath("C:/Notes", "D:/Guides/setup.md")).toBeNull();
     expect(getRelativePath("/home/notes", "/home/notes/guide.md")).toBe("guide.md");
     expect(getRelativePath("//server/share/notes", "//SERVER/SHARE/guides")).toBe("../guides");
+  });
+
+  it("rebases a path and its descendants onto a renamed path", () => {
+    expect(rebasePath("C:\\Notes\\draft.md", "c:/notes/DRAFT.md", "C:\\Notes\\final.md")).toBe(
+      "C:\\Notes\\final.md",
+    );
+    expect(
+      rebasePath("C:\\Notes\\drafts\\Ideas\\one.md", "C:\\notes\\drafts", "C:\\Notes\\archive"),
+    ).toBe("C:\\Notes\\archive\\Ideas\\one.md");
+    expect(rebasePath("/home/notes/a/b.md", "/home/notes/a/", "/home/notes/c")).toBe(
+      "/home/notes/c/b.md",
+    );
+    expect(rebasePath("/home/notes/ab.md", "/home/notes/a", "/home/notes/c")).toBeNull();
+    expect(rebasePath("/home/Notes/a.md", "/home/notes", "/home/other")).toBeNull();
   });
 
   it("stores unique paths by path identity", () => {

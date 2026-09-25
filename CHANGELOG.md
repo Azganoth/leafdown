@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Load a remote `https:` image on request. Its placeholder names the host the image would come from and offers `Load image`, and nothing is requested until that action is used, including after opening, pasting, or reopening a document. The image loads through Leafdown rather than the editor view, refuses local and private network addresses, insecure redirects, SVG, and files over 10 MB, and sends no referrer or cookies. A failed load explains why and offers `Retry`. Approval lasts only while the image stays on screen with the same target, and the Markdown never changes.
 - Open the repository's bug report and feature request forms from Help, leaving what to submit entirely to the user.
 - Copy a selection as portable HTML source or as rich text with an unformatted plain-text fallback from Edit > Copy as.
 - Insert a block from one pointer-following button in the local gutter. Its indicator shows the chosen nested sibling boundary, its menu offers only valid block types, and `Mod+Alt+I` opens the same menu from the focused editor. Insertion focuses the new block and can be undone in one step.

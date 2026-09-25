@@ -94,7 +94,7 @@ To run one scenario against an already built binary:
 pnpm test:e2e:desktop:run -- --scenario folder-watcher
 ```
 
-Targets are `block-selection`, `diagnostics`, `document-lifecycle`, `folder-watcher`, `rendered-images`, `rendered-html`, `separator-presentation`, `missing-document-error`, `persistence`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
+Targets are `block-selection`, `diagnostics`, `document-lifecycle`, `folder-watcher`, `rendered-images`, `remote-images`, `rendered-html`, `separator-presentation`, `missing-document-error`, `persistence`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
 
 Failure evidence is written under ignored `e2e/desktop/artifacts/<run>/worker-<n>/<scenario>/` directories. It includes runner and app logs, diagnostics, test errors, and a screenshot and semantic UI snapshot for failures. Workers clean their own temporary state, so another worker can finish after one fails. Local artifacts remain until manually removed and may contain sensitive paths or error text. CI uploads artifacts only on failure and retains them for seven days.
 

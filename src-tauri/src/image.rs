@@ -3,10 +3,13 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
-use crate::path_utils::{
-    ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
-    is_network_or_device_target, parse_file_url_path, resolve_existing_path,
-    resolve_markdown_reference_path,
+use crate::{
+    path_utils::{
+        ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
+        is_network_or_device_target, parse_file_url_path, resolve_existing_path,
+        resolve_markdown_reference_path,
+    },
+    remote_image::remote_image_host,
 };
 
 const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg", "webp"];
@@ -18,16 +21,33 @@ const SUPPORTED_IMAGE_EXTENSIONS: [&str; 6] = ["png", "jpg", "jpeg", "gif", "svg
     rename_all_fields = "camelCase"
 )]
 pub(crate) enum ResolveMarkdownImageTargetResult {
-    Renderable { path: String },
-    Missing { path: String },
+    Renderable {
+        path: String,
+    },
+    Missing {
+        path: String,
+    },
     UntitledRelative,
-    OutsideFolder { path: String },
-    RemoteBlocked,
+    OutsideFolder {
+        path: String,
+    },
+    /// `host` is present only for a target the remote image fetch would attempt.
+    RemoteBlocked {
+        host: Option<String>,
+    },
     UnsupportedFormat,
     UnsupportedTarget,
-    InvalidPath { path: String },
-    PermissionDenied { path: String, message: String },
-    MetadataFailed { path: String, message: String },
+    InvalidPath {
+        path: String,
+    },
+    PermissionDenied {
+        path: String,
+        message: String,
+    },
+    MetadataFailed {
+        path: String,
+        message: String,
+    },
 }
 
 enum ParsedImageTarget {
@@ -115,7 +135,9 @@ pub(crate) fn resolve_image_target(
             target_path.as_path(),
             allow_outside_folder,
         ),
-        ParsedImageTarget::Remote => ResolveMarkdownImageTargetResult::RemoteBlocked,
+        ParsedImageTarget::Remote => ResolveMarkdownImageTargetResult::RemoteBlocked {
+            host: remote_image_host(target),
+        },
         ParsedImageTarget::Unsupported => ResolveMarkdownImageTargetResult::UnsupportedTarget,
     }
 }
@@ -127,7 +149,7 @@ fn resolve_local_image_target(
     allow_outside_folder: bool,
 ) -> ResolveMarkdownImageTargetResult {
     if is_network_or_device_target(target_path) {
-        return ResolveMarkdownImageTargetResult::RemoteBlocked;
+        return ResolveMarkdownImageTargetResult::RemoteBlocked { host: None };
     }
 
     if !is_supported_image_path(target_path) {
@@ -395,16 +417,24 @@ mod tests {
     fn blocks_remote_and_network_image_targets() {
         assert_eq!(
             resolve_image_target(None, None, "https://example.com/image.png", false),
-            ResolveMarkdownImageTargetResult::RemoteBlocked
+            ResolveMarkdownImageTargetResult::RemoteBlocked {
+                host: Some("example.com".to_owned())
+            }
         );
-        assert_eq!(
-            resolve_image_target(None, None, "//example.com/image.png", false),
-            ResolveMarkdownImageTargetResult::RemoteBlocked
-        );
-        assert_eq!(
-            resolve_image_target(None, None, "\\\\server\\share\\image.png", false),
-            ResolveMarkdownImageTargetResult::RemoteBlocked
-        );
+
+        for target in [
+            "http://example.com/image.png",
+            "ftp://example.com/image.png",
+            "https://user:pass@example.com/image.png",
+            "//example.com/image.png",
+            "\\\\server\\share\\image.png",
+        ] {
+            assert_eq!(
+                resolve_image_target(None, None, target, false),
+                ResolveMarkdownImageTargetResult::RemoteBlocked { host: None },
+                "{target}"
+            );
+        }
     }
 
     #[test]
@@ -424,7 +454,9 @@ mod tests {
             ResolveMarkdownImageTargetResult::OutsideFolder {
                 path: "C:/Other/icon.png".to_owned(),
             },
-            ResolveMarkdownImageTargetResult::RemoteBlocked,
+            ResolveMarkdownImageTargetResult::RemoteBlocked {
+                host: Some("example.com".to_owned()),
+            },
             ResolveMarkdownImageTargetResult::UnsupportedFormat,
             ResolveMarkdownImageTargetResult::UnsupportedTarget,
             ResolveMarkdownImageTargetResult::InvalidPath {
@@ -455,7 +487,7 @@ mod tests {
                         target,
                         allow_outside_folder,
                     ),
-                    ResolveMarkdownImageTargetResult::RemoteBlocked,
+                    ResolveMarkdownImageTargetResult::RemoteBlocked { host: None },
                     "target {target} with allow_outside_folder={allow_outside_folder}"
                 );
             }

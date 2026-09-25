@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use serde_json::Value;
 
 use crate::{
-    document, folder, image, link,
+    document, folder, image, link, remote_image,
     test_utils::{TestDirectory, canonical_path_string, pathdiff},
 };
 
@@ -257,6 +257,37 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     assert_eq!(
         json_string(&image_result, "path"),
         canonical_path_string(image_path.as_path())
+    );
+
+    let loadable_remote = serialized(image::resolve_image_target(
+        None,
+        None,
+        "https://images.example.com/icon.png",
+        false,
+    ));
+
+    assert_eq!(json_string(&loadable_remote, "kind"), "remoteBlocked");
+    assert_eq!(json_string(&loadable_remote, "host"), "images.example.com");
+
+    let blocked_remote = serialized(image::resolve_image_target(
+        None,
+        None,
+        "http://images.example.com/icon.png",
+        false,
+    ));
+
+    assert_eq!(json_string(&blocked_remote, "kind"), "remoteBlocked");
+    assert!(blocked_remote["host"].is_null());
+
+    let Err(fetch_error) = tauri::async_runtime::block_on(remote_image::fetch_remote_image(
+        "http://images.example.com/icon.png".to_owned(),
+    )) else {
+        panic!("an http target should not be fetched");
+    };
+
+    assert_eq!(
+        serialized(fetch_error),
+        serde_json::json!({ "kind": "insecureScheme" })
     );
 
     let link_result = tauri::async_runtime::block_on(link::resolve_markdown_link_target(

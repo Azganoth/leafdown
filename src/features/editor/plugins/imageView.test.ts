@@ -9,12 +9,13 @@ import {
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
 import { dispatchMouseDown } from "@/test/utils/events";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { getEditorNodePosition, setSelectionAtDocumentEnd } from "@/test/utils/prosemirror";
 import { setupUser, waitFor, within } from "@/test/utils/react";
 import {
   countTauriApiCalls,
   getLastTauriApiArgs,
+  mockTauriApi,
   mockTauriApiCommand,
 } from "@/test/utils/tauriApi";
 
@@ -57,18 +58,243 @@ describe("Markdown images", () => {
     expect(mounted.getMarkdown()).toBe("![Sample Icon](./assets/icon.png)\n");
   });
 
-  it("blocks remote image loading while preserving source Markdown", async () => {
-    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({ kind: "remoteBlocked" }));
+  it("blocks remote images the backend offers no load for", async () => {
+    mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
+      kind: "remoteBlocked",
+      host: null,
+    }));
 
-    const mounted = await mountImageEditor("![Remote](https://example.com/image.png)");
+    const mounted = await mountImageEditor("![Remote](http://example.com/image.png)");
 
     await waitFor(() => {
       expect(mounted.view.dom).toHaveTextContent("Remote images are blocked.");
     });
 
+    expect(within(mounted.view.dom).queryByRole("button")).not.toBeInTheDocument();
     expect(mounted.view.dom.querySelector(".leafdown-markdown-image")).not.toBeInTheDocument();
     expect(convertFileSrc).not.toHaveBeenCalled();
-    expect(mounted.getMarkdown()).toBe("![Remote](https://example.com/image.png)\n");
+    expect(mounted.getMarkdown()).toBe("![Remote](http://example.com/image.png)\n");
+  });
+
+  describe("remote image loading", () => {
+    const REMOTE_MARKDOWN = '![Remote](https://example.com/image.png "Remote title") tail';
+    const OBJECT_URL = "blob:leafdown/remote-image";
+
+    const mockRemoteImage = (
+      fetchRemoteImage: (args: { target: string }) => ArrayBuffer | Promise<ArrayBuffer> = () =>
+        new Uint8Array([0x89, 0x50]).buffer,
+    ) => {
+      mockTauriApi({
+        fetchRemoteImage,
+        resolveMarkdownImageTarget: ({ target }) => ({
+          kind: "remoteBlocked",
+          host: new URL(target).host,
+        }),
+      });
+
+      return {
+        createObjectURL: vi.spyOn(URL, "createObjectURL").mockReturnValue(OBJECT_URL),
+        revokeObjectURL: vi.spyOn(URL, "revokeObjectURL").mockReturnValue(undefined),
+      };
+    };
+
+    const mountRemoteImage = async (markdown = REMOTE_MARKDOWN) => {
+      const mounted = await mountImageEditor(markdown);
+
+      await waitFor(() => {
+        expect(
+          within(mounted.view.dom).getByRole("button", { name: "Load image" }),
+        ).toBeInTheDocument();
+      });
+
+      return mounted;
+    };
+
+    const setImageTarget = (mounted: MountedMilkdownEditor, src: string) => {
+      const position = getEditorNodePosition(mounted, "image");
+      const image = mounted.view.state.doc.nodeAt(position);
+
+      mounted.view.dispatch(
+        mounted.view.state.tr.setNodeMarkup(position, undefined, { ...image?.attrs, src }),
+      );
+    };
+
+    const deferred = <T>() => {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((settle) => {
+        resolve = settle;
+      });
+
+      return { promise, resolve };
+    };
+
+    it("names the host and requests nothing until the load action", async () => {
+      mockRemoteImage();
+
+      const mounted = await mountRemoteImage();
+
+      expect(mounted.view.dom).toHaveTextContent("Remote image from example.com.");
+
+      setSelectionAtDocumentEnd(mounted.view);
+      await mounted.destroy();
+      await mountRemoteImage();
+
+      expect(countTauriApiCalls("fetchRemoteImage")).toBe(0);
+    });
+
+    it("renders the fetched bytes through an object URL without changing the Markdown", async () => {
+      const user = setupUser();
+      const { createObjectURL } = mockRemoteImage();
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+
+      const image = await within(mounted.view.dom).findByRole<HTMLImageElement>("img", {
+        name: "Remote",
+      });
+
+      expect(image.getAttribute("src")).toBe(OBJECT_URL);
+      expect(image.title).toBe("Remote title");
+      expect(createObjectURL).toHaveBeenCalledOnce();
+      expect(getLastTauriApiArgs("fetchRemoteImage")).toEqual({
+        target: "https://example.com/image.png",
+      });
+      expect(mounted.getMarkdown()).toBe(`${REMOTE_MARKDOWN}\n`);
+    });
+
+    it("shows a failure with a retry action that makes a new request", async () => {
+      const user = setupUser();
+      const fetchRemoteImage = vi
+        .fn()
+        .mockRejectedValueOnce({ kind: "httpStatus", status: 404 })
+        .mockResolvedValue(new Uint8Array([0x89, 0x50]).buffer);
+      mockRemoteImage(fetchRemoteImage);
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+
+      const retry = await within(mounted.view.dom).findByRole("button", { name: "Retry" });
+
+      expect(mounted.view.dom).toHaveTextContent("Image request failed (HTTP 404).");
+      expect(mounted.getMarkdown()).toBe(`${REMOTE_MARKDOWN}\n`);
+
+      await user.click(retry);
+
+      expect(
+        await within(mounted.view.dom).findByRole("img", { name: "Remote" }),
+      ).toBeInTheDocument();
+      expect(fetchRemoteImage).toHaveBeenCalledTimes(2);
+    });
+
+    it("reports an unexpected failure with a generic message", async () => {
+      const user = setupUser();
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      mockRemoteImage(() => {
+        throw new Error("IPC unavailable.");
+      });
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+
+      expect(
+        await within(mounted.view.dom).findByRole("button", { name: "Retry" }),
+      ).toBeInTheDocument();
+      expect(mounted.view.dom).toHaveTextContent("Image could not be loaded.");
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    it("revokes the approval and object URL when the target is edited", async () => {
+      const user = setupUser();
+      const { revokeObjectURL } = mockRemoteImage();
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+      await within(mounted.view.dom).findByRole("img", { name: "Remote" });
+
+      setImageTarget(mounted, "https://images.example.org/other.png");
+
+      expect(revokeObjectURL).toHaveBeenCalledWith(OBJECT_URL);
+      await waitFor(() => {
+        expect(mounted.view.dom).toHaveTextContent("Remote image from images.example.org.");
+      });
+      expect(within(mounted.view.dom).queryByRole("img")).not.toBeInTheDocument();
+      expect(countTauriApiCalls("fetchRemoteImage")).toBe(1);
+    });
+
+    it("revokes the object URL when the view is destroyed", async () => {
+      const user = setupUser();
+      const { revokeObjectURL } = mockRemoteImage();
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+      await within(mounted.view.dom).findByRole("img", { name: "Remote" });
+      await mounted.destroy();
+
+      expect(revokeObjectURL).toHaveBeenCalledWith(OBJECT_URL);
+    });
+
+    it("discards a result that arrives after the target changed", async () => {
+      const user = setupUser();
+      const pending = deferred<ArrayBuffer>();
+      const { createObjectURL } = mockRemoteImage(() => pending.promise);
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+
+      expect(mounted.view.dom).toHaveTextContent("Loading image from example.com...");
+
+      setImageTarget(mounted, "https://images.example.org/other.png");
+      pending.resolve(new Uint8Array([0x89, 0x50]).buffer);
+
+      await waitFor(() => {
+        expect(mounted.view.dom).toHaveTextContent("Remote image from images.example.org.");
+      });
+      expect(createObjectURL).not.toHaveBeenCalled();
+      expect(within(mounted.view.dom).queryByRole("img")).not.toBeInTheDocument();
+    });
+
+    it("discards a result that arrives after the view was destroyed", async () => {
+      const user = setupUser();
+      const pending = deferred<ArrayBuffer>();
+      const { createObjectURL } = mockRemoteImage(() => pending.promise);
+
+      const mounted = await mountRemoteImage();
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+      await mounted.destroy();
+      pending.resolve(new Uint8Array([0x89, 0x50]).buffer);
+      await pending.promise;
+
+      expect(createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it("ignores repeated activation while a load is in flight", async () => {
+      const user = setupUser();
+      const pending = deferred<ArrayBuffer>();
+      mockRemoteImage(() => pending.promise);
+
+      const mounted = await mountRemoteImage();
+      const action = within(mounted.view.dom).getByRole("button", { name: "Load image" });
+
+      await user.click(action);
+
+      expect(action).toHaveAttribute("aria-disabled", "true");
+      expect(within(mounted.view.dom).getByRole("button", { name: "Load image" })).toBe(action);
+
+      await user.click(action);
+      pending.resolve(new Uint8Array([0x89, 0x50]).buffer);
+
+      expect(
+        await within(mounted.view.dom).findByRole("img", { name: "Remote" }),
+      ).toBeInTheDocument();
+      expect(countTauriApiCalls("fetchRemoteImage")).toBe(1);
+    });
   });
 
   it.each([

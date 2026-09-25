@@ -79,6 +79,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Close the menu after a checked or selected command is chosen from the menu bar, such as View > Toggle sidebar or View > Appearance > Dark. The menu used to stay open behind the change, so the next click on a menu bar item only closed it and a second click was needed to open a menu.
 - Keep source edits undoable after saving while their source projection is active.
 
 - Flatten pasted HTML table cells that span columns into ordinary GFM cells immediately, so saving and reopening keeps their content in the column where it was pasted instead of carrying an unrepresentable table span.

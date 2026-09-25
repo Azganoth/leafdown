@@ -128,6 +128,41 @@ describe("CommandMenubar", () => {
     expect(onExecute).toHaveBeenCalledWith("view.toggleStatusBar");
   });
 
+  it("closes the menu after a checkbox command so one click reopens it", async () => {
+    const { onExecute, user } = renderCommandMenuBar({
+      commandState: () => ({ enabled: true, checked: true }),
+    });
+    const viewTrigger = screen.getByRole("menuitem", { name: "View" });
+
+    await user.click(viewTrigger);
+    await user.click(menuItem("Toggle sidebar"));
+
+    expect(onExecute).toHaveBeenCalledWith("view.toggleSidebar");
+    expect(viewTrigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(viewTrigger);
+
+    expect(viewTrigger).toHaveAttribute("aria-expanded", "true");
+    expect(menuItem("Toggle status bar")).toBeVisible();
+  });
+
+  it("closes the menu after a radio command so one click reopens it", async () => {
+    const { onExecute, user } = renderCommandMenuBar();
+    const viewTrigger = screen.getByRole("menuitem", { name: "View" });
+
+    await user.click(viewTrigger);
+    await user.hover(menuItem("Appearance"));
+    await user.keyboard("{ArrowRight}");
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+    expect(onExecute).toHaveBeenCalledWith("view.appearance.dark");
+    expect(viewTrigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(viewTrigger);
+
+    expect(viewTrigger).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("disables a submenu trigger when every command it contains is disabled", async () => {
     const { user } = renderCommandMenuBar({
       commandState: (commandId) =>

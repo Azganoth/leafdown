@@ -232,7 +232,7 @@ describe("standalone image source projection", () => {
     expect(within(mounted.view.dom).getByRole("img", { name: "alt" })).toBe(renderedImage);
   });
 
-  it("keeps an unavailable image placeholder visible after the source line", async () => {
+  it("keeps an unavailable image placeholder mounted beside the source line", async () => {
     mockTauriApiCommand("resolveMarkdownImageTarget", () => ({
       kind: "missing",
       path: "C:/Notes/missing.png",
@@ -245,16 +245,14 @@ describe("standalone image source projection", () => {
 
     selectImage(mounted);
 
-    const projection = mounted.view.dom.querySelector<HTMLElement>(
+    const projectionFragments = mounted.view.dom.querySelectorAll<HTMLElement>(
       '.leafdown-source-projection[data-leafdown-source~="image"]',
     );
     const imageView = mounted.view.dom.querySelector<HTMLElement>(".leafdown-image-view");
 
-    expect(projection).not.toBeNull();
+    expect(projectionFragments.length).toBeGreaterThan(0);
     expect(imageView).not.toBeNull();
-    expect(
-      projection!.compareDocumentPosition(imageView!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
+    expect(projectionFragments[projectionFragments.length - 1].nextElementSibling).toBe(imageView);
     expect(imageView).toHaveTextContent("Image not found.");
     expect(imageView).not.toHaveTextContent("./missing.png");
   });

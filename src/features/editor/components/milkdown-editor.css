@@ -562,8 +562,26 @@
       }
     }
 
+    /* Top alignment keeps the monospace run from stretching the paragraph's line past its leading,
+       which baseline alignment against the proportional strut would do. */
     .leafdown-source-projection[data-leafdown-source~="image"] {
-      @apply font-mono whitespace-nowrap;
+      @apply align-top font-mono whitespace-nowrap;
+    }
+
+    /* A placeholder stands in for an image that cannot be shown, so while the source is projected it
+       yields its row to the source line. The margin is the one the placeholder's view collapsed into
+       its paragraph's, which the source line keeps when it opens the paragraph. */
+    .leafdown-source-projection[data-leafdown-source~="image"]
+      + .leafdown-image-view:has(> .leafdown-image-placeholder) {
+      @apply hidden;
+    }
+
+    p:has(> .leafdown-source-projection[data-leafdown-source~="image"]:first-child):has(
+        > .leafdown-source-projection[data-leafdown-source~="image"]
+          + .leafdown-image-view
+          > .leafdown-image-placeholder
+      ) {
+      @apply mt-5;
     }
 
     .leafdown-source-projection__surrounding {

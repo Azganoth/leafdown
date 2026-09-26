@@ -788,3 +788,7 @@ mod tests {
         std::os::windows::fs::symlink_dir(target, symlink_path)
     }
 }
+
+#[cfg(test)]
+#[path = "../../spikes/large-folder-envelope/rust/scan_probe.rs"]
+mod perf_probe;

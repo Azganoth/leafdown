@@ -1,0 +1,9 @@
+{"fixture":"flat-1000","markdown":1000,"unsupported":1099,"ignored":700,"directories":45,"emptyDirectories":10,"elapsedMs":1447}
+{"fixture":"shallow-1000","markdown":1000,"unsupported":1099,"ignored":700,"directories":55,"emptyDirectories":10,"elapsedMs":1435}
+{"fixture":"deep-1000","markdown":1000,"unsupported":1099,"ignored":700,"directories":245,"emptyDirectories":10,"elapsedMs":1644}
+{"fixture":"flat-10000","markdown":10000,"unsupported":10099,"ignored":1400,"directories":45,"emptyDirectories":10,"elapsedMs":11701}
+{"fixture":"shallow-10000","markdown":10000,"unsupported":10099,"ignored":1400,"directories":145,"emptyDirectories":10,"elapsedMs":11306}
+{"fixture":"deep-10000","markdown":10000,"unsupported":10099,"ignored":1400,"directories":2045,"emptyDirectories":10,"elapsedMs":12648}
+{"fixture":"flat-50000","markdown":50000,"unsupported":50099,"ignored":7000,"directories":45,"emptyDirectories":10,"elapsedMs":62777}
+{"fixture":"shallow-50000","markdown":50000,"unsupported":50099,"ignored":7000,"directories":545,"emptyDirectories":10,"elapsedMs":112149}
+{"fixture":"deep-50000","markdown":50000,"unsupported":50099,"ignored":7000,"directories":10045,"emptyDirectories":10,"elapsedMs":106443}

@@ -1,0 +1,4 @@
+{"fixture":"L:/fixtures/flat-10000","entries":20144,"dirEntryMetadataMs":[23,30],"pathMetadataMs":[1632,1485],"identicalTimes":true}
+{"fixture":"L:/fixtures/flat-50000","entries":100144,"dirEntryMetadataMs":[105,102],"pathMetadataMs":[7817,7534],"identicalTimes":true}
+{"fixture":"L:/fixtures/shallow-50000","entries":100644,"dirEntryMetadataMs":[157,147],"pathMetadataMs":[7341,7354],"identicalTimes":true}
+{"fixture":"L:/fixtures/deep-50000","entries":110144,"dirEntryMetadataMs":[1085,786],"pathMetadataMs":[9361,9359],"identicalTimes":true}

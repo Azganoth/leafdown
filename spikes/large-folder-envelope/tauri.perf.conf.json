@@ -1,0 +1,18 @@
+{
+  "productName": "Leafdown Perf",
+  "mainBinaryName": "leafdown-perf",
+  "identifier": "com.azganoth.leafdown.perf",
+  "app": {
+    "windows": [
+      {
+        "title": "Leafdown",
+        "width": 800,
+        "height": 600,
+        "decorations": false,
+        "visible": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9340"
+      }
+    ]
+  },
+  "bundle": { "active": false }
+}

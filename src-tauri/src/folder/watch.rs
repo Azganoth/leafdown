@@ -749,3 +749,7 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../spikes/large-folder-envelope/rust/watch_probe.rs"]
+mod perf_probe;

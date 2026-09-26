@@ -5,6 +5,8 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
 };
 
+const STAGING_FILE_EXTENSION: &str = "leafdown-tmp";
+
 static NEXT_STAGING_FILE_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
@@ -98,19 +100,24 @@ impl Drop for StagingFile {
     }
 }
 
-/// The suffix must leave a non-Markdown extension in place: `folder::watch` treats an event path
-/// it cannot stat as relevant when the path has no extension, so an extension-less staging name
-/// would refresh the article navigator on every save.
+/// The suffix must end in the staging extension: `folder::watch` recognizes a staging file by it
+/// once the file is renamed onto its target, and would otherwise report the vanished staging path
+/// to the article navigator on every save.
 pub(crate) fn staging_path(target_path: &Path) -> PathBuf {
     let staging_file_id = NEXT_STAGING_FILE_ID.fetch_add(1, Ordering::Relaxed);
     let mut file_name = target_path.file_name().unwrap_or_default().to_os_string();
 
     file_name.push(format!(
-        ".{:x}-{staging_file_id:x}.leafdown-tmp",
+        ".{:x}-{staging_file_id:x}.{STAGING_FILE_EXTENSION}",
         std::process::id()
     ));
 
     target_path.with_file_name(file_name)
+}
+
+pub(crate) fn is_staging_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension == STAGING_FILE_EXTENSION)
 }
 
 #[cfg(test)]

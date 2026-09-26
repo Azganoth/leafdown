@@ -10,7 +10,7 @@ import {
   type FolderContextWatchErrorEventPayload,
 } from "@/features/folder-context";
 import { toastManager } from "@/lib/toast";
-import { createFolderContext } from "@/test/factories/folderContext";
+import { createArticleTree, createFolderContext } from "@/test/factories/folderContext";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { findDiagnosticPayload, type DiagnosticLogLevel } from "@/test/utils/diagnostics";
 import { act, renderHook, waitFor } from "@/test/utils/react";
@@ -26,6 +26,19 @@ import {
 
 const notesFolderContext = createFolderContext();
 const notesFolderTree = notesFolderContext.tree;
+const dottedDirectoryFolderContext = createFolderContext({
+  tree: createArticleTree({
+    children: [
+      {
+        kind: "directory",
+        name: "notes.d",
+        path: "C:/Notes/notes.d",
+        children: [{ kind: "file", name: "a.md", path: "C:/Notes/notes.d/a.md" }],
+      },
+      ...notesFolderTree.children,
+    ],
+  }),
+});
 
 interface FolderContextWatchScope {
   generation: number;
@@ -44,6 +57,7 @@ const createFolderContextChangedEvent = (
   payload: {
     folderPath: "C:/Notes",
     paths: ["C:/Notes/new.md"],
+    possibleDirectoryPaths: [],
     ...payload,
   },
 });
@@ -435,6 +449,89 @@ describe("useFolderContextWatcher", () => {
         await advanceFolderRefreshTimer();
 
         expect(scanMarkdownFolder).toHaveBeenCalledTimes(2);
+      });
+
+      it("refreshes when a vanished path is a directory the navigator shows", async () => {
+        setDefaultSession({ folderContext: dottedDirectoryFolderContext });
+        mockTauriApi({
+          scanMarkdownFolder: () => notesFolderContext,
+          watchMarkdownFolder: () => undefined,
+          unwatchMarkdownFolder: () => undefined,
+        });
+
+        renderHook(() => useFolderContextWatcher());
+
+        getFolderChangedHandler()(
+          createFolderContextChangedEvent({
+            paths: [],
+            possibleDirectoryPaths: ["C:\\Notes\\notes.d"],
+          }),
+        );
+        await advanceFolderRefreshTimer();
+
+        expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
+        expect(useSessionStore.getState().folderContext?.tree).toEqual(notesFolderTree);
+      });
+
+      it("ignores vanished paths the navigator does not show as directories", async () => {
+        setDefaultSession({ folderContext: dottedDirectoryFolderContext });
+        mockTauriApi({
+          scanMarkdownFolder: () => notesFolderContext,
+          watchMarkdownFolder: () => undefined,
+          unwatchMarkdownFolder: () => undefined,
+        });
+
+        renderHook(() => useFolderContextWatcher());
+
+        getFolderChangedHandler()(
+          createFolderContextChangedEvent({
+            paths: [],
+            possibleDirectoryPaths: ["C:/Notes/notes.txt", "C:/Notes/notes.d/a.md"],
+          }),
+        );
+        await advanceFolderRefreshTimer();
+
+        expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
+      });
+
+      it("queues a follow-up refresh when a vanished path arrives during a refresh", async () => {
+        const firstScan = Promise.withResolvers<ReturnType<typeof createFolderContext>>();
+        const scanMarkdownFolder = vi.fn(() => {
+          if (scanMarkdownFolder.mock.calls.length === 1) {
+            return firstScan.promise;
+          }
+
+          return notesFolderContext;
+        });
+        setDefaultSession({ folderContext: notesFolderContext });
+        mockTauriApi({
+          scanMarkdownFolder,
+          watchMarkdownFolder: () => undefined,
+          unwatchMarkdownFolder: () => undefined,
+        });
+
+        renderHook(() => useFolderContextWatcher());
+
+        getFolderChangedHandler()(createFolderContextChangedEvent());
+        await advanceFolderRefreshTimer();
+
+        expect(scanMarkdownFolder).toHaveBeenCalledTimes(1);
+
+        getFolderChangedHandler()(
+          createFolderContextChangedEvent({
+            paths: [],
+            possibleDirectoryPaths: ["C:/Notes/notes.d"],
+          }),
+        );
+        firstScan.resolve(dottedDirectoryFolderContext);
+
+        await act(async () => {
+          await firstScan.promise;
+        });
+        await advanceFolderRefreshTimer();
+
+        expect(scanMarkdownFolder).toHaveBeenCalledTimes(2);
+        expect(useSessionStore.getState().folderContext?.tree).toEqual(notesFolderTree);
       });
 
       it("shows scan errors from matching folder change events", async () => {

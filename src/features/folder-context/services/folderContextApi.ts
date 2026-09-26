@@ -117,6 +117,7 @@ export type WatchMarkdownFolderError =
 export interface FolderContextChangedEventPayload {
   folderPath: string;
   paths: string[];
+  possibleDirectoryPaths: string[];
 }
 
 export interface FolderContextWatchErrorEventPayload {

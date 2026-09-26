@@ -199,6 +199,10 @@ export class DebouncedTaskRunner<T> implements Disposable {
     private readonly delayMs: number,
   ) {}
 
+  get isRunning() {
+    return this.activeRun !== null;
+  }
+
   run() {
     if (this.isDisposed) {
       return Promise.reject(new CancellationError());

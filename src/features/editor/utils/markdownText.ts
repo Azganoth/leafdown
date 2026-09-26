@@ -7,7 +7,7 @@ import {
   readCharacterReferenceRun,
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
-import { resolveLinePrefixes } from "./linePrefixMarkdown";
+import { resolveLinePrefixes, resolveListItemPaddings } from "./linePrefixMarkdown";
 import { readEnclosingConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -1409,7 +1409,9 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
     // file is actually written with rather than against blank ones a separator takes back out or a
     // prefix the file never put in front of a continuation line.
     return resolveDeferredEscapes(
-      resolveBlockSeparators(resolveLinePrefixes(state.containerFlow(node, info))),
+      resolveListItemPaddings(
+        resolveBlockSeparators(resolveLinePrefixes(state.containerFlow(node, info))),
+      ),
       labels,
     );
   } finally {

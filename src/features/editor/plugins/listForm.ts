@@ -1,6 +1,7 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $remark } from "@milkdown/kit/utils";
 
+import { readPrefixColumns } from "../utils/linePrefixMarkdown";
 import {
   DEFAULT_BULLET_LIST_MARKER,
   DEFAULT_ORDERED_LIST_MARKER,
@@ -11,6 +12,7 @@ import {
   LIST_ITEM_MARKDOWN_TYPE,
   LIST_ITEM_NUMBER_ATTRIBUTE_NAME,
   LIST_ITEM_PADDING_ATTRIBUTE_NAME,
+  LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME,
   LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME,
   LIST_MARKDOWN_TYPE,
   LIST_MARKER_ATTRIBUTE_NAME,
@@ -84,7 +86,11 @@ const markAuthoredListForm = (list: MarkdownNode, source: string) => {
     }
 
     const head = readListItemHead(item, source);
-    const form = head === undefined ? undefined : findListItemForm(head, ordered);
+    const indent = readListItemIndent(item, source);
+    const form =
+      head === undefined || indent === undefined
+        ? undefined
+        : findListItemForm(head, ordered, readPrefixColumns(indent));
 
     if (!form) {
       continue;
@@ -97,8 +103,12 @@ const markAuthoredListForm = (list: MarkdownNode, source: string) => {
     const authored = item as Record<string, unknown>;
 
     authored[LIST_ITEM_PADDING_ATTRIBUTE_NAME] = form.padding;
-    authored[LIST_ITEM_INDENT_ATTRIBUTE_NAME] = readListItemIndent(item, source);
+    authored[LIST_ITEM_INDENT_ATTRIBUTE_NAME] = indent;
     authored[LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME] = opensOnLaterLine(item);
+
+    if (form.paddingSpelling !== undefined) {
+      authored[LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME] = form.paddingSpelling;
+    }
 
     if (form.number !== undefined) {
       authored[LIST_ITEM_NUMBER_ATTRIBUTE_NAME] = form.number;

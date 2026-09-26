@@ -9,6 +9,8 @@ import {
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
 import {
+  holdsLinePrefixMarker,
+  markListItemPadding,
   markListItemPrefix,
   readPrefixColumns,
   withoutLeadingLinePrefix,
@@ -36,6 +38,7 @@ export const LIST_ITEM_MARKDOWN_TYPE = "listItem";
 export const LIST_MARKER_ATTRIBUTE_NAME = "marker";
 export const LIST_ITEM_NUMBER_ATTRIBUTE_NAME = "number";
 export const LIST_ITEM_PADDING_ATTRIBUTE_NAME = "padding";
+export const LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME = "paddingSpelling";
 export const LIST_ITEM_INDENT_ATTRIBUTE_NAME = "indent";
 export const LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME = "leadingBlankLine";
 export const LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME = "taskMarker";
@@ -80,12 +83,15 @@ type TaskMarker = (typeof CHECKED_TASK_MARKERS)[number] | (typeof UNCHECKED_TASK
 const DEFAULT_CHECKED_TASK_MARKER: TaskMarker = "x";
 const DEFAULT_UNCHECKED_TASK_MARKER: TaskMarker = " ";
 
-// The spaces between a marker and the content it opens. CommonMark reads one to four of them and
-// puts the content that many columns past the marker; a fifth space opens indented code inside the
-// item and leaves the content one space past the marker, which is also where an item beginning on
-// the line after its marker puts it.
+// The columns between a marker and the content it opens. CommonMark reads one to four of them and
+// puts the content that many columns past the marker; a fifth opens indented code inside the item
+// and leaves the content one column past the marker, which is also where an item beginning on the
+// line after its marker puts it. A tab spends the columns up to the next tab stop, so the same run
+// spans a different count wherever its marker stands at another column; the count is what the item
+// holds, and the run is the spelling written for it where it still spans that count.
 export const DEFAULT_LIST_ITEM_PADDING = 1;
 const MAXIMUM_LIST_ITEM_PADDING = 4;
+const LIST_ITEM_PADDING_SPELLING_PATTERN = /^[\t ]*\t[\t ]*$/u;
 // The prefix an item's marker stands behind when it carries no record of one: one the editor
 // created, one written on the line its container's marker opens, and one whose authored prefix
 // cannot be recovered. Each is written at the prefix its containers spell.
@@ -100,9 +106,9 @@ const MAXIMUM_LIST_ITEM_NUMBER = 999999999;
 const BULLET_LIST_ITEM_PATTERN = /^([-+*])/u;
 const ORDERED_LIST_ITEM_PATTERN = /^(\d{1,9})([.)])/u;
 // Anchored against the content so a run the parse does not read as padding is left to the default:
-// five or more spaces belong to indented code, and none at all mean the content opens on a later
+// five or more columns belong to indented code, and none at all mean the content opens on a later
 // line.
-const LIST_ITEM_PADDING_PATTERN = /^ {1,4}(?=[^\t\n\r ])/u;
+const LIST_ITEM_PADDING_PATTERN = /^[\t ]+(?=[^\t\n\r ])/u;
 // Anchored at the end of what stands before the item's content, which is where GFM leaves the
 // checkbox and the whitespace it requires after it.
 const TASK_MARKER_PATTERN = /\[([\t xX])\][\t\n\r ]*$/u;
@@ -111,6 +117,7 @@ export interface AuthoredListItemForm {
   marker: BulletListMarker | OrderedListMarker;
   number: number | undefined;
   padding: number;
+  paddingSpelling: string | undefined;
 }
 
 const isBulletListMarker = (value: unknown): value is BulletListMarker =>
@@ -161,6 +168,16 @@ export const readListItemPadding = (source: object): number => {
     padding <= MAXIMUM_LIST_ITEM_PADDING
     ? padding
     : DEFAULT_LIST_ITEM_PADDING;
+};
+
+// A run of spaces alone is the spelling the count already writes, so only one holding a tab is a
+// spelling of its own.
+export const readListItemPaddingSpelling = (source: object): string | null => {
+  const spelling = readAttribute(source, LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME);
+
+  return typeof spelling === "string" && LIST_ITEM_PADDING_SPELLING_PATTERN.test(spelling)
+    ? spelling
+    : null;
 };
 
 export const readListItemIndent = (source: object): string => {
@@ -231,14 +248,25 @@ export const createTaskStateListItemAttrs = (item: ProseNode, checked: boolean |
     ? { checked }
     : { checked, [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: null };
 
-const findListItemPadding = (afterMarker: string) =>
-  LIST_ITEM_PADDING_PATTERN.exec(afterMarker)?.[0].length ?? DEFAULT_LIST_ITEM_PADDING;
+const findListItemPadding = (afterMarker: string, markerEnd: number) => {
+  const run = LIST_ITEM_PADDING_PATTERN.exec(afterMarker)?.[0];
+  const padding = run === undefined ? 0 : readPrefixColumns(run, markerEnd) - markerEnd;
+
+  return run === undefined || padding > MAXIMUM_LIST_ITEM_PADDING
+    ? { padding: DEFAULT_LIST_ITEM_PADDING, paddingSpelling: undefined }
+    : {
+        padding,
+        paddingSpelling: LIST_ITEM_PADDING_SPELLING_PATTERN.test(run) ? run : undefined,
+      };
+};
 
 // An item's slice opens at its marker, whatever the container indented it by, so the marker, the
-// number it spells, and the spaces after it are read off the head of that slice.
+// number it spells, and the run after it are read off the head of that slice. The run is measured
+// from the column the marker stands at on its line, which is where its tabs are expanded from.
 export const findListItemForm = (
   head: string,
   ordered: boolean,
+  column: number,
 ): AuthoredListItemForm | undefined => {
   const match = ordered
     ? ORDERED_LIST_ITEM_PATTERN.exec(head)
@@ -253,7 +281,7 @@ export const findListItemForm = (
   return {
     marker: (ordered ? second : first) as BulletListMarker | OrderedListMarker,
     number: ordered ? Number(first) : undefined,
-    padding: findListItemPadding(head.slice(matched.length)),
+    ...findListItemPadding(head.slice(matched.length), column + matched.length),
   };
 };
 
@@ -502,7 +530,12 @@ export const serializeListItem: NonNullable<RemarkStringifyHandlers["listItem"]>
       // An item opening on this line stands behind the marker rather than behind a prefix, so the
       // record it carries answers for a line it no longer opens. An item whose content begins
       // below its marker leaves that line to it, and keeps it.
-      return markedOpening + checkbox + (leadingBlankLine ? line : withoutLeadingLinePrefix(line));
+      const content = leadingBlankLine ? line : withoutLeadingLinePrefix(line);
+      const spelling = leadingBlankLine ? null : readListItemPaddingSpelling(node);
+      const markedPadding =
+        spelling === null || holdsLinePrefixMarker(content) ? "" : markListItemPadding(spelling);
+
+      return markedOpening + markedPadding + checkbox + content;
     },
   );
 
@@ -611,6 +644,10 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
       default: DEFAULT_LIST_ITEM_PADDING,
       validate: "number",
     },
+    [LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME]: {
+      default: null,
+      validate: "string|null",
+    },
     [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: {
       default: DEFAULT_LIST_ITEM_INDENT,
       validate: "string",
@@ -633,6 +670,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         checked: node.checked == null ? null : Boolean(node.checked),
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(node) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(node),
+        [LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME]: readListItemPaddingSpelling(node),
         [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: readListItemIndent(node),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(node),
         [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(node),
@@ -651,6 +689,7 @@ export const withListItemForm = (schema: NodeSchema): NodeSchema => ({
         checked: item.attrs.checked ?? null,
         [LIST_ITEM_NUMBER_ATTRIBUTE_NAME]: readListItemNumber(item.attrs) ?? null,
         [LIST_ITEM_PADDING_ATTRIBUTE_NAME]: readListItemPadding(item.attrs),
+        [LIST_ITEM_PADDING_SPELLING_ATTRIBUTE_NAME]: readListItemPaddingSpelling(item.attrs),
         [LIST_ITEM_INDENT_ATTRIBUTE_NAME]: readListItemIndent(item.attrs),
         [LIST_ITEM_LEADING_BLANK_LINE_ATTRIBUTE_NAME]: readListItemLeadingBlankLine(item.attrs),
         [LIST_ITEM_TASK_MARKER_ATTRIBUTE_NAME]: readAuthoredTaskMarker(item.attrs),

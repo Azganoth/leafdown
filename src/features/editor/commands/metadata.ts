@@ -35,6 +35,7 @@ export const EDITOR_COMMAND_LABELS = {
   "insert.heading5": "Heading 5",
   "insert.heading6": "Heading 6",
   "insert.link": "Link",
+  "insert.footnote": "Footnote",
   "insert.image": "Image",
   "insert.orderedList": "Ordered list",
   "insert.unorderedList": "Unordered list",

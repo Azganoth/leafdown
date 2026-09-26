@@ -76,6 +76,7 @@ export const EDITOR_COMMAND_IDS = [
   "insert.table",
   "insert.horizontalRule",
   "insert.link",
+  "insert.footnote",
 ] as const;
 
 export type EditorCommandId = (typeof EDITOR_COMMAND_IDS)[number];

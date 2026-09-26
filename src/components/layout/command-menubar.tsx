@@ -228,6 +228,7 @@ const FORMAT_HEADING_COMMAND_IDS = [
 
 const INSERT_COMMAND_IDS = [
   "insert.link",
+  "insert.footnote",
   "insert.image",
   "insert.orderedList",
   "insert.unorderedList",

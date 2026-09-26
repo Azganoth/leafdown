@@ -8,7 +8,6 @@ export {
   type EditorCommandId,
   type EditorCommandState,
 } from "./commands";
-export { EDITOR_COMMAND_LABELS } from "./commands/metadata";
 export {
   MilkdownEditor,
   type MilkdownEditorBridge,

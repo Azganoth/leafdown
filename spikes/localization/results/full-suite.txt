@@ -1,0 +1,12 @@
+Full frontend suite (vitest run --coverage) on spike/localization, based on 99b73813:
+
+ Test Files  1 failed | 150 passed (151)
+      Tests  1 failed | 3520 passed (3521)
+
+The one failure is expected and left unchanged:
+
+ FAIL  src/lib/formatFileSize.test.ts > formats 1152921504606847000 bytes as 1024 PB
+ Expected: "1024 PB"
+ Received: "1,024 PB"
+
+Locale-aware number formatting groups digits; every other English string is unchanged.

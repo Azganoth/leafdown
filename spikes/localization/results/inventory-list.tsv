@@ -1,0 +1,534 @@
+src/app.tsx:67	prose	Could not load preferences.
+src/commands/actions/edit.ts:36	prose	No document is open.
+src/commands/actions/edit.ts:41	prose	No document is open.
+src/commands/actions/file.ts:39	prose	Document saved.
+src/commands/actions/file.ts:61	prose	No document is open.
+src/commands/actions/file.ts:66	prose	Document opened.
+src/commands/actions/file.ts:70	prop:title	Could not open recent Markdown file.
+src/commands/actions/file.ts:79	prose	Folder opened.
+src/commands/actions/file.ts:83	prop:title	Could not open recent folder.
+src/commands/actions/file.ts:90	prose	Document created.
+src/commands/actions/file.ts:91	prose	Could not create document.
+src/commands/actions/file.ts:96	prose	Document opened.
+src/commands/actions/file.ts:102	prose	Folder opened.
+src/commands/actions/file.ts:134	prose	Could not open file location.
+src/commands/actions/file.ts:153	prose	Document closed.
+src/commands/actions/file.ts:154	prose	Could not close document.
+src/commands/actions/file.ts:159	prose	Folder closed.
+src/commands/actions/file.ts:160	prose	Could not close folder.
+src/commands/actions/file.ts:168	prose	Could not close window.
+src/commands/actions/file.ts:175	prose	No recent items are available.
+src/commands/actions/file.ts:179	prose	No document is open.
+src/commands/actions/file.ts:181	prose	The saved document is clean.
+src/commands/actions/file.ts:190	prose	The active document has no file path.
+src/commands/actions/file.ts:195	prose	The active file is not available in the current sidebar.
+src/commands/actions/file.ts:201	prose	No folder context is open.
+src/commands/actions/help.ts:16	prose	Could not open DevTools.
+src/commands/actions/help.ts:32	prose	Could not open the link.
+src/commands/actions/navigator.ts:44	prose	Could not create file.
+src/commands/actions/navigator.ts:44	prose	Could not create folder.
+src/commands/actions/navigator.ts:60	prose	Could not rename item.
+src/commands/actions/navigator.ts:71	prose	Could not delete file.
+src/commands/actions/navigator.ts:71	prose	Could not delete folder.
+src/commands/actions/navigator.ts:87	prose	Path copied.
+src/commands/actions/navigator.ts:89	prose	Could not copy path.
+src/commands/actions/navigator.ts:99	prose	Could not open location.
+src/commands/actions/view.ts:30	prose	Could not update zoom.
+src/commands/actions/view.ts:57	prose	No folder context is open.
+src/commands/actions/view.ts:61	prose	The article navigator is refreshing.
+src/commands/actions/view.ts:99	prose	Could not update fullscreen mode.
+src/commands/actions/view.ts:142	prose	No folder context is open.
+src/commands/actions/view.ts:148	prose	Zoom is already at maximum.
+src/commands/actions/view.ts:151	prose	Zoom is already at minimum.
+src/commands/actions/view.ts:154	prose	Zoom is already reset.
+src/commands/actions/view.ts:177	prose	No folder context is open.
+src/commands/actions/view.ts:180	prose	No folder context is open.
+src/commands/hooks/useAppCommands.ts:117	prose	Command failed.
+src/commands/metadata.ts:37	command-label	New
+src/commands/metadata.ts:38	command-label	Open...
+src/commands/metadata.ts:39	command-label	Open folder...
+src/commands/metadata.ts:40	command-label	Clear recent items
+src/commands/metadata.ts:41	command-label	Save
+src/commands/metadata.ts:42	command-label	Save as...
+src/commands/metadata.ts:43	command-label	Open file location
+src/commands/metadata.ts:44	command-label	Reveal in sidebar
+src/commands/metadata.ts:45	command-label	Preferences...
+src/commands/metadata.ts:46	command-label	Close document
+src/commands/metadata.ts:47	command-label	Close folder
+src/commands/metadata.ts:48	command-label	Close window
+src/commands/metadata.ts:89	command-label	Windows line ending (CRLF)
+src/commands/metadata.ts:90	command-label	Unix line ending (LF)
+src/commands/metadata.ts:91	command-label	Insert final newline on save
+src/commands/metadata.ts:173	command-label	Toggle sidebar
+src/commands/metadata.ts:174	command-label	Toggle status bar
+src/commands/metadata.ts:175	command-label	Zoom in
+src/commands/metadata.ts:176	command-label	Zoom out
+src/commands/metadata.ts:177	command-label	Reset zoom
+src/commands/metadata.ts:178	command-label	Full screen
+src/commands/metadata.ts:179	command-label	System
+src/commands/metadata.ts:180	command-label	Light
+src/commands/metadata.ts:181	command-label	Dark
+src/commands/metadata.ts:182	command-label	Name
+src/commands/metadata.ts:183	command-label	Modified date
+src/commands/metadata.ts:184	command-label	Type
+src/commands/metadata.ts:185	command-label	Collapse all folders
+src/commands/metadata.ts:186	command-label	Expand all folders
+src/commands/metadata.ts:187	command-label	Open DevTools
+src/commands/metadata.ts:188	command-label	Report issue
+src/commands/metadata.ts:189	command-label	Request feature
+src/commands/metadata.ts:190	command-label	Diagnostics...
+src/commands/metadata.ts:191	command-label	About
+src/commands/metadata.ts:195	prose-word	File
+src/commands/metadata.ts:196	prose-word	Edit
+src/commands/metadata.ts:197	prose-word	Insert
+src/commands/metadata.ts:198	prose-word	Format
+src/commands/metadata.ts:199	prose-word	View
+src/commands/metadata.ts:200	prose-word	Help
+src/commands/state.ts:16	prose	No document is open.
+src/commands/state.ts:20	prose	The editor is not ready.
+src/commands/state.ts:25	prose	The editor command is not available.
+src/commands/state.ts:32	prose	The command is not available.
+src/components/layout/about-dialog.tsx:31	prose	Could not open the link.
+src/components/layout/about-dialog.tsx:43	jsx-text	Leafdown
+src/components/layout/about-dialog.tsx:51	jsx-text	A local-first Markdown editor for ordinary files and folders.
+src/components/layout/about-dialog.tsx:57	jsx-text	GPL-3.0-or-later
+src/components/layout/about-dialog.tsx:62	jsx-text	License
+src/components/layout/about-dialog.tsx:66	jsx-text	Repository
+src/components/layout/about-dialog.tsx:93	prose	Could not read the app version.
+src/components/layout/command-menubar.tsx:105	attr:label	Copy as
+src/components/layout/command-menubar.tsx:110	attr:label	Paste as
+src/components/layout/command-menubar.tsx:115	attr:label	Delete
+src/components/layout/command-menubar.tsx:117	attr:label	Select
+src/components/layout/command-menubar.tsx:127	attr:label	Jump
+src/components/layout/command-menubar.tsx:160	attr:label	Table
+src/components/layout/command-menubar.tsx:183	attr:label	Appearance
+src/components/layout/command-menubar.tsx:188	attr:label	Sort articles by
+src/components/layout/command-menubar.tsx:344	jsx-text	Open recent
+src/components/layout/command-menubar.tsx:346	attr:label	Recent files
+src/components/layout/command-menubar.tsx:348	attr:label	Recent folders
+src/components/layout/command-menubar.tsx:369	jsx-text	No recent
+src/components/layout/command-menubar.tsx:407	attr:label	Heading
+src/components/layout/command-menubar.tsx:426	jsx-text	Line ending
+src/components/layout/developer-tools.tsx:41	prop:description	Open the native webview inspector for console and network inspection.
+src/components/layout/developer-tools.tsx:43	prop:label	Open DevTools
+src/components/layout/developer-tools.tsx:47	prop:description	Reload the webview after a boundary fallback or stale HMR state.
+src/components/layout/developer-tools.tsx:49	prop:label	Reload app (F5)
+src/components/layout/developer-tools.tsx:55	prop:description	Throw during app-surface render; the helper should stay available.
+src/components/layout/developer-tools.tsx:57	prop:label	Render document surface crash
+src/components/layout/developer-tools.tsx:61	prop:description	Mimic a rejected command such as a failed native fullscreen call.
+src/components/layout/developer-tools.tsx:63	prop:label	Command handler failure
+src/components/layout/developer-tools.tsx:67	prop:description	Mimic opening a recent or sidebar article that no longer exists.
+src/components/layout/developer-tools.tsx:69	prop:label	Missing file open
+src/components/layout/developer-tools.tsx:73	prop:description	Mimic a stale open transition that should stay silent.
+src/components/layout/developer-tools.tsx:75	prop:label	Cancelled open transition
+src/components/layout/developer-tools.tsx:79	prop:description	Mimic an image resolution promise that escaped local handling.
+src/components/layout/developer-tools.tsx:81	prop:label	Escaped image rejection
+src/components/layout/developer-tools.tsx:85	prop:description	Mimic a native window event listener throwing outside React.
+src/components/layout/developer-tools.tsx:87	prop:label	Window event listener throw
+src/components/layout/developer-tools.tsx:91	prop:description	Mimic duplicate folder watcher refresh failures in the dedupe window.
+src/components/layout/developer-tools.tsx:93	prop:label	Repeated watcher failure
+src/components/layout/developer-tools.tsx:106	attr:aria-label	Open developer tools
+src/components/layout/developer-tools.tsx:118	jsx-text	Developer tools
+src/components/layout/developer-tools.tsx:129	attr:aria-label	Developer tools
+src/components/layout/developer-tools.tsx:154	attr:aria-label	Failure simulations
+src/components/layout/developer-tools.tsx:171	jsx-text	Failure simulations
+src/components/layout/developer-tools.tsx:172	jsx-text	Open failure scenarios for testing error handling paths.
+src/components/layout/developer-tools.tsx:179	jsx-text	Failure simulations
+src/components/layout/developer-tools.tsx:180	jsx-text	Trigger real error-handling paths without changing app state.
+src/components/layout/developer-tools.tsx:258	prose	Command failed.
+src/components/layout/developer-tools.tsx:259	prose	Native fullscreen state update failed.
+src/components/layout/developer-tools.tsx:278	prose	Command failed.
+src/components/layout/developer-tools.tsx:279	prose	The previous open transition was cancelled.
+src/components/layout/developer-tools.tsx:289	prose	Markdown image resolution escaped local handling.
+src/components/layout/developer-tools.tsx:295	prose	Native window event listener failed while handling close.
+src/components/layout/developer-tools.tsx:300	prose	Folder watcher refresh failed after a filesystem event.
+src/components/layout/shell.tsx:79	prose	Hide sidebar
+src/components/layout/shell.tsx:79	prose	Show sidebar
+src/components/layout/shell.tsx:100	prose	Hide sidebar
+src/components/layout/shell.tsx:101	prose	Show sidebar
+src/components/layout/shell.tsx:102	prose	Open a folder to show the sidebar
+src/components/layout/shell.tsx:138	attr:aria-label	Article navigator
+src/components/layout/shell.tsx:150	attr:aria-label	Resize article navigator
+src/components/layout/shell.tsx:156	attr:aria-label	Document surface
+src/components/layout/status-bar.tsx:72	template	{}, {} without spaces
+src/components/layout/status-bar.tsx:78	template	~{} min read
+src/components/layout/status-bar.tsx:102	attr:aria-label	Status bar
+src/components/layout/status-bar.tsx:189	template	Line ending: {}
+src/components/layout/status-bar.tsx:233	template	Zoom {}, reset zoom
+src/components/layout/unexpected-error-boundary.tsx:50	jsx-text	Something went wrong.
+src/components/layout/unexpected-error-boundary.tsx:53	jsx-text	Restart Leafdown or reopen the current document.
+src/components/screens/document-screen.tsx:44	attr:aria-label	Active document
+src/components/screens/empty-folder-screen.tsx:13	jsx-text	No Markdown files found
+src/components/screens/empty-folder-screen.tsx:16	jsx-text	Create a new document or open another folder.
+src/components/screens/folder-only-screen.tsx:13	jsx-text	No document open
+src/components/screens/folder-only-screen.tsx:16	jsx-text	Select a Markdown file from the sidebar or create a new document.
+src/components/screens/welcome-screen.tsx:27	prose	Could not create document.
+src/components/screens/welcome-screen.tsx:53	prop:title	Could not open recent Markdown file.
+src/components/screens/welcome-screen.tsx:65	prop:title	Could not open recent folder.
+src/components/screens/welcome-screen.tsx:86	jsx-text	Leafdown
+src/components/screens/welcome-screen.tsx:89	jsx-text	Start a document, or open a Markdown file or folder.
+src/components/screens/welcome-screen.tsx:95	jsx-text	New document
+src/components/screens/welcome-screen.tsx:100	jsx-text	Open file
+src/components/screens/welcome-screen.tsx:105	jsx-text	Open folder
+src/components/screens/welcome-screen.tsx:115	attr:title	Recent files
+src/components/screens/welcome-screen.tsx:125	attr:title	Recent folders
+src/components/screens/welcome-screen.tsx:143	jsx-text	Clear recent items
+src/components/screens/welcome-screen.tsx:285	template	Remove from {}
+src/components/ui/dialog.tsx:117	jsx-text	Close
+src/components/ui/dialog.tsx:147	jsx-text	Close
+src/components/ui/toast.tsx:121	attr:aria-label	Close toast
+src/features/diagnostics/components/diagnostics-dialog.tsx:66	prose	Diagnostics could not be loaded.
+src/features/diagnostics/components/diagnostics-dialog.tsx:97	prose	Diagnostics summary copied.
+src/features/diagnostics/components/diagnostics-dialog.tsx:100	prose	Could not copy diagnostics summary.
+src/features/diagnostics/components/diagnostics-dialog.tsx:115	prose	Could not open logs folder.
+src/features/diagnostics/components/diagnostics-dialog.tsx:127	jsx-text	Diagnostics
+src/features/diagnostics/components/diagnostics-dialog.tsx:128	jsx-text	This installation and where it keeps its local logs.
+src/features/diagnostics/components/diagnostics-dialog.tsx:137	jsx-text	Diagnostics could not be loaded.
+src/features/diagnostics/components/diagnostics-dialog.tsx:162	template	Current log plus {} retained files, {} each
+src/features/diagnostics/components/diagnostics-dialog.tsx:169	jsx-text	Diagnostics stay on this device.
+src/features/diagnostics/components/diagnostics-dialog.tsx:170	jsx-text	Logs are not uploaded automatically. They may include local paths and user content captured inside error messages or stack traces.
+src/features/diagnostics/components/diagnostics-dialog.tsx:185	jsx-text	Show summary
+src/features/diagnostics/components/diagnostics-dialog.tsx:189	jsx-text	Diagnostics summary
+src/features/diagnostics/components/diagnostics-dialog.tsx:205	jsx-text	Retry
+src/features/diagnostics/components/diagnostics-dialog.tsx:210	jsx-text	Open logs folder
+src/features/diagnostics/components/diagnostics-dialog.tsx:214	jsx-text	Copy summary
+src/features/diagnostics/services/diagnosticLog.ts:178	prose	Unexpected error.
+src/features/diagnostics/services/diagnosticsSummary.ts:5	prose	Leafdown diagnostics
+src/features/document/services/markdownDocument.ts:36	prose-word	Markdown
+src/features/document/services/markdownDocument.ts:54	prop:title	Save Markdown document
+src/features/document/utils/documentErrors.ts:21	prop:title	Could not open Markdown file.
+src/features/document/utils/documentErrors.ts:35	prop:title	Unsupported Markdown file type.
+src/features/document/utils/documentErrors.ts:36	prop:description	Leafdown opens .md and .markdown files.
+src/features/document/utils/documentErrors.ts:40	prop:title	Invalid Markdown file path.
+src/features/document/utils/documentErrors.ts:45	prop:title	Markdown file not found.
+src/features/document/utils/documentErrors.ts:50	prop:title	Permission denied opening Markdown file.
+src/features/document/utils/documentErrors.ts:55	prop:title	Markdown file is too large.
+src/features/document/utils/documentErrors.ts:56	template	{} selected. Files larger than {} do not load.
+src/features/document/utils/documentErrors.ts:60	prop:title	Invalid Markdown file encoding.
+src/features/document/utils/documentErrors.ts:61	prop:description	Leafdown opens Markdown files encoded as UTF-8.
+src/features/document/utils/documentErrors.ts:65	prop:title	Could not read Markdown file.
+src/features/document/utils/documentErrors.ts:70	prop:title	Could not inspect Markdown file.
+src/features/document/utils/documentErrors.ts:91	prop:title	Could not save Markdown document.
+src/features/document/utils/documentErrors.ts:105	prop:title	Unsupported save file type.
+src/features/document/utils/documentErrors.ts:106	prop:description	Save Markdown documents as .md or .markdown files.
+src/features/document/utils/documentErrors.ts:110	prop:title	Invalid save path.
+src/features/document/utils/documentErrors.ts:115	prop:title	Saved Markdown file is missing.
+src/features/document/utils/documentErrors.ts:120	prop:title	Save folder not found.
+src/features/document/utils/documentErrors.ts:125	prop:title	Permission denied saving Markdown file.
+src/features/document/utils/documentErrors.ts:130	prop:title	Markdown file changed outside Leafdown.
+src/features/document/utils/documentErrors.ts:135	prop:title	Could not write Markdown file.
+src/features/document/utils/documentErrors.ts:140	prop:title	Could not inspect saved Markdown file.
+src/features/editor/commands/metadata.ts:4	command-label	Undo
+src/features/editor/commands/metadata.ts:5	command-label	Redo
+src/features/editor/commands/metadata.ts:6	command-label	Cut
+src/features/editor/commands/metadata.ts:7	command-label	Copy
+src/features/editor/commands/metadata.ts:8	command-label	Plain text
+src/features/editor/commands/metadata.ts:9	command-label	Markdown
+src/features/editor/commands/metadata.ts:10	command-label	HTML
+src/features/editor/commands/metadata.ts:11	command-label	Rich text
+src/features/editor/commands/metadata.ts:12	command-label	Paste
+src/features/editor/commands/metadata.ts:13	command-label	Plain text
+src/features/editor/commands/metadata.ts:14	command-label	Markdown
+src/features/editor/commands/metadata.ts:15	command-label	Rich text / formatted text
+src/features/editor/commands/metadata.ts:16	command-label	Delete
+src/features/editor/commands/metadata.ts:17	command-label	Move block up
+src/features/editor/commands/metadata.ts:18	command-label	Move block down
+src/features/editor/commands/metadata.ts:19	command-label	Delete word backward
+src/features/editor/commands/metadata.ts:20	command-label	Delete word forward
+src/features/editor/commands/metadata.ts:21	command-label	Select all
+src/features/editor/commands/metadata.ts:22	command-label	Select word
+src/features/editor/commands/metadata.ts:23	command-label	Jump to top
+src/features/editor/commands/metadata.ts:24	command-label	Jump to bottom
+src/features/editor/commands/metadata.ts:25	command-label	Jump to selection
+src/features/editor/commands/metadata.ts:26	command-label	Jump to line start
+src/features/editor/commands/metadata.ts:27	command-label	Jump to line end
+src/features/editor/commands/metadata.ts:28	command-label	Jump to footnote definition
+src/features/editor/commands/metadata.ts:29	command-label	Rename footnote
+src/features/editor/commands/metadata.ts:30	command-label	Paragraph
+src/features/editor/commands/metadata.ts:31	command-label	Heading 1
+src/features/editor/commands/metadata.ts:32	command-label	Heading 2
+src/features/editor/commands/metadata.ts:33	command-label	Heading 3
+src/features/editor/commands/metadata.ts:34	command-label	Heading 4
+src/features/editor/commands/metadata.ts:35	command-label	Heading 5
+src/features/editor/commands/metadata.ts:36	command-label	Heading 6
+src/features/editor/commands/metadata.ts:37	command-label	Link
+src/features/editor/commands/metadata.ts:38	command-label	Footnote
+src/features/editor/commands/metadata.ts:39	command-label	Image
+src/features/editor/commands/metadata.ts:40	command-label	Ordered list
+src/features/editor/commands/metadata.ts:41	command-label	Unordered list
+src/features/editor/commands/metadata.ts:42	command-label	Task list
+src/features/editor/commands/metadata.ts:43	command-label	Blockquote
+src/features/editor/commands/metadata.ts:44	command-label	Code block
+src/features/editor/commands/metadata.ts:45	command-label	Table
+src/features/editor/commands/metadata.ts:46	command-label	Horizontal rule
+src/features/editor/commands/metadata.ts:47	command-label	Strong
+src/features/editor/commands/metadata.ts:48	command-label	Emphasis
+src/features/editor/commands/metadata.ts:49	command-label	Strikethrough
+src/features/editor/commands/metadata.ts:50	command-label	Inline code
+src/features/editor/commands/metadata.ts:51	command-label	Clear inline formatting
+src/features/editor/commands/metadata.ts:52	command-label	Paragraph
+src/features/editor/commands/metadata.ts:53	command-label	Heading 1
+src/features/editor/commands/metadata.ts:54	command-label	Heading 2
+src/features/editor/commands/metadata.ts:55	command-label	Heading 3
+src/features/editor/commands/metadata.ts:56	command-label	Heading 4
+src/features/editor/commands/metadata.ts:57	command-label	Heading 5
+src/features/editor/commands/metadata.ts:58	command-label	Heading 6
+src/features/editor/commands/metadata.ts:59	command-label	Increase heading level
+src/features/editor/commands/metadata.ts:60	command-label	Decrease heading level
+src/features/editor/commands/metadata.ts:61	command-label	Ordered list
+src/features/editor/commands/metadata.ts:62	command-label	Unordered list
+src/features/editor/commands/metadata.ts:63	command-label	Task list
+src/features/editor/commands/metadata.ts:64	command-label	Increase list indent
+src/features/editor/commands/metadata.ts:65	command-label	Decrease list indent
+src/features/editor/commands/metadata.ts:66	command-label	Toggle task checked
+src/features/editor/commands/metadata.ts:67	command-label	Blockquote
+src/features/editor/commands/metadata.ts:68	command-label	Code block
+src/features/editor/commands/metadata.ts:69	command-label	Delete table
+src/features/editor/commands/metadata.ts:70	command-label	Add row above
+src/features/editor/commands/metadata.ts:71	command-label	Add row below
+src/features/editor/commands/metadata.ts:72	command-label	Add column before
+src/features/editor/commands/metadata.ts:73	command-label	Add column after
+src/features/editor/commands/metadata.ts:74	command-label	Move row up
+src/features/editor/commands/metadata.ts:75	command-label	Move row down
+src/features/editor/commands/metadata.ts:76	command-label	Move column left
+src/features/editor/commands/metadata.ts:77	command-label	Move column right
+src/features/editor/commands/metadata.ts:78	command-label	Delete row
+src/features/editor/commands/metadata.ts:79	command-label	Delete column
+src/features/editor/commands/metadata.ts:80	command-label	Clear block formatting
+src/features/editor/components/editor-block-insertion-menu.tsx:9	prose-word	Paragraph
+src/features/editor/components/editor-block-insertion-menu.tsx:10	prose	Heading 1
+src/features/editor/components/editor-block-insertion-menu.tsx:11	prose	Heading 2
+src/features/editor/components/editor-block-insertion-menu.tsx:12	prose	Heading 3
+src/features/editor/components/editor-block-insertion-menu.tsx:13	prose	Heading 4
+src/features/editor/components/editor-block-insertion-menu.tsx:14	prose	Heading 5
+src/features/editor/components/editor-block-insertion-menu.tsx:15	prose	Heading 6
+src/features/editor/components/editor-block-insertion-menu.tsx:16	prose-word	Image
+src/features/editor/components/editor-block-insertion-menu.tsx:17	prose	Block quote
+src/features/editor/components/editor-block-insertion-menu.tsx:18	prose	Bulleted list
+src/features/editor/components/editor-block-insertion-menu.tsx:19	prose	Numbered list
+src/features/editor/components/editor-block-insertion-menu.tsx:20	prose	Task list
+src/features/editor/components/editor-block-insertion-menu.tsx:21	prose	Code block
+src/features/editor/components/editor-block-insertion-menu.tsx:22	prose-word	Table
+src/features/editor/components/editor-block-insertion-menu.tsx:23	prose	Horizontal rule
+src/features/editor/components/editor-block-insertion-menu.tsx:24	prose	List item
+src/features/editor/components/editor-block-insertion-menu.tsx:85	attr:aria-label	Insert block
+src/features/editor/components/editor-context-popup.tsx:117	prose	Context actions
+src/features/editor/components/editor-context-popup.tsx:427	attr:label	Block type
+src/features/editor/components/editor-context-popup.tsx:435	attr:label	Insert
+src/features/editor/components/editor-footnote-preview.tsx:53	jsx-text	No footnote definition for this label.
+src/features/editor/plugins/blockSelectionInteraction.ts:58	prose	Block quote
+src/features/editor/plugins/blockSelectionInteraction.ts:63	prose	Code block
+src/features/editor/plugins/blockSelectionInteraction.ts:65	prose	Footnote definition
+src/features/editor/plugins/blockSelectionInteraction.ts:70	prose	Horizontal rule
+src/features/editor/plugins/blockSelectionInteraction.ts:72	prose	List item
+src/features/editor/plugins/blockSelectionInteraction.ts:198	prose	Insert block at indicated boundary
+src/features/editor/plugins/blockSelectionInteraction.ts:199	prose	Insert block
+src/features/editor/plugins/blockSelectionInteraction.ts:638	prose	Document selected
+src/features/editor/plugins/blockSelectionInteraction.ts:651	template	{} blocks selected
+src/features/editor/plugins/imageView.ts:215	prose	Image could not be resolved
+src/features/editor/plugins/imageView.ts:347	prose	Load image
+src/features/editor/plugins/imageView.ts:437	template	Remote image from {}.
+src/features/editor/plugins/imageView.ts:440	template	Loading image from {}...
+src/features/editor/plugins/imageView.ts:472	prose	Load image
+src/features/editor/plugins/imageView.ts:485	prose	Resolving image...
+src/features/editor/plugins/imageView.ts:489	prose	Image unavailable.
+src/features/editor/plugins/imageView.ts:494	prose	Image not found.
+src/features/editor/plugins/imageView.ts:497	prose	Save the document to resolve this image.
+src/features/editor/plugins/imageView.ts:500	prose	Image outside the current folder.
+src/features/editor/plugins/imageView.ts:503	prose	Remote images are blocked.
+src/features/editor/plugins/imageView.ts:506	prose	Unsupported image format.
+src/features/editor/plugins/imageView.ts:509	prose	Unsupported image target.
+src/features/editor/plugins/imageView.ts:512	prose	Invalid image path.
+src/features/editor/plugins/imageView.ts:515	prose	Image access denied.
+src/features/editor/plugins/imageView.ts:518	prose	Image metadata unavailable.
+src/features/editor/utils/documentStatus.ts:142	prose	Task list
+src/features/editor/utils/documentStatus.ts:145	prose	Ordered list
+src/features/editor/utils/documentStatus.ts:145	prose	Unordered list
+src/features/editor/utils/documentStatus.ts:168	template	Code block · {}
+src/features/editor/utils/documentStatus.ts:168	prose	Code block
+src/features/editor/utils/documentStatus.ts:175	prose	Footnote definition
+src/features/editor/utils/documentStatus.ts:180	prose	Reference definition
+src/features/editor/utils/linkActivation.ts:41	prop:title	Open local file?
+src/features/editor/utils/linkActivation.ts:42	prose	Open this local file with the system default app?
+src/features/editor/utils/linkActivation.ts:44	prop:confirmLabel	Open file
+src/features/editor/utils/linkActivation.ts:45	prop:cancelLabel	Cancel
+src/features/editor/utils/linkActivation.ts:50	prop:title	Open outside folder?
+src/features/editor/utils/linkActivation.ts:51	prose	Open this Markdown file outside the current folder?
+src/features/editor/utils/linkActivation.ts:53	prop:confirmLabel	Open file
+src/features/editor/utils/linkActivation.ts:54	prop:cancelLabel	Cancel
+src/features/editor/utils/linkActivation.ts:62	prose	Could not open web link.
+src/features/editor/utils/linkActivation.ts:80	prose	Could not open local link.
+src/features/editor/utils/linkActivation.ts:116	prose	Link target not found.
+src/features/editor/utils/linkActivation.ts:120	prose	Save the document to resolve this link.
+src/features/editor/utils/linkActivation.ts:124	prose	Unsupported link target.
+src/features/editor/utils/linkActivation.ts:128	prose	Invalid link path.
+src/features/editor/utils/linkActivation.ts:132	prose	Link access denied.
+src/features/editor/utils/linkActivation.ts:136	prose	Link target metadata unavailable.
+src/features/editor/utils/linkActivation.ts:151	prose	Link target is outside the current folder.
+src/features/editor/utils/linkActivation.ts:171	prose	Could not resolve link.
+src/features/editor/utils/remoteImageErrors.ts:18	prose	Image could not be loaded.
+src/features/editor/utils/remoteImageErrors.ts:30	prose	Image address is not allowed.
+src/features/editor/utils/remoteImageErrors.ts:33	prose	Only HTTPS images can load.
+src/features/editor/utils/remoteImageErrors.ts:36	prose	Local and private network addresses are blocked.
+src/features/editor/utils/remoteImageErrors.ts:39	prose	Image redirected to an insecure address.
+src/features/editor/utils/remoteImageErrors.ts:42	prose	Image redirected too many times.
+src/features/editor/utils/remoteImageErrors.ts:45	template	Image request failed (HTTP {}).
+src/features/editor/utils/remoteImageErrors.ts:48	prose	Image is larger than 10 MB.
+src/features/editor/utils/remoteImageErrors.ts:51	prose	Unsupported remote image format.
+src/features/editor/utils/remoteImageErrors.ts:54	prose	Image request timed out.
+src/features/editor/utils/remoteImageErrors.ts:57	prose	Image could not be downloaded.
+src/features/folder-context/components/article-navigator.tsx:153	prose	No supported Markdown files found in scanned entries.
+src/features/folder-context/components/article-navigator.tsx:154	prose	No supported Markdown files found.
+src/features/folder-context/components/article-navigator.tsx:317	prose	No matching articles.
+src/features/folder-context/components/article-navigator.tsx:317	prose	No visible folder entries.
+src/features/folder-context/components/article-navigator.tsx:351	attr:aria-label	Filter articles
+src/features/folder-context/components/article-navigator.tsx:354	attr:placeholder	Filter…
+src/features/folder-context/components/article-navigator.tsx:364	attr:aria-label	Clear article filter
+src/features/folder-context/components/article-navigator.tsx:398	jsx-text	Open
+src/features/folder-context/components/article-navigator.tsx:406	jsx-text	New file
+src/features/folder-context/components/article-navigator.tsx:407	jsx-text	New folder
+src/features/folder-context/components/article-navigator.tsx:415	jsx-text	Rename
+src/features/folder-context/components/article-navigator.tsx:418	jsx-text	Delete
+src/features/folder-context/components/article-navigator.tsx:427	prose	Open file location
+src/features/folder-context/components/article-navigator.tsx:427	prose	Open folder location
+src/features/folder-context/components/article-navigator.tsx:429	jsx-text	Copy path
+src/features/folder-context/components/article-navigator.tsx:432	jsx-text	Copy relative path
+src/features/folder-context/components/article-navigator.tsx:451	prose	File actions
+src/features/folder-context/components/article-navigator.tsx:453	prose	Folder actions
+src/features/folder-context/components/article-navigator.tsx:454	prose	Folder context actions
+src/features/folder-context/components/article-navigator.tsx:461	jsx-text	Current document is outside this folder context.
+src/features/folder-context/components/article-navigator.tsx:473	jsx-text	Some folder entries could not be scanned.
+src/features/folder-context/components/article-navigator.tsx:491	template	{} issues found.
+src/features/folder-context/components/article-navigator.tsx:699	attr:aria-label	Articles
+src/features/folder-context/components/article-navigator.tsx:836	prose	New file
+src/features/folder-context/components/article-navigator.tsx:836	prose	New folder
+src/features/folder-context/components/article-navigator.tsx:960	prose	File name
+src/features/folder-context/components/article-navigator.tsx:960	prose	Folder name
+src/features/folder-context/services/folderEntries.ts:22	prose	Recycle Bin
+src/features/folder-context/utils/folderContextErrors.ts:26	prop:title	Could not scan folder.
+src/features/folder-context/utils/folderContextErrors.ts:40	prop:title	Invalid folder path.
+src/features/folder-context/utils/folderContextErrors.ts:45	prop:title	Folder not found.
+src/features/folder-context/utils/folderContextErrors.ts:50	prop:title	Permission denied accessing folder.
+src/features/folder-context/utils/folderContextErrors.ts:55	prop:title	Could not inspect folder.
+src/features/folder-context/utils/folderContextErrors.ts:60	prop:title	Folder path is not a directory.
+src/features/folder-context/utils/folderContextErrors.ts:65	prop:title	Could not read folder.
+src/features/folder-context/utils/folderContextErrors.ts:79	prop:title	Could not open folder.
+src/features/folder-context/utils/folderContextErrors.ts:110	prop:title	Could not watch folder.
+src/features/folder-context/utils/folderContextErrors.ts:124	prop:title	Invalid folder path.
+src/features/folder-context/utils/folderContextErrors.ts:129	prop:title	Folder not found.
+src/features/folder-context/utils/folderContextErrors.ts:134	prop:title	Permission denied watching folder.
+src/features/folder-context/utils/folderContextErrors.ts:139	prop:title	Could not inspect folder.
+src/features/folder-context/utils/folderContextErrors.ts:144	prop:title	Folder path is not a directory.
+src/features/folder-context/utils/folderContextErrors.ts:149	prop:title	Could not watch folder.
+src/features/folder-context/utils/folderContextErrors.ts:154	prop:title	Could not watch folder.
+src/features/folder-context/utils/folderContextErrors.ts:179	prose	Enter a name.
+src/features/folder-context/utils/folderContextErrors.ts:180	prose	The name is reserved by the file system.
+src/features/folder-context/utils/folderContextErrors.ts:181	prose	The name contains a character file names cannot hold.
+src/features/folder-context/utils/folderContextErrors.ts:182	prose	The name cannot end with a period or space.
+src/features/folder-context/utils/folderContextErrors.ts:193	prop:title	Invalid name.
+src/features/folder-context/utils/folderContextErrors.ts:198	prop:title	Unsupported file type.
+src/features/folder-context/utils/folderContextErrors.ts:199	prop:description	Use a .md or .markdown extension, or leave the extension out.
+src/features/folder-context/utils/folderContextErrors.ts:203	prop:title	An item with that name already exists.
+src/features/folder-context/utils/folderContextErrors.ts:208	prop:title	The item is not inside the current folder.
+src/features/folder-context/utils/folderContextErrors.ts:213	prop:title	Invalid path.
+src/features/folder-context/utils/folderContextErrors.ts:218	prop:title	The item no longer exists.
+src/features/folder-context/utils/folderContextErrors.ts:223	prop:title	The target is not a folder.
+src/features/folder-context/utils/folderContextErrors.ts:228	prop:title	Permission denied.
+src/features/folder-context/utils/folderContextErrors.ts:238	prop:title	Could not move the item to the trash.
+src/features/preferences/components/preferences-dialog.tsx:40	prop:label	System
+src/features/preferences/components/preferences-dialog.tsx:41	prop:label	Light
+src/features/preferences/components/preferences-dialog.tsx:42	prop:label	Dark
+src/features/preferences/components/preferences-dialog.tsx:46	prop:label	Neutral
+src/features/preferences/components/preferences-dialog.tsx:47	prop:label	Red
+src/features/preferences/components/preferences-dialog.tsx:48	prop:label	Orange
+src/features/preferences/components/preferences-dialog.tsx:49	prop:label	Amber
+src/features/preferences/components/preferences-dialog.tsx:50	prop:label	Emerald
+src/features/preferences/components/preferences-dialog.tsx:51	prop:label	Cyan
+src/features/preferences/components/preferences-dialog.tsx:52	prop:label	Blue
+src/features/preferences/components/preferences-dialog.tsx:53	prop:label	Violet
+src/features/preferences/components/preferences-dialog.tsx:54	prop:label	Fuchsia
+src/features/preferences/components/preferences-dialog.tsx:72	prop:label	Name
+src/features/preferences/components/preferences-dialog.tsx:73	prop:label	Modified date
+src/features/preferences/components/preferences-dialog.tsx:74	prop:label	Type
+src/features/preferences/components/preferences-dialog.tsx:78	prop:label	.md
+src/features/preferences/components/preferences-dialog.tsx:79	prop:label	.markdown
+src/features/preferences/components/preferences-dialog.tsx:83	prop:label	LF
+src/features/preferences/components/preferences-dialog.tsx:84	prop:label	CRLF
+src/features/preferences/components/preferences-dialog.tsx:88	prop:label	Open
+src/features/preferences/components/preferences-dialog.tsx:92	prose	Insert folder link
+src/features/preferences/components/preferences-dialog.tsx:93	prose	Insert file link
+src/features/preferences/components/preferences-dialog.tsx:96	prop:label	General
+src/features/preferences/components/preferences-dialog.tsx:97	prop:label	Files
+src/features/preferences/components/preferences-dialog.tsx:98	prop:label	Editor
+src/features/preferences/components/preferences-dialog.tsx:99	prop:label	Appearance
+src/features/preferences/components/preferences-dialog.tsx:114	jsx-text	Preferences
+src/features/preferences/components/preferences-dialog.tsx:150	jsx-text	Restore defaults
+src/features/preferences/components/preferences-dialog.tsx:169	attr:label	Record recent files and folders
+src/features/preferences/components/preferences-dialog.tsx:170	attr:description	Session history records the paths you open.
+src/features/preferences/components/preferences-dialog.tsx:175	attr:label	Sidebar visibility
+src/features/preferences/components/preferences-dialog.tsx:176	attr:description	Applies while a folder context is open.
+src/features/preferences/components/preferences-dialog.tsx:181	attr:label	Status bar visibility
+src/features/preferences/components/preferences-dialog.tsx:182	attr:description	Applies while a document is open.
+src/features/preferences/components/preferences-dialog.tsx:187	attr:label	Sort articles by
+src/features/preferences/components/preferences-dialog.tsx:213	attr:label	Default extension for new documents
+src/features/preferences/components/preferences-dialog.tsx:219	attr:label	Default line ending for new documents
+src/features/preferences/components/preferences-dialog.tsx:225	attr:label	Insert final newline on save
+src/features/preferences/components/preferences-dialog.tsx:226	attr:description	Ends the saved file with a line break.
+src/features/preferences/components/preferences-dialog.tsx:231	attr:label	When dropping a folder
+src/features/preferences/components/preferences-dialog.tsx:237	attr:label	When dropping a Markdown file
+src/features/preferences/components/preferences-dialog.tsx:243	attr:label	Index file names for automatic folder open
+src/features/preferences/components/preferences-dialog.tsx:244	attr:description	Base names, one per line, in the order they are tried.
+src/features/preferences/components/preferences-dialog.tsx:249	attr:label	Ignored directories for folder scans
+src/features/preferences/components/preferences-dialog.tsx:250	attr:description	Directory names, one per line. Matches are skipped with their contents.
+src/features/preferences/components/preferences-dialog.tsx:266	attr:label	Auto pair brackets and quotes
+src/features/preferences/components/preferences-dialog.tsx:267	attr:description	Closes a bracket or quote as you open one.
+src/features/preferences/components/preferences-dialog.tsx:272	attr:label	Soft wrap for code blocks
+src/features/preferences/components/preferences-dialog.tsx:273	attr:description	Wraps long lines instead of scrolling them.
+src/features/preferences/components/preferences-dialog.tsx:293	attr:label	Appearance theme
+src/features/preferences/components/preferences-dialog.tsx:311	jsx-text	Accent color
+src/features/preferences/components/preferences-dialog.tsx:322	attr:aria-label	Accent color
+src/features/session/components/dropped-path-overlay.tsx:63	prop:description	Leafdown is determining what the drop will do.
+src/features/session/components/dropped-path-overlay.tsx:65	prop:title	Checking dropped item
+src/features/session/components/dropped-path-overlay.tsx:71	prop:description	Leafdown could not inspect this item.
+src/features/session/components/dropped-path-overlay.tsx:73	prop:title	Drop unavailable
+src/features/session/components/dropped-path-overlay.tsx:84	prop:title	Open a document to insert a link
+src/features/session/components/dropped-path-overlay.tsx:89	template	{} items selected
+src/features/session/components/dropped-path-overlay.tsx:91	prop:title	Drop one item at a time
+src/features/session/components/dropped-path-overlay.tsx:98	prop:title	Markdown files and folders only
+src/features/session/components/dropped-path-overlay.tsx:113	prose	Insert folder link
+src/features/session/components/dropped-path-overlay.tsx:114	prose	Insert file link
+src/features/session/components/dropped-path-overlay.tsx:116	prose	Open folder
+src/features/session/components/dropped-path-overlay.tsx:117	prose	Open Markdown file
+src/features/session/hooks/useDroppedPathListener.ts:59	prose	Could not handle dropped item.
+src/features/session/hooks/useDroppedPathListener.ts:67	prose	Could not enable file and folder drops.
+src/features/session/hooks/useFolderContextWatcher.ts:187	prose	Could not refresh folder.
+src/features/session/hooks/useFolderContextWatcher.ts:270	prose	Could not start folder watcher.
+src/features/session/services/documentWorkflows.ts:213	prop:title	File missing
+src/features/session/services/documentWorkflows.ts:214	prose	The saved Markdown file no longer exists. Save this document to a new path?
+src/features/session/services/documentWorkflows.ts:215	prop:confirmLabel	Save as
+src/features/session/services/documentWorkflows.ts:216	prop:cancelLabel	Cancel
+src/features/session/services/documentWorkflows.ts:235	prop:title	File changed
+src/features/session/services/documentWorkflows.ts:237	prose	The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?
+src/features/session/services/documentWorkflows.ts:238	prop:confirmLabel	Overwrite anyway
+src/features/session/services/documentWorkflows.ts:239	prop:cancelLabel	Cancel save
+src/features/session/services/dropWorkflows.ts:91	prose	Open a document before inserting a dropped link.
+src/features/session/services/dropWorkflows.ts:94	prose	Drop one item at a time.
+src/features/session/services/dropWorkflows.ts:97	prose	Drop a Markdown file or folder.
+src/features/session/services/dropWorkflows.ts:111	prose	Open a document before inserting a dropped link.
+src/features/session/services/dropWorkflows.ts:124	prose	Place the caret in the document before inserting a dropped link.
+src/features/session/services/folderEntryWorkflows.ts:94	prose	Delete folder
+src/features/session/services/folderEntryWorkflows.ts:94	prose	Delete file
+src/features/session/services/folderEntryWorkflows.ts:97	template	Move "{}" and everything in it to the {}?
+src/features/session/services/folderEntryWorkflows.ts:100	template	Move to {}
+src/features/session/services/folderEntryWorkflows.ts:101	prop:cancelLabel	Cancel
+src/features/session/services/openSession.ts:201	prop:title	Could not open folder index file.
+src/features/session/services/unsavedChanges.ts:15	prop:title	Unsaved changes
+src/features/session/services/unsavedChanges.ts:16	prose	The active document has unsaved changes. Discard them and continue?
+src/features/session/services/unsavedChanges.ts:17	prop:confirmLabel	Discard changes
+src/features/session/services/unsavedChanges.ts:18	prop:cancelLabel	Keep editing
+src/lib/cancellation.ts:56	prose	Operation cancelled.
+src/lib/errors.ts:139	prose	Unknown thrown value.
+src/lib/errors.ts:143	prose	Unknown thrown value.
+src/lib/errors.ts:146	prose	Unknown thrown value.
+src/lib/errors.ts:152	template	Unexpected error ({}).
+src/lib/errors.ts:152	prose	Unexpected error.

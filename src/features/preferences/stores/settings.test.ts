@@ -101,6 +101,7 @@ describe("settings store", () => {
   describe("sanitizeSettingsPersistedState", () => {
     it("keeps every valid persisted setting", () => {
       const persistedState: SettingsPersistedState = {
+        language: "pt-BR",
         theme: "dark",
         accentColor: "violet",
         recordRecentItems: false,

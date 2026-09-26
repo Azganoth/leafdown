@@ -11,6 +11,7 @@ const restrictedImportRoots = [
 const restrictedImportPatterns = restrictedImportRoots.flatMap((root) => [root, `${root}/**`]);
 
 export default defineConfig({
+  ignorePatterns: ["spikes/**"],
   plugins: ["eslint", "import", "oxc", "react", "typescript", "unicorn", "vitest"],
   env: {
     builtin: true,

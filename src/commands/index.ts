@@ -3,7 +3,12 @@ export type { ApplicationCommandId } from "./application";
 export type { AppCommandContext } from "./context";
 export type { AppCommandId } from "./dispatch";
 export { useAppCommands } from "./hooks/useAppCommands";
-export { COMMAND_DEFINITIONS, COMMAND_MENU_LABELS, formatShortcut } from "./metadata";
+export {
+  COMMAND_DEFINITIONS,
+  formatShortcut,
+  getCommandLabelId,
+  getCommandMenuLabelId,
+} from "./metadata";
 export type { CommandDefinition, CommandMenuId, CommandShortcut } from "./metadata";
 export { getCommandState } from "./state";
 export type { CommandState } from "./statePrimitives";

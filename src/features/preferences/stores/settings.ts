@@ -7,6 +7,7 @@ import {
   type MarkdownFileExtension,
 } from "@/features/document";
 import { ARTICLE_SORT_ORDERS, type ArticleSortOrder } from "@/features/folder-context";
+import { SYSTEM_LANGUAGE } from "@/lib/i18n/localizer";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
 import { isWindowsPlatform } from "@/lib/platform";
 import { booleanValue, listOf, numberValue, oneOf, stringValue } from "@/lib/valueContract";
@@ -46,6 +47,9 @@ export const DEFAULT_IGNORED_DIRECTORIES = [
 ] as const;
 
 export interface SettingsState {
+  // "system" or a BCP 47 tag; a tag Leafdown does not ship resolves as "system" without being
+  // overwritten, so the choice returns if that locale ships again.
+  language: string;
   accentColor: AppearanceAccentColor;
   theme: AppearanceTheme;
   recordRecentItems: boolean;
@@ -73,6 +77,7 @@ export interface SettingsStore extends SettingsPersistedState {
 }
 
 export const createDefaultSettingsState = (): SettingsState => ({
+  language: SYSTEM_LANGUAGE,
   accentColor: "neutral",
   theme: "system",
   recordRecentItems: true,
@@ -99,6 +104,7 @@ const MARKDOWN_FILE_EXTENSION_VALUES = MARKDOWN_FILE_EXTENSIONS.map(
 );
 
 const SETTINGS_CONTRACT = definePersistedState({
+  language: stringValue,
   accentColor: oneOf(APPEARANCE_ACCENT_COLORS),
   theme: oneOf(APPEARANCE_THEMES),
   recordRecentItems: booleanValue,

@@ -21,6 +21,8 @@ export interface PreferenceSwitchProps {
 
 export interface ChoiceOption<Value extends string> {
   label: string;
+  // Set when the label is in a language other than the UI's, such as a language autonym.
+  lang?: string;
   value: Value;
 }
 
@@ -98,7 +100,7 @@ export function PreferenceChoice<Value extends string>({
         className="shrink-0"
       >
         {options.map((option) => (
-          <ToggleGroupItem key={option.value} value={option.value}>
+          <ToggleGroupItem key={option.value} lang={option.lang} value={option.value}>
             {option.label}
           </ToggleGroupItem>
         ))}

@@ -19,6 +19,7 @@ import {
   useDroppedPathListener,
 } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { localizer } from "@/lib/i18n/localizer";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
 
@@ -54,6 +55,7 @@ export function App() {
           recentItemsStoreTauriHandler.start(),
         ]);
 
+        localizer.setLanguage(useSettingsStore.getState().language);
         await updateTheme(useSettingsStore.getState().theme);
       } finally {
         // A hidden window has no chrome, focus, or taskbar entry, so it cannot be asked to close.
@@ -106,10 +108,15 @@ export function App() {
 
   const theme = useSettingsStore((state) => state.theme);
   const accentColor = useSettingsStore((state) => state.accentColor);
+  const language = useSettingsStore((state) => state.language);
 
   useEffect(() => {
     setAccentColor(accentColor);
   }, [accentColor]);
+
+  useEffect(() => {
+    localizer.setLanguage(language);
+  }, [language]);
 
   useEffect(() => {
     const disposables = new DisposableStore();

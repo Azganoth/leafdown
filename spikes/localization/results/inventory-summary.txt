@@ -1,0 +1,15 @@
+files scanned: 243
+string occurrences: 534, unique texts: 432
+template literals: 17
+app.tsx                         1
+commands                       89
+components/layout              69
+components/screens             17
+components/ui                   3
+features/diagnostics           17
+features/document              24
+features/editor               159
+features/folder-context        58
+features/preferences           52
+features/session               39
+lib                             6

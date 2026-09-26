@@ -1,0 +1,11 @@
+{
+  "name": "leafdown-localization-bundle-probe",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@fluent/bundle": "0.19.1",
+    "i18next": "26.4.2",
+    "intl-messageformat": "12.1.2",
+    "messageformat": "4.0.0"
+  }
+}

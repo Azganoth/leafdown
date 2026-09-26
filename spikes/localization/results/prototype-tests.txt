@@ -1,0 +1,42 @@
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["de-AT","en-US"] to de 3ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["fr-FR","en-GB"] to en 1ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["pt-br"] to pt-BR 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["pt-PT"] to en 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["zh-TW"] to zh-Hant 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["zh-CN"] to en 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system ["not a tag","de"] to de 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves system with system [] to en 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves pt-BR with system ["de"] to pt-BR 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves DE-de with system ["pt-BR"] to de 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves ja with system ["de"] to de 0ms
+ ✓ src/lib/i18n/localizer.test.ts > resolveLocale > resolves ja with system ["fr"] to en 0ms
+ ✓ src/lib/i18n/localizer.test.ts > createLocalization > formats plurals with the locale's plural categories 4ms
+ ✓ src/lib/i18n/localizer.test.ts > createLocalization > formats numbers, relative times, and lists for the locale 1ms
+ ✓ src/lib/i18n/localizer.test.ts > createLocalization > falls back to English for a missing message 1ms
+ ✓ src/lib/i18n/localizer.test.ts > createLocalization > falls back to English when a translation cannot format 1ms
+ ✓ src/lib/i18n/localizer.test.ts > pseudo-locale > accents and expands text while keeping arguments and plural branches 5ms
+ ✓ src/lib/i18n/localizer.test.ts > pseudo-locale > builds a message from every source message 2ms
+ ✓ src/lib/i18n/localizer.test.ts > localizer > notifies once per locale change and sets the document language 2ms
+ ✓ src/lib/i18n/catalog.test.ts > message catalogs > keeps every translated catalog aligned with the source 1ms
+ ✓ src/lib/i18n/catalog.test.ts > message catalogs > holds every shipped locale to the completeness floor 1ms
+ ✓ src/lib/i18n/catalog.test.ts > message catalogs > reports obsolete ids, missing arguments, and changed argument types 2ms
+ ✓ src/lib/i18n/useLocalization.test.tsx > useLocalization > re-translates a component that reads t from the snapshot 23ms
+ ✓ src/lib/i18n/useLocalization.test.tsx > useLocalization > keeps the module-level t cached by React Compiler across a switch 5ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > keeps one indicator position between adjacent sibling blocks 88ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > tracks one insertion button across local depths and paints only the hovered boundary 25ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > opens the same boundary menu from the focused editor without adding a tab stop 22ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > renders local non-tabbable handle, insertion, and marker slots for nested blocks 12ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > positions nested handles at each block's rendered logical start 10ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > reveals only the handle for the hovered block 8ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > selects on handle press, keeps editor focus, decorates the block, and opens the popup on release 82ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > extends, reverses, and collapses a block range through handle gestures 14ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > keeps exact list-item endpoints when a handle range crosses list wrappers 14ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > prepares the selected range for dragging without opening the popup 9ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > drops a handle-selected range at a valid sibling boundary 17ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > cancels a pending handle drag when the window loses focus 9ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > announces block type or count without adding a tab stop 7ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > re-translates handles and the announcement without touching the document 21ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > retains selected-handle presentation when a document change preserves the range 9ms
+ ✓ src/features/editor/plugins/blockSelectionInteraction.test.ts > block selection interaction > keeps table cells under native CellSelection while exposing one atomic table handle 12ms
+ Test Files  4 passed (4)
+      Tests  231 passed (231)

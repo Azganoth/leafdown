@@ -1,13 +1,18 @@
-const FILE_SIZE_BASE = 1024;
-const FILE_SIZE_UNITS = ["bytes", "KB", "MB", "GB", "TB", "PB"] as const;
+import { localizer } from "./i18n/localizer";
 
-export const formatFileSize = (sizeBytes: number) => {
+const FILE_SIZE_BASE = 1024;
+const FILE_SIZE_UNITS = [
+  "byte",
+  "kilobyte",
+  "megabyte",
+  "gigabyte",
+  "terabyte",
+  "petabyte",
+] as const;
+
+export const formatFileSize = (sizeBytes: number, localization = localizer.current) => {
   if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
     throw new RangeError("File size must be a finite non-negative number.");
-  }
-
-  if (sizeBytes < FILE_SIZE_BASE) {
-    return `${sizeBytes} ${sizeBytes === 1 ? "byte" : "bytes"}`;
   }
 
   let unitIndex = 0;
@@ -18,9 +23,14 @@ export const formatFileSize = (sizeBytes: number) => {
     unitIndex += 1;
   }
 
-  const formattedSize = Number.isInteger(scaledSize)
-    ? scaledSize.toString()
-    : scaledSize.toFixed(1);
+  const fractionDigits = Number.isInteger(scaledSize) ? 0 : 1;
 
-  return `${formattedSize} ${FILE_SIZE_UNITS[unitIndex]}`;
+  return localization.t("fileSize", {
+    count: scaledSize,
+    size: localization.formatNumber(scaledSize, {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }),
+    unit: FILE_SIZE_UNITS[unitIndex],
+  });
 };

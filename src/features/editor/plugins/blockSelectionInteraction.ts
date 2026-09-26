@@ -3,6 +3,9 @@ import { Plugin, PluginKey, type EditorState } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { localizer, t } from "@/lib/i18n/localizer";
+import type { Disposable } from "@/lib/lifecycle";
+
 import { canInsertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import {
   BlockSelection,
@@ -52,32 +55,37 @@ export interface BlockInsertionOptions {
   onRequest?: (request: BlockInsertionRequest) => void;
 }
 
-const getBlockName = (node: ProseMirrorNode) => {
+const getBlockKind = (node: ProseMirrorNode) => {
   switch (node.type.name) {
     case "blockquote":
-      return "Block quote";
+      return "blockquote";
     case "bullet_list":
     case "ordered_list":
-      return "List";
+      return "list";
     case "code_block":
-      return "Code block";
+      return "codeBlock";
     case "footnote_definition":
-      return "Footnote definition";
+      return "footnoteDefinition";
     case "heading":
-      return `Heading ${String(node.attrs.level ?? 1)}`;
+      return "heading";
     case "horizontal_rule":
     case "thematic_break":
-      return "Horizontal rule";
+      return "horizontalRule";
     case "list_item":
-      return "List item";
+      return "listItem";
     case "paragraph":
-      return "Paragraph";
+      return "paragraph";
     case "table":
-      return "Table";
+      return "table";
     default:
-      return "Block";
+      return "block";
   }
 };
+
+const getBlockMessageValues = (node: ProseMirrorNode) => ({
+  block: getBlockKind(node),
+  level: Number(node.attrs.level ?? 1),
+});
 
 const getSelectionDecorations = (state: EditorState) => {
   const selectedTargets =
@@ -142,14 +150,14 @@ const createGutter = (doc: Document, node: ProseMirrorNode, pos: number) => {
   insertionSlot.setAttribute("aria-hidden", "true");
 
   const handle = doc.createElement("button");
-  const blockName = getBlockName(node);
+  const handleLabel = t("editor.blockSelection.selectHandle", getBlockMessageValues(node));
   handle.className = "leafdown-block-handle";
   handle.dataset.leafdownBlockHandle = "";
   handle.dataset.leafdownBlockPos = String(pos);
   handle.tabIndex = -1;
   handle.type = "button";
-  handle.setAttribute("aria-label", `Select ${blockName.toLocaleLowerCase()} block`);
-  handle.title = `Select ${blockName.toLocaleLowerCase()} block`;
+  handle.setAttribute("aria-label", handleLabel);
+  handle.title = handleLabel;
 
   gutter.append(markerSlot, insertionSlot, handle);
   return gutter;
@@ -177,6 +185,7 @@ class BlockSelectionView {
     kinds: readonly BoundaryInsertKind[];
   } | null = null;
   private insertionMenuOpen = false;
+  private readonly localizationChange: Disposable;
 
   constructor(
     private view: EditorView,
@@ -195,8 +204,6 @@ class BlockSelectionView {
     this.insertionButton.tabIndex = -1;
     this.insertionButton.hidden = true;
     this.insertionButton.dataset.leafdownBlockInsert = "";
-    this.insertionButton.setAttribute("aria-label", "Insert block at indicated boundary");
-    this.insertionButton.title = "Insert block";
     const plusIcon = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     plusIcon.setAttribute("viewBox", "0 0 24 24");
     plusIcon.setAttribute("aria-hidden", "true");
@@ -237,8 +244,21 @@ class BlockSelectionView {
       this.resizeObserver.observe(view.dom);
     }
 
+    this.localizationChange = localizer.onDidChange(this.handleLocalizationChange);
+    this.labelInsertionButton();
     this.rebuild();
     this.updateSelectionPresentation();
+  }
+
+  private readonly handleLocalizationChange = () => {
+    this.labelInsertionButton();
+    this.rebuild();
+    this.updateSelectionPresentation();
+  };
+
+  private labelInsertionButton() {
+    this.insertionButton.setAttribute("aria-label", t("editor.blockSelection.insertAtBoundary"));
+    this.insertionButton.title = t("editor.blockSelection.insert");
   }
 
   update(view: EditorView, previousState: EditorState) {
@@ -257,6 +277,7 @@ class BlockSelectionView {
   }
 
   destroy() {
+    this.localizationChange.dispose();
     this.overlay.removeEventListener("mousedown", this.handleMouseDown);
     this.overlay.removeEventListener("mouseup", this.handleMouseUp);
     this.overlay.removeEventListener("mouseover", this.handleHandleMouseOver);
@@ -635,7 +656,7 @@ class BlockSelectionView {
     }
 
     if (!(selection instanceof BlockSelection)) {
-      this.status.textContent = "Document selected";
+      this.status.textContent = t("editor.blockSelection.documentSelected");
       return;
     }
 
@@ -647,8 +668,8 @@ class BlockSelectionView {
 
     this.status.textContent =
       targets.length === 1
-        ? `${getBlockName(targets[0].node)} selected`
-        : `${String(targets.length)} blocks selected`;
+        ? t("editor.blockSelection.selected", getBlockMessageValues(targets[0].node))
+        : t("editor.blockSelection.selectedCount", { count: targets.length });
   }
 
   private readonly handleMouseDown = (event: MouseEvent) => {

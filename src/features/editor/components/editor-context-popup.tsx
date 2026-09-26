@@ -39,9 +39,9 @@ import {
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Toolbar, ToolbarButton } from "@/components/ui/toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLocalization } from "@/lib/i18n/useLocalization";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
-import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 
 interface ContextButtonCommand {
@@ -450,10 +450,12 @@ interface ContextCommandRowProps {
 }
 
 function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextCommandRowProps) {
+  const { t } = useLocalization();
+
   return (
     <div className="flex items-center gap-1">
       {commands.map(({ commandId, icon: Icon }, column) => {
-        const label = EDITOR_COMMAND_LABELS[commandId];
+        const label = t(`command.${commandId}`);
         const enabled = canExecute(commandId);
 
         return (
@@ -504,6 +506,8 @@ function ContextCommandSubmenu({
   canExecute,
   row,
 }: ContextCommandSubmenuProps) {
+  const { t } = useLocalization();
+
   return (
     <DropdownMenu>
       <ToolbarButton
@@ -526,7 +530,7 @@ function ContextCommandSubmenu({
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
         <DropdownMenuGroup aria-label={label}>
           {commands.map(({ commandId, icon: CommandIcon }) => {
-            const commandLabel = EDITOR_COMMAND_LABELS[commandId];
+            const commandLabel = t(`command.${commandId}`);
             const enabled = canExecute(commandId);
 
             return (

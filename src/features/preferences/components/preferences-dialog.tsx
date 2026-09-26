@@ -22,6 +22,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
+import {
+  getAvailableLocales,
+  getLanguageDisplayName,
+  getSystemLanguages,
+  resolveLocale,
+  SYSTEM_LANGUAGE,
+} from "@/lib/i18n/localizer";
+import type { MessageId } from "@/lib/i18n/messages";
+import { useLocalization } from "@/lib/i18n/useLocalization";
 
 import {
   type AppearanceAccentColor,
@@ -68,11 +77,11 @@ function AccentColorPreview({ accentColor }: AccentColorPreviewProps) {
   );
 }
 
-const ARTICLE_SORT_OPTIONS: ChoiceOption<ArticleSortOrder>[] = [
-  { label: "Name", value: "name" },
-  { label: "Modified date", value: "modifiedDate" },
-  { label: "Type", value: "type" },
-];
+const ARTICLE_SORT_ORDER_LABEL_IDS = {
+  name: "preferences.articleSortOrder.name",
+  modifiedDate: "preferences.articleSortOrder.modifiedDate",
+  type: "preferences.articleSortOrder.type",
+} as const satisfies Record<ArticleSortOrder, MessageId>;
 
 const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<MarkdownFileExtension>[] = [
   { label: ".md", value: ".md" },
@@ -93,11 +102,11 @@ const FOLDER_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert folder li
 const MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert file link");
 
 const PREFERENCE_TABS = [
-  { value: "general", label: "General", icon: SlidersHorizontalIcon },
-  { value: "files", label: "Files", icon: FileTextIcon },
-  { value: "editor", label: "Editor", icon: PencilIcon },
-  { value: "appearance", label: "Appearance", icon: PaletteIcon },
-] satisfies { value: string; label: string; icon: LucideIcon }[];
+  { value: "general", labelId: "preferences.tab.general", icon: SlidersHorizontalIcon },
+  { value: "files", labelId: "preferences.tab.files", icon: FileTextIcon },
+  { value: "editor", labelId: "preferences.tab.editor", icon: PencilIcon },
+  { value: "appearance", labelId: "preferences.tab.appearance", icon: PaletteIcon },
+] satisfies { value: string; labelId: MessageId; icon: LucideIcon }[];
 
 interface PreferencesDialogProps {
   open: boolean;
@@ -105,13 +114,14 @@ interface PreferencesDialogProps {
 }
 
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
+  const { t } = useLocalization();
   const reset = useSettingsStore((state) => state.reset);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-4 sm:max-w-3xl">
         <DialogHeader className="pr-10">
-          <DialogTitle>Preferences</DialogTitle>
+          <DialogTitle>{t("preferences.title")}</DialogTitle>
         </DialogHeader>
 
         <Tabs
@@ -120,10 +130,10 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           className="mt-4 h-[min(34rem,calc(100vh-12rem))] gap-6"
         >
           <TabsList className="w-44 shrink-0" variant="line">
-            {PREFERENCE_TABS.map(({ value, label, icon: Icon }) => (
+            {PREFERENCE_TABS.map(({ value, labelId, icon: Icon }) => (
               <TabsTrigger key={value} value={value} className="h-auto gap-2 py-2">
                 <Icon data-icon="inline-start" />
-                {label}
+                {t(labelId)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -148,7 +158,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 
         <DialogFooter className="sm:justify-start">
           <Button type="button" variant="ghost" onClick={reset}>
-            Restore defaults
+            {t("preferences.restoreDefaults")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -157,36 +167,62 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 }
 
 function GeneralPreferences() {
+  const { locale, t } = useLocalization();
+  const language = useSettingsStore((state) => state.language);
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const recordRecentItems = useSettingsStore((state) => state.recordRecentItems);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
+  const systemLocale = resolveLocale(SYSTEM_LANGUAGE, getSystemLanguages());
+  const languageOptions: ChoiceOption<string>[] = [
+    {
+      label: t("preferences.language.system", {
+        language: getLanguageDisplayName(systemLocale, locale),
+      }),
+      value: SYSTEM_LANGUAGE,
+    },
+    ...getAvailableLocales().map((availableLocale) => ({
+      label: getLanguageDisplayName(availableLocale),
+      lang: availableLocale,
+      value: availableLocale,
+    })),
+  ];
+  const articleSortOptions = Object.entries(ARTICLE_SORT_ORDER_LABEL_IDS).map(
+    ([value, labelId]) => ({ label: t(labelId), value: value as ArticleSortOrder }),
+  );
 
   return (
     <FieldGroup className="gap-5">
+      <PreferenceChoice
+        label={t("preferences.language.label")}
+        description={t("preferences.language.description")}
+        value={getAvailableLocales().includes(language) ? language : SYSTEM_LANGUAGE}
+        options={languageOptions}
+        onValueChange={(value) => updateSetting("language", value)}
+      />
       <PreferenceSwitch
-        label="Record recent files and folders"
-        description="Session history records the paths you open."
+        label={t("preferences.recordRecentItems.label")}
+        description={t("preferences.recordRecentItems.description")}
         checked={recordRecentItems}
         onCheckedChange={(checked) => updateSetting("recordRecentItems", checked)}
       />
       <PreferenceSwitch
-        label="Sidebar visibility"
-        description="Applies while a folder context is open."
+        label={t("preferences.sidebarVisible.label")}
+        description={t("preferences.sidebarVisible.description")}
         checked={sidebarVisible}
         onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
       />
       <PreferenceSwitch
-        label="Status bar visibility"
-        description="Applies while a document is open."
+        label={t("preferences.statusBarVisible.label")}
+        description={t("preferences.statusBarVisible.description")}
         checked={statusBarVisible}
         onCheckedChange={(checked) => updateSetting("statusBarVisible", checked)}
       />
       <PreferenceChoice
-        label="Sort articles by"
+        label={t("preferences.articleSortOrder.label")}
         value={articleSortOrder}
-        options={ARTICLE_SORT_OPTIONS}
+        options={articleSortOptions}
         onValueChange={(value) => updateSetting("articleSortOrder", value)}
       />
     </FieldGroup>

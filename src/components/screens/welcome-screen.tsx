@@ -14,7 +14,7 @@ import {
   pickAndOpenMarkdownFile,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
-import { formatRelativeTime } from "@/lib/formatRelativeTime";
+import { useLocalization } from "@/lib/i18n/useLocalization";
 import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
@@ -250,6 +250,7 @@ function RecentItemRow({
   onOpenItem,
   onRemoveItem,
 }: RecentItemRowProps) {
+  const { formatRelativeTime } = useLocalization();
   const { name, parent } = getPathParts(path);
 
   return (

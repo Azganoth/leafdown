@@ -1,4 +1,5 @@
 import { formatFileSize } from "@/lib/formatFileSize";
+import { t } from "@/lib/i18n/localizer";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
@@ -17,13 +18,13 @@ const OPEN_MARKDOWN_FILE_ERROR_KINDS = [
   "metadataFailed",
 ] as const satisfies readonly OpenMarkdownFileError["kind"][];
 
-const FALLBACK_OPEN_FILE_ERROR: MessageData = {
-  title: "Could not open Markdown file.",
-};
+const FALLBACK_OPEN_FILE_ERROR = (): MessageData => ({
+  title: t("document.openError.fallback"),
+});
 
 export const getOpenMarkdownFileErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_OPEN_FILE_ERROR,
+  fallback: MessageData = FALLBACK_OPEN_FILE_ERROR(),
 ): MessageData => {
   if (!isOpenMarkdownFileError(error)) {
     return fallback;
@@ -32,42 +33,45 @@ export const getOpenMarkdownFileErrorMessage = (
   switch (error.kind) {
     case "unsupportedFileType":
       return {
-        title: "Unsupported Markdown file type.",
-        description: "Leafdown opens .md and .markdown files.",
+        title: t("document.openError.unsupportedFileType.title"),
+        description: t("document.openError.unsupportedFileType.description"),
       };
     case "invalidPath":
       return {
-        title: "Invalid Markdown file path.",
+        title: t("document.openError.invalidPath.title"),
         description: error.path,
       };
     case "missingFile":
       return {
-        title: "Markdown file not found.",
+        title: t("document.openError.missingFile.title"),
         description: error.path,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied opening Markdown file.",
+        title: t("document.openError.permissionDenied.title"),
         description: error.message ?? error.path,
       };
     case "oversizedFile":
       return {
-        title: "Markdown file is too large.",
-        description: `${formatFileSize(error.sizeBytes)} selected. Files larger than ${formatFileSize(error.maxSizeBytes)} do not load.`,
+        title: t("document.openError.oversizedFile.title"),
+        description: t("document.openError.oversizedFile.description", {
+          size: formatFileSize(error.sizeBytes),
+          maxSize: formatFileSize(error.maxSizeBytes),
+        }),
       };
     case "invalidEncoding":
       return {
-        title: "Invalid Markdown file encoding.",
-        description: "Leafdown opens Markdown files encoded as UTF-8.",
+        title: t("document.openError.invalidEncoding.title"),
+        description: t("document.openError.invalidEncoding.description"),
       };
     case "readFailed":
       return {
-        title: "Could not read Markdown file.",
+        title: t("document.openError.readFailed.title"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect Markdown file.",
+        title: t("document.openError.metadataFailed.title"),
         description: error.message ?? error.path,
       };
   }
@@ -87,13 +91,13 @@ const SAVE_MARKDOWN_FILE_ERROR_KINDS = [
   "metadataFailed",
 ] as const satisfies readonly SaveMarkdownFileError["kind"][];
 
-const FALLBACK_SAVE_ERROR: MessageData = {
-  title: "Could not save Markdown document.",
-};
+const FALLBACK_SAVE_ERROR = (): MessageData => ({
+  title: t("document.saveError.fallback"),
+});
 
 export const getSaveMarkdownFileErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_SAVE_ERROR,
+  fallback: MessageData = FALLBACK_SAVE_ERROR(),
 ): MessageData => {
   if (!isSaveMarkdownFileError(error)) {
     return fallback;
@@ -102,42 +106,42 @@ export const getSaveMarkdownFileErrorMessage = (
   switch (error.kind) {
     case "unsupportedFileType":
       return {
-        title: "Unsupported save file type.",
-        description: "Save Markdown documents as .md or .markdown files.",
+        title: t("document.saveError.unsupportedFileType.title"),
+        description: t("document.saveError.unsupportedFileType.description"),
       };
     case "invalidPath":
       return {
-        title: "Invalid save path.",
+        title: t("document.saveError.invalidPath.title"),
         description: error.path,
       };
     case "missingFile":
       return {
-        title: "Saved Markdown file is missing.",
+        title: t("document.saveError.missingFile.title"),
         description: error.path,
       };
     case "missingParentFolder":
       return {
-        title: "Save folder not found.",
+        title: t("document.saveError.missingParentFolder.title"),
         description: error.parentFolderPath,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied saving Markdown file.",
+        title: t("document.saveError.permissionDenied.title"),
         description: error.message ?? error.path,
       };
     case "externalModification":
       return {
-        title: "Markdown file changed outside Leafdown.",
+        title: t("document.saveError.externalModification.title"),
         description: error.path,
       };
     case "writeFailed":
       return {
-        title: "Could not write Markdown file.",
+        title: t("document.saveError.writeFailed.title"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect saved Markdown file.",
+        title: t("document.saveError.metadataFailed.title"),
         description: error.message ?? error.path,
       };
   }

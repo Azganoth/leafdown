@@ -3,6 +3,8 @@
 import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
+import { localizer } from "@/lib/i18n/localizer";
+import { PSEUDO_LOCALE } from "@/lib/i18n/messages";
 import {
   dispatchDOMEvent,
   dispatchMouseEvent,
@@ -380,6 +382,32 @@ describe("block selection interaction", () => {
     dispatchMouseDown(getHandle(paragraphs[1].pos), { button: 0, shift: true });
     expect(document.querySelector("[role='status']")).toHaveTextContent("2 blocks selected");
     expect(getHandles().every((handle) => handle.tabIndex === -1)).toBe(true);
+  });
+
+  it("re-translates handles and the announcement without touching the document", async () => {
+    const mounted = await mountEditor("# Title\n\nFirst\n\nSecond\n");
+    const [heading, first, second] = getSelectableBlockTargets(mounted.view.state.doc);
+    const documentBefore = mounted.view.state.doc;
+
+    dispatchMouseDown(getHandle(first.pos), { button: 0 });
+    dispatchMouseDown(getHandle(second.pos), { button: 0, shift: true });
+    const selectionBefore = mounted.view.state.selection;
+
+    try {
+      localizer.setLanguage(PSEUDO_LOCALE, []);
+
+      expect(document.querySelector("[role='status']")).toHaveTextContent(
+        /^⟦2 ƀļöçķš šéļéçţéð·+⟧$/u,
+      );
+      expect(getHandle(heading.pos)).toHaveAccessibleName(/^⟦Šéļéçţ ĥéáðîñĝ 1 ƀļöçķ·+⟧$/u);
+      expect(mounted.view.state.doc).toBe(documentBefore);
+      expect(mounted.view.state.selection.eq(selectionBefore)).toBe(true);
+    } finally {
+      localizer.setLanguage("en", []);
+    }
+
+    expect(getHandle(heading.pos)).toHaveAccessibleName("Select heading 1 block");
+    expect(mounted.getMarkdown()).toBe("# Title\n\nFirst\n\nSecond\n");
   });
 
   it("retains selected-handle presentation when a document change preserves the range", async () => {

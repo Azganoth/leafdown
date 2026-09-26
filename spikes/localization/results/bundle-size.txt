@@ -1,0 +1,5 @@
+baseline   minified     353 B  gzip    263 B
+fluent     minified   15165 B  gzip   4720 B
+formatjs   minified   45263 B  gzip  11247 B
+i18next    minified   53290 B  gzip  15127 B
+mf2        minified   32558 B  gzip   8798 B

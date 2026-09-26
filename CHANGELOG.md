@@ -83,6 +83,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Remove a folder whose name contains a dot, such as `notes.d`, from the article navigator when it is moved out of the open folder outside Leafdown. It stayed listed until something else refreshed the navigator, while a folder named without a dot disappeared straight away.
 - Keep a tab written between a list marker and the item's text, alone or after a space, instead of saving it as one space. Bullet, numbered, and task items all keep it. An item whose marker ends up at a column where the tab would reach further or less far, such as a bullet converted to a numbered item, is written with the spaces the tab covered, so its text stays where it was. A list made in the editor is still written with one space.
 - Keep the byte order mark (BOM) at the start of a UTF-8 file that has one. Every save dropped it, even a save with no edits, so a file that opens and saves unchanged did not keep its bytes. A document opened from such a file is now written back with its BOM.
 - Refuse to open a UTF-16 file without a byte order mark instead of opening it as UTF-8 with a NUL between its characters. Each NUL showed as a replacement character, `�`, and a save wrote those characters into the file in place of the text. Such a file, and any file whose text holds a NUL character, now shows the invalid encoding error and is left untouched.

@@ -369,6 +369,24 @@ describe("DebouncedTaskRunner", () => {
     expect(task).toHaveBeenCalledTimes(2);
   });
 
+  it("reports running only while a task is active", async () => {
+    const activeTask = Promise.withResolvers<string>();
+    const runner = new DebouncedTaskRunner(() => activeTask.promise, SCHEDULE_DELAY_MS);
+
+    const run = runner.run();
+
+    expect(runner.isRunning).toBe(false);
+
+    await advanceScheduleTimer();
+
+    expect(runner.isRunning).toBe(true);
+
+    activeTask.resolve("done");
+    await run;
+
+    expect(runner.isRunning).toBe(false);
+  });
+
   it("cancels pending runs before they start", async () => {
     const task = vi.fn(() => "ignored");
     const runner = new DebouncedTaskRunner(task, SCHEDULE_DELAY_MS);

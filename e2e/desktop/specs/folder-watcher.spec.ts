@@ -1,4 +1,4 @@
-import { $, $$, expect } from "@wdio/globals";
+import { $, $$, browser, expect } from "@wdio/globals";
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -52,6 +52,24 @@ describe("desktop folder context watcher", () => {
     await expect(await findTreeItem("watcher-renamed")).toBeDisplayed();
     expect(await $$('[role="treeitem"]').map((item) => item.getText())).not.toContain(
       "watcher-directory",
+    );
+  });
+
+  it("drops a directory whose name contains a dot after it moves out of the folder", async () => {
+    const { folder } = await getDesktopE2ERunContext();
+    const directoryPath = path.join(folder.path, "watcher.d");
+    const movedDirectoryPath = path.join(path.dirname(folder.path), "watcher.d");
+
+    await mkdir(directoryPath);
+    await writeFile(path.join(directoryPath, "nested.md"), "Nested article.\n");
+    await expect(await findTreeItem("watcher.d")).toBeDisplayed();
+
+    await rename(directoryPath, movedDirectoryPath);
+
+    await browser.waitUntil(
+      async () =>
+        !(await $$('[role="treeitem"]').map((item) => item.getText())).includes("watcher.d"),
+      { timeoutMsg: "Tree item watcher.d stayed after its directory moved out of the folder." },
     );
   });
 });

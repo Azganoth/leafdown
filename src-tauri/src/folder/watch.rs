@@ -14,6 +14,7 @@ use tauri::{AppHandle, Emitter, State};
 use super::{ScanDepth, defaults, scan};
 use crate::{
     document::is_supported_markdown_path,
+    file_utils::is_staging_path,
     path_utils::{IoErrorClass, classify_io_error, path_to_string},
 };
 
@@ -53,6 +54,9 @@ struct CancelledFolderWatcherScope {
 pub(crate) struct MarkdownFolderChangedEvent {
     pub(crate) folder_path: String,
     pub(crate) paths: Vec<String>,
+    // Vanished paths whose event does not say file or directory and whose name is not Markdown.
+    // Only the article navigator knows whether one was a directory it shows.
+    pub(crate) possible_directory_paths: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -141,19 +145,20 @@ fn create_folder_watcher(
     let mut watcher =
         notify::recommended_watcher(move |result: notify::Result<Event>| match result {
             Ok(event) => {
-                let paths = relevant_event_paths(
+                let event_paths = relevant_event_paths(
                     &event,
                     folder_path_for_events.as_path(),
                     ignored_directories.as_slice(),
                 );
 
-                if paths.is_empty() {
+                if event_paths.is_empty() {
                     return;
                 }
 
                 let payload = MarkdownFolderChangedEvent {
                     folder_path: folder_path_for_payload.clone(),
-                    paths,
+                    paths: event_paths.paths,
+                    possible_directory_paths: event_paths.possible_directory_paths,
                 };
 
                 if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
@@ -243,18 +248,20 @@ fn relevant_event_paths(
     event: &Event,
     folder_path: &Path,
     ignored_directories: &[String],
-) -> Vec<String> {
+) -> RelevantEventPaths {
+    let mut event_paths = RelevantEventPaths::default();
+
     if matches!(event.kind, EventKind::Access(_)) {
-        return Vec::new();
+        return event_paths;
     }
 
-    let mut paths = Vec::new();
-
     for path in &event.paths {
-        if !event_path_is_relevant(path, folder_path, ignored_directories, &event.kind) {
-            continue;
-        }
-
+        let paths = match event_path_relevance(path, folder_path, ignored_directories, &event.kind)
+        {
+            EventPathRelevance::Relevant => &mut event_paths.paths,
+            EventPathRelevance::PossibleDirectory => &mut event_paths.possible_directory_paths,
+            EventPathRelevance::Irrelevant => continue,
+        };
         let serialized_path = path_to_string(path);
 
         if !paths.contains(&serialized_path) {
@@ -262,31 +269,39 @@ fn relevant_event_paths(
         }
     }
 
-    paths
+    event_paths
 }
 
-fn event_path_is_relevant(
+fn event_path_relevance(
     path: &Path,
     folder_path: &Path,
     ignored_directories: &[String],
     event_kind: &EventKind,
-) -> bool {
+) -> EventPathRelevance {
     if path_contains_ignored_directory(path, folder_path, ignored_directories) {
-        return false;
+        return EventPathRelevance::Irrelevant;
     }
 
     if let Ok(metadata) = fs::metadata(path) {
         if metadata.is_dir() {
-            return !is_directory_metadata_change(event_kind);
+            return EventPathRelevance::relevant_if(!is_directory_metadata_change(event_kind));
         }
 
-        return metadata.is_file() && is_supported_markdown_path(path);
+        return EventPathRelevance::relevant_if(
+            metadata.is_file() && is_supported_markdown_path(path),
+        );
     }
 
     match event_path_kind(event_kind) {
-        EventPathKind::Directory => true,
-        EventPathKind::File => is_supported_markdown_path(path),
-        EventPathKind::Unknown => is_supported_markdown_path(path) || path.extension().is_none(),
+        EventPathKind::Directory => EventPathRelevance::Relevant,
+        EventPathKind::File => EventPathRelevance::relevant_if(is_supported_markdown_path(path)),
+        EventPathKind::Unknown
+            if is_supported_markdown_path(path) || path.extension().is_none() =>
+        {
+            EventPathRelevance::Relevant
+        }
+        EventPathKind::Unknown if is_staging_path(path) => EventPathRelevance::Irrelevant,
+        EventPathKind::Unknown => EventPathRelevance::PossibleDirectory,
     }
 }
 
@@ -343,6 +358,35 @@ enum EventPathKind {
     Directory,
     File,
     Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum EventPathRelevance {
+    Relevant,
+    PossibleDirectory,
+    Irrelevant,
+}
+
+impl EventPathRelevance {
+    fn relevant_if(is_relevant: bool) -> Self {
+        if is_relevant {
+            Self::Relevant
+        } else {
+            Self::Irrelevant
+        }
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct RelevantEventPaths {
+    paths: Vec<String>,
+    possible_directory_paths: Vec<String>,
+}
+
+impl RelevantEventPaths {
+    fn is_empty(&self) -> bool {
+        self.paths.is_empty() && self.possible_directory_paths.is_empty()
+    }
 }
 
 impl FolderWatcherManager {
@@ -444,7 +488,7 @@ mod tests {
     };
 
     use super::{
-        ActiveFolderWatcher, FolderWatcherManager, FolderWatcherScopeTracker,
+        ActiveFolderWatcher, FolderWatcherManager, FolderWatcherScopeTracker, RelevantEventPaths,
         WatchMarkdownFolderError, relevant_event_paths, watch_folder_metadata_error,
         watch_mode_for_depth,
     };
@@ -562,7 +606,7 @@ mod tests {
             &[],
         );
 
-        assert_eq!(paths, vec![path.to_string_lossy()]);
+        assert_eq!(paths, relevant(vec![path.to_string_lossy()]));
     }
 
     #[test]
@@ -629,7 +673,7 @@ mod tests {
             &[],
         );
 
-        assert_eq!(paths, vec![path.to_string_lossy()]);
+        assert_eq!(paths, relevant(vec![path.to_string_lossy()]));
     }
 
     #[test]
@@ -669,7 +713,7 @@ mod tests {
             let paths =
                 relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
 
-            assert_eq!(paths, vec![path.to_string_lossy()], "{kind:?}");
+            assert_eq!(paths, relevant(vec![path.to_string_lossy()]), "{kind:?}");
         }
     }
 
@@ -685,8 +729,46 @@ mod tests {
             let paths =
                 relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
 
-            assert_eq!(paths, vec![path.to_string_lossy()], "{kind:?}");
+            assert_eq!(paths, relevant(vec![path.to_string_lossy()]), "{kind:?}");
         }
+    }
+
+    // Windows reports a directory moved out of the watched folder only as `Remove(Any)`.
+    #[test]
+    fn reports_vanished_paths_of_unknown_kind_with_extensions_as_possible_directories() {
+        let root = TestDirectory::new("watch-dotted-directory-move-out");
+        let path = root.path("notes.d");
+
+        for kind in [
+            EventKind::Remove(RemoveKind::Any),
+            EventKind::Modify(ModifyKind::Name(RenameMode::From)),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert_eq!(
+                paths,
+                RelevantEventPaths {
+                    paths: Vec::new(),
+                    possible_directory_paths: vec![path.to_string_lossy().into_owned()],
+                },
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn ignores_deleted_non_markdown_files_without_metadata() {
+        let root = TestDirectory::new("watch-non-markdown-delete");
+        let path = root.path("notes.txt");
+
+        let paths = relevant_event_paths(
+            &event(EventKind::Remove(RemoveKind::File), path.as_path()),
+            root.path.as_path(),
+            &[],
+        );
+
+        assert!(paths.is_empty());
     }
 
     // Windows emits this only since notify 9.0.0-rc.5; before it, deleting the watched
@@ -702,7 +784,7 @@ mod tests {
             &[],
         );
 
-        assert_eq!(paths, vec![root_path.to_string_lossy()]);
+        assert_eq!(paths, relevant(vec![root_path.to_string_lossy()]));
     }
 
     #[test]
@@ -716,7 +798,7 @@ mod tests {
             &[],
         );
 
-        assert_eq!(paths, vec![path.to_string_lossy()]);
+        assert_eq!(paths, relevant(vec![path.to_string_lossy()]));
     }
 
     #[test]
@@ -735,7 +817,7 @@ mod tests {
 
         assert_eq!(
             paths,
-            vec![from_path.to_string_lossy(), to_path.to_string_lossy()]
+            relevant(vec![from_path.to_string_lossy(), to_path.to_string_lossy()])
         );
     }
 
@@ -756,7 +838,10 @@ mod tests {
 
         assert_eq!(
             paths,
-            vec![first_path.to_string_lossy(), second_path.to_string_lossy()]
+            relevant(vec![
+                first_path.to_string_lossy(),
+                second_path.to_string_lossy()
+            ])
         );
     }
 
@@ -812,6 +897,13 @@ mod tests {
 
     fn event(kind: EventKind, path: &Path) -> Event {
         Event::new(kind).add_path(path.to_path_buf())
+    }
+
+    fn relevant(paths: Vec<impl Into<String>>) -> RelevantEventPaths {
+        RelevantEventPaths {
+            paths: paths.into_iter().map(Into::into).collect(),
+            possible_directory_paths: Vec::new(),
+        }
     }
 
     fn test_watcher(scope_id: &str, scope_generation: u64) -> ActiveFolderWatcher {

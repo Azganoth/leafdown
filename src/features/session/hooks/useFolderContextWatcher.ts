@@ -11,6 +11,7 @@ import {
   FOLDER_CONTEXT_WATCH_ERROR_EVENT,
   type FolderContextChangedEventPayload,
   type FolderContextWatchErrorEventPayload,
+  getArticleDirectoryPaths,
   getScanFolderContextErrorMessage,
   getWatchFolderContextErrorMessage,
   isScanFolderContextError,
@@ -25,7 +26,7 @@ import { DebouncedTaskRunner } from "@/lib/async";
 import { type CancellationToken, isCancellationError } from "@/lib/cancellation";
 import { getErrorDescription, handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { DisposableMap } from "@/lib/lifecycle";
-import { isSamePath } from "@/lib/path";
+import { isSamePath, PathSet } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 import { useSessionStore } from "../stores/session";
@@ -188,6 +189,26 @@ class FolderContextWatchSession {
     }
   }
 
+  private affectsShownTree({ paths, possibleDirectoryPaths }: FolderContextChangedEventPayload) {
+    if (paths.length > 0) {
+      return true;
+    }
+
+    if (possibleDirectoryPaths.length === 0) {
+      return false;
+    }
+
+    // A refresh already scanning may commit a directory the current tree does not show yet.
+    if (this.refreshRunner.isRunning) {
+      return true;
+    }
+
+    const tree = useSessionStore.getState().folderContext?.tree;
+    const shownDirectoryPaths = new PathSet(tree ? getArticleDirectoryPaths(tree) : []);
+
+    return possibleDirectoryPaths.some((path) => shownDirectoryPaths.has(path));
+  }
+
   private requestRefresh() {
     void this.refreshRunner.run().catch((error) => {
       if (!isCancellationError(error)) {
@@ -204,7 +225,8 @@ class FolderContextWatchSession {
         (event) => {
           if (
             !isSamePath(event.payload.folderPath, this.folderPath) ||
-            !this.isActiveFolderContext()
+            !this.isActiveFolderContext() ||
+            !this.affectsShownTree(event.payload)
           ) {
             return;
           }

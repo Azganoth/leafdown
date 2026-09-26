@@ -14,6 +14,7 @@ import * as blockFormatting from "./formatting/blocks";
 import * as inlineFormatting from "./formatting/inline";
 import * as tables from "./formatting/tables";
 import * as blockInsertion from "./inserting/blocks";
+import * as footnoteInsertion from "./inserting/footnotes";
 import * as linkInsertion from "./inserting/links";
 
 type EditorCommandResult = boolean | Promise<boolean>;
@@ -183,6 +184,10 @@ export const EDITOR_COMMANDS = {
   "insert.table": viewCommand(blockInsertion.insertTable),
   "insert.horizontalRule": viewCommand(blockInsertion.insertHorizontalRule),
   "insert.link": viewCommand(linkInsertion.insertLink),
+  "insert.footnote": viewCommand(
+    footnoteInsertion.insertFootnote,
+    footnoteInsertion.canInsertFootnote,
+  ),
 } satisfies Record<EditorCommandId, EditorCommand>;
 
 export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) =>

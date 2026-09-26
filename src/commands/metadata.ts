@@ -97,6 +97,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "insert.heading5": editorCommandDef("insert.heading5"),
   "insert.heading6": editorCommandDef("insert.heading6"),
   "insert.link": editorCommandDef("insert.link", { key: "k", mod: true }),
+  "insert.footnote": editorCommandDef("insert.footnote"),
   "insert.image": editorCommandDef("insert.image"),
   "insert.orderedList": editorCommandDef("insert.orderedList"),
   "insert.unorderedList": editorCommandDef("insert.unorderedList"),

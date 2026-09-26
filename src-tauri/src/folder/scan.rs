@@ -1,9 +1,4 @@
-use std::{
-    cmp::Reverse,
-    fs,
-    path::{Path, PathBuf},
-    time::UNIX_EPOCH,
-};
+use std::{cmp::Reverse, fs, io, path::Path, time::UNIX_EPOCH};
 
 use super::{
     FileTreeSortOrder, MarkdownFolderScanResult, MarkdownFolderTree, MarkdownFolderTreeNode,
@@ -161,25 +156,32 @@ fn scan_directory_entries(
             else {
                 continue;
             };
-            children.push(MarkdownFolderTreeNode::Directory {
-                name: directory.name,
-                path: directory.path,
-                children: directory.children,
-            });
+            children.push((
+                MarkdownFolderTreeNode::Directory {
+                    name: directory.name,
+                    path: directory.path,
+                    children: directory.children,
+                },
+                modified_at_sort_key(sort_order, || fs::metadata(&entry_path)),
+            ));
             has_markdown_files |= directory_has_markdown_files;
             continue;
         }
 
         if file_type.is_file() && is_supported_markdown_path(&entry_path) {
-            children.push(MarkdownFolderTreeNode::File {
-                name: file_name_to_string(&entry_path),
-                path: path_to_string(&entry_path),
-            });
+            children.push((
+                MarkdownFolderTreeNode::File {
+                    name: file_name_to_string(&entry_path),
+                    path: path_to_string(&entry_path),
+                },
+                modified_at_sort_key(sort_order, || entry.metadata()),
+            ));
             has_markdown_files = true;
         }
     }
 
     sort_tree_nodes(&mut children, sort_order);
+    let children = children.into_iter().map(|(node, _)| node).collect();
 
     Ok((directory_tree(path, children), has_markdown_files))
 }
@@ -221,19 +223,19 @@ pub(super) fn is_ignored_directory(name: &str, ignored_directories: &[String]) -
     })
 }
 
-fn sort_tree_nodes(nodes: &mut [MarkdownFolderTreeNode], sort_order: FileTreeSortOrder) {
+fn sort_tree_nodes(nodes: &mut [(MarkdownFolderTreeNode, u128)], sort_order: FileTreeSortOrder) {
     match sort_order {
         FileTreeSortOrder::Name => {
-            nodes.sort_by_cached_key(|node| (node_kind_order(node), sort_name(node)))
+            nodes.sort_by_cached_key(|(node, _)| (node_kind_order(node), sort_name(node)))
         }
-        FileTreeSortOrder::ModifiedDate => nodes.sort_by_cached_key(|node| {
+        FileTreeSortOrder::ModifiedDate => nodes.sort_by_cached_key(|(node, modified_at)| {
             (
                 node_kind_order(node),
-                Reverse(modified_at_unix_ms(node)),
+                Reverse(*modified_at),
                 sort_name(node),
             )
         }),
-        FileTreeSortOrder::Type => nodes.sort_by_cached_key(|node| {
+        FileTreeSortOrder::Type => nodes.sort_by_cached_key(|(node, _)| {
             (node_kind_order(node), node_extension(node), sort_name(node))
         }),
     }
@@ -264,13 +266,15 @@ fn node_extension(node: &MarkdownFolderTreeNode) -> String {
     }
 }
 
-fn modified_at_unix_ms(node: &MarkdownFolderTreeNode) -> u128 {
-    let path = match node {
-        MarkdownFolderTreeNode::Directory { path, .. }
-        | MarkdownFolderTreeNode::File { path, .. } => PathBuf::from(path),
-    };
+fn modified_at_sort_key(
+    sort_order: FileTreeSortOrder,
+    metadata: impl FnOnce() -> io::Result<fs::Metadata>,
+) -> u128 {
+    if sort_order != FileTreeSortOrder::ModifiedDate {
+        return 0;
+    }
 
-    fs::metadata(path)
+    metadata()
         .and_then(|metadata| metadata.modified())
         .ok()
         .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())

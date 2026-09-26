@@ -112,6 +112,7 @@ Marker presentation is independent of session lifetime. Decorations style projec
 The Rust backend manages:
 
 - Native file and folder path pickers and file IO.
+- Decoding a Markdown file in the encoding its byte order mark names, or as UTF-8 without one, and encoding saved text back in the document's encoding and byte order mark form.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
@@ -146,6 +147,7 @@ The frontend calls feature-owned Rust commands only through feature-owned Tauri 
 ## Data Contracts
 
 - Session owns the active document, folder context, and document metadata used for dirty-state and external-modification checks.
+- An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
 - Folder scans return a nested Markdown article tree. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator.
 
@@ -167,7 +169,7 @@ Renames and deletions queue behind a pending save, so a save in flight cannot re
 
 ### Save Workflow
 
-Serialize editor state to Markdown -> Verify metadata freshness via backend -> Write file to disk -> Update dirty state and cached metadata.
+Serialize editor state to Markdown -> Verify metadata freshness via backend -> Encode in the document's encoding and write file to disk -> Update dirty state and cached metadata.
 
 ### Save As Workflow
 

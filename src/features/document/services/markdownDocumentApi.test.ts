@@ -21,6 +21,7 @@ describe("markdownDocumentApi", () => {
       },
       content: "# Notes",
       lineEnding: "lf",
+      encoding: { name: "UTF-16LE", bom: true },
     } satisfies OpenMarkdownFileResult;
     vi.mocked(invoke).mockResolvedValueOnce(result);
 
@@ -46,6 +47,7 @@ describe("markdownDocumentApi", () => {
       saveMarkdownFile({
         path: result.path,
         content: "# Updated",
+        encoding: { name: "UTF-8", bom: true },
         expectedMetadata: null,
         overwrite: false,
       }),
@@ -54,6 +56,7 @@ describe("markdownDocumentApi", () => {
     expect(invoke).toHaveBeenCalledWith(SAVE_MARKDOWN_FILE_COMMAND, {
       path: result.path,
       content: "# Updated",
+      encoding: { name: "UTF-8", bom: true },
       expectedMetadata: null,
       overwrite: false,
     });

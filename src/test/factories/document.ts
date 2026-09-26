@@ -50,6 +50,7 @@ export const createSavedDocument = (
     content,
     isDirty: false,
     lineEnding: "lf",
+    encoding: { name: "UTF-8", bom: false },
     ...documentOverrides,
     metadata: createFileMetadata({
       sizeBytes: getContentSizeBytes(content),
@@ -66,6 +67,7 @@ export const createUntitledDocument = (
   content: "Draft",
   isDirty: false,
   lineEnding: "lf",
+  encoding: { name: "UTF-8", bom: false },
   ...overrides,
 });
 
@@ -79,6 +81,7 @@ export const createOpenedMarkdownDocument = (
     parentFolderPath: TEST_NOTES_FOLDER_PATH,
     content,
     lineEnding: "lf",
+    encoding: { name: "UTF-8", bom: false },
     ...documentOverrides,
     metadata: createFileMetadata({
       sizeBytes: getContentSizeBytes(content),

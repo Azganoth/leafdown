@@ -6,11 +6,13 @@ import {
   getActiveDocumentKey,
   isSaveMarkdownFileError,
   matchesActiveDocumentKey,
+  NEW_DOCUMENT_ENCODING,
   saveMarkdownDocument,
   selectMarkdownSavePath,
   toSavedDocument,
   toUntitledDocument,
   type ActiveDocumentState,
+  type DocumentEncoding,
   type LineEnding,
   type SavedDocumentState,
 } from "@/features/document";
@@ -28,6 +30,7 @@ import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
 interface SerializedDocumentForSave {
   content: string;
   lineEnding: LineEnding;
+  encoding: DocumentEncoding;
 }
 
 const UNTITLED_BASE_NAME = "Untitled";
@@ -50,6 +53,7 @@ export const createNewMarkdownDocument = async () => {
       id: `untitled:${nextUntitledId++}`,
       content: "",
       lineEnding: defaultNewDocumentLineEnding,
+      encoding: NEW_DOCUMENT_ENCODING,
     }),
   );
 
@@ -119,7 +123,11 @@ const saveActiveMarkdownDocumentAsNow = async () => {
   }
 
   const serializedDocument = serializeActiveDocumentForSave(latestDocument);
-  const result = await saveMarkdownDocument(path, serializedDocument.content);
+  const result = await saveMarkdownDocument(
+    path,
+    serializedDocument.content,
+    serializedDocument.encoding,
+  );
   const existingFolderContext = useSessionStore.getState().folderContext;
   const nextFolderContext = await getFolderContextAfterSaveAs(
     result.path,
@@ -135,6 +143,7 @@ const saveActiveMarkdownDocumentAsNow = async () => {
     path: result.path,
     content: serializedDocument.content,
     lineEnding: serializedDocument.lineEnding,
+    encoding: serializedDocument.encoding,
     metadata: result.metadata,
   });
 
@@ -158,6 +167,7 @@ const serializeActiveDocumentForSave = (
   return {
     content: formatMarkdownForSave(markdown, lineEnding, insertFinalNewline),
     lineEnding,
+    encoding: activeDocument.encoding,
   };
 };
 
@@ -168,10 +178,15 @@ const saveExistingMarkdownDocument = async (
   overwrite = false,
 ): Promise<boolean> => {
   try {
-    const result = await saveMarkdownDocument(activeDocument.path, serializedDocument.content, {
-      expectedMetadata: activeDocument.metadata,
-      overwrite,
-    });
+    const result = await saveMarkdownDocument(
+      activeDocument.path,
+      serializedDocument.content,
+      serializedDocument.encoding,
+      {
+        expectedMetadata: activeDocument.metadata,
+        overwrite,
+      },
+    );
 
     if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
       return false;
@@ -182,6 +197,7 @@ const saveExistingMarkdownDocument = async (
         path: result.path,
         content: serializedDocument.content,
         lineEnding: serializedDocument.lineEnding,
+        encoding: serializedDocument.encoding,
         metadata: result.metadata,
       }),
     );

@@ -134,6 +134,7 @@ describe("folder context service", () => {
         path: TEST_MARKDOWN_FILE_PATH,
         content: "# Notes",
         lineEnding: "lf" as const,
+        encoding: { name: "UTF-8" as const, bom: false },
         metadata: {
           modifiedAtUnixMs: 1_700_000_000_000,
           sizeBytes: 7,

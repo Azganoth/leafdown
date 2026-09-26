@@ -74,6 +74,7 @@ describe("document workflows", () => {
           content: "",
           isDirty: false,
           lineEnding: "lf",
+          encoding: { name: "UTF-8", bom: false },
         },
       });
       expect(useSessionStore.getState().activeDocument).toMatchObject({
@@ -104,6 +105,7 @@ describe("document workflows", () => {
       const activeDocument = createSavedDocument({
         content: "# Original\n",
         lineEnding: "crlf",
+        encoding: { name: "UTF-8", bom: true },
       });
       const savedDocument = createSavedMarkdownDocumentResult({
         metadata: { sizeBytes: 9 },
@@ -126,6 +128,7 @@ describe("document workflows", () => {
       expect(invoke).toHaveBeenCalledWith(tauriApiCommand("saveMarkdownFile"), {
         path: TEST_MARKDOWN_FILE_PATH,
         content: "# Saved\r\n",
+        encoding: { name: "UTF-8", bom: true },
         expectedMetadata: activeDocument.metadata,
         overwrite: false,
       });
@@ -135,6 +138,7 @@ describe("document workflows", () => {
         content: "# Saved\r\n",
         isDirty: false,
         lineEnding: "crlf",
+        encoding: { name: "UTF-8", bom: true },
         metadata: savedDocument.metadata,
       });
       expect(save).not.toHaveBeenCalled();
@@ -237,6 +241,7 @@ describe("document workflows", () => {
       expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("saveMarkdownFile"), {
         path: DRAFT_MARKDOWN_PATH,
         content: "Draft",
+        encoding: { name: "UTF-8", bom: false },
         expectedMetadata: null,
         overwrite: false,
       });
@@ -251,6 +256,38 @@ describe("document workflows", () => {
           path: DRAFT_MARKDOWN_PATH,
           content: "Draft",
         }),
+      });
+    });
+
+    it("writes a saved document to a new path in the encoding it was opened with", async () => {
+      setDefaultSettings({ insertFinalNewline: true });
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        activeDocument: createSavedDocument({
+          content: "# Notes\r\n",
+          lineEnding: "crlf",
+          encoding: { name: "UTF-16BE", bom: true },
+        }),
+      });
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () => createSavedMarkdownDocumentResult({ path: DRAFT_MD_PATH }),
+        scanMarkdownFolder: () => updatedFolderContext,
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("saveMarkdownFile"), {
+        path: DRAFT_MD_PATH,
+        content: "# Notes\r\n",
+        encoding: { name: "UTF-16BE", bom: true },
+        expectedMetadata: null,
+        overwrite: false,
+      });
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        status: "saved",
+        path: DRAFT_MD_PATH,
+        encoding: { name: "UTF-16BE", bom: true },
       });
     });
 
@@ -454,6 +491,7 @@ describe("document workflows", () => {
       expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {
         path: RECOVERED_MARKDOWN_PATH,
         content: "# Missing\n",
+        encoding: { name: "UTF-8", bom: false },
         expectedMetadata: null,
         overwrite: false,
       });
@@ -535,6 +573,7 @@ describe("document workflows", () => {
       expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {
         path: TEST_MARKDOWN_FILE_PATH,
         content: "# Local\n",
+        encoding: { name: "UTF-8", bom: false },
         expectedMetadata: activeDocument.metadata,
         overwrite: true,
       });

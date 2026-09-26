@@ -6,6 +6,7 @@ import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { getLastDiagnosticMessage, pollForDiagnosticMessage } from "@/test/utils/diagnostics";
 import { mockTauriApi } from "@/test/utils/tauriApi";
 
+import { NEW_DOCUMENT_ENCODING } from "../utils/documentState";
 import { openMarkdownDocument, saveMarkdownDocument } from "./markdownDocument";
 
 describe("markdown document service", () => {
@@ -86,7 +87,7 @@ describe("markdown document service", () => {
 
     try {
       await expect(
-        saveMarkdownDocument(TEST_MARKDOWN_FILE_PATH, "# Sensitive draft", {
+        saveMarkdownDocument(TEST_MARKDOWN_FILE_PATH, "# Sensitive draft", NEW_DOCUMENT_ENCODING, {
           overwrite: true,
         }),
       ).rejects.toMatchObject({

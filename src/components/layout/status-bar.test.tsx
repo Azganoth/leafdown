@@ -3,7 +3,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AppCommandId, CommandState } from "@/commands";
-import { getActiveDocumentKey, type ActiveDocumentState } from "@/features/document";
+import {
+  getActiveDocumentKey,
+  type ActiveDocumentState,
+  type DocumentEncoding,
+} from "@/features/document";
 import type { EditorDocumentStatus } from "@/features/editor";
 import { documentEditorBridge } from "@/features/session";
 import { createSavedDocument } from "@/test/factories/document";
@@ -147,6 +151,17 @@ describe("StatusBar", () => {
     renderStatusBar({ activeDocument: createSavedDocument({ lineEnding: null }) });
 
     expect(screen.getByRole("button", { name: "Line ending: CRLF" })).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ name: "UTF-8", bom: false }, "UTF-8"],
+    [{ name: "UTF-8", bom: true }, "UTF-8 with BOM"],
+    [{ name: "UTF-16LE", bom: true }, "UTF-16 LE"],
+    [{ name: "UTF-16BE", bom: true }, "UTF-16 BE"],
+  ] satisfies [DocumentEncoding, string][])("names the %j encoding %s", (encoding, label) => {
+    renderStatusBar({ activeDocument: createSavedDocument({ encoding }) });
+
+    expect(screen.getByTestId("status-bar-encoding").textContent).toBe(label);
   });
 
   it("shows the zoom level only away from the default and resets it", async () => {

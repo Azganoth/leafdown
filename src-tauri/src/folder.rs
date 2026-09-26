@@ -633,7 +633,7 @@ mod tests {
     #[test]
     fn opens_folder_contexts_when_root_index_fails_to_open() {
         let root = TestDirectory::new("open-index-error");
-        root.write_file_with_content("readme.md", [0xff, 0xfe]);
+        root.write_file_with_content("readme.md", [b'#', 0xc3]);
         root.write_file("article.md");
 
         let result = open_folder(

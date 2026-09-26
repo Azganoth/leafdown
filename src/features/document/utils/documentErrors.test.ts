@@ -58,7 +58,8 @@ describe("document IO errors", () => {
       error: { kind: "invalidEncoding", path: "C:/Notes/invalid.md" },
       expected: {
         title: "Invalid Markdown file encoding.",
-        description: "Leafdown opens Markdown files encoded as UTF-8.",
+        description:
+          "Leafdown opens Markdown files encoded as UTF-8, or as UTF-16 with a byte order mark.",
       },
     },
     {

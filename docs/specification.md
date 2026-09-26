@@ -51,6 +51,7 @@ Primary user interface surfaces:
   - **Block path:** with a collapsed caret, the names of the blocks holding it from the outermost in, such as `Blockquote › Task list › Paragraph`. Headings name their level, code blocks their language when set, and a table cell its row and column counted from the header row; a paragraph inside a table cell is not named. The path is hidden while a selection is expanded. In a narrow window it is cut short from its outer end, and hovering it shows it in full.
   - **Word count:** the document's words, or while a selection is expanded the selected words against that total, such as `12 of 340 words`. Hovering it shows the matching character counts with and without spaces. Counts cover text, image descriptions, and live HTML text, but not footnote definition labels, link and image reference definitions, or Markdown syntax shown during source projection. Words are counted by the platform's word segmentation, so text without spaces between words still counts word by word.
   - **Reading time:** an estimate for the whole document at 200 words per minute, such as `~2 min read`, or `<1 min read`.
+  - **Encoding:** `UTF-8`, `UTF-8 with BOM`, `UTF-16 LE`, or `UTF-16 BE`, the encoding the next save will write.
   - **Line ending:** `CRLF` or `LF`, the ending the next save will write. Activating it offers the `Line ending` choices from the Edit menu.
   - **Zoom:** the zoom level while it is not 100%. Activating it resets zoom.
 - **Context popup:** provides quick document actions from selection or right-click.
@@ -97,6 +98,7 @@ These state axes compose. A document session, for example, can have a folder con
 - **Clean:** the document has no user edits since it was opened or saved. Loading and serialization normalization do not make it dirty.
 - **Dirty:** the document has unsaved user edits.
 - **Line ending:** the line ending used when saving the active document. Opened files start with their detected line ending; untitled documents start with `Default line ending for new documents`. If the opened file contains mixed line endings (both LF and CRLF), the detected line ending is determined by majority vote (whichever occurs more frequently in the file).
+- **Encoding:** the encoding and byte order mark (BOM) form used when saving the active document. Opened files start with the form they were read in, as described in [Loading Limits](#loading-limits); untitled documents start as UTF-8 without a BOM. Like the line ending, it belongs to the document rather than to a setting.
 
 ### Session Lifecycle
 
@@ -439,6 +441,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - `Mod+Shift+S` opens `Save as`.
 - If the active document is untitled, `Mod+S` opens `Save as`.
 - Save actions write the active document as ordinary Markdown.
+- Save and Save as write the active document in its encoding and BOM form, so a document opened and saved without edits keeps the file's bytes wherever its Markdown is written back unchanged. The line ending and the final newline apply to the text before it is encoded and behave the same under every encoding.
 - A save either fully replaces the file contents or leaves the previous contents in place. An interrupted or failed save never leaves a partially written document or a stray file beside it.
 - Saving a document that is a symlink writes through to the link target and leaves the link in place.
 - `Insert final newline on save` controls whether Leafdown writes a final newline when saving.
@@ -452,7 +455,8 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 
 - Empty files open as empty editable documents.
 - Files larger than 5 MB do not load.
-- Files that are not valid UTF-8 show an invalid encoding error and do not open.
+- A file that starts with a UTF-8, UTF-16 LE, or UTF-16 BE byte order mark (BOM) opens in the encoding the BOM names. Any other file opens as UTF-8. Leafdown does not guess an encoding.
+- A file whose bytes after any BOM are not valid in that encoding, or whose text holds the NUL character U+0000, shows an invalid encoding error and does not open. Undecodable bytes are never replaced with U+FFFD. Refusing NUL keeps a UTF-16 file without a BOM, which can also be valid UTF-8, from opening as UTF-8 with a NUL between its characters.
 - Folder contexts of up to 10,000 articles across about 2,000 directories are supported. Larger folder contexts still open, but opening, refreshing after external changes, and sorting slow down as the number of directories grows.
 - Opening files or folders at a partition/drive root (e.g., `C:\` or `/`) restricts folder scanning and watching to a non-recursive depth of 1 level to avoid filesystem performance issues and permission locks.
 

@@ -17,6 +17,7 @@ mod path_utils;
 mod remote_image;
 #[cfg(test)]
 mod test_utils;
+mod text_encoding;
 mod window;
 
 const TITLEBAR_HEIGHT: u32 = 32;

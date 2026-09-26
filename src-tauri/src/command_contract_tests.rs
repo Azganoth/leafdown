@@ -5,6 +5,7 @@ use serde_json::Value;
 use crate::{
     document, folder, image, link, remote_image,
     test_utils::{TestDirectory, canonical_path_string, pathdiff},
+    text_encoding::{DocumentEncoding, TextEncoding},
 };
 
 #[test]
@@ -19,6 +20,10 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     let save_result = tauri::async_runtime::block_on(document::save_markdown_file(
         document_path_string.clone(),
         "# Saved\n".to_owned(),
+        DocumentEncoding {
+            name: TextEncoding::Utf16Le,
+            bom: true,
+        },
         None,
         None,
     ))
@@ -32,7 +37,7 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     );
     assert_eq!(
         save_value["metadata"]["sizeBytes"].as_u64(),
-        Some(8),
+        Some(18),
         "metadata.sizeBytes should serialize as a number"
     );
 
@@ -62,8 +67,12 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     assert_eq!(json_string(&open_value, "content"), "# Saved\n");
     assert_eq!(json_string(&open_value, "lineEnding"), "lf");
     assert_eq!(
+        open_value["encoding"],
+        serde_json::json!({ "name": "UTF-16LE", "bom": true })
+    );
+    assert_eq!(
         open_value["metadata"]["sizeBytes"].as_u64(),
-        Some(8),
+        Some(18),
         "metadata.sizeBytes should serialize as a number"
     );
 }
@@ -115,6 +124,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     let missing_parent_error = tauri::async_runtime::block_on(document::save_markdown_file(
         path_string(missing_parent_file.as_path()),
         "# Saved\n".to_owned(),
+        DocumentEncoding::UTF8,
         None,
         None,
     ))
@@ -137,6 +147,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     let external_modification_error = tauri::async_runtime::block_on(document::save_markdown_file(
         path_string(externally_modified_file.as_path()),
         "# Saved\n".to_owned(),
+        DocumentEncoding::UTF8,
         Some(opened_document.metadata),
         None,
     ))

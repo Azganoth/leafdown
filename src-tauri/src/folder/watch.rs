@@ -6,7 +6,7 @@ use std::{
 
 use notify::{
     Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
-    event::{CreateKind, RemoveKind},
+    event::{CreateKind, ModifyKind, RemoveKind},
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -277,7 +277,7 @@ fn event_path_is_relevant(
 
     if let Ok(metadata) = fs::metadata(path) {
         if metadata.is_dir() {
-            return true;
+            return !is_directory_metadata_change(event_kind);
         }
 
         return metadata.is_file() && is_supported_markdown_path(path);
@@ -287,6 +287,20 @@ fn event_path_is_relevant(
         EventPathKind::Directory => true,
         EventPathKind::File => is_supported_markdown_path(path),
         EventPathKind::Unknown => is_supported_markdown_path(path) || path.extension().is_none(),
+    }
+}
+
+// Windows reports a directory as modified whenever a child is created, written, or deleted;
+// the child's own event already carries any change the navigator shows.
+fn is_directory_metadata_change(event_kind: &EventKind) -> bool {
+    match event_kind {
+        EventKind::Modify(ModifyKind::Name(_)) => false,
+        EventKind::Modify(_) => true,
+        EventKind::Any
+        | EventKind::Access(_)
+        | EventKind::Create(_)
+        | EventKind::Remove(_)
+        | EventKind::Other => false,
     }
 }
 
@@ -424,7 +438,9 @@ mod tests {
 
     use notify::{
         Event, EventKind, RecursiveMode,
-        event::{AccessKind, CreateKind, ModifyKind, RemoveKind},
+        event::{
+            AccessKind, CreateKind, DataChange, MetadataKind, ModifyKind, RemoveKind, RenameMode,
+        },
     };
 
     use super::{
@@ -614,6 +630,63 @@ mod tests {
         );
 
         assert_eq!(paths, vec![path.to_string_lossy()]);
+    }
+
+    #[test]
+    fn ignores_directory_metadata_changes() {
+        let root = TestDirectory::new("watch-directory-modify");
+        let path = root.create_directory("drafts");
+
+        for kind in [
+            EventKind::Modify(ModifyKind::Any),
+            EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+            EventKind::Modify(ModifyKind::Metadata(MetadataKind::WriteTime)),
+            EventKind::Modify(ModifyKind::Other),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert!(paths.is_empty(), "{kind:?} should not be relevant");
+        }
+    }
+
+    #[test]
+    fn treats_directory_renames_as_relevant() {
+        let root = TestDirectory::new("watch-directory-rename");
+        let from_path = root.path("drafts");
+        let to_path = root.create_directory("archive");
+
+        for (kind, path) in [
+            (
+                EventKind::Modify(ModifyKind::Name(RenameMode::From)),
+                &from_path,
+            ),
+            (
+                EventKind::Modify(ModifyKind::Name(RenameMode::To)),
+                &to_path,
+            ),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert_eq!(paths, vec![path.to_string_lossy()], "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn treats_deleted_directories_as_relevant_without_metadata() {
+        let root = TestDirectory::new("watch-directory-delete");
+        let path = root.path("drafts");
+
+        for kind in [
+            EventKind::Remove(RemoveKind::Folder),
+            EventKind::Remove(RemoveKind::Any),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert_eq!(paths, vec![path.to_string_lossy()], "{kind:?}");
+        }
     }
 
     // Windows emits this only since notify 9.0.0-rc.5; before it, deleting the watched

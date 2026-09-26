@@ -1,5 +1,6 @@
-import { $, expect } from "@wdio/globals";
-import { writeFile } from "node:fs/promises";
+import { $, $$, expect } from "@wdio/globals";
+import { mkdir, rename, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
@@ -34,6 +35,23 @@ describe("desktop folder context watcher", () => {
     await expect(addedArticle).toHaveAttribute("aria-selected", "true");
     await expect($('[contenteditable="true"]')).toHaveText(
       expect.stringContaining(folder.addedMarker),
+    );
+  });
+
+  it("refreshes article navigation after an external directory rename", async () => {
+    const { folder } = await getDesktopE2ERunContext();
+    const directoryPath = path.join(folder.path, "watcher-directory");
+    const renamedDirectoryPath = path.join(folder.path, "watcher-renamed");
+
+    await mkdir(directoryPath);
+    await writeFile(path.join(directoryPath, "nested.md"), "Nested article.\n");
+    await expect(await findTreeItem("watcher-directory")).toBeDisplayed();
+
+    await rename(directoryPath, renamedDirectoryPath);
+
+    await expect(await findTreeItem("watcher-renamed")).toBeDisplayed();
+    expect(await $$('[role="treeitem"]').map((item) => item.getText())).not.toContain(
+      "watcher-directory",
     );
   });
 });

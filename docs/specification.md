@@ -452,6 +452,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - Empty files open as empty editable documents.
 - Files larger than 5 MB do not load.
 - Files that are not valid UTF-8 show an invalid encoding error and do not open.
+- Folder contexts of up to 10,000 articles across about 2,000 directories are supported. Larger folder contexts still open, but opening, refreshing after external changes, and sorting slow down as the number of directories grows.
 - Opening files or folders at a partition/drive root (e.g., `C:\` or `/`) restricts folder scanning and watching to a non-recursive depth of 1 level to avoid filesystem performance issues and permission locks.
 
 ### Error Handling

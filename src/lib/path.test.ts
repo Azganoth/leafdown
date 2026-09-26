@@ -6,6 +6,7 @@ import {
   getRelativePath,
   isSameOrParentPath,
   isSamePath,
+  PathMap,
   PathSet,
   rebasePath,
   toSlashPath,
@@ -98,5 +99,17 @@ describe("path utilities", () => {
     expect([...paths]).toEqual(["C:/Notes/docs", "/Users/Ada/Notes", "/users/ada/notes"]);
     expect(paths.delete("c:/notes/docs/")).toBe(true);
     expect(paths.has("C:/Notes/docs")).toBe(false);
+  });
+
+  it("keys values by path identity", () => {
+    const values = new PathMap<number>().set("C:/Notes/docs", 1).set("/Users/Ada/Notes", 2);
+
+    expect(values.get("c:\\notes\\docs\\")).toBe(1);
+    expect(values.get("/Users/Ada/Notes/")).toBe(2);
+    expect(values.get("/users/ada/notes")).toBeUndefined();
+
+    values.set("C:/NOTES/DOCS", 3);
+
+    expect(values.get("C:/Notes/docs")).toBe(3);
   });
 });

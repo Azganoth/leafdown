@@ -1,4 +1,4 @@
-import { isSamePath, PathSet } from "@/lib/path";
+import { isSamePath, PathMap, PathSet } from "@/lib/path";
 import { findTreeNodeAncestors, flattenTree, type TreeTraversalEntry } from "@/lib/tree";
 
 import type { ArticleTree, ArticleTreeNode } from "../services/folderContext";
@@ -67,6 +67,7 @@ export const buildArticleNavigatorRows = ({
   tree,
 }: BuildArticleNavigatorRowsOptions): ArticleNavigatorRow[] => {
   const expandedDirectoryPathSet = new PathSet(expandedDirectoryPaths);
+  const activeArticlePaths = new PathSet(activeArticlePath ? [activeArticlePath] : []);
   const roots: ArticleNavigatorNode[] = tree.children;
   const entries = flattenTree<ArticleNavigatorNode>({
     getChildren: (node) => getNavigatorNodeChildren(node, draft),
@@ -97,7 +98,7 @@ export const buildArticleNavigatorRows = ({
       ? {
           kind: "file",
           depth,
-          isActive: activeArticlePath ? isSamePath(node.path, activeArticlePath) : false,
+          isActive: activeArticlePaths.has(node.path),
           name: node.name,
           parentIndex,
           path: node.path,
@@ -116,6 +117,14 @@ export const buildArticleNavigatorRows = ({
           setSize,
         };
   });
+};
+
+export const getArticleNavigatorRowIndexes = (rows: ArticleNavigatorRow[]) => {
+  const rowIndexes = new PathMap<number>();
+
+  rows.forEach((row, index) => rowIndexes.set(row.path, index));
+
+  return rowIndexes;
 };
 
 export const getArticleDirectoryPaths = (tree: ArticleTree) =>
@@ -153,12 +162,17 @@ const filterArticleTreeNodesByArticleName = (
 export const getArticleAncestorDirectoryPaths = (
   tree: ArticleTree,
   filePath: string,
-): string[] | null =>
-  findTreeNodeAncestors({
-    getChildren: getArticleTreeNodeChildren,
-    matches: (node) => node.kind === "file" && isSamePath(node.path, filePath),
-    roots: tree.children,
-  })?.flatMap((node) => (node.kind === "directory" ? [node.path] : [])) ?? null;
+): string[] | null => {
+  const filePaths = new PathSet([filePath]);
+
+  return (
+    findTreeNodeAncestors({
+      getChildren: getArticleTreeNodeChildren,
+      matches: (node) => node.kind === "file" && filePaths.has(node.path),
+      roots: tree.children,
+    })?.flatMap((node) => (node.kind === "directory" ? [node.path] : [])) ?? null
+  );
+};
 
 const getArticleTreeNodeChildren = (node: ArticleTreeNode) =>
   node.kind === "directory" ? node.children : [];

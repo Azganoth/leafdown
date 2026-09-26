@@ -12,6 +12,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -47,7 +48,7 @@ import {
   type VirtualListHandle,
 } from "@/components/ui/virtual-list";
 import { hasNoShortcutModifier } from "@/lib/input";
-import { getRelativePath, isSameOrParentPath, isSamePath } from "@/lib/path";
+import { getRelativePath, isSameOrParentPath, isSamePath, type PathMap } from "@/lib/path";
 import { cn } from "@/lib/utils";
 
 import type { FolderContextState } from "../services/folderContext";
@@ -58,6 +59,7 @@ import {
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
   getArticleFileCount,
+  getArticleNavigatorRowIndexes,
   type ArticleNavigatorDirectoryRow,
   type ArticleNavigatorDraft,
   type ArticleNavigatorEntryKind,
@@ -521,17 +523,20 @@ function ArticleNavigatorRows({
   const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
   const hasRowFocusRef = useRef(false);
   const typeaheadRef = useRef({ buffer: "", lastKeyAtMs: 0 });
-  const focusedIndex = getArticleNavigatorFocusedIndex(rows, focus.path);
+  // React Compiler leaves this unmemoized, which would rebuild it, at one path key per row, on
+  // every focus change.
+  const rowIndexes = useMemo(() => getArticleNavigatorRowIndexes(rows), [rows]);
+  const focusedIndex = getArticleNavigatorFocusedIndex({
+    focusedPath: focus.path,
+    rowIndexes,
+    rows,
+  });
   const focusedRowPath = rows[focusedIndex]?.path;
   const handledRevealRequestIdRef = useRef(0);
   const handledFocusRequestIdRef = useRef(0);
-  const revealRowIndex = rows.findIndex(
-    (row) => revealPath !== null && isSamePath(row.path, revealPath),
-  );
+  const revealRowIndex = getRowIndex(rowIndexes, revealPath);
   const revealRowPath = revealRowIndex < 0 ? null : rows[revealRowIndex].path;
-  const focusRequestRowIndex = rows.findIndex(
-    (row) => focusRequestPath !== null && isSamePath(row.path, focusRequestPath),
-  );
+  const focusRequestRowIndex = getRowIndex(rowIndexes, focusRequestPath);
   const editRowIndex = rows.findIndex((row) =>
     edit?.kind === "rename" ? isSamePath(row.path, edit.path) : row.kind === "draft",
   );
@@ -732,6 +737,9 @@ function ArticleNavigatorRows({
     </VirtualList>
   );
 }
+
+const getRowIndex = (rowIndexes: PathMap<number>, path: string | null) =>
+  path === null ? -1 : (rowIndexes.get(path) ?? -1);
 
 const isContextMenuKey = (event: KeyboardEvent) =>
   event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);

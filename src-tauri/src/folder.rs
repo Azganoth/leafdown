@@ -548,6 +548,25 @@ mod tests {
     }
 
     #[test]
+    fn sorts_directories_by_modified_date_after_their_contents_change() {
+        let root = TestDirectory::new("scan-modified-date-changed-directory-sort");
+        let alpha = root.create_directory("alpha");
+        let beta = root.create_directory("beta");
+        set_directory_modified_time(&alpha, 1_700_000_000_000);
+        set_directory_modified_time(&beta, 1_700_000_001_000);
+        root.write_file("alpha/new.md");
+
+        let result = scan_folder(
+            &root.path,
+            ignored_directories(),
+            FileTreeSortOrder::ModifiedDate,
+        )
+        .expect("folder should scan with modified-date sorting");
+
+        assert_eq!(direct_child_names(&result.tree), vec!["alpha", "beta"]);
+    }
+
+    #[test]
     fn opens_root_indexes_in_configured_name_order() {
         let root = TestDirectory::new("open-index-order");
         root.write_file("readme.md");
@@ -743,6 +762,27 @@ mod tests {
             .expect("test file modified time should be set");
 
         path
+    }
+
+    fn set_directory_modified_time(path: &Path, modified_at_unix_ms: u64) {
+        #[cfg(windows)]
+        let directory = {
+            use std::os::windows::fs::OpenOptionsExt;
+
+            const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+            fs::File::options()
+                .write(true)
+                .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+                .open(path)
+        };
+        #[cfg(not(windows))]
+        let directory = fs::File::open(path);
+
+        directory
+            .and_then(|directory| {
+                directory.set_modified(UNIX_EPOCH + Duration::from_millis(modified_at_unix_ms))
+            })
+            .expect("test directory modified time should be set");
     }
 
     fn child_nodes_have_directory(children: &[MarkdownFolderTreeNode], name: &str) -> bool {

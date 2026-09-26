@@ -39,7 +39,6 @@ Global settings persist across application launches unless specified otherwise.
 ### Editor
 
 - **Auto pair brackets and quotes:** On or Off. Default: On.
-- **Indent size on save:** 2 spaces, 4 spaces, or tab. Default: 2 spaces. (Deferred)
 - **Display line numbers for code blocks:** On or Off. Default: Off. (Deferred)
 - **Soft wrap for code blocks:** On or Off. Default: Off.
 

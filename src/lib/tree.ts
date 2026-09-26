@@ -58,8 +58,13 @@ export const findTreeNodeAncestors = <TNode>({
   getChildren,
   matches,
   roots,
-}: FindTreeNodeOptions<TNode>): TNode[] | null =>
-  findTreeNodeAncestorPath({ ancestorPath: [], getChildren, matches, nodes: roots });
+}: FindTreeNodeOptions<TNode>): TNode[] | null => {
+  const ancestors: TNode[] = [];
+
+  return collectTreeNodeAncestors({ ancestors, getChildren, matches, nodes: roots })
+    ? ancestors
+    : null;
+};
 
 interface AppendFlattenedEntriesOptions<TNode> {
   depth: number;
@@ -94,35 +99,32 @@ const appendFlattenedEntries = <TNode>({
   }
 };
 
-interface FindTreeNodeAncestorPathOptions<TNode> {
-  ancestorPath: TNode[];
+interface CollectTreeNodeAncestorsOptions<TNode> {
+  ancestors: TNode[];
   getChildren: (node: TNode) => readonly TNode[];
   matches: (node: TNode) => boolean;
   nodes: readonly TNode[];
 }
 
-const findTreeNodeAncestorPath = <TNode>({
-  ancestorPath,
+const collectTreeNodeAncestors = <TNode>({
+  ancestors,
   getChildren,
   matches,
   nodes,
-}: FindTreeNodeAncestorPathOptions<TNode>): TNode[] | null => {
+}: CollectTreeNodeAncestorsOptions<TNode>): boolean => {
   for (const node of nodes) {
     if (matches(node)) {
-      return ancestorPath;
+      return true;
     }
 
-    const foundAncestorPath = findTreeNodeAncestorPath({
-      ancestorPath: [...ancestorPath, node],
-      getChildren,
-      matches,
-      nodes: getChildren(node),
-    });
+    ancestors.push(node);
 
-    if (foundAncestorPath) {
-      return foundAncestorPath;
+    if (collectTreeNodeAncestors({ ancestors, getChildren, matches, nodes: getChildren(node) })) {
+      return true;
     }
+
+    ancestors.pop();
   }
 
-  return null;
+  return false;
 };

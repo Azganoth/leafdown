@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createNestedArticleTree } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
 
-import { buildArticleNavigatorRows } from "./articleNavigatorRows";
+import {
+  buildArticleNavigatorRows,
+  getArticleNavigatorRowIndexes,
+  type ArticleNavigatorRow,
+} from "./articleNavigatorRows";
 import {
   getArticleNavigatorFocusedIndex,
   getArticleNavigatorTraversalAction,
@@ -30,6 +34,13 @@ const collapsedRows = buildArticleNavigatorRows({
 
 const actionFor = (key: string, focusedIndex: number, rows = expandedRows) =>
   getArticleNavigatorTraversalAction({ focusedIndex, key, rows });
+
+const focusedIndexFor = (rows: ArticleNavigatorRow[], focusedPath: string | null) =>
+  getArticleNavigatorFocusedIndex({
+    focusedPath,
+    rowIndexes: getArticleNavigatorRowIndexes(rows),
+    rows,
+  });
 
 const typeaheadIndexFor = (typeaheadBuffer: string, focusedIndex: number) =>
   getArticleNavigatorTypeaheadIndex({ focusedIndex, rows: expandedRows, typeaheadBuffer });
@@ -130,18 +141,16 @@ describe("article navigator traversal", () => {
       tree,
     });
 
-    expect(getArticleNavigatorFocusedIndex(rowsWithActiveArticle, null)).toBe(3);
-    expect(getArticleNavigatorFocusedIndex(expandedRows, null)).toBe(0);
+    expect(focusedIndexFor(rowsWithActiveArticle, null)).toBe(3);
+    expect(focusedIndexFor(expandedRows, null)).toBe(0);
   });
 
   it("follows a focused row by path across rebuilds", () => {
-    expect(getArticleNavigatorFocusedIndex(expandedRows, "c:\\notes\\docs\\spec.md")).toBe(3);
+    expect(focusedIndexFor(expandedRows, "c:\\notes\\docs\\spec.md")).toBe(3);
   });
 
   it("falls back to the deepest surviving ancestor of a row that is gone", () => {
-    expect(
-      getArticleNavigatorFocusedIndex(collapsedRows, `${TEST_NESTED_DIRECTORY_PATH}/spec.md`),
-    ).toBe(2);
-    expect(getArticleNavigatorFocusedIndex(collapsedRows, "C:/Elsewhere/other.md")).toBe(0);
+    expect(focusedIndexFor(collapsedRows, `${TEST_NESTED_DIRECTORY_PATH}/spec.md`)).toBe(2);
+    expect(focusedIndexFor(collapsedRows, "C:/Elsewhere/other.md")).toBe(0);
   });
 });

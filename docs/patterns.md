@@ -16,6 +16,7 @@ Use:
 - `isSameNullablePath(left, right)` when both values may be `null`.
 - `isSameOrParentPath(parent, child)` for containment.
 - `PathSet` for sets of paths.
+- `PathMap` for values looked up by path.
 
 Avoid:
 

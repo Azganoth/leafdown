@@ -229,3 +229,17 @@ export class PathSet implements Iterable<string> {
     return this.values();
   }
 }
+
+export class PathMap<T> {
+  private readonly valuesByKey = new Map<string, T>();
+
+  get(path: string) {
+    return this.valuesByKey.get(getPathIdentityKey(path));
+  }
+
+  set(path: string, value: T) {
+    this.valuesByKey.set(getPathIdentityKey(path), value);
+
+    return this;
+  }
+}

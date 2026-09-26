@@ -1,4 +1,4 @@
-import { isSameOrParentPath, isSamePath } from "@/lib/path";
+import { getPathParts, type PathMap } from "@/lib/path";
 
 import type { ArticleNavigatorRow } from "./articleNavigatorRows";
 
@@ -109,10 +109,17 @@ export const getArticleNavigatorTypeaheadIndex = ({
 const isRepeatedCharacter = (value: string) =>
   value.length > 1 && value === value[0].repeat(value.length);
 
-export const getArticleNavigatorFocusedIndex = (
-  rows: ArticleNavigatorRow[],
-  focusedPath: string | null,
-) => {
+interface GetArticleNavigatorFocusedIndexOptions {
+  focusedPath: string | null;
+  rowIndexes: PathMap<number>;
+  rows: ArticleNavigatorRow[];
+}
+
+export const getArticleNavigatorFocusedIndex = ({
+  focusedPath,
+  rowIndexes,
+  rows,
+}: GetArticleNavigatorFocusedIndexOptions) => {
   if (focusedPath === null) {
     return Math.max(
       rows.findIndex((row) => row.kind === "file" && row.isActive),
@@ -120,18 +127,17 @@ export const getArticleNavigatorFocusedIndex = (
     );
   }
 
-  const focusedIndex = rows.findIndex((row) => isSamePath(row.path, focusedPath));
-
-  if (focusedIndex >= 0) {
-    return focusedIndex;
-  }
-
   // A collapsed directory takes its descendants with it, so focus falls back to
   // the deepest ancestor that survived.
-  return Math.max(
-    rows.findLastIndex((row) => isSameOrParentPath(row.path, focusedPath)),
-    0,
-  );
+  for (let path = focusedPath; path; path = getPathParts(path).parent) {
+    const index = rowIndexes.get(path);
+
+    if (index !== undefined) {
+      return index;
+    }
+  }
+
+  return 0;
 };
 
 const focusRowAt = (

@@ -21,6 +21,7 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
         "# Saved\n".to_owned(),
         None,
         None,
+        None,
     ))
     .expect("command should save Markdown");
     let save_value = serialized(save_result);
@@ -53,14 +54,20 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     );
     assert_tree_contains_path(&scan_value["tree"], document_path_string.as_str());
 
-    let open_result =
-        tauri::async_runtime::block_on(document::open_markdown_file(document_path_string.clone()))
-            .expect("command should open saved Markdown");
+    let open_result = tauri::async_runtime::block_on(document::open_markdown_file(
+        document_path_string.clone(),
+        None,
+    ))
+    .expect("command should open saved Markdown");
     let open_value = serialized(open_result);
 
     assert_eq!(json_string(&open_value, "path"), document_path_string);
     assert_eq!(json_string(&open_value, "content"), "# Saved\n");
     assert_eq!(json_string(&open_value, "lineEnding"), "lf");
+    assert_eq!(
+        open_value["encoding"],
+        serde_json::json!({ "name": "UTF-8", "bom": false })
+    );
     assert_eq!(
         open_value["metadata"]["sizeBytes"].as_u64(),
         Some(8),
@@ -80,9 +87,10 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     );
     let missing_folder = root.path("missing");
 
-    let open_error = tauri::async_runtime::block_on(document::open_markdown_file(path_string(
-        unsupported_file.as_path(),
-    )))
+    let open_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        path_string(unsupported_file.as_path()),
+        None,
+    ))
     .expect_err("unsupported files should be rejected");
     let open_error = serialized(open_error);
 
@@ -94,6 +102,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
 
     let oversized_error = tauri::async_runtime::block_on(document::open_markdown_file(
         path_string(oversized_file.as_path()),
+        None,
     ))
     .expect_err("oversized files should be rejected");
     let oversized_error = serialized(oversized_error);
@@ -117,6 +126,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
         "# Saved\n".to_owned(),
         None,
         None,
+        None,
     ))
     .expect_err("missing parent folders should be rejected");
     let missing_parent_error = serialized(missing_parent_error);
@@ -138,6 +148,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
         path_string(externally_modified_file.as_path()),
         "# Saved\n".to_owned(),
         Some(opened_document.metadata),
+        None,
         None,
     ))
     .expect_err("externally modified files should be rejected");

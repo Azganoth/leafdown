@@ -1,0 +1,112 @@
+== Fixture matrix: signal-only policy vs chardetng heuristic ==
+fixture                                      | truth                  | signal-only                      | heuristic      | truth round trip
+utf-8 latin [LF]                             | UTF-8                  | UTF-8 LF ok                      | UTF-8 ok       | byte-exact, LF
+utf-8 latin [CRLF]                           | UTF-8                  | UTF-8 CRLF ok                    | UTF-8 ok       | byte-exact, CRLF
+utf-8+BOM latin [LF]                         | UTF-8+BOM              | UTF-8+BOM LF ok                  | UTF-8 ok       | byte-exact, LF
+utf-8+BOM latin [CRLF]                       | UTF-8+BOM              | UTF-8+BOM CRLF ok                | UTF-8 ok       | byte-exact, CRLF
+utf-16le+BOM cjk [LF]                        | UTF-16LE+BOM           | UTF-16LE+BOM LF ok               | windows-1252 WRONG | byte-exact, LF
+utf-16le+BOM cjk [CRLF]                      | UTF-16LE+BOM           | UTF-16LE+BOM CRLF ok             | windows-1252 WRONG | byte-exact, CRLF
+utf-16be+BOM cjk [LF]                        | UTF-16BE+BOM           | UTF-16BE+BOM LF ok               | windows-1252 WRONG | byte-exact, LF
+utf-16be+BOM cjk [CRLF]                      | UTF-16BE+BOM           | UTF-16BE+BOM CRLF ok             | windows-1252 WRONG | byte-exact, CRLF
+utf-16le no BOM ascii [LF]                   | UTF-16LE               | UTF-8 LF WRONG NUL               | UTF-8 WRONG    | byte-exact, LF
+utf-16le no BOM ascii [CRLF]                 | UTF-16LE               | UTF-8 LF WRONG NUL               | UTF-8 WRONG    | byte-exact, CRLF
+windows-1252 short [LF]                      | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, LF
+windows-1252 short [CRLF]                    | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, CRLF
+windows-1252 long [LF]                       | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, LF
+windows-1252 long [CRLF]                     | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, CRLF
+iso-8859-15 short [LF]                       | ISO-8859-15            | reject: no BOM and not UTF-8     | windows-1252 WRONG | byte-exact, LF
+iso-8859-15 short [CRLF]                     | ISO-8859-15            | reject: no BOM and not UTF-8     | windows-1252 WRONG | byte-exact, CRLF
+windows-1250 short [LF]                      | windows-1250           | reject: no BOM and not UTF-8     | windows-1250 ok | byte-exact, LF
+windows-1250 short [CRLF]                    | windows-1250           | reject: no BOM and not UTF-8     | windows-1250 ok | byte-exact, CRLF
+windows-1250 long [LF]                       | windows-1250           | reject: no BOM and not UTF-8     | windows-1250 ok | byte-exact, LF
+windows-1250 long [CRLF]                     | windows-1250           | reject: no BOM and not UTF-8     | windows-1250 ok | byte-exact, CRLF
+iso-8859-2 long [LF]                         | ISO-8859-2             | reject: no BOM and not UTF-8     | ISO-8859-2 ok  | byte-exact, LF
+iso-8859-2 long [CRLF]                       | ISO-8859-2             | reject: no BOM and not UTF-8     | ISO-8859-2 ok  | byte-exact, CRLF
+windows-1251 [LF]                            | windows-1251           | reject: no BOM and not UTF-8     | windows-1251 ok | byte-exact, LF
+windows-1251 [CRLF]                          | windows-1251           | reject: no BOM and not UTF-8     | windows-1251 ok | byte-exact, CRLF
+koi8-r [LF]                                  | KOI8-R                 | reject: no BOM and not UTF-8     | KOI8-U WRONG   | byte-exact, LF
+koi8-r [CRLF]                                | KOI8-R                 | reject: no BOM and not UTF-8     | KOI8-U WRONG   | byte-exact, CRLF
+shift_jis [LF]                               | Shift_JIS              | reject: no BOM and not UTF-8     | Shift_JIS ok   | byte-exact, LF
+shift_jis [CRLF]                             | Shift_JIS              | reject: no BOM and not UTF-8     | Shift_JIS ok   | byte-exact, CRLF
+gbk [LF]                                     | GBK                    | reject: no BOM and not UTF-8     | GBK ok         | byte-exact, LF
+gbk [CRLF]                                   | GBK                    | reject: no BOM and not UTF-8     | GBK ok         | byte-exact, CRLF
+euc-kr [LF]                                  | EUC-KR                 | reject: no BOM and not UTF-8     | EUC-KR ok      | byte-exact, LF
+euc-kr [CRLF]                                | EUC-KR                 | reject: no BOM and not UTF-8     | EUC-KR ok      | byte-exact, CRLF
+windows-1252 mojibake-looking [LF]           | windows-1252           | UTF-8 LF WRONG                   | UTF-8 WRONG    | byte-exact, LF
+windows-1252 mojibake-looking [CRLF]         | windows-1252           | UTF-8 CRLF WRONG                 | UTF-8 WRONG    | byte-exact, CRLF
+windows-1252 déjà [LF]                       | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, LF
+windows-1252 déjà [CRLF]                     | windows-1252           | reject: no BOM and not UTF-8     | windows-1252 ok | byte-exact, CRLF
+utf-8 truncated sequence                     | malformed              | reject: no BOM and not UTF-8     | windows-1250 - | -
+utf-8+BOM then invalid byte                  | malformed              | reject: malformed after BOM      | windows-1250 - | -
+utf-16le+BOM odd length                      | malformed              | reject: malformed after BOM      | windows-1254 - | -
+utf-16le+BOM lone surrogate                  | malformed              | reject: malformed after BOM      | windows-1254 - | -
+bytes FF FE (current backend invalid-encoding test) | malformed              | UTF-16LE+BOM none WRONG          | windows-1254 - | -
+binary PNG header                            | malformed              | reject: no BOM and not UTF-8     | windows-1252 - | -
+
+== Plausible decodes of the same bytes under other explicit selections ==
+windows-1252 'déjà': bytes [64, E9, 6A, E0]
+    UTF-8        -> malformed
+    windows-1252 -> "déjà"
+    windows-1250 -> "déjŕ"
+    windows-1251 -> "dйjа"
+    ISO-8859-15  -> "déjà"
+    Shift_JIS    -> malformed
+    GBK          -> malformed
+    EUC-KR       -> malformed
+windows-1252 'Café 10 €': bytes [43, 61, 66, E9, 20, 31, 30, 20, 80]
+    UTF-8        -> malformed
+    windows-1252 -> "Café 10 €"
+    windows-1250 -> "Café 10 €"
+    windows-1251 -> "Cafй 10 Ђ"
+    ISO-8859-15  -> "Café 10 \u{80}"
+    Shift_JIS    -> malformed
+    GBK          -> malformed
+    EUC-KR       -> malformed
+shift_jis '日本語のテキスト': bytes [93, FA, 96, 7B, 8C, EA, 82, CC, 83, 65, 83, 4C, 83, 58, 83, 67]
+    UTF-8        -> malformed
+    windows-1252 -> "“ú–{Œê‚ÌƒeƒLƒXƒg"
+    windows-1250 -> "“ú–{Śę‚Ě\u{83}e\u{83}L\u{83}X\u{83}g"
+    windows-1251 -> "“ъ–{Њк‚МѓeѓLѓXѓg"
+    ISO-8859-15  -> "\u{93}ú\u{96}{\u{8c}ê\u{82}Ì\u{83}e\u{83}L\u{83}X\u{83}g"
+    Shift_JIS    -> "日本語のテキスト"
+    GBK          -> "擔杮岅偺僥僉僗僩"
+    EUC-KR       -> malformed
+windows-1252 'RÃ©sumÃ©': bytes [52, C3, A9, 73, 75, 6D, C3, A9]
+    UTF-8        -> "Résumé"
+    windows-1252 -> "RÃ©sumÃ©"
+    windows-1250 -> "RĂ©sumĂ©"
+    windows-1251 -> "RГ©sumГ©"
+    ISO-8859-15  -> "RÃ©sumÃ©"
+    Shift_JIS    -> "Rﾃｩsumﾃｩ"
+    GBK          -> "R茅sum茅"
+    EUC-KR       -> "R챕sum챕"
+
+== Single-byte encodings: all 256 bytes decode strictly and re-encode byte-exact? ==
+windows-1252 decodes every byte; re-encode byte-exact: Ok(true)
+windows-1250 decodes every byte; re-encode byte-exact: Ok(true)
+windows-1251 decodes every byte; re-encode byte-exact: Ok(true)
+ISO-8859-2   decodes every byte; re-encode byte-exact: Ok(true)
+ISO-8859-15  decodes every byte; re-encode byte-exact: Ok(true)
+KOI8-R       decodes every byte; re-encode byte-exact: Ok(true)
+
+== Editing in a character the original encoding cannot represent ==
+windows-1252   strict: refused at first unmappable '✓' U+2713       | encoding_rs encode(): used windows-1252, had_errors true, output "# Caf�\n\nDone &#10003; &#26085;&#26412; &#128512;\n"
+windows-1250   strict: refused at first unmappable '✓' U+2713       | encoding_rs encode(): used windows-1250, had_errors true, output "# Caf�\n\nDone &#10003; &#26085;&#26412; &#128512;\n"
+Shift_JIS      strict: refused at first unmappable 'é' U+00E9       | encoding_rs encode(): used Shift_JIS, had_errors true, output "# Caf&#233;\n\nDone &#10003; ���{ &#128512;\n"
+UTF-16LE+BOM   strict: ok (44 bytes)                                | encoding_rs encode(): used UTF-8, had_errors false, output "# Café\n\nDone ✓ 日本 😀\n"
+UTF-8+BOM      strict: ok (33 bytes)                                | encoding_rs encode(): used UTF-8, had_errors false, output "# Café\n\nDone ✓ 日本 😀\n"
+
+== Collecting every unmappable character before saving ==
+windows-1252 cannot represent: ['✓', '日', '本', '😀']
+
+== Labels a picker would resolve ==
+latin1     -> windows-1252 (output encoding windows-1252)
+iso-8859-1 -> windows-1252 (output encoding windows-1252)
+ascii      -> windows-1252 (output encoding windows-1252)
+cp1252     -> windows-1252 (output encoding windows-1252)
+utf-16     -> UTF-16LE (output encoding UTF-8)
+utf-8      -> UTF-8 (output encoding UTF-8)
+shift-jis  -> Shift_JIS (output encoding Shift_JIS)
+gb2312     -> GBK (output encoding GBK)
+big5       -> Big5 (output encoding Big5)
+cp437      -> unknown label

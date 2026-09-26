@@ -1,0 +1,19 @@
+== Two-byte sequences: decodable pairs whose strict re-encode differs ==
+Shift_JIS  decodable pairs  17796, re-encode differs  2278 (12.80%) e.g. ["8790->\"≒\"", "8791->\"≡\"", "8792->\"∫\""]
+EUC-JP     decodable pairs   7399, re-encode differs    10 (0.14%) e.g. ["ADF0->\"≒\"", "ADF1->\"≡\"", "ADF2->\"∫\""]
+GBK        decodable pairs  24005, re-encode differs     2 (0.01%) e.g. ["A2E3->\"€\"", "A3A0->\"\\u{3000}\""]
+gb18030    decodable pairs  24005, re-encode differs    66 (0.27%) e.g. ["8040->\"€@\"", "8041->\"€A\"", "8042->\"€B\""]
+Big5       decodable pairs  18594, re-encode differs  3941 (21.20%) e.g. ["8740->\"䏰\"", "8741->\"䰲\"", "8742->\"䘃\""]
+EUC-KR     decodable pairs  17048, re-encode differs     0 (0.00%) e.g. []
+
+== Single-byte: every decodable byte re-encodes exactly? ==
+windows-874  undecodable [DB, DC, DD, DE, FC, FD, FE, FF] differs []
+windows-1250 undecodable [] differs []
+windows-1251 undecodable [] differs []
+windows-1252 undecodable [] differs []
+windows-1253 undecodable [AA, D2, FF] differs []
+windows-1254 undecodable [] differs []
+windows-1255 undecodable [D9, DA, DB, DC, DD, DE, DF, FB, FC, FF] differs []
+windows-1256 undecodable [] differs []
+windows-1257 undecodable [A1, A5] differs []
+windows-1258 undecodable [] differs []

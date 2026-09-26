@@ -8,8 +8,9 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_utils::{ReadUtf8FileError, read_utf8_file_with_size_limit, write_file_atomically},
+    file_utils::{ReadFileError, read_file_with_size_limit, write_file_atomically},
     path_utils::{IoErrorClass, classify_io_error, path_to_string},
+    text_encoding::{self, DecodeError, DocumentEncoding, EncodeError},
 };
 
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
@@ -22,6 +23,7 @@ pub(crate) struct OpenMarkdownFileResult {
     pub(crate) parent_folder_path: String,
     pub(crate) content: String,
     pub(crate) line_ending: Option<LineEnding>,
+    pub(crate) encoding: DocumentEncoding,
     pub(crate) metadata: FileMetadataSnapshot,
 }
 
@@ -76,6 +78,14 @@ pub(crate) enum OpenMarkdownFileError {
     InvalidEncoding {
         path: String,
     },
+    UnknownEncoding {
+        path: String,
+        encoding: String,
+    },
+    IrreversibleEncoding {
+        path: String,
+        encoding: String,
+    },
     ReadFailed {
         path: String,
         message: String,
@@ -114,6 +124,15 @@ pub(crate) enum SaveMarkdownFileError {
         path: String,
         current_metadata: FileMetadataSnapshot,
     },
+    UnknownEncoding {
+        path: String,
+        encoding: String,
+    },
+    UnrepresentableCharacters {
+        path: String,
+        encoding: String,
+        characters: Vec<String>,
+    },
     WriteFailed {
         path: String,
         message: String,
@@ -127,18 +146,21 @@ pub(crate) enum SaveMarkdownFileError {
 #[tauri::command]
 pub(crate) async fn open_markdown_file(
     path: String,
+    encoding: Option<String>,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let path = PathBuf::from(path);
     let error_path = path_to_string(path.as_path());
 
-    tauri::async_runtime::spawn_blocking(move || read_markdown_file(path.as_path()))
-        .await
-        .unwrap_or_else(|error| {
-            Err(OpenMarkdownFileError::ReadFailed {
-                path: error_path,
-                message: error.to_string(),
-            })
+    tauri::async_runtime::spawn_blocking(move || {
+        read_markdown_file_with_encoding(path.as_path(), encoding.as_deref())
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(OpenMarkdownFileError::ReadFailed {
+            path: error_path,
+            message: error.to_string(),
         })
+    })
 }
 
 #[tauri::command]
@@ -147,14 +169,16 @@ pub(crate) async fn save_markdown_file(
     content: String,
     expected_metadata: Option<FileMetadataSnapshot>,
     overwrite: Option<bool>,
+    encoding: Option<DocumentEncoding>,
 ) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
     let path = PathBuf::from(path);
     let error_path = path_to_string(path.as_path());
 
     tauri::async_runtime::spawn_blocking(move || {
-        write_markdown_file(
+        write_markdown_file_with_encoding(
             path.as_path(),
             content.as_str(),
+            &encoding.unwrap_or_else(DocumentEncoding::utf8),
             expected_metadata,
             overwrite.unwrap_or(false),
         )
@@ -170,6 +194,13 @@ pub(crate) async fn save_markdown_file(
 
 pub(crate) fn read_markdown_file(
     path: &Path,
+) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
+    read_markdown_file_with_encoding(path, None)
+}
+
+pub(crate) fn read_markdown_file_with_encoding(
+    path: &Path,
+    selected_encoding: Option<&str>,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let serialized_path = path_to_string(path);
 
@@ -196,13 +227,15 @@ pub(crate) fn read_markdown_file(
         });
     }
 
-    let content = read_markdown_file_content(path, serialized_path.as_str())?;
+    let (content, encoding) =
+        read_markdown_file_content(path, serialized_path.as_str(), selected_encoding)?;
 
     Ok(OpenMarkdownFileResult {
         path: serialized_path,
         parent_folder_path,
         line_ending: detect_line_ending(&content),
         content,
+        encoding,
         metadata,
     })
 }
@@ -210,6 +243,22 @@ pub(crate) fn read_markdown_file(
 pub(crate) fn write_markdown_file(
     path: &Path,
     content: &str,
+    expected_metadata: Option<FileMetadataSnapshot>,
+    overwrite: bool,
+) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
+    write_markdown_file_with_encoding(
+        path,
+        content,
+        &DocumentEncoding::utf8(),
+        expected_metadata,
+        overwrite,
+    )
+}
+
+pub(crate) fn write_markdown_file_with_encoding(
+    path: &Path,
+    content: &str,
+    encoding: &DocumentEncoding,
     expected_metadata: Option<FileMetadataSnapshot>,
     overwrite: bool,
 ) -> Result<SaveMarkdownFileResult, SaveMarkdownFileError> {
@@ -228,9 +277,23 @@ pub(crate) fn write_markdown_file(
                 path: serialized_path.clone(),
             })?;
 
+    let content_bytes = text_encoding::encode(content, encoding).map_err(|error| match error {
+        EncodeError::UnknownEncoding => SaveMarkdownFileError::UnknownEncoding {
+            path: serialized_path.clone(),
+            encoding: encoding.name.clone(),
+        },
+        EncodeError::Unrepresentable { characters } => {
+            SaveMarkdownFileError::UnrepresentableCharacters {
+                path: serialized_path.clone(),
+                encoding: encoding.name.clone(),
+                characters: characters.iter().map(char::to_string).collect(),
+            }
+        }
+    })?;
+
     verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
 
-    write_file_atomically(path, content.as_bytes())
+    write_file_atomically(path, content_bytes.as_slice())
         .map_err(|error| save_write_error(error, path, serialized_path.as_str()))?;
 
     let metadata = read_file_metadata(path)
@@ -280,23 +343,38 @@ fn is_supported_markdown_extension(extension: &str) -> bool {
 fn read_markdown_file_content(
     path: &Path,
     serialized_path: &str,
-) -> Result<String, OpenMarkdownFileError> {
-    read_utf8_file_with_size_limit(path, MAX_MARKDOWN_FILE_SIZE_BYTES).map_err(
-        |error| match error {
-            ReadUtf8FileError::ReadFailed(error) => open_read_error(error, serialized_path),
-            ReadUtf8FileError::Oversized {
-                size_bytes,
-                max_size_bytes,
-            } => OpenMarkdownFileError::OversizedFile {
-                path: serialized_path.to_owned(),
-                size_bytes,
-                max_size_bytes,
+    selected_encoding: Option<&str>,
+) -> Result<(String, DocumentEncoding), OpenMarkdownFileError> {
+    let bytes =
+        read_file_with_size_limit(path, MAX_MARKDOWN_FILE_SIZE_BYTES).map_err(
+            |error| match error {
+                ReadFileError::ReadFailed(error) => open_read_error(error, serialized_path),
+                ReadFileError::Oversized {
+                    size_bytes,
+                    max_size_bytes,
+                } => OpenMarkdownFileError::OversizedFile {
+                    path: serialized_path.to_owned(),
+                    size_bytes,
+                    max_size_bytes,
+                },
             },
-            ReadUtf8FileError::InvalidEncoding => OpenMarkdownFileError::InvalidEncoding {
-                path: serialized_path.to_owned(),
-            },
+        )?;
+
+    text_encoding::decode(bytes.as_slice(), selected_encoding).map_err(|error| match error {
+        DecodeError::UnknownEncoding => OpenMarkdownFileError::UnknownEncoding {
+            path: serialized_path.to_owned(),
+            encoding: selected_encoding.unwrap_or_default().to_owned(),
         },
-    )
+        DecodeError::Irreversible => OpenMarkdownFileError::IrreversibleEncoding {
+            path: serialized_path.to_owned(),
+            encoding: selected_encoding.unwrap_or_default().to_owned(),
+        },
+        DecodeError::Malformed | DecodeError::ContainsNul => {
+            OpenMarkdownFileError::InvalidEncoding {
+                path: serialized_path.to_owned(),
+            }
+        }
+    })
 }
 
 fn detect_line_ending(content: &str) -> Option<LineEnding> {

@@ -1,0 +1,4 @@
+{"source":"﻿# Café\n\nText\n","markdown":"# Café\n\nText\n","saved":"# Café\n\nText\n","docText":"CaféText"}
+{"source":"﻿# Café\r\n\r\nText\r\n","markdown":"# Café\n\nText\n","saved":"# Café\n\nText\n","docText":"CaféText"}
+{"source":"﻿plain paragraph\n","markdown":"plain paragraph\n","saved":"plain paragraph\n","docText":"plain paragraph"}
+{"source":"#\u0000 \u0000T\u0000i\u0000\n\u0000","markdown":"#� �T�i�\n�\n","saved":"#� �T�i�\n�\n","docText":"#� �T�i�\n�"}

@@ -8,6 +8,8 @@ mod debug;
 mod diagnostics;
 mod document;
 mod drop;
+#[cfg(test)]
+mod encoding_spike_tests;
 mod file_utils;
 mod folder;
 mod image;
@@ -17,6 +19,7 @@ mod path_utils;
 mod remote_image;
 #[cfg(test)]
 mod test_utils;
+mod text_encoding;
 mod window;
 
 const TITLEBAR_HEIGHT: u32 = 32;

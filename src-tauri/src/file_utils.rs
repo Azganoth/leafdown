@@ -34,6 +34,32 @@ pub(crate) fn read_utf8_file_with_size_limit(
     String::from_utf8(content_bytes).map_err(|_| ReadUtf8FileError::InvalidEncoding)
 }
 
+#[derive(Debug)]
+pub(crate) enum ReadFileError {
+    ReadFailed(io::Error),
+    Oversized {
+        size_bytes: u64,
+        max_size_bytes: u64,
+    },
+}
+
+pub(crate) fn read_file_with_size_limit(
+    path: &Path,
+    max_size_bytes: u64,
+) -> Result<Vec<u8>, ReadFileError> {
+    let content_bytes = fs::read(path).map_err(ReadFileError::ReadFailed)?;
+    let size_bytes = content_bytes.len().try_into().unwrap_or(u64::MAX);
+
+    if size_bytes > max_size_bytes {
+        return Err(ReadFileError::Oversized {
+            size_bytes,
+            max_size_bytes,
+        });
+    }
+
+    Ok(content_bytes)
+}
+
 /// A truncating write would leave the previous contents unrecoverable if the process died
 /// mid-write, and the file on disk is the only copy Leafdown keeps.
 pub(crate) fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<()> {

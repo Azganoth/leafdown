@@ -18,8 +18,13 @@ const LIST_ITEM_MARKER = "\u0000i";
 // the serializer added: a continuation record relaxes one there, and a backslash a line of code
 // spells before a block marker is one the file wrote itself.
 const VERBATIM_LINE_MARKER = "\u0000v";
+// The run between an item's marker and its content, which stands after the marker rather than
+// before it and is measured once the whole line is written, so it is settled by a pass of its own.
+const LIST_ITEM_PADDING_MARKER = "\u0000p";
 const LINE_PREFIX_MARKER_LENGTH = CONTINUATION_MARKER.length;
 const LINE_PREFIX_MARKERS = [CONTINUATION_MARKER, LIST_ITEM_MARKER, VERBATIM_LINE_MARKER];
+const LINE_RECORD_MARKERS = [...LINE_PREFIX_MARKERS, LIST_ITEM_PADDING_MARKER];
+const TRAILING_SPACES_PATTERN = / +$/u;
 // What every marker opens with, which is what a scan for one a later pass owns reads.
 const MARKER_LEAD = "\u0000";
 
@@ -110,10 +115,11 @@ const readContinuationLine = (written: string, authored: string): ContinuationLi
   };
 };
 
-/// Measures a line prefix in the columns CommonMark reads it as. Exported for the list item
-/// record, which is measured against the same tab stops.
-export const readPrefixColumns = (prefix: string) => {
-  let columns = 0;
+/// Measures a line prefix in the columns CommonMark reads it as, or the column a run written from
+/// `from` ends at. Exported for the list item records, which are measured against the same tab
+/// stops.
+export const readPrefixColumns = (prefix: string, from = 0) => {
+  let columns = from;
 
   for (const character of prefix) {
     columns = character === "\t" ? columns + TAB_STOP - (columns % TAB_STOP) : columns + 1;
@@ -186,10 +192,10 @@ const withoutBlockMarkerEscape = (content: string) => {
 };
 
 // The next record on the line, whichever kind it is.
-const findLinePrefixMarker = (line: string, from: number) => {
+const findLinePrefixMarker = (line: string, from: number, markers = LINE_PREFIX_MARKERS) => {
   let found = -1;
 
-  for (const marker of LINE_PREFIX_MARKERS) {
+  for (const marker of markers) {
     const at = line.indexOf(marker, from);
 
     if (at >= 0 && (found < 0 || at < found)) {
@@ -322,7 +328,7 @@ export const markListItemPrefix = (prefix: string) =>
 export const withoutLinePrefixMarkers = (value: string) => {
   let written = "";
   let read = 0;
-  let open = findLinePrefixMarker(value, read);
+  let open = findLinePrefixMarker(value, read, LINE_RECORD_MARKERS);
 
   while (open >= 0) {
     const marker = value.slice(open, open + LINE_PREFIX_MARKER_LENGTH);
@@ -330,11 +336,60 @@ export const withoutLinePrefixMarkers = (value: string) => {
 
     written += value.slice(read, open);
     read = (close < 0 ? open : close) + LINE_PREFIX_MARKER_LENGTH;
-    open = findLinePrefixMarker(value, read);
+    open = findLinePrefixMarker(value, read, LINE_RECORD_MARKERS);
   }
 
   return written + value.slice(read);
 };
+
+/// Whether a line carries a record `resolveLinePrefixes` settles. That pass reads everything
+/// standing before a record as prefix, so a padding record cannot share a line with one after it.
+export const holdsLinePrefixMarker = (line: string) => findLinePrefixMarker(line, 0) >= 0;
+
+/// Marks the run an item's marker was written with, after the canonical spaces that stand for it.
+export const markListItemPadding = (spelling: string) =>
+  LIST_ITEM_PADDING_MARKER + spelling + LIST_ITEM_PADDING_MARKER;
+
+const resolveListItemPadding = (line: string) => {
+  let written = "";
+  let read = 0;
+  let open = line.indexOf(LIST_ITEM_PADDING_MARKER);
+
+  while (open >= 0) {
+    const close = line.indexOf(LIST_ITEM_PADDING_MARKER, open + LINE_PREFIX_MARKER_LENGTH);
+
+    written += line.slice(read, open);
+
+    if (close < 0) {
+      read = open + LINE_PREFIX_MARKER_LENGTH;
+    } else {
+      const spelling = line.slice(open + LINE_PREFIX_MARKER_LENGTH, close);
+      const canonical = TRAILING_SPACES_PATTERN.exec(written)?.[0] ?? "";
+      const lead = written.slice(0, written.length - canonical.length);
+
+      if (canonical !== "" && readPrefixColumns(lead + spelling) === readPrefixColumns(written)) {
+        written = lead + spelling;
+      }
+
+      read = close + LINE_PREFIX_MARKER_LENGTH;
+    }
+
+    open = line.indexOf(LIST_ITEM_PADDING_MARKER, read);
+  }
+
+  return written + line.slice(read);
+};
+
+/// Puts each item's authored padding in place of the spaces standing for it, wherever it still
+/// reaches the column they do. A tab advances to the next tab stop, so the run the file wrote
+/// covers the item's padding only at the column the file wrote the marker at, and the line is
+/// measured only once the containers, the prefixes the other records restore, and the separators
+/// have all settled where the marker stands. Nothing but prefixes and other items' markers and
+/// padding stands before a marker, so what the line holds there is the width it is written with.
+export const resolveListItemPaddings = (document: string) =>
+  document.includes(LIST_ITEM_PADDING_MARKER)
+    ? document.split("\n").map(resolveListItemPadding).join("\n")
+    : document;
 
 /// Marks each line of a block that writes its own indentation, behind the canonical run the
 /// handler wrote it with. The run stays in place so a record the resolver withdraws leaves the

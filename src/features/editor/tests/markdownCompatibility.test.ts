@@ -2523,6 +2523,84 @@ describe("List marker form", () => {
     expect(mounted.getMarkdown()).toBe(`${source}\n`);
   });
 
+  // A tab spans the columns up to the next tab stop, so the run and the spaces standing for it put
+  // the content at the same column, and the reopened document is asserted beside the bytes.
+  it.each([
+    "-\tA tab alone",
+    "- \tA tab after a space",
+    "1.\tA tab after an ordered marker",
+    "10.\tA tab one column wide",
+    "-\t[ ] A tab before a task marker",
+    "1)\t[x] A tab before a checked task marker",
+    "> -\tA tab one column wide past a quote",
+    "-\tParagraph\n\n    Second paragraph",
+    "-\tOuter\n    -\tNested",
+    "- -\tNested on the marker's line",
+    "  -\tAn item indented past its container",
+    "-\tA paragraph\n\tcontinued past a tab",
+    // The list interrupts the paragraph, so nothing but the line's own prefix stands between the two.
+    "Paragraph\n-\tAn item interrupting it",
+    "> Paragraph\n> -\tAn item interrupting it inside a quote",
+    "Text[^note]\n\n[^note]: -\tAn item opening a footnote on its label's line",
+  ])("writes the tab in the marker padding of %j as it was authored", async (source) => {
+    const { mounted, reopened, saved } = await saveAndReopen(`${source}\n`);
+
+    expect(saved).toBe(`${source}\n`);
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  // Where a run no longer spans the item's padding at the column its marker lands at, the columns it
+  // spanned are written in spaces, which keeps the content where the item holds it.
+  it.each([
+    {
+      name: "a bullet list converted to ordered",
+      run: async (mounted: MountedMilkdownEditor) => {
+        await runEditorCommand(mounted.editor, "format.orderedList");
+      },
+      saved: "1.   One\n2.   Two\n",
+      source: "-\tOne\n-\tTwo\n",
+    },
+    {
+      name: "an ordered list converted to bullets",
+      run: async (mounted: MountedMilkdownEditor) => {
+        await runEditorCommand(mounted.editor, "format.unorderedList");
+      },
+      saved: "*  One\n*  Two\n",
+      source: "1. \tOne\n2. \tTwo\n",
+    },
+  ])("writes the marker padding in spaces for $name", async ({ run, saved, source }) => {
+    const mounted = await mountEditor(source);
+
+    await run(mounted);
+
+    expect(mounted.getMarkdown()).toBe(saved);
+
+    const reopened = await mountEditor(saved);
+
+    expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+  });
+
+  // The marker an item is nested under stands at its parent's content column, which is a tab stop
+  // past a tab, so the nested item's run still spans the columns it did.
+  it("keeps the tab in the marker padding of an item the editor nests", async () => {
+    const mounted = await mountEditor("-\tFirst\n-\tSecond\n");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "Second"));
+
+    expect(runKeyDownHandlers(mounted.view, "Tab").handled).toBe(true);
+    expect(mounted.getMarkdown()).toBe("-\tFirst\n    -\tSecond\n");
+  });
+
+  // The padding is each item's own form rather than one the document prevails in.
+  it("writes a list made in the editor with one space beside items padded with a tab", async () => {
+    const mounted = await mountEditor("-\tTabbed\n\nParagraph\n");
+
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "Paragraph"));
+    await runEditorCommand(mounted.editor, "format.unorderedList");
+
+    expect(mounted.getMarkdown()).toBe("-\tTabbed\n\n* Paragraph\n");
+  });
+
   // A list the editor makes carries no authored marker and writes the default.
   it("writes a list made in the editor with the default marker", async () => {
     const mounted = await mountEditor("Paragraph\n");

@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import {
   getActiveDocumentKey,
   type ActiveDocumentState,
+  type DocumentEncoding,
   type LineEnding,
 } from "@/features/document";
 import type { EditorDocumentStatus, TextStatistics } from "@/features/editor";
@@ -30,6 +31,11 @@ const LINE_ENDING_COMMAND_IDS = [
   "edit.lineEnding.crlf",
   "edit.lineEnding.lf",
 ] as const satisfies readonly AppCommandId[];
+const ENCODING_LABELS = {
+  "UTF-8": "UTF-8",
+  "UTF-16LE": "UTF-16 LE",
+  "UTF-16BE": "UTF-16 BE",
+} as const satisfies Record<DocumentEncoding["name"], string>;
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -78,6 +84,9 @@ const formatReadingTime = (words: number) => {
   return minutes < 1 ? "<1 min read" : `~${numberFormat.format(minutes)} min read`;
 };
 
+const formatEncoding = ({ name, bom }: DocumentEncoding) =>
+  name === "UTF-8" && bom ? "UTF-8 with BOM" : ENCODING_LABELS[name];
+
 interface StatusBarControlProps {
   commandState: (commandId: AppCommandId) => CommandState;
   onExecute: (commandId: AppCommandId) => void;
@@ -111,6 +120,7 @@ export function StatusBar({ activeDocument, commandState, onExecute }: StatusBar
       </div>
       <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
         {status && <DocumentMetrics status={status} />}
+        <span data-testid="status-bar-encoding">{formatEncoding(activeDocument.encoding)}</span>
         <LineEndingMenu
           commandState={commandState}
           lineEnding={activeDocument.lineEnding ?? defaultLineEnding}

@@ -3,6 +3,12 @@ import { isSamePath } from "@/lib/path";
 export const LINE_ENDINGS = ["crlf", "lf"] as const;
 export type LineEnding = (typeof LINE_ENDINGS)[number];
 
+export type DocumentEncoding =
+  | { name: "UTF-8"; bom: boolean }
+  | { name: "UTF-16LE" | "UTF-16BE"; bom: true };
+
+export const NEW_DOCUMENT_ENCODING: DocumentEncoding = { name: "UTF-8", bom: false };
+
 export interface FileMetadataSnapshot {
   sizeBytes: number;
   modifiedAtUnixMs: number;
@@ -14,6 +20,7 @@ export interface SavedDocumentState {
   content: string;
   isDirty: boolean;
   lineEnding: LineEnding | null;
+  encoding: DocumentEncoding;
   metadata: FileMetadataSnapshot;
 }
 
@@ -23,6 +30,7 @@ export interface UntitledDocumentState {
   content: string;
   isDirty: boolean;
   lineEnding: LineEnding;
+  encoding: DocumentEncoding;
 }
 
 export type ActiveDocumentState = SavedDocumentState | UntitledDocumentState;

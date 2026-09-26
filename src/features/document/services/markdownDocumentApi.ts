@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { FileMetadataSnapshot, LineEnding } from "../utils/documentState";
+import type { DocumentEncoding, FileMetadataSnapshot, LineEnding } from "../utils/documentState";
 
 export const MARKDOWN_FILE_EXTENSIONS = ["md", "markdown"] as const;
 
@@ -19,6 +19,7 @@ export interface OpenMarkdownFileResult {
   metadata: FileMetadataSnapshot;
   content: string;
   lineEnding: LineEnding | null;
+  encoding: DocumentEncoding;
 }
 
 export type OpenMarkdownFileError =
@@ -39,6 +40,7 @@ export type OpenMarkdownFileError =
 export interface SaveMarkdownFileArgs {
   path: string;
   content: string;
+  encoding: DocumentEncoding;
   expectedMetadata: FileMetadataSnapshot | null;
   overwrite: boolean;
 }
@@ -68,6 +70,7 @@ export const openMarkdownFile = ({ path }: OpenMarkdownFileArgs) =>
 
 export const saveMarkdownFile = ({
   content,
+  encoding,
   expectedMetadata,
   overwrite,
   path,
@@ -75,6 +78,7 @@ export const saveMarkdownFile = ({
   invoke<SaveMarkdownFileResult>(SAVE_MARKDOWN_FILE_COMMAND, {
     path,
     content,
+    encoding,
     expectedMetadata,
     overwrite,
   });

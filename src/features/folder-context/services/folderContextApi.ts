@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { FileMetadataSnapshot, LineEnding, OpenMarkdownFileError } from "@/features/document";
+import type {
+  DocumentEncoding,
+  FileMetadataSnapshot,
+  LineEnding,
+  OpenMarkdownFileError,
+} from "@/features/document";
 
 export const SCAN_MARKDOWN_FOLDER_COMMAND = "scan_markdown_folder";
 export const OPEN_MARKDOWN_FOLDER_COMMAND = "open_markdown_folder";
@@ -43,6 +48,7 @@ export interface FolderIndexDocument {
   path: string;
   content: string;
   lineEnding: LineEnding | null;
+  encoding: DocumentEncoding;
   metadata: FileMetadataSnapshot;
 }
 

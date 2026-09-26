@@ -14,7 +14,7 @@ import {
   type OpenMarkdownFileError,
   type SaveMarkdownFileError,
 } from "../utils/documentErrors";
-import type { FileMetadataSnapshot } from "../utils/documentState";
+import type { DocumentEncoding, FileMetadataSnapshot } from "../utils/documentState";
 import {
   MARKDOWN_FILE_EXTENSIONS,
   openMarkdownFile,
@@ -91,6 +91,7 @@ export const openMarkdownDocument = async (
 export const saveMarkdownDocument = async (
   path: string,
   content: string,
+  encoding: DocumentEncoding,
   options: WriteMarkdownDocumentOptions = {},
 ) => {
   const expectedMetadata = options.expectedMetadata ?? null;
@@ -101,6 +102,7 @@ export const saveMarkdownDocument = async (
     const savedDocument = await saveMarkdownFile({
       path,
       content,
+      encoding,
       expectedMetadata,
       overwrite,
     });

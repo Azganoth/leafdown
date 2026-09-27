@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as confirmation from "@/lib/confirmation";
+import { localizer, PSEUDO_LOCALE } from "@/lib/i18n";
 import { toastManager } from "@/lib/toast";
 
 import { App } from "./app";
@@ -161,6 +162,27 @@ describe("App", () => {
     await waitFor(() => {
       expect(document.documentElement).toHaveAttribute("data-accent-color", "fuchsia");
     });
+  });
+
+  it("applies the selected language to the interface and the document root", async () => {
+    setDefaultSettings({ language: PSEUDO_LOCALE });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(document.documentElement).toHaveAttribute("lang", PSEUDO_LOCALE);
+      });
+      expect(localizer.current.locale).toBe(PSEUDO_LOCALE);
+
+      useSettingsStore.getState().updateSetting("language", "system");
+
+      await waitFor(() => {
+        expect(document.documentElement).toHaveAttribute("lang", "en");
+      });
+    } finally {
+      localizer.setLanguage("en", []);
+    }
   });
 
   it("follows native theme changes while the system theme is selected", async () => {

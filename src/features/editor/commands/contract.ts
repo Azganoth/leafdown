@@ -43,6 +43,7 @@ export const EDITOR_COMMAND_IDS = [
   "format.toggleTaskChecked",
   "format.blockquote",
   "format.codeBlock",
+  "format.codeBlockLanguage",
   "format.clearBlock",
   "format.strong",
   "format.emphasis",

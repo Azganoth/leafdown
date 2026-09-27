@@ -11,6 +11,7 @@ import * as history from "./editing/history";
 import * as selection from "./editing/selection";
 import type { HeadingLevel } from "./formatting/blocks";
 import * as blockFormatting from "./formatting/blocks";
+import * as codeBlockLanguage from "./formatting/codeBlockLanguage";
 import * as inlineFormatting from "./formatting/inline";
 import * as tables from "./formatting/tables";
 import * as blockInsertion from "./inserting/blocks";
@@ -136,6 +137,10 @@ export const EDITOR_COMMANDS = {
   ),
   "format.blockquote": viewCommand(blockFormatting.toggleBlockquote),
   "format.codeBlock": viewCommand(blockFormatting.toggleCodeBlock),
+  "format.codeBlockLanguage": viewCommand(
+    codeBlockLanguage.editCodeBlockLanguage,
+    codeBlockLanguage.canEditCodeBlockLanguage,
+  ),
   "format.clearBlock": viewCommand(
     blockFormatting.clearBlockFormat,
     blockFormatting.canClearBlockFormat,

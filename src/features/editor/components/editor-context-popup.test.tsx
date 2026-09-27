@@ -244,6 +244,41 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("edit.renameFootnote");
   });
 
+  it("offers the code block language only inside a fenced code block", async () => {
+    const onExecute = vi.fn();
+    const { rerender, user } = renderWithUser(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Code block language...")).not.toBeInTheDocument();
+
+    rerender(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={{
+          ...enabledPopupCommandState,
+          enabledCommands: {
+            ...enabledPopupCommandState.enabledCommands,
+            "format.codeBlockLanguage": true,
+          },
+        }}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Code block language..."));
+
+    expect(onExecute).toHaveBeenCalledWith("format.codeBlockLanguage");
+  });
+
   it("disables commands while editor command state is inactive", async () => {
     const onExecute = vi.fn();
 

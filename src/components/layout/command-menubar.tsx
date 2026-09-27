@@ -275,6 +275,7 @@ const BLOCK_FORMAT_COMMAND_IDS = [
   "format.toggleTaskChecked",
   "format.blockquote",
   "format.codeBlock",
+  "format.codeBlockLanguage",
 ] satisfies readonly AppCommandId[];
 
 const TABLE_COMMAND_IDS = [

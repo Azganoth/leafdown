@@ -12,53 +12,12 @@ import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 
 import { AsyncLazy } from "@/lib/async";
 
+import { normalizeHighlightLanguage } from "./highlightLanguages";
+
 // `defaultColor: false` keeps either palette from being written as a bare `color`, which would
 // leak one appearance into the other. Each token carries both as variables instead, and the editor
 // stylesheet paints the one the appearance in effect selects.
 const SHIKI_THEMES = { light: "github-light", dark: "github-dark" } as const;
-
-const SUPPORTED_LANGUAGES = [
-  "markdown",
-  "typescript",
-  "javascript",
-  "json",
-  "rust",
-  "bash",
-] as const;
-
-type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-const SUPPORTED_LANGUAGES_SET = new Set<string>(SUPPORTED_LANGUAGES);
-
-const LANGUAGE_ALIASES = new Map<string, SupportedLanguage>([
-  ["md", "markdown"],
-  ["ts", "typescript"],
-  ["js", "javascript"],
-  ["jsx", "javascript"],
-  ["tsx", "typescript"],
-  ["rs", "rust"],
-  ["sh", "bash"],
-  ["shell", "bash"],
-  ["shellscript", "bash"],
-]);
-
-const normalizeLanguage = (language?: string): SupportedLanguage | undefined => {
-  const normalized = language?.trim().toLowerCase();
-  if (!normalized) {
-    return undefined;
-  }
-
-  const alias = LANGUAGE_ALIASES.get(normalized);
-  if (alias) {
-    return alias;
-  }
-
-  if (SUPPORTED_LANGUAGES_SET.has(normalized)) {
-    return normalized as SupportedLanguage;
-  }
-
-  return undefined;
-};
 
 const loadParser = async (): Promise<Parser> => {
   const highlighter = await createHighlighterCore({
@@ -71,7 +30,7 @@ const loadParser = async (): Promise<Parser> => {
   return (options) =>
     parser({
       ...options,
-      language: normalizeLanguage(options.language),
+      language: normalizeHighlightLanguage(options.language),
     });
 };
 

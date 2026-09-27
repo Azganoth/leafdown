@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
+import { useLocalization } from "@/lib/i18n";
 
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 
@@ -17,6 +18,7 @@ const isElementAnchor = (anchor: FootnotePreviewRequest["anchor"]): anchor is El
   anchor instanceof Element;
 
 export function EditorFootnotePreview({ request }: EditorFootnotePreviewProps) {
+  const { t } = useLocalization();
   // Held against the render rather than created during one: the positioner registers the anchor
   // once per identity, so a fresh identity is what moves the preview onto the reference it is now
   // describing.
@@ -50,7 +52,7 @@ export function EditorFootnotePreview({ request }: EditorFootnotePreviewProps) {
         side="top"
       >
         {request?.definition === null ? (
-          <span className="italic">No footnote definition for this label.</span>
+          <span className="italic">{t("editor.footnotePreview.missingDefinition")}</span>
         ) : (
           <span className="whitespace-pre-wrap">{request?.definition}</span>
         )}

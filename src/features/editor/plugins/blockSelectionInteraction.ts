@@ -3,6 +3,9 @@ import { Plugin, PluginKey, type EditorState } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { localizer, t, type MessageValues } from "@/lib/i18n";
+import type { Disposable } from "@/lib/lifecycle";
+
 import { canInsertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import {
   BlockSelection,
@@ -52,31 +55,38 @@ export interface BlockInsertionOptions {
   onRequest?: (request: BlockInsertionRequest) => void;
 }
 
-const getBlockName = (node: ProseMirrorNode) => {
+const getBlockLabelValues = (node: ProseMirrorNode): MessageValues => {
   switch (node.type.name) {
     case "blockquote":
-      return "Block quote";
+      return { block: "blockquote" };
     case "bullet_list":
     case "ordered_list":
-      return "List";
+      return { block: "list" };
     case "code_block":
-      return "Code block";
+      return { block: "codeBlock" };
     case "footnote_definition":
-      return "Footnote definition";
+      return { block: "footnoteDefinition" };
     case "heading":
-      return `Heading ${String(node.attrs.level ?? 1)}`;
+      return { block: "heading", level: Number(node.attrs.level ?? 1) };
     case "horizontal_rule":
     case "thematic_break":
-      return "Horizontal rule";
+      return { block: "horizontalRule" };
     case "list_item":
-      return "List item";
+      return { block: "listItem" };
     case "paragraph":
-      return "Paragraph";
+      return { block: "paragraph" };
     case "table":
-      return "Table";
+      return { block: "table" };
     default:
-      return "Block";
+      return { block: "other" };
   }
+};
+
+const labelBlockHandle = (handle: HTMLButtonElement, node: ProseMirrorNode) => {
+  const label = t("editor.blockSelection.selectHandle", getBlockLabelValues(node));
+
+  handle.setAttribute("aria-label", label);
+  handle.title = label;
 };
 
 const getSelectionDecorations = (state: EditorState) => {
@@ -142,14 +152,12 @@ const createGutter = (doc: Document, node: ProseMirrorNode, pos: number) => {
   insertionSlot.setAttribute("aria-hidden", "true");
 
   const handle = doc.createElement("button");
-  const blockName = getBlockName(node);
   handle.className = "leafdown-block-handle";
   handle.dataset.leafdownBlockHandle = "";
   handle.dataset.leafdownBlockPos = String(pos);
   handle.tabIndex = -1;
   handle.type = "button";
-  handle.setAttribute("aria-label", `Select ${blockName.toLocaleLowerCase()} block`);
-  handle.title = `Select ${blockName.toLocaleLowerCase()} block`;
+  labelBlockHandle(handle, node);
 
   gutter.append(markerSlot, insertionSlot, handle);
   return gutter;
@@ -160,6 +168,7 @@ class BlockSelectionView {
   private readonly insertionButton: HTMLButtonElement;
   private readonly insertionIndicator: HTMLDivElement;
   private readonly status: HTMLDivElement;
+  private readonly localizationChange: Disposable;
   private gutters = new Map<number, HTMLDivElement>();
   private targets = new Map<number, ProseMirrorNode>();
   private geometry = new Map<
@@ -195,8 +204,7 @@ class BlockSelectionView {
     this.insertionButton.tabIndex = -1;
     this.insertionButton.hidden = true;
     this.insertionButton.dataset.leafdownBlockInsert = "";
-    this.insertionButton.setAttribute("aria-label", "Insert block at indicated boundary");
-    this.insertionButton.title = "Insert block";
+    this.labelInsertionButton();
     const plusIcon = doc.createElementNS("http://www.w3.org/2000/svg", "svg");
     plusIcon.setAttribute("viewBox", "0 0 24 24");
     plusIcon.setAttribute("aria-hidden", "true");
@@ -237,6 +245,7 @@ class BlockSelectionView {
       this.resizeObserver.observe(view.dom);
     }
 
+    this.localizationChange = localizer.onDidChange(this.relabel);
     this.rebuild();
     this.updateSelectionPresentation();
   }
@@ -257,6 +266,7 @@ class BlockSelectionView {
   }
 
   destroy() {
+    this.localizationChange.dispose();
     this.overlay.removeEventListener("mousedown", this.handleMouseDown);
     this.overlay.removeEventListener("mouseup", this.handleMouseUp);
     this.overlay.removeEventListener("mouseover", this.handleHandleMouseOver);
@@ -286,6 +296,26 @@ class BlockSelectionView {
     this.overlay.remove();
     this.status.remove();
   }
+
+  private labelInsertionButton() {
+    this.insertionButton.setAttribute("aria-label", t("editor.blockSelection.insertAtBoundary"));
+    this.insertionButton.title = t("editor.blockSelection.insert");
+  }
+
+  private readonly relabel = () => {
+    this.labelInsertionButton();
+
+    for (const [pos, gutter] of this.gutters) {
+      const node = this.targets.get(pos);
+      const handle = gutter.querySelector<HTMLButtonElement>(BLOCK_HANDLE_SELECTOR);
+
+      if (node && handle) {
+        labelBlockHandle(handle, node);
+      }
+    }
+
+    this.updateSelectionPresentation();
+  };
 
   private rebuild() {
     this.overlay.replaceChildren(this.insertionIndicator, this.insertionButton);
@@ -635,7 +665,7 @@ class BlockSelectionView {
     }
 
     if (!(selection instanceof BlockSelection)) {
-      this.status.textContent = "Document selected";
+      this.status.textContent = t("editor.blockSelection.documentSelected");
       return;
     }
 
@@ -647,8 +677,8 @@ class BlockSelectionView {
 
     this.status.textContent =
       targets.length === 1
-        ? `${getBlockName(targets[0].node)} selected`
-        : `${String(targets.length)} blocks selected`;
+        ? t("editor.blockSelection.selected", getBlockLabelValues(targets[0].node))
+        : t("editor.blockSelection.selectedCount", { count: targets.length });
   }
 
   private readonly handleMouseDown = (event: MouseEvent) => {

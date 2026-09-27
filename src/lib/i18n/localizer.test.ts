@@ -79,6 +79,30 @@ describe("createLocalization", () => {
   });
 });
 
+describe("formatRich", () => {
+  it("places values that are not text inside the message", () => {
+    const key = { element: "Enter" };
+    const language = { element: "zig" };
+
+    expect(
+      createLocalization("en").formatRich("editor.codeBlockLanguage.setHint", { key, language }),
+    ).toEqual([key, " sets ", language]);
+  });
+
+  it("falls back to English when a translation cannot format", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const german = createLocalization("de", {
+      "editor.codeBlockLanguage.setHint": "{taste} setzt {language}",
+    });
+    const key = { element: "Enter" };
+
+    expect(german.formatRich("editor.codeBlockLanguage.setHint", { key, language: "zig" })).toEqual(
+      [key, " sets zig"],
+    );
+    expect(warn).toHaveBeenCalledOnce();
+  });
+});
+
 describe("formatRelativeTime", () => {
   const now = Date.UTC(2026, 8, 19, 12);
   const english = createLocalization("en");

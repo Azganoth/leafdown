@@ -1,3 +1,4 @@
+import { t } from "@/lib/i18n";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
 import type { FetchRemoteImageError } from "../services/markdownImageApi";
@@ -15,45 +16,43 @@ const FETCH_REMOTE_IMAGE_ERROR_KINDS = [
   "network",
 ] as const satisfies readonly FetchRemoteImageError["kind"][];
 
-const FALLBACK_REMOTE_IMAGE_ERROR_MESSAGE = "Image could not be loaded.";
-
 export const isFetchRemoteImageError = (error: unknown): error is FetchRemoteImageError =>
   isTaggedPayload(error, FETCH_REMOTE_IMAGE_ERROR_KINDS);
 
 export const getRemoteImageErrorMessage = (error: unknown) => {
   if (!isFetchRemoteImageError(error)) {
-    return FALLBACK_REMOTE_IMAGE_ERROR_MESSAGE;
+    return t("editor.remoteImageError.fallback");
   }
 
   switch (error.kind) {
     case "invalidTarget":
-      return "Image address is not allowed.";
+      return t("editor.remoteImageError.invalidTarget");
 
     case "insecureScheme":
-      return "Only HTTPS images can load.";
+      return t("editor.remoteImageError.insecureScheme");
 
     case "blockedDestination":
-      return "Local and private network addresses are blocked.";
+      return t("editor.remoteImageError.blockedDestination");
 
     case "insecureRedirect":
-      return "Image redirected to an insecure address.";
+      return t("editor.remoteImageError.insecureRedirect");
 
     case "tooManyRedirects":
-      return "Image redirected too many times.";
+      return t("editor.remoteImageError.tooManyRedirects");
 
     case "httpStatus":
-      return `Image request failed (HTTP ${error.status}).`;
+      return t("editor.remoteImageError.httpStatus", { status: String(error.status) });
 
     case "tooLarge":
-      return "Image is larger than 10 MB.";
+      return t("editor.remoteImageError.tooLarge");
 
     case "unsupportedType":
-      return "Unsupported remote image format.";
+      return t("editor.remoteImageError.unsupportedType");
 
     case "timeout":
-      return "Image request timed out.";
+      return t("editor.remoteImageError.timeout");
 
     case "network":
-      return "Image could not be downloaded.";
+      return t("editor.remoteImageError.network");
   }
 };

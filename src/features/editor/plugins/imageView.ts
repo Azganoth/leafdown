@@ -9,7 +9,8 @@ import {
   isCancellationError,
   raceWithCancellation,
 } from "@/lib/cancellation";
-import { getErrorDescription, handleUnexpectedError } from "@/lib/errors";
+import { handleUnexpectedError } from "@/lib/errors";
+import { localizer, t } from "@/lib/i18n";
 import { MutableDisposable, toDisposable } from "@/lib/lifecycle";
 import { isSameNullablePath } from "@/lib/path";
 
@@ -30,7 +31,7 @@ import { SOURCE_PROJECTION_IMAGE_POINTER_ENTRY_META } from "./sourceProjection";
 type ImageResolutionState =
   | { status: "pending" }
   | { status: "resolved"; resolution: MarkdownImageResolution }
-  | { status: "failed"; message: string };
+  | { status: "failed" };
 
 type ImageResolutionInput = ResolveMarkdownImageOptions & { allowOutsideFolder: boolean };
 
@@ -38,7 +39,7 @@ type RemoteImageState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "loaded"; objectUrl: string }
-  | { status: "failed"; message: string };
+  | { status: "failed"; error: unknown };
 
 interface ImageAttrs {
   alt: string;
@@ -68,6 +69,7 @@ class LeafdownImageNodeView implements NodeView {
   private remoteImageState: RemoteImageState = { status: "idle" };
   private readonly remoteImageLoadCancellation = new MutableDisposable<CancellationTokenSource>();
   private readonly remoteImageObjectUrl = new MutableDisposable();
+  private readonly localizationChange = localizer.onDidChange(() => this.render());
 
   constructor(
     initialNode: ProseMirrorNode,
@@ -120,6 +122,7 @@ class LeafdownImageNodeView implements NodeView {
   }
 
   destroy() {
+    this.localizationChange.dispose();
     this.cancelCurrentResolution();
     this.resetRemoteImage();
     this.dom.removeEventListener("mousedown", this.handleMouseDown);
@@ -210,10 +213,7 @@ class LeafdownImageNodeView implements NodeView {
         return;
       }
 
-      this.resolutionState = {
-        status: "failed",
-        message: getErrorDescription(error) ?? "Image could not be resolved",
-      };
+      this.resolutionState = { status: "failed" };
       handleUnexpectedError(error, "resolveMarkdownImage");
       this.currentResolutionInput = null;
       this.render();
@@ -269,7 +269,7 @@ class LeafdownImageNodeView implements NodeView {
         handleUnexpectedError(error, "fetchRemoteImage");
       }
 
-      this.remoteImageState = { status: "failed", message: getRemoteImageErrorMessage(error) };
+      this.remoteImageState = { status: "failed", error };
     }
 
     this.render();
@@ -344,7 +344,9 @@ class LeafdownImageNodeView implements NodeView {
     }
 
     if (action) {
-      action.textContent = state.status === "failed" ? "Retry" : "Load image";
+      action.textContent = t(
+        state.status === "failed" ? "editor.image.retry" : "editor.image.load",
+      );
       action.setAttribute("aria-disabled", String(state.status === "loading"));
     }
 
@@ -434,13 +436,13 @@ const getRemoteImagePlaceholderText = (state: RemoteImageState, host: string) =>
   switch (state.status) {
     case "idle":
     case "loaded":
-      return `Remote image from ${host}.`;
+      return t("editor.image.remote", { host });
 
     case "loading":
-      return `Loading image from ${host}...`;
+      return t("editor.image.remoteLoading", { host });
 
     case "failed":
-      return state.message;
+      return getRemoteImageErrorMessage(state.error);
   }
 };
 
@@ -469,7 +471,7 @@ const createImagePlaceholder = (
 
     button.className = "leafdown-image-placeholder__action";
     button.type = "button";
-    button.textContent = "Load image";
+    button.textContent = t("editor.image.load");
     button.addEventListener("click", allowOutsideFolderAccess);
     placeholder.append(button);
   }
@@ -482,40 +484,40 @@ const getImageStateValue = (resolutionState: ImageResolutionState) =>
 
 const getPlaceholderText = (resolutionState: ImageResolutionState) => {
   if (resolutionState.status === "pending") {
-    return "Resolving image...";
+    return t("editor.image.resolving");
   }
 
   if (resolutionState.status === "failed") {
-    return "Image unavailable.";
+    return t("editor.image.unavailable");
   }
 
   switch (resolutionState.resolution.kind) {
     case "missing":
-      return "Image not found.";
+      return t("editor.image.missing");
 
     case "untitledRelative":
-      return "Save the document to resolve this image.";
+      return t("editor.image.untitledRelative");
 
     case "outsideFolder":
-      return "Image outside the current folder.";
+      return t("editor.image.outsideFolder");
 
     case "remoteBlocked":
-      return "Remote images are blocked.";
+      return t("editor.image.remoteBlocked");
 
     case "unsupportedFormat":
-      return "Unsupported image format.";
+      return t("editor.image.unsupportedFormat");
 
     case "unsupportedTarget":
-      return "Unsupported image target.";
+      return t("editor.image.unsupportedTarget");
 
     case "invalidPath":
-      return "Invalid image path.";
+      return t("editor.image.invalidPath");
 
     case "permissionDenied":
-      return "Image access denied.";
+      return t("editor.image.permissionDenied");
 
     case "metadataFailed":
-      return "Image metadata unavailable.";
+      return t("editor.image.metadataFailed");
 
     case "renderable":
       return "";

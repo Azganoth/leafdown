@@ -9,7 +9,7 @@ export {
   SYSTEM_LANGUAGE,
   t,
 } from "./localizer";
-export type { Localization, MessageValues, Translate } from "./localizer";
+export type { FormatRich, Localization, MessageValues, Translate } from "./localizer";
 export { SOURCE_LOCALE } from "./messages";
 export type { MessageId } from "./messages";
 export { PSEUDO_LOCALE } from "./pseudoLocale";

@@ -12,12 +12,18 @@ import { createPseudoCatalog, PSEUDO_LOCALE } from "./pseudoLocale";
 
 export type MessageValues = Record<string, PrimitiveType>;
 export type Translate = (id: MessageId, values?: MessageValues) => string;
+export type FormatRich = <T>(
+  id: MessageId,
+  values: Record<string, PrimitiveType | T>,
+) => (string | T)[];
 
 export const SYSTEM_LANGUAGE = "system";
 
 export interface Localization {
   readonly locale: string;
   readonly t: Translate;
+  // Places values that are not text, such as elements, into a message without splitting it.
+  readonly formatRich: FormatRich;
   readonly formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
   readonly formatRelativeTime: (timestamp: number, now: number) => string;
   readonly formatList: (items: readonly string[], type?: Intl.ListFormatType) => string;
@@ -143,32 +149,41 @@ const getFormat = (
 
 const sourceFormats = new Map<MessageId, IntlMessageFormat>();
 
-const formatSource = (id: MessageId, values?: MessageValues) =>
-  String(getFormat(sourceFormats, id, SOURCE_MESSAGES[id], SOURCE_LOCALE).format(values));
+const toParts = <T>(result: string | T | (string | T)[]) =>
+  Array.isArray(result) ? result : [result];
 
 export const createLocalization = (locale: string, catalog = loadCatalog(locale)): Localization => {
   const formats = new Map<MessageId, IntlMessageFormat>();
   const numberFormat = new Intl.NumberFormat(locale);
   const relativeTimeFormat = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
 
-  const t: Translate = (id, values) => {
+  const formatMessage = <R>(id: MessageId, format: (message: IntlMessageFormat) => R) => {
     const translated = locale === SOURCE_LOCALE ? undefined : catalog[id];
+    const formatSource = () =>
+      format(getFormat(sourceFormats, id, SOURCE_MESSAGES[id], SOURCE_LOCALE));
 
     if (translated === undefined) {
-      return formatSource(id, values);
+      return formatSource();
     }
 
     try {
-      return String(getFormat(formats, id, translated, locale).format(values));
+      return format(getFormat(formats, id, translated, locale));
     } catch (error) {
       reportFormatFailure(locale, id, error);
-      return formatSource(id, values);
+      return formatSource();
     }
   };
+
+  const t: Translate = (id, values) =>
+    formatMessage(id, (message) => String(message.format(values)));
+
+  const formatRich: FormatRich = <T>(id: MessageId, values: Record<string, PrimitiveType | T>) =>
+    formatMessage(id, (message) => toParts(message.format<T>(values)));
 
   return {
     locale,
     t,
+    formatRich,
     formatNumber: (value, options) =>
       options ? new Intl.NumberFormat(locale, options).format(value) : numberFormat.format(value),
     formatRelativeTime: (timestamp, now) => {

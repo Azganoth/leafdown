@@ -10,6 +10,7 @@ import {
 } from "@/features/document";
 import type { EditorDocumentStatus } from "@/features/editor";
 import { documentEditorBridge } from "@/features/session";
+import { createLocalization, localizer, PSEUDO_LOCALE } from "@/lib/i18n";
 import { createSavedDocument } from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
@@ -96,6 +97,31 @@ describe("StatusBar", () => {
     );
     expect(screen.getByRole("button", { name: "Line ending: LF" })).toBeInTheDocument();
     expect(statusBar).not.toHaveAttribute("aria-live");
+  });
+
+  it("re-translates its labels and counts on a language switch", () => {
+    renderStatusBar();
+    const pseudo = createLocalization(PSEUDO_LOCALE);
+
+    try {
+      act(() => localizer.setLanguage(PSEUDO_LOCALE, []));
+
+      expect(
+        screen.getByRole("contentinfo", { name: pseudo.t("statusBar.label") }),
+      ).toHaveTextContent(pseudo.t("statusBar.readingTime", { minutes: 2 }));
+      expect(screen.getByTestId("status-bar-word-count")).toHaveTextContent(
+        pseudo.t("statusBar.words", { count: 450 }),
+      );
+      expect(screen.getByTestId("status-bar-block-path")).toHaveTextContent(
+        pseudo.t("editor.blockPath.blockquote"),
+      );
+    } finally {
+      act(() => localizer.setLanguage("en", []));
+    }
+
+    expect(screen.getByRole("contentinfo", { name: "Status bar" })).toHaveTextContent(
+      "~2 min read",
+    );
   });
 
   it("counts a selection against the document and drops the block path", () => {

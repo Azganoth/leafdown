@@ -175,6 +175,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "view.zoomIn": commandDef("Zoom in", { key: "=", mod: true }),
   "view.zoomOut": commandDef("Zoom out", { key: "-", mod: true }),
   "view.resetZoom": commandDef("Reset zoom", { key: "0", mod: true }),
+  "view.alwaysOnTop": commandDef("Always on top"),
   "view.fullscreen": commandDef("Full screen", { key: "F11" }),
   "view.appearance.system": commandDef("System"),
   "view.appearance.light": commandDef("Light"),

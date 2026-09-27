@@ -74,6 +74,57 @@ describe("App", () => {
     }
   });
 
+  it("applies persisted always on top after loading settings and before showing the window", async () => {
+    const appWindow = getCurrentWindow();
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockImplementation(async () => setDefaultSettings({ alwaysOnTop: true }));
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.show).toHaveBeenCalled();
+      });
+
+      expect(appWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
+      expect(vi.mocked(appWindow.setAlwaysOnTop).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(appWindow.show).mock.invocationCallOrder[0],
+      );
+      expect(useSettingsStore.getState().alwaysOnTop).toBe(true);
+    } finally {
+      startSettingsStore.mockRestore();
+    }
+  });
+
+  it("launches with always on top repaired to off and reports a failed startup restore", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(appWindow.setAlwaysOnTop).mockRejectedValueOnce(new Error("window unavailable"));
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockImplementation(async () => setDefaultSettings({ alwaysOnTop: true, theme: "dark" }));
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.show).toHaveBeenCalled();
+      });
+
+      expect(useSettingsStore.getState().alwaysOnTop).toBe(false);
+      expect(setTheme).toHaveBeenCalledWith("dark");
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description: "window unavailable",
+        title: "Could not restore always on top.",
+        type: "error",
+      });
+    } finally {
+      consoleError.mockRestore();
+      startSettingsStore.mockRestore();
+    }
+  });
+
   it("syncs explicit theme settings without reading the native window theme", async () => {
     const appWindow = getCurrentWindow();
     setDefaultSettings({ theme: "dark" });

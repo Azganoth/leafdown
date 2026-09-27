@@ -38,4 +38,19 @@ describe("desktop persistence after restart", () => {
     >;
     expect(persistedSettings.statusBarVisible).toBe(false);
   });
+
+  it("restores the always on top setting in a fresh packaged-app process", async () => {
+    const { settingsPath } = await getDesktopE2ERunContext();
+
+    await openMenu("View");
+    const alwaysOnTopItem = await findMenuItem((text) => text.startsWith("Always on top"));
+    await expect(alwaysOnTopItem).toHaveAttribute("aria-checked", "true");
+    await browser.keys("Escape");
+
+    const persistedSettings = JSON.parse(await readFile(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    expect(persistedSettings.alwaysOnTop).toBe(true);
+  });
 });

@@ -271,7 +271,7 @@ const UNESCAPED_PIPE_PATTERN = /(?<!\\)((?:\\\\)*)\|/gu;
 // spelling, escapes included, and `mdast-util-to-markdown` writes it from a stack it clears, so no
 // construct around it decides an escape. A cell still closes on a `|`, so a label spelled outside
 // one keeps the row by giving up the match rather than the cell.
-const writeLabel = (
+export const writeLabel = (
   state: StringifyState,
   node: Parameters<StringifyState["associationId"]>[0],
 ) => {

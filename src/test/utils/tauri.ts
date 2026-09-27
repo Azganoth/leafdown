@@ -96,6 +96,7 @@ export const resetTauriMocks = () => {
   vi.mocked(appWindow.listen).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.onDragDropEvent).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.onThemeChanged).mockReset().mockResolvedValue(vi.fn());
+  vi.mocked(appWindow.setAlwaysOnTop).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.setFullscreen).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.show).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.theme).mockReset().mockResolvedValue("light");

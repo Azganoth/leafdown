@@ -2,8 +2,9 @@ import { createContext, useContext, useId } from "react";
 
 import {
   COMMAND_DEFINITIONS,
-  COMMAND_MENU_LABELS,
   formatShortcut,
+  getCommandLabelId,
+  getCommandMenuLabelId,
   type AppCommandId,
   type CommandState,
   type ReopenWithEncodingControl,
@@ -30,6 +31,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ENCODING_CHOICES, type TextEncodingName } from "@/features/document";
 import type { RecentItem } from "@/features/preferences";
 import { invariant } from "@/lib/errors";
+import { useLocalization, type MessageId } from "@/lib/i18n";
 
 interface CommandMenubarProps {
   commandState: (commandId: AppCommandId) => CommandState;
@@ -71,12 +73,14 @@ export function CommandMenubar({
   recentFolders,
   reopenWithEncoding = UNAVAILABLE_REOPEN_WITH_ENCODING,
 }: CommandMenubarProps) {
+  const { t } = useLocalization();
+
   return (
     <CommandMenuContext.Provider value={{ commandState, onExecute }}>
       <Menubar className="border-0 bg-transparent p-0 text-muted-foreground shadow-none">
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.file}
+            {t(getCommandMenuLabelId("file"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["file.new"]} />
@@ -103,7 +107,7 @@ export function CommandMenubar({
 
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.edit}
+            {t(getCommandMenuLabelId("edit"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["edit.undo", "edit.redo"]} />
@@ -116,19 +120,22 @@ export function CommandMenubar({
                 "edit.copyAsHtml",
                 "edit.copyAsRichText",
               ]}
-              label="Copy as"
+              labelId="menu.edit.copyAs"
             />
             <CommandItems commandIds={["edit.paste"]} />
             <CommandSubmenu
               commandIds={["edit.pasteAsPlainText", "edit.pasteAsMarkdown", "edit.pasteAsRichText"]}
-              label="Paste as"
+              labelId="menu.edit.pasteAs"
             />
             <MenubarSeparator />
             <CommandSubmenu
               commandIds={["edit.delete", "edit.deleteWordBackward", "edit.deleteWordForward"]}
-              label="Delete"
+              labelId="menu.edit.delete"
             />
-            <CommandSubmenu commandIds={["edit.selectAll", "edit.selectWord"]} label="Select" />
+            <CommandSubmenu
+              commandIds={["edit.selectAll", "edit.selectWord"]}
+              labelId="menu.edit.select"
+            />
             <CommandSubmenu
               commandIds={[
                 "edit.jumpToTop",
@@ -138,7 +145,7 @@ export function CommandMenubar({
                 "edit.jumpToLineEnd",
                 "edit.jumpToFootnoteDefinition",
               ]}
-              label="Jump"
+              labelId="menu.edit.jump"
             />
             <CommandItems commandIds={["edit.renameFootnote"]} />
             <CommandItems commandIds={["edit.moveBlockUp", "edit.moveBlockDown"]} />
@@ -153,7 +160,7 @@ export function CommandMenubar({
 
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.insert}
+            {t(getCommandMenuLabelId("insert"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["insert.paragraph"]} />
@@ -165,7 +172,7 @@ export function CommandMenubar({
 
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.format}
+            {t(getCommandMenuLabelId("format"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={INLINE_FORMAT_COMMAND_IDS} />
@@ -175,14 +182,14 @@ export function CommandMenubar({
             <CommandItems commandIds={["format.increaseHeading", "format.decreaseHeading"]} />
             <MenubarSeparator />
             <CommandItems commandIds={BLOCK_FORMAT_COMMAND_IDS} />
-            <CommandSubmenu commandIds={TABLE_COMMAND_IDS} label="Table" />
+            <CommandSubmenu commandIds={TABLE_COMMAND_IDS} labelId="menu.format.table" />
             <CommandItems commandIds={["format.clearBlock"]} />
           </MenubarContent>
         </MenubarMenu>
 
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.view}
+            {t(getCommandMenuLabelId("view"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandCheckboxItem commandId="view.toggleSidebar" />
@@ -199,12 +206,12 @@ export function CommandMenubar({
                 "view.appearance.dark",
               ]}
               inset
-              label="Appearance"
+              labelId="menu.view.appearance"
             />
             <RadioSubmenu
               commandIds={["view.sort.name", "view.sort.modifiedDate", "view.sort.type"]}
               inset
-              label="Sort articles by"
+              labelId="menu.view.sortArticlesBy"
             />
             <CommandItems commandIds={["view.collapseAllFolders", "view.expandAllFolders"]} inset />
           </MenubarContent>
@@ -212,7 +219,7 @@ export function CommandMenubar({
 
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
-            {COMMAND_MENU_LABELS.help}
+            {t(getCommandMenuLabelId("help"))}
           </MenubarTrigger>
           <MenubarContent>
             <CommandItems commandIds={["help.reportIssue", "help.requestFeature"]} />
@@ -315,6 +322,7 @@ interface CommandItemProps {
 }
 
 function CommandMenuItem({ commandId, inset }: CommandItemProps) {
+  const { t } = useLocalization();
   const { commandState, onExecute } = useCommandMenu();
   const state = commandState(commandId);
   const command = COMMAND_DEFINITIONS[commandId];
@@ -322,13 +330,14 @@ function CommandMenuItem({ commandId, inset }: CommandItemProps) {
 
   return (
     <MenubarItem disabled={!state.enabled} inset={inset} onClick={() => onExecute(commandId)}>
-      {command.label}
+      {t(getCommandLabelId(commandId))}
       {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
     </MenubarItem>
   );
 }
 
 function CommandCheckboxItem({ commandId }: CommandItemProps) {
+  const { t } = useLocalization();
   const { commandState, onExecute } = useCommandMenu();
   const state = commandState(commandId);
   const command = COMMAND_DEFINITIONS[commandId];
@@ -340,7 +349,7 @@ function CommandCheckboxItem({ commandId }: CommandItemProps) {
       disabled={!state.enabled}
       onClick={() => onExecute(commandId)}
     >
-      {command.label}
+      {t(getCommandLabelId(commandId))}
       {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
     </MenubarCheckboxItem>
   );
@@ -359,13 +368,25 @@ function RecentItemsSubmenu({
   recentFiles,
   recentFolders,
 }: RecentItemsSubmenuProps) {
+  const { t } = useLocalization();
+
   return (
     <MenubarSub>
-      <MenubarSubTrigger>Open recent</MenubarSubTrigger>
+      <MenubarSubTrigger>{t("menu.file.openRecent")}</MenubarSubTrigger>
       <MenubarSubContent className="min-w-64">
-        <RecentItems label="Recent files" items={recentFiles} onOpen={onOpenRecentFile} />
+        <RecentItems
+          emptyLabelId="menu.file.noRecentFiles"
+          items={recentFiles}
+          labelId="menu.file.recentFiles"
+          onOpen={onOpenRecentFile}
+        />
         <MenubarSeparator />
-        <RecentItems label="Recent folders" items={recentFolders} onOpen={onOpenRecentFolder} />
+        <RecentItems
+          emptyLabelId="menu.file.noRecentFolders"
+          items={recentFolders}
+          labelId="menu.file.recentFolders"
+          onOpen={onOpenRecentFolder}
+        />
         <MenubarSeparator />
         <CommandMenuItem commandId="file.clearRecentItems" />
       </MenubarSubContent>
@@ -374,19 +395,21 @@ function RecentItemsSubmenu({
 }
 
 interface RecentItemsProps {
-  label: string;
+  emptyLabelId: MessageId;
   items: RecentItem[];
+  labelId: MessageId;
   onOpen: (path: string) => void;
 }
 
-function RecentItems({ label, items, onOpen }: RecentItemsProps) {
-  const labelId = useId();
+function RecentItems({ emptyLabelId, items, labelId, onOpen }: RecentItemsProps) {
+  const { t } = useLocalization();
+  const groupLabelId = useId();
 
   return (
-    <MenubarGroup aria-labelledby={labelId}>
-      <MenubarLabel id={labelId}>{label}</MenubarLabel>
+    <MenubarGroup aria-labelledby={groupLabelId}>
+      <MenubarLabel id={groupLabelId}>{t(labelId)}</MenubarLabel>
       {items.length === 0 ? (
-        <MenubarItem disabled>No recent {label.toLowerCase().replace("recent ", "")}.</MenubarItem>
+        <MenubarItem disabled>{t(emptyLabelId)}</MenubarItem>
       ) : (
         items.map(({ path }) => (
           <MenubarItem key={path} onClick={() => onOpen(path)}>
@@ -399,16 +422,17 @@ function RecentItems({ label, items, onOpen }: RecentItemsProps) {
 }
 
 interface CommandSubmenuProps extends CommandItemsProps {
-  label: string;
+  labelId: MessageId;
 }
 
-function CommandSubmenu({ commandIds, inset, label }: CommandSubmenuProps) {
+function CommandSubmenu({ commandIds, inset, labelId }: CommandSubmenuProps) {
+  const { t } = useLocalization();
   const { commandState } = useCommandMenu();
 
   return (
     <MenubarSub>
       <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)} inset={inset}>
-        {label}
+        {t(labelId)}
       </MenubarSubTrigger>
       <MenubarSubContent>
         <CommandItems commandIds={commandIds} />
@@ -424,7 +448,7 @@ interface HeadingSubmenuProps {
 function HeadingSubmenu({ prefix }: HeadingSubmenuProps) {
   const commandIds = prefix === "format" ? FORMAT_HEADING_COMMAND_IDS : INSERT_HEADING_COMMAND_IDS;
 
-  return <CommandSubmenu label="Heading" commandIds={commandIds} />;
+  return <CommandSubmenu labelId="menu.heading" commandIds={commandIds} />;
 }
 
 const LINE_ENDING_COMMAND_IDS = [
@@ -433,6 +457,7 @@ const LINE_ENDING_COMMAND_IDS = [
 ] satisfies readonly AppCommandId[];
 
 function LineEndingSubmenu() {
+  const { t } = useLocalization();
   const { commandState, onExecute } = useCommandMenu();
 
   const checkedId =
@@ -443,7 +468,7 @@ function LineEndingSubmenu() {
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger>Line ending</MenubarSubTrigger>
+      <MenubarSubTrigger>{t("menu.edit.lineEnding")}</MenubarSubTrigger>
       <MenubarSubContent>
         <MenubarRadioGroup
           value={checkedId}
@@ -472,6 +497,7 @@ interface EncodingSubmenuProps {
 }
 
 function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubmenuProps) {
+  const { t } = useLocalization();
   const { commandState, onExecute } = useCommandMenu();
   const commandIds = ENCODING_COMMAND_IDS.filter(
     (id) => id !== "edit.encoding.file" || commandState(id).enabled,
@@ -484,10 +510,10 @@ function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubm
 
   return (
     <MenubarSub>
-      <MenubarSubTrigger>Encoding</MenubarSubTrigger>
+      <MenubarSubTrigger>{t("menu.edit.encoding")}</MenubarSubTrigger>
       <MenubarSubContent>
         <MenubarGroup>
-          <MenubarLabel>Save with encoding</MenubarLabel>
+          <MenubarLabel>{t("menu.edit.saveWithEncoding")}</MenubarLabel>
           <MenubarRadioGroup
             value={checkedId}
             onValueChange={(commandId) => onExecute(commandId as AppCommandId)}
@@ -506,7 +532,7 @@ function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubm
         <MenubarSeparator />
         <MenubarSub>
           <MenubarSubTrigger disabled={!reopenWithEncoding.state.enabled}>
-            Reopen with encoding
+            {t("menu.edit.reopenWithEncoding")}
           </MenubarSubTrigger>
           <MenubarSubContent className="overflow-hidden">
             <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
@@ -516,7 +542,7 @@ function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubm
               >
                 {ENCODING_CHOICES.map((choice) => (
                   <MenubarRadioItem key={choice.name} value={choice.name}>
-                    {choice.label}
+                    {t(choice.labelId)}
                   </MenubarRadioItem>
                 ))}
               </MenubarRadioGroup>
@@ -529,10 +555,11 @@ function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubm
 }
 
 interface RadioSubmenuProps extends CommandItemsProps {
-  label: string;
+  labelId: MessageId;
 }
 
-function RadioSubmenu({ commandIds, inset, label }: RadioSubmenuProps) {
+function RadioSubmenu({ commandIds, inset, labelId }: RadioSubmenuProps) {
+  const { t } = useLocalization();
   const { commandState, onExecute } = useCommandMenu();
 
   const checkedId =
@@ -544,7 +571,7 @@ function RadioSubmenu({ commandIds, inset, label }: RadioSubmenuProps) {
   return (
     <MenubarSub>
       <MenubarSubTrigger disabled={areAllDisabled(commandState, commandIds)} inset={inset}>
-        {label}
+        {t(labelId)}
       </MenubarSubTrigger>
       <MenubarSubContent>
         <MenubarRadioGroup
@@ -566,12 +593,13 @@ interface CommandRadioItemProps {
 }
 
 function CommandRadioItem({ commandId, label }: CommandRadioItemProps) {
+  const { t } = useLocalization();
   const { commandState } = useCommandMenu();
   const state = commandState(commandId);
 
   return (
     <MenubarRadioItem value={commandId} disabled={!state.enabled}>
-      {label ?? COMMAND_DEFINITIONS[commandId].label}
+      {label ?? t(getCommandLabelId(commandId))}
     </MenubarRadioItem>
   );
 }

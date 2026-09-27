@@ -40,9 +40,10 @@ import {
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { Toolbar, ToolbarButton } from "@/components/ui/toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useLocalization, type MessageId } from "@/lib/i18n";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
-import { EDITOR_COMMAND_LABELS } from "../commands/metadata";
+import { getEditorCommandLabelId } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 
 interface ContextButtonCommand {
@@ -119,7 +120,6 @@ const INSERT_COMMANDS = [
 const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorCommandState) =>
   commandState.status === "ready" && commandState.enabledCommands[commandId];
 
-const CONTEXT_POPUP_LABEL = "Context actions";
 const POSITIONER_SELECTOR = "[data-slot='popover-positioner']";
 const REPOSITIONING_ATTRIBUTE = "data-leafdown-context-popup-repositioning";
 const REPOSITIONING_SETTLE_MS = 150;
@@ -187,6 +187,7 @@ export function EditorContextPopup({
   onReturnFocus,
   request,
 }: EditorContextPopupProps) {
+  const { t } = useLocalization();
   const isOpen = request !== null;
   const source = request?.source;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -381,7 +382,7 @@ export function EditorContextPopup({
 
           return contentRef.current?.querySelector<HTMLElement>(ENABLED_CONTROL_SELECTOR) ?? false;
         }}
-        aria-label={CONTEXT_POPUP_LABEL}
+        aria-label={t("editor.contextPopup.label")}
         onFocus={() => {
           hasHeldFocusRef.current = true;
         }}
@@ -437,7 +438,7 @@ export function EditorContextPopup({
           row={4}
         />
         <ContextCommandSubmenu
-          label="Block type"
+          labelId="editor.contextPopup.blockType"
           commands={BLOCK_TYPE_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
@@ -445,7 +446,7 @@ export function EditorContextPopup({
         />
         <ContextCommandSubmenu
           commands={INSERT_COMMANDS}
-          label="Insert"
+          labelId="editor.contextPopup.insert"
           onExecute={onExecute}
           canExecute={canExecute}
           row={6}
@@ -463,10 +464,12 @@ interface ContextCommandRowProps {
 }
 
 function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextCommandRowProps) {
+  const { t } = useLocalization();
+
   return (
     <div className="flex items-center gap-1">
       {commands.map(({ commandId, icon: Icon }, column) => {
-        const label = EDITOR_COMMAND_LABELS[commandId];
+        const label = t(getEditorCommandLabelId(commandId));
         const enabled = canExecute(commandId);
 
         return (
@@ -503,7 +506,7 @@ function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextComm
 }
 
 interface ContextCommandSubmenuProps {
-  label: string;
+  labelId: MessageId;
   commands: readonly ContextSubmenuCommand[];
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
@@ -511,12 +514,15 @@ interface ContextCommandSubmenuProps {
 }
 
 function ContextCommandSubmenu({
-  label,
+  labelId,
   commands,
   onExecute,
   canExecute,
   row,
 }: ContextCommandSubmenuProps) {
+  const { t } = useLocalization();
+  const label = t(labelId);
+
   return (
     <DropdownMenu>
       <ToolbarButton
@@ -539,7 +545,7 @@ function ContextCommandSubmenu({
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
         <DropdownMenuGroup aria-label={label}>
           {commands.map(({ commandId, icon: CommandIcon }) => {
-            const commandLabel = EDITOR_COMMAND_LABELS[commandId];
+            const commandLabel = t(getEditorCommandLabelId(commandId));
             const enabled = canExecute(commandId);
 
             return (

@@ -161,7 +161,9 @@ describe("code block language edits", () => {
     applyCodeBlockLanguage(mounted.view, request, "zig");
 
     expect(mounted.view.dom.querySelector("pre[data-language='zig']")).toHaveTextContent("code");
-    expect(getEditorDocumentStatus(mounted.view.state).blockPath).toEqual(["Code block · zig"]);
+    expect(getEditorDocumentStatus(mounted.view.state).blockPath).toEqual([
+      { kind: "codeBlock", language: "zig" },
+    ]);
   });
 
   it("is one Undo step that Redo reapplies, keeping the metadata throughout", async () => {

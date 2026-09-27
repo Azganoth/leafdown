@@ -6,6 +6,7 @@ import type { FolderContextState } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
 import { requestConfirmation } from "@/lib/confirmation";
+import { t } from "@/lib/i18n";
 import { toastManager } from "@/lib/toast";
 import {
   createOpenedMarkdownDocument,
@@ -157,7 +158,7 @@ describe("reopen with a chosen encoding", () => {
     });
     expect(actionMenu?.label).toBe("Reopen with encoding");
     expect(actionMenu?.items.map((item) => item.label)).toEqual(
-      ENCODING_CHOICES.map((choice) => choice.label),
+      ENCODING_CHOICES.map((choice) => t(choice.labelId)),
     );
 
     actionMenu?.items.find((item) => item.label === "Japanese (Shift_JIS)")?.run();

@@ -12,6 +12,7 @@ import {
   renameFolderEntry,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 import { notifyError, notifySuccess } from "@/lib/toast";
 
 import { revealPathInFileManager } from "./file";
@@ -41,7 +42,7 @@ export const createNavigatorEntry = async (
     );
   } catch (error) {
     notifyFolderEntryFailure(
-      entryKind === "file" ? "Could not create file." : "Could not create folder.",
+      t("commands.navigator.createEntryFailed", { entryKind }),
       error,
       "createNavigatorEntry",
     );
@@ -57,7 +58,7 @@ export const renameNavigatorEntry = async (
   try {
     return toActionResult(await renameFolderEntry(path, name));
   } catch (error) {
-    notifyFolderEntryFailure("Could not rename item.", error, "renameNavigatorEntry");
+    notifyFolderEntryFailure(t("commands.navigator.renameFailed"), error, "renameNavigatorEntry");
 
     return { outcome: "failed" };
   }
@@ -68,7 +69,7 @@ export const deleteNavigatorEntry = async (path: string, entryKind: ArticleNavig
     await deleteFolderEntry(path, entryKind);
   } catch (error) {
     notifyFolderEntryFailure(
-      entryKind === "file" ? "Could not delete file." : "Could not delete folder.",
+      t("commands.navigator.deleteEntryFailed", { entryKind }),
       error,
       "deleteNavigatorEntry",
     );
@@ -84,9 +85,9 @@ export const copyNavigatorPath = async (path: string) => {
     }
 
     await clipboard.writeText(path);
-    notifySuccess("Path copied.");
+    notifySuccess(t("commands.navigator.pathCopied"));
   } catch (error) {
-    notifyOperationFailure("Could not copy path.", error, "copyNavigatorPath");
+    notifyOperationFailure(t("commands.navigator.copyPathFailed"), error, "copyNavigatorPath");
   }
 };
 
@@ -96,5 +97,9 @@ export const ARTICLE_NAVIGATOR_ENTRY_ACTIONS: ArticleNavigatorEntryActions = {
   deleteEntry: (path, entryKind) => void deleteNavigatorEntry(path, entryKind),
   renameEntry: renameNavigatorEntry,
   revealEntry: (path) =>
-    void revealPathInFileManager(path, "Could not open location.", "revealNavigatorEntry"),
+    void revealPathInFileManager(
+      path,
+      t("commands.navigator.openLocationFailed"),
+      "revealNavigatorEntry",
+    ),
 };

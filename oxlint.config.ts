@@ -12,12 +12,12 @@ const leafFeatureImportRestriction = {
   group: restrictedImportRoots.flatMap((root) => [root, `${root}/**`]),
   message: "Leaf features must not depend on session, commands, or application components.",
 };
-// React Compiler caches a module-level call on its arguments, so a component that calls the
-// module-level `t` keeps its first language after a switch.
+// React Compiler caches a module-level call on its arguments, so a component or hook that calls
+// the module-level `t` keeps its first language after a switch.
 const moduleTranslateImportRestriction = {
   group: ["@/lib/i18n", "@/lib/i18n/*", "./localizer"],
   importNames: ["t"],
-  message: "Components read `t` from `useLocalization()`.",
+  message: "Components and hooks read `t` from `useLocalization()`.",
 };
 
 export default defineConfig({
@@ -114,7 +114,7 @@ export default defineConfig({
       },
     },
     {
-      files: ["src/**/*.tsx"],
+      files: ["src/**/*.tsx", "src/**/use*.ts"],
       rules: {
         "no-restricted-imports": ["error", { patterns: [moduleTranslateImportRestriction] }],
       },
@@ -126,7 +126,10 @@ export default defineConfig({
       },
     },
     {
-      files: leafFeatures.map((feature) => `src/features/${feature}/**/*.tsx`),
+      files: leafFeatures.flatMap((feature) => [
+        `src/features/${feature}/**/*.tsx`,
+        `src/features/${feature}/**/use*.ts`,
+      ]),
       rules: {
         "no-restricted-imports": [
           "error",

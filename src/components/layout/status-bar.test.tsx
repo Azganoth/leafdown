@@ -24,7 +24,7 @@ const disabledState = {
 } satisfies CommandState;
 
 const createStatus = (overrides: Partial<EditorDocumentStatus> = {}): EditorDocumentStatus => ({
-  blockPath: ["Blockquote", "Task list", "Paragraph"],
+  blockPath: [{ kind: "blockquote" }, { kind: "taskList" }, { kind: "paragraph" }],
   document: { characters: 2_468, charactersWithoutSpaces: 2_101, words: 450 },
   selection: null,
   ...overrides,
@@ -128,7 +128,7 @@ describe("StatusBar", () => {
   it("follows status changes from the editor", () => {
     const { updateStatus } = renderStatusBar();
 
-    updateStatus(createStatus({ blockPath: ["Heading 2"] }));
+    updateStatus(createStatus({ blockPath: [{ kind: "heading", level: 2 }] }));
 
     expect(screen.getByTestId("status-bar-block-path")).toHaveTextContent("Heading 2");
   });

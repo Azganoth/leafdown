@@ -24,6 +24,7 @@ import {
   useFolderContextWatcher,
   useSessionStore,
 } from "@/features/session";
+import { useLocalization } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 import { StatusBar } from "./status-bar";
@@ -46,6 +47,8 @@ const handleOpenArticle = (path: string) => {
 export function Shell() {
   useFolderContextWatcher();
 
+  const localization = useLocalization();
+  const { t } = localization;
   const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
   const commands = useAppCommands();
   const sessionMode = useSessionStore(getSessionMode);
@@ -76,7 +79,7 @@ export function Shell() {
               <TooltipTrigger
                 render={
                   <Button
-                    aria-label={sidebarShown ? "Hide sidebar" : "Show sidebar"}
+                    aria-label={t(sidebarShown ? "shell.sidebar.hide" : "shell.sidebar.show")}
                     aria-pressed={sidebarShown}
                     disabled={!sidebarAvailable}
                     focusableWhenDisabled
@@ -95,11 +98,13 @@ export function Shell() {
                 )}
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                {sidebarAvailable
-                  ? sidebarShown
-                    ? "Hide sidebar"
-                    : "Show sidebar"
-                  : "Open a folder to show the sidebar"}
+                {t(
+                  sidebarAvailable
+                    ? sidebarShown
+                      ? "shell.sidebar.hide"
+                      : "shell.sidebar.show"
+                    : "shell.sidebar.unavailable",
+                )}
               </TooltipContent>
             </Tooltip>
           </>
@@ -110,7 +115,7 @@ export function Shell() {
             commandState={commands.commandState}
             fileEncodingLabel={
               activeDocument?.status === "saved"
-                ? formatDocumentEncoding(activeDocument.fileEncoding)
+                ? formatDocumentEncoding(activeDocument.fileEncoding, localization)
                 : null
             }
             onExecute={commands.executeCommand}
@@ -141,7 +146,7 @@ export function Shell() {
                     minSize={192}
                   >
                     <aside
-                      aria-label="Article navigator"
+                      aria-label={t("shell.articleNavigator")}
                       data-testid="article-navigator-host"
                       className="flex size-full min-h-0 min-w-0"
                     >
@@ -153,13 +158,13 @@ export function Shell() {
                       />
                     </aside>
                   </ResizablePanel>
-                  <ResizableHandle aria-label="Resize article navigator" withHandle />
+                  <ResizableHandle aria-label={t("shell.resizeArticleNavigator")} withHandle />
                 </>
               )}
 
               <ResizablePanel className="min-w-0" id="document-surface">
                 <main
-                  aria-label="Document surface"
+                  aria-label={t("shell.documentSurface")}
                   data-testid="document-surface-host"
                   className="size-full min-w-0 bg-background"
                 >

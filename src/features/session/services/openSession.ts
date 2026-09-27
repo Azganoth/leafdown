@@ -22,6 +22,7 @@ import {
   isCancellationError,
   runWithCancellation,
 } from "@/lib/cancellation";
+import { t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toast";
 
@@ -106,9 +107,9 @@ export const notifyOpenMarkdownFileError = (
   }
 
   notifyErrorWithActionMenu(message, {
-    label: "Reopen with encoding",
+    label: t("session.reopenWithEncoding"),
     items: ENCODING_CHOICES.map((choice) => ({
-      label: choice.label,
+      label: t(choice.labelId),
       run: () => void reopenMarkdownFileWithChosenEncoding(error.path, choice.name),
     })),
   });
@@ -122,7 +123,7 @@ export const reopenMarkdownFileWithChosenEncoding = async (
     const opened = await openMarkdownFileAtPath(path, { encoding });
 
     if (opened) {
-      notifySuccess("Document opened.");
+      notifySuccess(t("session.documentOpened"));
     }
 
     return opened;
@@ -254,7 +255,7 @@ const notifyFolderIndexOpenFailure = (error: unknown) => {
   const indexError = getOpenMarkdownFileErrorMessage(error);
 
   notifyOpenMarkdownFileError(error, {
-    title: "Could not open folder index file.",
+    title: t("session.openFolderIndexFailed"),
     description: indexError.description ?? indexError.title,
   });
 };

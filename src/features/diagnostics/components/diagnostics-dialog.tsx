@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorDescription, notifyOperationFailure } from "@/lib/errors";
 import { formatFileSize } from "@/lib/formatFileSize";
+import { useLocalization } from "@/lib/i18n";
 import { notifySuccess } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ interface DiagnosticsDialogProps {
 }
 
 export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps) {
+  const localization = useLocalization();
   const [summary, setSummary] = useState<DiagnosticsSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -159,7 +161,7 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
               </DiagnosticFact>
               <DiagnosticFact term="Retention" loading={loading && !summary}>
                 {summary &&
-                  `Current log plus ${summary.logFileCount} retained files, ${formatFileSize(summary.logMaxFileSizeBytes)} each`}
+                  `Current log plus ${summary.logFileCount} retained files, ${formatFileSize(summary.logMaxFileSizeBytes, localization)} each`}
               </DiagnosticFact>
             </dl>
           )}

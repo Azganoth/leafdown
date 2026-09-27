@@ -17,6 +17,7 @@ describe("settings store", () => {
 
   it("resets persisted settings to documented defaults", () => {
     setDefaultSettings({
+      language: "de",
       theme: "dark",
       accentColor: "violet",
       recordRecentItems: false,
@@ -38,6 +39,7 @@ describe("settings store", () => {
     useSettingsStore.getState().reset();
 
     expect(useSettingsStore.getState()).toMatchObject({
+      language: "system",
       theme: "system",
       accentColor: "neutral",
       recordRecentItems: true,
@@ -61,6 +63,7 @@ describe("settings store", () => {
   it("updates persisted settings", () => {
     const settings = useSettingsStore.getState();
 
+    settings.updateSetting("language", "pt-BR");
     settings.updateSetting("theme", "dark");
     settings.updateSetting("accentColor", "fuchsia");
     settings.updateSetting("recordRecentItems", false);
@@ -78,6 +81,7 @@ describe("settings store", () => {
     settings.updateSetting("softWrapCodeBlocks", true);
 
     expect(useSettingsStore.getState()).toMatchObject({
+      language: "pt-BR",
       theme: "dark",
       accentColor: "fuchsia",
       recordRecentItems: false,
@@ -107,6 +111,7 @@ describe("settings store", () => {
   describe("sanitizeSettingsPersistedState", () => {
     it("keeps every valid persisted setting", () => {
       const persistedState: SettingsPersistedState = {
+        language: "pt-BR",
         theme: "dark",
         accentColor: "violet",
         recordRecentItems: false,
@@ -135,6 +140,7 @@ describe("settings store", () => {
 
     it("drops persisted settings that fail their value contract", () => {
       const corruptState = {
+        language: 42,
         theme: "midnight",
         accentColor: "teal",
         sidebarVisible: "yes",

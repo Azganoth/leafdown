@@ -1,4 +1,5 @@
 import { formatFileSize } from "@/lib/formatFileSize";
+import { localizer } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
@@ -55,7 +56,7 @@ export const getOpenMarkdownFileErrorMessage = (
     case "oversizedFile":
       return {
         title: "Markdown file is too large.",
-        description: `${formatFileSize(error.sizeBytes)} selected. Files larger than ${formatFileSize(error.maxSizeBytes)} do not load.`,
+        description: `${formatFileSize(error.sizeBytes, localizer.current)} selected. Files larger than ${formatFileSize(error.maxSizeBytes, localizer.current)} do not load.`,
       };
     case "invalidEncoding":
       return {

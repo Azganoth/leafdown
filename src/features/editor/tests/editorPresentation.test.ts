@@ -9,9 +9,17 @@ import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { getEditorDomElement, setTextSelection } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
+import {
+  applyCodeBlockLanguage,
+  editCodeBlockLanguage,
+} from "../commands/formatting/codeBlockLanguage";
+import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
+
 const mountStyledEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
+// A token the editor reuses can keep an emptied `style`, so a colour is what marks one highlighted.
+const HIGHLIGHTED_TOKEN_SELECTOR = ".shiki[style*='--shiki-light']";
 const editorCssPath = resolve(process.cwd(), "src/features/editor/components/milkdown-editor.css");
 
 describe("Editor presentation", () => {
@@ -158,6 +166,42 @@ const value: number = 1;
     expect(shikiToken.getAttribute("style")).not.toMatch(/(?:^|;)\s*color:/u);
     expect(editorCss).toMatch(/\.shiki\s*\{[^}]*color: var\(--shiki-light\)/su);
     expect(editorCss).toMatch(/&:is\(\.dark \*\)\s*\{[^}]*color: var\(--shiki-dark\)/su);
+  });
+
+  it("highlights a block once its language is set to one Leafdown bundles, and not before", async () => {
+    let request: CodeBlockLanguageRequest | undefined;
+    const mounted = await mountStyledEditor("```\nconst value: number = 1;\n```\n\nOutro", {
+      onCodeBlockLanguageRequested: (next) => {
+        request = next;
+      },
+    });
+
+    setTextSelection(mounted.view, 2);
+    editCodeBlockLanguage(mounted.view);
+    applyCodeBlockLanguage(mounted.view, request!, "leafdown-unknown");
+
+    // An unknown language is still run through the highlighter, which wraps it in one plain token.
+    await waitFor(
+      () => {
+        expect(
+          getEditorDomElement(mounted, "pre[data-language='leafdown-unknown'] .shiki"),
+        ).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
+    expect(mounted.view.dom.querySelector(HIGHLIGHTED_TOKEN_SELECTOR)).toBeNull();
+
+    editCodeBlockLanguage(mounted.view);
+    applyCodeBlockLanguage(mounted.view, request!, "ts");
+
+    await waitFor(
+      () => {
+        expect(
+          getEditorDomElement(mounted, `pre[data-language='ts'] ${HIGHLIGHTED_TOKEN_SELECTOR}`),
+        ).toBeInTheDocument();
+      },
+      { timeout: 10_000 },
+    );
   });
 
   it("keeps unknown code block languages editable without requiring remote assets", async () => {

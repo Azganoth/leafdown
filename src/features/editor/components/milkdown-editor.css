@@ -255,17 +255,30 @@
     }
 
     pre {
-      @apply my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
+      @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
+
+      .leafdown-code-language {
+        @apply cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
+      }
 
       /* The badge floats rather than anchoring to the block, because an absolute child of a
          horizontally scrolling box travels with the content it is meant to label. */
       &[data-language] {
         @apply pt-9;
 
-        &::before {
-          @apply float-right -mt-7 -mr-1 ml-4 rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none;
-          content: attr(data-language);
+        .leafdown-code-language {
+          @apply float-right -mt-7 -mr-1 ml-4;
         }
+      }
+
+      /* A block without a language reserves no room for a badge it shows only while being worked
+         in, so the badge sits over the corner instead of pushing the code down when it appears. */
+      &:not([data-language]) .leafdown-code-language {
+        @apply pointer-events-none absolute top-1 right-1 opacity-0 transition-opacity motion-reduce:transition-none;
+      }
+
+      &:not([data-language]):is(:hover, .leafdown-code-block--active) .leafdown-code-language {
+        @apply pointer-events-auto opacity-100;
       }
 
       code {

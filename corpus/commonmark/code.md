@@ -38,6 +38,12 @@ valid backtick info string
 valid tilde info string
 ~~~
 
+## The info string's first word is the language and the rest is metadata
+
+```typescript title="leaf.ts"  {1}
+const leaf = true;
+```
+
 ## A backtick in a backtick info string does not open a fence
 
 ``` language`with-backtick

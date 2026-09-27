@@ -70,6 +70,11 @@ import {
   leafdownCharacterReferenceSchema,
 } from "../plugins/characterReference";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
+import {
+  createLeafdownCodeBlockLanguagePlugin,
+  type LeafdownCodeBlockLanguagePluginOptions,
+} from "../plugins/codeBlockLanguage";
+import { createLeafdownCodeBlockViewPlugin } from "../plugins/codeBlockView";
 import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
 import { createLeafdownCodeLineNumbersPlugin } from "../plugins/codeLineNumbers";
 import { createLeafdownCodeSpanInputRule } from "../plugins/codeSpanInputRule";
@@ -205,6 +210,7 @@ export interface CreateMilkdownEditorOptions {
   contextPopup?: LeafdownContextPopupPluginOptions;
   blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
+  codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
   areCodeLineNumbersEnabled?: () => boolean;
@@ -249,6 +255,7 @@ export const createMilkdownEditor = async ({
   contextPopup,
   blockInsertion,
   footnotePreview,
+  codeBlockLanguage,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
   areCodeLineNumbersEnabled = () => false,
@@ -327,6 +334,8 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
+    .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
+    .use(createLeafdownCodeBlockViewPlugin())
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())

@@ -3,6 +3,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { afterEach } from "vitest";
 
 import {
+  type CodeBlockLanguageRequest,
   type ContextPopupRequest,
   type BlockInsertionRequest,
   createMilkdownEditor,
@@ -39,6 +40,8 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onFootnotePreviewClosed?: () => void;
   onFootnotePreviewRequested?: (request: FootnotePreviewRequest) => void;
   footnotePreviewDelayMs?: number;
+  onCodeBlockLanguageClosed?: () => void;
+  onCodeBlockLanguageRequested?: (request: CodeBlockLanguageRequest) => void;
 }
 
 export const mountMilkdownEditor = async (
@@ -62,6 +65,10 @@ export const mountMilkdownEditor = async (
       onClose: options.onFootnotePreviewClosed,
       onRequest: options.onFootnotePreviewRequested,
       pointerDelayMs: options.footnotePreviewDelayMs,
+    },
+    codeBlockLanguage: {
+      onClose: options.onCodeBlockLanguageClosed,
+      onRequest: options.onCodeBlockLanguageRequested,
     },
     getMarkdownReferenceContext: () => ({
       documentPath: options.documentPath ?? null,

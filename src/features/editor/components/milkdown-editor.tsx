@@ -13,6 +13,7 @@ import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
+import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-picker";
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
 
@@ -48,8 +49,11 @@ export function MilkdownEditor({
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
   const {
+    applyCodeBlockLanguage,
     blockInsertionRequest,
+    cancelCodeBlockLanguage,
     closeBlockInsertion,
+    codeBlockLanguageRequest,
     closeContextPopup,
     commandState,
     contextPopupRequest,
@@ -90,6 +94,12 @@ export function MilkdownEditor({
         request={blockInsertionRequest}
         onClose={closeBlockInsertion}
         onExecute={executeBlockInsertion}
+        onReturnFocus={focusEditor}
+      />
+      <EditorCodeBlockLanguagePicker
+        request={codeBlockLanguageRequest}
+        onApply={applyCodeBlockLanguage}
+        onCancel={cancelCodeBlockLanguage}
         onReturnFocus={focusEditor}
       />
       <EditorFootnotePreview request={footnotePreviewRequest} />

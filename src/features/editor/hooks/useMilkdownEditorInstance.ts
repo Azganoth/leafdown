@@ -19,9 +19,14 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "../commands";
+import {
+  applyCodeBlockLanguage as applyCodeBlockLanguageToView,
+  closeCodeBlockLanguage as closeCodeBlockLanguageInView,
+} from "../commands/formatting/codeBlockLanguage";
 import { insertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import { insertLinkTarget } from "../commands/inserting/links";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
+import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
@@ -86,6 +91,9 @@ export const useMilkdownEditorInstance = ({
   const blockInsertionRequestRef = useRef<BlockInsertionRequest | null>(null);
   const [footnotePreviewRequest, setFootnotePreviewRequest] =
     useState<FootnotePreviewRequest | null>(null);
+  const [codeBlockLanguageRequest, setCodeBlockLanguageRequest] =
+    useState<CodeBlockLanguageRequest | null>(null);
+  const codeBlockLanguageOpenRef = useRef(false);
 
   const commandStateRef = useRef<EditorCommandState>(INACTIVE_EDITOR_COMMAND_STATE);
   const documentStatusRef = useRef<EditorDocumentStatus>(INACTIVE_EDITOR_DOCUMENT_STATUS);
@@ -190,6 +198,44 @@ export const useMilkdownEditorInstance = ({
 
   const closeFootnotePreview = useCallback(() => setFootnotePreviewRequest(null), []);
 
+  const requestCodeBlockLanguage = useCallback(
+    (request: CodeBlockLanguageRequest) => {
+      closeContextPopup();
+      codeBlockLanguageOpenRef.current = true;
+      setCodeBlockLanguageRequest(request);
+    },
+    [closeContextPopup],
+  );
+
+  const releaseCodeBlockLanguage = useCallback(() => {
+    codeBlockLanguageOpenRef.current = false;
+    setCodeBlockLanguageRequest(null);
+  }, []);
+
+  const cancelCodeBlockLanguage = useCallback(() => {
+    const editor = editorRef.current;
+
+    if (editor?.ctx) {
+      closeCodeBlockLanguageInView(editor.ctx.get(editorViewCtx));
+    }
+
+    releaseCodeBlockLanguage();
+  }, [releaseCodeBlockLanguage]);
+
+  const applyCodeBlockLanguage = useCallback(
+    (language: string) => {
+      const request = codeBlockLanguageRequest;
+      const editor = editorRef.current;
+
+      if (!request || !editor?.ctx) {
+        return false;
+      }
+
+      return applyCodeBlockLanguageToView(editor.ctx.get(editorViewCtx), request, language);
+    },
+    [codeBlockLanguageRequest],
+  );
+
   const requestFootnotePreview = useCallback(
     (request: FootnotePreviewRequest) => setFootnotePreviewRequest(request),
     [],
@@ -236,6 +282,7 @@ export const useMilkdownEditorInstance = ({
         if (
           editorRef.current === editor &&
           !contextPopupOpenRef.current &&
+          !codeBlockLanguageOpenRef.current &&
           document.activeElement === document.body
         ) {
           focusEditor();
@@ -278,6 +325,10 @@ export const useMilkdownEditorInstance = ({
         footnotePreview: {
           onClose: closeFootnotePreview,
           onRequest: requestFootnotePreview,
+        },
+        codeBlockLanguage: {
+          onClose: releaseCodeBlockLanguage,
+          onRequest: requestCodeBlockLanguage,
         },
         getMarkdownReferenceContext: () => ({
           documentPath: liveOptionsRef.current.documentPath,
@@ -347,11 +398,14 @@ export const useMilkdownEditorInstance = ({
       closeContextPopup();
       closeBlockInsertion();
       closeFootnotePreview();
+      releaseCodeBlockLanguage();
     };
   }, [
     closeContextPopup,
     closeBlockInsertion,
     closeFootnotePreview,
+    releaseCodeBlockLanguage,
+    requestCodeBlockLanguage,
     requestContextPopup,
     requestFootnotePreview,
     updateCommandState,
@@ -365,8 +419,11 @@ export const useMilkdownEditorInstance = ({
   }, [displayCodeBlockLineNumbers]);
 
   return {
+    applyCodeBlockLanguage,
     blockInsertionRequest,
+    cancelCodeBlockLanguage,
     closeBlockInsertion,
+    codeBlockLanguageRequest,
     closeContextPopup,
     commandState,
     contextPopupRequest,

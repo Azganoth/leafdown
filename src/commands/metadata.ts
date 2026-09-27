@@ -161,6 +161,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
     shift: true,
   }),
   "format.codeBlock": editorCommandDef("format.codeBlock", { key: "c", mod: true, alt: true }),
+  "format.codeBlockLanguage": editorCommandDef("format.codeBlockLanguage"),
   "format.table.delete": editorCommandDef("format.table.delete"),
   "format.table.addRowAbove": editorCommandDef("format.table.addRowAbove"),
   "format.table.addRowBelow": editorCommandDef("format.table.addRowBelow"),

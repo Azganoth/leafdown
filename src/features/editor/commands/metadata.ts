@@ -66,6 +66,7 @@ export const EDITOR_COMMAND_LABELS = {
   "format.toggleTaskChecked": "Toggle task checked",
   "format.blockquote": "Blockquote",
   "format.codeBlock": "Code block",
+  "format.codeBlockLanguage": "Code block language...",
   "format.table.delete": "Delete table",
   "format.table.addRowAbove": "Add row above",
   "format.table.addRowBelow": "Add row below",

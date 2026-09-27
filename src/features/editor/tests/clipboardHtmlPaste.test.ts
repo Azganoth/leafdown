@@ -149,6 +149,24 @@ describe("CF_HTML paste normalization", () => {
     );
   });
 
+  it("keeps a copied code block's language and metadata", async () => {
+    const serialized = await serializeTextSelection(
+      'Before\n\n```js title="app.js"\ncode\n```\n\nAfter',
+      "Before",
+      "After",
+    );
+    const mounted = await mountEditor("");
+
+    await pasteHtml(
+      mounted,
+      "native",
+      wrapCfHtmlFragment(serialized.dom.innerHTML),
+      serialized.text,
+    );
+
+    expect(mounted.getMarkdown()).toBe('Before\n\n```js title="app.js"\ncode\n```\n\nAfter\n');
+  });
+
   it("passes non-qualifying external fragment conventions through unchanged", async () => {
     const mounted = await mountEditor("");
     const affineStyleHtml =

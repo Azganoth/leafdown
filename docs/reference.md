@@ -195,6 +195,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Toggle task checked** (`Mod+Enter`)
 - **Blockquote** (`Mod+Shift+B`)
 - **Code block** (`Mod+Alt+C`)
+- **Code block language...**: Opens the language picker for the fenced code block in context, as clicking its language badge does.
 - **Table**
   - **Delete table**
   - **Add row above**
@@ -266,9 +267,10 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 1. Quick actions: Cut, Copy, Paste, Delete.
 2. Inline formatting: Strong, Emphasis, Inline code, Link.
 3. Footnote: Rename footnote, shown only while that command is available.
-4. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-5. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
-6. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
+4. Code block: Code block language..., shown only while that command is available.
+5. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
+6. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
+7. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
 
 ### Article Navigator Context Menu
 
@@ -307,6 +309,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Delete sentence` and `Select sentence` require a sentence at or adjacent to the caret.
 - `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.
 - `Toggle task checked` requires a task list item.
+- `Code block language...` requires the caret or selection within one fenced code block, or a structural block selection of exactly one; indented code does not offer it.
 - `Clear inline formatting` requires supported inline formatting in the selection or an active marked inline element.
 - `Clear block formatting` requires removable block formatting in the current or selected blocks.
 - `Increase heading level` and `Decrease heading level` require a heading that can move in the requested direction.

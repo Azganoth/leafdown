@@ -6,6 +6,7 @@ import {
   ClipboardPasteIcon,
   Code2Icon,
   CopyIcon,
+  FileCodeIcon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
@@ -75,6 +76,10 @@ const INLINE_ACTION_COMMANDS = [
 
 const FOOTNOTE_COMMANDS = [
   { commandId: "edit.renameFootnote", icon: PencilLineIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const CODE_BLOCK_COMMANDS = [
+  { commandId: "format.codeBlockLanguage", icon: FileCodeIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const BLOCK_FORMATTING_COMMANDS = [
@@ -417,25 +422,33 @@ export function EditorContextPopup({
             row={2}
           />
         )}
+        {canExecute("format.codeBlockLanguage") && (
+          <ContextCommandRow
+            commands={CODE_BLOCK_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={3}
+          />
+        )}
         <ContextCommandRow
           commands={BLOCK_FORMATTING_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={3}
+          row={4}
         />
         <ContextCommandSubmenu
           label="Block type"
           commands={BLOCK_TYPE_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={4}
+          row={5}
         />
         <ContextCommandSubmenu
           commands={INSERT_COMMANDS}
           label="Insert"
           onExecute={onExecute}
           canExecute={canExecute}
-          row={5}
+          row={6}
         />
       </PopoverContent>
     </Popover>

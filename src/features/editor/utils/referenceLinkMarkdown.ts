@@ -133,7 +133,7 @@ const withoutContinuationPrefixes = (raw: string) =>
 // identifier the parser matched on; otherwise the decoded label stands where it still spells it,
 // and the identifier itself where it does not, which keeps the match at the cost of case and
 // spacing.
-const chooseLabelSpelling = (node: object, authored: string | null) => {
+export const chooseLabelSpelling = (node: object, authored: string | null) => {
   const identifier = readString(node, "identifier");
 
   if (!identifier) {

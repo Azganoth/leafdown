@@ -87,6 +87,7 @@ import {
   createLeafdownFootnoteDefinitionLabelPlugin,
   leafdownFootnoteDefinitionLabelSchema,
 } from "../plugins/footnoteDefinitionLabel";
+import { createLeafdownFootnoteLabelPlugin } from "../plugins/footnoteLabel";
 import { createLeafdownFootnoteNavigationPlugin } from "../plugins/footnoteNavigation";
 import {
   createLeafdownFootnotePreviewPlugin,
@@ -149,6 +150,12 @@ import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
 import type { EditorDocumentStatus } from "./documentStatus";
 import { withFootnoteDefinitionLabelContent } from "./footnoteDefinitionLabel";
+import {
+  FOOTNOTE_DEFINITION_MARKDOWN_TYPE,
+  FOOTNOTE_REFERENCE_MARKDOWN_TYPE,
+  serializeMarkdownFootnoteDefinition,
+  serializeMarkdownFootnoteReference,
+} from "./footnoteLabelMarkdown";
 import {
   HARD_BREAK_MARKDOWN_TYPE,
   serializeHardBreak,
@@ -270,6 +277,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAutolinkLiteralPositionPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
+    .use(createLeafdownFootnoteLabelPlugin())
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownCodeFormPlugin())
     .use(createLeafdownBlockStructurePlugin())
@@ -351,6 +359,8 @@ export const createMilkdownEditor = async ({
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
           [CHARACTER_REFERENCE_MARKDOWN_TYPE]: serializeCharacterReference,
+          [FOOTNOTE_DEFINITION_MARKDOWN_TYPE]: serializeMarkdownFootnoteDefinition,
+          [FOOTNOTE_REFERENCE_MARKDOWN_TYPE]: serializeMarkdownFootnoteReference,
           [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           code: serializeCode,

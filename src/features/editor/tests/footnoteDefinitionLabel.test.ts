@@ -149,6 +149,52 @@ describe("footnote definition label", () => {
     expect(mounted.getMarkdown()).toBe(markdown);
   });
 
+  it("shows and keeps the escapes the file spelled the label with", async () => {
+    const markdown = String.raw`A[^a\*b] B[^a*b]
+
+[^a\*b]: Escaped
+
+[^a*b]: Bare
+`;
+    const mounted = await mountEditor(markdown);
+
+    expect(getCommittedLabels(mounted)).toEqual([String.raw`a\*b`, "a*b"]);
+    expect(getReferenceLabels(mounted)).toEqual([String.raw`a\*b`, "a*b"]);
+    expect(getEditorDomElement(mounted, LABEL_SELECTOR)).toHaveTextContent(/^a\\\*b$/u);
+    expect(mounted.getMarkdown()).toBe(markdown);
+  });
+
+  // The label is the spelling the file matches on, so a backslash typed into it is written as the
+  // escape it spells, and a definition spelled differently keeps its own references.
+  it("renames a label spelled with an escape without moving another spelling's references", async () => {
+    const mounted = await mountEditor(String.raw`A[^a\*b] B[^a*b]
+
+[^a\*b]: Escaped
+
+[^a*b]: Bare`);
+
+    typeLabel(mounted, String.raw`c\_d`);
+    leaveLabel(mounted);
+
+    expect(getReferenceLabels(mounted)).toEqual([String.raw`c\_d`, "a*b"]);
+    expect(mounted.getMarkdown()).toBe(String.raw`A[^c\_d] B[^a*b]
+
+[^c\_d]: Escaped
+
+[^a*b]: Bare
+`);
+  });
+
+  it("keeps the label the definition was read with when the edit ends in an escape", async () => {
+    const mounted = await mountEditor("A[^note]\n\n[^note]: Detail");
+
+    typeLabel(mounted, "source\\");
+    leaveLabel(mounted);
+
+    expect(getCommittedLabels(mounted)).toEqual(["note"]);
+    expect(mounted.getMarkdown()).toBe("A[^note]\n\n[^note]: Detail\n");
+  });
+
   it("renames the definition and its references when the caret leaves the label", async () => {
     const mounted = await mountEditor("A[^note] B[^note]\n\n[^note]: Detail");
 

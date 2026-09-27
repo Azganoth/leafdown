@@ -1,6 +1,10 @@
 import { FileTextIcon } from "lucide-react";
 
+import { useLocalization } from "@/lib/i18n";
+
 export function FolderOnlyScreen() {
+  const { t } = useLocalization();
+
   return (
     <section
       aria-labelledby="folder-only-title"
@@ -11,10 +15,10 @@ export function FolderOnlyScreen() {
           <FileTextIcon className="size-7" />
         </span>
         <h2 id="folder-only-title" className="mt-5 text-xl font-semibold">
-          No document open
+          {t("folderOnly.title")}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Select a Markdown file from the sidebar or create a new document.
+          {t("folderOnly.description")}
         </p>
       </div>
     </section>

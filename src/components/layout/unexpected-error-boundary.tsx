@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { handleUnexpectedError } from "@/lib/errors";
+import { useLocalization } from "@/lib/i18n";
 
 interface UnexpectedErrorBoundaryProps {
   children: ReactNode;
@@ -40,6 +41,8 @@ export class UnexpectedErrorBoundary extends Component<
 }
 
 function UnexpectedErrorFallback() {
+  const { t } = useLocalization();
+
   return (
     <main
       role="alert"
@@ -48,11 +51,9 @@ function UnexpectedErrorFallback() {
     >
       <section className="max-w-md">
         <h1 id="unexpected-error-title" className="text-lg font-semibold text-foreground">
-          Something went wrong.
+          {t("unexpectedError.title")}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Restart Leafdown or reopen the current document.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("unexpectedError.description")}</p>
       </section>
     </main>
   );

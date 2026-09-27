@@ -15,17 +15,38 @@ import {
   pickAndOpenMarkdownFile,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
-import { useLocalization } from "@/lib/i18n";
+import { localizer, useLocalization, type MessageId } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 const NOW_REFRESH_INTERVAL_MS = 60 * 1000;
 
+type RecentItemsKind = "files" | "folders";
+
+const RECENT_ITEMS_MESSAGE_IDS = {
+  files: {
+    title: "welcome.recentFiles.title",
+    empty: "welcome.recentFiles.empty",
+    remove: "welcome.recentFiles.remove",
+    removeTitle: "welcome.recentFiles.removeTitle",
+  },
+  folders: {
+    title: "welcome.recentFolders.title",
+    empty: "welcome.recentFolders.empty",
+    remove: "welcome.recentFolders.remove",
+    removeTitle: "welcome.recentFolders.removeTitle",
+  },
+} as const satisfies Record<RecentItemsKind, Record<string, MessageId>>;
+
 const handleNewDocument = async () => {
   try {
     await createNewMarkdownDocument();
   } catch (error) {
-    notifyOperationFailure("Could not create document.", error, "createWelcomeDocument");
+    notifyOperationFailure(
+      localizer.current.t("welcome.createDocumentFailed"),
+      error,
+      "createWelcomeDocument",
+    );
   }
 };
 
@@ -52,7 +73,7 @@ const handleOpenRecentFile = async (path: string) => {
     notifyOpenMarkdownFileError(
       error,
       getOpenMarkdownFileErrorMessage(error, {
-        title: "Could not open recent Markdown file.",
+        title: localizer.current.t("welcome.openRecentFileFailed"),
       }),
     );
   }
@@ -64,13 +85,14 @@ const handleOpenRecentFolder = async (path: string) => {
   } catch (error) {
     notifyError(
       getOpenFolderContextErrorMessage(error, {
-        title: "Could not open recent folder.",
+        title: localizer.current.t("welcome.openRecentFolderFailed"),
       }),
     );
   }
 };
 
 export function WelcomeScreen() {
+  const { t } = useLocalization();
   const recentFiles = useRecentItemsStore((state) => state.recentFiles);
   const recentFolders = useRecentItemsStore((state) => state.recentFolders);
   const clearRecentItems = useRecentItemsStore((state) => state.clearRecentItems);
@@ -88,24 +110,22 @@ export function WelcomeScreen() {
         <h2 id="welcome-title" className="font-heading text-4xl font-semibold">
           Leafdown
         </h2>
-        <p className="mt-3 max-w-lg text-base text-muted-foreground">
-          Start a document, or open a Markdown file or folder.
-        </p>
+        <p className="mt-3 max-w-lg text-base text-muted-foreground">{t("welcome.description")}</p>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Button type="button" onClick={handleNewDocument} size="lg">
             <FilePlusIcon data-icon="inline-start" />
-            New document
+            {t("welcome.newDocument")}
             <CommandShortcutHint commandId="file.new" />
           </Button>
           <Button type="button" onClick={handleOpenFile} variant="outline" size="lg">
             <FileTextIcon data-icon="inline-start" />
-            Open file
+            {t("welcome.openFile")}
             <CommandShortcutHint commandId="file.open" />
           </Button>
           <Button type="button" onClick={handleOpenFolder} variant="outline" size="lg">
             <FolderOpenIcon data-icon="inline-start" />
-            Open folder
+            {t("welcome.openFolder")}
             <CommandShortcutHint commandId="file.openFolder" />
           </Button>
         </div>
@@ -114,9 +134,8 @@ export function WelcomeScreen() {
           <div className="mt-12">
             <div className="grid gap-8 md:grid-cols-2">
               <RecentItemsSection
-                title="Recent files"
+                kind="files"
                 titleId="recent-files-title"
-                emptyMessage="No recent files."
                 icon={FileTextIcon}
                 items={recentFiles}
                 now={now}
@@ -124,9 +143,8 @@ export function WelcomeScreen() {
                 onRemoveItem={removeRecentFile}
               />
               <RecentItemsSection
-                title="Recent folders"
+                kind="folders"
                 titleId="recent-folders-title"
-                emptyMessage="No recent folders."
                 icon={FolderOpenIcon}
                 items={recentFolders}
                 now={now}
@@ -143,7 +161,7 @@ export function WelcomeScreen() {
                 className="text-muted-foreground"
               >
                 <XIcon data-icon="inline-start" />
-                Clear recent items
+                {t("welcome.clearRecentItems")}
               </Button>
             </div>
           </div>
@@ -189,33 +207,34 @@ function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
 }
 
 interface RecentItemsSectionProps {
-  emptyMessage: string;
   icon: LucideIcon;
   items: RecentItem[];
+  kind: RecentItemsKind;
   now: number;
   onOpenItem: (path: string) => void;
   onRemoveItem: (path: string) => void;
-  title: string;
   titleId: string;
 }
 
 function RecentItemsSection({
-  emptyMessage,
   icon: Icon,
   items,
+  kind,
   now,
   onOpenItem,
   onRemoveItem,
-  title,
   titleId,
 }: RecentItemsSectionProps) {
+  const { t } = useLocalization();
+  const messageIds = RECENT_ITEMS_MESSAGE_IDS[kind];
+
   return (
     <section aria-labelledby={titleId} className="min-w-0 border-t border-border pt-3">
       <h3 id={titleId} className="text-sm font-medium">
-        {title}
+        {t(messageIds.title)}
       </h3>
       {items.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t(messageIds.empty)}</p>
       ) : (
         <ul className="mt-2 flex flex-col">
           {items.map((item) => (
@@ -223,7 +242,7 @@ function RecentItemsSection({
               icon={Icon}
               item={item}
               key={item.path}
-              listName={title.toLowerCase()}
+              kind={kind}
               now={now}
               onOpenItem={onOpenItem}
               onRemoveItem={onRemoveItem}
@@ -238,7 +257,7 @@ function RecentItemsSection({
 interface RecentItemRowProps {
   icon: LucideIcon;
   item: RecentItem;
-  listName: string;
+  kind: RecentItemsKind;
   now: number;
   onOpenItem: (path: string) => void;
   onRemoveItem: (path: string) => void;
@@ -247,13 +266,14 @@ interface RecentItemRowProps {
 function RecentItemRow({
   icon: Icon,
   item: { openedAt, path },
-  listName,
+  kind,
   now,
   onOpenItem,
   onRemoveItem,
 }: RecentItemRowProps) {
-  const { formatRelativeTime } = useLocalization();
+  const { formatRelativeTime, t } = useLocalization();
   const { name, parent } = getPathParts(path);
+  const messageIds = RECENT_ITEMS_MESSAGE_IDS[kind];
 
   return (
     <li className="group/recent-item flex min-w-0 items-center gap-1">
@@ -284,8 +304,8 @@ function RecentItemRow({
         variant="ghost"
         size="icon-sm"
         onClick={() => onRemoveItem(path)}
-        aria-label={`Remove ${name} from ${listName}`}
-        title={`Remove from ${listName}`}
+        aria-label={t(messageIds.remove, { name })}
+        title={t(messageIds.removeTitle)}
         className="text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 focus-visible:opacity-100"
       >
         <XIcon />

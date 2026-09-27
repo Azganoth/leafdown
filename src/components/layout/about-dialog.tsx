@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notifyOperationFailure } from "@/lib/errors";
+import { localizer, useLocalization } from "@/lib/i18n";
 
 const REPOSITORY_URL = "https://github.com/Azganoth/leafdown";
 const LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html";
@@ -28,11 +29,12 @@ const openExternal = async (url: string) => {
   try {
     await openUrl(url);
   } catch (error) {
-    notifyOperationFailure("Could not open the link.", error, "about.openUrl");
+    notifyOperationFailure(localizer.current.t("about.openLinkFailed"), error, "about.openUrl");
   }
 };
 
 export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
+  const { t } = useLocalization();
   const version = useAppVersion(open);
 
   return (
@@ -48,9 +50,7 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
           ) : (
             <Skeleton className="h-5 w-24 rounded-md" />
           )}
-          <DialogDescription className="text-balance">
-            A local-first Markdown editor for ordinary files and folders.
-          </DialogDescription>
+          <DialogDescription className="text-balance">{t("about.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
@@ -60,11 +60,11 @@ export function AboutDialog({ open, onOpenChange }: AboutDialogProps) {
 
         <DialogFooter className="sm:justify-center">
           <Button type="button" variant="outline" onClick={() => openExternal(LICENSE_URL)}>
-            License
+            {t("about.license")}
           </Button>
           <Button type="button" variant="outline" onClick={() => openExternal(REPOSITORY_URL)}>
             <ExternalLinkIcon data-icon="inline-start" />
-            Repository
+            {t("about.repository")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -90,7 +90,11 @@ function useAppVersion(open: boolean) {
           setVersion(nextVersion);
         }
       } catch (error) {
-        notifyOperationFailure("Could not read the app version.", error, "about.getVersion");
+        notifyOperationFailure(
+          localizer.current.t("about.readVersionFailed"),
+          error,
+          "about.getVersion",
+        );
       }
     };
 

@@ -37,6 +37,12 @@ export const APPLICATION_COMMANDS = {
   "edit.lineEnding.crlf": appCommand(edit.setCrlfLineEnding, edit.getCrlfLineEndingState),
   "edit.lineEnding.lf": appCommand(edit.setLfLineEnding, edit.getLfLineEndingState),
   "edit.insertFinalNewline": appCommand(edit.toggleFinalNewline, edit.getFinalNewlineState),
+  "edit.encoding.utf8": appCommand(edit.setUtf8Encoding, edit.getUtf8EncodingState),
+  "edit.encoding.utf8Bom": appCommand(
+    edit.setUtf8WithBomEncoding,
+    edit.getUtf8WithBomEncodingState,
+  ),
+  "edit.encoding.file": appCommand(edit.setFileEncoding, edit.getFileEncodingState),
 
   "view.toggleSidebar": appCommand(view.toggleSidebar, view.getToggleSidebarState),
   "view.toggleStatusBar": appCommand(view.toggleStatusBar, view.getToggleStatusBarState),

@@ -42,7 +42,13 @@ export const createFileMetadata = (
 export const createSavedDocument = (
   overrides: SavedDocumentFactoryOptions = {},
 ): SavedDocumentState => {
-  const { content = "# Notes", metadata, ...documentOverrides } = overrides;
+  const {
+    content = "# Notes",
+    encoding = { name: "UTF-8", bom: false },
+    fileEncoding = encoding,
+    metadata,
+    ...documentOverrides
+  } = overrides;
 
   return {
     status: "saved",
@@ -50,7 +56,8 @@ export const createSavedDocument = (
     content,
     isDirty: false,
     lineEnding: "lf",
-    encoding: { name: "UTF-8", bom: false },
+    encoding,
+    fileEncoding,
     ...documentOverrides,
     metadata: createFileMetadata({
       sizeBytes: getContentSizeBytes(content),

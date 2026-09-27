@@ -123,6 +123,38 @@ describe("session store", () => {
     });
   });
 
+  it("marks the active document dirty when its encoding changes, keeping the file's encoding", () => {
+    const windows1252 = { name: "windows-1252", bom: false } as const;
+    useSessionStore.getState().setActiveDocument(createSavedDocument({ encoding: windows1252 }));
+    const activeDocument = useSessionStore.getState().activeDocument;
+
+    useSessionStore.getState().setActiveDocumentEncoding(TEST_MARKDOWN_FILE_PATH, windows1252);
+
+    expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
+
+    useSessionStore
+      .getState()
+      .setActiveDocumentEncoding(TEST_MARKDOWN_FILE_PATH, { name: "UTF-8", bom: true });
+
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      isDirty: true,
+      encoding: { name: "UTF-8", bom: true },
+      fileEncoding: windows1252,
+    });
+  });
+
+  it("changes the editor load only for a reload", () => {
+    const { activeDocumentLoadId } = useSessionStore.getState();
+
+    useSessionStore.getState().setActiveDocument(createSavedDocument());
+
+    expect(useSessionStore.getState().activeDocumentLoadId).toBe(activeDocumentLoadId);
+
+    useSessionStore.getState().setActiveDocument(createSavedDocument(), { reload: true });
+
+    expect(useSessionStore.getState().activeDocumentLoadId).toBe(activeDocumentLoadId + 1);
+  });
+
   it("keeps active documents clean when setting the current line ending", () => {
     useSessionStore.getState().setActiveDocument(createSavedDocument());
     const activeDocument = useSessionStore.getState().activeDocument;

@@ -2,19 +2,24 @@ import { documentDir, join } from "@tauri-apps/api/path";
 
 import {
   ensureMarkdownExtension,
+  formatEncodingName,
   formatMarkdownForSave,
+  formatUnrepresentableCharacters,
   getActiveDocumentKey,
   isSaveMarkdownFileError,
+  isUnrepresentableCharactersError,
   matchesActiveDocumentKey,
   NEW_DOCUMENT_ENCODING,
   saveMarkdownDocument,
   selectMarkdownSavePath,
   toSavedDocument,
   toUntitledDocument,
+  UTF8_ENCODING,
   type ActiveDocumentState,
   type DocumentEncoding,
   type LineEnding,
   type SavedDocumentState,
+  type UnrepresentableCharactersError,
 } from "@/features/document";
 import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
@@ -116,6 +121,15 @@ const saveActiveMarkdownDocumentAsNow = async () => {
 
   const { defaultNewDocumentExtension } = useSettingsStore.getState();
   const path = await ensureMarkdownExtension(selectedPath, defaultNewDocumentExtension);
+
+  return saveActiveMarkdownDocumentToNewPath(documentKey, activeDocumentGeneration, path);
+};
+
+const saveActiveMarkdownDocumentToNewPath = async (
+  documentKey: string,
+  activeDocumentGeneration: number,
+  path: string,
+): Promise<boolean> => {
   const latestDocument = getActiveDocumentByKey(documentKey, activeDocumentGeneration);
 
   if (!latestDocument) {
@@ -123,11 +137,24 @@ const saveActiveMarkdownDocumentAsNow = async () => {
   }
 
   const serializedDocument = serializeActiveDocumentForSave(latestDocument);
-  const result = await saveMarkdownDocument(
-    path,
-    serializedDocument.content,
-    serializedDocument.encoding,
-  );
+  let result;
+
+  try {
+    result = await saveMarkdownDocument(
+      path,
+      serializedDocument.content,
+      serializedDocument.encoding,
+    );
+  } catch (error) {
+    if (!isUnrepresentableCharactersError(error)) {
+      throw error;
+    }
+
+    return handleUnrepresentableCharacters(error, documentKey, activeDocumentGeneration, () =>
+      saveActiveMarkdownDocumentToNewPath(documentKey, activeDocumentGeneration, path),
+    );
+  }
+
   const existingFolderContext = useSessionStore.getState().folderContext;
   const nextFolderContext = await getFolderContextAfterSaveAs(
     result.path,
@@ -220,8 +247,54 @@ const saveExistingMarkdownDocument = async (
       return handleExternalModification(activeDocument, activeDocumentGeneration);
     }
 
+    if (isUnrepresentableCharactersError(error)) {
+      const documentKey = getActiveDocumentKey(activeDocument);
+
+      return handleUnrepresentableCharacters(error, documentKey, activeDocumentGeneration, () => {
+        const latestDocument = getActiveDocumentByKey(documentKey, activeDocumentGeneration);
+
+        if (latestDocument?.status !== "saved") {
+          return Promise.resolve(false);
+        }
+
+        return saveExistingMarkdownDocument(
+          latestDocument,
+          serializeActiveDocumentForSave(latestDocument),
+          activeDocumentGeneration,
+          overwrite,
+        );
+      });
+    }
+
     throw error;
   }
+};
+
+const handleUnrepresentableCharacters = async (
+  error: UnrepresentableCharactersError,
+  documentKey: string,
+  activeDocumentGeneration: number,
+  saveAgain: () => Promise<boolean>,
+) => {
+  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+    return false;
+  }
+
+  const shouldConvert = await requestConfirmation({
+    title: "Characters cannot be saved",
+    message: `${formatEncodingName(error.encoding)} cannot represent some characters in this document, so nothing was saved. Convert the document to UTF-8 and save it?`,
+    detail: formatUnrepresentableCharacters(error.characters),
+    confirmLabel: "Convert to UTF-8 and save",
+    cancelLabel: "Cancel",
+  });
+
+  if (!shouldConvert || !getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+    return false;
+  }
+
+  useSessionStore.getState().setActiveDocumentEncoding(documentKey, UTF8_ENCODING);
+
+  return saveAgain();
 };
 
 const handleMissingSavedFile = async (documentKey: string, activeDocumentGeneration: number) => {

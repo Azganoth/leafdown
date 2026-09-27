@@ -1,13 +1,9 @@
 import { isSamePath } from "@/lib/path";
 
+import type { DocumentEncoding } from "./documentEncoding";
+
 export const LINE_ENDINGS = ["crlf", "lf"] as const;
 export type LineEnding = (typeof LINE_ENDINGS)[number];
-
-export type DocumentEncoding =
-  | { name: "UTF-8"; bom: boolean }
-  | { name: "UTF-16LE" | "UTF-16BE"; bom: true };
-
-export const NEW_DOCUMENT_ENCODING: DocumentEncoding = { name: "UTF-8", bom: false };
 
 export interface FileMetadataSnapshot {
   sizeBytes: number;
@@ -21,6 +17,8 @@ export interface SavedDocumentState {
   isDirty: boolean;
   lineEnding: LineEnding | null;
   encoding: DocumentEncoding;
+  /** The encoding the file holds as last read or written, which `encoding` can be converted back to. */
+  fileEncoding: DocumentEncoding;
   metadata: FileMetadataSnapshot;
 }
 
@@ -35,7 +33,7 @@ export interface UntitledDocumentState {
 
 export type ActiveDocumentState = SavedDocumentState | UntitledDocumentState;
 
-type SavedDocumentInput = Omit<SavedDocumentState, "status" | "isDirty"> &
+type SavedDocumentInput = Omit<SavedDocumentState, "status" | "isDirty" | "fileEncoding"> &
   Partial<Pick<SavedDocumentState, "isDirty">>;
 
 type UntitledDocumentInput = Omit<UntitledDocumentState, "status" | "isDirty"> &
@@ -47,6 +45,7 @@ export const toSavedDocument = ({
 }: SavedDocumentInput): SavedDocumentState => ({
   status: "saved",
   isDirty,
+  fileEncoding: documentFields.encoding,
   ...documentFields,
 });
 

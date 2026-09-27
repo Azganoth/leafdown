@@ -18,10 +18,12 @@ export {
   type FolderEntryKind,
 } from "./services/folderEntryWorkflows";
 export {
+  notifyOpenMarkdownFileError,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
   pickAndOpenMarkdownFile,
+  reopenMarkdownFileWithChosenEncoding,
 } from "./services/openSession";
 export {
   getSessionMode,

@@ -17,6 +17,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["separator-presentation"],
       ["support-links"],
       ["missing-document-error"],
+      ["legacy-encoding"],
       ["persistence-write", "persistence-restart"],
       ["window-lifecycle"],
     ],

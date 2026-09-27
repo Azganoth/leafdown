@@ -8,13 +8,14 @@ import {
 } from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
 
+import type { TextEncodingName, DocumentEncoding } from "../utils/documentEncoding";
 import {
   isOpenMarkdownFileError,
   isSaveMarkdownFileError,
   type OpenMarkdownFileError,
   type SaveMarkdownFileError,
 } from "../utils/documentErrors";
-import type { DocumentEncoding, FileMetadataSnapshot } from "../utils/documentState";
+import type { FileMetadataSnapshot } from "../utils/documentState";
 import {
   MARKDOWN_FILE_EXTENSIONS,
   openMarkdownFile,
@@ -59,12 +60,13 @@ export const selectMarkdownSavePath = (defaultPath: string) =>
 export const openMarkdownDocument = async (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
+  encoding: TextEncodingName | null = null,
 ) => {
   const startedAtMs = startDiagnosticOperationTimer();
 
   try {
     const document = await raceWithCancellation(cancellationToken, () =>
-      openMarkdownFile({ path }),
+      openMarkdownFile({ path, encoding }),
     );
 
     writeDocumentOperationTimingDiagnostic("openMarkdownDocument", startedAtMs, {

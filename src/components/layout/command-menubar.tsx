@@ -6,7 +6,9 @@ import {
   formatShortcut,
   type AppCommandId,
   type CommandState,
+  type ReopenWithEncodingControl,
 } from "@/commands";
+import { DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS } from "@/components/ui/dropdown-menu";
 import {
   Menubar,
   MenubarCheckboxItem,
@@ -24,22 +26,32 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ENCODING_CHOICES, type TextEncodingName } from "@/features/document";
 import type { RecentItem } from "@/features/preferences";
 import { invariant } from "@/lib/errors";
 
 interface CommandMenubarProps {
   commandState: (commandId: AppCommandId) => CommandState;
+  fileEncodingLabel?: string | null;
   onExecute: (commandId: AppCommandId) => void;
   onOpenRecentFile: (path: string) => void;
   onOpenRecentFolder: (path: string) => void;
   recentFiles: RecentItem[];
   recentFolders: RecentItem[];
+  reopenWithEncoding?: ReopenWithEncodingControl;
 }
 
 interface CommandMenuContextValue {
   commandState: (commandId: AppCommandId) => CommandState;
   onExecute: (commandId: AppCommandId) => void;
 }
+
+const UNAVAILABLE_REOPEN_WITH_ENCODING: ReopenWithEncodingControl = {
+  state: { enabled: false, reason: "No document is open." },
+  checkedEncoding: null,
+  reopen: () => undefined,
+};
 
 const CommandMenuContext = createContext<CommandMenuContextValue | null>(null);
 
@@ -51,11 +63,13 @@ const useCommandMenu = () => {
 
 export function CommandMenubar({
   commandState,
+  fileEncodingLabel = null,
   onExecute,
   onOpenRecentFile,
   onOpenRecentFolder,
   recentFiles,
   recentFolders,
+  reopenWithEncoding = UNAVAILABLE_REOPEN_WITH_ENCODING,
 }: CommandMenubarProps) {
   return (
     <CommandMenuContext.Provider value={{ commandState, onExecute }}>
@@ -130,6 +144,10 @@ export function CommandMenubar({
             <CommandItems commandIds={["edit.moveBlockUp", "edit.moveBlockDown"]} />
             <MenubarSeparator />
             <LineEndingSubmenu />
+            <EncodingSubmenu
+              fileEncodingLabel={fileEncodingLabel}
+              reopenWithEncoding={reopenWithEncoding}
+            />
           </MenubarContent>
         </MenubarMenu>
 
@@ -441,6 +459,74 @@ function LineEndingSubmenu() {
   );
 }
 
+const ENCODING_COMMAND_IDS = [
+  "edit.encoding.file",
+  "edit.encoding.utf8",
+  "edit.encoding.utf8Bom",
+] satisfies readonly AppCommandId[];
+
+interface EncodingSubmenuProps {
+  fileEncodingLabel: string | null;
+  reopenWithEncoding: ReopenWithEncodingControl;
+}
+
+function EncodingSubmenu({ fileEncodingLabel, reopenWithEncoding }: EncodingSubmenuProps) {
+  const { commandState, onExecute } = useCommandMenu();
+  const commandIds = ENCODING_COMMAND_IDS.filter(
+    (id) => id !== "edit.encoding.file" || commandState(id).enabled,
+  );
+  const checkedId =
+    commandIds.find((id) => {
+      const state = commandState(id);
+      return state.enabled && state.checked;
+    }) ?? "";
+
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger>Encoding</MenubarSubTrigger>
+      <MenubarSubContent>
+        <MenubarGroup>
+          <MenubarLabel>Save with encoding</MenubarLabel>
+          <MenubarRadioGroup
+            value={checkedId}
+            onValueChange={(commandId) => onExecute(commandId as AppCommandId)}
+          >
+            {commandIds.map((commandId) => (
+              <CommandRadioItem
+                commandId={commandId}
+                key={commandId}
+                label={
+                  commandId === "edit.encoding.file" ? (fileEncodingLabel ?? undefined) : undefined
+                }
+              />
+            ))}
+          </MenubarRadioGroup>
+        </MenubarGroup>
+        <MenubarSeparator />
+        <MenubarSub>
+          <MenubarSubTrigger disabled={!reopenWithEncoding.state.enabled}>
+            Reopen with encoding
+          </MenubarSubTrigger>
+          <MenubarSubContent className="overflow-hidden">
+            <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
+              <MenubarRadioGroup
+                value={reopenWithEncoding.checkedEncoding ?? ""}
+                onValueChange={(encoding: TextEncodingName) => reopenWithEncoding.reopen(encoding)}
+              >
+                {ENCODING_CHOICES.map((choice) => (
+                  <MenubarRadioItem key={choice.name} value={choice.name}>
+                    {choice.label}
+                  </MenubarRadioItem>
+                ))}
+              </MenubarRadioGroup>
+            </ScrollArea>
+          </MenubarSubContent>
+        </MenubarSub>
+      </MenubarSubContent>
+    </MenubarSub>
+  );
+}
+
 interface RadioSubmenuProps extends CommandItemsProps {
   label: string;
 }
@@ -475,15 +561,16 @@ function RadioSubmenu({ commandIds, inset, label }: RadioSubmenuProps) {
 
 interface CommandRadioItemProps {
   commandId: AppCommandId;
+  label?: string;
 }
 
-function CommandRadioItem({ commandId }: CommandRadioItemProps) {
+function CommandRadioItem({ commandId, label }: CommandRadioItemProps) {
   const { commandState } = useCommandMenu();
   const state = commandState(commandId);
 
   return (
     <MenubarRadioItem value={commandId} disabled={!state.enabled}>
-      {COMMAND_DEFINITIONS[commandId].label}
+      {label ?? COMMAND_DEFINITIONS[commandId].label}
     </MenubarRadioItem>
   );
 }

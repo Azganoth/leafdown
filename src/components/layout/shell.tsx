@@ -14,16 +14,16 @@ import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiagnosticsDialog } from "@/features/diagnostics";
-import { getOpenMarkdownFileErrorMessage } from "@/features/document";
+import { formatDocumentEncoding } from "@/features/document";
 import { ArticleNavigator } from "@/features/folder-context";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import {
   getSessionMode,
+  notifyOpenMarkdownFileError,
   openMarkdownFileAtPath,
   useFolderContextWatcher,
   useSessionStore,
 } from "@/features/session";
-import { notifyError } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 import { StatusBar } from "./status-bar";
@@ -39,7 +39,7 @@ const DeveloperTools = import.meta.env.DEV
 
 const handleOpenArticle = (path: string) => {
   void openMarkdownFileAtPath(path).catch((error) => {
-    notifyError(getOpenMarkdownFileErrorMessage(error));
+    notifyOpenMarkdownFileError(error);
   });
 };
 
@@ -108,11 +108,17 @@ export function Shell() {
         <div data-testid="menu-bar-host" className="flex h-full min-w-0 items-center">
           <CommandMenubar
             commandState={commands.commandState}
+            fileEncodingLabel={
+              activeDocument?.status === "saved"
+                ? formatDocumentEncoding(activeDocument.fileEncoding)
+                : null
+            }
             onExecute={commands.executeCommand}
             onOpenRecentFile={commands.openRecentFile}
             onOpenRecentFolder={commands.openRecentFolder}
             recentFiles={commands.recentItems.recentFiles}
             recentFolders={commands.recentItems.recentFolders}
+            reopenWithEncoding={commands.reopenWithEncoding}
           />
         </div>
       </Titlebar>
@@ -172,6 +178,7 @@ export function Shell() {
               activeDocument={activeDocument}
               commandState={commands.commandState}
               onExecute={commands.executeCommand}
+              reopenWithEncoding={commands.reopenWithEncoding}
             />
           )}
           {simulatedRenderFailureId > 0 && (

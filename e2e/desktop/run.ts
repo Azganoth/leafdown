@@ -144,6 +144,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const addedFolderFileName = "watcher-added.md";
   const addedFolderFilePath = path.join(folderPath, addedFolderFileName);
   const missingDocumentPath = path.join(fixtureRoot, "missing-document.md");
+  const legacyEncodingPath = path.join(fixtureRoot, "legacy-encoding.md");
   const savedMarker = "Saved fixture marker.";
   const context: DesktopE2ERunContext = {
     appIdentifier,
@@ -164,6 +165,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       path: remoteImagesPath,
     },
     html: { path: htmlPath },
+    legacyEncoding: { path: legacyEncodingPath },
     folderActions: { path: actionsFolderPath },
     folder: {
       addedFileName: addedFolderFileName,
@@ -191,6 +193,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
+    { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
     { name: "window-lifecycle" },
@@ -251,6 +254,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="transparent" /></svg>',
       ),
       writeFile(remoteImagesPath, ""),
+      writeFile(legacyEncodingPath, Buffer.from("Café legacy fixture marker.\n", "latin1")),
       writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),
       writeFile(

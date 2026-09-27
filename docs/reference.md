@@ -137,6 +137,12 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Windows line ending (CRLF)**
   - **Unix line ending (LF)**
   - **Insert final newline on save**
+- **Encoding**
+  - **Save with encoding**
+    - **The encoding the file was read in**: Named after that encoding, such as `Windows-1252`, and shown only when it is neither form of UTF-8.
+    - **UTF-8**
+    - **UTF-8 with BOM**
+  - **Reopen with encoding**: A submenu of the encodings a file can be reopened in, starting with UTF-8, and marking the one it was read in. Available for a saved document whose file has no byte order mark.
 - **Find and replace** (Deferred)
   - **Find...** (`Mod+F`, Deferred)
   - **Find next** (`F3`, Deferred)
@@ -338,6 +344,8 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 #### Radio State
 
 - `Line ending` is a radio group for the active document with CRLF and LF choices.
+- `Save with encoding` is a radio group for the active document with, when it is neither form of UTF-8, the encoding the file was read in, then UTF-8 and UTF-8 with BOM.
+- `Reopen with encoding` is a radio group marking the encoding the active file was read in.
 - `Appearance` is a radio group for the global appearance theme: `System`, `Light`, or `Dark`.
 - `Theme` is a radio group for the global render/editor theme when implemented.
 - `Sort articles by` is a radio group for the global article sort order.

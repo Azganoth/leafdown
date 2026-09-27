@@ -7,8 +7,13 @@ import { documentEditorBridge, useSessionStore } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { isPrimaryModifierEvent, normalizeKeyboardKey } from "@/lib/input";
 
+import {
+  getReopenedEncodingName,
+  getReopenWithEncodingState,
+  reopenWithEncoding,
+} from "../actions/edit";
 import { openRecentFolderContext, openRecentMarkdownFile } from "../actions/file";
-import type { AppCommandContext } from "../context";
+import type { AppCommandContext, ReopenWithEncodingControl } from "../context";
 import { dispatchAppCommand, type AppCommandId } from "../dispatch";
 import {
   APPLICATION_SHORTCUT_COMMAND_IDS,
@@ -177,6 +182,11 @@ export const useAppCommands = () => {
     },
     openRecentFile: openRecentMarkdownFile,
     openRecentFolder: openRecentFolderContext,
+    reopenWithEncoding: {
+      state: getReopenWithEncodingState(context),
+      checkedEncoding: getReopenedEncodingName(context),
+      reopen: (encoding) => void reopenWithEncoding(context, encoding),
+    } satisfies ReopenWithEncodingControl,
     preferencesOpen,
     setAboutOpen,
     setDiagnosticsOpen,

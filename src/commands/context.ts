@@ -1,4 +1,4 @@
-import type { ActiveDocumentState } from "@/features/document";
+import type { ActiveDocumentState, TextEncodingName } from "@/features/document";
 import type { EditorCommandState } from "@/features/editor";
 import {
   getArticleAncestorDirectoryPaths,
@@ -6,7 +6,14 @@ import {
 } from "@/features/folder-context";
 import type { RecentItemsState, SettingsState } from "@/features/preferences";
 
+import type { CommandState } from "./statePrimitives";
 import type { CommandUIState } from "./stores/commandUi";
+
+export interface ReopenWithEncodingControl {
+  state: CommandState;
+  checkedEncoding: TextEncodingName | null;
+  reopen: (encoding: TextEncodingName) => void;
+}
 
 export type AppCommandRecentItemsContext = Pick<RecentItemsState, "recentFiles" | "recentFolders">;
 export type AppCommandSettingsContext = Pick<

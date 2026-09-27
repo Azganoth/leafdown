@@ -2,15 +2,15 @@ import { useCallback } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  getActiveDocumentKey,
-  getOpenMarkdownFileErrorMessage,
-  type ActiveDocumentState,
-} from "@/features/document";
+import { getActiveDocumentKey, type ActiveDocumentState } from "@/features/document";
 import { MilkdownEditor, type MilkdownEditorBridge } from "@/features/editor";
 import { useSettingsStore } from "@/features/preferences";
-import { documentEditorBridge, openMarkdownFileAtPath, useSessionStore } from "@/features/session";
-import { notifyError } from "@/lib/toast";
+import {
+  documentEditorBridge,
+  notifyOpenMarkdownFileError,
+  openMarkdownFileAtPath,
+  useSessionStore,
+} from "@/features/session";
 
 interface DocumentScreenProps {
   activeDocument: ActiveDocumentState;
@@ -20,7 +20,7 @@ const handleOpenMarkdownPath = async (path: string) => {
   try {
     return await openMarkdownFileAtPath(path);
   } catch (error) {
-    notifyError(getOpenMarkdownFileErrorMessage(error));
+    notifyOpenMarkdownFileError(error);
     return false;
   }
 };
@@ -34,6 +34,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const folderContextPath = useSessionStore((state) => state.folderContext?.path ?? null);
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
+  const loadId = useSessionStore((state) => state.activeDocumentLoadId);
   const documentKey = getActiveDocumentKey(activeDocument);
   // Prevents MilkdownEditor from remounting plugins due to ref identity changes across renders.
   const setEditorBridgeRef = useCallback(
@@ -52,7 +53,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
         <CardContent className="min-h-0 flex-1 p-0">
           <ScrollArea className="min-h-0 flex-1" data-testid="document-surface-scroll-area">
             <MilkdownEditor
-              key={documentKey}
+              key={`${documentKey}:${loadId}`}
               ref={setEditorBridgeRef}
               initialMarkdown={activeDocument.content}
               documentPath={activeDocument.status === "saved" ? activeDocument.path : null}

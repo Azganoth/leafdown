@@ -1,10 +1,14 @@
 import {
+  ENCODING_CHOICES,
   getActiveDocumentKey,
   getOpenMarkdownFileErrorMessage,
+  isEncodingOpenError,
   matchesActiveDocumentKey,
   openMarkdownDocument,
   selectMarkdownFilePath,
   toSavedDocument,
+  type TextEncodingName,
+  type SavedDocumentState,
 } from "@/features/document";
 import {
   openFolderContext,
@@ -18,7 +22,8 @@ import {
   isCancellationError,
   runWithCancellation,
 } from "@/lib/cancellation";
-import { notifyError } from "@/lib/toast";
+import type { MessageData } from "@/lib/messages";
+import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toast";
 
 import { useSessionStore } from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
@@ -28,11 +33,12 @@ const openTransitionRunner = new RestartableTaskRunner();
 
 interface OpenMarkdownFileOptions {
   discardConfirmed?: boolean;
+  encoding?: TextEncodingName;
 }
 
 export const openMarkdownFileAtPath = (
   path: string,
-  { discardConfirmed = false }: OpenMarkdownFileOptions = {},
+  { discardConfirmed = false, encoding }: OpenMarkdownFileOptions = {},
 ) =>
   runLatestOpenTransition(async (cancellationToken) => {
     if (
@@ -43,8 +49,9 @@ export const openMarkdownFileAtPath = (
     }
 
     const initialDocumentKey = getActiveDocumentKeySnapshot();
-    const openedDocument = await openMarkdownDocument(path, cancellationToken);
+    const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
     const { parentFolderPath, ...documentFields } = openedDocument;
+    const savedDocument = toSavedDocument(documentFields);
     const existingFolderContext = useSessionStore.getState().folderContext;
 
     if (existingFolderContext) {
@@ -52,7 +59,9 @@ export const openMarkdownFileAtPath = (
         return false;
       }
 
-      useSessionStore.getState().setActiveDocument(toSavedDocument(documentFields));
+      useSessionStore
+        .getState()
+        .setActiveDocument(savedDocument, { reload: replacesActiveDocumentText(savedDocument) });
       recordRecentFile(documentFields.path);
 
       return true;
@@ -68,13 +77,60 @@ export const openMarkdownFileAtPath = (
       return false;
     }
 
-    useSessionStore
-      .getState()
-      .setActiveDocumentSession(folderContext, toSavedDocument(documentFields));
+    useSessionStore.getState().setActiveDocumentSession(folderContext, savedDocument, {
+      reload: replacesActiveDocumentText(savedDocument),
+    });
     recordRecentFileSession(documentFields.path, folderContext.path);
 
     return true;
   });
+
+/** The editor keeps its state across a same-path update, so a reopen must say when the text changed. */
+const replacesActiveDocumentText = (openedDocument: SavedDocumentState) => {
+  const { activeDocument } = useSessionStore.getState();
+
+  return (
+    activeDocument !== null &&
+    matchesActiveDocumentKey(activeDocument, openedDocument.path) &&
+    activeDocument.content !== openedDocument.content
+  );
+};
+
+export const notifyOpenMarkdownFileError = (
+  error: unknown,
+  message: MessageData = getOpenMarkdownFileErrorMessage(error),
+) => {
+  if (!isEncodingOpenError(error)) {
+    notifyError(message);
+    return;
+  }
+
+  notifyErrorWithActionMenu(message, {
+    label: "Reopen with encoding",
+    items: ENCODING_CHOICES.map((choice) => ({
+      label: choice.label,
+      run: () => void reopenMarkdownFileWithChosenEncoding(error.path, choice.name),
+    })),
+  });
+};
+
+export const reopenMarkdownFileWithChosenEncoding = async (
+  path: string,
+  encoding: TextEncodingName,
+) => {
+  try {
+    const opened = await openMarkdownFileAtPath(path, { encoding });
+
+    if (opened) {
+      notifySuccess("Document opened.");
+    }
+
+    return opened;
+  } catch (error) {
+    notifyOpenMarkdownFileError(error);
+    return false;
+  }
+};
 
 export const pickAndOpenMarkdownFile = async () => {
   const selectedPath = await selectMarkdownFilePath();
@@ -197,7 +253,7 @@ const notifyFolderIndexOpenFailure = (error: unknown) => {
 
   const indexError = getOpenMarkdownFileErrorMessage(error);
 
-  notifyError({
+  notifyOpenMarkdownFileError(error, {
     title: "Could not open folder index file.",
     description: indexError.description ?? indexError.title,
   });

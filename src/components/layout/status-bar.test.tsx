@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AppCommandId, CommandState } from "@/commands";
+import type { AppCommandId, CommandState, ReopenWithEncodingControl } from "@/commands";
 import {
   getActiveDocumentKey,
   type ActiveDocumentState,
@@ -13,7 +13,7 @@ import { documentEditorBridge } from "@/features/session";
 import { createSavedDocument } from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
-import { act, renderWithUser, screen } from "@/test/utils/react";
+import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { StatusBar } from "./status-bar";
 
@@ -33,6 +33,7 @@ const createStatus = (overrides: Partial<EditorDocumentStatus> = {}): EditorDocu
 interface StatusBarTestOptions {
   activeDocument?: ActiveDocumentState;
   commandState?: (commandId: AppCommandId) => CommandState;
+  reopenWithEncoding?: Partial<ReopenWithEncodingControl>;
   status?: EditorDocumentStatus;
 }
 
@@ -44,6 +45,7 @@ const renderStatusBar = ({
       : commandId === "edit.lineEnding.lf"
         ? { enabled: true, checked: true }
         : enabledState,
+  reopenWithEncoding = {},
   status = createStatus(),
 }: StatusBarTestOptions = {}) => {
   let currentStatus = status;
@@ -52,6 +54,7 @@ const renderStatusBar = ({
     createMilkdownEditorBridge({ getDocumentStatus: () => currentStatus }),
   );
   const onExecute = vi.fn();
+  const reopen = vi.fn();
 
   return {
     ...renderWithUser(
@@ -59,9 +62,16 @@ const renderStatusBar = ({
         activeDocument={activeDocument}
         commandState={commandState}
         onExecute={onExecute}
+        reopenWithEncoding={{
+          state: enabledState,
+          checkedEncoding: null,
+          reopen,
+          ...reopenWithEncoding,
+        }}
       />,
     ),
     onExecute,
+    reopen,
     updateStatus: (nextStatus: EditorDocumentStatus) => {
       currentStatus = nextStatus;
       act(() => documentEditorBridge.fireDocumentStatusChanged());
@@ -144,6 +154,7 @@ describe("StatusBar", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Windows line ending (CRLF)" }));
 
     expect(onExecute).toHaveBeenCalledWith("edit.lineEnding.crlf");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
   });
 
   it("names the line ending a save will use when the file had none", () => {
@@ -156,12 +167,89 @@ describe("StatusBar", () => {
   it.each([
     [{ name: "UTF-8", bom: false }, "UTF-8"],
     [{ name: "UTF-8", bom: true }, "UTF-8 with BOM"],
-    [{ name: "UTF-16LE", bom: true }, "UTF-16 LE"],
-    [{ name: "UTF-16BE", bom: true }, "UTF-16 BE"],
+    [{ name: "UTF-16LE", bom: true }, "UTF-16 LE with BOM"],
+    [{ name: "UTF-16BE", bom: true }, "UTF-16 BE with BOM"],
+    [{ name: "UTF-16LE", bom: false }, "UTF-16 LE"],
+    [{ name: "windows-1252", bom: false }, "Windows-1252"],
+    [{ name: "gb18030", bom: false }, "GB18030"],
   ] satisfies [DocumentEncoding, string][])("names the %j encoding %s", (encoding, label) => {
     renderStatusBar({ activeDocument: createSavedDocument({ encoding }) });
 
     expect(screen.getByTestId("status-bar-encoding").textContent).toBe(label);
+  });
+
+  it("converts the encoding and reopens through the encoding choices", async () => {
+    const { onExecute, reopen, user } = renderStatusBar({
+      activeDocument: createSavedDocument({ encoding: { name: "windows-1252", bom: false } }),
+      reopenWithEncoding: { checkedEncoding: "windows-1252" },
+      commandState: (commandId) =>
+        commandId === "edit.encoding.file"
+          ? { enabled: true, checked: true }
+          : commandId === "view.resetZoom"
+            ? disabledState
+            : enabledState,
+    });
+
+    const encodingButton = screen.getByRole("button", { name: "Encoding: Windows-1252" });
+
+    await user.click(encodingButton);
+
+    expect(
+      within(screen.getByRole("group", { name: "Save with encoding" }))
+        .getAllByRole("menuitemradio")
+        .map((item) => item.textContent),
+    ).toEqual(["Windows-1252", "UTF-8", "UTF-8 with BOM"]);
+    expect(screen.getByRole("menuitemradio", { name: "Windows-1252" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    await user.click(screen.getByRole("menuitemradio", { name: "UTF-8" }));
+
+    expect(onExecute).toHaveBeenCalledWith("edit.encoding.utf8");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+
+    await user.click(encodingButton);
+    await user.hover(screen.getByRole("menuitem", { name: "Reopen with encoding" }));
+    await user.keyboard("{ArrowRight}");
+
+    expect(
+      await screen.findByRole("menuitemradio", { name: "Western (Windows-1252, ISO-8859-1)" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    await user.keyboard("{End}{Enter}");
+
+    expect(reopen).toHaveBeenCalledWith("UTF-16BE");
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+  });
+
+  it("disables reopening when the file's encoding is fixed", async () => {
+    const { user } = renderStatusBar({
+      reopenWithEncoding: { state: disabledState },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Encoding: UTF-8" }));
+
+    expect(screen.getByRole("menuitem", { name: "Reopen with encoding" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("offers the file's encoding only when it is not UTF-8", async () => {
+    const { user } = renderStatusBar({
+      commandState: (commandId) =>
+        commandId === "edit.encoding.file" || commandId === "view.resetZoom"
+          ? disabledState
+          : enabledState,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Encoding: UTF-8" }));
+
+    expect(screen.getAllByRole("menuitemradio").map((item) => item.textContent)).toEqual([
+      "UTF-8",
+      "UTF-8 with BOM",
+    ]);
   });
 
   it("shows the zoom level only away from the default and resets it", async () => {

@@ -25,6 +25,7 @@ import { useSettingsStore } from "@/features/preferences";
 import { DebouncedTaskRunner } from "@/lib/async";
 import { type CancellationToken, isCancellationError } from "@/lib/cancellation";
 import { getErrorDescription, handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { localizer } from "@/lib/i18n";
 import { DisposableMap } from "@/lib/lifecycle";
 import { isSamePath, PathSet } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
@@ -185,7 +186,11 @@ class FolderContextWatchSession {
         return;
       }
 
-      notifyOperationFailure("Could not refresh folder.", error, "refreshFolderContext");
+      notifyOperationFailure(
+        localizer.current.t("session.folderWatcher.refreshFailed"),
+        error,
+        "refreshFolderContext",
+      );
     }
   }
 
@@ -289,7 +294,11 @@ class FolderContextWatchSession {
       return;
     }
 
-    notifyOperationFailure("Could not start folder watcher.", error, "startFolderContextWatcher");
+    notifyOperationFailure(
+      localizer.current.t("session.folderWatcher.startFailed"),
+      error,
+      "startFolderContextWatcher",
+    );
   }
 
   private writeLifecycleDiagnostic(phase: FolderContextWatcherLifecyclePhase) {

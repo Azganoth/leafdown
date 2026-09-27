@@ -1,5 +1,6 @@
 import { getActiveDocumentKey, matchesActiveDocumentKey } from "@/features/document";
 import { requestConfirmation } from "@/lib/confirmation";
+import { t } from "@/lib/i18n";
 
 import { useSessionStore } from "../stores/session";
 
@@ -12,10 +13,10 @@ export const confirmDiscardActiveDocumentChanges = async () => {
 
   const documentKey = getActiveDocumentKey(activeDocument);
   const shouldDiscard = await requestConfirmation({
-    title: "Unsaved changes",
-    message: "The active document has unsaved changes. Discard them and continue?",
-    confirmLabel: "Discard changes",
-    cancelLabel: "Keep editing",
+    title: t("session.unsavedChanges.title"),
+    message: t("session.unsavedChanges.message"),
+    confirmLabel: t("session.unsavedChanges.confirm"),
+    cancelLabel: t("session.unsavedChanges.cancel"),
   });
 
   if (!shouldDiscard) {

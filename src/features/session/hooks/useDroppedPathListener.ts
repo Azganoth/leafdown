@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useRef, useState } from "react";
 
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { localizer } from "@/lib/i18n";
 import { DisposableStore } from "@/lib/lifecycle";
 
 import {
@@ -56,7 +57,11 @@ export const useDroppedPathListener = () => {
           setIndicator(null);
 
           void handleDroppedPaths(payload.paths).catch((error) =>
-            notifyOperationFailure("Could not handle dropped item.", error, "handleDroppedPaths"),
+            notifyOperationFailure(
+              localizer.current.t("session.drop.handleFailed"),
+              error,
+              "handleDroppedPaths",
+            ),
           );
         }
       })
@@ -64,7 +69,11 @@ export const useDroppedPathListener = () => {
         disposables.add(unlisten);
       })
       .catch((error) =>
-        notifyOperationFailure("Could not enable file and folder drops.", error, "onDragDropEvent"),
+        notifyOperationFailure(
+          localizer.current.t("session.drop.listenFailed"),
+          error,
+          "onDragDropEvent",
+        ),
       );
 
     return () => {

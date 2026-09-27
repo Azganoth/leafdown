@@ -2,13 +2,14 @@ import {
   createFolderArticle,
   createFolderDirectory,
   getScanFolderContextErrorMessage,
-  getTrashName,
+  getTrashKind,
   renameFolderContextEntry,
   trashFolderContextEntry,
   useArticleNavigatorStore,
 } from "@/features/folder-context";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { requestConfirmation } from "@/lib/confirmation";
+import { t } from "@/lib/i18n";
 import { getPathParts, isSameOrParentPath, rebasePath } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
@@ -87,17 +88,19 @@ export const deleteFolderEntry = async (path: string, kind: FolderEntryKind) => 
     return false;
   }
 
-  const trashName = getTrashName();
+  const trash = getTrashKind();
   const { name } = getPathParts(path);
   const confirmed = await requestConfirmation({
-    title: kind === "directory" ? "Delete folder" : "Delete file",
-    message:
+    title: t("session.deleteEntry.title", { kind }),
+    message: t(
       kind === "directory"
-        ? `Move "${name}" and everything in it to the ${trashName}?`
-        : `Move "${name}" to the ${trashName}?`,
+        ? "session.deleteEntry.folderMessage"
+        : "session.deleteEntry.fileMessage",
+      { name, trash },
+    ),
     detail: path,
-    confirmLabel: `Move to ${trashName}`,
-    cancelLabel: "Cancel",
+    confirmLabel: t("session.deleteEntry.confirm", { trash }),
+    cancelLabel: t("session.deleteEntry.cancel"),
   });
 
   if (!confirmed) {

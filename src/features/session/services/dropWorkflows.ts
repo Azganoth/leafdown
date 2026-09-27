@@ -1,5 +1,6 @@
 import { getActiveDocumentKey } from "@/features/document";
 import { useSettingsStore } from "@/features/preferences";
+import { t } from "@/lib/i18n";
 import { getPathParts, getRelativePath, toSlashPath } from "@/lib/path";
 import { notifyWarning } from "@/lib/toast";
 
@@ -88,13 +89,13 @@ const notifyRejectedDrop = (
 ) => {
   switch (preparation.reason) {
     case "missingDocument":
-      notifyWarning("Open a document before inserting a dropped link.");
+      notifyWarning(t("session.drop.missingDocument"));
       break;
     case "multipleItems":
-      notifyWarning("Drop one item at a time.");
+      notifyWarning(t("session.drop.multipleItems"));
       break;
     case "unsupported":
-      notifyWarning("Drop a Markdown file or folder.", preparation.path);
+      notifyWarning(t("session.drop.unsupported"), preparation.path);
       break;
   }
 };
@@ -108,7 +109,7 @@ const insertDroppedPathLink = (droppedPath: SupportedDroppedPath) => {
   const activeDocument = useSessionStore.getState().activeDocument;
 
   if (!activeDocument) {
-    notifyWarning("Open a document before inserting a dropped link.");
+    notifyWarning(t("session.drop.missingDocument"));
     return false;
   }
 
@@ -121,7 +122,7 @@ const insertDroppedPathLink = (droppedPath: SupportedDroppedPath) => {
       : toSlashPath(droppedPath.path);
 
   if (!documentEditorBridge.insertLink(documentKey, label, target)) {
-    notifyWarning("Place the caret in the document before inserting a dropped link.");
+    notifyWarning(t("session.drop.missingCaret"));
     return false;
   }
 

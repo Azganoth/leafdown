@@ -25,6 +25,7 @@ import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import { SequentialTaskQueue } from "@/lib/async";
 import { requestConfirmation } from "@/lib/confirmation";
+import { t } from "@/lib/i18n";
 import { isSameOrParentPath } from "@/lib/path";
 
 import { useSessionStore } from "../stores/session";
@@ -38,7 +39,6 @@ interface SerializedDocumentForSave {
   encoding: DocumentEncoding;
 }
 
-const UNTITLED_BASE_NAME = "Untitled";
 const saveTaskQueue = new SequentialTaskQueue();
 let nextUntitledId = 1;
 
@@ -281,11 +281,13 @@ const handleUnrepresentableCharacters = async (
   }
 
   const shouldConvert = await requestConfirmation({
-    title: "Characters cannot be saved",
-    message: `${formatEncodingName(error.encoding)} cannot represent some characters in this document, so nothing was saved. Convert the document to UTF-8 and save it?`,
+    title: t("session.unrepresentableCharacters.title"),
+    message: t("session.unrepresentableCharacters.message", {
+      encoding: formatEncodingName(error.encoding),
+    }),
     detail: formatUnrepresentableCharacters(error.characters),
-    confirmLabel: "Convert to UTF-8 and save",
-    cancelLabel: "Cancel",
+    confirmLabel: t("session.unrepresentableCharacters.confirm"),
+    cancelLabel: t("session.unrepresentableCharacters.cancel"),
   });
 
   if (!shouldConvert || !getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
@@ -299,10 +301,10 @@ const handleUnrepresentableCharacters = async (
 
 const handleMissingSavedFile = async (documentKey: string, activeDocumentGeneration: number) => {
   const shouldSaveAs = await requestConfirmation({
-    title: "File missing",
-    message: "The saved Markdown file no longer exists. Save this document to a new path?",
-    confirmLabel: "Save as",
-    cancelLabel: "Cancel",
+    title: t("session.missingSavedFile.title"),
+    message: t("session.missingSavedFile.message"),
+    confirmLabel: t("session.missingSavedFile.confirm"),
+    cancelLabel: t("session.missingSavedFile.cancel"),
   });
 
   if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
@@ -321,11 +323,10 @@ const handleExternalModification = async (
   activeDocumentGeneration: number,
 ) => {
   const shouldOverwrite = await requestConfirmation({
-    title: "File changed",
-    message:
-      "The saved Markdown file changed outside Leafdown. Overwrite the file with the current document?",
-    confirmLabel: "Overwrite anyway",
-    cancelLabel: "Cancel save",
+    title: t("session.externalModification.title"),
+    message: t("session.externalModification.message"),
+    confirmLabel: t("session.externalModification.confirm"),
+    cancelLabel: t("session.externalModification.cancel"),
   });
 
   if (!shouldOverwrite) {
@@ -375,7 +376,7 @@ const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
     return activeDocument.path;
   }
 
-  const fileName = `${UNTITLED_BASE_NAME}${useSettingsStore.getState().defaultNewDocumentExtension}`;
+  const fileName = `${t("session.untitledFileName")}${useSettingsStore.getState().defaultNewDocumentExtension}`;
   const folderPath = useSessionStore.getState().folderContext?.path ?? (await documentDir());
 
   return join(folderPath, fileName);

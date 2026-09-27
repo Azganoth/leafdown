@@ -171,6 +171,7 @@ export function CommandMenubar({
             <CommandCheckboxItem commandId="view.toggleStatusBar" />
             <MenubarSeparator />
             <CommandItems commandIds={["view.zoomIn", "view.zoomOut", "view.resetZoom"]} inset />
+            <CommandCheckboxItem commandId="view.alwaysOnTop" />
             <CommandCheckboxItem commandId="view.fullscreen" />
             <MenubarSeparator />
             <RadioSubmenu

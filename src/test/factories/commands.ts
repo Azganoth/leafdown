@@ -12,10 +12,17 @@ type AppCommandContextFactoryOptions = Partial<
 };
 
 const createAppCommandSettingsContext = () => {
-  const { articleSortOrder, insertFinalNewline, sidebarVisible, statusBarVisible, theme } =
-    useSettingsStore.getState();
+  const {
+    alwaysOnTop,
+    articleSortOrder,
+    insertFinalNewline,
+    sidebarVisible,
+    statusBarVisible,
+    theme,
+  } = useSettingsStore.getState();
 
   return {
+    alwaysOnTop,
     articleSortOrder,
     insertFinalNewline,
     sidebarVisible,

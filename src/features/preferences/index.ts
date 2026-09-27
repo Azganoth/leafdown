@@ -9,6 +9,11 @@ export {
   type RecentItemsStore,
 } from "./stores/recentItems";
 export {
+  applyPersistedAlwaysOnTop,
+  restoreDefaultSettings,
+  setAlwaysOnTop,
+} from "./services/windowPreferences";
+export {
   APPEARANCE_ACCENT_COLORS,
   createDefaultSettingsState,
   DEFAULT_IGNORED_DIRECTORIES,

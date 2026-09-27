@@ -8,6 +8,7 @@ import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-bo
 import { Toaster } from "@/components/ui/toast";
 import { writeDiagnosticOperationLifecycle } from "@/features/diagnostics";
 import {
+  applyPersistedAlwaysOnTop,
   recentItemsStoreTauriHandler,
   settingsStoreTauriHandler,
   useSettingsStore,
@@ -54,6 +55,13 @@ export function App() {
           recentItemsStoreTauriHandler.start(),
         ]);
 
+        await applyPersistedAlwaysOnTop().catch((error) =>
+          notifyOperationFailure(
+            "Could not restore always on top.",
+            error,
+            "applyPersistedAlwaysOnTop",
+          ),
+        );
         await updateTheme(useSettingsStore.getState().theme);
       } finally {
         // A hidden window has no chrome, focus, or taskbar entry, so it cannot be asked to close.

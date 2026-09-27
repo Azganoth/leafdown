@@ -61,4 +61,28 @@ describe("desktop persistence before restart", () => {
       { timeoutMsg: "The status bar setting was not persisted before restart." },
     );
   });
+
+  it("turns always on top on through the assembled menu and persists it", async () => {
+    const { settingsPath } = await getDesktopE2ERunContext();
+
+    await openMenu("View");
+    const alwaysOnTopItem = await findMenuItem((text) => text.startsWith("Always on top"));
+    await expect(alwaysOnTopItem).toHaveAttribute("aria-checked", "false");
+    await alwaysOnTopItem.click();
+
+    await browser.waitUntil(
+      async () => {
+        try {
+          const persisted = JSON.parse(await readFile(settingsPath, "utf8")) as Record<
+            string,
+            unknown
+          >;
+          return persisted.alwaysOnTop === true;
+        } catch {
+          return false;
+        }
+      },
+      { timeoutMsg: "The always on top setting was not persisted before restart." },
+    );
+  });
 });

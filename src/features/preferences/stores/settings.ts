@@ -51,6 +51,7 @@ export interface SettingsState {
   recordRecentItems: boolean;
   sidebarVisible: boolean;
   statusBarVisible: boolean;
+  alwaysOnTop: boolean;
   articleSortOrder: ArticleSortOrder;
   defaultNewDocumentExtension: MarkdownFileExtension;
   defaultNewDocumentLineEnding: LineEnding;
@@ -78,6 +79,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   recordRecentItems: true,
   sidebarVisible: true,
   statusBarVisible: true,
+  alwaysOnTop: false,
   articleSortOrder: "name",
   defaultNewDocumentExtension: ".md",
   defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
@@ -104,6 +106,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   recordRecentItems: booleanValue,
   sidebarVisible: booleanValue,
   statusBarVisible: booleanValue,
+  alwaysOnTop: booleanValue,
   articleSortOrder: oneOf(ARTICLE_SORT_ORDERS),
   defaultNewDocumentExtension: oneOf(MARKDOWN_FILE_EXTENSION_VALUES),
   defaultNewDocumentLineEnding: oneOf(LINE_ENDINGS),

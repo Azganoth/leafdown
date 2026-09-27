@@ -109,7 +109,22 @@ describe("CommandMenubar", () => {
     expect(menuItem("Collapse all folders")).toHaveAttribute("data-disabled");
     expect(menuItem("Expand all folders")).toHaveAttribute("data-disabled");
     expect(screen.queryByText("Toggle DevTools")).not.toBeInTheDocument();
-    expect(screen.queryByText("Always on top")).not.toBeInTheDocument();
+  });
+
+  it("checks and dispatches the always on top toggle", async () => {
+    const { onExecute, user } = renderCommandMenuBar({
+      commandState: (commandId) =>
+        commandId === "view.alwaysOnTop" ? { enabled: true, checked: true } : enabledState,
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "View" }));
+    const toggle = screen.getByRole("menuitemcheckbox", { name: "Always on top" });
+
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    await user.click(toggle);
+
+    expect(onExecute).toHaveBeenCalledWith("view.alwaysOnTop");
   });
 
   it("checks and dispatches the status bar toggle", async () => {

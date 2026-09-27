@@ -19,7 +19,8 @@ const mountEditor = setupMilkdownEditorMount();
 describe("footnote-reference source syntax", () => {
   it.each([
     { label: "note", source: "[^note]" },
-    { label: "archive]", source: "[^archive\\]]" },
+    { label: "archive\\]", source: "[^archive\\]]" },
+    { label: "a\\*b", source: "[^a\\*b]" },
   ])("validates and canonicalizes the $source reference", async ({ label, source }) => {
     const mounted = await mountEditor("Plain");
     const reference = parseFootnoteReferenceSource(mounted.editor.ctx.get(parserCtx), source);

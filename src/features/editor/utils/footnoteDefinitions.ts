@@ -8,7 +8,6 @@ import {
   getFootnoteDefinitionLabelText,
   isFootnoteDefinitionLabel,
 } from "./footnoteDefinitionLabel";
-import { decodeSourceProjectionEscapes } from "./sourceProjectionAdapters";
 import {
   FOOTNOTE_REFERENCE_NODE_NAME,
   findFootnoteReferenceSourceRunAt,
@@ -133,10 +132,10 @@ const findProjectedReferenceLabelAtSelection = (state: EditorState, projection: 
     return null;
   }
 
-  const source = getRangeText(state.doc, projection);
-  const run = findFootnoteReferenceSourceRunAt(source, selection.from - projection.from);
-
-  return run === null ? null : decodeSourceProjectionEscapes(run);
+  return findFootnoteReferenceSourceRunAt(
+    getRangeText(state.doc, projection),
+    selection.from - projection.from,
+  );
 };
 
 /**

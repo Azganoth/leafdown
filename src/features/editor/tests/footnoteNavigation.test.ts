@@ -78,6 +78,26 @@ describe("footnote definition navigation", () => {
     expect(reached[0]).toBe(reached[1]);
   });
 
+  it("navigates from labels that differ only by an escape to their own definitions", async () => {
+    const mounted = await mountEditor(String.raw`One[^a\*b] and two[^a*b].
+
+[^a\*b]: Escaped body.
+
+[^a*b]: Bare body.`);
+    const reached: string[] = [];
+
+    for (const label of [String.raw`a\*b`, "a*b"]) {
+      await withWindowsUserAgent(() =>
+        dispatchClick(getReferenceElement(mounted.view.dom, label.replace("\\", "\\\\")), {
+          ctrl: true,
+        }),
+      );
+      reached.push(mounted.view.state.selection.$from.parent.textContent);
+    }
+
+    expect(reached).toEqual(["Escaped body.", "Bare body."]);
+  });
+
   it("does not navigate from a reference whose definition is gone", async () => {
     const mounted = await mountEditor(DOCUMENT);
 
@@ -117,6 +137,26 @@ describe("jump to footnote definition command", () => {
     expect(EDITOR_COMMANDS["edit.jumpToFootnoteDefinition"].canRun(mounted.view.state)).toBe(true);
     expect(EDITOR_COMMANDS["edit.jumpToFootnoteDefinition"].run(mounted.editor)).toBe(true);
     expect(mounted.view.state.selection.$from.parent.textContent).toBe("The definition body.");
+  });
+
+  it("jumps from a projected label spelled with an escape to the definition spelled the same", async () => {
+    const mounted = await mountEditor(String.raw`One[^a*b] and two[^a\*b].
+
+[^a*b]: Bare body.
+
+[^a\*b]: Escaped body.`);
+
+    setTextSelection(
+      mounted.view,
+      getEditorNodePosition(
+        mounted,
+        "footnote_reference",
+        (node) => node.attrs.label === String.raw`a\*b`,
+      ) + 1,
+    );
+
+    expect(EDITOR_COMMANDS["edit.jumpToFootnoteDefinition"].run(mounted.editor)).toBe(true);
+    expect(mounted.view.state.selection.$from.parent.textContent).toBe("Escaped body.");
   });
 
   it("is unavailable where the caret reads no reference", async () => {

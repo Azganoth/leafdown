@@ -21,6 +21,10 @@ import { waitFor } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { type EditorCommandId, runEditorCommand } from "../commands";
+import {
+  findFootnoteDefinitionByLabel,
+  getFootnoteDefinitionPreviewText,
+} from "../utils/footnoteDefinitions";
 import { DEFINITION_NODE_NAME, getDefinitionFieldNodes } from "../utils/referenceLinkMarkdown";
 import { toggleTaskCheckedAt } from "../utils/taskLists";
 
@@ -1521,6 +1525,164 @@ end [b][r|s]
     expect(label).toHaveAttribute("data-after", "]:");
     expect(destination).toHaveTextContent("./doc.md");
     expect(destination).toHaveAttribute("data-before", " ");
+  });
+});
+
+// GFM matches a footnote to its definition on the label as the file spells it, escapes included, so
+// two spellings of one text are two footnotes and each keeps its own.
+describe("Escapes in a footnote label", () => {
+  const readResolved = (mounted: MountedMilkdownEditor) => {
+    const resolved: string[] = [];
+
+    mounted.view.state.doc.descendants((node) => {
+      if (node.type.name === "footnote_reference") {
+        const label = String(node.attrs.label);
+        const definition = findFootnoteDefinitionByLabel(mounted.view.state.doc, label);
+
+        resolved.push(
+          `${label} ${definition ? getFootnoteDefinitionPreviewText(definition.node) : "none"}`,
+        );
+      }
+
+      return true;
+    });
+
+    return resolved;
+  };
+
+  const saveAndReopenResolved = async (source: string) => {
+    const mounted = await mountEditor(source);
+
+    setSelectionAtDocumentEnd(mounted.view);
+
+    const document: unknown = mounted.view.state.doc.toJSON();
+    const resolved = readResolved(mounted);
+    const saved = mounted.getMarkdown();
+    const reopened = await mountEditor(saved);
+
+    setSelectionAtDocumentEnd(reopened.view);
+
+    return {
+      document,
+      reopenedDocument: reopened.view.state.doc.toJSON() as unknown,
+      reopenedResolved: readResolved(reopened),
+      resolved,
+      saved,
+    };
+  };
+
+  it.each([
+    {
+      name: "an escaped asterisk",
+      source: String.raw`Text[^a\*b] end
+
+[^a\*b]: note
+`,
+      resolved: [String.raw`a\*b note`],
+    },
+    {
+      name: "an escaped underscore",
+      source: String.raw`Text[^a\_b] end
+
+[^a\_b]: note
+`,
+      resolved: [String.raw`a\_b note`],
+    },
+    {
+      name: "an escaped backslash",
+      source: String.raw`Text[^a\\b] end
+
+[^a\\b]: note
+`,
+      resolved: [String.raw`a\\b note`],
+    },
+    {
+      name: "an escaped bracket",
+      source: String.raw`Text[^a\]b] end
+
+[^a\]b]: note
+`,
+      resolved: [String.raw`a\]b note`],
+    },
+    {
+      name: "a label without escapes",
+      source: "Text[^a*b] end\n\n[^a*b]: note\n",
+      resolved: ["a*b note"],
+    },
+    {
+      name: "labels that differ only by an escape",
+      source: String.raw`Text[^a\*b] and [^a*b] end
+
+[^a\*b]: escaped
+
+[^a*b]: bare
+`,
+      resolved: [String.raw`a\*b escaped`, "a*b bare"],
+    },
+    {
+      name: "a reference in a table cell",
+      source: String.raw`| h        |
+| -------- |
+| x[^a\*b] |
+
+[^a\*b]: note
+`,
+      resolved: [String.raw`a\*b note`],
+    },
+    {
+      name: "a reference in a mixed-format link label",
+      source: String.raw`Text [**x** y[^a\*b]](./doc.md) end
+
+[^a\*b]: note
+`,
+      resolved: [String.raw`a\*b note`],
+    },
+    {
+      name: "a reference in a marked fragment",
+      source: String.raw`Text **x[^a\*b]** end
+
+[^a\*b]: note
+`,
+      resolved: [String.raw`a\*b note`],
+    },
+    {
+      name: "a definition in a block quote",
+      source: String.raw`Text[^a\*b] end
+
+> [^a\*b]: note
+`,
+      resolved: [String.raw`a\*b note`],
+    },
+  ])("writes $name as authored and reopens it resolved", async ({ resolved, source }) => {
+    const result = await saveAndReopenResolved(source);
+
+    expect(result.resolved).toEqual(resolved);
+    expect(result.saved).toBe(source);
+    expect(result.reopenedDocument).toEqual(result.document);
+    expect(result.reopenedResolved).toEqual(resolved);
+  });
+
+  it("writes a definition no reference names with the escapes its label was written with", async () => {
+    const source = String.raw`[^a\*b]: note
+`;
+    const result = await saveAndReopenResolved(source);
+
+    expect(result.saved).toBe(source);
+    expect(result.reopenedDocument).toEqual(result.document);
+  });
+
+  // GFM reads a reference no definition answers to as text, and no definition spelled that way makes
+  // the text need an escape to stay text.
+  it("writes a reference only another spelling defines as the literal text it reads as", async () => {
+    const source = String.raw`Text[^a*b] end
+
+[^a\*b]: note
+`;
+    const result = await saveAndReopenResolved(source);
+
+    expect(result.resolved).toEqual([]);
+    expect(result.saved).toBe(source);
+    expect(result.reopenedDocument).toEqual(result.document);
   });
 });
 

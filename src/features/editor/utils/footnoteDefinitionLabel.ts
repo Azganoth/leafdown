@@ -40,11 +40,17 @@ export const getFootnoteDefinitionLabel = (definition: ProseMirrorNode) =>
 export const getFootnoteDefinitionLabelText = (definition: ProseMirrorNode) =>
   getFootnoteDefinitionLabelNode(definition)?.textContent ?? "";
 
+const TRAILING_ESCAPE_PATTERN = /(?<!\\)(?:\\\\)*\\$/u;
+
 // A label is what `[^` and `]:` can be written around and read back unchanged. Stating validity as
-// that round trip covers an empty label, a label that is only whitespace, and one holding a
-// bracket or a line ending, without a separate rule for each.
+// that round trip covers an empty label, a label that is only whitespace, one holding a bracket or
+// a line ending, and one whose last backslash would escape the closing bracket, without a separate
+// rule for each.
 export const isWritableFootnoteDefinitionLabel = (label: string) =>
-  label.length > 0 && label === label.trim() && !/[[\]\r\n]/u.test(label);
+  label.length > 0 &&
+  label === label.trim() &&
+  !/[[\]\r\n]/u.test(label) &&
+  !TRAILING_ESCAPE_PATTERN.test(label);
 
 export const withFootnoteDefinitionLabelContent = (schema: NodeSchema): NodeSchema => ({
   ...schema,

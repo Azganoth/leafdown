@@ -4,6 +4,7 @@ import {
   CONTINUATIONS_ATTRIBUTE_NAME,
   findContinuations,
   readContinuations,
+  splitAtomLinePrefix,
 } from "./continuationMarkdown";
 
 describe("readContinuations", () => {
@@ -70,5 +71,69 @@ describe("findContinuations", () => {
     },
   ])("reads $name", ({ continuations, raw }) => {
     expect(findContinuations(raw)).toEqual(continuations);
+  });
+});
+
+describe("splitAtomLinePrefix", () => {
+  it.each([
+    {
+      name: "a line whose indentation the parse took whole",
+      recorded: "  ",
+      kept: "",
+      split: { kept: "", prefix: "  " },
+    },
+    {
+      name: "the indentation raw HTML kept",
+      recorded: "    ",
+      kept: " ",
+      split: { kept: " ", prefix: "   " },
+    },
+    {
+      name: "the indentation raw HTML kept inside a quote",
+      recorded: ">     ",
+      kept: " ",
+      split: { kept: " ", prefix: ">    " },
+    },
+    {
+      name: "the indentation a code span kept whole",
+      recorded: "      ",
+      kept: "    ",
+      split: { kept: "    ", prefix: "  " },
+    },
+    {
+      name: "a tab the parse took part of, which raw HTML spells back",
+      recorded: "\t\t",
+      kept: "   ",
+      split: { kept: "\t", prefix: "\t" },
+    },
+    {
+      name: "a tab the parse took part of before a space",
+      recorded: "\t ",
+      kept: "  ",
+      split: { kept: "\t ", prefix: "" },
+    },
+  ])("splits $name", ({ kept, recorded, split }) => {
+    expect(splitAtomLinePrefix(recorded, kept, true)).toEqual(split);
+  });
+
+  it.each([
+    {
+      name: "a tab an item took part of",
+      recorded: "\t",
+      kept: "  ",
+      split: { kept: "  ", prefix: "  " },
+    },
+    {
+      name: "a tab a quote took part of",
+      recorded: ">\t",
+      kept: "  ",
+      split: { kept: "  ", prefix: "> " },
+    },
+  ])("writes $name as spaces where the value cannot spell it", ({ kept, recorded, split }) => {
+    expect(splitAtomLinePrefix(recorded, kept, false)).toEqual(split);
+  });
+
+  it("keeps a record the value's whitespace does not stand at the end of", () => {
+    expect(splitAtomLinePrefix("  ", "   ", true)).toBeUndefined();
   });
 });

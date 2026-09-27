@@ -19,7 +19,9 @@ type FolderEntryOperation =
   | "renameFolderContextEntry"
   | "trashFolderContextEntry";
 
-export const getTrashName = () => (isWindowsPlatform() ? "Recycle Bin" : "Trash");
+export type TrashKind = "recycleBin" | "trash";
+
+export const getTrashKind = (): TrashKind => (isWindowsPlatform() ? "recycleBin" : "trash");
 
 export const createFolderArticle = async (args: CreateMarkdownArticleArgs) =>
   (await withFailureDiagnostic("createFolderArticle", () => createMarkdownArticle(args))).path;

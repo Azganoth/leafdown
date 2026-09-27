@@ -12,6 +12,7 @@ Leafdown uses Tauri with a Rust backend and a React frontend. The local filesyst
 - Styling: Tailwind
 - State management: Zustand (persisted via Tauri storage)
 - Editor engine: Milkdown Kit
+- Localization: ICU MessageFormat catalogs formatted by `intl-messageformat`
 
 ## Frontend Organization
 
@@ -144,11 +145,23 @@ The React frontend manages:
 
 The frontend calls feature-owned Rust commands only through feature-owned Tauri API modules. See [Engineering Patterns](./patterns.md#tauri-api-modules) for the implementation rules for that boundary.
 
+### Localization
+
+The frontend owns all translated text. The backend returns typed error `kind`s and data, never translated prose, and each feature maps a `kind` to its own messages.
+
+- Messages are ICU MessageFormat strings in flat JSON catalogs, one per locale under `src/locales/`, keyed by stable IDs namespaced by the owning area. English, `en.json`, is the source catalog, and its IDs type every lookup. Command labels are `command.<commandId>` and menu labels `menu.<menuId>`, so every command needs a label to compile. Catalogs are bundled; none is loaded from outside the application.
+- The localizer in `src/lib/i18n/` resolves the `language` setting to a locale, and publishes an immutable snapshot holding `t` and the locale's number, relative-time, and list formatters, together with a signal that fires when the locale changes. It sets `lang` and `dir` on the document root, and falls back to English one message at a time. It does not depend on React: components read the snapshot through `useLocalization()`, and editor plugins and other code that owns persistent text subscribe to the signal and re-label.
+- Domain code returns data, and presentation builds sentences from whole messages. Values enter a message only as arguments; wording that depends on one uses ICU `plural` or `select`.
+- Markdown content, file and folder names, paths, document metadata, code, literal syntax, and operating-system error text are source data. They are never translated and reach the interface only as message arguments or as a notification's detail line. Command IDs, setting keys and values, error `kind`s, persisted schema keys, and IPC contracts are stable identifiers and are never localized.
+- Document statistics segment words and graphemes independently of the interface language.
+- The Diagnostics summary and log are written in English for bug reports; only the Diagnostics dialog around them is translated. Development-only tools are not translated.
+
 ## Data Contracts
 
 - Session owns the active document, folder context, and document metadata used for dirty-state and external-modification checks.
 - An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. Opening takes an optional chosen encoding name, which the backend ignores when the file has a byte order mark. Session also keeps the encoding the file holds, so the document can be converted back to it, and remounts the editor when a reopen of the same path replaces its text. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
+- The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
 - Folder scans return a nested Markdown article tree. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator.
 
 ## Data Flow

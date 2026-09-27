@@ -20,6 +20,7 @@ import {
   useDroppedPathListener,
 } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { localizer } from "@/lib/i18n";
 import { DisposableStore } from "@/lib/lifecycle";
 import { useTauriEvent } from "@/lib/tauriEvent";
 
@@ -55,9 +56,11 @@ export function App() {
           recentItemsStoreTauriHandler.start(),
         ]);
 
+        localizer.setLanguage(useSettingsStore.getState().language);
+
         await applyPersistedAlwaysOnTop().catch((error) =>
           notifyOperationFailure(
-            "Could not restore always on top.",
+            localizer.current.t("app.restoreAlwaysOnTopFailed"),
             error,
             "applyPersistedAlwaysOnTop",
           ),
@@ -72,7 +75,11 @@ export function App() {
     };
 
     void initializeApp().catch((error) =>
-      notifyOperationFailure("Could not load preferences.", error, "initializeApp"),
+      notifyOperationFailure(
+        localizer.current.t("app.loadPreferencesFailed"),
+        error,
+        "initializeApp",
+      ),
     );
   }, []);
 
@@ -114,10 +121,15 @@ export function App() {
 
   const theme = useSettingsStore((state) => state.theme);
   const accentColor = useSettingsStore((state) => state.accentColor);
+  const language = useSettingsStore((state) => state.language);
 
   useEffect(() => {
     setAccentColor(accentColor);
   }, [accentColor]);
+
+  useEffect(() => {
+    localizer.setLanguage(language);
+  }, [language]);
 
   useEffect(() => {
     const disposables = new DisposableStore();

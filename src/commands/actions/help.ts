@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { notifyOperationFailure } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 
 import { useCommandUIStore } from "../stores/commandUi";
 
@@ -13,7 +14,7 @@ export const openDevTools = async () => {
   try {
     await openWebviewDevtools();
   } catch (error) {
-    notifyOperationFailure("Could not open DevTools.", error, "help.openDevTools");
+    notifyOperationFailure(t("commands.help.openDevToolsFailed"), error, "help.openDevTools");
   }
 };
 
@@ -29,7 +30,7 @@ const openFeedbackForm = async (template: "bug.yml" | "feature.yml") => {
   try {
     await openUrl(`https://github.com/Azganoth/leafdown/issues/new?template=${template}`);
   } catch (error) {
-    notifyOperationFailure("Could not open the link.", error, "help.openFeedbackForm");
+    notifyOperationFailure(t("commands.help.openLinkFailed"), error, "help.openFeedbackForm");
   }
 };
 

@@ -5,6 +5,7 @@ import { getActiveDocumentKey } from "@/features/document";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { documentEditorBridge, useSessionStore } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
+import { localizer } from "@/lib/i18n";
 import { isPrimaryModifierEvent, normalizeKeyboardKey } from "@/lib/input";
 
 import {
@@ -121,7 +122,7 @@ export const useAppCommands = () => {
     }
 
     void dispatchAppCommand(commandId, context).catch((error) => {
-      notifyOperationFailure("Command failed.", error, {
+      notifyOperationFailure(localizer.current.t("commands.failed"), error, {
         source: "commands",
         operation: commandId,
       });

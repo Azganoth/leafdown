@@ -23,6 +23,7 @@ import {
   saveActiveMarkdownDocumentAs,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
+import { t, type MessageId } from "@/lib/i18n";
 import { notifyError, notifySuccess } from "@/lib/toast";
 
 import {
@@ -37,7 +38,7 @@ const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
   try {
     const saved = await saveFn();
     if (saved) {
-      notifySuccess("Document saved.");
+      notifySuccess(t("commands.file.saved"));
     }
   } catch (error) {
     notifyError(getSaveMarkdownFileErrorMessage(error));
@@ -46,12 +47,12 @@ const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
 
 const runBooleanCommand = async (
   operation: () => Promise<boolean>,
-  successMessage: string,
+  successMessageId: MessageId,
   handleError: (error: unknown) => void,
 ) => {
   try {
     if (await operation()) {
-      notifySuccess(successMessage);
+      notifySuccess(t(successMessageId));
     }
   } catch (error) {
     handleError(error);
@@ -64,12 +65,12 @@ const documentOnly = (activeDocument: AppCommandContext["activeDocument"]) =>
 export const openRecentMarkdownFile = async (path: string) => {
   await runBooleanCommand(
     () => openMarkdownFileAtPath(path),
-    "Document opened.",
+    "commands.file.documentOpened",
     (error) =>
       notifyOpenMarkdownFileError(
         error,
         getOpenMarkdownFileErrorMessage(error, {
-          title: "Could not open recent Markdown file.",
+          title: t("commands.file.openRecentFileFailed"),
         }),
       ),
   );
@@ -78,30 +79,34 @@ export const openRecentMarkdownFile = async (path: string) => {
 export const openRecentFolderContext = async (path: string) => {
   await runBooleanCommand(
     () => openFolderContextAtPath(path),
-    "Folder opened.",
+    "commands.file.folderOpened",
     (error) =>
       notifyError(
         getOpenFolderContextErrorMessage(error, {
-          title: "Could not open recent folder.",
+          title: t("commands.file.openRecentFolderFailed"),
         }),
       ),
   );
 };
 
 export const createUntitledDocument = async () => {
-  await runBooleanCommand(createNewMarkdownDocument, "Document created.", (error) =>
-    notifyOperationFailure("Could not create document.", error, "createUntitledDocument"),
+  await runBooleanCommand(createNewMarkdownDocument, "commands.file.documentCreated", (error) =>
+    notifyOperationFailure(
+      t("commands.file.createDocumentFailed"),
+      error,
+      "createUntitledDocument",
+    ),
   );
 };
 
 export const openMarkdownFile = async () => {
-  await runBooleanCommand(pickAndOpenMarkdownFile, "Document opened.", (error) =>
+  await runBooleanCommand(pickAndOpenMarkdownFile, "commands.file.documentOpened", (error) =>
     notifyOpenMarkdownFileError(error),
   );
 };
 
 export const openFolderContext = async () => {
-  await runBooleanCommand(pickAndOpenFolderContext, "Folder opened.", (error) =>
+  await runBooleanCommand(pickAndOpenFolderContext, "commands.file.folderOpened", (error) =>
     notifyError(getOpenFolderContextErrorMessage(error)),
   );
 };
@@ -133,7 +138,11 @@ export const revealPathInFileManager = async (
 export const openLocation = async (context: AppCommandContext) => {
   const activeFilePath = getActiveSavedFilePath(context);
   if (activeFilePath) {
-    await revealPathInFileManager(activeFilePath, "Could not open file location.", "openLocation");
+    await revealPathInFileManager(
+      activeFilePath,
+      t("commands.file.openLocationFailed"),
+      "openLocation",
+    );
   }
 };
 
@@ -152,14 +161,14 @@ export const openPreferences = () => {
 };
 
 export const closeDocument = async () => {
-  await runBooleanCommand(closeActiveMarkdownDocument, "Document closed.", (error) =>
-    notifyOperationFailure("Could not close document.", error, "closeDocument"),
+  await runBooleanCommand(closeActiveMarkdownDocument, "commands.file.documentClosed", (error) =>
+    notifyOperationFailure(t("commands.file.closeDocumentFailed"), error, "closeDocument"),
   );
 };
 
 export const closeFolderContext = async () => {
-  await runBooleanCommand(closeFolderContextWorkflow, "Folder closed.", (error) =>
-    notifyOperationFailure("Could not close folder.", error, "closeFolderContext"),
+  await runBooleanCommand(closeFolderContextWorkflow, "commands.file.folderClosed", (error) =>
+    notifyOperationFailure(t("commands.file.closeFolderFailed"), error, "closeFolderContext"),
   );
 };
 
@@ -167,7 +176,7 @@ export const closeWindow = async () => {
   try {
     await getCurrentWindow().close();
   } catch (error) {
-    notifyOperationFailure("Could not close window.", error, "closeWindow");
+    notifyOperationFailure(t("commands.file.closeWindowFailed"), error, "closeWindow");
   }
 };
 

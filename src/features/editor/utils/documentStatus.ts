@@ -9,9 +9,28 @@ export interface TextStatistics {
   words: number;
 }
 
+export type BlockPathSegment =
+  | {
+      kind:
+        | "blockquote"
+        | "destination"
+        | "footnoteDefinition"
+        | "label"
+        | "orderedList"
+        | "paragraph"
+        | "referenceDefinition"
+        | "table"
+        | "taskList"
+        | "title"
+        | "unorderedList";
+    }
+  | { kind: "codeBlock"; language: string | null }
+  | { kind: "heading"; level: number }
+  | { kind: "tableCell"; row: number; column: number };
+
 export interface EditorDocumentStatus {
-  /** Names of the blocks holding a collapsed caret, outermost first; null while a selection is expanded. */
-  blockPath: readonly string[] | null;
+  /** The blocks holding a collapsed caret, outermost first; null while a selection is expanded. */
+  blockPath: readonly BlockPathSegment[] | null;
   document: TextStatistics;
   selection: TextStatistics | null;
 }
@@ -137,18 +156,21 @@ const measureRange = (doc: ProseMirrorNode, from: number, to: number) => {
   return statistics;
 };
 
-const getListName = (list: ProseMirrorNode, item: ProseMirrorNode | null) => {
+const getListSegment = (list: ProseMirrorNode, item: ProseMirrorNode | null): BlockPathSegment => {
   if (item?.attrs.checked !== null && item?.attrs.checked !== undefined) {
-    return "Task list";
+    return { kind: "taskList" };
   }
 
-  return list.type.name === "ordered_list" ? "Ordered list" : "Unordered list";
+  return { kind: list.type.name === "ordered_list" ? "orderedList" : "unorderedList" };
 };
 
-const getTableCellName = ($position: ResolvedPos, rowDepth: number) =>
-  `Row ${$position.index(rowDepth - 1) + 1}, Column ${$position.index(rowDepth) + 1}`;
+const getTableCellSegment = ($position: ResolvedPos, rowDepth: number): BlockPathSegment => ({
+  kind: "tableCell",
+  row: $position.index(rowDepth - 1) + 1,
+  column: $position.index(rowDepth) + 1,
+});
 
-const getBlockName = ($position: ResolvedPos, depth: number): string | null => {
+const getBlockPathSegment = ($position: ResolvedPos, depth: number): BlockPathSegment | null => {
   const node = $position.node(depth);
 
   switch (node.type.name) {
@@ -156,45 +178,45 @@ const getBlockName = ($position: ResolvedPos, depth: number): string | null => {
       return $position.node(depth - 1).type.name === "table_cell" ||
         $position.node(depth - 1).type.name === "table_header"
         ? null
-        : "Paragraph";
+        : { kind: "paragraph" };
     case "heading":
-      return `Heading ${node.attrs.level}`;
+      return { kind: "heading", level: Number(node.attrs.level) };
     case "blockquote":
-      return "Blockquote";
+      return { kind: "blockquote" };
     case "bullet_list":
     case "ordered_list":
-      return getListName(node, depth < $position.depth ? $position.node(depth + 1) : null);
+      return getListSegment(node, depth < $position.depth ? $position.node(depth + 1) : null);
     case "code_block":
-      return node.attrs.language ? `Code block · ${node.attrs.language}` : "Code block";
+      return { kind: "codeBlock", language: String(node.attrs.language ?? "") || null };
     case "table":
-      return "Table";
+      return { kind: "table" };
     case "table_row":
     case "table_header_row":
-      return depth < $position.depth ? getTableCellName($position, depth) : null;
+      return depth < $position.depth ? getTableCellSegment($position, depth) : null;
     case "footnote_definition":
-      return "Footnote definition";
+      return { kind: "footnoteDefinition" };
     case "footnote_definition_label":
     case "definition_label":
-      return "Label";
+      return { kind: "label" };
     case "definition":
-      return "Reference definition";
+      return { kind: "referenceDefinition" };
     case "definition_destination":
-      return "Destination";
+      return { kind: "destination" };
     case "definition_title":
-      return "Title";
+      return { kind: "title" };
     default:
       return null;
   }
 };
 
 const getBlockPath = ($position: ResolvedPos) => {
-  const path: string[] = [];
+  const path: BlockPathSegment[] = [];
 
   for (let depth = 1; depth <= $position.depth; depth += 1) {
-    const name = getBlockName($position, depth);
+    const segment = getBlockPathSegment($position, depth);
 
-    if (name) {
-      path.push(name);
+    if (segment) {
+      path.push(segment);
     }
   }
 
@@ -244,6 +266,15 @@ export const INACTIVE_EDITOR_DOCUMENT_STATUS: EditorDocumentStatus = {
   selection: null,
 };
 
+const blockPathSegmentsEqual = (left: BlockPathSegment, right: BlockPathSegment) => {
+  const leftEntries = Object.entries(left);
+
+  return (
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([key, value]) => (right as Record<string, unknown>)[key] === value)
+  );
+};
+
 const statisticsEqual = (left: TextStatistics | null, right: TextStatistics | null) =>
   left === right ||
   (left !== null &&
@@ -262,4 +293,8 @@ export const editorDocumentStatusesEqual = (
     (left.blockPath !== null &&
       right.blockPath !== null &&
       left.blockPath.length === right.blockPath.length &&
-      left.blockPath.every((name, index) => name === right.blockPath?.[index])));
+      left.blockPath.every((segment, index) => {
+        const other = right.blockPath?.[index];
+
+        return other !== undefined && blockPathSegmentsEqual(segment, other);
+      })));

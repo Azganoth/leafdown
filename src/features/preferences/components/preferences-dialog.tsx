@@ -9,7 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field, FieldContent, FieldGroup, FieldTitle } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldTitle,
+} from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -23,6 +29,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
+import {
+  getAvailableLocales,
+  getChosenLocale,
+  getLanguageDisplayName,
+  getSystemLanguages,
+  resolveLocale,
+  SYSTEM_LANGUAGE,
+  useLocalization,
+  type MessageId,
+} from "@/lib/i18n";
 
 import { restoreDefaultSettings } from "../services/windowPreferences";
 import {
@@ -38,23 +54,28 @@ import {
   PreferenceSwitch,
 } from "./preference-controls";
 
-const APPEARANCE_THEME_OPTIONS: ChoiceOption<AppearanceTheme>[] = [
-  { label: "System", value: "system" },
-  { label: "Light", value: "light" },
-  { label: "Dark", value: "dark" },
+interface LocalizedOption<Value extends string> {
+  labelId: MessageId;
+  value: Value;
+}
+
+const APPEARANCE_THEME_OPTIONS: LocalizedOption<AppearanceTheme>[] = [
+  { labelId: "preferences.theme.system", value: "system" },
+  { labelId: "preferences.theme.light", value: "light" },
+  { labelId: "preferences.theme.dark", value: "dark" },
 ];
 
-const APPEARANCE_ACCENT_COLOR_OPTIONS = [
-  { label: "Neutral", value: "neutral" },
-  { label: "Red", value: "red" },
-  { label: "Orange", value: "orange" },
-  { label: "Amber", value: "amber" },
-  { label: "Emerald", value: "emerald" },
-  { label: "Cyan", value: "cyan" },
-  { label: "Blue", value: "blue" },
-  { label: "Violet", value: "violet" },
-  { label: "Fuchsia", value: "fuchsia" },
-] satisfies ChoiceOption<AppearanceAccentColor>[];
+const APPEARANCE_ACCENT_COLOR_OPTIONS: LocalizedOption<AppearanceAccentColor>[] = [
+  { labelId: "preferences.accentColor.neutral", value: "neutral" },
+  { labelId: "preferences.accentColor.red", value: "red" },
+  { labelId: "preferences.accentColor.orange", value: "orange" },
+  { labelId: "preferences.accentColor.amber", value: "amber" },
+  { labelId: "preferences.accentColor.emerald", value: "emerald" },
+  { labelId: "preferences.accentColor.cyan", value: "cyan" },
+  { labelId: "preferences.accentColor.blue", value: "blue" },
+  { labelId: "preferences.accentColor.violet", value: "violet" },
+  { labelId: "preferences.accentColor.fuchsia", value: "fuchsia" },
+];
 
 interface AccentColorPreviewProps {
   accentColor: AppearanceAccentColor;
@@ -70,10 +91,10 @@ function AccentColorPreview({ accentColor }: AccentColorPreviewProps) {
   );
 }
 
-const ARTICLE_SORT_OPTIONS: ChoiceOption<ArticleSortOrder>[] = [
-  { label: "Name", value: "name" },
-  { label: "Modified date", value: "modifiedDate" },
-  { label: "Type", value: "type" },
+const ARTICLE_SORT_OPTIONS: LocalizedOption<ArticleSortOrder>[] = [
+  { labelId: "preferences.articleSortOrder.name", value: "name" },
+  { labelId: "preferences.articleSortOrder.modifiedDate", value: "modifiedDate" },
+  { labelId: "preferences.articleSortOrder.type", value: "type" },
 ];
 
 const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<MarkdownFileExtension>[] = [
@@ -86,38 +107,46 @@ const LINE_ENDING_OPTIONS: ChoiceOption<LineEnding>[] = [
   { label: "CRLF", value: "crlf" },
 ];
 
-const createDropBehaviorOptions = (insertLabel: string): ChoiceOption<DropBehavior>[] => [
-  { label: "Open", value: "open" },
-  { label: insertLabel, value: "insertLink" },
+const FOLDER_DROP_BEHAVIOR_OPTIONS: LocalizedOption<DropBehavior>[] = [
+  { labelId: "preferences.dropBehavior.open", value: "open" },
+  { labelId: "preferences.dropBehavior.insertFolderLink", value: "insertLink" },
 ];
 
-const FOLDER_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert folder link");
-const MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS = createDropBehaviorOptions("Insert file link");
+const MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS: LocalizedOption<DropBehavior>[] = [
+  { labelId: "preferences.dropBehavior.open", value: "open" },
+  { labelId: "preferences.dropBehavior.insertFileLink", value: "insertLink" },
+];
 
 const PREFERENCE_TABS = [
-  { value: "general", label: "General", icon: SlidersHorizontalIcon },
-  { value: "files", label: "Files", icon: FileTextIcon },
-  { value: "editor", label: "Editor", icon: PencilIcon },
-  { value: "appearance", label: "Appearance", icon: PaletteIcon },
-] satisfies { value: string; label: string; icon: LucideIcon }[];
+  { value: "general", labelId: "preferences.tab.general", icon: SlidersHorizontalIcon },
+  { value: "files", labelId: "preferences.tab.files", icon: FileTextIcon },
+  { value: "editor", labelId: "preferences.tab.editor", icon: PencilIcon },
+  { value: "appearance", labelId: "preferences.tab.appearance", icon: PaletteIcon },
+] satisfies { value: string; labelId: MessageId; icon: LucideIcon }[];
 
 interface PreferencesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const restoreDefaults = () => {
-  void restoreDefaultSettings().catch((error) =>
-    notifyOperationFailure("Could not turn off always on top.", error, "restoreDefaultSettings"),
-  );
-};
-
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
+  const { t } = useLocalization();
+
+  const restoreDefaults = () => {
+    void restoreDefaultSettings().catch((error) =>
+      notifyOperationFailure(
+        t("preferences.restoreDefaults.alwaysOnTopFailed"),
+        error,
+        "restoreDefaultSettings",
+      ),
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-4 sm:max-w-3xl">
         <DialogHeader className="pr-10">
-          <DialogTitle>Preferences</DialogTitle>
+          <DialogTitle>{t("preferences.title")}</DialogTitle>
         </DialogHeader>
 
         <Tabs
@@ -126,10 +155,10 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           className="mt-4 h-[min(34rem,calc(100vh-12rem))] gap-6"
         >
           <TabsList className="w-44 shrink-0" variant="line">
-            {PREFERENCE_TABS.map(({ value, label, icon: Icon }) => (
+            {PREFERENCE_TABS.map(({ value, labelId, icon: Icon }) => (
               <TabsTrigger key={value} value={value} className="h-auto gap-2 py-2">
                 <Icon data-icon="inline-start" />
-                {label}
+                {t(labelId)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -154,7 +183,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 
         <DialogFooter className="sm:justify-start">
           <Button type="button" variant="ghost" onClick={restoreDefaults}>
-            Restore defaults
+            {t("preferences.restoreDefaults")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -163,6 +192,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 }
 
 function GeneralPreferences() {
+  const { t } = useLocalization();
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const recordRecentItems = useSettingsStore((state) => state.recordRecentItems);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
@@ -171,35 +201,102 @@ function GeneralPreferences() {
 
   return (
     <FieldGroup className="gap-5">
+      <LanguagePreference />
       <PreferenceSwitch
-        label="Record recent files and folders"
-        description="Session history records the paths you open."
+        label={t("preferences.recordRecentItems.label")}
+        description={t("preferences.recordRecentItems.description")}
         checked={recordRecentItems}
         onCheckedChange={(checked) => updateSetting("recordRecentItems", checked)}
       />
       <PreferenceSwitch
-        label="Sidebar visibility"
-        description="Applies while a folder context is open."
+        label={t("preferences.sidebarVisible.label")}
+        description={t("preferences.sidebarVisible.description")}
         checked={sidebarVisible}
         onCheckedChange={(checked) => updateSetting("sidebarVisible", checked)}
       />
       <PreferenceSwitch
-        label="Status bar visibility"
-        description="Applies while a document is open."
+        label={t("preferences.statusBarVisible.label")}
+        description={t("preferences.statusBarVisible.description")}
         checked={statusBarVisible}
         onCheckedChange={(checked) => updateSetting("statusBarVisible", checked)}
       />
       <PreferenceChoice
-        label="Sort articles by"
+        label={t("preferences.articleSortOrder.label")}
         value={articleSortOrder}
-        options={ARTICLE_SORT_OPTIONS}
+        options={ARTICLE_SORT_OPTIONS.map(({ labelId, value }) => ({ label: t(labelId), value }))}
         onValueChange={(value) => updateSetting("articleSortOrder", value)}
       />
     </FieldGroup>
   );
 }
 
+interface LanguageOption {
+  label: string;
+  lang?: string;
+  value: string;
+}
+
+function LanguagePreference() {
+  const { locale, t } = useLocalization();
+  const language = useSettingsStore((state) => state.language);
+  const updateSetting = useSettingsStore((state) => state.updateSetting);
+  const availableLocales = getAvailableLocales();
+  const systemLocale = resolveLocale(SYSTEM_LANGUAGE, getSystemLanguages());
+  const options: LanguageOption[] = [
+    {
+      label: t("preferences.language.system", {
+        language: getLanguageDisplayName(systemLocale, locale),
+      }),
+      value: SYSTEM_LANGUAGE,
+    },
+    ...availableLocales.map((availableLocale) => ({
+      label: getLanguageDisplayName(availableLocale),
+      lang: availableLocale,
+      value: availableLocale,
+    })),
+  ];
+  const selectedValue = getChosenLocale(language, availableLocales) ?? SYSTEM_LANGUAGE;
+
+  return (
+    <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
+      <FieldContent>
+        <FieldTitle>{t("preferences.language.label")}</FieldTitle>
+        <FieldDescription>{t("preferences.language.description")}</FieldDescription>
+      </FieldContent>
+      <Select
+        items={options}
+        value={selectedValue}
+        onValueChange={(value) => {
+          if (value) {
+            updateSetting("language", value);
+          }
+        }}
+      >
+        <SelectTrigger className="w-[180px]" aria-label={t("preferences.language.label")}>
+          <SelectValue>
+            {(value: string | null) => {
+              const option = options.find((candidate) => candidate.value === value);
+
+              return option ? <span lang={option.lang}>{option.label}</span> : null;
+            }}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} lang={option.lang}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
 function FilePreferences() {
+  const { t } = useLocalization();
   const defaultNewDocumentExtension = useSettingsStore(
     (state) => state.defaultNewDocumentExtension,
   );
@@ -216,44 +313,50 @@ function FilePreferences() {
   return (
     <FieldGroup className="gap-5">
       <PreferenceChoice
-        label="Default extension for new documents"
+        label={t("preferences.defaultNewDocumentExtension.label")}
         value={defaultNewDocumentExtension}
         options={NEW_DOCUMENT_EXTENSION_OPTIONS}
         onValueChange={(value) => updateSetting("defaultNewDocumentExtension", value)}
       />
       <PreferenceChoice
-        label="Default line ending for new documents"
+        label={t("preferences.defaultNewDocumentLineEnding.label")}
         value={defaultNewDocumentLineEnding}
         options={LINE_ENDING_OPTIONS}
         onValueChange={(value) => updateSetting("defaultNewDocumentLineEnding", value)}
       />
       <PreferenceSwitch
-        label="Insert final newline on save"
-        description="Ends the saved file with a line break."
+        label={t("preferences.insertFinalNewline.label")}
+        description={t("preferences.insertFinalNewline.description")}
         checked={insertFinalNewline}
         onCheckedChange={(checked) => updateSetting("insertFinalNewline", checked)}
       />
       <PreferenceChoice
-        label="When dropping a folder"
+        label={t("preferences.whenDroppingFolder.label")}
         value={whenDroppingFolder}
-        options={FOLDER_DROP_BEHAVIOR_OPTIONS}
+        options={FOLDER_DROP_BEHAVIOR_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
         onValueChange={(value) => updateSetting("whenDroppingFolder", value)}
       />
       <PreferenceChoice
-        label="When dropping a Markdown file"
+        label={t("preferences.whenDroppingMarkdownFile.label")}
         value={whenDroppingMarkdownFile}
-        options={MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS}
+        options={MARKDOWN_FILE_DROP_BEHAVIOR_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
         onValueChange={(value) => updateSetting("whenDroppingMarkdownFile", value)}
       />
       <ListPreferenceField
-        label="Index file names for automatic folder open"
-        description="Base names, one per line, in the order they are tried."
+        label={t("preferences.indexFileNames.label")}
+        description={t("preferences.indexFileNames.description")}
         items={indexFileNames}
         onItemsChange={(items) => updateSetting("indexFileNames", items)}
       />
       <ListPreferenceField
-        label="Ignored directories for folder scans"
-        description="Directory names, one per line. Matches are skipped with their contents."
+        label={t("preferences.ignoredDirectories.label")}
+        description={t("preferences.ignoredDirectories.description")}
         items={ignoredDirectories}
         onItemsChange={(items) => updateSetting("ignoredDirectories", items)}
       />
@@ -262,6 +365,7 @@ function FilePreferences() {
 }
 
 function EditorPreferences() {
+  const { t } = useLocalization();
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const displayCodeBlockLineNumbers = useSettingsStore(
     (state) => state.displayCodeBlockLineNumbers,
@@ -272,20 +376,20 @@ function EditorPreferences() {
   return (
     <FieldGroup className="gap-5">
       <PreferenceSwitch
-        label="Auto pair brackets and quotes"
-        description="Closes a bracket or quote as you open one."
+        label={t("preferences.autoPairBracketsAndQuotes.label")}
+        description={t("preferences.autoPairBracketsAndQuotes.description")}
         checked={autoPairBracketsAndQuotes}
         onCheckedChange={(checked) => updateSetting("autoPairBracketsAndQuotes", checked)}
       />
       <PreferenceSwitch
-        label="Display line numbers for code blocks"
-        description="Numbers each line of code in a gutter beside it."
+        label={t("preferences.displayCodeBlockLineNumbers.label")}
+        description={t("preferences.displayCodeBlockLineNumbers.description")}
         checked={displayCodeBlockLineNumbers}
         onCheckedChange={(checked) => updateSetting("displayCodeBlockLineNumbers", checked)}
       />
       <PreferenceSwitch
-        label="Soft wrap for code blocks"
-        description="Wraps long lines instead of scrolling them."
+        label={t("preferences.softWrapCodeBlocks.label")}
+        description={t("preferences.softWrapCodeBlocks.description")}
         checked={softWrapCodeBlocks}
         onCheckedChange={(checked) => updateSetting("softWrapCodeBlocks", checked)}
       />
@@ -294,6 +398,7 @@ function EditorPreferences() {
 }
 
 function AppearancePreferences() {
+  const { t } = useLocalization();
   const accentColor = useSettingsStore((state) => state.accentColor);
   const theme = useSettingsStore((state) => state.theme);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
@@ -305,9 +410,12 @@ function AppearancePreferences() {
         onAccentColorChange={(value) => updateSetting("accentColor", value)}
       />
       <PreferenceChoice
-        label="Appearance theme"
+        label={t("preferences.theme.label")}
         value={theme}
-        options={APPEARANCE_THEME_OPTIONS}
+        options={APPEARANCE_THEME_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
         onValueChange={(value) => updateSetting("theme", value)}
       />
     </FieldGroup>
@@ -320,13 +428,19 @@ interface AccentColorPreferenceProps {
 }
 
 function AccentColorPreference({ accentColor, onAccentColorChange }: AccentColorPreferenceProps) {
+  const { t } = useLocalization();
+  const options = APPEARANCE_ACCENT_COLOR_OPTIONS.map(({ labelId, value }) => ({
+    label: t(labelId),
+    value,
+  }));
+
   return (
     <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
       <FieldContent>
-        <FieldTitle>Accent color</FieldTitle>
+        <FieldTitle>{t("preferences.accentColor.label")}</FieldTitle>
       </FieldContent>
       <Select
-        items={APPEARANCE_ACCENT_COLOR_OPTIONS}
+        items={options}
         value={accentColor}
         onValueChange={(value) => {
           if (value) {
@@ -334,12 +448,10 @@ function AccentColorPreference({ accentColor, onAccentColorChange }: AccentColor
           }
         }}
       >
-        <SelectTrigger className="w-[180px]" aria-label="Accent color">
+        <SelectTrigger className="w-[180px]" aria-label={t("preferences.accentColor.label")}>
           <SelectValue>
             {(value: AppearanceAccentColor | null) => {
-              const option = APPEARANCE_ACCENT_COLOR_OPTIONS.find(
-                (candidate) => candidate.value === value,
-              );
+              const option = options.find((candidate) => candidate.value === value);
 
               return option ? (
                 <>
@@ -352,7 +464,7 @@ function AccentColorPreference({ accentColor, onAccentColorChange }: AccentColor
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {APPEARANCE_ACCENT_COLOR_OPTIONS.map((option) => (
+            {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 <AccentColorPreview accentColor={option.value} />
                 {option.label}

@@ -3,6 +3,7 @@ import { XIcon } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
+import { useLocalization } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const isWindowControlTarget = (target: EventTarget | null) =>
@@ -96,6 +97,8 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
 }) {
+  const { t } = useLocalization();
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -114,7 +117,7 @@ function DialogContent({
             render={<Button variant="ghost" className="absolute top-4 right-4" size="icon-sm" />}
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t("ui.dialog.close")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -136,6 +139,8 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean;
 }) {
+  const { t } = useLocalization();
+
   return (
     <div
       data-slot="dialog-footer"
@@ -144,7 +149,9 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>Close</DialogPrimitive.Close>
+        <DialogPrimitive.Close render={<Button variant="outline" />}>
+          {t("ui.dialog.close")}
+        </DialogPrimitive.Close>
       )}
     </div>
   );

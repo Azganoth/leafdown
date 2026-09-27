@@ -3,6 +3,7 @@
 import { AllSelection } from "@milkdown/kit/prose/state";
 import { describe, expect, it, vi } from "vitest";
 
+import { createLocalization } from "@/lib/i18n";
 import { BASIC_TABLE_MARKDOWN, EXTENDED_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
@@ -14,11 +15,17 @@ import {
 } from "@/test/utils/prosemirror";
 import { enterProjection } from "@/test/utils/sourceProjection";
 
+import { formatBlockPathSegment } from "./blockPathLabels";
 import { getEditorDocumentStatus } from "./documentStatus";
 
 const mountEditor = setupMilkdownEditorMount();
 
+const english = createLocalization("en");
+
 const statusOf = (mounted: MountedMilkdownEditor) => getEditorDocumentStatus(mounted.view.state);
+
+const blockPathOf = (mounted: MountedMilkdownEditor) =>
+  statusOf(mounted).blockPath?.map((segment) => formatBlockPathSegment(segment, english.t)) ?? null;
 
 const placeCaretIn = (mounted: MountedMilkdownEditor, text: string) =>
   setTextSelection(mounted.view, getEditorTextPosition(mounted, text) + 1);
@@ -36,18 +43,18 @@ describe("editor document status", () => {
       const mounted = await mountEditor(markdown);
       placeCaretIn(mounted, text);
 
-      expect(statusOf(mounted).blockPath).toEqual(blockPath);
+      expect(blockPathOf(mounted)).toEqual(blockPath);
     });
 
     it("lists every enclosing block from the outermost", async () => {
       const mounted = await mountEditor("> - [ ] quoted task\n>   - nested bullet");
       placeCaretIn(mounted, "quoted");
 
-      expect(statusOf(mounted).blockPath).toEqual(["Blockquote", "Task list", "Paragraph"]);
+      expect(blockPathOf(mounted)).toEqual(["Blockquote", "Task list", "Paragraph"]);
 
       placeCaretIn(mounted, "nested");
 
-      expect(statusOf(mounted).blockPath).toEqual([
+      expect(blockPathOf(mounted)).toEqual([
         "Blockquote",
         "Task list",
         "Unordered list",
@@ -59,11 +66,11 @@ describe("editor document status", () => {
       const mounted = await mountEditor(BASIC_TABLE_MARKDOWN);
       placeCaretIn(mounted, "D");
 
-      expect(statusOf(mounted).blockPath).toEqual(["Table", "Row 2, Column 2"]);
+      expect(blockPathOf(mounted)).toEqual(["Table", "Row 2, Column 2"]);
 
       placeCaretIn(mounted, "A");
 
-      expect(statusOf(mounted).blockPath).toEqual(["Table", "Row 1, Column 1"]);
+      expect(blockPathOf(mounted)).toEqual(["Table", "Row 1, Column 1"]);
     });
 
     it("is withheld while a selection is expanded", async () => {
@@ -93,7 +100,7 @@ describe("editor document status", () => {
       const mounted = await mountEditor("");
 
       expect(statusOf(mounted)).toEqual({
-        blockPath: ["Paragraph"],
+        blockPath: [{ kind: "paragraph" }],
         document: { characters: 0, charactersWithoutSpaces: 0, words: 0 },
         selection: null,
       });
@@ -165,7 +172,7 @@ describe("editor document status", () => {
       enterProjection(mounted, "a");
 
       expect(statusOf(mounted).document).toEqual(canonical);
-      expect(statusOf(mounted).blockPath).toEqual(["Paragraph"]);
+      expect(blockPathOf(mounted)).toEqual(["Paragraph"]);
     });
 
     it("counts a projected selection by the text it stands for", async () => {
@@ -202,7 +209,7 @@ describe("editor document status", () => {
     placeCaretIn(mounted, "Second");
 
     expect(onDocumentStatusChanged).toHaveBeenLastCalledWith(
-      expect.objectContaining({ blockPath: ["Heading 1"] }),
+      expect.objectContaining({ blockPath: [{ kind: "heading", level: 1 }] }),
     );
   });
 });

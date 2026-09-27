@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { getErrorDescription, notifyOperationFailure } from "@/lib/errors";
 import { formatFileSize } from "@/lib/formatFileSize";
+import { useLocalization } from "@/lib/i18n";
 import { notifySuccess } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +39,10 @@ interface DiagnosticsDialogProps {
 }
 
 export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps) {
+  const localization = useLocalization();
+  const { t } = localization;
   const [summary, setSummary] = useState<DiagnosticsSummary | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ description: string | undefined } | null>(null);
   const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
@@ -63,7 +66,7 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
       } catch (error) {
         if (!cancelled) {
           setSummary(null);
-          setLoadError(getErrorDescription(error) ?? "Diagnostics could not be loaded.");
+          setLoadError({ description: getErrorDescription(error) });
         }
       } finally {
         if (!cancelled) {
@@ -94,13 +97,9 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
       }
 
       await clipboard.writeText(summaryText);
-      notifySuccess("Diagnostics summary copied.");
+      notifySuccess(t("diagnostics.summaryCopied"));
     } catch (error) {
-      notifyOperationFailure(
-        "Could not copy diagnostics summary.",
-        error,
-        "diagnostics.copySummary",
-      );
+      notifyOperationFailure(t("diagnostics.copySummaryFailed"), error, "diagnostics.copySummary");
     }
   };
 
@@ -112,7 +111,11 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
 
       await openPath(summary.logDirectoryPath);
     } catch (error) {
-      notifyOperationFailure("Could not open logs folder.", error, "diagnostics.openLogsFolder");
+      notifyOperationFailure(
+        t("diagnostics.openLogsFolderFailed"),
+        error,
+        "diagnostics.openLogsFolder",
+      );
     }
   };
 
@@ -124,53 +127,65 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-5 sm:max-w-2xl">
         <DialogHeader className="pr-10">
-          <DialogTitle>Diagnostics</DialogTitle>
-          <DialogDescription>
-            This installation and where it keeps its local logs.
-          </DialogDescription>
+          <DialogTitle>{t("diagnostics.title")}</DialogTitle>
+          <DialogDescription>{t("diagnostics.description")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4">
           {loadError ? (
             <Alert variant="destructive">
               <TriangleAlertIcon />
-              <AlertTitle>Diagnostics could not be loaded.</AlertTitle>
-              <AlertDescription>{loadError}</AlertDescription>
+              <AlertTitle>{t("diagnostics.loadFailed")}</AlertTitle>
+              <AlertDescription>
+                {loadError.description ?? t("diagnostics.loadFailed")}
+              </AlertDescription>
             </Alert>
           ) : (
             <dl className="grid gap-2.5 text-sm">
-              <DiagnosticFact term="App" loading={loading && !summary}>
+              <DiagnosticFact term={t("diagnostics.fact.app")} loading={loading && !summary}>
                 {summary && `${summary.appName} ${summary.appVersion}`}
               </DiagnosticFact>
-              <DiagnosticFact term="Identifier" loading={loading && !summary} mono>
+              <DiagnosticFact
+                term={t("diagnostics.fact.identifier")}
+                loading={loading && !summary}
+                mono
+              >
                 {summary?.appIdentifier}
               </DiagnosticFact>
-              <DiagnosticFact term="System" loading={loading && !summary}>
+              <DiagnosticFact term={t("diagnostics.fact.system")} loading={loading && !summary}>
                 {summary && `${summary.operatingSystem} ${summary.architecture}`}
               </DiagnosticFact>
-              <DiagnosticFact term="Run" loading={loading && !summary} mono>
+              <DiagnosticFact term={t("diagnostics.fact.run")} loading={loading && !summary} mono>
                 {summary?.runId}
               </DiagnosticFact>
-              <DiagnosticFact term="Logs folder" loading={loading && !summary} mono>
+              <DiagnosticFact
+                term={t("diagnostics.fact.logsFolder")}
+                loading={loading && !summary}
+                mono
+              >
                 {summary?.logDirectoryPath}
               </DiagnosticFact>
-              <DiagnosticFact term="Current log" loading={loading && !summary} mono>
+              <DiagnosticFact
+                term={t("diagnostics.fact.currentLog")}
+                loading={loading && !summary}
+                mono
+              >
                 {summary?.logFilePath}
               </DiagnosticFact>
-              <DiagnosticFact term="Retention" loading={loading && !summary}>
+              <DiagnosticFact term={t("diagnostics.fact.retention")} loading={loading && !summary}>
                 {summary &&
-                  `Current log plus ${summary.logFileCount} retained files, ${formatFileSize(summary.logMaxFileSizeBytes)} each`}
+                  t("diagnostics.retention", {
+                    count: summary.logFileCount,
+                    size: formatFileSize(summary.logMaxFileSizeBytes, localization),
+                  })}
               </DiagnosticFact>
             </dl>
           )}
 
           <Alert>
             <ShieldIcon className="size-5" />
-            <AlertTitle>Diagnostics stay on this device.</AlertTitle>
-            <AlertDescription>
-              Logs are not uploaded automatically. They may include local paths and user content
-              captured inside error messages or stack traces.
-            </AlertDescription>
+            <AlertTitle>{t("diagnostics.privacy.title")}</AlertTitle>
+            <AlertDescription>{t("diagnostics.privacy.description")}</AlertDescription>
           </Alert>
 
           <Collapsible className="grid gap-2">
@@ -183,11 +198,11 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
                 data-icon="inline-start"
                 className="transition-transform group-data-panel-open/summary:rotate-90"
               />
-              Show summary
+              {t("diagnostics.showSummary")}
             </CollapsibleTrigger>
             <CollapsibleContent className="grid gap-1.5">
               <Label className="text-xs text-muted-foreground" htmlFor="diagnostics-summary">
-                Diagnostics summary
+                {t("diagnostics.summary")}
               </Label>
               <Textarea
                 className="min-h-36 resize-y font-mono text-xs leading-relaxed"
@@ -203,16 +218,16 @@ export function DiagnosticsDialog({ open, onOpenChange }: DiagnosticsDialogProps
           {loadError && (
             <Button variant="outline" onClick={reloadSummary}>
               <RotateCcwIcon data-icon="inline-start" />
-              Retry
+              {t("diagnostics.retry")}
             </Button>
           )}
           <Button variant="outline" disabled={!summary} onClick={openLogsFolder}>
             <FolderOpenIcon data-icon="inline-start" />
-            Open logs folder
+            {t("diagnostics.openLogsFolder")}
           </Button>
           <Button disabled={!summary} onClick={copySummary}>
             <CopyIcon data-icon="inline-start" />
-            Copy summary
+            {t("diagnostics.copySummary")}
           </Button>
         </DialogFooter>
       </DialogContent>

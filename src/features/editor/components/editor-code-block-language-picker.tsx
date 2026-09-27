@@ -8,6 +8,7 @@ import {
   AutocompleteList,
 } from "@/components/ui/autocomplete";
 import { Popover, PopoverContent } from "@/components/ui/popover";
+import { useLocalization } from "@/lib/i18n";
 
 import { normalizeCodeBlockLanguage } from "../commands/formatting/codeBlockLanguage";
 import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
@@ -15,9 +16,6 @@ import {
   HIGHLIGHT_LANGUAGE_CHOICES,
   type HighlightLanguageChoice,
 } from "../utils/highlightLanguages";
-
-const PICKER_LABEL = "Code block language";
-const NO_LANGUAGE_LABEL = "No language";
 
 type PickerRow = { kind: "none" } | ({ kind: "language" } & HighlightLanguageChoice);
 
@@ -79,6 +77,7 @@ function CodeBlockLanguagePicker({
   onReturnFocus,
   request,
 }: CodeBlockLanguagePickerProps) {
+  const { formatRich, t } = useLocalization();
   const hintId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const highlightedRef = useRef<PickerRow | undefined>(undefined);
@@ -136,7 +135,7 @@ function CodeBlockLanguagePicker({
       <PopoverContent
         align="end"
         anchor={request.anchor}
-        aria-label={PICKER_LABEL}
+        aria-label={t("editor.codeBlockLanguage.label")}
         className="w-64 gap-0 overflow-hidden p-0"
         data-testid="editor-code-block-language-picker"
         finalFocus={false}
@@ -172,15 +171,15 @@ function CodeBlockLanguagePicker({
               <AutocompleteInput
                 aria-describedby={typed === "" ? undefined : hintId}
                 aria-invalid={typed === null || undefined}
-                aria-label="Search languages"
+                aria-label={t("editor.codeBlockLanguage.search")}
                 autoComplete="off"
                 className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-                placeholder="Search or type a language"
+                placeholder={t("editor.codeBlockLanguage.searchPlaceholder")}
                 ref={inputRef}
                 spellCheck={false}
               />
             </div>
-            <AutocompleteList aria-label="Languages" className="max-h-64">
+            <AutocompleteList aria-label={t("editor.codeBlockLanguage.list")} className="max-h-64">
               {(row: PickerRow) => (
                 <AutocompleteItem
                   className="hover:bg-muted"
@@ -199,14 +198,20 @@ function CodeBlockLanguagePicker({
               className="border-t border-border px-3 py-2 text-xs text-muted-foreground"
               id={hintId}
             >
-              {typed === null ? (
-                "A language is one word, without spaces."
-              ) : (
-                <>
-                  <kbd className="font-sans">Enter</kbd> sets{" "}
-                  <span className="font-mono text-foreground">{typed}</span>
-                </>
-              )}
+              {typed === null
+                ? t("editor.codeBlockLanguage.invalid")
+                : formatRich("editor.codeBlockLanguage.setHint", {
+                    key: (
+                      <kbd className="font-sans" key="key">
+                        Enter
+                      </kbd>
+                    ),
+                    language: (
+                      <span className="font-mono text-foreground" key="language">
+                        {typed}
+                      </span>
+                    ),
+                  })}
             </p>
           )}
         </div>
@@ -222,6 +227,8 @@ interface PickerRowContentProps {
 }
 
 function PickerRowContent({ language, meta, row }: PickerRowContentProps) {
+  const { t } = useLocalization();
+
   return (
     <>
       <span className="flex size-4 shrink-0 items-center justify-center">
@@ -229,9 +236,11 @@ function PickerRowContent({ language, meta, row }: PickerRowContentProps) {
       </span>
       {row.kind === "none" ? (
         <span className="flex min-w-0 flex-col">
-          <span>{NO_LANGUAGE_LABEL}</span>
+          <span>{t("editor.codeBlockLanguage.none")}</span>
           {meta && (
-            <span className="truncate text-xs text-muted-foreground">Also removes {meta}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {t("editor.codeBlockLanguage.noneRemovesMeta", { meta })}
+            </span>
           )}
         </span>
       ) : (

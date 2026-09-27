@@ -11,6 +11,7 @@ import {
   openMarkdownFileAtPath,
   useSessionStore,
 } from "@/features/session";
+import { useLocalization } from "@/lib/i18n";
 
 interface DocumentScreenProps {
   activeDocument: ActiveDocumentState;
@@ -26,6 +27,7 @@ const handleOpenMarkdownPath = async (path: string) => {
 };
 
 export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
+  const { t } = useLocalization();
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const displayCodeBlockLineNumbers = useSettingsStore(
     (state) => state.displayCodeBlockLineNumbers,
@@ -45,7 +47,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   );
   return (
     <section
-      aria-label="Active document"
+      aria-label={t("documentScreen.label")}
       data-testid="active-document-host"
       className="flex size-full"
     >

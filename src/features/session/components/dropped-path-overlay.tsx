@@ -7,6 +7,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { useLocalization, type Translate } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 import { cn } from "@/lib/utils";
 
@@ -24,11 +25,13 @@ interface OverlayContent {
 }
 
 export function DroppedPathOverlay({ indicator }: DroppedPathOverlayProps) {
+  const { t } = useLocalization();
+
   if (!indicator) {
     return null;
   }
 
-  const { description, Icon, title, unavailable } = getOverlayContent(indicator);
+  const { description, Icon, title, unavailable } = getOverlayContent(indicator, t);
 
   return (
     <div
@@ -57,20 +60,23 @@ export function DroppedPathOverlay({ indicator }: DroppedPathOverlayProps) {
   );
 }
 
-const getOverlayContent = (indicator: Exclude<DroppedPathIndicator, null>): OverlayContent => {
+const getOverlayContent = (
+  indicator: Exclude<DroppedPathIndicator, null>,
+  t: Translate,
+): OverlayContent => {
   if (indicator.status === "checking") {
     return {
-      description: "Leafdown is determining what the drop will do.",
+      description: t("session.dropOverlay.checking.description"),
       Icon: LoaderCircleIcon,
-      title: "Checking dropped item",
+      title: t("session.dropOverlay.checking.title"),
     };
   }
 
   if (indicator.status === "inspectionFailed") {
     return {
-      description: "Leafdown could not inspect this item.",
+      description: t("session.dropOverlay.inspectionFailed.description"),
       Icon: CircleSlash2Icon,
-      title: "Drop unavailable",
+      title: t("session.dropOverlay.inspectionFailed.title"),
       unavailable: true,
     };
   }
@@ -81,21 +87,23 @@ const getOverlayContent = (indicator: Exclude<DroppedPathIndicator, null>): Over
         return {
           description: getPathParts(indicator.droppedPath.path).name,
           Icon: CircleSlash2Icon,
-          title: "Open a document to insert a link",
+          title: t("session.dropOverlay.missingDocument"),
           unavailable: true,
         };
       case "multipleItems":
         return {
-          description: `${indicator.count} items selected`,
+          description: t("session.dropOverlay.multipleItems.description", {
+            count: indicator.count,
+          }),
           Icon: CircleSlash2Icon,
-          title: "Drop one item at a time",
+          title: t("session.dropOverlay.multipleItems.title"),
           unavailable: true,
         };
       case "unsupported":
         return {
           description: getPathParts(indicator.path).name,
           Icon: CircleSlash2Icon,
-          title: "Markdown files and folders only",
+          title: t("session.dropOverlay.unsupported"),
           unavailable: true,
         };
     }
@@ -108,12 +116,14 @@ const getOverlayContent = (indicator: Exclude<DroppedPathIndicator, null>): Over
   return {
     description: getPathParts(indicator.droppedPath.path).name,
     Icon: insertsLink ? LinkIcon : isFolder ? FolderOpenIcon : FileTextIcon,
-    title: insertsLink
-      ? isFolder
-        ? "Insert folder link"
-        : "Insert file link"
-      : isFolder
-        ? "Open folder"
-        : "Open Markdown file",
+    title: t(
+      insertsLink
+        ? isFolder
+          ? "session.dropOverlay.insertFolderLink"
+          : "session.dropOverlay.insertFileLink"
+        : isFolder
+          ? "session.dropOverlay.openFolder"
+          : "session.dropOverlay.openMarkdownFile",
+    ),
   };
 };

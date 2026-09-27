@@ -8,7 +8,17 @@ const restrictedImportRoots = [
   "@/components/screens",
 ];
 
-const restrictedImportPatterns = restrictedImportRoots.flatMap((root) => [root, `${root}/**`]);
+const leafFeatureImportRestriction = {
+  group: restrictedImportRoots.flatMap((root) => [root, `${root}/**`]),
+  message: "Leaf features must not depend on session, commands, or application components.",
+};
+// React Compiler caches a module-level call on its arguments, so a component or hook that calls
+// the module-level `t` keeps its first language after a switch.
+const moduleTranslateImportRestriction = {
+  group: ["@/lib/i18n", "@/lib/i18n/*", "./localizer"],
+  importNames: ["t"],
+  message: "Components and hooks read `t` from `useLocalization()`.",
+};
 
 export default defineConfig({
   plugins: ["eslint", "import", "oxc", "react", "typescript", "unicorn", "vitest"],
@@ -104,19 +114,26 @@ export default defineConfig({
       },
     },
     {
-      files: leafFeatures.map((feature) => `src/features/${feature}/**/*.{ts,tsx}`),
+      files: ["src/**/*.tsx", "src/**/use*.ts"],
+      rules: {
+        "no-restricted-imports": ["error", { patterns: [moduleTranslateImportRestriction] }],
+      },
+    },
+    {
+      files: leafFeatures.map((feature) => `src/features/${feature}/**/*.ts`),
+      rules: {
+        "no-restricted-imports": ["error", { patterns: [leafFeatureImportRestriction] }],
+      },
+    },
+    {
+      files: leafFeatures.flatMap((feature) => [
+        `src/features/${feature}/**/*.tsx`,
+        `src/features/${feature}/**/use*.ts`,
+      ]),
       rules: {
         "no-restricted-imports": [
           "error",
-          {
-            patterns: [
-              {
-                group: restrictedImportPatterns,
-                message:
-                  "Leaf features must not depend on session, commands, or application components.",
-              },
-            ],
-          },
+          { patterns: [leafFeatureImportRestriction, moduleTranslateImportRestriction] },
         ],
       },
     },

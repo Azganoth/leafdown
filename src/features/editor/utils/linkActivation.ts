@@ -2,6 +2,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { requestConfirmation } from "@/lib/confirmation";
 import { notifyOperationFailure } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 import { notifyWarning } from "@/lib/toast";
 
 import {
@@ -38,20 +39,20 @@ const resolveMarkdownLink = ({
 
 const confirmLocalFileLink = (path: string) =>
   requestConfirmation({
-    title: "Open local file?",
-    message: "Open this local file with the system default app?",
+    title: t("editor.link.confirmLocalFile.title"),
+    message: t("editor.link.confirmLocalFile.message"),
     detail: path,
-    confirmLabel: "Open file",
-    cancelLabel: "Cancel",
+    confirmLabel: t("editor.link.confirmLocalFile.confirm"),
+    cancelLabel: t("editor.link.confirmLocalFile.cancel"),
   });
 
 const confirmOutsideFolderMarkdownLink = (path: string) =>
   requestConfirmation({
-    title: "Open outside folder?",
-    message: "Open this Markdown file outside the current folder?",
+    title: t("editor.link.confirmOutsideFolder.title"),
+    message: t("editor.link.confirmOutsideFolder.message"),
     detail: path,
-    confirmLabel: "Open file",
-    cancelLabel: "Cancel",
+    confirmLabel: t("editor.link.confirmOutsideFolder.confirm"),
+    cancelLabel: t("editor.link.confirmOutsideFolder.cancel"),
   });
 
 const openExternalWebTarget = async (url: string) => {
@@ -59,7 +60,7 @@ const openExternalWebTarget = async (url: string) => {
     await openUrl(url);
     return true;
   } catch (error) {
-    notifyOperationFailure("Could not open web link.", error, "openExternalWebTarget");
+    notifyOperationFailure(t("editor.link.openWebFailed"), error, "openExternalWebTarget");
     return false;
   }
 };
@@ -77,7 +78,7 @@ const openLocalFilePath = async (
     });
     return true;
   } catch (error) {
-    notifyOperationFailure("Could not open local link.", error, "openLocalFilePath");
+    notifyOperationFailure(t("editor.link.openLocalFailed"), error, "openLocalFilePath");
     return false;
   }
 };
@@ -113,27 +114,27 @@ const activateResolvedMarkdownLink = async (
       return activateOutsideFolderLink(options, resolution.path);
 
     case "missing":
-      notifyWarning("Link target not found.", resolution.path);
+      notifyWarning(t("editor.link.missing"), resolution.path);
       return false;
 
     case "untitledRelative":
-      notifyWarning("Save the document to resolve this link.");
+      notifyWarning(t("editor.link.untitledRelative"));
       return false;
 
     case "unsupportedTarget":
-      notifyWarning("Unsupported link target.", options.target);
+      notifyWarning(t("editor.link.unsupportedTarget"), options.target);
       return false;
 
     case "invalidPath":
-      notifyWarning("Invalid link path.", resolution.path);
+      notifyWarning(t("editor.link.invalidPath"), resolution.path);
       return false;
 
     case "permissionDenied":
-      notifyWarning("Link access denied.", resolution.message || resolution.path);
+      notifyWarning(t("editor.link.permissionDenied"), resolution.message || resolution.path);
       return false;
 
     case "metadataFailed":
-      notifyWarning("Link target metadata unavailable.", resolution.message || resolution.path);
+      notifyWarning(t("editor.link.metadataFailed"), resolution.message || resolution.path);
       return false;
   }
 };
@@ -148,7 +149,7 @@ const activateOutsideFolderLink = async (
   });
 
   if (resolution.kind === "outsideFolder") {
-    notifyWarning("Link target is outside the current folder.", resolution.path || path);
+    notifyWarning(t("editor.link.outsideFolder"), resolution.path || path);
     return false;
   }
 
@@ -168,7 +169,7 @@ export const activateMarkdownLink = async (options: ActivateMarkdownLinkOptions)
 
     return activateResolvedMarkdownLink(options, resolution);
   } catch (error) {
-    notifyOperationFailure("Could not resolve link.", error, "activateMarkdownLink");
+    notifyOperationFailure(t("editor.link.resolveFailed"), error, "activateMarkdownLink");
     return false;
   }
 };

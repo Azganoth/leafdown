@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { EditorDocumentStatus } from "@/features/editor";
 import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor/commands/contract";
 import {
   createActiveEditorCommandState,
@@ -42,10 +43,10 @@ describe("document editor bridge", () => {
     const listener = vi.fn();
     const listenerDisposable = documentEditorBridge.onDidChangeDocumentStatus(listener);
     const status = {
-      blockPath: ["Paragraph"],
+      blockPath: [{ kind: "paragraph" }],
       document: { characters: 5, charactersWithoutSpaces: 5, words: 1 },
       selection: null,
-    };
+    } satisfies EditorDocumentStatus;
 
     documentEditorBridge.set(
       "doc:test",

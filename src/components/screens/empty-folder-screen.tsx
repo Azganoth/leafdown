@@ -1,6 +1,10 @@
 import { FolderOpenIcon } from "lucide-react";
 
+import { useLocalization } from "@/lib/i18n";
+
 export function EmptyFolderScreen() {
+  const { t } = useLocalization();
+
   return (
     <section
       aria-labelledby="empty-folder-title"
@@ -11,10 +15,10 @@ export function EmptyFolderScreen() {
           <FolderOpenIcon className="size-7" />
         </span>
         <h2 id="empty-folder-title" className="mt-5 text-xl font-semibold">
-          No Markdown files found
+          {t("emptyFolder.title")}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Create a new document or open another folder.
+          {t("emptyFolder.description")}
         </p>
       </div>
     </section>

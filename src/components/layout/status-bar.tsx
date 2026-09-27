@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import {
-  COMMAND_DEFINITIONS,
+  getCommandLabelId,
   useCommandUIStore,
   type AppCommandId,
   type CommandState,
@@ -32,9 +32,15 @@ import {
   type TextEncodingName,
   type LineEnding,
 } from "@/features/document";
-import type { EditorDocumentStatus, TextStatistics } from "@/features/editor";
+import {
+  formatBlockPathSegment,
+  type BlockPathSegment,
+  type EditorDocumentStatus,
+  type TextStatistics,
+} from "@/features/editor";
 import { useSettingsStore } from "@/features/preferences";
 import { documentEditorBridge } from "@/features/session";
+import { useLocalization, type Translate } from "@/lib/i18n";
 
 const WORDS_PER_MINUTE = 200;
 const BLOCK_PATH_SEPARATOR = " › ";
@@ -48,51 +54,46 @@ const ENCODING_COMMAND_IDS = [
   "edit.encoding.utf8Bom",
 ] as const satisfies readonly AppCommandId[];
 
-const numberFormat = new Intl.NumberFormat();
-
 const subscribeToDocumentStatusChanges = (listener: () => void) => {
   const listenerDisposable = documentEditorBridge.onDidChangeDocumentStatus(listener);
 
   return () => listenerDisposable.dispose();
 };
 
-const formatCount = (count: number, singular: string, plural: string) =>
-  `${numberFormat.format(count)} ${count === 1 ? singular : plural}`;
-
-const formatPartialCount = (
-  selected: number | null,
-  total: number,
-  singular: string,
-  plural: string,
+const formatWordCount = (
+  t: Translate,
+  document: TextStatistics,
+  selection: TextStatistics | null,
 ) =>
+  selection
+    ? t("statusBar.selectedWords", { selected: selection.words, count: document.words })
+    : t("statusBar.words", { count: document.words });
+
+const formatCharacters = (t: Translate, count: number, selected: number | null) =>
   selected === null
-    ? formatCount(total, singular, plural)
-    : `${numberFormat.format(selected)} of ${formatCount(total, singular, plural)}`;
+    ? t("statusBar.characters", { count })
+    : t("statusBar.selectedCharacters", { selected, count });
 
-const formatWordCount = (document: TextStatistics, selection: TextStatistics | null) =>
-  formatPartialCount(selection?.words ?? null, document.words, "word", "words");
+const formatCharacterCount = (
+  t: Translate,
+  document: TextStatistics,
+  selection: TextStatistics | null,
+) =>
+  t("statusBar.characterSummary", {
+    characters: formatCharacters(t, document.characters, selection?.characters ?? null),
+    charactersWithoutSpaces: formatCharacters(
+      t,
+      document.charactersWithoutSpaces,
+      selection?.charactersWithoutSpaces ?? null,
+    ),
+  });
 
-const formatCharacterCount = (document: TextStatistics, selection: TextStatistics | null) => {
-  const characters = formatPartialCount(
-    selection?.characters ?? null,
-    document.characters,
-    "character",
-    "characters",
-  );
-  const charactersWithoutSpaces = formatPartialCount(
-    selection?.charactersWithoutSpaces ?? null,
-    document.charactersWithoutSpaces,
-    "character",
-    "characters",
-  );
-
-  return `${characters}, ${charactersWithoutSpaces} without spaces`;
-};
-
-const formatReadingTime = (words: number) => {
+const formatReadingTime = (t: Translate, words: number) => {
   const minutes = Math.round(words / WORDS_PER_MINUTE);
 
-  return minutes < 1 ? "<1 min read" : `~${numberFormat.format(minutes)} min read`;
+  return minutes < 1
+    ? t("statusBar.readingTimeUnderMinute")
+    : t("statusBar.readingTime", { minutes });
 };
 
 interface StatusBarControlProps {
@@ -111,6 +112,7 @@ export function StatusBar({
   onExecute,
   reopenWithEncoding,
 }: StatusBarProps) {
+  const { t } = useLocalization();
   const defaultLineEnding = useSettingsStore((state) => state.defaultNewDocumentLineEnding);
   const documentKey = getActiveDocumentKey(activeDocument);
   const getDocumentStatus = () => documentEditorBridge.getDocumentStatus(documentKey);
@@ -122,7 +124,7 @@ export function StatusBar({
 
   return (
     <footer
-      aria-label="Status bar"
+      aria-label={t("statusBar.label")}
       data-status-bar
       data-testid="status-bar"
       className="flex h-(--status-bar-height) min-w-0 shrink-0 items-center gap-4 px-4 text-xs text-muted-foreground"
@@ -152,11 +154,14 @@ export function StatusBar({
 }
 
 interface BlockPathProps {
-  blockPath: readonly string[];
+  blockPath: readonly BlockPathSegment[];
 }
 
 function BlockPath({ blockPath }: BlockPathProps) {
-  const path = blockPath.join(BLOCK_PATH_SEPARATOR);
+  const { t } = useLocalization();
+  const path = blockPath
+    .map((segment) => formatBlockPathSegment(segment, t))
+    .join(BLOCK_PATH_SEPARATOR);
 
   return (
     <Tooltip>
@@ -182,14 +187,15 @@ interface DocumentMetricsProps {
 }
 
 function DocumentMetrics({ status }: DocumentMetricsProps) {
-  const characterCount = formatCharacterCount(status.document, status.selection);
+  const { t } = useLocalization();
+  const characterCount = formatCharacterCount(t, status.document, status.selection);
 
   return (
     <>
-      <span>{formatReadingTime(status.document.words)}</span>
+      <span>{formatReadingTime(t, status.document.words)}</span>
       <Tooltip>
         <TooltipTrigger render={<span data-testid="status-bar-word-count" />}>
-          {formatWordCount(status.document, status.selection)}
+          {formatWordCount(t, status.document, status.selection)}
           <span className="sr-only">, {characterCount}</span>
         </TooltipTrigger>
         <TooltipContent side="top">{characterCount}</TooltipContent>
@@ -203,6 +209,7 @@ interface LineEndingMenuProps extends StatusBarControlProps {
 }
 
 function LineEndingMenu({ commandState, lineEnding, onExecute }: LineEndingMenuProps) {
+  const { t } = useLocalization();
   const label = lineEnding.toUpperCase();
   const checkedCommandId =
     LINE_ENDING_COMMAND_IDS.find((commandId) => {
@@ -215,7 +222,7 @@ function LineEndingMenu({ commandState, lineEnding, onExecute }: LineEndingMenuP
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`Line ending: ${label}`}
+            aria-label={t("statusBar.lineEnding", { lineEnding: label })}
             size="xs"
             type="button"
             variant="ghost"
@@ -236,7 +243,7 @@ function LineEndingMenu({ commandState, lineEnding, onExecute }: LineEndingMenuP
               value={commandId}
               disabled={!commandState(commandId).enabled}
             >
-              {COMMAND_DEFINITIONS[commandId].label}
+              {t(getCommandLabelId(commandId))}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -251,7 +258,9 @@ function EncodingMenu({
   onExecute,
   reopenWithEncoding,
 }: StatusBarProps) {
-  const label = formatDocumentEncoding(activeDocument.encoding);
+  const localization = useLocalization();
+  const { t } = localization;
+  const label = formatDocumentEncoding(activeDocument.encoding, localization);
   const commandIds = ENCODING_COMMAND_IDS.filter(
     (commandId) => commandId !== "edit.encoding.file" || commandState(commandId).enabled,
   );
@@ -262,15 +271,15 @@ function EncodingMenu({
     }) ?? "";
   const getItemLabel = (commandId: (typeof ENCODING_COMMAND_IDS)[number]) =>
     commandId === "edit.encoding.file" && activeDocument.status === "saved"
-      ? formatDocumentEncoding(activeDocument.fileEncoding)
-      : COMMAND_DEFINITIONS[commandId].label;
+      ? formatDocumentEncoding(activeDocument.fileEncoding, localization)
+      : t(getCommandLabelId(commandId));
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`Encoding: ${label}`}
+            aria-label={t("statusBar.encoding", { encoding: label })}
             data-testid="status-bar-encoding"
             size="xs"
             type="button"
@@ -283,7 +292,7 @@ function EncodingMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" className="w-auto">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Save with encoding</DropdownMenuLabel>
+          <DropdownMenuLabel>{t("statusBar.saveWithEncoding")}</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             value={checkedCommandId}
             onValueChange={(commandId: AppCommandId) => onExecute(commandId)}
@@ -302,7 +311,7 @@ function EncodingMenu({
         <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger disabled={!reopenWithEncoding.state.enabled}>
-            Reopen with encoding
+            {t("statusBar.reopenWithEncoding")}
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="overflow-hidden">
             <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
@@ -312,7 +321,7 @@ function EncodingMenu({
               >
                 {ENCODING_CHOICES.map((choice) => (
                   <DropdownMenuRadioItem key={choice.name} value={choice.name}>
-                    {choice.label}
+                    {t(choice.labelId)}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
@@ -325,20 +334,21 @@ function EncodingMenu({
 }
 
 function ZoomReset({ commandState, onExecute }: StatusBarControlProps) {
+  const { formatNumber, t } = useLocalization();
   const zoom = useCommandUIStore((state) => state.zoom);
 
   if (!commandState("view.resetZoom").enabled) {
     return null;
   }
 
-  const label = `${Math.round(zoom * 100)}%`;
+  const label = formatNumber(zoom, { style: "percent" });
 
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Button
-            aria-label={`Zoom ${label}, reset zoom`}
+            aria-label={t("statusBar.zoomReset", { zoom: label })}
             size="xs"
             type="button"
             variant="ghost"
@@ -349,7 +359,7 @@ function ZoomReset({ commandState, onExecute }: StatusBarControlProps) {
       >
         {label}
       </TooltipTrigger>
-      <TooltipContent side="top">{COMMAND_DEFINITIONS["view.resetZoom"].label}</TooltipContent>
+      <TooltipContent side="top">{t(getCommandLabelId("view.resetZoom"))}</TooltipContent>
     </Tooltip>
   );
 }

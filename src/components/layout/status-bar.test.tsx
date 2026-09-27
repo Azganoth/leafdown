@@ -10,6 +10,7 @@ import {
 } from "@/features/document";
 import type { EditorDocumentStatus } from "@/features/editor";
 import { documentEditorBridge } from "@/features/session";
+import { createLocalization, localizer, PSEUDO_LOCALE } from "@/lib/i18n";
 import { createSavedDocument } from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
@@ -24,7 +25,7 @@ const disabledState = {
 } satisfies CommandState;
 
 const createStatus = (overrides: Partial<EditorDocumentStatus> = {}): EditorDocumentStatus => ({
-  blockPath: ["Blockquote", "Task list", "Paragraph"],
+  blockPath: [{ kind: "blockquote" }, { kind: "taskList" }, { kind: "paragraph" }],
   document: { characters: 2_468, charactersWithoutSpaces: 2_101, words: 450 },
   selection: null,
   ...overrides,
@@ -98,6 +99,31 @@ describe("StatusBar", () => {
     expect(statusBar).not.toHaveAttribute("aria-live");
   });
 
+  it("re-translates its labels and counts on a language switch", () => {
+    renderStatusBar();
+    const pseudo = createLocalization(PSEUDO_LOCALE);
+
+    try {
+      act(() => localizer.setLanguage(PSEUDO_LOCALE, []));
+
+      expect(
+        screen.getByRole("contentinfo", { name: pseudo.t("statusBar.label") }),
+      ).toHaveTextContent(pseudo.t("statusBar.readingTime", { minutes: 2 }));
+      expect(screen.getByTestId("status-bar-word-count")).toHaveTextContent(
+        pseudo.t("statusBar.words", { count: 450 }),
+      );
+      expect(screen.getByTestId("status-bar-block-path")).toHaveTextContent(
+        pseudo.t("editor.blockPath.blockquote"),
+      );
+    } finally {
+      act(() => localizer.setLanguage("en", []));
+    }
+
+    expect(screen.getByRole("contentinfo", { name: "Status bar" })).toHaveTextContent(
+      "~2 min read",
+    );
+  });
+
   it("counts a selection against the document and drops the block path", () => {
     renderStatusBar({
       status: createStatus({
@@ -128,7 +154,7 @@ describe("StatusBar", () => {
   it("follows status changes from the editor", () => {
     const { updateStatus } = renderStatusBar();
 
-    updateStatus(createStatus({ blockPath: ["Heading 2"] }));
+    updateStatus(createStatus({ blockPath: [{ kind: "heading", level: 2 }] }));
 
     expect(screen.getByTestId("status-bar-block-path")).toHaveTextContent("Heading 2");
   });

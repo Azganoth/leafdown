@@ -7,6 +7,7 @@ import {
   writeDiagnosticSlowOperation,
 } from "@/features/diagnostics";
 import { CancellationToken, raceWithCancellation } from "@/lib/cancellation";
+import { t } from "@/lib/i18n";
 
 import type { TextEncodingName, DocumentEncoding } from "../utils/documentEncoding";
 import {
@@ -52,7 +53,7 @@ export const selectMarkdownFilePath = async () => {
 
 export const selectMarkdownSavePath = (defaultPath: string) =>
   save({
-    title: "Save Markdown document",
+    title: t("document.saveDialog.title"),
     filters: MARKDOWN_FILTERS,
     defaultPath,
   });

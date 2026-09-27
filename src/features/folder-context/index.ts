@@ -27,7 +27,7 @@ export {
 export {
   createFolderArticle,
   createFolderDirectory,
-  getTrashName,
+  getTrashKind,
   renameFolderContextEntry,
   trashFolderContextEntry,
 } from "./services/folderEntries";

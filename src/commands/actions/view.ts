@@ -10,6 +10,7 @@ import {
 import { setAlwaysOnTop, useSettingsStore } from "@/features/preferences";
 import { changeArticleSortOrder } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
+import { t } from "@/lib/i18n";
 import { notifyError } from "@/lib/toast";
 
 import type { AppCommandContext } from "../context";
@@ -27,7 +28,7 @@ const updateZoom = async (zoom: number, setZoom: (zoom: number) => void) => {
     await getCurrentWebview().setZoom(zoom);
     setZoom(zoom);
   } catch (error) {
-    notifyOperationFailure("Could not update zoom.", error, "updateZoom");
+    notifyOperationFailure(t("commands.view.updateZoomFailed"), error, "updateZoom");
   }
 };
 
@@ -96,7 +97,7 @@ export const toggleFullscreen = async () => {
     await getCurrentWindow().setFullscreen(nextFullscreen);
     setFullscreen(nextFullscreen);
   } catch (error) {
-    notifyOperationFailure("Could not update fullscreen mode.", error, "toggleFullscreen");
+    notifyOperationFailure(t("commands.view.updateFullscreenFailed"), error, "toggleFullscreen");
   }
 };
 
@@ -104,7 +105,7 @@ export const toggleAlwaysOnTop = async () => {
   try {
     await setAlwaysOnTop(!useSettingsStore.getState().alwaysOnTop);
   } catch (error) {
-    notifyOperationFailure("Could not update always on top.", error, "toggleAlwaysOnTop");
+    notifyOperationFailure(t("commands.view.updateAlwaysOnTopFailed"), error, "toggleAlwaysOnTop");
   }
 };
 

@@ -1,0 +1,260 @@
+import { IntlMessageFormat, type PrimitiveType } from "intl-messageformat";
+
+import { SignalSource } from "../signal";
+import {
+  SOURCE_LOCALE,
+  SOURCE_MESSAGES,
+  type MessageCatalog,
+  type MessageId,
+  type MessageSource,
+} from "./messages";
+import { createPseudoCatalog, PSEUDO_LOCALE } from "./pseudoLocale";
+
+export type MessageValues = Record<string, PrimitiveType>;
+export type Translate = (id: MessageId, values?: MessageValues) => string;
+export type FormatRich = <T>(
+  id: MessageId,
+  values: Record<string, PrimitiveType | T>,
+) => (string | T)[];
+
+export const SYSTEM_LANGUAGE = "system";
+
+export interface Localization {
+  readonly locale: string;
+  readonly t: Translate;
+  // Places values that are not text, such as elements, into a message without splitting it.
+  readonly formatRich: FormatRich;
+  readonly formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
+  readonly formatRelativeTime: (timestamp: number, now: number) => string;
+  readonly formatList: (items: readonly string[], type?: Intl.ListFormatType) => string;
+}
+
+const BUNDLED_CATALOGS = import.meta.glob<MessageCatalog>("../../locales/*.json", {
+  eager: true,
+  import: "default",
+});
+
+// A locale is offered only once listed here, and it must be complete when first listed.
+export const SHIPPED_LOCALES: readonly string[] = [SOURCE_LOCALE];
+
+// Desktop E2E scenarios assert English text whatever language the test machine runs in.
+const PINNED_SYSTEM_LANGUAGES: readonly string[] | null =
+  import.meta.env.MODE === "desktop-e2e" ? [SOURCE_LOCALE] : null;
+
+const getBundledCatalog = (locale: string): MessageCatalog =>
+  BUNDLED_CATALOGS[`../../locales/${locale}.json`] ?? {};
+
+const loadCatalog = (locale: string): MessageCatalog =>
+  import.meta.env.DEV && locale === PSEUDO_LOCALE
+    ? createPseudoCatalog()
+    : getBundledCatalog(locale);
+
+export const getAvailableLocales = (): readonly string[] =>
+  import.meta.env.DEV ? [...SHIPPED_LOCALES, PSEUDO_LOCALE] : SHIPPED_LOCALES;
+
+export const getSystemLanguages = (): readonly string[] =>
+  PINNED_SYSTEM_LANGUAGES ?? (typeof navigator === "undefined" ? [] : navigator.languages);
+
+const canonicalize = (tag: string) => {
+  try {
+    return Intl.getCanonicalLocales(tag)[0] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+// RFC 4647 lookup, after likely-subtag maximization so "zh-TW" can reach "zh-Hant".
+const getLookupCandidates = (tag: string) => {
+  const locale = new Intl.Locale(tag);
+  const candidates = [locale.toString()];
+
+  for (const base of [locale.maximize().toString(), locale.minimize().toString()]) {
+    const subtags = base.split("-");
+
+    while (subtags.length > 0) {
+      candidates.push(subtags.join("-"));
+      subtags.pop();
+    }
+  }
+
+  return [...new Set(candidates)];
+};
+
+const indexLocales = (locales: readonly string[]) =>
+  new Map(locales.map((locale) => [locale.toLowerCase(), locale]));
+
+// An explicit choice names a locale from the picker, so only that locale satisfies it; a
+// regional sibling of a locale no longer shipped is not the language that was chosen.
+export const getChosenLocale = (
+  preference: string,
+  availableLocales: readonly string[] = getAvailableLocales(),
+) => {
+  const canonical = preference === SYSTEM_LANGUAGE ? null : canonicalize(preference);
+
+  return canonical ? (indexLocales(availableLocales).get(canonical.toLowerCase()) ?? null) : null;
+};
+
+export const resolveLocale = (
+  preference: string,
+  systemLanguages: readonly string[],
+  availableLocales: readonly string[] = getAvailableLocales(),
+): string => {
+  const chosenLocale = getChosenLocale(preference, availableLocales);
+
+  if (chosenLocale) {
+    return chosenLocale;
+  }
+
+  const available = indexLocales(availableLocales);
+
+  for (const tag of systemLanguages) {
+    const canonical = canonicalize(tag);
+
+    if (!canonical) {
+      continue;
+    }
+
+    for (const candidate of getLookupCandidates(canonical)) {
+      const match = available.get(candidate.toLowerCase());
+
+      if (match) {
+        return match;
+      }
+    }
+  }
+
+  return SOURCE_LOCALE;
+};
+
+const RELATIVE_TIME_UNITS = [
+  ["year", 365 * 24 * 60 * 60 * 1000],
+  ["month", 30 * 24 * 60 * 60 * 1000],
+  ["week", 7 * 24 * 60 * 60 * 1000],
+  ["day", 24 * 60 * 60 * 1000],
+  ["hour", 60 * 60 * 1000],
+  ["minute", 60 * 1000],
+] as const satisfies readonly (readonly [Intl.RelativeTimeFormatUnit, number])[];
+
+const reportedFormatFailures = new Set<string>();
+
+const reportFormatFailure = (locale: string, id: MessageId, error: unknown) => {
+  const key = `${locale}\n${id}`;
+
+  if (reportedFormatFailures.has(key)) {
+    return;
+  }
+
+  reportedFormatFailures.add(key);
+  console.warn(`Message "${id}" failed to format in ${locale}; using English.`, error);
+};
+
+const getFormat = (
+  cache: Map<MessageId, IntlMessageFormat>,
+  id: MessageId,
+  source: MessageSource,
+  locale: string,
+) => {
+  let format = cache.get(id);
+
+  if (!format) {
+    format = new IntlMessageFormat(source, locale);
+    cache.set(id, format);
+  }
+
+  return format;
+};
+
+const sourceFormats = new Map<MessageId, IntlMessageFormat>();
+
+const toParts = <T>(result: string | T | (string | T)[]) =>
+  Array.isArray(result) ? result : [result];
+
+export const createLocalization = (locale: string, catalog = loadCatalog(locale)): Localization => {
+  const formats = new Map<MessageId, IntlMessageFormat>();
+  const numberFormat = new Intl.NumberFormat(locale);
+  const relativeTimeFormat = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+  const formatMessage = <R>(id: MessageId, format: (message: IntlMessageFormat) => R) => {
+    const translated = locale === SOURCE_LOCALE ? undefined : catalog[id];
+    const formatSource = () =>
+      format(getFormat(sourceFormats, id, SOURCE_MESSAGES[id], SOURCE_LOCALE));
+
+    if (translated === undefined) {
+      return formatSource();
+    }
+
+    try {
+      return format(getFormat(formats, id, translated, locale));
+    } catch (error) {
+      reportFormatFailure(locale, id, error);
+      return formatSource();
+    }
+  };
+
+  const t: Translate = (id, values) =>
+    formatMessage(id, (message) => String(message.format(values)));
+
+  const formatRich: FormatRich = <T>(id: MessageId, values: Record<string, PrimitiveType | T>) =>
+    formatMessage(id, (message) => toParts(message.format<T>(values)));
+
+  return {
+    locale,
+    t,
+    formatRich,
+    formatNumber: (value, options) =>
+      options ? new Intl.NumberFormat(locale, options).format(value) : numberFormat.format(value),
+    formatRelativeTime: (timestamp, now) => {
+      // A clock set back after the time was recorded would otherwise read as the future.
+      const elapsed = Math.max(0, now - timestamp);
+
+      for (const [unit, unitMs] of RELATIVE_TIME_UNITS) {
+        if (elapsed >= unitMs) {
+          return relativeTimeFormat.format(-Math.floor(elapsed / unitMs), unit);
+        }
+      }
+
+      return t("time.justNow");
+    },
+    formatList: (items, type = "conjunction") =>
+      new Intl.ListFormat(locale, { type }).format(items),
+  };
+};
+
+const applyDocumentLanguage = (locale: string) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.lang = locale;
+  document.documentElement.dir = new Intl.Locale(locale).getTextInfo?.().direction ?? "ltr";
+};
+
+const changes = new SignalSource<Localization>();
+let current = createLocalization(SOURCE_LOCALE);
+
+export const localizer = {
+  get current() {
+    return current;
+  },
+  onDidChange: changes.signal,
+  setLanguage(preference: string, systemLanguages = getSystemLanguages()) {
+    const locale = resolveLocale(preference, systemLanguages);
+
+    applyDocumentLanguage(locale);
+
+    if (locale === current.locale) {
+      return;
+    }
+
+    current = createLocalization(locale);
+    changes.notify(current);
+  },
+};
+
+// Only for code outside React. A component that calls this keeps its first language after a
+// switch, because React Compiler caches the call on its arguments; components read `t` from
+// `useLocalization()` instead.
+export const t: Translate = (id, values) => current.t(id, values);
+
+export const getLanguageDisplayName = (locale: string, displayLocale = locale) =>
+  new Intl.DisplayNames([displayLocale], { type: "language" }).of(locale) ?? locale;

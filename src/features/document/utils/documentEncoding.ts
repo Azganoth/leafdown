@@ -1,3 +1,5 @@
+import type { Localization, MessageId } from "@/lib/i18n";
+
 export const LEGACY_ENCODING_NAMES = [
   "windows-1250",
   "windows-1251",
@@ -59,38 +61,38 @@ const ENCODING_LABELS = {
 
 export interface EncodingChoice {
   name: TextEncodingName;
-  label: string;
+  labelId: MessageId;
 }
 
 export const ENCODING_CHOICES: readonly EncodingChoice[] = [
-  { name: "UTF-8", label: "UTF-8" },
-  { name: "windows-1250", label: "Central European (Windows-1250)" },
-  { name: "windows-1251", label: "Cyrillic (Windows-1251)" },
-  { name: "windows-1252", label: "Western (Windows-1252, ISO-8859-1)" },
-  { name: "windows-1253", label: "Greek (Windows-1253)" },
-  { name: "windows-1254", label: "Turkish (Windows-1254)" },
-  { name: "windows-1255", label: "Hebrew (Windows-1255)" },
-  { name: "windows-1256", label: "Arabic (Windows-1256)" },
-  { name: "windows-1257", label: "Baltic (Windows-1257)" },
-  { name: "windows-1258", label: "Vietnamese (Windows-1258)" },
-  { name: "ISO-8859-2", label: "Central European (ISO-8859-2)" },
-  { name: "ISO-8859-15", label: "Western (ISO-8859-15)" },
-  { name: "KOI8-R", label: "Cyrillic (KOI8-R)" },
-  { name: "KOI8-U", label: "Cyrillic (KOI8-U)" },
-  { name: "Shift_JIS", label: "Japanese (Shift_JIS)" },
-  { name: "EUC-JP", label: "Japanese (EUC-JP)" },
-  { name: "GBK", label: "Simplified Chinese (GBK)" },
-  { name: "gb18030", label: "Simplified Chinese (GB18030)" },
-  { name: "Big5", label: "Traditional Chinese (Big5)" },
-  { name: "EUC-KR", label: "Korean (EUC-KR)" },
-  { name: "UTF-16LE", label: "UTF-16 LE without BOM" },
-  { name: "UTF-16BE", label: "UTF-16 BE without BOM" },
+  { name: "UTF-8", labelId: "document.encodingChoice.utf8" },
+  { name: "windows-1250", labelId: "document.encodingChoice.windows1250" },
+  { name: "windows-1251", labelId: "document.encodingChoice.windows1251" },
+  { name: "windows-1252", labelId: "document.encodingChoice.windows1252" },
+  { name: "windows-1253", labelId: "document.encodingChoice.windows1253" },
+  { name: "windows-1254", labelId: "document.encodingChoice.windows1254" },
+  { name: "windows-1255", labelId: "document.encodingChoice.windows1255" },
+  { name: "windows-1256", labelId: "document.encodingChoice.windows1256" },
+  { name: "windows-1257", labelId: "document.encodingChoice.windows1257" },
+  { name: "windows-1258", labelId: "document.encodingChoice.windows1258" },
+  { name: "ISO-8859-2", labelId: "document.encodingChoice.iso88592" },
+  { name: "ISO-8859-15", labelId: "document.encodingChoice.iso885915" },
+  { name: "KOI8-R", labelId: "document.encodingChoice.koi8r" },
+  { name: "KOI8-U", labelId: "document.encodingChoice.koi8u" },
+  { name: "Shift_JIS", labelId: "document.encodingChoice.shiftJis" },
+  { name: "EUC-JP", labelId: "document.encodingChoice.eucJp" },
+  { name: "GBK", labelId: "document.encodingChoice.gbk" },
+  { name: "gb18030", labelId: "document.encodingChoice.gb18030" },
+  { name: "Big5", labelId: "document.encodingChoice.big5" },
+  { name: "EUC-KR", labelId: "document.encodingChoice.eucKr" },
+  { name: "UTF-16LE", labelId: "document.encodingChoice.utf16le" },
+  { name: "UTF-16BE", labelId: "document.encodingChoice.utf16be" },
 ];
 
 export const formatEncodingName = (name: TextEncodingName) => ENCODING_LABELS[name];
 
-export const formatDocumentEncoding = ({ name, bom }: DocumentEncoding) =>
-  bom ? `${ENCODING_LABELS[name]} with BOM` : ENCODING_LABELS[name];
+export const formatDocumentEncoding = ({ name, bom }: DocumentEncoding, { t }: Localization) =>
+  bom ? t("document.encoding.withBom", { encoding: ENCODING_LABELS[name] }) : ENCODING_LABELS[name];
 
 export const isSameEncoding = (left: DocumentEncoding, right: DocumentEncoding) =>
   left.name === right.name && left.bom === right.bom;

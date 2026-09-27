@@ -11,7 +11,12 @@ import { useSettingsStore } from "../stores/settings";
 import { PreferencesDialog } from "./preferences-dialog";
 
 const MVP_SETTINGS_BY_TAB = {
-  General: ["Record recent files and folders", "Sidebar visibility", "Sort articles by"],
+  General: [
+    "Language",
+    "Record recent files and folders",
+    "Sidebar visibility",
+    "Sort articles by",
+  ],
   Files: [
     "Default extension for new documents",
     "Default line ending for new documents",
@@ -98,6 +103,37 @@ describe("preferences-dialog", () => {
       accentColor: "violet",
       theme: "dark",
     });
+  });
+
+  it("offers the system language and each available locale by its own name", async () => {
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+    const languageSelect = screen.getByRole("combobox", { name: "Language" });
+
+    expect(languageSelect).toHaveTextContent("System (English)");
+
+    await user.click(languageSelect);
+
+    expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "System (English)",
+      "English",
+      "English (Pseudo-Accents)",
+    ]);
+    expect(screen.getByRole("option", { name: "English" })).toHaveAttribute("lang", "en");
+
+    await user.click(screen.getByRole("option", { name: "English (Pseudo-Accents)" }));
+
+    expect(useSettingsStore.getState().language).toBe("en-XA");
+  });
+
+  it("shows an unavailable stored language as the system language without replacing it", () => {
+    setDefaultSettings({ language: "ja" });
+
+    renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+
+    expect(screen.getByRole("combobox", { name: "Language" })).toHaveTextContent(
+      "System (English)",
+    );
+    expect(useSettingsStore.getState().language).toBe("ja");
   });
 
   it("keeps a choice when its selected option is pressed again", async () => {

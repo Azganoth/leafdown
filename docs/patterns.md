@@ -137,10 +137,10 @@ The command layer maps command IDs to application behavior. Feature-specific exe
 
 Use:
 
-- `src/commands/metadata.ts` for labels and shortcuts.
+- `src/commands/metadata.ts` for shortcuts, and the `command.<commandId>` message for each label, which `getCommandLabelId` names.
 - `src/commands/application.ts` for application command handlers and state getters.
 - `src/commands/state.ts` for routing command state between editor and application commands.
-- `src/features/editor/commands/contract.ts` and `src/features/editor/commands/metadata.ts`, imported directly, when only editor command IDs, the command state shape, its derived constants, or command labels are needed.
+- `src/features/editor/commands/contract.ts` and `src/features/editor/commands/metadata.ts`, imported directly, when only editor command IDs, the command state shape, its derived constants, or command label IDs are needed.
 - Feature APIs for the actual domain behavior.
 
 Avoid:
@@ -166,6 +166,47 @@ Example:
 
 ```ts
 const saveCommand = appCommand(file.saveDocument, file.getSaveDocumentState);
+```
+
+### Localization
+
+[Architecture](./architecture.md#localization) defines what the localizer owns and which text is never translated; this section covers how UI text is written.
+
+Use:
+
+- A message in `src/locales/en.json` for every string a user can see or hear, including accessible names, `title`s, placeholders, and live-region announcements. Name it by the owning area, such as `document.openError.missingFile`, not by its English text: the same English can carry different meanings, such as `Plain text` under both Copy as and Paste as.
+- `t` from `useLocalization()` in components and hooks, and the formatters beside it for numbers, relative times, and lists.
+- `formatRich` from the same snapshot when a message places an element, such as a `<kbd>`, among its words.
+- The module-level `t` from `@/lib/i18n` in code outside React that builds transient text, such as a toast, a confirmation, or an error message. Event handlers and effects in a component or hook may read `localizer.current` instead.
+- A subscription to `localizer.onDidChange` in a plugin, node view, or other non-React owner of persistent text, which re-labels what it rendered and is disposed with its owner.
+- Data from domain code, such as a kind, a count, or a name, formatted into a message by the presentation that shows it. Store the data in state rather than the formatted text, so the text follows a language change.
+- ICU `plural` for wording that depends on a count and `select` for wording that depends on a kind. Every `plural` and `select` needs an `other` branch.
+
+Avoid:
+
+- Calling the module-level `t` in a component or hook; the lint rule rejects importing it into `.tsx` files and `use*.ts` hooks.
+- Building a sentence by concatenating messages or values, lowercasing a label, or replacing part of a message.
+- Choosing between messages with `count === 1` instead of `plural`.
+- Translating document content, file and folder names, paths, code, literal syntax, or operating-system error text. Pass them as arguments.
+- Putting shortcut key names inside a message. `formatShortcut` renders them from platform data.
+- Creating an `Intl` formatter with a fixed or default locale for interface text.
+
+Why:
+
+React Compiler caches a module-level call on its arguments, so a component that calls the module-level `t` keeps its first language after a switch; a `useLocalization()` snapshot changes identity with the locale and re-renders the component. Plugins render outside React, so only the change signal reaches them. Concatenated or lowercased English fixes word order and grammar that other languages do not share, and translators can only translate what a message holds whole.
+
+Example:
+
+```tsx
+const { formatNumber, t } = useLocalization();
+
+<Badge aria-label={t("articleNavigator.articleCount", { count })}>{formatNumber(count)}</Badge>;
+```
+
+```json
+{
+  "articleNavigator.articleCount": "{count, plural, one {# article} other {# articles}}"
+}
 ```
 
 ### Editor Plugins
@@ -443,7 +484,7 @@ try {
 try {
   await getCurrentWindow().setFullscreen(nextFullscreen);
 } catch (error) {
-  notifyOperationFailure("Could not update fullscreen mode.", error, "toggleFullscreen");
+  notifyOperationFailure(t("commands.view.updateFullscreenFailed"), error, "toggleFullscreen");
 }
 
 void createEditor().catch((error) => handleUnexpectedError(error, "createMilkdownEditor"));

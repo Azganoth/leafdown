@@ -3,10 +3,10 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 
+import { localizer, t } from "@/lib/i18n";
+
 import { readCodeFenced } from "../utils/codeMarkdown";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
-
-const EMPTY_BADGE_LABEL = "Language";
 
 export const createLeafdownCodeBlockViewPlugin = () =>
   $view(
@@ -18,6 +18,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
   readonly dom = document.createElement("pre");
   readonly contentDOM = document.createElement("code");
   private readonly badge = document.createElement("button");
+  private readonly localizationChange = localizer.onDidChange(() => this.render());
 
   constructor(
     private node: ProseMirrorNode,
@@ -56,6 +57,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
   }
 
   destroy() {
+    this.localizationChange.dispose();
     this.badge.removeEventListener("mousedown", this.handleBadgeMouseDown);
     this.badge.removeEventListener("click", this.handleBadgeClick);
   }
@@ -71,10 +73,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
 
     // Indented code has no fence line to carry a language on.
     this.badge.hidden = !readCodeFenced(this.node.attrs);
-    this.badge.textContent = language || EMPTY_BADGE_LABEL;
+    this.badge.textContent = language || t("editor.codeBlock.badge.empty");
     this.badge.setAttribute(
       "aria-label",
-      language ? `Code block language: ${language}` : "Set code block language",
+      language
+        ? t("editor.codeBlock.badge.label", { language })
+        : t("editor.codeBlock.badge.emptyLabel"),
     );
   }
 

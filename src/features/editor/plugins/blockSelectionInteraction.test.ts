@@ -3,6 +3,7 @@
 import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
+import { createLocalization, localizer, PSEUDO_LOCALE } from "@/lib/i18n";
 import {
   dispatchDOMEvent,
   dispatchMouseEvent,
@@ -380,6 +381,48 @@ describe("block selection interaction", () => {
     dispatchMouseDown(getHandle(paragraphs[1].pos), { button: 0, shift: true });
     expect(document.querySelector("[role='status']")).toHaveTextContent("2 blocks selected");
     expect(getHandles().every((handle) => handle.tabIndex === -1)).toBe(true);
+  });
+
+  it("re-translates handles and the announcement on a language switch without touching the document", async () => {
+    const mounted = await mountEditor("## Title\n\nSecond\n");
+    const [heading, paragraph] = getSelectableBlockTargets(mounted.view.state.doc);
+    const insertionButton = document.querySelector("[data-leafdown-block-insert]");
+    const status = document.querySelector("[role='status']");
+    const pseudo = createLocalization(PSEUDO_LOCALE);
+
+    dispatchMouseDown(getHandle(heading.pos), { button: 0 });
+    dispatchMouseDown(getHandle(paragraph.pos), { button: 0, shift: true });
+    const { doc, selection } = mounted.view.state;
+
+    expect(getHandle(heading.pos)).toHaveAttribute("aria-label", "Select heading 2 block");
+    expect(status).toHaveTextContent("2 blocks selected");
+
+    try {
+      localizer.setLanguage(PSEUDO_LOCALE, []);
+
+      expect(getHandle(heading.pos)).toHaveAttribute(
+        "aria-label",
+        pseudo.t("editor.blockSelection.selectHandle", { block: "heading", level: 2 }),
+      );
+      expect(getHandle(paragraph.pos)).toHaveAttribute(
+        "title",
+        pseudo.t("editor.blockSelection.selectHandle", { block: "paragraph" }),
+      );
+      expect(insertionButton).toHaveAttribute(
+        "aria-label",
+        pseudo.t("editor.blockSelection.insertAtBoundary"),
+      );
+      expect(status).toHaveTextContent(
+        pseudo.t("editor.blockSelection.selectedCount", { count: 2 }),
+      );
+      expect(mounted.view.state.doc).toBe(doc);
+      expect(mounted.view.state.selection.eq(selection)).toBe(true);
+      expect(mounted.getMarkdown()).toBe("## Title\n\nSecond\n");
+    } finally {
+      localizer.setLanguage("en", []);
+    }
+
+    expect(getHandle(heading.pos)).toHaveAttribute("aria-label", "Select heading 2 block");
   });
 
   it("retains selected-handle presentation when a document change preserves the range", async () => {

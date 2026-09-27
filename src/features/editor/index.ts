@@ -8,7 +8,6 @@ export {
   type EditorCommandId,
   type EditorCommandState,
 } from "./commands";
-export { EDITOR_COMMAND_LABELS } from "./commands/metadata";
 export {
   MilkdownEditor,
   type MilkdownEditorBridge,
@@ -19,7 +18,12 @@ export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextP
 export type { BlockInsertionRequest } from "./plugins/blockSelectionInteraction";
 export type { FootnotePreviewRequest, FootnotePreviewSource } from "./plugins/footnotePreview";
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
-export type { EditorDocumentStatus, TextStatistics } from "./utils/documentStatus";
+export { formatBlockPathSegment } from "./utils/blockPathLabels";
+export type {
+  BlockPathSegment,
+  EditorDocumentStatus,
+  TextStatistics,
+} from "./utils/documentStatus";
 export {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,

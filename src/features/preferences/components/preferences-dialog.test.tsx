@@ -31,7 +31,7 @@ const MVP_SETTINGS_BY_TAB = {
     "Display line numbers for code blocks",
     "Soft wrap for code blocks",
   ],
-  Appearance: ["Accent color", "Appearance theme"],
+  Appearance: ["Accent color", "Appearance theme", "Document font", "Text size", "Line spacing"],
 };
 
 const POST_MVP_SETTINGS = ["Auto save", "Render/editor theme", "Unordered list marker"];
@@ -147,11 +147,61 @@ describe("preferences-dialog", () => {
     expect(useSettingsStore.getState()).toMatchObject({ theme: "dark" });
   });
 
+  it("sets the document typography", async () => {
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("tab", { name: "Appearance" }));
+    const fontSetting = screen.getByRole("group", { name: "Document font" });
+    const textSizeSetting = screen.getByRole("group", { name: "Text size" });
+    const lineSpacingSetting = screen.getByRole("group", { name: "Line spacing" });
+
+    expect(
+      within(fontSetting)
+        .getAllByRole("button")
+        .map((option) => option.textContent),
+    ).toEqual(["Inter", "System"]);
+    expect(
+      within(textSizeSetting)
+        .getAllByRole("button")
+        .map((option) => option.textContent),
+    ).toEqual(["14 px", "16 px", "18 px", "20 px"]);
+    expect(
+      within(lineSpacingSetting)
+        .getAllByRole("button")
+        .map((option) => option.textContent),
+    ).toEqual(["Compact", "Default", "Relaxed"]);
+    expect(within(fontSetting).getByRole("button", { name: "Inter" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(textSizeSetting).getByRole("button", { name: "16 px" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(lineSpacingSetting).getByRole("button", { name: "Default" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(within(fontSetting).getByRole("button", { name: "System" }));
+    await user.click(within(textSizeSetting).getByRole("button", { name: "20 px" }));
+    await user.click(within(lineSpacingSetting).getByRole("button", { name: "Compact" }));
+
+    expect(useSettingsStore.getState()).toMatchObject({
+      documentFont: "system",
+      textSize: 20,
+      lineSpacing: "compact",
+    });
+  });
+
   it("restores default settings", async () => {
     setDefaultSettings({
       accentColor: "amber",
       displayCodeBlockLineNumbers: true,
+      documentFont: "system",
+      lineSpacing: "relaxed",
       sidebarVisible: false,
+      textSize: 18,
       theme: "dark",
     });
 
@@ -164,6 +214,9 @@ describe("preferences-dialog", () => {
       sidebarVisible: true,
       accentColor: "neutral",
       theme: "system",
+      documentFont: "inter",
+      textSize: 16,
+      lineSpacing: "default",
     });
   });
 

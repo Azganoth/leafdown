@@ -180,6 +180,7 @@ class BlockSelectionView {
   private pendingCollapsePos: number | null = null;
   private pressedHandle: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private observedBlocks = new Set<Element>();
   private insertionTarget: {
     pos: number;
     boundary: number;
@@ -338,7 +339,28 @@ class BlockSelectionView {
       this.hoveredPos = null;
     }
 
+    this.observeBlocks();
     this.position();
+  }
+
+  // The editor's minimum height hides layout changes inside a document shorter than it, such as
+  // a font or text size change, so the blocks themselves are watched as well.
+  private observeBlocks() {
+    if (!this.resizeObserver) {
+      return;
+    }
+
+    const blocks = new Set(this.view.dom.children);
+
+    for (const block of this.observedBlocks) {
+      if (!blocks.has(block)) this.resizeObserver.unobserve(block);
+    }
+
+    for (const block of blocks) {
+      if (!this.observedBlocks.has(block)) this.resizeObserver.observe(block);
+    }
+
+    this.observedBlocks = blocks;
   }
 
   private readonly schedulePosition = () => {

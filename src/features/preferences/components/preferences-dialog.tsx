@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
+import type { DocumentFont, DocumentLineSpacing } from "@/features/editor";
 import type { ArticleSortOrder } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
 import {
@@ -44,6 +45,7 @@ import { restoreDefaultSettings } from "../services/windowPreferences";
 import {
   type AppearanceAccentColor,
   type AppearanceTheme,
+  DOCUMENT_TEXT_SIZES,
   type DropBehavior,
   useSettingsStore,
 } from "../stores/settings";
@@ -75,6 +77,12 @@ const APPEARANCE_ACCENT_COLOR_OPTIONS: LocalizedOption<AppearanceAccentColor>[] 
   { labelId: "preferences.accentColor.blue", value: "blue" },
   { labelId: "preferences.accentColor.violet", value: "violet" },
   { labelId: "preferences.accentColor.fuchsia", value: "fuchsia" },
+];
+
+const LINE_SPACING_OPTIONS: LocalizedOption<DocumentLineSpacing>[] = [
+  { labelId: "preferences.lineSpacing.compact", value: "compact" },
+  { labelId: "preferences.lineSpacing.default", value: "default" },
+  { labelId: "preferences.lineSpacing.relaxed", value: "relaxed" },
 ];
 
 interface AccentColorPreviewProps {
@@ -401,7 +409,14 @@ function AppearancePreferences() {
   const { t } = useLocalization();
   const accentColor = useSettingsStore((state) => state.accentColor);
   const theme = useSettingsStore((state) => state.theme);
+  const documentFont = useSettingsStore((state) => state.documentFont);
+  const textSize = useSettingsStore((state) => state.textSize);
+  const lineSpacing = useSettingsStore((state) => state.lineSpacing);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
+  const documentFontOptions: ChoiceOption<DocumentFont>[] = [
+    { label: "Inter", value: "inter" },
+    { label: t("preferences.documentFont.system"), value: "system" },
+  ];
 
   return (
     <FieldGroup className="gap-5">
@@ -417,6 +432,39 @@ function AppearancePreferences() {
           value,
         }))}
         onValueChange={(value) => updateSetting("theme", value)}
+      />
+      <PreferenceChoice
+        label={t("preferences.documentFont.label")}
+        description={t("preferences.documentFont.description")}
+        value={documentFont}
+        options={documentFontOptions}
+        onValueChange={(value) => updateSetting("documentFont", value)}
+      />
+      <PreferenceChoice
+        label={t("preferences.textSize.label")}
+        description={t("preferences.textSize.description")}
+        value={String(textSize)}
+        options={DOCUMENT_TEXT_SIZES.map((size) => ({
+          label: t("preferences.textSize.option", { size }),
+          value: String(size),
+        }))}
+        onValueChange={(value) => {
+          const size = DOCUMENT_TEXT_SIZES.find((candidate) => String(candidate) === value);
+
+          if (size) {
+            updateSetting("textSize", size);
+          }
+        }}
+      />
+      <PreferenceChoice
+        label={t("preferences.lineSpacing.label")}
+        description={t("preferences.lineSpacing.description")}
+        value={lineSpacing}
+        options={LINE_SPACING_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
+        onValueChange={(value) => updateSetting("lineSpacing", value)}
       />
     </FieldGroup>
   );

@@ -33,6 +33,9 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     (state) => state.displayCodeBlockLineNumbers,
   );
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
+  const documentFont = useSettingsStore((state) => state.documentFont);
+  const textSize = useSettingsStore((state) => state.textSize);
+  const lineSpacing = useSettingsStore((state) => state.lineSpacing);
   const folderContextPath = useSessionStore((state) => state.folderContext?.path ?? null);
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
@@ -64,6 +67,9 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
               displayCodeBlockLineNumbers={displayCodeBlockLineNumbers}
               softWrapCodeBlocks={softWrapCodeBlocks}
+              documentFont={documentFont}
+              textSize={textSize}
+              lineSpacing={lineSpacing}
               onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
               onContentChanged={() => markActiveDocumentDirty(documentKey)}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}

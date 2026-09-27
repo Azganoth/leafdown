@@ -20,6 +20,11 @@ export type { FootnotePreviewRequest, FootnotePreviewSource } from "./plugins/fo
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";
 export { formatBlockPathSegment } from "./utils/blockPathLabels";
 export type {
+  DocumentFont,
+  DocumentLineSpacing,
+  DocumentTextSize,
+} from "./utils/documentTypography";
+export type {
   BlockPathSegment,
   EditorDocumentStatus,
   TextStatistics,

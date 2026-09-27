@@ -328,6 +328,15 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.
 - Accent color is global and persists across launches. Every available accent keeps the foreground of filled primary controls readable in light and dark appearances.
 
+### Document Typography
+
+- **Document font**, **Text size**, and **Line spacing** set how document content is displayed. They are global, persist across launches, and apply to every open document as soon as they change. `Restore defaults` returns them to Inter, 16 px, and Default.
+- Document font sets the family of document prose, headings included. Code blocks, inline code, and projected Markdown source keep their monospace font.
+- Text size is the base size of document prose. Headings, code, tables, footnotes, list markers, and task checkboxes keep their proportion to it. Code keeps its size and line height relative to prose.
+- Line spacing sets the line height of paragraphs, lists, and blockquotes, and of the footnote labels and thematic breaks that align with them. Headings and code blocks keep their own line height.
+- The reading measure does not change with text size, so larger text fits fewer characters on a line. Gutter handles follow the first line of their block at every text size and line spacing, and the heading marker keeps its size because the gutter lanes it stands in keep theirs.
+- The preferences never modify the document: changing them leaves its Markdown, dirty state, Undo history, and copied content unchanged. The application interface outside the document keeps its own font and size.
+
 ### Always On Top
 
 - **Always on top** keeps the Leafdown window above windows that are not themselves on top. It is Off by default, global, and persists across launches. In the current single-window application it owns the one Leafdown window.

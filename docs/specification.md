@@ -336,6 +336,19 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - `Restore defaults` turns it Off and takes the window off the top. If the window refuses, the other settings are still restored, the setting stays On, and the failure is reported.
 - Entering or leaving `Full screen` leaves the setting unchanged. The operating system may let other windows cover a full-screen window, and leaving full screen returns the window to the requested behavior without toggling the setting again.
 
+### Language
+
+- **Language** chooses the language of Leafdown's interface. It is global and persists across launches. `System`, the default, follows the operating system's preferred languages in order and uses the first one Leafdown ships. A regional variant reaches its language, as `en-GB` reaches English, but not a sibling variant: `pt-PT` does not reach `pt-BR`. Without a match, Leafdown uses English.
+- Each shipped language is listed by its own name. `System` names the language it currently resolves to, in the interface language.
+- A saved language that Leafdown no longer ships is treated as `System`, but it stays saved, so the choice returns if the language ships again.
+- Changing the language takes effect immediately, without a restart. Open documents, their selection, unsaved changes, and undo history are left as they were.
+- Menus, dialogs, the status bar, the welcome screen, the article navigator, the drop overlay, editor controls, notifications, error messages, accessible names, and screen reader announcements are translated.
+- Markdown content, file and folder names, paths, document metadata, code, literal syntax such as `.md` and `LF`, and error text reported by the operating system are never translated.
+- Numbers, relative times, lists, and plurals follow the interface language. Document word and character counts do not depend on it.
+- Keyboard shortcuts keep the key names of the platform.
+- The Diagnostics summary and log stay in English, so they can be read in bug reports.
+- Development builds also offer a pseudo-locale, `en-XA`, which accents and lengthens every translated message to reveal untranslated text and layout that cannot grow. Release builds do not include it.
+
 ## File And Folder Workflows
 
 Workflows execute upon successful completion of dirty-state checks. If a dirty check is cancelled, the workflow is aborted.

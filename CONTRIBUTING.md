@@ -131,6 +131,16 @@ For substantial work, start from an accepted issue. For a small, self-contained 
 3. Run the checks appropriate to the affected area.
 4. Open a focused pull request referencing the issue when one exists.
 
+### Interface Text And Translations
+
+Leafdown's interface text lives in ICU MessageFormat catalogs under `src/locales/`, one JSON file per locale. English, `en.json`, is the source; [Engineering Patterns](./docs/patterns.md#localization) covers how code uses it.
+
+- A change that adds or changes interface text adds or changes its English message in `en.json` in the same pull request. `tsc` rejects a message ID the source catalog does not have.
+- Translators edit a locale's file, such as `src/locales/de.json`, by pull request, keeping each message ID and translating only its text. A message not yet translated falls back to English on its own.
+- The catalog check in `pnpm check:frontend` parses every English message, and rejects a translated message whose arguments differ from its English message or whose ID is no longer in `en.json`. Removing or renaming an English message therefore requires pruning or renaming it in every translation.
+- A locale is offered in Preferences only once it is added to `SHIPPED_LOCALES` in `src/lib/i18n/localizer.ts`, and it must be complete when first added.
+- Development builds offer the `en-XA` pseudo-locale under Preferences > General > Language. It accents and lengthens every message, so English text that remains plain was not translated, and text that clips or overflows needs room to grow.
+
 ## Pull Requests
 
 Open a focused pull request and complete the repository's [`pull request template`](./.github/pull_request_template.md).

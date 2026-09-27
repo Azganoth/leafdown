@@ -10,6 +10,8 @@ Global settings persist across application launches unless specified otherwise.
 
 ### General
 
+- **Language:** System or one of the languages Leafdown ships, each listed by its own name. Default: System.
+  - See [Language](./specification.md#language).
 - **Record recent files and folders:** On or Off. Default: On.
   - The setting controls whether session history records opened paths; the recent lists themselves are persisted session history rather than preferences.
   - Recent files and recent folders are separate lists.

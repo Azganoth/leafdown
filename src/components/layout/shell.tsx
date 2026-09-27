@@ -15,6 +15,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiagnosticsDialog } from "@/features/diagnostics";
 import { formatDocumentEncoding } from "@/features/document";
+import { DocumentTypographyPreview } from "@/features/editor";
 import { ArticleNavigator } from "@/features/folder-context";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import {
@@ -199,6 +200,7 @@ export function Shell() {
         <PreferencesDialog
           open={commands.preferencesOpen}
           onOpenChange={commands.setPreferencesOpen}
+          renderTypographyPreview={(typography) => <DocumentTypographyPreview {...typography} />}
         />
         <DiagnosticsDialog
           open={commands.diagnosticsOpen}

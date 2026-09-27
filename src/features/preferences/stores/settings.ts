@@ -29,7 +29,13 @@ export const APPEARANCE_ACCENT_COLORS = [
 ] as const;
 export type AppearanceAccentColor = (typeof APPEARANCE_ACCENT_COLORS)[number];
 
-export const DOCUMENT_FONTS = ["inter", "system"] as const satisfies readonly DocumentFont[];
+export const DOCUMENT_FONTS = [
+  "inter",
+  "ibm-plex-sans",
+  "atkinson-hyperlegible",
+  "literata",
+  "system",
+] as const satisfies readonly DocumentFont[];
 
 export const DOCUMENT_TEXT_SIZES = [14, 16, 18, 20] as const satisfies readonly DocumentTextSize[];
 

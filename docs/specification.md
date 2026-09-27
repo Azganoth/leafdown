@@ -331,7 +331,8 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 ### Document Typography
 
 - **Document font**, **Text size**, and **Line spacing** set how document content is displayed. They are global, persist across launches, and apply to every open document as soon as they change. `Restore defaults` returns them to Inter, 16 px, and Default.
-- Document font sets the family of document prose, headings included. Code blocks, inline code, and projected Markdown source keep their monospace font.
+- Document font sets the family of document prose, headings included: Inter, IBM Plex Sans, Atkinson Hyperlegible Next, or Literata, each bundled with Leafdown, or the platform's System font. Code blocks, inline code, and projected Markdown source keep their monospace font.
+- Preferences shows a preview beneath the three settings: a heading, a paragraph, a list with emphasis, and a line of code, set in the document styles with the current choices and updated as they change. The preview is decorative, so assistive technology skips it, and it does not depend on a document being open.
 - Text size is the base size of document prose. Headings, code, tables, footnotes, list markers, and task checkboxes keep their proportion to it. Code keeps its size and line height relative to prose.
 - Line spacing sets the line height of paragraphs, lists, and blockquotes, and of the footnote labels and thematic breaks that align with them. Headings and code blocks keep their own line height.
 - The reading measure does not change with text size, so larger text fits fewer characters on a line. Gutter handles follow the first line of their block at every text size and line spacing, and the heading marker keeps its size because the gutter lanes it stands in keep theirs.

@@ -8,6 +8,7 @@ export {
   type EditorCommandId,
   type EditorCommandState,
 } from "./commands";
+export { DocumentTypographyPreview } from "./components/document-typography-preview";
 export {
   MilkdownEditor,
   type MilkdownEditorBridge,
@@ -23,6 +24,7 @@ export type {
   DocumentFont,
   DocumentLineSpacing,
   DocumentTextSize,
+  DocumentTypography,
 } from "./utils/documentTypography";
 export type {
   BlockPathSegment,

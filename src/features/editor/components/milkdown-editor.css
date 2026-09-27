@@ -27,8 +27,20 @@
     @apply px-8 py-10;
   }
 
+  &[data-document-font="ibm-plex-sans"] {
+    --leafdown-document-font: var(--font-ibm-plex-sans);
+  }
+
+  &[data-document-font="atkinson-hyperlegible"] {
+    --leafdown-document-font: var(--font-atkinson-hyperlegible);
+  }
+
+  &[data-document-font="literata"] {
+    --leafdown-document-font: var(--font-literata);
+  }
+
   &[data-document-font="system"] {
-    --leafdown-document-font: system-ui, sans-serif;
+    --leafdown-document-font: var(--font-system);
   }
 
   &[data-text-size="14"] {
@@ -741,6 +753,16 @@
         }
       }
     }
+  }
+}
+
+/* A sample set in the document's styles, so it keeps the prose rules and leaves out the page:
+   no gutter, no measure, no minimum height, and no pointer for hover chrome to answer. */
+.leafdown-editor.leafdown-typography-preview {
+  @apply pointer-events-none min-h-0 p-0 select-none;
+
+  .ProseMirror {
+    @apply min-h-0 max-w-none px-0;
   }
 }
 

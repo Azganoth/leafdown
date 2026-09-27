@@ -29,6 +29,18 @@ describe("markdownDocumentApi", () => {
 
     expect(invoke).toHaveBeenCalledWith(OPEN_MARKDOWN_FILE_COMMAND, {
       path: result.path,
+      encoding: null,
+    });
+  });
+
+  it("sends a chosen encoding with the open Markdown file command", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await openMarkdownFile({ path: "C:/Notes/latin.md", encoding: "windows-1252" });
+
+    expect(invoke).toHaveBeenCalledWith(OPEN_MARKDOWN_FILE_COMMAND, {
+      path: "C:/Notes/latin.md",
+      encoding: "windows-1252",
     });
   });
 

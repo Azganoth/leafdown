@@ -8,6 +8,7 @@ import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
 import { useRecentItemsStore, type RecentItem } from "@/features/preferences";
 import {
   createNewMarkdownDocument,
+  notifyOpenMarkdownFileError,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
@@ -32,7 +33,7 @@ const handleOpenFile = async () => {
   try {
     await pickAndOpenMarkdownFile();
   } catch (error) {
-    notifyError(getOpenMarkdownFileErrorMessage(error));
+    notifyOpenMarkdownFileError(error);
   }
 };
 
@@ -48,7 +49,8 @@ const handleOpenRecentFile = async (path: string) => {
   try {
     await openMarkdownFileAtPath(path);
   } catch (error) {
-    notifyError(
+    notifyOpenMarkdownFileError(
+      error,
       getOpenMarkdownFileErrorMessage(error, {
         title: "Could not open recent Markdown file.",
       }),

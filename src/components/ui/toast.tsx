@@ -10,7 +10,20 @@ import {
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
-import { toastManager } from "@/lib/toast";
+import {
+  DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  toastManager,
+  type ToastActionMenu as ToastActionMenuData,
+  type ToastData,
+} from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 function ToastProvider({ ...props }: ToastPrimitive.Provider.Props) {
@@ -168,8 +181,38 @@ function ToastIcon({ type }: { type: string | undefined }) {
   );
 }
 
+interface ToastActionMenuProps {
+  menu: ToastActionMenuData;
+}
+
+function ToastActionMenu({ menu }: ToastActionMenuProps) {
+  const checkedIndex = menu.items.findIndex((item) => item.checked);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="shrink-0" />}>
+        {menu.label}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="w-auto overflow-hidden">
+        <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
+          <DropdownMenuRadioGroup
+            value={checkedIndex === -1 ? "" : String(checkedIndex)}
+            onValueChange={(index: string) => menu.items[Number(index)]?.run()}
+          >
+            {menu.items.map((item, index) => (
+              <DropdownMenuRadioItem key={item.label} value={String(index)}>
+                {item.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </ScrollArea>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ToastList() {
-  const { toasts } = ToastPrimitive.useToastManager();
+  const { toasts } = ToastPrimitive.useToastManager<ToastData>();
 
   return toasts.map((toastItem) => (
     <Toast key={toastItem.id} toast={toastItem}>
@@ -179,7 +222,11 @@ function ToastList() {
           <ToastTitle />
           <ToastDescription />
         </div>
-        <ToastAction />
+        {toastItem.data?.actionMenu ? (
+          <ToastActionMenu menu={toastItem.data.actionMenu} />
+        ) : (
+          <ToastAction />
+        )}
         <ToastClose />
       </ToastContent>
     </Toast>

@@ -1,6 +1,6 @@
 export { ARTICLE_NAVIGATOR_ENTRY_ACTIONS } from "./actions/navigator";
 export type { ApplicationCommandId } from "./application";
-export type { AppCommandContext } from "./context";
+export type { AppCommandContext, ReopenWithEncodingControl } from "./context";
 export type { AppCommandId } from "./dispatch";
 export { useAppCommands } from "./hooks/useAppCommands";
 export { COMMAND_DEFINITIONS, COMMAND_MENU_LABELS, formatShortcut } from "./metadata";

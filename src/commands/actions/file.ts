@@ -14,6 +14,7 @@ import {
   closeActiveMarkdownDocument,
   closeFolderContext as closeFolderContextWorkflow,
   createNewMarkdownDocument,
+  notifyOpenMarkdownFileError,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
@@ -65,7 +66,8 @@ export const openRecentMarkdownFile = async (path: string) => {
     () => openMarkdownFileAtPath(path),
     "Document opened.",
     (error) =>
-      notifyError(
+      notifyOpenMarkdownFileError(
+        error,
         getOpenMarkdownFileErrorMessage(error, {
           title: "Could not open recent Markdown file.",
         }),
@@ -94,7 +96,7 @@ export const createUntitledDocument = async () => {
 
 export const openMarkdownFile = async () => {
   await runBooleanCommand(pickAndOpenMarkdownFile, "Document opened.", (error) =>
-    notifyError(getOpenMarkdownFileErrorMessage(error)),
+    notifyOpenMarkdownFileError(error),
   );
 };
 

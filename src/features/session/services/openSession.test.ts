@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 
-import type { OpenedMarkdownDocument } from "@/features/document";
+import { ENCODING_CHOICES, type OpenedMarkdownDocument } from "@/features/document";
 import type { FolderContextState } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
@@ -22,7 +22,12 @@ import {
   tauriApiCommand,
 } from "@/test/utils/tauriApi";
 
-import { openFolderContextAtPath, openMarkdownFileAtPath } from "./openSession";
+import {
+  notifyOpenMarkdownFileError,
+  openFolderContextAtPath,
+  openMarkdownFileAtPath,
+  reopenMarkdownFileWithChosenEncoding,
+} from "./openSession";
 
 vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
 
@@ -55,6 +60,132 @@ interface OpenFolderContextCommandResult {
   indexDocument: null;
   indexError: null | { kind: "missingFile"; path: string };
 }
+
+describe("reopen with a chosen encoding", () => {
+  const openedLatinFile = createOpenedMarkdownDocument({
+    content: "# Café",
+    encoding: { name: "windows-1252", bom: false },
+  });
+
+  it("confirms discarding changes, then reopens the active file and reloads the editor", async () => {
+    setDefaultSession({
+      folderContext: emptyNotesFolderContext,
+      activeDocument: createSavedDocument({ content: "# CafÃ©", isDirty: true }),
+    });
+    mockTauriApi({ openMarkdownFile: () => openedLatinFile });
+    vi.mocked(requestConfirmation).mockResolvedValueOnce(true);
+
+    await expect(
+      reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
+    ).resolves.toBe(true);
+
+    expect(requestConfirmation).toHaveBeenCalledOnce();
+    expect(invoke).toHaveBeenCalledWith(tauriApiCommand("openMarkdownFile"), {
+      path: TEST_MARKDOWN_FILE_PATH,
+      encoding: "windows-1252",
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocumentLoadId: 1,
+      activeDocument: {
+        content: "# Café",
+        isDirty: false,
+        encoding: { name: "windows-1252", bom: false },
+        fileEncoding: { name: "windows-1252", bom: false },
+      },
+    });
+    expect(toastManager.add).toHaveBeenCalledWith({
+      description: undefined,
+      title: "Document opened.",
+      type: "success",
+    });
+  });
+
+  it("keeps the dirty document when discarding its changes is declined", async () => {
+    const activeDocument = createSavedDocument({ content: "# Edited", isDirty: true });
+    setDefaultSession({ folderContext: emptyNotesFolderContext, activeDocument });
+    mockTauriApi({ openMarkdownFile: () => openedLatinFile });
+
+    await expect(
+      reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
+    ).resolves.toBe(false);
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().activeDocument).toEqual(activeDocument);
+  });
+
+  it("does not reload the editor when a reopen yields the text it already holds", async () => {
+    setDefaultSession({
+      folderContext: emptyNotesFolderContext,
+      activeDocument: createSavedDocument({ content: "# Plain" }),
+    });
+    mockTauriApi({
+      openMarkdownFile: () =>
+        createOpenedMarkdownDocument({
+          content: "# Plain",
+          encoding: { name: "windows-1252", bom: false },
+        }),
+    });
+
+    await expect(
+      reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
+    ).resolves.toBe(true);
+
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocumentLoadId: 0,
+      activeDocument: { encoding: { name: "windows-1252", bom: false } },
+    });
+  });
+
+  it("offers reopening from an encoding error and shows a failed choice the same way", async () => {
+    mockTauriApiCommand("openMarkdownFile", () =>
+      Promise.reject({
+        kind: "irreversibleEncoding",
+        path: TEST_MARKDOWN_FILE_PATH,
+        encoding: "Shift_JIS",
+      }),
+    );
+
+    notifyOpenMarkdownFileError({ kind: "invalidEncoding", path: TEST_MARKDOWN_FILE_PATH });
+
+    const invalidEncodingToast = vi.mocked(toastManager.add).mock.lastCall?.[0];
+    const actionMenu = invalidEncodingToast?.data?.actionMenu;
+
+    expect(invalidEncodingToast).toMatchObject({
+      title: "Invalid Markdown file encoding.",
+      timeout: 0,
+      type: "error",
+    });
+    expect(actionMenu?.label).toBe("Reopen with encoding");
+    expect(actionMenu?.items.map((item) => item.label)).toEqual(
+      ENCODING_CHOICES.map((choice) => choice.label),
+    );
+
+    actionMenu?.items.find((item) => item.label === "Japanese (Shift_JIS)")?.run();
+
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(tauriApiCommand("openMarkdownFile"), {
+        path: TEST_MARKDOWN_FILE_PATH,
+        encoding: "Shift_JIS",
+      }),
+    );
+
+    await vi.waitFor(() => expect(toastManager.add).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(toastManager.add).mock.lastCall?.[0]).toMatchObject({
+      title: "Markdown file cannot be preserved in Shift_JIS.",
+      data: { actionMenu: { label: "Reopen with encoding" } },
+    });
+  });
+
+  it("shows other open errors without a reopen action", () => {
+    notifyOpenMarkdownFileError({ kind: "missingFile", path: TEST_MARKDOWN_FILE_PATH });
+
+    expect(toastManager.add).toHaveBeenCalledWith({
+      description: TEST_MARKDOWN_FILE_PATH,
+      title: "Markdown file not found.",
+      type: "error",
+    });
+  });
+});
 
 describe("open session workflows", () => {
   it("opens Markdown files into the active session and records recent items", async () => {
@@ -221,6 +352,7 @@ describe("open session workflows", () => {
     await vi.waitFor(() => {
       expect(invoke).toHaveBeenCalledWith(tauriApiCommand("openMarkdownFile"), {
         path: OTHER_MARKDOWN_PATH,
+        encoding: null,
       });
     });
 
@@ -229,6 +361,7 @@ describe("open session workflows", () => {
     await vi.waitFor(() => {
       expect(invoke).toHaveBeenCalledWith(tauriApiCommand("openMarkdownFile"), {
         path: LATEST_MARKDOWN_PATH,
+        encoding: null,
       });
     });
 

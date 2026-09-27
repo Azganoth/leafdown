@@ -11,23 +11,38 @@ export {
   type WriteMarkdownDocumentOptions,
 } from "./services/markdownDocument";
 export {
+  formatUnrepresentableCharacters,
   getOpenMarkdownFileErrorMessage,
   getSaveMarkdownFileErrorMessage,
+  isEncodingOpenError,
   isOpenMarkdownFileError,
   isSaveMarkdownFileError,
+  isUnrepresentableCharactersError,
   type OpenMarkdownFileError,
   type SaveMarkdownFileError,
+  type UnrepresentableCharactersError,
 } from "./utils/documentErrors";
+export {
+  ENCODING_CHOICES,
+  formatDocumentEncoding,
+  formatEncodingName,
+  isSameEncoding,
+  isUtf8Encoding,
+  NEW_DOCUMENT_ENCODING,
+  UTF8_ENCODING,
+  UTF8_WITH_BOM_ENCODING,
+  type DocumentEncoding,
+  type EncodingChoice,
+  type TextEncodingName,
+} from "./utils/documentEncoding";
 export { formatMarkdownForSave } from "./utils/documentSerialization";
 export {
   getActiveDocumentKey,
   LINE_ENDINGS,
   matchesActiveDocumentKey,
-  NEW_DOCUMENT_ENCODING,
   toSavedDocument,
   toUntitledDocument,
   type ActiveDocumentState,
-  type DocumentEncoding,
   type FileMetadataSnapshot,
   type LineEnding,
   type SavedDocumentState,

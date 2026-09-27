@@ -5,20 +5,31 @@ import {
   useCommandUIStore,
   type AppCommandId,
   type CommandState,
+  type ReopenWithEncodingControl,
 } from "@/commands";
 import { Button } from "@/components/ui/button";
 import {
+  DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  ENCODING_CHOICES,
+  formatDocumentEncoding,
   getActiveDocumentKey,
   type ActiveDocumentState,
-  type DocumentEncoding,
+  type TextEncodingName,
   type LineEnding,
 } from "@/features/document";
 import type { EditorDocumentStatus, TextStatistics } from "@/features/editor";
@@ -31,11 +42,11 @@ const LINE_ENDING_COMMAND_IDS = [
   "edit.lineEnding.crlf",
   "edit.lineEnding.lf",
 ] as const satisfies readonly AppCommandId[];
-const ENCODING_LABELS = {
-  "UTF-8": "UTF-8",
-  "UTF-16LE": "UTF-16 LE",
-  "UTF-16BE": "UTF-16 BE",
-} as const satisfies Record<DocumentEncoding["name"], string>;
+const ENCODING_COMMAND_IDS = [
+  "edit.encoding.file",
+  "edit.encoding.utf8",
+  "edit.encoding.utf8Bom",
+] as const satisfies readonly AppCommandId[];
 
 const numberFormat = new Intl.NumberFormat();
 
@@ -84,9 +95,6 @@ const formatReadingTime = (words: number) => {
   return minutes < 1 ? "<1 min read" : `~${numberFormat.format(minutes)} min read`;
 };
 
-const formatEncoding = ({ name, bom }: DocumentEncoding) =>
-  name === "UTF-8" && bom ? "UTF-8 with BOM" : ENCODING_LABELS[name];
-
 interface StatusBarControlProps {
   commandState: (commandId: AppCommandId) => CommandState;
   onExecute: (commandId: AppCommandId) => void;
@@ -94,9 +102,15 @@ interface StatusBarControlProps {
 
 interface StatusBarProps extends StatusBarControlProps {
   activeDocument: ActiveDocumentState;
+  reopenWithEncoding: ReopenWithEncodingControl;
 }
 
-export function StatusBar({ activeDocument, commandState, onExecute }: StatusBarProps) {
+export function StatusBar({
+  activeDocument,
+  commandState,
+  onExecute,
+  reopenWithEncoding,
+}: StatusBarProps) {
   const defaultLineEnding = useSettingsStore((state) => state.defaultNewDocumentLineEnding);
   const documentKey = getActiveDocumentKey(activeDocument);
   const getDocumentStatus = () => documentEditorBridge.getDocumentStatus(documentKey);
@@ -120,7 +134,12 @@ export function StatusBar({ activeDocument, commandState, onExecute }: StatusBar
       </div>
       <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
         {status && <DocumentMetrics status={status} />}
-        <span data-testid="status-bar-encoding">{formatEncoding(activeDocument.encoding)}</span>
+        <EncodingMenu
+          activeDocument={activeDocument}
+          commandState={commandState}
+          onExecute={onExecute}
+          reopenWithEncoding={reopenWithEncoding}
+        />
         <LineEndingMenu
           commandState={commandState}
           lineEnding={activeDocument.lineEnding ?? defaultLineEnding}
@@ -221,6 +240,85 @@ function LineEndingMenu({ commandState, lineEnding, onExecute }: LineEndingMenuP
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function EncodingMenu({
+  activeDocument,
+  commandState,
+  onExecute,
+  reopenWithEncoding,
+}: StatusBarProps) {
+  const label = formatDocumentEncoding(activeDocument.encoding);
+  const commandIds = ENCODING_COMMAND_IDS.filter(
+    (commandId) => commandId !== "edit.encoding.file" || commandState(commandId).enabled,
+  );
+  const checkedCommandId =
+    commandIds.find((commandId) => {
+      const state = commandState(commandId);
+      return state.enabled && state.checked;
+    }) ?? "";
+  const getItemLabel = (commandId: (typeof ENCODING_COMMAND_IDS)[number]) =>
+    commandId === "edit.encoding.file" && activeDocument.status === "saved"
+      ? formatDocumentEncoding(activeDocument.fileEncoding)
+      : COMMAND_DEFINITIONS[commandId].label;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            aria-label={`Encoding: ${label}`}
+            data-testid="status-bar-encoding"
+            size="xs"
+            type="button"
+            variant="ghost"
+            className="-mx-2 font-normal text-muted-foreground"
+          />
+        }
+      >
+        {label}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" side="top" className="w-auto">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Save with encoding</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={checkedCommandId}
+            onValueChange={(commandId: AppCommandId) => onExecute(commandId)}
+          >
+            {commandIds.map((commandId) => (
+              <DropdownMenuRadioItem
+                key={commandId}
+                value={commandId}
+                disabled={!commandState(commandId).enabled}
+              >
+                {getItemLabel(commandId)}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger disabled={!reopenWithEncoding.state.enabled}>
+            Reopen with encoding
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="overflow-hidden">
+            <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
+              <DropdownMenuRadioGroup
+                value={reopenWithEncoding.checkedEncoding ?? ""}
+                onValueChange={(encoding: TextEncodingName) => reopenWithEncoding.reopen(encoding)}
+              >
+                {ENCODING_CHOICES.map((choice) => (
+                  <DropdownMenuRadioItem key={choice.name} value={choice.name}>
+                    {choice.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </ScrollArea>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       </DropdownMenuContent>
     </DropdownMenu>
   );

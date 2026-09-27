@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getOpenMarkdownFileErrorMessage, getSaveMarkdownFileErrorMessage } from "./documentErrors";
+import {
+  formatUnrepresentableCharacters,
+  getOpenMarkdownFileErrorMessage,
+  getSaveMarkdownFileErrorMessage,
+} from "./documentErrors";
 
 describe("document IO errors", () => {
   it.each([
@@ -59,7 +63,16 @@ describe("document IO errors", () => {
       expected: {
         title: "Invalid Markdown file encoding.",
         description:
-          "Leafdown opens Markdown files encoded as UTF-8, or as UTF-16 with a byte order mark.",
+          "The file is not valid in the encoding it was read in. Leafdown reads UTF-8, and UTF-16 with a byte order mark, unless another encoding is chosen.",
+      },
+    },
+    {
+      name: "irreversible encoding",
+      error: { kind: "irreversibleEncoding", path: "C:/Notes/sjis.md", encoding: "Shift_JIS" },
+      expected: {
+        title: "Markdown file cannot be preserved in Shift_JIS.",
+        description:
+          "Saving it in that encoding would change bytes that were never edited. Choose another encoding.",
       },
     },
     {
@@ -152,6 +165,19 @@ describe("document IO errors", () => {
       },
     },
     {
+      name: "unrepresentable characters",
+      error: {
+        kind: "unrepresentableCharacters",
+        path: "C:/Notes/readme.md",
+        encoding: "windows-1252",
+        characters: ["✓", "😀"],
+      },
+      expected: {
+        title: "Some characters cannot be saved in Windows-1252.",
+        description: "✓ (U+2713), 😀 (U+1F600)",
+      },
+    },
+    {
       name: "write failed",
       error: {
         kind: "writeFailed",
@@ -177,6 +203,13 @@ describe("document IO errors", () => {
     },
   ])("maps save error: $name", ({ error, expected }) => {
     expect(getSaveMarkdownFileErrorMessage(error)).toEqual(expected);
+  });
+
+  it("lists a bounded number of unrepresentable characters by code point", () => {
+    expect(formatUnrepresentableCharacters(["\u{a0}"])).toBe("\u{a0} (U+00A0)");
+    expect(formatUnrepresentableCharacters(Array.from("ABCDEFGHIJKLMN"))).toBe(
+      "A (U+0041), B (U+0042), C (U+0043), D (U+0044), E (U+0045), F (U+0046), G (U+0047), H (U+0048), I (U+0049), J (U+004A), K (U+004B), L (U+004C), and 2 more",
+    );
   });
 
   it("falls back for unknown error payloads", () => {

@@ -112,7 +112,7 @@ Marker presentation is independent of session lifetime. Decorations style projec
 The Rust backend manages:
 
 - Native file and folder path pickers and file IO.
-- Decoding a Markdown file in the encoding its byte order mark names, or as UTF-8 without one, and encoding saved text back in the document's encoding and byte order mark form.
+- Decoding a Markdown file in the encoding its byte order mark names, otherwise in the encoding the user chose or as UTF-8, and refusing a chosen encoding whose re-encoded text would not reproduce the file's bytes. Encoding saved text back strictly in the document's encoding and byte order mark form, reporting each character that encoding cannot represent instead of substituting it. Legacy encodings go through `encoding_rs`'s non-replacing encoder; UTF-8 and UTF-16 use the standard library.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
@@ -147,7 +147,7 @@ The frontend calls feature-owned Rust commands only through feature-owned Tauri 
 ## Data Contracts
 
 - Session owns the active document, folder context, and document metadata used for dirty-state and external-modification checks.
-- An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. The frontend labels it but never decodes or encodes text.
+- An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. Opening takes an optional chosen encoding name, which the backend ignores when the file has a byte order mark. Session also keeps the encoding the file holds, so the document can be converted back to it, and remounts the editor when a reopen of the same path replaces its text. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
 - Folder scans return a nested Markdown article tree. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator.
 

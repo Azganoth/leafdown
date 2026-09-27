@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { type AppCommandId, type CommandState } from "@/commands";
+import { type AppCommandId, type CommandState, type ReopenWithEncodingControl } from "@/commands";
 import type { RecentItem } from "@/features/preferences";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { renderWithUser, screen, within } from "@/test/utils/react";
@@ -16,7 +16,9 @@ const disabledState = {
 } satisfies CommandState;
 
 interface CommandMenuBarTestProps {
+  reopenWithEncoding?: ReopenWithEncodingControl;
   commandState?: (commandId: AppCommandId) => CommandState;
+  fileEncodingLabel?: string | null;
   onExecute?: (commandId: AppCommandId) => void;
   onOpenRecentFile?: (path: string) => void;
   onOpenRecentFolder?: (path: string) => void;
@@ -26,20 +28,24 @@ interface CommandMenuBarTestProps {
 
 const renderCommandMenuBar = ({
   commandState = () => enabledState,
+  fileEncodingLabel = null,
   onExecute = vi.fn(),
   onOpenRecentFile = vi.fn(),
   onOpenRecentFolder = vi.fn(),
   recentFiles = [],
   recentFolders = [],
+  reopenWithEncoding,
 }: CommandMenuBarTestProps = {}) => ({
   ...renderWithUser(
     <CommandMenubar
       commandState={commandState}
+      fileEncodingLabel={fileEncodingLabel}
       onExecute={onExecute}
       onOpenRecentFile={onOpenRecentFile}
       onOpenRecentFolder={onOpenRecentFolder}
       recentFiles={recentFiles}
       recentFolders={recentFolders}
+      reopenWithEncoding={reopenWithEncoding}
     />,
   ),
   onExecute,
@@ -159,6 +165,67 @@ describe("CommandMenubar", () => {
 
     expect(viewTrigger).toHaveAttribute("aria-expanded", "true");
     expect(menuItem("Toggle status bar")).toBeVisible();
+  });
+
+  it("converts the encoding and reopens from the Edit menu", async () => {
+    const reopen = vi.fn();
+    const { onExecute, user } = renderCommandMenuBar({
+      reopenWithEncoding: { state: enabledState, checkedEncoding: "windows-1252", reopen },
+      commandState: (commandId) =>
+        commandId === "edit.encoding.file" ? { enabled: true, checked: true } : enabledState,
+      fileEncodingLabel: "Windows-1252",
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Encoding"));
+    await user.keyboard("{ArrowRight}");
+
+    expect(
+      within(screen.getByRole("group", { name: "Save with encoding" }))
+        .getAllByRole("menuitemradio")
+        .map((item) => item.textContent),
+    ).toEqual(["Windows-1252", "UTF-8", "UTF-8 with BOM"]);
+    expect(screen.getByRole("menuitemradio", { name: "Windows-1252" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    await user.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}{ArrowRight}");
+
+    expect(
+      await screen.findByRole("menuitemradio", { name: "Western (Windows-1252, ISO-8859-1)" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    await user.keyboard("{End}{Enter}");
+
+    expect(reopen).toHaveBeenCalledWith("UTF-16BE");
+    expect(onExecute).not.toHaveBeenCalled();
+  });
+
+  it("disables reopening without a document to reopen", async () => {
+    const { user } = renderCommandMenuBar();
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Encoding"));
+    await user.keyboard("{ArrowRight}");
+
+    expect(menuItem("Reopen with encoding")).toHaveAttribute("data-disabled");
+  });
+
+  it("omits the file encoding choice when the file is UTF-8", async () => {
+    const { user } = renderCommandMenuBar({
+      commandState: (commandId) =>
+        commandId === "edit.encoding.file" ? disabledState : enabledState,
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Encoding"));
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByRole("menuitemradio", { name: "UTF-8 with BOM" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitemradio", { name: "Encoding the file was read in" }),
+    ).not.toBeInTheDocument();
   });
 
   it("closes the menu after a radio command so one click reopens it", async () => {

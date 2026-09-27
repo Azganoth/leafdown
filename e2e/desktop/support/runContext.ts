@@ -5,6 +5,7 @@ export interface DesktopE2ERunContext {
   blocks: { path: string };
   separator: { path: string };
   html: { path: string };
+  legacyEncoding: { path: string };
   document: {
     initialMarker: string;
     path: string;

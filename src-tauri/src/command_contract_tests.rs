@@ -58,9 +58,11 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     );
     assert_tree_contains_path(&scan_value["tree"], document_path_string.as_str());
 
-    let open_result =
-        tauri::async_runtime::block_on(document::open_markdown_file(document_path_string.clone()))
-            .expect("command should open saved Markdown");
+    let open_result = tauri::async_runtime::block_on(document::open_markdown_file(
+        document_path_string.clone(),
+        None,
+    ))
+    .expect("command should open saved Markdown");
     let open_value = serialized(open_result);
 
     assert_eq!(json_string(&open_value, "path"), document_path_string);
@@ -78,6 +80,81 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
 }
 
 #[test]
+fn opens_and_saves_a_chosen_encoding_through_command_functions() {
+    let root = TestDirectory::new("command-contract-encoding");
+    let document_path = root.write_file_with_content("latin.md", b"# Caf\xe9\n");
+    let irreversible_path = root.write_file_with_content("irreversible.md", b"\x87\x90\n");
+    let document_path_string = path_string(document_path.as_path());
+    let windows_1252: TextEncoding =
+        serde_json::from_value(serde_json::json!("windows-1252")).unwrap();
+
+    let invalid_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        document_path_string.clone(),
+        None,
+    ))
+    .expect_err("Windows-1252 bytes should not open as UTF-8");
+
+    assert_eq!(
+        json_string(&serialized(invalid_error), "kind"),
+        "invalidEncoding"
+    );
+
+    let open_value = serialized(
+        tauri::async_runtime::block_on(document::open_markdown_file(
+            document_path_string.clone(),
+            Some(windows_1252),
+        ))
+        .expect("command should open the chosen encoding"),
+    );
+
+    assert_eq!(json_string(&open_value, "content"), "# Café\n");
+    assert_eq!(
+        open_value["encoding"],
+        serde_json::json!({ "name": "windows-1252", "bom": false })
+    );
+
+    let encoding: DocumentEncoding = serde_json::from_value(open_value["encoding"].clone())
+        .expect("encoding should deserialize as a save argument");
+    let unrepresentable_error = tauri::async_runtime::block_on(document::save_markdown_file(
+        document_path_string.clone(),
+        "# Café ✓\n".to_owned(),
+        encoding,
+        None,
+        None,
+    ))
+    .expect_err("unrepresentable characters should be rejected");
+    let unrepresentable_error = serialized(unrepresentable_error);
+
+    assert_eq!(
+        json_string(&unrepresentable_error, "kind"),
+        "unrepresentableCharacters"
+    );
+    assert_eq!(
+        json_string(&unrepresentable_error, "encoding"),
+        "windows-1252"
+    );
+    assert_eq!(
+        unrepresentable_error["characters"],
+        serde_json::json!(["✓"])
+    );
+    assert_eq!(fs::read(document_path.as_path()).unwrap(), b"# Caf\xe9\n");
+
+    let shift_jis: TextEncoding = serde_json::from_value(serde_json::json!("Shift_JIS")).unwrap();
+    let irreversible_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        path_string(irreversible_path.as_path()),
+        Some(shift_jis),
+    ))
+    .expect_err("a choice that rewrites bytes should be rejected");
+    let irreversible_error = serialized(irreversible_error);
+
+    assert_eq!(
+        json_string(&irreversible_error, "kind"),
+        "irreversibleEncoding"
+    );
+    assert_eq!(json_string(&irreversible_error, "encoding"), "Shift_JIS");
+}
+
+#[test]
 fn command_errors_serialize_with_frontend_error_kinds() {
     let root = TestDirectory::new("command-contract-errors");
     let unsupported_file = root.write_file("notes.txt");
@@ -89,9 +166,10 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     );
     let missing_folder = root.path("missing");
 
-    let open_error = tauri::async_runtime::block_on(document::open_markdown_file(path_string(
-        unsupported_file.as_path(),
-    )))
+    let open_error = tauri::async_runtime::block_on(document::open_markdown_file(
+        path_string(unsupported_file.as_path()),
+        None,
+    ))
     .expect_err("unsupported files should be rejected");
     let open_error = serialized(open_error);
 
@@ -103,6 +181,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
 
     let oversized_error = tauri::async_runtime::block_on(document::open_markdown_file(
         path_string(oversized_file.as_path()),
+        None,
     ))
     .expect_err("oversized files should be rejected");
     let oversized_error = serialized(oversized_error);
@@ -140,7 +219,7 @@ fn command_errors_serialize_with_frontend_error_kinds() {
         path_string(root.path("missing").as_path())
     );
 
-    let opened_document = document::read_markdown_file(externally_modified_file.as_path())
+    let opened_document = document::read_markdown_file(externally_modified_file.as_path(), None)
         .expect("test Markdown file should open");
     fs::write(externally_modified_file.as_path(), "# Changed externally\n")
         .expect("test Markdown file should change");

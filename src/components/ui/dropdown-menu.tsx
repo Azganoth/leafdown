@@ -186,6 +186,7 @@ function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
 function DropdownMenuRadioItem({
   className,
   children,
+  closeOnClick = true,
   inset,
   ...props
 }: MenuPrimitive.RadioItem.Props & {
@@ -195,6 +196,7 @@ function DropdownMenuRadioItem({
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       data-inset={inset || undefined}
+      closeOnClick={closeOnClick}
       className={cn(
         "relative flex cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
@@ -237,7 +239,12 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<"spa
   );
 }
 
+/** A popup that scrolls natively carries its frosted `before:` backdrop away with the content, so long menus scroll inside a ScrollArea capped by this class instead. */
+const DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS =
+  "max-h-[min(18rem,calc(var(--available-height)-0.5rem))]";
+
 export {
+  DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,

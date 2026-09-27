@@ -10,6 +10,7 @@ const scenarioTargets = {
   "separator-presentation": ["separator-presentation"],
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],
+  "legacy-encoding": ["legacy-encoding"],
   persistence: ["persistence-write", "persistence-restart"],
   "window-lifecycle": ["window-lifecycle"],
 } as const;

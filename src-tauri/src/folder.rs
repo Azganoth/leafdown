@@ -285,7 +285,7 @@ fn open_folder(
         .map_err(|error| OpenMarkdownFolderError::ScanFailed { error })?;
     let index_path = index::find_root_index_path(&folder.tree, index_file_names.as_slice());
     let (index_document, index_error) = match index_path {
-        Some(index_path) => match read_markdown_file(Path::new(index_path)) {
+        Some(index_path) => match read_markdown_file(Path::new(index_path), None) {
             Ok(index_document) => (Some(index_document), None),
             Err(error) => (None, Some(error)),
         },

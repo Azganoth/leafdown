@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type { DocumentEncoding, FileMetadataSnapshot, LineEnding } from "../utils/documentState";
+import type { DocumentEncoding, TextEncodingName } from "../utils/documentEncoding";
+import type { FileMetadataSnapshot, LineEnding } from "../utils/documentState";
 
 export const MARKDOWN_FILE_EXTENSIONS = ["md", "markdown"] as const;
 
@@ -11,6 +12,7 @@ export const SAVE_MARKDOWN_FILE_COMMAND = "save_markdown_file";
 
 export interface OpenMarkdownFileArgs {
   path: string;
+  encoding?: TextEncodingName | null;
 }
 
 export interface OpenMarkdownFileResult {
@@ -34,6 +36,7 @@ export type OpenMarkdownFileError =
       maxSizeBytes: number;
     }
   | { kind: "invalidEncoding"; path: string }
+  | { kind: "irreversibleEncoding"; path: string; encoding: TextEncodingName }
   | { kind: "readFailed"; path: string; message: string }
   | { kind: "metadataFailed"; path: string; message: string };
 
@@ -62,11 +65,17 @@ export type SaveMarkdownFileError =
       path: string;
       currentMetadata: FileMetadataSnapshot;
     }
+  | {
+      kind: "unrepresentableCharacters";
+      path: string;
+      encoding: TextEncodingName;
+      characters: string[];
+    }
   | { kind: "writeFailed"; path: string; message: string }
   | { kind: "metadataFailed"; path: string; message: string };
 
-export const openMarkdownFile = ({ path }: OpenMarkdownFileArgs) =>
-  invoke<OpenMarkdownFileResult>(OPEN_MARKDOWN_FILE_COMMAND, { path });
+export const openMarkdownFile = ({ encoding = null, path }: OpenMarkdownFileArgs) =>
+  invoke<OpenMarkdownFileResult>(OPEN_MARKDOWN_FILE_COMMAND, { path, encoding });
 
 export const saveMarkdownFile = ({
   content,

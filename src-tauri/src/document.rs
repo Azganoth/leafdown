@@ -10,7 +10,10 @@ use serde::{Deserialize, Serialize};
 use crate::{
     file_utils::{ReadFileError, read_file_with_size_limit, write_file_atomically},
     path_utils::{IoErrorClass, classify_io_error, path_to_string},
-    text_encoding::{DecodedText, DocumentEncoding, decode_text, encode_text},
+    text_encoding::{
+        DecodeError, DecodedText, DocumentEncoding, TextEncoding, UnrepresentableCharacters,
+        decode_text, encode_text,
+    },
 };
 
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
@@ -78,6 +81,10 @@ pub(crate) enum OpenMarkdownFileError {
     InvalidEncoding {
         path: String,
     },
+    IrreversibleEncoding {
+        path: String,
+        encoding: TextEncoding,
+    },
     ReadFailed {
         path: String,
         message: String,
@@ -116,6 +123,11 @@ pub(crate) enum SaveMarkdownFileError {
         path: String,
         current_metadata: FileMetadataSnapshot,
     },
+    UnrepresentableCharacters {
+        path: String,
+        encoding: TextEncoding,
+        characters: Vec<char>,
+    },
     WriteFailed {
         path: String,
         message: String,
@@ -129,11 +141,12 @@ pub(crate) enum SaveMarkdownFileError {
 #[tauri::command]
 pub(crate) async fn open_markdown_file(
     path: String,
+    encoding: Option<TextEncoding>,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let path = PathBuf::from(path);
     let error_path = path_to_string(path.as_path());
 
-    tauri::async_runtime::spawn_blocking(move || read_markdown_file(path.as_path()))
+    tauri::async_runtime::spawn_blocking(move || read_markdown_file(path.as_path(), encoding))
         .await
         .unwrap_or_else(|error| {
             Err(OpenMarkdownFileError::ReadFailed {
@@ -174,6 +187,7 @@ pub(crate) async fn save_markdown_file(
 
 pub(crate) fn read_markdown_file(
     path: &Path,
+    chosen_encoding: Option<TextEncoding>,
 ) -> Result<OpenMarkdownFileResult, OpenMarkdownFileError> {
     let serialized_path = path_to_string(path);
 
@@ -201,7 +215,7 @@ pub(crate) fn read_markdown_file(
     }
 
     let DecodedText { text, encoding } =
-        read_markdown_file_content(path, serialized_path.as_str())?;
+        read_markdown_file_content(path, serialized_path.as_str(), chosen_encoding)?;
 
     Ok(OpenMarkdownFileResult {
         path: serialized_path,
@@ -235,9 +249,18 @@ pub(crate) fn write_markdown_file(
                 path: serialized_path.clone(),
             })?;
 
+    let bytes =
+        encode_text(content, encoding).map_err(|UnrepresentableCharacters { characters }| {
+            SaveMarkdownFileError::UnrepresentableCharacters {
+                path: serialized_path.clone(),
+                encoding: encoding.name,
+                characters,
+            }
+        })?;
+
     verify_file_freshness(path, &serialized_path, expected_metadata, overwrite)?;
 
-    write_file_atomically(path, &encode_text(content, encoding))
+    write_file_atomically(path, &bytes)
         .map_err(|error| save_write_error(error, path, serialized_path.as_str()))?;
 
     let metadata = read_file_metadata(path)
@@ -287,6 +310,7 @@ fn is_supported_markdown_extension(extension: &str) -> bool {
 fn read_markdown_file_content(
     path: &Path,
     serialized_path: &str,
+    chosen_encoding: Option<TextEncoding>,
 ) -> Result<DecodedText, OpenMarkdownFileError> {
     let bytes =
         read_file_with_size_limit(path, MAX_MARKDOWN_FILE_SIZE_BYTES).map_err(
@@ -303,8 +327,16 @@ fn read_markdown_file_content(
             },
         )?;
 
-    decode_text(bytes).map_err(|_| OpenMarkdownFileError::InvalidEncoding {
-        path: serialized_path.to_owned(),
+    decode_text(bytes, chosen_encoding).map_err(|error| match (error, chosen_encoding) {
+        (DecodeError::Irreversible, Some(encoding)) => {
+            OpenMarkdownFileError::IrreversibleEncoding {
+                path: serialized_path.to_owned(),
+                encoding,
+            }
+        }
+        _ => OpenMarkdownFileError::InvalidEncoding {
+            path: serialized_path.to_owned(),
+        },
     })
 }
 
@@ -524,6 +556,73 @@ mod tests {
         path: PathBuf,
     }
 
+    const LATIN: &str = "# Café\n\nNaïve résumé — “quotes” cost 10 €.\n";
+    const CENTRAL_EUROPEAN: &str = "# Zažluťoučký kůň\n\nZażółć gęślą jaźń.\n";
+    const CYRILLIC: &str = "# Привет\n\nЭто пример текста.\n";
+    const UKRAINIAN: &str = "# Привіт\n\nЇжак і ґанок є.\n";
+    const GREEK: &str = "# Καλημέρα\n\nΕλληνικό κείμενο.\n";
+    const TURKISH: &str = "# Türkçe\n\nİstanbul'da ağır şoför.\n";
+    const HEBREW: &str = "# שלום\n\nזהו טקסט לדוגמה.\n";
+    const ARABIC: &str = "# مرحبا\n\nهذا نص تجريبي.\n";
+    const BALTIC: &str = "# Labas\n\nŠiaulių ąžuolas, Rīga.\n";
+    const VIETNAMESE: &str = "# Ti\u{ea}\u{301}ng Vi\u{ea}\u{323}t\n\n\u{111}\u{1b0}\u{1a1}ng.\n";
+    const WESTERN_ISO: &str = "# Café\n\nPrix : 10 €, œuvre, Ÿ.\n";
+    const JAPANESE: &str = "# 日本語\n\nこれは文字コードのテキストです。\n";
+    const SIMPLIFIED_CHINESE: &str = "# 中文\n\n这是示例文本内容。\n";
+    const TRADITIONAL_CHINESE: &str = "# 中文\n\n這是範例文字內容。\n";
+    const KOREAN: &str = "# 한국어\n\n예제 텍스트입니다.\n";
+
+    const CHOSEN_ENCODING_FIXTURES: [(TextEncoding, &str); 21] = [
+        (TextEncoding::Windows1250, CENTRAL_EUROPEAN),
+        (TextEncoding::Windows1251, CYRILLIC),
+        (TextEncoding::Windows1252, LATIN),
+        (TextEncoding::Windows1253, GREEK),
+        (TextEncoding::Windows1254, TURKISH),
+        (TextEncoding::Windows1255, HEBREW),
+        (TextEncoding::Windows1256, ARABIC),
+        (TextEncoding::Windows1257, BALTIC),
+        (TextEncoding::Windows1258, VIETNAMESE),
+        (TextEncoding::Iso8859_2, CENTRAL_EUROPEAN),
+        (TextEncoding::Iso8859_15, WESTERN_ISO),
+        (TextEncoding::Koi8R, CYRILLIC),
+        (TextEncoding::Koi8U, UKRAINIAN),
+        (TextEncoding::ShiftJis, JAPANESE),
+        (TextEncoding::EucJp, JAPANESE),
+        (TextEncoding::Gbk, SIMPLIFIED_CHINESE),
+        (TextEncoding::Gb18030, SIMPLIFIED_CHINESE),
+        (TextEncoding::Big5, TRADITIONAL_CHINESE),
+        (TextEncoding::EucKr, KOREAN),
+        (TextEncoding::Utf16Le, "# Café 😀\n\n日本語\n"),
+        (TextEncoding::Utf16Be, "# Café 😀\n\n日本語\n"),
+    ];
+
+    fn legacy_encoding(name: TextEncoding) -> &'static encoding_rs::Encoding {
+        match name {
+            TextEncoding::Windows1250 => encoding_rs::WINDOWS_1250,
+            TextEncoding::Windows1251 => encoding_rs::WINDOWS_1251,
+            TextEncoding::Windows1252 => encoding_rs::WINDOWS_1252,
+            TextEncoding::Windows1253 => encoding_rs::WINDOWS_1253,
+            TextEncoding::Windows1254 => encoding_rs::WINDOWS_1254,
+            TextEncoding::Windows1255 => encoding_rs::WINDOWS_1255,
+            TextEncoding::Windows1256 => encoding_rs::WINDOWS_1256,
+            TextEncoding::Windows1257 => encoding_rs::WINDOWS_1257,
+            TextEncoding::Windows1258 => encoding_rs::WINDOWS_1258,
+            TextEncoding::Iso8859_2 => encoding_rs::ISO_8859_2,
+            TextEncoding::Iso8859_15 => encoding_rs::ISO_8859_15,
+            TextEncoding::Koi8R => encoding_rs::KOI8_R,
+            TextEncoding::Koi8U => encoding_rs::KOI8_U,
+            TextEncoding::ShiftJis => encoding_rs::SHIFT_JIS,
+            TextEncoding::EucJp => encoding_rs::EUC_JP,
+            TextEncoding::Gbk => encoding_rs::GBK,
+            TextEncoding::Gb18030 => encoding_rs::GB18030,
+            TextEncoding::Big5 => encoding_rs::BIG5,
+            TextEncoding::EucKr => encoding_rs::EUC_KR,
+            TextEncoding::Utf8 | TextEncoding::Utf16Le | TextEncoding::Utf16Be => {
+                panic!("{name:?} is not a legacy encoding")
+            }
+        }
+    }
+
     fn fixture_bytes(text: &str, encoding: DocumentEncoding) -> Vec<u8> {
         let (bom, body): (&[u8], Vec<u8>) = match encoding.name {
             TextEncoding::Utf8 => (&[0xef, 0xbb, 0xbf], text.as_bytes().to_vec()),
@@ -535,12 +634,25 @@ mod tests {
                 &[0xfe, 0xff],
                 text.encode_utf16().flat_map(u16::to_be_bytes).collect(),
             ),
+            name => {
+                let (body, _, had_unmappable) = legacy_encoding(name).encode(text);
+                assert!(!had_unmappable, "{name:?} fixture should be representable");
+
+                (&[], body.into_owned())
+            }
         };
 
         if encoding.bom {
             [bom, body.as_slice()].concat()
         } else {
             body
+        }
+    }
+
+    fn with_line_ending(text: &str, line_ending: LineEnding) -> String {
+        match line_ending {
+            LineEnding::Lf => text.to_owned(),
+            LineEnding::Crlf => text.replace('\n', "\r\n"),
         }
     }
 
@@ -566,7 +678,7 @@ mod tests {
     fn reads_supported_markdown_files_with_metadata() {
         let file = create_test_file("document.markdown", "# Leafdown\r\n");
 
-        let result = read_markdown_file(&file.path).expect("Markdown file should open");
+        let result = read_markdown_file(&file.path, None).expect("Markdown file should open");
 
         assert_eq!(result.path, file.path.to_string_lossy());
         assert_eq!(result.parent_folder_path, expected_parent(&file.path));
@@ -585,7 +697,7 @@ mod tests {
                 let file = create_test_file_bytes("document.md", bytes.as_slice());
                 let case = format!("{encoding:?} {line_ending:?}");
 
-                let opened = read_markdown_file(&file.path).expect("fixture should open");
+                let opened = read_markdown_file(&file.path, None).expect("fixture should open");
 
                 assert_eq!(opened.content, text, "{case}");
                 assert_eq!(opened.encoding, encoding, "{case}");
@@ -616,6 +728,154 @@ mod tests {
                 assert_eq!(fs::read(&save_as_path).unwrap(), bytes, "{case}");
             }
         }
+    }
+
+    #[test]
+    fn saves_untouched_documents_back_byte_for_byte_in_each_chosen_encoding() {
+        for (name, text) in CHOSEN_ENCODING_FIXTURES {
+            for line_ending in [LineEnding::Lf, LineEnding::Crlf] {
+                let text = with_line_ending(text, line_ending);
+                let encoding = DocumentEncoding { name, bom: false };
+                let bytes = fixture_bytes(text.as_str(), encoding);
+                let file = create_test_file_bytes("document.md", bytes.as_slice());
+                let case = format!("{name:?} {line_ending:?}");
+
+                assert_matches!(
+                    read_markdown_file(&file.path, None),
+                    Err(OpenMarkdownFileError::InvalidEncoding { .. }),
+                    "{case} should need a chosen encoding"
+                );
+
+                let opened =
+                    read_markdown_file(&file.path, Some(name)).expect("fixture should open");
+
+                assert_eq!(opened.content, text, "{case}");
+                assert_eq!(opened.encoding, encoding, "{case}");
+                assert_eq!(opened.line_ending, Some(line_ending), "{case}");
+
+                write_markdown_file(
+                    &file.path,
+                    opened.content.as_str(),
+                    opened.encoding,
+                    Some(opened.metadata),
+                    false,
+                )
+                .expect("untouched document should save");
+
+                assert_eq!(fs::read(&file.path).unwrap(), bytes, "{case}");
+
+                let save_as_path = file.root.path.join("copy.md");
+                write_markdown_file(
+                    &save_as_path,
+                    opened.content.as_str(),
+                    opened.encoding,
+                    None,
+                    false,
+                )
+                .expect("untouched document should save as a new file");
+
+                assert_eq!(fs::read(&save_as_path).unwrap(), bytes, "{case}");
+            }
+        }
+    }
+
+    #[test]
+    fn refuses_a_chosen_encoding_that_would_rewrite_untouched_bytes() {
+        let cases: [(TextEncoding, &[u8]); 3] = [
+            (TextEncoding::ShiftJis, b"# A\n\x87\x90\n"),
+            (TextEncoding::Big5, b"# A\n\x87\x40\n"),
+            (TextEncoding::Gb18030, b"# A\n\x80\n"),
+        ];
+
+        for (name, bytes) in cases {
+            let file = create_test_file_bytes("document.md", bytes);
+
+            assert_matches!(
+                read_markdown_file(&file.path, Some(name)),
+                Err(OpenMarkdownFileError::IrreversibleEncoding { encoding, .. }) if encoding == name,
+                "{name:?}"
+            );
+            assert_eq!(fs::read(&file.path).unwrap(), bytes, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn rejects_bytes_malformed_under_the_chosen_encoding() {
+        let cases: [(TextEncoding, &[u8]); 4] = [
+            (TextEncoding::ShiftJis, b"# A\n\x82\x20\n"),
+            (TextEncoding::EucKr, b"# A\n\xb0\x20\n"),
+            (TextEncoding::Utf16Le, &[b'#', 0, b'A']),
+            (TextEncoding::Windows1252, b"# A\0\n"),
+        ];
+
+        for (name, bytes) in cases {
+            let file = create_test_file_bytes("document.md", bytes);
+
+            assert_matches!(
+                read_markdown_file(&file.path, Some(name)),
+                Err(OpenMarkdownFileError::InvalidEncoding { .. }),
+                "{name:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_byte_order_mark_outranks_the_chosen_encoding() {
+        let utf8_bom = DocumentEncoding {
+            name: TextEncoding::Utf8,
+            bom: true,
+        };
+        let bytes = fixture_bytes("# Café\n", utf8_bom);
+        let file = create_test_file_bytes("document.md", bytes.as_slice());
+
+        let opened = read_markdown_file(&file.path, Some(TextEncoding::Windows1252))
+            .expect("file with a byte order mark should open");
+
+        assert_eq!(opened.content, "# Café\n");
+        assert_eq!(opened.encoding, utf8_bom);
+    }
+
+    #[test]
+    fn refuses_to_save_characters_the_encoding_cannot_represent() {
+        let windows_1252 = DocumentEncoding {
+            name: TextEncoding::Windows1252,
+            bom: false,
+        };
+        let bytes = fixture_bytes(LATIN, windows_1252);
+        let file = create_test_file_bytes("document.md", bytes.as_slice());
+        let opened = read_markdown_file(&file.path, Some(TextEncoding::Windows1252))
+            .expect("fixture should open");
+        let edited = format!("{}Done ✓ 日 本 😀 ✓ 日\n", opened.content);
+
+        let error = write_markdown_file(
+            &file.path,
+            edited.as_str(),
+            opened.encoding,
+            Some(opened.metadata),
+            false,
+        )
+        .expect_err("unrepresentable characters should refuse the save");
+
+        assert_matches!(
+            error,
+            SaveMarkdownFileError::UnrepresentableCharacters {
+                encoding: TextEncoding::Windows1252,
+                characters,
+                ..
+            } if characters == ['✓', '日', '本', '😀']
+        );
+        assert_eq!(fs::read(&file.path).unwrap(), bytes);
+
+        write_markdown_file(
+            &file.path,
+            edited.as_str(),
+            DocumentEncoding::UTF8,
+            Some(opened.metadata),
+            false,
+        )
+        .expect("document converted to UTF-8 should save");
+
+        assert_eq!(fs::read_to_string(&file.path).unwrap(), edited);
     }
 
     #[test]
@@ -651,7 +911,7 @@ mod tests {
             let file = create_test_file_bytes("document.md", bytes);
 
             assert_matches!(
-                read_markdown_file(&file.path),
+                read_markdown_file(&file.path, None),
                 Err(OpenMarkdownFileError::InvalidEncoding { .. }),
                 "{case}"
             );
@@ -662,7 +922,7 @@ mod tests {
     fn reads_empty_markdown_files() {
         let file = create_test_file("empty.md", "");
 
-        let result = read_markdown_file(&file.path).expect("empty Markdown file should open");
+        let result = read_markdown_file(&file.path, None).expect("empty Markdown file should open");
 
         assert_eq!(result.content, "");
         assert_eq!(result.line_ending, None);
@@ -674,7 +934,8 @@ mod tests {
         let file = create_test_file("missing.md", "");
         fs::remove_file(&file.path).expect("test file should be removed");
 
-        let error = read_markdown_file(&file.path).expect_err("missing file should be rejected");
+        let error =
+            read_markdown_file(&file.path, None).expect_err("missing file should be rejected");
 
         assert_matches!(error, OpenMarkdownFileError::MissingFile { .. });
     }
@@ -684,7 +945,8 @@ mod tests {
         let oversized_content = vec![b'A'; (MAX_MARKDOWN_FILE_SIZE_BYTES + 1) as usize];
         let file = create_test_file_bytes("large.md", oversized_content.as_slice());
 
-        let error = read_markdown_file(&file.path).expect_err("oversized file should be rejected");
+        let error =
+            read_markdown_file(&file.path, None).expect_err("oversized file should be rejected");
 
         assert_matches!(
             error,
@@ -701,7 +963,8 @@ mod tests {
     fn rejects_invalid_utf8_markdown_files() {
         let file = create_test_file_bytes("invalid.md", &[0x80, 0x81, 0xfe, 0xff]);
 
-        let error = read_markdown_file(&file.path).expect_err("invalid UTF-8 should be rejected");
+        let error =
+            read_markdown_file(&file.path, None).expect_err("invalid UTF-8 should be rejected");
 
         assert_matches!(error, OpenMarkdownFileError::InvalidEncoding { .. });
     }
@@ -710,7 +973,7 @@ mod tests {
     fn rejects_unsupported_file_types() {
         let file = create_test_file("notes.txt", "not Markdown");
 
-        let error = read_markdown_file(&file.path).expect_err("text file should be rejected");
+        let error = read_markdown_file(&file.path, None).expect_err("text file should be rejected");
 
         assert_matches!(error, OpenMarkdownFileError::UnsupportedFileType { .. });
     }
@@ -822,7 +1085,7 @@ mod tests {
     #[test]
     fn writes_when_expected_metadata_matches() {
         let file = create_test_file("document.md", "old content");
-        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        let opened = read_markdown_file(&file.path, None).expect("metadata should be read");
 
         let result = write_markdown_file(
             &file.path,
@@ -840,7 +1103,7 @@ mod tests {
     #[test]
     fn rejects_missing_saved_files_when_expected_metadata_is_supplied() {
         let file = create_test_file("document.md", "old content");
-        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        let opened = read_markdown_file(&file.path, None).expect("metadata should be read");
         fs::remove_file(&file.path).expect("test file should be removed");
 
         let error = write_markdown_file(
@@ -859,7 +1122,7 @@ mod tests {
     #[test]
     fn rejects_external_modifications_without_overwrite() {
         let file = create_test_file("document.md", "old content");
-        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        let opened = read_markdown_file(&file.path, None).expect("metadata should be read");
         fs::write(&file.path, "external change").expect("test file should be changed");
 
         let error = write_markdown_file(
@@ -878,7 +1141,7 @@ mod tests {
     #[test]
     fn rejects_files_rewritten_externally_in_another_encoding() {
         let file = create_test_file("document.md", "# Leafdown\n");
-        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        let opened = read_markdown_file(&file.path, None).expect("metadata should be read");
         let rewritten = fixture_bytes(
             "# Leafdown\n",
             DocumentEncoding {
@@ -904,7 +1167,7 @@ mod tests {
     #[test]
     fn overwrites_external_modifications_after_confirmation() {
         let file = create_test_file("document.md", "old content");
-        let opened = read_markdown_file(&file.path).expect("metadata should be read");
+        let opened = read_markdown_file(&file.path, None).expect("metadata should be read");
         fs::write(&file.path, "external change").expect("test file should be changed");
 
         write_markdown_file(

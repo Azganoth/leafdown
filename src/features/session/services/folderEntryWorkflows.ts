@@ -1,4 +1,3 @@
-import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import {
   createFolderArticle,
   createFolderDirectory,
@@ -17,7 +16,7 @@ import { useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { runAfterPendingSaves } from "./documentWorkflows";
 import { refreshFolderContext } from "./folderContextWorkflows";
-import { openMarkdownFileAtPath } from "./openSession";
+import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSession";
 import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
 
 export type FolderEntryKind = "directory" | "file";
@@ -41,7 +40,7 @@ export const createArticleInFolder = async (parentPath: string, name: string) =>
   try {
     await openMarkdownFileAtPath(path, { discardConfirmed: true });
   } catch (error) {
-    notifyError(getOpenMarkdownFileErrorMessage(error));
+    notifyOpenMarkdownFileError(error);
   }
 
   return path;

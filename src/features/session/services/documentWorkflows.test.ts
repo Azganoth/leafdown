@@ -438,6 +438,107 @@ describe("document workflows", () => {
     });
   });
 
+  describe("unrepresentable characters", () => {
+    const windows1252 = { name: "windows-1252", bom: false } as const;
+    const unrepresentableError = {
+      kind: "unrepresentableCharacters",
+      path: TEST_MARKDOWN_FILE_PATH,
+      encoding: "windows-1252",
+      characters: ["✓", "日"],
+    };
+
+    it("converts the document to UTF-8 and saves it when confirmed", async () => {
+      setDefaultSession({
+        activeDocument: createSavedDocument({
+          content: "# Done ✓ 日",
+          encoding: windows1252,
+          isDirty: true,
+        }),
+      });
+      const saveMarkdownFile = vi
+        .fn()
+        .mockRejectedValueOnce(unrepresentableError)
+        .mockResolvedValueOnce(createSavedMarkdownDocumentResult());
+      mockTauriApiCommand("saveMarkdownFile", saveMarkdownFile);
+      vi.mocked(requestConfirmation).mockResolvedValue(true);
+
+      await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+
+      expect(requestConfirmation).toHaveBeenCalledWith({
+        title: "Characters cannot be saved",
+        message:
+          "Windows-1252 cannot represent some characters in this document, so nothing was saved. Convert the document to UTF-8 and save it?",
+        detail: "✓ (U+2713), 日 (U+65E5)",
+        confirmLabel: "Convert to UTF-8 and save",
+        cancelLabel: "Cancel",
+      });
+      expect(saveMarkdownFile).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ encoding: windows1252 }),
+      );
+      expect(saveMarkdownFile).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          content: "# Done ✓ 日\n",
+          encoding: { name: "UTF-8", bom: false },
+        }),
+      );
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        encoding: { name: "UTF-8", bom: false },
+        fileEncoding: { name: "UTF-8", bom: false },
+        isDirty: false,
+      });
+    });
+
+    it("keeps the document's encoding and writes nothing more when cancelled", async () => {
+      const activeDocument = createSavedDocument({
+        content: "# Done ✓",
+        encoding: windows1252,
+        isDirty: true,
+      });
+      setDefaultSession({ activeDocument });
+      mockTauriApiCommand("saveMarkdownFile", () => Promise.reject(unrepresentableError));
+
+      await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
+
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
+      expect(useSessionStore.getState().activeDocument).toEqual(activeDocument);
+    });
+
+    it("saves as to the chosen path in UTF-8 after conversion", async () => {
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        activeDocument: createSavedDocument({
+          content: "# Done ✓",
+          encoding: windows1252,
+          isDirty: true,
+        }),
+      });
+      const saveMarkdownFile = vi
+        .fn()
+        .mockRejectedValueOnce({ ...unrepresentableError, path: DRAFT_MD_PATH })
+        .mockResolvedValueOnce(createSavedMarkdownDocumentResult({ path: DRAFT_MD_PATH }));
+      mockTauriApi({ saveMarkdownFile, scanMarkdownFolder: () => notesFolderContext });
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      vi.mocked(requestConfirmation).mockResolvedValue(true);
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(save).toHaveBeenCalledOnce();
+      expect(saveMarkdownFile).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          path: DRAFT_MD_PATH,
+          encoding: { name: "UTF-8", bom: false },
+        }),
+      );
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        path: DRAFT_MD_PATH,
+        encoding: { name: "UTF-8", bom: false },
+      });
+    });
+  });
+
   describe("save conflicts", () => {
     it("surfaces unexpected save failures after the active document changes", async () => {
       const result = Promise.withResolvers<never>();

@@ -3,6 +3,7 @@ import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
 import type { OpenMarkdownFileError, SaveMarkdownFileError } from "../services/markdownDocumentApi";
+import { formatEncodingName } from "./documentEncoding";
 
 export type { OpenMarkdownFileError, SaveMarkdownFileError } from "../services/markdownDocumentApi";
 
@@ -13,6 +14,7 @@ const OPEN_MARKDOWN_FILE_ERROR_KINDS = [
   "permissionDenied",
   "oversizedFile",
   "invalidEncoding",
+  "irreversibleEncoding",
   "readFailed",
   "metadataFailed",
 ] as const satisfies readonly OpenMarkdownFileError["kind"][];
@@ -59,7 +61,13 @@ export const getOpenMarkdownFileErrorMessage = (
       return {
         title: "Invalid Markdown file encoding.",
         description:
-          "Leafdown opens Markdown files encoded as UTF-8, or as UTF-16 with a byte order mark.",
+          "The file is not valid in the encoding it was read in. Leafdown reads UTF-8, and UTF-16 with a byte order mark, unless another encoding is chosen.",
+      };
+    case "irreversibleEncoding":
+      return {
+        title: `Markdown file cannot be preserved in ${formatEncodingName(error.encoding)}.`,
+        description:
+          "Saving it in that encoding would change bytes that were never edited. Choose another encoding.",
       };
     case "readFailed":
       return {
@@ -84,6 +92,7 @@ const SAVE_MARKDOWN_FILE_ERROR_KINDS = [
   "missingParentFolder",
   "permissionDenied",
   "externalModification",
+  "unrepresentableCharacters",
   "writeFailed",
   "metadataFailed",
 ] as const satisfies readonly SaveMarkdownFileError["kind"][];
@@ -131,6 +140,11 @@ export const getSaveMarkdownFileErrorMessage = (
         title: "Markdown file changed outside Leafdown.",
         description: error.path,
       };
+    case "unrepresentableCharacters":
+      return {
+        title: `Some characters cannot be saved in ${formatEncodingName(error.encoding)}.`,
+        description: formatUnrepresentableCharacters(error.characters),
+      };
     case "writeFailed":
       return {
         title: "Could not write Markdown file.",
@@ -146,3 +160,33 @@ export const getSaveMarkdownFileErrorMessage = (
 
 export const isSaveMarkdownFileError = (error: unknown): error is SaveMarkdownFileError =>
   isTaggedPayload(error, SAVE_MARKDOWN_FILE_ERROR_KINDS);
+
+export type UnrepresentableCharactersError = Extract<
+  SaveMarkdownFileError,
+  { kind: "unrepresentableCharacters" }
+>;
+
+export const isUnrepresentableCharactersError = (
+  error: unknown,
+): error is UnrepresentableCharactersError =>
+  isSaveMarkdownFileError(error) && error.kind === "unrepresentableCharacters";
+
+export const isEncodingOpenError = (
+  error: unknown,
+): error is Extract<OpenMarkdownFileError, { kind: "invalidEncoding" | "irreversibleEncoding" }> =>
+  isOpenMarkdownFileError(error) &&
+  (error.kind === "invalidEncoding" || error.kind === "irreversibleEncoding");
+
+const MAX_LISTED_UNREPRESENTABLE_CHARACTERS = 12;
+
+const formatCodePoint = (character: string) =>
+  `U+${(character.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
+
+export const formatUnrepresentableCharacters = (characters: readonly string[]) => {
+  const listed = characters
+    .slice(0, MAX_LISTED_UNREPRESENTABLE_CHARACTERS)
+    .map((character) => `${character} (${formatCodePoint(character)})`);
+  const remaining = characters.length - listed.length;
+
+  return remaining > 0 ? `${listed.join(", ")}, and ${remaining} more` : listed.join(", ");
+};

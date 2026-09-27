@@ -6,7 +6,7 @@ import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { getLastDiagnosticMessage, pollForDiagnosticMessage } from "@/test/utils/diagnostics";
 import { mockTauriApi } from "@/test/utils/tauriApi";
 
-import { NEW_DOCUMENT_ENCODING } from "../utils/documentState";
+import { NEW_DOCUMENT_ENCODING } from "../utils/documentEncoding";
 import { openMarkdownDocument, saveMarkdownDocument } from "./markdownDocument";
 
 describe("markdown document service", () => {

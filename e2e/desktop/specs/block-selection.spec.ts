@@ -5,7 +5,7 @@ import { Key } from "webdriverio";
 
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { openRecentPath } from "../support/ui.js";
+import { dismissToasts, openRecentPath } from "../support/ui.js";
 
 interface GutterGeometry {
   barHeight: number;
@@ -157,6 +157,8 @@ describe("desktop block selection", () => {
     const originalWindowSize = await browser.getWindowSize();
     await openRecentPath(blocks.path);
     await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await dismissToasts();
     const target = await getGeometryForText("Nested first");
     const root = await getGeometryForText("Root paragraph with projected source.");
     const rootPoint = (await $(
@@ -296,6 +298,8 @@ describe("desktop block selection", () => {
     await expect($("aria/Unsaved changes")).toBeDisplayed();
     await $("aria/Discard changes").click();
     await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await dismissToasts();
 
     await browser.action("pointer").move({ origin: "viewport", x: 1, y: 1 }).perform();
 

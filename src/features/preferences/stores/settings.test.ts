@@ -31,6 +31,7 @@ describe("settings store", () => {
       whenDroppingFolder: "insertLink",
       whenDroppingMarkdownFile: "insertLink",
       autoPairBracketsAndQuotes: false,
+      displayCodeBlockLineNumbers: true,
       softWrapCodeBlocks: true,
     });
 
@@ -51,6 +52,7 @@ describe("settings store", () => {
       whenDroppingFolder: "open",
       whenDroppingMarkdownFile: "open",
       autoPairBracketsAndQuotes: true,
+      displayCodeBlockLineNumbers: false,
       softWrapCodeBlocks: false,
       version: SETTINGS_VERSION,
     });
@@ -72,6 +74,7 @@ describe("settings store", () => {
     settings.updateSetting("whenDroppingFolder", "insertLink");
     settings.updateSetting("whenDroppingMarkdownFile", "insertLink");
     settings.updateSetting("autoPairBracketsAndQuotes", false);
+    settings.updateSetting("displayCodeBlockLineNumbers", true);
     settings.updateSetting("softWrapCodeBlocks", true);
 
     expect(useSettingsStore.getState()).toMatchObject({
@@ -88,6 +91,7 @@ describe("settings store", () => {
       whenDroppingFolder: "insertLink",
       whenDroppingMarkdownFile: "insertLink",
       autoPairBracketsAndQuotes: false,
+      displayCodeBlockLineNumbers: true,
       softWrapCodeBlocks: true,
     });
   });
@@ -118,6 +122,7 @@ describe("settings store", () => {
         whenDroppingFolder: "insertLink",
         whenDroppingMarkdownFile: "insertLink",
         autoPairBracketsAndQuotes: false,
+        displayCodeBlockLineNumbers: true,
         softWrapCodeBlocks: true,
         version: SETTINGS_VERSION,
       };

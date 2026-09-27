@@ -263,6 +263,9 @@ function FilePreferences() {
 
 function EditorPreferences() {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
+  const displayCodeBlockLineNumbers = useSettingsStore(
+    (state) => state.displayCodeBlockLineNumbers,
+  );
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
@@ -273,6 +276,12 @@ function EditorPreferences() {
         description="Closes a bracket or quote as you open one."
         checked={autoPairBracketsAndQuotes}
         onCheckedChange={(checked) => updateSetting("autoPairBracketsAndQuotes", checked)}
+      />
+      <PreferenceSwitch
+        label="Display line numbers for code blocks"
+        description="Numbers each line of code in a gutter beside it."
+        checked={displayCodeBlockLineNumbers}
+        onCheckedChange={(checked) => updateSetting("displayCodeBlockLineNumbers", checked)}
       />
       <PreferenceSwitch
         label="Soft wrap for code blocks"

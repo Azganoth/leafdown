@@ -63,6 +63,7 @@ describe("milkdown-editor", () => {
       expect(options.root).toBeInstanceOf(HTMLElement);
       expect(options.initialMarkdown).toBe("# Notes");
       expect(options.isAutoPairEnabled?.()).toBe(true);
+      expect(options.areCodeLineNumbersEnabled?.()).toBe(false);
       expect(options.getMarkdownReferenceContext?.()).toEqual({
         documentPath: null,
         folderContextPath: null,
@@ -107,12 +108,14 @@ describe("milkdown-editor", () => {
           documentPath="C:/Notes/renamed.md"
           folderContextPath="C:/Notes"
           autoPairBracketsAndQuotes={false}
+          displayCodeBlockLineNumbers
           softWrapCodeBlocks
         />,
       );
 
       expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
       expect(options.isAutoPairEnabled?.()).toBe(false);
+      expect(options.areCodeLineNumbersEnabled?.()).toBe(true);
       expect(options.getMarkdownReferenceContext?.()).toEqual({
         documentPath: "C:/Notes/renamed.md",
         folderContextPath: "C:/Notes",

@@ -71,6 +71,7 @@ import {
 } from "../plugins/characterReference";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
+import { createLeafdownCodeLineNumbersPlugin } from "../plugins/codeLineNumbers";
 import { createLeafdownCodeSpanInputRule } from "../plugins/codeSpanInputRule";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
 import { createLeafdownCommandStatePlugin } from "../plugins/commandState";
@@ -206,6 +207,7 @@ export interface CreateMilkdownEditorOptions {
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
+  areCodeLineNumbersEnabled?: () => boolean;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
@@ -249,6 +251,7 @@ export const createMilkdownEditor = async ({
   footnotePreview,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
+  areCodeLineNumbersEnabled = () => false,
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
@@ -311,6 +314,7 @@ export const createMilkdownEditor = async ({
     .use(clipboard)
     .use(listener)
     .use(highlight)
+    .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownTableViewPlugin())
     .use(createLeafdownTableColumnsPlugin())

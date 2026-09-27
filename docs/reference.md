@@ -41,7 +41,10 @@ Global settings persist across application launches unless specified otherwise.
 ### Editor
 
 - **Auto pair brackets and quotes:** On or Off. Default: On.
-- **Display line numbers for code blocks:** On or Off. Default: Off. (Deferred)
+- **Display line numbers for code blocks:** On or Off. Default: Off.
+  - Every code block numbers its lines from 1 in a gutter beside the code. An empty line has its own number, and an empty block shows 1.
+  - A soft-wrapped line keeps one number, on its first row. The gutter stays in place while long lines scroll horizontally.
+  - The numbers are presentation only. They cannot be selected, and they are left out of copied text, saved Markdown, word and character counts, and what assistive technology reads. Changing the setting updates open documents without modifying them.
 - **Soft wrap for code blocks:** On or Off. Default: Off.
 
 ### Output

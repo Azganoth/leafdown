@@ -43,6 +43,16 @@ export const openRecentPath = async (path: string) => {
   await (await findMenuItem((text) => text === path)).click();
 };
 
+export const dismissToasts = async () => {
+  for (const close of await $$('[data-slot="toast-close"]').getElements()) {
+    await close.click();
+  }
+
+  await browser.waitUntil(async () => (await $$('[data-slot="toast"]').length) === 0, {
+    timeoutMsg: "Toasts were not dismissed.",
+  });
+};
+
 export const getSaveMenuItem = async () => {
   await openMenu("File");
   return findMenuItem((text) => text.startsWith("Save") && !text.startsWith("Save as"));

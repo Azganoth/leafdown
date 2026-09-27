@@ -31,6 +31,7 @@ import type { ArticleSortOrder } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
 import {
   getAvailableLocales,
+  getChosenLocale,
   getLanguageDisplayName,
   getSystemLanguages,
   resolveLocale,
@@ -254,7 +255,7 @@ function LanguagePreference() {
       value: availableLocale,
     })),
   ];
-  const selectedValue = availableLocales.includes(language) ? language : SYSTEM_LANGUAGE;
+  const selectedValue = getChosenLocale(language, availableLocales) ?? SYSTEM_LANGUAGE;
 
   return (
     <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">

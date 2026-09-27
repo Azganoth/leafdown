@@ -1,6 +1,7 @@
 export {
   createLocalization,
   getAvailableLocales,
+  getChosenLocale,
   getLanguageDisplayName,
   getSystemLanguages,
   localizer,

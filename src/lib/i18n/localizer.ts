@@ -80,15 +80,34 @@ const getLookupCandidates = (tag: string) => {
   return [...new Set(candidates)];
 };
 
+const indexLocales = (locales: readonly string[]) =>
+  new Map(locales.map((locale) => [locale.toLowerCase(), locale]));
+
+// An explicit choice names a locale from the picker, so only that locale satisfies it; a
+// regional sibling of a locale no longer shipped is not the language that was chosen.
+export const getChosenLocale = (
+  preference: string,
+  availableLocales: readonly string[] = getAvailableLocales(),
+) => {
+  const canonical = preference === SYSTEM_LANGUAGE ? null : canonicalize(preference);
+
+  return canonical ? (indexLocales(availableLocales).get(canonical.toLowerCase()) ?? null) : null;
+};
+
 export const resolveLocale = (
   preference: string,
   systemLanguages: readonly string[],
   availableLocales: readonly string[] = getAvailableLocales(),
 ): string => {
-  const available = new Map(availableLocales.map((locale) => [locale.toLowerCase(), locale]));
-  const requested = preference === SYSTEM_LANGUAGE ? systemLanguages : [preference];
+  const chosenLocale = getChosenLocale(preference, availableLocales);
 
-  for (const tag of requested) {
+  if (chosenLocale) {
+    return chosenLocale;
+  }
+
+  const available = indexLocales(availableLocales);
+
+  for (const tag of systemLanguages) {
     const canonical = canonicalize(tag);
 
     if (!canonical) {
@@ -104,9 +123,7 @@ export const resolveLocale = (
     }
   }
 
-  return preference === SYSTEM_LANGUAGE
-    ? SOURCE_LOCALE
-    : resolveLocale(SYSTEM_LANGUAGE, systemLanguages, availableLocales);
+  return SOURCE_LOCALE;
 };
 
 const RELATIVE_TIME_UNITS = [

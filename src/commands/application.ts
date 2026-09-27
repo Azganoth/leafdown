@@ -43,6 +43,7 @@ export const APPLICATION_COMMANDS = {
   "view.zoomIn": appCommand(view.zoomIn, view.getZoomInState),
   "view.zoomOut": appCommand(view.zoomOut, view.getZoomOutState),
   "view.resetZoom": appCommand(view.resetZoom, view.getResetZoomState),
+  "view.alwaysOnTop": appCommand(view.toggleAlwaysOnTop, view.getAlwaysOnTopState),
   "view.fullscreen": appCommand(view.toggleFullscreen, view.getFullscreenState),
   "view.appearance.system": appCommand(view.setSystemTheme, view.getSystemThemeState),
   "view.appearance.light": appCommand(view.setLightTheme, view.getLightThemeState),

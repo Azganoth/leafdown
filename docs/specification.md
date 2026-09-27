@@ -324,6 +324,14 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.
 - Accent color is global and persists across launches. Every available accent keeps the foreground of filled primary controls readable in light and dark appearances.
 
+### Always On Top
+
+- **Always on top** keeps the Leafdown window above windows that are not themselves on top. It is Off by default, global, and persists across launches. In the current single-window application it owns the one Leafdown window.
+- Turning it on or off changes the window first and records the setting only once the window accepts the change. A change the window refuses is reported, and the setting and its checkmark stay as they were.
+- On launch, a setting left On is applied before the window is shown. If the window refuses it, Leafdown still opens, turns the setting Off, and reports the failure.
+- `Restore defaults` turns it Off and takes the window off the top. If the window refuses, the other settings are still restored, the setting stays On, and the failure is reported.
+- Entering or leaving `Full screen` leaves the setting unchanged. The operating system may let other windows cover a full-screen window, and leaving full screen returns the window to the requested behavior without toggling the setting again.
+
 ## File And Folder Workflows
 
 Workflows execute upon successful completion of dirty-state checks. If a dirty check is cancelled, the workflow is aborted.

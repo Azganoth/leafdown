@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { describe, expect, it, vi } from "vitest";
 
+import { toastManager } from "@/lib/toast";
 import { setDefaultSettings } from "@/test/utils/appStores";
 import { renderWithUser, screen, within } from "@/test/utils/react";
 
@@ -118,5 +120,43 @@ describe("preferences-dialog", () => {
       accentColor: "neutral",
       theme: "system",
     });
+  });
+
+  it("turns always on top off for the window when restoring defaults", async () => {
+    setDefaultSettings({ alwaysOnTop: true });
+
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Restore defaults" }));
+
+    await vi.waitFor(() => {
+      expect(useSettingsStore.getState().alwaysOnTop).toBe(false);
+    });
+    expect(getCurrentWindow().setAlwaysOnTop).toHaveBeenCalledWith(false);
+  });
+
+  it("reports a window that stays on top after restoring defaults", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(getCurrentWindow().setAlwaysOnTop).mockRejectedValueOnce(
+      new Error("window unavailable"),
+    );
+    setDefaultSettings({ alwaysOnTop: true, sidebarVisible: false });
+
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Restore defaults" }));
+
+    await vi.waitFor(() => {
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description: "window unavailable",
+        title: "Could not turn off always on top.",
+        type: "error",
+      });
+    });
+    expect(useSettingsStore.getState()).toMatchObject({
+      alwaysOnTop: true,
+      sidebarVisible: true,
+    });
+    consoleError.mockRestore();
   });
 });

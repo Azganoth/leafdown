@@ -22,6 +22,8 @@ Global settings persist across application launches unless specified otherwise.
 - **Status bar visibility:** Visible or hidden. Default: Visible.
   - The setting applies while a document is open. Without one the status bar is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
+- **Always on top:** On or Off. Default: Off.
+  - Set from View > Always on top. See [Always On Top](./specification.md#always-on-top).
 
 ### Files
 
@@ -207,7 +209,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Zoom in** (`Mod+=`)
 - **Zoom out** (`Mod+-`)
 - **Reset zoom** (`Mod+0`)
-- **Always on top** (Deferred)
+- **Always on top**
 - **Full screen** (`F11`)
 - **Appearance**
   - **System**
@@ -327,7 +329,7 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 - `Insert final newline on save` reflects the global save setting. It remains available without an active document.
 - `Toggle sidebar` reflects global sidebar visibility while it is available.
 - `Toggle status bar` reflects global status bar visibility.
-- `Always on top` reflects current window state.
+- `Always on top` reflects the global always-on-top setting, which Leafdown records only after the window accepts the change.
 - `Full screen` reflects current window state.
 
 #### Radio State

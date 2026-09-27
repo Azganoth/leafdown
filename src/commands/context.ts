@@ -11,7 +11,12 @@ import type { CommandUIState } from "./stores/commandUi";
 export type AppCommandRecentItemsContext = Pick<RecentItemsState, "recentFiles" | "recentFolders">;
 export type AppCommandSettingsContext = Pick<
   SettingsState,
-  "articleSortOrder" | "insertFinalNewline" | "sidebarVisible" | "statusBarVisible" | "theme"
+  | "alwaysOnTop"
+  | "articleSortOrder"
+  | "insertFinalNewline"
+  | "sidebarVisible"
+  | "statusBarVisible"
+  | "theme"
 >;
 export type AppCommandUIContext = Pick<CommandUIState, "fullscreen" | "pendingSortOrder" | "zoom">;
 

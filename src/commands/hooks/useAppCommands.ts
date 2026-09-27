@@ -57,6 +57,7 @@ export const useAppCommands = () => {
 
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
+  const alwaysOnTop = useSettingsStore((state) => state.alwaysOnTop);
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
@@ -81,6 +82,7 @@ export const useAppCommands = () => {
       recentFolders,
     },
     settings: {
+      alwaysOnTop,
       articleSortOrder,
       insertFinalNewline,
       sidebarVisible,

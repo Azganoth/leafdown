@@ -60,6 +60,7 @@ describe("command state", () => {
     const context = createAppCommandContext({
       activeDocument: createSavedDocument(),
       settings: {
+        alwaysOnTop: true,
         articleSortOrder: "type",
         insertFinalNewline: false,
         sidebarVisible: false,
@@ -93,6 +94,10 @@ describe("command state", () => {
       getCommandState("view.toggleStatusBar", { ...context, activeDocument: null }),
     ).toMatchObject({
       checked: false,
+      enabled: true,
+    });
+    expect(getCommandState("view.alwaysOnTop", context)).toMatchObject({
+      checked: true,
       enabled: true,
     });
     expect(getCommandState("view.fullscreen", context)).toMatchObject({

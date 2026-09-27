@@ -19,6 +19,7 @@ import {
   setLightTheme,
   setSystemTheme,
   sortByType,
+  toggleAlwaysOnTop,
   toggleFullscreen,
   toggleSidebar,
   toggleStatusBar,
@@ -145,6 +146,42 @@ describe("view actions", () => {
       );
     });
     expect(useCommandUIStore.getState().fullscreen).toBe(true);
+  });
+
+  it("toggles always on top once the window accepts each change", async () => {
+    setDefaultSettings({ alwaysOnTop: false });
+
+    await toggleAlwaysOnTop();
+
+    expect(getCurrentWindow().setAlwaysOnTop).toHaveBeenCalledWith(true);
+    expect(useSettingsStore.getState().alwaysOnTop).toBe(true);
+
+    await toggleAlwaysOnTop();
+
+    expect(getCurrentWindow().setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+    expect(useSettingsStore.getState().alwaysOnTop).toBe(false);
+  });
+
+  it("shows a command error and keeps always on top unchanged when the window rejects it", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.mocked(getCurrentWindow().setAlwaysOnTop).mockRejectedValueOnce(
+      new Error("window unavailable"),
+    );
+    setDefaultSettings({ alwaysOnTop: false });
+
+    await toggleAlwaysOnTop();
+
+    expect(toastManager.add).toHaveBeenCalledWith({
+      description: "window unavailable",
+      title: "Could not update always on top.",
+      type: "error",
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Unexpected error (toggleAlwaysOnTop).",
+      expect.any(Error),
+    );
+    expect(useSettingsStore.getState().alwaysOnTop).toBe(false);
   });
 
   it("updates appearance theme settings", () => {

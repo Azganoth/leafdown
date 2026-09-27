@@ -22,7 +22,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
 import type { ArticleSortOrder } from "@/features/folder-context";
+import { notifyOperationFailure } from "@/lib/errors";
 
+import { restoreDefaultSettings } from "../services/windowPreferences";
 import {
   type AppearanceAccentColor,
   type AppearanceTheme,
@@ -104,9 +106,13 @@ interface PreferencesDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
-  const reset = useSettingsStore((state) => state.reset);
+const restoreDefaults = () => {
+  void restoreDefaultSettings().catch((error) =>
+    notifyOperationFailure("Could not turn off always on top.", error, "restoreDefaultSettings"),
+  );
+};
 
+export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-4 sm:max-w-3xl">
@@ -147,7 +153,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         </Tabs>
 
         <DialogFooter className="sm:justify-start">
-          <Button type="button" variant="ghost" onClick={reset}>
+          <Button type="button" variant="ghost" onClick={restoreDefaults}>
             Restore defaults
           </Button>
         </DialogFooter>

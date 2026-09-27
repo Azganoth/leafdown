@@ -7,7 +7,7 @@ import {
   useArticleNavigatorStore,
   type ArticleSortOrder,
 } from "@/features/folder-context";
-import { useSettingsStore } from "@/features/preferences";
+import { setAlwaysOnTop, useSettingsStore } from "@/features/preferences";
 import { changeArticleSortOrder } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
 import { notifyError } from "@/lib/toast";
@@ -100,6 +100,14 @@ export const toggleFullscreen = async () => {
   }
 };
 
+export const toggleAlwaysOnTop = async () => {
+  try {
+    await setAlwaysOnTop(!useSettingsStore.getState().alwaysOnTop);
+  } catch (error) {
+    notifyOperationFailure("Could not update always on top.", error, "toggleAlwaysOnTop");
+  }
+};
+
 export const setSystemTheme = () => {
   useSettingsStore.getState().updateSetting("theme", "system");
 };
@@ -152,6 +160,9 @@ export const getZoomOutState = (context: AppCommandContext) =>
 
 export const getResetZoomState = (context: AppCommandContext) =>
   isZoomAt(context.ui.zoom, DEFAULT_ZOOM) ? disabled("Zoom is already reset.") : enabled();
+
+export const getAlwaysOnTopState = (context: AppCommandContext) =>
+  checked(context.settings.alwaysOnTop);
 
 export const getFullscreenState = (context: AppCommandContext) => checked(context.ui.fullscreen);
 

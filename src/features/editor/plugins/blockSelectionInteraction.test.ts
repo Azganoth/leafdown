@@ -214,6 +214,53 @@ describe("block selection interaction", () => {
     ).toBe("28px");
   });
 
+  it("repositions handles when a block resizes inside an editor that keeps its size", async () => {
+    let notifyResize: () => void = () => undefined;
+    const observed = new Set<Element>();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          notifyResize = callback;
+        }
+
+        observe(element: Element) {
+          observed.add(element);
+        }
+
+        unobserve(element: Element) {
+          observed.delete(element);
+        }
+
+        disconnect() {
+          observed.clear();
+        }
+      },
+    );
+    const mounted = await mountEditor("First\n\nSecond\n");
+    const [first, second] = getSelectableBlockTargets(mounted.view.state.doc);
+    const firstNode = mounted.view.nodeDOM(first.pos);
+    const secondNode = mounted.view.nodeDOM(second.pos);
+    if (!(firstNode instanceof Element) || !(secondNode instanceof Element)) {
+      throw new Error("Expected rendered paragraphs.");
+    }
+
+    expect(observed).toEqual(new Set([mounted.view.dom, firstNode, secondNode]));
+
+    vi.spyOn(secondNode, "getBoundingClientRect").mockReturnValue(createRect(100, 60, 40));
+    notifyResize();
+    await settleAnimationFrame();
+
+    expect(getHandle(second.pos).parentElement?.style.top).toBe("60px");
+    expect(getHandle(second.pos).parentElement?.style.height).toBe("40px");
+
+    mounted.view.dispatch(mounted.view.state.tr.delete(first.pos, second.pos));
+
+    expect(mounted.view.dom.children).toHaveLength(1);
+    expect(observed).toEqual(new Set([mounted.view.dom, ...mounted.view.dom.children]));
+    vi.unstubAllGlobals();
+  });
+
   it("reveals only the handle for the hovered block", async () => {
     const mounted = await mountEditor("First\n\nSecond\n");
     const paragraphs = getSelectableBlockTargets(mounted.view.state.doc);

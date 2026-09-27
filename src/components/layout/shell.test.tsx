@@ -21,6 +21,7 @@ import {
   setDefaultRecentItems,
   setDefaultSession,
   setDefaultSettings,
+  setDefaultUI,
 } from "@/test/utils/appStores";
 import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
@@ -407,5 +408,18 @@ describe("Shell", () => {
       activeDocument,
       folderContext: nestedFolderContext,
     });
+  });
+
+  it("previews the document typography settings in Preferences", async () => {
+    setDefaultSettings({ documentFont: "literata", textSize: 18, lineSpacing: "compact" });
+    setDefaultUI({ preferencesOpen: true });
+
+    const { user } = renderWithUser(<Shell />);
+    await user.click(screen.getByRole("tab", { name: "Appearance" }));
+
+    const preview = screen.getByTestId("document-typography-preview");
+    expect(preview).toHaveAttribute("data-document-font", "literata");
+    expect(preview).toHaveAttribute("data-text-size", "18");
+    expect(preview).toHaveAttribute("data-line-spacing", "compact");
   });
 });

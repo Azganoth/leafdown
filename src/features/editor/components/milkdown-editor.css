@@ -19,9 +19,48 @@
   --leafdown-block-handle-slot: 1.25rem;
   --leafdown-block-insertion-slot: 1.5rem;
   --leafdown-measure: 48rem;
+  --leafdown-document-font: var(--font-sans);
+  --leafdown-text-size: 16px;
+  --leafdown-line-spacing: 1.75;
 
   @media (min-width: 40rem) {
     @apply px-8 py-10;
+  }
+
+  &[data-document-font="ibm-plex-sans"] {
+    --leafdown-document-font: var(--font-ibm-plex-sans);
+  }
+
+  &[data-document-font="atkinson-hyperlegible"] {
+    --leafdown-document-font: var(--font-atkinson-hyperlegible);
+  }
+
+  &[data-document-font="literata"] {
+    --leafdown-document-font: var(--font-literata);
+  }
+
+  &[data-document-font="system"] {
+    --leafdown-document-font: var(--font-system);
+  }
+
+  &[data-text-size="14"] {
+    --leafdown-text-size: 14px;
+  }
+
+  &[data-text-size="18"] {
+    --leafdown-text-size: 18px;
+  }
+
+  &[data-text-size="20"] {
+    --leafdown-text-size: 20px;
+  }
+
+  &[data-line-spacing="compact"] {
+    --leafdown-line-spacing: 1.5;
+  }
+
+  &[data-line-spacing="relaxed"] {
+    --leafdown-line-spacing: 2;
   }
 
   & [data-type="html"][data-html-rendered="false"] {
@@ -43,6 +82,22 @@
     max-width: calc(var(--leafdown-measure) + 2 * var(--leafdown-gutter));
     padding-inline: var(--leafdown-gutter);
 
+    /* The theme's sans family and text scale are rebased on the document's typography preferences
+       here, so every rule below that names them follows the preference while the chrome around the
+       document keeps the theme's own. The measure stays in `rem`, so larger text fits fewer
+       characters to a line rather than widening the page. */
+    --font-sans: var(--leafdown-document-font);
+    --text-xs: calc(var(--leafdown-text-size) * 0.75);
+    --text-sm: calc(var(--leafdown-text-size) * 0.875);
+    --text-base: var(--leafdown-text-size);
+    --text-lg: calc(var(--leafdown-text-size) * 1.125);
+    --text-xl: calc(var(--leafdown-text-size) * 1.25);
+    --text-2xl: calc(var(--leafdown-text-size) * 1.5);
+    --text-3xl: calc(var(--leafdown-text-size) * 1.875);
+    --leafdown-code-line-height: calc(var(--leafdown-text-size) * 1.5);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+
     & > *:first-child {
       @apply mt-0;
     }
@@ -52,7 +107,7 @@
     }
 
     p {
-      @apply my-4 text-base leading-7;
+      @apply my-4 text-base leading-(--leafdown-line-spacing);
     }
 
     /* The marker is positioned against the heading and centred on its first line, so the heading
@@ -131,8 +186,8 @@
        a nested one opens exactly where its parent's text does. */
     ul,
     ol {
-      @apply my-4 text-base leading-7;
-      --leafdown-list-marker: 1.5rem;
+      @apply my-4 text-base leading-(--leafdown-line-spacing);
+      --leafdown-list-marker: 1.5em;
       list-style: none;
       padding-inline-start: 0;
     }
@@ -157,7 +212,7 @@
        The counter is the built-in one rather than a counter of ours, because it is the counter an
        `ol`'s own `start` sets. */
     ol {
-      --leafdown-list-marker-dot: 0.875rem;
+      --leafdown-list-marker-dot: 0.875em;
 
       & > li::before {
         @apply whitespace-nowrap text-primary/70;
@@ -192,9 +247,9 @@
          an item whose text may wrap onto more lines. */
       &[data-checked] {
         &::before {
-          @apply size-4 rounded-xs border-2 border-muted-foreground/40;
+          @apply size-[1em] rounded-xs border-2 border-muted-foreground/40;
           content: "";
-          inset-block-start: calc((1lh - 1rem) / 2);
+          inset-block-start: calc((1lh - 1em) / 2);
         }
       }
 
@@ -206,14 +261,14 @@
         /* The tick is Lucide's `check`, drawn as a mask so the glyph matches the shadcn checkbox
            while its colour still comes from the theme. */
         &::after {
-          @apply absolute size-4 bg-primary-foreground;
+          @apply absolute size-[1em] bg-primary-foreground;
           content: "";
-          inset-block-start: calc((1lh - 1rem) / 2);
+          inset-block-start: calc((1lh - 1em) / 2);
           inset-inline-start: 0;
           mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
           mask-position: center;
           mask-repeat: no-repeat;
-          mask-size: 0.875rem;
+          mask-size: 0.875em;
         }
 
         /* Only the item's own content recedes. A nested list keeps the colour of wherever it sits,
@@ -229,7 +284,7 @@
     }
 
     blockquote {
-      @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 text-muted-foreground;
+      @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 leading-(--leafdown-line-spacing) text-muted-foreground;
 
       & > :first-child {
         @apply mt-0;
@@ -242,7 +297,7 @@
 
     /* The row keeps a paragraph-height target for selection and pointer entry. */
     hr {
-      @apply my-5 flex h-7 items-center border-0 leading-7;
+      @apply my-5 flex h-lh items-center border-0 leading-(--leafdown-line-spacing);
 
       &::before {
         @apply block h-0.5 w-full bg-border;
@@ -255,7 +310,7 @@
     }
 
     pre {
-      @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-6 whitespace-pre text-foreground;
+      @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-(--leafdown-code-line-height) whitespace-pre text-foreground;
 
       .leafdown-code-language {
         @apply cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
@@ -282,7 +337,7 @@
       }
 
       code {
-        @apply block min-w-max bg-transparent p-0 font-mono text-sm leading-6;
+        @apply block min-w-max bg-transparent p-0 font-mono text-sm leading-(--leafdown-code-line-height);
       }
 
       /* Numbering moves the scroll from the block to its code, so the gutter, positioned against
@@ -506,10 +561,11 @@
     }
 
     /* Out of flow into the inner lane, so the heading's text holds its place whether or not the
-       marker is showing, and centred on the block's first line rather than on the block. */
+       marker is showing, and centred on the block's first line rather than on the block. Its text is
+       sized for the lane, which keeps its width whatever the document's text size. */
     .leafdown-marker-node--subtle::before,
     :is(h1, h2, h3, h4, h5, h6):hover::before {
-      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-sm leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
+      @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[0.875rem] leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
       inset-block-start: 0;
       inset-inline-end: calc(
         100% + var(--leafdown-gutter-gap) + var(--leafdown-block-handle-slot) +
@@ -552,11 +608,11 @@
        in a second column so a body of several blocks stays under one heading rather than splitting
        across the row. */
     dl[data-type="footnote_definition"] {
-      @apply my-4 grid items-start gap-x-2;
+      @apply my-4 grid items-start gap-x-2 leading-(--leafdown-line-spacing);
       grid-template-columns: auto minmax(0, 1fr);
 
       & > dt {
-        @apply col-start-1 row-start-1 leading-7 font-bold;
+        @apply col-start-1 row-start-1 leading-(--leafdown-line-spacing) font-bold;
       }
 
       & > :not(dt) {
@@ -697,6 +753,16 @@
         }
       }
     }
+  }
+}
+
+/* A sample set in the document's styles, so it keeps the prose rules and leaves out the page:
+   no gutter, no measure, no minimum height, and no pointer for hover chrome to answer. */
+.leafdown-editor.leafdown-typography-preview {
+  @apply pointer-events-none min-h-0 p-0 select-none;
+
+  .ProseMirror {
+    @apply min-h-0 max-w-none px-0;
   }
 }
 

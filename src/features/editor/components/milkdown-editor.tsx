@@ -10,6 +10,11 @@ import {
   type MilkdownEditorBridge,
 } from "../hooks/useMilkdownEditorInstance";
 import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
+import type {
+  DocumentFont,
+  DocumentLineSpacing,
+  DocumentTextSize,
+} from "../utils/documentTypography";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
@@ -31,6 +36,9 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   autoPairBracketsAndQuotes?: boolean;
   displayCodeBlockLineNumbers?: boolean;
   softWrapCodeBlocks?: boolean;
+  documentFont?: DocumentFont;
+  textSize?: DocumentTextSize;
+  lineSpacing?: DocumentLineSpacing;
 }
 
 export function MilkdownEditor({
@@ -47,6 +55,9 @@ export function MilkdownEditor({
   autoPairBracketsAndQuotes = true,
   displayCodeBlockLineNumbers = false,
   softWrapCodeBlocks = false,
+  documentFont = "inter",
+  textSize = 16,
+  lineSpacing = "default",
 }: MilkdownEditorProps) {
   const {
     applyCodeBlockLanguage,
@@ -80,6 +91,9 @@ export function MilkdownEditor({
     <div
       className={cn("leafdown-editor", className)}
       data-code-block-soft-wrap={softWrapCodeBlocks}
+      data-document-font={documentFont}
+      data-text-size={textSize}
+      data-line-spacing={lineSpacing}
       data-testid="milkdown-editor-host"
     >
       <div ref={rootRef} className="min-h-full w-full" />

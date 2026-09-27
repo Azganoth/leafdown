@@ -1,5 +1,6 @@
 import { FileTextIcon, PaletteIcon, PencilIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, MarkdownFileExtension } from "@/features/document";
+import type { DocumentFont, DocumentLineSpacing, DocumentTypography } from "@/features/editor";
 import type { ArticleSortOrder } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
 import {
@@ -44,6 +46,7 @@ import { restoreDefaultSettings } from "../services/windowPreferences";
 import {
   type AppearanceAccentColor,
   type AppearanceTheme,
+  DOCUMENT_TEXT_SIZES,
   type DropBehavior,
   useSettingsStore,
 } from "../stores/settings";
@@ -75,6 +78,29 @@ const APPEARANCE_ACCENT_COLOR_OPTIONS: LocalizedOption<AppearanceAccentColor>[] 
   { labelId: "preferences.accentColor.blue", value: "blue" },
   { labelId: "preferences.accentColor.violet", value: "violet" },
   { labelId: "preferences.accentColor.fuchsia", value: "fuchsia" },
+];
+
+type DocumentFontOption = { value: DocumentFont; className: string } & (
+  | { label: string }
+  | { labelId: MessageId }
+);
+
+const DOCUMENT_FONT_OPTIONS: DocumentFontOption[] = [
+  { label: "Inter", value: "inter", className: "font-sans" },
+  { label: "IBM Plex Sans", value: "ibm-plex-sans", className: "font-ibm-plex-sans" },
+  {
+    label: "Atkinson Hyperlegible Next",
+    value: "atkinson-hyperlegible",
+    className: "font-atkinson-hyperlegible",
+  },
+  { label: "Literata", value: "literata", className: "font-literata" },
+  { labelId: "preferences.documentFont.system", value: "system", className: "font-system" },
+];
+
+const LINE_SPACING_OPTIONS: LocalizedOption<DocumentLineSpacing>[] = [
+  { labelId: "preferences.lineSpacing.compact", value: "compact" },
+  { labelId: "preferences.lineSpacing.default", value: "default" },
+  { labelId: "preferences.lineSpacing.relaxed", value: "relaxed" },
 ];
 
 interface AccentColorPreviewProps {
@@ -127,9 +153,14 @@ const PREFERENCE_TABS = [
 interface PreferencesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  renderTypographyPreview?: (typography: DocumentTypography) => ReactNode;
 }
 
-export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {
+export function PreferencesDialog({
+  open,
+  onOpenChange,
+  renderTypographyPreview,
+}: PreferencesDialogProps) {
   const { t } = useLocalization();
 
   const restoreDefaults = () => {
@@ -175,7 +206,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                 <EditorPreferences />
               </TabsContent>
               <TabsContent value="appearance">
-                <AppearancePreferences />
+                <AppearancePreferences renderTypographyPreview={renderTypographyPreview} />
               </TabsContent>
             </div>
           </ScrollArea>
@@ -397,10 +428,17 @@ function EditorPreferences() {
   );
 }
 
-function AppearancePreferences() {
+interface AppearancePreferencesProps {
+  renderTypographyPreview?: (typography: DocumentTypography) => ReactNode;
+}
+
+function AppearancePreferences({ renderTypographyPreview }: AppearancePreferencesProps) {
   const { t } = useLocalization();
   const accentColor = useSettingsStore((state) => state.accentColor);
   const theme = useSettingsStore((state) => state.theme);
+  const documentFont = useSettingsStore((state) => state.documentFont);
+  const textSize = useSettingsStore((state) => state.textSize);
+  const lineSpacing = useSettingsStore((state) => state.lineSpacing);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
 
   return (
@@ -418,7 +456,99 @@ function AppearancePreferences() {
         }))}
         onValueChange={(value) => updateSetting("theme", value)}
       />
+      <DocumentFontPreference
+        documentFont={documentFont}
+        onDocumentFontChange={(value) => updateSetting("documentFont", value)}
+      />
+      <PreferenceChoice
+        label={t("preferences.textSize.label")}
+        description={t("preferences.textSize.description")}
+        value={String(textSize)}
+        options={DOCUMENT_TEXT_SIZES.map((size) => ({
+          label: t("preferences.textSize.option", { size }),
+          value: String(size),
+        }))}
+        onValueChange={(value) => {
+          const size = DOCUMENT_TEXT_SIZES.find((candidate) => String(candidate) === value);
+
+          if (size) {
+            updateSetting("textSize", size);
+          }
+        }}
+      />
+      <PreferenceChoice
+        label={t("preferences.lineSpacing.label")}
+        description={t("preferences.lineSpacing.description")}
+        value={lineSpacing}
+        options={LINE_SPACING_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
+        onValueChange={(value) => updateSetting("lineSpacing", value)}
+      />
+      {renderTypographyPreview && (
+        <Field>
+          <FieldTitle>{t("preferences.typographyPreview.label")}</FieldTitle>
+          <div className="rounded-lg border border-border bg-card px-5 py-4">
+            {renderTypographyPreview({ font: documentFont, textSize, lineSpacing })}
+          </div>
+        </Field>
+      )}
     </FieldGroup>
+  );
+}
+
+interface DocumentFontPreferenceProps {
+  documentFont: DocumentFont;
+  onDocumentFontChange: (documentFont: DocumentFont) => void;
+}
+
+function DocumentFontPreference({
+  documentFont,
+  onDocumentFontChange,
+}: DocumentFontPreferenceProps) {
+  const { t } = useLocalization();
+  const options = DOCUMENT_FONT_OPTIONS.map((option) => ({
+    className: option.className,
+    label: "labelId" in option ? t(option.labelId) : option.label,
+    value: option.value,
+  }));
+
+  return (
+    <Field orientation="horizontal" className="has-[>[data-slot=field-content]]:items-center">
+      <FieldContent>
+        <FieldTitle>{t("preferences.documentFont.label")}</FieldTitle>
+        <FieldDescription>{t("preferences.documentFont.description")}</FieldDescription>
+      </FieldContent>
+      <Select
+        items={options}
+        value={documentFont}
+        onValueChange={(value) => {
+          if (value) {
+            onDocumentFontChange(value);
+          }
+        }}
+      >
+        <SelectTrigger className="w-[220px]" aria-label={t("preferences.documentFont.label")}>
+          <SelectValue>
+            {(value: DocumentFont | null) => {
+              const option = options.find((candidate) => candidate.value === value);
+
+              return option ? <span className={option.className}>{option.label}</span> : null;
+            }}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value} className={option.className}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }
 

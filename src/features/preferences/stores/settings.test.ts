@@ -20,6 +20,9 @@ describe("settings store", () => {
       language: "de",
       theme: "dark",
       accentColor: "violet",
+      documentFont: "system",
+      textSize: 20,
+      lineSpacing: "relaxed",
       recordRecentItems: false,
       sidebarVisible: false,
       alwaysOnTop: true,
@@ -42,6 +45,9 @@ describe("settings store", () => {
       language: "system",
       theme: "system",
       accentColor: "neutral",
+      documentFont: "inter",
+      textSize: 16,
+      lineSpacing: "default",
       recordRecentItems: true,
       sidebarVisible: true,
       alwaysOnTop: false,
@@ -66,6 +72,9 @@ describe("settings store", () => {
     settings.updateSetting("language", "pt-BR");
     settings.updateSetting("theme", "dark");
     settings.updateSetting("accentColor", "fuchsia");
+    settings.updateSetting("documentFont", "system");
+    settings.updateSetting("textSize", 14);
+    settings.updateSetting("lineSpacing", "compact");
     settings.updateSetting("recordRecentItems", false);
     settings.updateSetting("sidebarVisible", false);
     settings.updateSetting("articleSortOrder", "type");
@@ -84,6 +93,9 @@ describe("settings store", () => {
       language: "pt-BR",
       theme: "dark",
       accentColor: "fuchsia",
+      documentFont: "system",
+      textSize: 14,
+      lineSpacing: "compact",
       recordRecentItems: false,
       sidebarVisible: false,
       articleSortOrder: "type",
@@ -114,6 +126,9 @@ describe("settings store", () => {
         language: "pt-BR",
         theme: "dark",
         accentColor: "violet",
+        documentFont: "system",
+        textSize: 18,
+        lineSpacing: "relaxed",
         recordRecentItems: false,
         sidebarVisible: false,
         statusBarVisible: false,
@@ -143,6 +158,9 @@ describe("settings store", () => {
         language: 42,
         theme: "midnight",
         accentColor: "teal",
+        documentFont: "Georgia",
+        textSize: 17,
+        lineSpacing: 2,
         sidebarVisible: "yes",
         articleSortOrder: 3,
         defaultNewDocumentExtension: "md",

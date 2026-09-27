@@ -60,6 +60,15 @@ describe("milkdown-editor", () => {
         "data-code-block-soft-wrap",
         "false",
       );
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+        "data-document-font",
+        "inter",
+      );
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute("data-text-size", "16");
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+        "data-line-spacing",
+        "default",
+      );
       expect(options.root).toBeInstanceOf(HTMLElement);
       expect(options.initialMarkdown).toBe("# Notes");
       expect(options.isAutoPairEnabled?.()).toBe(true);
@@ -110,6 +119,9 @@ describe("milkdown-editor", () => {
           autoPairBracketsAndQuotes={false}
           displayCodeBlockLineNumbers
           softWrapCodeBlocks
+          documentFont="system"
+          textSize={20}
+          lineSpacing="relaxed"
         />,
       );
 
@@ -124,6 +136,15 @@ describe("milkdown-editor", () => {
       expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
         "data-code-block-soft-wrap",
         "true",
+      );
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+        "data-document-font",
+        "system",
+      );
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute("data-text-size", "20");
+      expect(screen.getByTestId("milkdown-editor-host")).toHaveAttribute(
+        "data-line-spacing",
+        "relaxed",
       );
     });
   });

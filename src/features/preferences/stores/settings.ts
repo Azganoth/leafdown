@@ -6,6 +6,7 @@ import {
   type LineEnding,
   type MarkdownFileExtension,
 } from "@/features/document";
+import type { DocumentFont, DocumentLineSpacing, DocumentTextSize } from "@/features/editor";
 import { ARTICLE_SORT_ORDERS, type ArticleSortOrder } from "@/features/folder-context";
 import { SYSTEM_LANGUAGE } from "@/lib/i18n";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
@@ -27,6 +28,22 @@ export const APPEARANCE_ACCENT_COLORS = [
   "fuchsia",
 ] as const;
 export type AppearanceAccentColor = (typeof APPEARANCE_ACCENT_COLORS)[number];
+
+export const DOCUMENT_FONTS = [
+  "inter",
+  "ibm-plex-sans",
+  "atkinson-hyperlegible",
+  "literata",
+  "system",
+] as const satisfies readonly DocumentFont[];
+
+export const DOCUMENT_TEXT_SIZES = [14, 16, 18, 20] as const satisfies readonly DocumentTextSize[];
+
+export const DOCUMENT_LINE_SPACINGS = [
+  "compact",
+  "default",
+  "relaxed",
+] as const satisfies readonly DocumentLineSpacing[];
 
 export const DROP_BEHAVIORS = ["open", "insertLink"] as const;
 export type DropBehavior = (typeof DROP_BEHAVIORS)[number];
@@ -52,6 +69,9 @@ export interface SettingsState {
   language: string;
   accentColor: AppearanceAccentColor;
   theme: AppearanceTheme;
+  documentFont: DocumentFont;
+  textSize: DocumentTextSize;
+  lineSpacing: DocumentLineSpacing;
   recordRecentItems: boolean;
   sidebarVisible: boolean;
   statusBarVisible: boolean;
@@ -82,6 +102,9 @@ export const createDefaultSettingsState = (): SettingsState => ({
   language: SYSTEM_LANGUAGE,
   accentColor: "neutral",
   theme: "system",
+  documentFont: "inter",
+  textSize: 16,
+  lineSpacing: "default",
   recordRecentItems: true,
   sidebarVisible: true,
   statusBarVisible: true,
@@ -111,6 +134,9 @@ const SETTINGS_CONTRACT = definePersistedState({
   language: stringValue,
   accentColor: oneOf(APPEARANCE_ACCENT_COLORS),
   theme: oneOf(APPEARANCE_THEMES),
+  documentFont: oneOf(DOCUMENT_FONTS),
+  textSize: oneOf(DOCUMENT_TEXT_SIZES),
+  lineSpacing: oneOf(DOCUMENT_LINE_SPACINGS),
   recordRecentItems: booleanValue,
   sidebarVisible: booleanValue,
   statusBarVisible: booleanValue,

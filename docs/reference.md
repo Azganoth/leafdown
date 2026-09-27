@@ -63,7 +63,15 @@ Global settings persist across application launches unless specified otherwise.
 
 - **Accent color:** Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia. Default: Neutral.
 - **Appearance theme:** System, Light, or Dark. Default: System.
-- **Render/editor theme:** document typography, font, typography size, code highlight theme, and related editor rendering preferences. Default: Leafdown default theme. (Deferred)
+- **Document font:** Inter, IBM Plex Sans, Atkinson Hyperlegible Next, Literata, or System. Default: Inter.
+  - Every font but System ships with Leafdown, so it looks the same on every platform. System uses the platform's ordinary sans-serif text font. Code and Markdown source keep their monospace font.
+  - Each option in the list is shown in its own font.
+- **Text size:** 14 px, 16 px, 18 px, or 20 px. Default: 16 px.
+  - Sets the base size of document text. Headings, code, tables, footnotes, and other document text keep their size relative to it.
+- **Line spacing:** Compact (1.5), Default (1.75), or Relaxed (2). Default: Default.
+  - Applies to paragraphs, lists, and blockquotes. Headings and code blocks keep their own line height.
+- Document font, text size, and line spacing apply to document content only. A preview beneath them shows a short sample set with the current choices. See [Document Typography](./specification.md#document-typography).
+- **Render/editor theme:** code highlight theme and related editor rendering preferences beyond document typography. Default: Leafdown default theme. (Deferred)
 
 ## Command Surfaces
 

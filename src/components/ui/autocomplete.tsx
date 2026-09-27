@@ -11,37 +11,6 @@ function AutocompleteInput(props: AutocompletePrimitive.Input.Props) {
   );
 }
 
-function AutocompleteContent({
-  className,
-  side = "bottom",
-  sideOffset = 6,
-  align = "start",
-  alignOffset = 0,
-  ...props
-}: AutocompletePrimitive.Popup.Props &
-  Pick<AutocompletePrimitive.Positioner.Props, "side" | "align" | "sideOffset" | "alignOffset">) {
-  return (
-    <AutocompletePrimitive.Portal>
-      <AutocompletePrimitive.Positioner
-        side={side}
-        sideOffset={sideOffset}
-        align={align}
-        alignOffset={alignOffset}
-        className="isolate z-50"
-      >
-        <AutocompletePrimitive.Popup
-          data-slot="autocomplete-content"
-          className={cn(
-            "relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) origin-(--transform-origin) overflow-hidden rounded-md bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            className,
-          )}
-          {...props}
-        />
-      </AutocompletePrimitive.Positioner>
-    </AutocompletePrimitive.Portal>
-  );
-}
-
 function AutocompleteList({ className, ...props }: AutocompletePrimitive.List.Props) {
   return (
     <AutocompletePrimitive.List
@@ -68,4 +37,4 @@ function AutocompleteItem({ className, ...props }: AutocompletePrimitive.Item.Pr
   );
 }
 
-export { Autocomplete, AutocompleteContent, AutocompleteInput, AutocompleteItem, AutocompleteList };
+export { Autocomplete, AutocompleteInput, AutocompleteItem, AutocompleteList };

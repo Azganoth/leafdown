@@ -195,7 +195,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Toggle task checked** (`Mod+Enter`)
 - **Blockquote** (`Mod+Shift+B`)
 - **Code block** (`Mod+Alt+C`)
-- **Code block language...**: Opens a popover for setting, changing, or clearing the language of the fenced code block in context.
+- **Code block language...**: Opens the language picker for the fenced code block in context, as clicking its language badge does.
 - **Table**
   - **Delete table**
   - **Add row above**

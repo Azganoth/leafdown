@@ -87,7 +87,7 @@ describe("code block line numbers", () => {
       "utf8",
     );
 
-    expect(getCodeBlocks(mounted.view)[0].textContent).toBe(CODE);
+    expect(getCodeBlocks(mounted.view)[0].querySelector("code")?.textContent).toBe(CODE);
     expect(editorCss).toContain('content: "1" / "";');
     expect(editorCss).toContain('content: attr(data-next-line-number) / "";');
   });

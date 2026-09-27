@@ -24,10 +24,18 @@ export const HIGHLIGHT_LANGUAGE_ALIASES = new Map<string, HighlightLanguage>([
 
 const HIGHLIGHT_LANGUAGES_SET = new Set<string>(HIGHLIGHT_LANGUAGES);
 
-export const HIGHLIGHT_LANGUAGE_IDENTIFIERS = [
-  ...HIGHLIGHT_LANGUAGES,
-  ...HIGHLIGHT_LANGUAGE_ALIASES.keys(),
-].toSorted();
+export interface HighlightLanguageChoice {
+  aliases: string[];
+  language: HighlightLanguage;
+}
+
+export const HIGHLIGHT_LANGUAGE_CHOICES: readonly HighlightLanguageChoice[] =
+  HIGHLIGHT_LANGUAGES.map((language) => ({
+    aliases: [...HIGHLIGHT_LANGUAGE_ALIASES]
+      .filter(([, target]) => target === language)
+      .map(([alias]) => alias),
+    language,
+  })).toSorted((left, right) => left.language.localeCompare(right.language));
 
 export const normalizeHighlightLanguage = (language?: string): HighlightLanguage | undefined => {
   const normalized = language?.trim().toLowerCase();

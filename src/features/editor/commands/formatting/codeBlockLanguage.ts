@@ -1,8 +1,9 @@
-import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import { BlockSelection, getSelectedBlockTargets } from "../../plugins/blockSelection";
 import {
+  CODE_BLOCK_NODE_NAME,
+  findSelectedCodeBlockPosition,
   getCodeBlockLanguageRequestPosition,
   setCodeBlockLanguageRequestMeta,
   type CodeBlockLanguageRequest,
@@ -13,61 +14,27 @@ import {
   readCodeFenced,
 } from "../../utils/codeMarkdown";
 
-const CODE_BLOCK_NODE_NAME = "code_block";
 const WHITESPACE_PATTERN = /\s/u;
-
-interface CodeBlockTarget {
-  position: number;
-}
-
-const findSelectedCodeBlock = (state: EditorState): CodeBlockTarget | null => {
-  const { selection } = state;
-
-  if (selection instanceof BlockSelection) {
-    const targets = getSelectedBlockTargets(selection);
-    const [target] = targets;
-
-    return targets.length === 1 && target.node.type.name === CODE_BLOCK_NODE_NAME
-      ? { position: target.pos }
-      : null;
-  }
-
-  if (selection instanceof NodeSelection) {
-    return selection.node.type.name === CODE_BLOCK_NODE_NAME ? { position: selection.from } : null;
-  }
-
-  const { $from } = selection;
-
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    if ($from.node(depth).type.name === CODE_BLOCK_NODE_NAME) {
-      return selection.to <= $from.end(depth) ? { position: $from.before(depth) } : null;
-    }
-  }
-
-  return null;
-};
 
 // Indented code has no fence line to carry an info string on.
 const findEditableCodeBlock = (state: EditorState) => {
-  const target = findSelectedCodeBlock(state);
-  const node = target ? state.doc.nodeAt(target.position) : null;
+  const position = findSelectedCodeBlockPosition(state);
+  const node = position === null ? null : state.doc.nodeAt(position);
 
-  return target && node && readCodeFenced(node.attrs) ? target : null;
+  return node && readCodeFenced(node.attrs) ? position : null;
 };
 
 export const canEditCodeBlockLanguage = (state: EditorState) =>
   findEditableCodeBlock(state) !== null;
 
 export const editCodeBlockLanguage = (view: EditorView) => {
-  const target = findEditableCodeBlock(view.state);
+  const position = findEditableCodeBlock(view.state);
 
-  if (!target) {
+  if (position === null) {
     return false;
   }
 
-  view.dispatch(
-    setCodeBlockLanguageRequestMeta(view.state.tr, { type: "open", position: target.position }),
-  );
+  view.dispatch(setCodeBlockLanguageRequestMeta(view.state.tr, { type: "open", position }));
 
   return true;
 };

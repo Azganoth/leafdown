@@ -74,6 +74,7 @@ import {
   createLeafdownCodeBlockLanguagePlugin,
   type LeafdownCodeBlockLanguagePluginOptions,
 } from "../plugins/codeBlockLanguage";
+import { createLeafdownCodeBlockViewPlugin } from "../plugins/codeBlockView";
 import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
 import { createLeafdownCodeLineNumbersPlugin } from "../plugins/codeLineNumbers";
 import { createLeafdownCodeSpanInputRule } from "../plugins/codeSpanInputRule";
@@ -334,6 +335,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
+    .use(createLeafdownCodeBlockViewPlugin())
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())

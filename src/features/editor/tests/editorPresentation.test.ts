@@ -18,6 +18,8 @@ import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 const mountStyledEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
+// A token the editor reuses can keep an emptied `style`, so a colour is what marks one highlighted.
+const HIGHLIGHTED_TOKEN_SELECTOR = ".shiki[style*='--shiki-light']";
 const editorCssPath = resolve(process.cwd(), "src/features/editor/components/milkdown-editor.css");
 
 describe("Editor presentation", () => {
@@ -187,7 +189,7 @@ const value: number = 1;
       },
       { timeout: 10_000 },
     );
-    expect(mounted.view.dom.querySelector(".shiki[style]")).toBeNull();
+    expect(mounted.view.dom.querySelector(HIGHLIGHTED_TOKEN_SELECTOR)).toBeNull();
 
     editCodeBlockLanguage(mounted.view);
     applyCodeBlockLanguage(mounted.view, request!, "ts");
@@ -195,7 +197,7 @@ const value: number = 1;
     await waitFor(
       () => {
         expect(
-          getEditorDomElement(mounted, "pre[data-language='ts'] .shiki[style]"),
+          getEditorDomElement(mounted, `pre[data-language='ts'] ${HIGHLIGHTED_TOKEN_SELECTOR}`),
         ).toBeInTheDocument();
       },
       { timeout: 10_000 },

@@ -9,6 +9,7 @@ import {
   CODE_INDENT_ATTRIBUTE_NAME,
   CODE_LINE_PREFIXES_ATTRIBUTE_NAME,
   CODE_MARKDOWN_TYPE,
+  CODE_META_SEPARATOR_ATTRIBUTE_NAME,
   CODE_SEPARATOR_ATTRIBUTE_NAME,
   CODE_SPAN_MARKDOWN_TYPE,
   CODE_SPAN_RUN_SURPLUS_ATTRIBUTE_NAME,
@@ -48,6 +49,7 @@ const markAuthoredForm = (node: MarkdownNode, source: string, atRoot: boolean) =
       authored[CODE_FENCE_ATTRIBUTE_NAME] = form.fence;
       authored[CODE_FENCE_SURPLUS_ATTRIBUTE_NAME] = form.fenceSurplus;
       authored[CODE_SEPARATOR_ATTRIBUTE_NAME] = form.separator;
+      authored[CODE_META_SEPARATOR_ATTRIBUTE_NAME] = form.metaSeparator;
       authored[CODE_INDENT_ATTRIBUTE_NAME] = form.indent;
       authored[CODE_LINE_PREFIXES_ATTRIBUTE_NAME] = findCodeLinePrefixes(
         source.slice(start, end),

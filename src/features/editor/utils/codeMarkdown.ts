@@ -30,6 +30,9 @@ export const CODE_FENCED_ATTRIBUTE_NAME = "fenced";
 export const CODE_FENCE_ATTRIBUTE_NAME = "fence";
 export const CODE_FENCE_SURPLUS_ATTRIBUTE_NAME = "fenceSurplus";
 export const CODE_SEPARATOR_ATTRIBUTE_NAME = "codeSeparator";
+export const CODE_META_ATTRIBUTE_NAME = "meta";
+export const CODE_META_SEPARATOR_ATTRIBUTE_NAME = "codeMetaSeparator";
+const CODE_META_DOM_ATTRIBUTE_NAME = "data-meta";
 export const CODE_INDENT_ATTRIBUTE_NAME = "codeIndent";
 export const CODE_LINE_PREFIXES_ATTRIBUTE_NAME = "codeLinePrefixes";
 export const CODE_CLOSED_ATTRIBUTE_NAME = "closed";
@@ -43,6 +46,8 @@ export const DEFAULT_CODE_FENCE: CodeFence = "`";
 export const DEFAULT_CODE_FENCE_LENGTH = 3;
 export const DEFAULT_CODE_FENCE_SURPLUS = 0;
 export const DEFAULT_CODE_SEPARATOR = "";
+export const DEFAULT_CODE_META = "";
+export const DEFAULT_CODE_META_SEPARATOR = " ";
 export const DEFAULT_CODE_INDENT = 0;
 export const DEFAULT_CODE_LINE_PREFIXES: readonly string[] = [];
 export const DEFAULT_CODE_CLOSED = true;
@@ -72,12 +77,18 @@ const CODE_FENCE_CLOSING_PATTERN = /^[\t >]*(`{3,}|~{3,})[\t ]*$/u;
 const WRITTEN_CODE_FENCE_PATTERN = /^(`+|~+)/u;
 
 const CODE_SEPARATOR_PATTERN = /^[\t ]*$/u;
+const CODE_META_SEPARATOR_PATTERN = /^[\t ]+$/u;
+// The language is the info string's first word and the metadata everything after the spacing that
+// ends it. A backslash escapes no space, so the first space or tab in the source is that end
+// however the language itself was spelled.
+const CODE_INFO_META_SEPARATOR_PATTERN = /^[^\t ]+([\t ]+)[^\t ]/u;
 
 export interface AuthoredCodeForm {
   fenced: boolean;
   fence: CodeFence;
   fenceSurplus: number;
   separator: string;
+  metaSeparator: string;
   indent: number;
   closed: boolean;
 }
@@ -87,6 +98,7 @@ const INDENTED_CODE_FORM: AuthoredCodeForm = {
   fence: DEFAULT_CODE_FENCE,
   fenceSurplus: DEFAULT_CODE_FENCE_SURPLUS,
   separator: DEFAULT_CODE_SEPARATOR,
+  metaSeparator: DEFAULT_CODE_META_SEPARATOR,
   indent: DEFAULT_CODE_INDENT,
   closed: DEFAULT_CODE_CLOSED,
 };
@@ -133,6 +145,20 @@ export const readCodeSeparator = (source: object): string => {
   return typeof separator === "string" && CODE_SEPARATOR_PATTERN.test(separator)
     ? separator
     : DEFAULT_CODE_SEPARATOR;
+};
+
+export const readCodeMeta = (source: object): string => {
+  const meta = (source as Record<string, unknown>)[CODE_META_ATTRIBUTE_NAME];
+
+  return typeof meta === "string" ? meta : DEFAULT_CODE_META;
+};
+
+export const readCodeMetaSeparator = (source: object): string => {
+  const separator = (source as Record<string, unknown>)[CODE_META_SEPARATOR_ATTRIBUTE_NAME];
+
+  return typeof separator === "string" && CODE_META_SEPARATOR_PATTERN.test(separator)
+    ? separator
+    : DEFAULT_CODE_META_SEPARATOR;
 };
 
 export const readCodeIndent = (source: object): number => {
@@ -246,12 +272,15 @@ export const findCodeForm = ({
 
   const [, run, spacing, info] = head;
   const fence = run.charAt(0) as CodeFence;
+  const infoLine = (raw.split(LINE_ENDING_PATTERN)[0] ?? "").slice(run.length + spacing.length);
 
   return {
     fenced: true,
     fence,
     fenceSurplus: Math.max(run.length - findRequiredFenceLength(value, fence), 0),
     separator: info === undefined ? DEFAULT_CODE_SEPARATOR : spacing,
+    metaSeparator:
+      CODE_INFO_META_SEPARATOR_PATTERN.exec(infoLine)?.[1] ?? DEFAULT_CODE_META_SEPARATOR,
     indent: findFenceIndent(column, atRoot),
     closed: !endsDocument || findFenceClosed(raw, fence, run.length),
   };
@@ -261,6 +290,16 @@ export const findCodeForm = ({
 // ends the document. Anything after it would be read as the code the block holds.
 const standsLastInDocument = (node: CodeNode, parent: StringifyParent) =>
   parent !== undefined && parent.children[parent.children.length - 1] === node;
+
+// The handler joins the language and the metadata with one space, and a language holds none of its
+// own, so the first space it wrote is the one the file's spacing goes back in place of.
+const withMetaSeparator = (info: string, node: CodeNode) => {
+  const index = info.indexOf(" ");
+
+  return node.lang && node.meta && index !== -1
+    ? info.slice(0, index) + readCodeMetaSeparator(node) + info.slice(index + 1)
+    : info;
+};
 
 // The handler sizes the run to the content it just wrote, and a fence has to outrun anything
 // inside it, so the file's own length is kept as the surplus over that floor rather than as a
@@ -272,7 +311,7 @@ const withFenceForm = (value: string, run: string, node: CodeNode, parent: Strin
   const lines = value.split("\n");
   const fence = run.charAt(0).repeat(run.length + readCodeFenceSurplus(node));
   const indent = " ".repeat(readCodeIndent(node));
-  const info = (lines[0] ?? "").slice(run.length);
+  const info = withMetaSeparator((lines[0] ?? "").slice(run.length), node);
   const opening = info === "" ? fence : fence + readCodeSeparator(node) + info;
   const content = lines.slice(1, -1).map((line) => (line === "" ? "" : indent + line));
   const written = [indent + opening, ...content];
@@ -331,6 +370,11 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
       validate: "number",
     },
     [CODE_SEPARATOR_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_SEPARATOR, validate: "string" },
+    [CODE_META_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_META, validate: "string" },
+    [CODE_META_SEPARATOR_ATTRIBUTE_NAME]: {
+      default: DEFAULT_CODE_META_SEPARATOR,
+      validate: "string",
+    },
     [CODE_INDENT_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_INDENT, validate: "number" },
     [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: {
       default: DEFAULT_CODE_LINE_PREFIXES,
@@ -338,6 +382,33 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
     },
     [CODE_CLOSED_ATTRIBUTE_NAME]: { default: DEFAULT_CODE_CLOSED, validate: "boolean" },
     [BLOCK_ADJACENT_ATTRIBUTE_NAME]: { default: DEFAULT_BLOCK_ADJACENT, validate: "boolean" },
+  },
+  // The metadata is content the fence carries, so it rides the rendered block the way the language
+  // does. A copy within the editor is read back from that DOM, and would otherwise drop it.
+  parseDOM: schema.parseDOM?.map((rule) => ({
+    ...rule,
+    getAttrs: (dom: HTMLElement) => {
+      const attrs = rule.getAttrs ? (rule.getAttrs as (dom: HTMLElement) => unknown)(dom) : {};
+
+      return attrs === false || attrs === null
+        ? false
+        : {
+            ...(attrs as object),
+            [CODE_META_ATTRIBUTE_NAME]: dom.dataset.meta ?? DEFAULT_CODE_META,
+          };
+    },
+  })),
+  toDOM: (node) => {
+    const spec = schema.toDOM?.(node) as [string, Record<string, unknown>, ...unknown[]];
+    const meta = readCodeMeta(node.attrs);
+
+    if (!meta) {
+      return spec;
+    }
+
+    const [tag, attrs, ...content] = spec;
+
+    return [tag, { ...attrs, [CODE_META_DOM_ATTRIBUTE_NAME]: meta }, ...content];
   },
   parseMarkdown: {
     ...schema.parseMarkdown,
@@ -350,6 +421,8 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
         [CODE_FENCE_ATTRIBUTE_NAME]: readCodeFence(node),
         [CODE_FENCE_SURPLUS_ATTRIBUTE_NAME]: readCodeFenceSurplus(node),
         [CODE_SEPARATOR_ATTRIBUTE_NAME]: readCodeSeparator(node),
+        [CODE_META_ATTRIBUTE_NAME]: readCodeMeta(node),
+        [CODE_META_SEPARATOR_ATTRIBUTE_NAME]: readCodeMetaSeparator(node),
         [CODE_INDENT_ATTRIBUTE_NAME]: readCodeIndent(node),
         [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: readCodeLinePrefixes(node),
         [CODE_CLOSED_ATTRIBUTE_NAME]: readCodeClosed(node),
@@ -372,6 +445,8 @@ export const withCodeForm = (schema: NodeSchema): NodeSchema => ({
         [CODE_FENCE_ATTRIBUTE_NAME]: readCodeFence(node.attrs),
         [CODE_FENCE_SURPLUS_ATTRIBUTE_NAME]: readCodeFenceSurplus(node.attrs),
         [CODE_SEPARATOR_ATTRIBUTE_NAME]: readCodeSeparator(node.attrs),
+        [CODE_META_ATTRIBUTE_NAME]: readCodeMeta(node.attrs),
+        [CODE_META_SEPARATOR_ATTRIBUTE_NAME]: readCodeMetaSeparator(node.attrs),
         [CODE_INDENT_ATTRIBUTE_NAME]: readCodeIndent(node.attrs),
         [CODE_LINE_PREFIXES_ATTRIBUTE_NAME]: readCodeLinePrefixes(node.attrs),
         [CODE_CLOSED_ATTRIBUTE_NAME]: readCodeClosed(node.attrs),

@@ -2216,6 +2216,13 @@ describe("Code block form", () => {
     // The spacing between the run and the info string is the file's.
     "``` language+escaped\nvalid backtick info string\n```",
     "```\tafter-tab\nvalid\n```",
+    // What follows the language is the fence's metadata, spacing and all, and the language carries
+    // it rather than standing for the whole info string.
+    '```js title="app.js" {1,3}\nmetadata\n```',
+    "```  js   title  two\t\nspaced metadata\n```",
+    "```js\ttitle\ntab before metadata\n```",
+    "~~~ js meta`with-backtick\ntilde metadata\n~~~",
+    "> ```js title=quoted\n> quoted metadata\n> ```",
     // A fence stays under the three spaces CommonMark still reads it under.
     "   ```\n   three leading spaces still open a fence\n   ```",
     " ```\n one leading space\n ```",
@@ -2243,6 +2250,18 @@ describe("Code block form", () => {
     const written = mounted.getMarkdown();
 
     expect(written).toBe("> ```\n> quoted and indented\n> ```\n");
+    expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
+      mounted.view.state.doc.toJSON(),
+    );
+  });
+
+  // The parse decodes the metadata the way it decodes the language, so a reference in either is
+  // written as the character it names and reopens as the same fence.
+  it("writes a character reference in fence metadata as the character it names", async () => {
+    const mounted = await mountEditor("```js a&copy;b\ncode\n```\n");
+    const written = mounted.getMarkdown();
+
+    expect(written).toBe("```js a©b\ncode\n```\n");
     expect((await mountEditor(written)).view.state.doc.toJSON()).toEqual(
       mounted.view.state.doc.toJSON(),
     );

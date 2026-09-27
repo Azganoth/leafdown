@@ -7,7 +7,7 @@ type RemarkStringifyHandlers = NonNullable<
 
 export const RAW_HTML_MARKDOWN_TYPE = "leafdownRawHtml";
 
-const HTML_MARKDOWN_TYPE = "html";
+export const HTML_MARKDOWN_TYPE = "html";
 const TAG_NAME_END = String.raw`[\t\n\f\r >]|/>|$`;
 
 // The block start conditions that interrupt a paragraph, one through six, each allowing the three

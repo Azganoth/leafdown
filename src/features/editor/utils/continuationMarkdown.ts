@@ -7,7 +7,7 @@ import {
   DEFAULT_BLOCK_ADJACENT,
   readBlockAdjacent,
 } from "./blockSeparatorMarkdown";
-import { markContinuationLines } from "./linePrefixMarkdown";
+import { markContinuationLines, readPrefixColumns } from "./linePrefixMarkdown";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -61,6 +61,52 @@ export const findContinuations = (raw: string): string[] =>
     .split(LINE_ENDING_PATTERN)
     .slice(1)
     .map((line) => CONTINUATION_PREFIX_PATTERN.exec(line)?.[0] ?? "");
+
+export interface AtomLinePrefix {
+  // What the line's record stands for once the atom holds the rest.
+  prefix: string;
+  // The whitespace the atom's value opens the line with.
+  kept: string;
+}
+
+/// Splits what a line stood behind between its record and the inline atom the line opens inside.
+/// The parse takes at most three columns of indentation off a line that opens inside raw HTML and
+/// none off one that opens inside a code span, and the value keeps the rest, so a record holding the
+/// whole run would write that rest a second time. A tab the parse took only part of leaves the value
+/// holding a space for each column it did not take. Raw HTML reads the whitespace between its
+/// attributes the same however it is spelled, so its value takes the tab the file wrote. A code span
+/// holds those spaces as content, so its record writes the part the parse took off as spaces instead,
+/// which puts the value at the column it stood at. Exported for colocated tests.
+export const splitAtomLinePrefix = (
+  recorded: string,
+  kept: string,
+  valueSpellsTab: boolean,
+): AtomLinePrefix | undefined => {
+  if (recorded.endsWith(kept)) {
+    return { kept, prefix: recorded.slice(0, recorded.length - kept.length) };
+  }
+
+  for (let spaces = 1; kept.charAt(spaces - 1) === " "; spaces += 1) {
+    const rest = kept.slice(spaces);
+
+    if (recorded.endsWith(`\t${rest}`)) {
+      const before = recorded.slice(0, recorded.length - rest.length - 1);
+
+      if (valueSpellsTab) {
+        return { kept: `\t${rest}`, prefix: before };
+      }
+
+      const padding =
+        readPrefixColumns(recorded.slice(0, before.length + 1)) -
+        spaces -
+        readPrefixColumns(before);
+
+      return padding < 0 ? undefined : { kept, prefix: before + " ".repeat(padding) };
+    }
+  }
+
+  return undefined;
+};
 
 export const serializeParagraph: NonNullable<RemarkStringifyHandlers["paragraph"]> = (
   node: ParagraphNode,

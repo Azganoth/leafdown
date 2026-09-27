@@ -4861,6 +4861,52 @@ describe("Line breaks before raw HTML", () => {
   });
 });
 
+// The value of an inline atom keeps the indentation the parse leaves on the lines it spans, which
+// the paragraph's own record of those lines also holds. Each save used to write it from both.
+describe("Indentation of a line inside an inline atom", () => {
+  it.each([
+    'Text <span\n  class="a"\n    id="b">c</span>',
+    '- Text <span\n    class="a"\n      id="b">c</span>',
+    '> Text <span\n>   class="a"\n>     id="b">c</span>',
+    'Text <span\n        id="b">c</span>',
+    'Text <span\n\tid="b">c</span>',
+    'Text <span\n\t\tid="b">c</span>',
+    '- Text <span\n\t\tid="b">c</span>',
+    "Text <!--\n    \\# x -->",
+    'Setext <span\n     id="b">c</span>\n===',
+    '[Label <span\n     id="b">](target) tail',
+    "Text `a\n    b`",
+    "Text `a\n\tb`",
+    "- Text `a\n      b`",
+    "> Text `a\n>     b`",
+    "Text `a\n    \\# b`",
+    'Text `a\n  b` and <span\n    id="b">c</span>',
+  ])("writes %j back unchanged on every save", async (source) => {
+    const opened = await mountEditor(`${source}\n`);
+    const firstSave = opened.getMarkdown();
+    const reopened = await mountEditor(firstSave);
+
+    expect(firstSave).toBe(`${source}\n`);
+    expect(reopened.getMarkdown()).toBe(`${source}\n`);
+    expect(reopened.view.state.doc.toJSON()).toEqual(opened.view.state.doc.toJSON());
+  });
+
+  // A tab the container takes only part of leaves the code span holding spaces for the rest, which
+  // no spelling of the tab can put back behind the container.
+  it.each([
+    { expected: "- Text `a\n    b`\n", source: "- Text `a\n\tb`" },
+    { expected: "> Text `a\n>   b`\n", source: "> Text `a\n>\tb`" },
+  ])("keeps the code span $source holds and converges", async ({ expected, source }) => {
+    const opened = await mountEditor(source);
+    const firstSave = opened.getMarkdown();
+    const reopened = await mountEditor(firstSave);
+
+    expect(firstSave).toBe(expected);
+    expect(reopened.getMarkdown()).toBe(expected);
+    expect(reopened.view.state.doc.toJSON()).toEqual(opened.view.state.doc.toJSON());
+  });
+});
+
 describe("Blank paragraphs", () => {
   it.each([
     "a\n\n\n\nb",

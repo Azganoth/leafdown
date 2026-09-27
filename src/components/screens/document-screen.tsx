@@ -27,6 +27,9 @@ const handleOpenMarkdownPath = async (path: string) => {
 
 export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
+  const displayCodeBlockLineNumbers = useSettingsStore(
+    (state) => state.displayCodeBlockLineNumbers,
+  );
   const softWrapCodeBlocks = useSettingsStore((state) => state.softWrapCodeBlocks);
   const folderContextPath = useSessionStore((state) => state.folderContext?.path ?? null);
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
@@ -56,6 +59,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               folderContextPath={folderContextPath}
               onOpenMarkdownPath={handleOpenMarkdownPath}
               autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
+              displayCodeBlockLineNumbers={displayCodeBlockLineNumbers}
               softWrapCodeBlocks={softWrapCodeBlocks}
               onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
               onContentChanged={() => markActiveDocumentDirty(documentKey)}

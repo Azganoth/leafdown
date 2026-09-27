@@ -26,6 +26,7 @@ export interface MountedMilkdownEditor {
 export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceContext> {
   rootClassName?: string;
   autoPairBracketsAndQuotes?: boolean;
+  displayCodeBlockLineNumbers?: boolean;
   onContentChanged?: () => void;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
@@ -67,6 +68,7 @@ export const mountMilkdownEditor = async (
       folderContextPath: options.folderContextPath ?? null,
     }),
     isAutoPairEnabled: () => options.autoPairBracketsAndQuotes ?? true,
+    areCodeLineNumbersEnabled: () => options.displayCodeBlockLineNumbers ?? false,
     onContentChanged: options.onContentChanged,
     onCommandStateChanged: options.onCommandStateChanged,
     onDocumentStatusChanged: options.onDocumentStatusChanged,

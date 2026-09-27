@@ -22,6 +22,7 @@ import {
 import { insertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import { insertLinkTarget } from "../commands/inserting/links";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
+import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 import {
@@ -48,6 +49,7 @@ export interface MilkdownEditorBridge {
 
 interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceContext> {
   autoPairBracketsAndQuotes?: boolean;
+  displayCodeBlockLineNumbers?: boolean;
   initialMarkdown: string;
   onCommandStateChanged?: () => void;
   onContentChanged?: () => void;
@@ -61,6 +63,7 @@ const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = ()
 
 export const useMilkdownEditorInstance = ({
   autoPairBracketsAndQuotes = true,
+  displayCodeBlockLineNumbers = false,
   documentPath = null,
   folderContextPath = null,
   initialMarkdown,
@@ -88,6 +91,7 @@ export const useMilkdownEditorInstance = ({
   const documentStatusRef = useRef<EditorDocumentStatus>(INACTIVE_EDITOR_DOCUMENT_STATUS);
   const liveOptionsRef = useRef({
     autoPairBracketsAndQuotes,
+    displayCodeBlockLineNumbers,
     documentPath,
     folderContextPath,
     initialMarkdown,
@@ -102,6 +106,7 @@ export const useMilkdownEditorInstance = ({
   useLayoutEffect(() => {
     liveOptionsRef.current = {
       autoPairBracketsAndQuotes,
+      displayCodeBlockLineNumbers,
       documentPath,
       folderContextPath,
       initialMarkdown,
@@ -113,6 +118,7 @@ export const useMilkdownEditorInstance = ({
     };
   }, [
     autoPairBracketsAndQuotes,
+    displayCodeBlockLineNumbers,
     initialMarkdown,
     documentPath,
     folderContextPath,
@@ -278,6 +284,7 @@ export const useMilkdownEditorInstance = ({
           folderContextPath: liveOptionsRef.current.folderContextPath,
         }),
         isAutoPairEnabled: () => liveOptionsRef.current.autoPairBracketsAndQuotes,
+        areCodeLineNumbersEnabled: () => liveOptionsRef.current.displayCodeBlockLineNumbers,
         onMarkdownUpdated: (update) => {
           if (isActiveEditorCallback()) {
             liveOptionsRef.current.onMarkdownUpdated?.(update);
@@ -322,6 +329,7 @@ export const useMilkdownEditorInstance = ({
       }
 
       editorRef.current = editor;
+      syncCodeLineNumbers(editor, liveOptionsRef.current.displayCodeBlockLineNumbers);
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
     };
@@ -350,6 +358,12 @@ export const useMilkdownEditorInstance = ({
     updateDocumentStatus,
   ]);
 
+  useEffect(() => {
+    if (editorRef.current) {
+      syncCodeLineNumbers(editorRef.current, displayCodeBlockLineNumbers);
+    }
+  }, [displayCodeBlockLineNumbers]);
+
   return {
     blockInsertionRequest,
     closeBlockInsertion,
@@ -362,6 +376,20 @@ export const useMilkdownEditorInstance = ({
     footnotePreviewRequest,
     rootRef,
   };
+};
+
+// The setting can change while the editor is still being created, after its state has read the
+// value it started with, so the value in effect is applied again once the editor is ready.
+const syncCodeLineNumbers = (editor: MilkdownEditorInstance, enabled: boolean) => {
+  if (!editor.ctx) {
+    return;
+  }
+
+  try {
+    setCodeLineNumbersEnabled(editor.ctx.get(editorViewCtx), enabled);
+  } catch (error) {
+    handleUnexpectedError(error, "syncCodeLineNumbers");
+  }
 };
 
 const readEditorCommandState = (editor: MilkdownEditorInstance) => {

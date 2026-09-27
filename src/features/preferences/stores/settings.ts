@@ -60,6 +60,7 @@ export interface SettingsState {
   whenDroppingFolder: DropBehavior;
   whenDroppingMarkdownFile: DropBehavior;
   autoPairBracketsAndQuotes: boolean;
+  displayCodeBlockLineNumbers: boolean;
   softWrapCodeBlocks: boolean;
 }
 
@@ -87,6 +88,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   whenDroppingFolder: "open",
   whenDroppingMarkdownFile: "open",
   autoPairBracketsAndQuotes: true,
+  displayCodeBlockLineNumbers: false,
   softWrapCodeBlocks: false,
 });
 
@@ -113,6 +115,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   whenDroppingFolder: oneOf(DROP_BEHAVIORS),
   whenDroppingMarkdownFile: oneOf(DROP_BEHAVIORS),
   autoPairBracketsAndQuotes: booleanValue,
+  displayCodeBlockLineNumbers: booleanValue,
   softWrapCodeBlocks: booleanValue,
   version: numberValue,
 } satisfies Record<keyof SettingsPersistedState, unknown>);

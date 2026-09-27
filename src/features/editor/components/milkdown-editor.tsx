@@ -28,6 +28,7 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   onCommandStateChanged?: () => void;
   onDocumentStatusChanged?: () => void;
   autoPairBracketsAndQuotes?: boolean;
+  displayCodeBlockLineNumbers?: boolean;
   softWrapCodeBlocks?: boolean;
 }
 
@@ -43,6 +44,7 @@ export function MilkdownEditor({
   onCommandStateChanged,
   onDocumentStatusChanged,
   autoPairBracketsAndQuotes = true,
+  displayCodeBlockLineNumbers = false,
   softWrapCodeBlocks = false,
 }: MilkdownEditorProps) {
   const {
@@ -58,6 +60,7 @@ export function MilkdownEditor({
     rootRef,
   } = useMilkdownEditorInstance({
     autoPairBracketsAndQuotes,
+    displayCodeBlockLineNumbers,
     documentPath,
     folderContextPath,
     initialMarkdown,

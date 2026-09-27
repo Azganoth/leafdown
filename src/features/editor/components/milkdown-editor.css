@@ -271,6 +271,34 @@
       code {
         @apply block min-w-max bg-transparent p-0 font-mono text-sm leading-6;
       }
+
+      /* Numbering moves the scroll from the block to its code, so the gutter, positioned against
+         the block, holds its place while long lines scroll beside it. Each number leaves flow at
+         the top of the line it opens, so a wrapped continuation carries none. The empty
+         alternative text keeps the numbers out of what assistive technology reads. */
+      &.leafdown-code-block--numbered {
+        @apply relative overflow-x-visible;
+        --leafdown-code-line-number-width: calc(var(--leafdown-code-line-number-digits) * 1ch);
+        padding-inline-start: calc(2rem + var(--leafdown-code-line-number-width));
+
+        code {
+          @apply min-w-0 overflow-x-auto;
+        }
+
+        code::before,
+        .leafdown-code-line-break::after {
+          @apply absolute left-4 text-right text-muted-foreground/60 select-none;
+          width: var(--leafdown-code-line-number-width);
+        }
+
+        code::before {
+          content: "1" / "";
+        }
+
+        .leafdown-code-line-break::after {
+          content: attr(data-next-line-number) / "";
+        }
+      }
     }
 
     .tableWrapper {

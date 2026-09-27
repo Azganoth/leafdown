@@ -19,16 +19,15 @@ const MVP_SETTINGS_BY_TAB = {
     "Index file names for automatic folder open",
     "Ignored directories for folder scans",
   ],
-  Editor: ["Auto pair brackets and quotes", "Soft wrap for code blocks"],
+  Editor: [
+    "Auto pair brackets and quotes",
+    "Display line numbers for code blocks",
+    "Soft wrap for code blocks",
+  ],
   Appearance: ["Accent color", "Appearance theme"],
 };
 
-const POST_MVP_SETTINGS = [
-  "Auto save",
-  "Render/editor theme",
-  "Display line numbers for code blocks",
-  "Unordered list marker",
-];
+const POST_MVP_SETTINGS = ["Auto save", "Render/editor theme", "Unordered list marker"];
 
 describe("preferences-dialog", () => {
   it("exposes MVP settings without Post-MVP settings", async () => {
@@ -69,6 +68,9 @@ describe("preferences-dialog", () => {
     await user.type(ignoredDirectoriesInput, ".git{enter}vendor");
     await user.tab();
 
+    await user.click(screen.getByRole("tab", { name: "Editor" }));
+    await user.click(screen.getByRole("switch", { name: "Display line numbers for code blocks" }));
+
     await user.click(screen.getByRole("tab", { name: "Appearance" }));
     const accentColorSelect = screen.getByRole("combobox", { name: "Accent color" });
     expect(accentColorSelect).toHaveTextContent("Neutral");
@@ -89,6 +91,7 @@ describe("preferences-dialog", () => {
       ignoredDirectories: [".git", "vendor"],
       whenDroppingFolder: "insertLink",
       whenDroppingMarkdownFile: "insertLink",
+      displayCodeBlockLineNumbers: true,
       sidebarVisible: false,
       accentColor: "violet",
       theme: "dark",
@@ -107,13 +110,19 @@ describe("preferences-dialog", () => {
   });
 
   it("restores default settings", async () => {
-    setDefaultSettings({ accentColor: "amber", sidebarVisible: false, theme: "dark" });
+    setDefaultSettings({
+      accentColor: "amber",
+      displayCodeBlockLineNumbers: true,
+      sidebarVisible: false,
+      theme: "dark",
+    });
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
     await user.click(screen.getByRole("button", { name: "Restore defaults" }));
 
     expect(useSettingsStore.getState()).toMatchObject({
+      displayCodeBlockLineNumbers: false,
       sidebarVisible: true,
       accentColor: "neutral",
       theme: "system",

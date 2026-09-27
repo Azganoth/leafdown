@@ -20,7 +20,7 @@ export interface Localization {
   readonly t: Translate;
   readonly formatNumber: (value: number, options?: Intl.NumberFormatOptions) => string;
   readonly formatRelativeTime: (timestamp: number, now: number) => string;
-  readonly formatList: (items: readonly string[]) => string;
+  readonly formatList: (items: readonly string[], type?: Intl.ListFormatType) => string;
 }
 
 const BUNDLED_CATALOGS = import.meta.glob<MessageCatalog>("../../locales/*.json", {
@@ -150,7 +150,6 @@ export const createLocalization = (locale: string, catalog = loadCatalog(locale)
   const formats = new Map<MessageId, IntlMessageFormat>();
   const numberFormat = new Intl.NumberFormat(locale);
   const relativeTimeFormat = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const listFormat = new Intl.ListFormat(locale, { type: "conjunction" });
 
   const t: Translate = (id, values) => {
     const translated = locale === SOURCE_LOCALE ? undefined : catalog[id];
@@ -184,7 +183,8 @@ export const createLocalization = (locale: string, catalog = loadCatalog(locale)
 
       return t("time.justNow");
     },
-    formatList: (items) => listFormat.format(items),
+    formatList: (items, type = "conjunction") =>
+      new Intl.ListFormat(locale, { type }).format(items),
   };
 };
 

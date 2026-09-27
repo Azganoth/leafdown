@@ -47,6 +47,7 @@ import {
   type VirtualItem,
   type VirtualListHandle,
 } from "@/components/ui/virtual-list";
+import { useLocalization } from "@/lib/i18n";
 import { hasNoShortcutModifier } from "@/lib/input";
 import { getRelativePath, isSameOrParentPath, isSamePath, type PathMap } from "@/lib/path";
 import { cn } from "@/lib/utils";
@@ -120,6 +121,7 @@ export function ArticleNavigator({
   folderContext,
   onOpenArticle,
 }: ArticleNavigatorProps) {
+  const { formatNumber, t } = useLocalization();
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
   const expandDirectories = useArticleNavigatorStore((state) => state.expandDirectories);
   const requestFocus = useArticleNavigatorStore((state) => state.requestFocus);
@@ -138,7 +140,7 @@ export function ArticleNavigator({
     ? getArticleDirectoryPaths(filteredTree)
     : expandedDirectoryPaths;
   const articleCount = getArticleFileCount(folderContext.tree);
-  const articleCountLabel = getArticleCountLabel(articleCount);
+  const articleCountLabel = t("articleNavigator.articleCount", { count: articleCount });
   const activeFileAncestorDirectoryPaths = activeArticlePath
     ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
     : null;
@@ -148,10 +150,9 @@ export function ArticleNavigator({
     ? !isSameOrParentPath(folderContext.path, activeArticlePath)
     : false;
   const scanWarningCount = folderContext.warnings.length;
-  const emptyFolderMessage =
-    scanWarningCount > 0
-      ? "No supported Markdown files found in scanned entries."
-      : "No supported Markdown files found.";
+  const emptyFolderMessage = t(
+    scanWarningCount > 0 ? "articleNavigator.emptyWithWarnings" : "articleNavigator.empty",
+  );
   const rows = buildArticleNavigatorRows({
     activeArticlePath,
     draft: edit?.kind === "create" ? edit : null,
@@ -314,7 +315,7 @@ export function ArticleNavigator({
       )}
       {!folderContext.isEmpty && !hasRows && (
         <p className="py-3 text-xs leading-5 text-muted-foreground">
-          {isFiltering ? "No matching articles." : "No visible folder entries."}
+          {t(isFiltering ? "articleNavigator.noMatches" : "articleNavigator.noVisibleEntries")}
         </p>
       )}
     </>
@@ -337,7 +338,7 @@ export function ArticleNavigator({
                 />
               }
             >
-              {articleCount}
+              {formatNumber(articleCount)}
             </TooltipTrigger>
             <TooltipContent side="bottom">{articleCountLabel}</TooltipContent>
           </Tooltip>
@@ -348,10 +349,10 @@ export function ArticleNavigator({
         {!folderContext.isEmpty && (
           <InputGroup className="h-7 border-transparent bg-muted/50 shadow-none dark:bg-muted/50">
             <InputGroupInput
-              aria-label="Filter articles"
+              aria-label={t("articleNavigator.filter.label")}
               className="text-xs md:text-xs"
               onChange={(event) => setFilterQuery(event.target.value)}
-              placeholder="Filter…"
+              placeholder={t("articleNavigator.filter.placeholder")}
               type="text"
               value={filterQuery}
             />
@@ -361,7 +362,7 @@ export function ArticleNavigator({
             {filterQuery && (
               <InputGroupAddon align="inline-end">
                 <InputGroupButton
-                  aria-label="Clear article filter"
+                  aria-label={t("articleNavigator.filter.clear")}
                   onClick={() => setFilterQuery("")}
                   size="icon-xs"
                 >
@@ -388,7 +389,7 @@ export function ArticleNavigator({
               {rowsContent}
             </ContextMenuTrigger>
             <ContextMenuContent
-              aria-label={getMenuLabel(menuTarget)}
+              aria-label={t("articleNavigator.menu.label", { kind: menuTarget.kind })}
               className="min-w-48"
               finalFocus={getMenuFinalFocus}
             >
@@ -396,27 +397,31 @@ export function ArticleNavigator({
                 <>
                   <ContextMenuGroup>
                     <ContextMenuItem onClick={() => handleOpenArticle(menuTarget.path)}>
-                      Open
+                      {t("articleNavigator.menu.open")}
                     </ContextMenuItem>
                   </ContextMenuGroup>
                   <ContextMenuSeparator />
                 </>
               )}
               <ContextMenuGroup>
-                <ContextMenuItem onClick={() => startCreate("file")}>New file</ContextMenuItem>
+                <ContextMenuItem onClick={() => startCreate("file")}>
+                  {t("articleNavigator.menu.newFile")}
+                </ContextMenuItem>
                 <ContextMenuItem onClick={() => startCreate("directory")}>
-                  New folder
+                  {t("articleNavigator.menu.newFolder")}
                 </ContextMenuItem>
               </ContextMenuGroup>
               {menuTarget.kind !== "root" && (
                 <>
                   <ContextMenuSeparator />
                   <ContextMenuGroup>
-                    <ContextMenuItem onClick={startRename}>Rename</ContextMenuItem>
+                    <ContextMenuItem onClick={startRename}>
+                      {t("articleNavigator.menu.rename")}
+                    </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => actions.deleteEntry(menuTarget.path, menuTarget.kind)}
                     >
-                      Delete
+                      {t("articleNavigator.menu.delete")}
                     </ContextMenuItem>
                   </ContextMenuGroup>
                 </>
@@ -424,13 +429,13 @@ export function ArticleNavigator({
               <ContextMenuSeparator />
               <ContextMenuGroup>
                 <ContextMenuItem onClick={() => actions.revealEntry(menuTarget.path)}>
-                  {menuTarget.kind === "file" ? "Open file location" : "Open folder location"}
+                  {t("articleNavigator.menu.openLocation", { kind: menuTarget.kind })}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.copyPath(menuTarget.path)}>
-                  Copy path
+                  {t("articleNavigator.menu.copyPath")}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => copyRelativePath(menuTarget.path)}>
-                  Copy relative path
+                  {t("articleNavigator.menu.copyRelativePath")}
                 </ContextMenuItem>
               </ContextMenuGroup>
             </ContextMenuContent>
@@ -443,24 +448,14 @@ export function ArticleNavigator({
   );
 }
 
-const getArticleCountLabel = (articleCount: number) =>
-  articleCount === 1 ? "1 article" : `${articleCount} articles`;
-
-const getMenuLabel = (target: ArticleNavigatorMenuTarget) =>
-  target.kind === "file"
-    ? "File actions"
-    : target.kind === "directory"
-      ? "Folder actions"
-      : "Folder context actions";
-
 function EmptyFolderMessage({ message }: { message: string }) {
   return <p className="shrink-0 py-2 text-xs leading-5 text-muted-foreground">{message}</p>;
 }
 function DetachedDocumentNotice() {
+  const { t } = useLocalization();
+
   return (
-    <NavigatorNotice icon={InfoIcon}>
-      Current document is outside this folder context.
-    </NavigatorNotice>
+    <NavigatorNotice icon={InfoIcon}>{t("articleNavigator.detachedDocument")}</NavigatorNotice>
   );
 }
 
@@ -469,9 +464,11 @@ interface FolderScanWarningNoticeProps {
 }
 
 function FolderScanWarningNotice({ warningCount }: FolderScanWarningNoticeProps) {
+  const { t } = useLocalization();
+
   return (
     <NavigatorNotice icon={TriangleAlertIcon}>
-      Some folder entries could not be scanned. {getScanWarningIssueText(warningCount)}
+      {t("articleNavigator.scanWarnings", { count: warningCount })}
     </NavigatorNotice>
   );
 }
@@ -486,9 +483,6 @@ function NavigatorNotice({ children, icon: Icon }: { children: ReactNode; icon: 
     </div>
   );
 }
-
-const getScanWarningIssueText = (warningCount: number) =>
-  warningCount === 1 ? "1 issue found." : `${warningCount} issues found.`;
 
 interface ArticleNavigatorRowsProps {
   edit: ArticleNavigatorEdit | null;
@@ -514,6 +508,7 @@ function ArticleNavigatorRows({
   onToggleDirectory,
   rows,
 }: ArticleNavigatorRowsProps) {
+  const { t } = useLocalization();
   const virtualListRef = useRef<VirtualListHandle>(null);
   const revealPath = useArticleNavigatorStore((state) => state.revealPath);
   const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
@@ -696,7 +691,7 @@ function ArticleNavigatorRows({
       virtualListRef={virtualListRef}
     >
       <VirtualListContent
-        aria-label="Articles"
+        aria-label={t("articleNavigator.tree.label")}
         className="mx-1"
         onBlur={() => {
           hasRowFocusRef.current = false;
@@ -795,12 +790,17 @@ function ArticleNavigatorTreeItem({
   row,
   virtualRow,
 }: ArticleNavigatorTreeItemProps) {
+  const { t } = useLocalization();
   const isFileRow = row.kind === "file" || (row.kind === "draft" && row.entryKind === "file");
 
   return (
     <VirtualListItem
       aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
-      aria-label={row.kind === "draft" ? getDraftRowLabel(row.entryKind) : undefined}
+      aria-label={
+        row.kind === "draft"
+          ? t("articleNavigator.draftRow.label", { entryKind: row.entryKind })
+          : undefined
+      }
       aria-level={row.depth + 1}
       aria-posinset={row.posInSet}
       aria-selected={row.kind === "file" && row.isActive}
@@ -831,9 +831,6 @@ function ArticleNavigatorTreeItem({
     </VirtualListItem>
   );
 }
-
-const getDraftRowLabel = (entryKind: ArticleNavigatorEntryKind) =>
-  entryKind === "file" ? "New file" : "New folder";
 
 function DirectoryRowContent({
   nameEditor,
@@ -906,6 +903,7 @@ function EntryNameEditor({
   onCommit,
   onFinish,
 }: EntryNameEditorProps) {
+  const { t } = useLocalization();
   const [name, setName] = useState(initialName);
   const [isPending, setIsPending] = useState(false);
   const isSettledRef = useRef(false);
@@ -957,7 +955,7 @@ function EntryNameEditor({
 
   return (
     <Input
-      aria-label={entryKind === "file" ? "File name" : "Folder name"}
+      aria-label={t("articleNavigator.nameEditor.label", { entryKind })}
       className="h-6 flex-1 px-1.5 text-xs md:text-xs"
       onBlur={() => {
         // Switching to another window blurs the field too, but the edit is still in progress

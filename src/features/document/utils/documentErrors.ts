@@ -1,5 +1,5 @@
 import { formatFileSize } from "@/lib/formatFileSize";
-import { localizer } from "@/lib/i18n";
+import { localizer, t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
@@ -20,13 +20,9 @@ const OPEN_MARKDOWN_FILE_ERROR_KINDS = [
   "metadataFailed",
 ] as const satisfies readonly OpenMarkdownFileError["kind"][];
 
-const FALLBACK_OPEN_FILE_ERROR: MessageData = {
-  title: "Could not open Markdown file.",
-};
-
 export const getOpenMarkdownFileErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_OPEN_FILE_ERROR,
+  fallback: MessageData = { title: t("document.openError.fallback") },
 ): MessageData => {
   if (!isOpenMarkdownFileError(error)) {
     return fallback;
@@ -35,49 +31,52 @@ export const getOpenMarkdownFileErrorMessage = (
   switch (error.kind) {
     case "unsupportedFileType":
       return {
-        title: "Unsupported Markdown file type.",
-        description: "Leafdown opens .md and .markdown files.",
+        title: t("document.openError.unsupportedFileType.title"),
+        description: t("document.openError.unsupportedFileType.description"),
       };
     case "invalidPath":
       return {
-        title: "Invalid Markdown file path.",
+        title: t("document.openError.invalidPath"),
         description: error.path,
       };
     case "missingFile":
       return {
-        title: "Markdown file not found.",
+        title: t("document.openError.missingFile"),
         description: error.path,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied opening Markdown file.",
+        title: t("document.openError.permissionDenied"),
         description: error.message ?? error.path,
       };
     case "oversizedFile":
       return {
-        title: "Markdown file is too large.",
-        description: `${formatFileSize(error.sizeBytes, localizer.current)} selected. Files larger than ${formatFileSize(error.maxSizeBytes, localizer.current)} do not load.`,
+        title: t("document.openError.oversizedFile.title"),
+        description: t("document.openError.oversizedFile.description", {
+          size: formatFileSize(error.sizeBytes, localizer.current),
+          maxSize: formatFileSize(error.maxSizeBytes, localizer.current),
+        }),
       };
     case "invalidEncoding":
       return {
-        title: "Invalid Markdown file encoding.",
-        description:
-          "The file is not valid in the encoding it was read in. Leafdown reads UTF-8, and UTF-16 with a byte order mark, unless another encoding is chosen.",
+        title: t("document.openError.invalidEncoding.title"),
+        description: t("document.openError.invalidEncoding.description"),
       };
     case "irreversibleEncoding":
       return {
-        title: `Markdown file cannot be preserved in ${formatEncodingName(error.encoding)}.`,
-        description:
-          "Saving it in that encoding would change bytes that were never edited. Choose another encoding.",
+        title: t("document.openError.irreversibleEncoding.title", {
+          encoding: formatEncodingName(error.encoding),
+        }),
+        description: t("document.openError.irreversibleEncoding.description"),
       };
     case "readFailed":
       return {
-        title: "Could not read Markdown file.",
+        title: t("document.openError.readFailed"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect Markdown file.",
+        title: t("document.openError.metadataFailed"),
         description: error.message ?? error.path,
       };
   }
@@ -98,13 +97,9 @@ const SAVE_MARKDOWN_FILE_ERROR_KINDS = [
   "metadataFailed",
 ] as const satisfies readonly SaveMarkdownFileError["kind"][];
 
-const FALLBACK_SAVE_ERROR: MessageData = {
-  title: "Could not save Markdown document.",
-};
-
 export const getSaveMarkdownFileErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_SAVE_ERROR,
+  fallback: MessageData = { title: t("document.saveError.fallback") },
 ): MessageData => {
   if (!isSaveMarkdownFileError(error)) {
     return fallback;
@@ -113,47 +108,49 @@ export const getSaveMarkdownFileErrorMessage = (
   switch (error.kind) {
     case "unsupportedFileType":
       return {
-        title: "Unsupported save file type.",
-        description: "Save Markdown documents as .md or .markdown files.",
+        title: t("document.saveError.unsupportedFileType.title"),
+        description: t("document.saveError.unsupportedFileType.description"),
       };
     case "invalidPath":
       return {
-        title: "Invalid save path.",
+        title: t("document.saveError.invalidPath"),
         description: error.path,
       };
     case "missingFile":
       return {
-        title: "Saved Markdown file is missing.",
+        title: t("document.saveError.missingFile"),
         description: error.path,
       };
     case "missingParentFolder":
       return {
-        title: "Save folder not found.",
+        title: t("document.saveError.missingParentFolder"),
         description: error.parentFolderPath,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied saving Markdown file.",
+        title: t("document.saveError.permissionDenied"),
         description: error.message ?? error.path,
       };
     case "externalModification":
       return {
-        title: "Markdown file changed outside Leafdown.",
+        title: t("document.saveError.externalModification"),
         description: error.path,
       };
     case "unrepresentableCharacters":
       return {
-        title: `Some characters cannot be saved in ${formatEncodingName(error.encoding)}.`,
+        title: t("document.saveError.unrepresentableCharacters", {
+          encoding: formatEncodingName(error.encoding),
+        }),
         description: formatUnrepresentableCharacters(error.characters),
       };
     case "writeFailed":
       return {
-        title: "Could not write Markdown file.",
+        title: t("document.saveError.writeFailed"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect saved Markdown file.",
+        title: t("document.saveError.metadataFailed"),
         description: error.message ?? error.path,
       };
   }
@@ -189,5 +186,10 @@ export const formatUnrepresentableCharacters = (characters: readonly string[]) =
     .map((character) => `${character} (${formatCodePoint(character)})`);
   const remaining = characters.length - listed.length;
 
-  return remaining > 0 ? `${listed.join(", ")}, and ${remaining} more` : listed.join(", ");
+  return remaining > 0
+    ? t("document.unrepresentableCharacters.truncated", {
+        characters: localizer.current.formatList(listed, "unit"),
+        remaining,
+      })
+    : localizer.current.formatList(listed, "unit");
 };

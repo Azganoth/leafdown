@@ -1,3 +1,4 @@
+import { t, type MessageId } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
@@ -22,13 +23,9 @@ const SCAN_FOLDER_CONTEXT_ERROR_KINDS = [
   "readDirectoryFailed",
 ] as const satisfies readonly ScanFolderContextError["kind"][];
 
-const FALLBACK_SCAN_FOLDER_ERROR: MessageData = {
-  title: "Could not scan folder.",
-};
-
 export const getScanFolderContextErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_SCAN_FOLDER_ERROR,
+  fallback: MessageData = { title: t("folderContext.scanError.fallback") },
 ): MessageData => {
   if (!isScanFolderContextError(error)) {
     return fallback;
@@ -37,32 +34,32 @@ export const getScanFolderContextErrorMessage = (
   switch (error.kind) {
     case "invalidPath":
       return {
-        title: "Invalid folder path.",
+        title: t("folderContext.scanError.invalidPath"),
         description: error.path,
       };
     case "missingFolder":
       return {
-        title: "Folder not found.",
+        title: t("folderContext.scanError.missingFolder"),
         description: error.path,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied accessing folder.",
+        title: t("folderContext.scanError.permissionDenied"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect folder.",
+        title: t("folderContext.scanError.metadataFailed"),
         description: error.message ?? error.path,
       };
     case "notDirectory":
       return {
-        title: "Folder path is not a directory.",
+        title: t("folderContext.scanError.notDirectory"),
         description: error.path,
       };
     case "readDirectoryFailed":
       return {
-        title: "Could not read folder.",
+        title: t("folderContext.scanError.readDirectoryFailed"),
         description: error.message ?? error.path,
       };
   }
@@ -75,13 +72,9 @@ const OPEN_FOLDER_CONTEXT_ERROR_KINDS = [
   "scanFailed",
 ] as const satisfies readonly OpenFolderContextError["kind"][];
 
-const FALLBACK_OPEN_FOLDER_ERROR: MessageData = {
-  title: "Could not open folder.",
-};
-
 export const getOpenFolderContextErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_OPEN_FOLDER_ERROR,
+  fallback: MessageData = { title: t("folderContext.openError.fallback") },
 ): MessageData => {
   if (!isOpenFolderContextError(error)) {
     return fallback;
@@ -106,13 +99,9 @@ const WATCH_FOLDER_CONTEXT_ERROR_KINDS = [
   "watcherStateFailed",
 ] as const satisfies readonly WatchFolderContextError["kind"][];
 
-const FALLBACK_WATCH_FOLDER_ERROR: MessageData = {
-  title: "Could not watch folder.",
-};
-
 export const getWatchFolderContextErrorMessage = (
   error: unknown,
-  fallback: MessageData = FALLBACK_WATCH_FOLDER_ERROR,
+  fallback: MessageData = { title: t("folderContext.watchError.fallback") },
 ): MessageData => {
   if (!isWatchFolderContextError(error)) {
     return fallback;
@@ -121,37 +110,37 @@ export const getWatchFolderContextErrorMessage = (
   switch (error.kind) {
     case "invalidPath":
       return {
-        title: "Invalid folder path.",
+        title: t("folderContext.watchError.invalidPath"),
         description: error.path,
       };
     case "missingFolder":
       return {
-        title: "Folder not found.",
+        title: t("folderContext.watchError.missingFolder"),
         description: error.path,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied watching folder.",
+        title: t("folderContext.watchError.permissionDenied"),
         description: error.message ?? error.path,
       };
     case "metadataFailed":
       return {
-        title: "Could not inspect folder.",
+        title: t("folderContext.watchError.metadataFailed"),
         description: error.message ?? error.path,
       };
     case "notDirectory":
       return {
-        title: "Folder path is not a directory.",
+        title: t("folderContext.watchError.notDirectory"),
         description: error.path,
       };
     case "watchFailed":
       return {
-        title: "Could not watch folder.",
+        title: t("folderContext.watchError.watchFailed"),
         description: error.message ?? error.path,
       };
     case "watcherStateFailed":
       return {
-        title: "Could not watch folder.",
+        title: t("folderContext.watchError.watchFailed"),
         description: error.message,
       };
   }
@@ -175,12 +164,12 @@ const FOLDER_ENTRY_ERROR_KINDS = [
   "trashFailed",
 ] as const satisfies readonly FolderEntryError["kind"][];
 
-const INVALID_FOLDER_ENTRY_NAME_DESCRIPTIONS: Record<InvalidFolderEntryNameReason, string> = {
-  empty: "Enter a name.",
-  reservedName: "The name is reserved by the file system.",
-  invalidCharacter: "The name contains a character file names cannot hold.",
-  trailingDotOrSpace: "The name cannot end with a period or space.",
-};
+const INVALID_FOLDER_ENTRY_NAME_DESCRIPTION_IDS = {
+  empty: "folderContext.entryError.invalidName.empty",
+  reservedName: "folderContext.entryError.invalidName.reservedName",
+  invalidCharacter: "folderContext.entryError.invalidName.invalidCharacter",
+  trailingDotOrSpace: "folderContext.entryError.invalidName.trailingDotOrSpace",
+} as const satisfies Record<InvalidFolderEntryNameReason, MessageId>;
 
 export const getFolderEntryErrorMessage = (error: unknown, fallback: MessageData): MessageData => {
   if (!isFolderEntryError(error)) {
@@ -190,42 +179,42 @@ export const getFolderEntryErrorMessage = (error: unknown, fallback: MessageData
   switch (error.kind) {
     case "invalidName":
       return {
-        title: "Invalid name.",
-        description: INVALID_FOLDER_ENTRY_NAME_DESCRIPTIONS[error.reason],
+        title: t("folderContext.entryError.invalidName"),
+        description: t(INVALID_FOLDER_ENTRY_NAME_DESCRIPTION_IDS[error.reason]),
       };
     case "unsupportedExtension":
       return {
-        title: "Unsupported file type.",
-        description: "Use a .md or .markdown extension, or leave the extension out.",
+        title: t("folderContext.entryError.unsupportedExtension.title"),
+        description: t("folderContext.entryError.unsupportedExtension.description"),
       };
     case "alreadyExists":
       return {
-        title: "An item with that name already exists.",
+        title: t("folderContext.entryError.alreadyExists"),
         description: error.path,
       };
     case "outsideFolder":
       return {
-        title: "The item is not inside the current folder.",
+        title: t("folderContext.entryError.outsideFolder"),
         description: error.path,
       };
     case "invalidPath":
       return {
-        title: "Invalid path.",
+        title: t("folderContext.entryError.invalidPath"),
         description: error.path,
       };
     case "missingEntry":
       return {
-        title: "The item no longer exists.",
+        title: t("folderContext.entryError.missingEntry"),
         description: error.path,
       };
     case "notDirectory":
       return {
-        title: "The target is not a folder.",
+        title: t("folderContext.entryError.notDirectory"),
         description: error.path,
       };
     case "permissionDenied":
       return {
-        title: "Permission denied.",
+        title: t("folderContext.entryError.permissionDenied"),
         description: error.message || error.path,
       };
     case "operationFailed":
@@ -235,7 +224,7 @@ export const getFolderEntryErrorMessage = (error: unknown, fallback: MessageData
       };
     case "trashFailed":
       return {
-        title: "Could not move the item to the trash.",
+        title: t("folderContext.entryError.trashFailed"),
         description: error.message || error.path,
       };
   }

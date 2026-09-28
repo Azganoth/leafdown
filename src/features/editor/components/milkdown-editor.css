@@ -780,6 +780,16 @@
       font-weight: 400;
     }
 
+    /* A TeX command in projected math takes the colour the code-block theme gives support
+       functions, which sets it apart from both the delimiters and the rest of the TeX. */
+    .leafdown-source-projection__math-command {
+      color: #005cc5;
+
+      &:is(.dark *) {
+        color: #79b8ff;
+      }
+    }
+
     /* A run of spaces spelling a hard break closes its line and draws nothing, so each space carries a
        dot. The run is set monospaced so that one repetition of the dot is exactly one space wide. */
     .leafdown-source-projection__marker--break-spaces {

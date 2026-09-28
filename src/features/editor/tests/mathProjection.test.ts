@@ -24,6 +24,8 @@ const mountEditor = setupMilkdownEditorMount();
 const markdown = "Before $x^2$ after\n\nEnd\n";
 const isDisplay = (node: ProseMirrorNode) => (node.attrs.value as string).startsWith("$$");
 const isInline = (node: ProseMirrorNode) => !isDisplay(node);
+const isBacktick = (node: ProseMirrorNode) => (node.attrs.value as string).startsWith("$`");
+const isTableMath = (node: ProseMirrorNode) => node.attrs.value === "$x\\|y$";
 
 describe("math source projection", () => {
   it.each(["left", "right", "node"] as const)(
@@ -98,6 +100,29 @@ describe("math source projection", () => {
     setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
     expect(runKeyDownHandlers(mounted.view, "Enter").handled).toBe(true);
     expect(getEditorTextContent(mounted)).toContain("$x^2\n$");
+  });
+
+  it("marks delimiters, sets commands apart, and leaves the rest of the TeX as content", async () => {
+    const mounted = await mountEditor(
+      "Before $`\\frac{a}{b}\\,\\alpha^2`$ after\n\n| a |\n| - |\n| $x\\|y$ |\n\nEnd\n",
+    );
+    const readSpans = () => ({
+      commands: [
+        ...mounted.view.dom.querySelectorAll(".leafdown-source-projection__math-command"),
+      ].map((span) => span.textContent),
+      markers: [...mounted.view.dom.querySelectorAll(".leafdown-source-projection__marker")].map(
+        (span) => span.textContent,
+      ),
+    });
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isBacktick));
+    expect(readSpans()).toEqual({
+      commands: ["\\frac", "\\,", "\\alpha"],
+      markers: ["$`", "`$"],
+    });
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isTableMath));
+    expect(readSpans()).toEqual({ commands: [], markers: ["$", "\\", "$"] });
   });
 
   it("previews the rendered source beside inline source as it is edited", async () => {

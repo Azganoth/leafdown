@@ -3,7 +3,7 @@ import { type KatexOptions, ParseError, render } from "katex";
 
 import { t } from "@/lib/i18n";
 
-import { isDisplayMathSource } from "./mathSyntax";
+import { getMathContentRange, isDisplayMathSource } from "./mathSyntax";
 
 // Document math must never become application markup or network activity. Untrusted, KaTeX renders
 // every command that would link, load, or attach an author-chosen class, id, style, or data
@@ -20,16 +20,11 @@ const MATH_RENDER_OPTIONS = {
 
 const TABLE_CELL_ESCAPE_PATTERN = /\\([\\|])/gu;
 
-// The TeX a span renders: its content inside the delimiters, without the backticks of GitHub's
-// `` $`...`$ `` form. A table cell drops its `\|` escapes before anything inside it is read, as GFM
-// does for a code span, so the TeX there holds a pipe where the file holds `\|`.
+// A table cell drops its `\|` escapes before anything inside it is read, as GFM does for a code
+// span, so the TeX there holds a pipe where the file holds `\|`.
 export const readMathTex = (source: string, inTableCell: boolean) => {
-  const delimiterSize = isDisplayMathSource(source) ? 2 : 1;
-  const content = source.slice(delimiterSize, source.length - delimiterSize);
-  const tex =
-    delimiterSize === 1 && content.length >= 2 && content.startsWith("`") && content.endsWith("`")
-      ? content.slice(1, -1)
-      : content;
+  const { from, to } = getMathContentRange(source);
+  const tex = source.slice(from, to);
   return inTableCell
     ? tex.replace(TABLE_CELL_ESCAPE_PATTERN, (escape, character: string) =>
         character === "|" ? character : escape,

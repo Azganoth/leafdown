@@ -7,8 +7,49 @@ import { openRecentPath } from "../support/ui.js";
 
 const math = (value: string) =>
   $(`[data-type="math"][data-value="${value.replaceAll("\\", "\\\\")}"]`);
-const projected = () => $('[data-leafdown-source~="math"]');
 const preview = () => $(".leafdown-math-preview");
+
+// Projected math source is split into pieces by its marker and command styling, so its text, the
+// caret's offset in it, and its bounds are read across every piece.
+const readProjection = () =>
+  browser.execute(() => {
+    const pieces = [...document.querySelectorAll('[data-leafdown-source~="math"]')];
+    const selection = window.getSelection();
+    const focus = selection?.focusNode;
+    let caret: number | null = null;
+    if (
+      pieces[0] &&
+      selection?.isCollapsed &&
+      focus &&
+      pieces.some((piece) => piece.contains(focus))
+    ) {
+      const range = document.createRange();
+      range.setStart(pieces[0], 0);
+      range.setEnd(focus, selection.focusOffset);
+      caret = range.toString().length;
+    }
+    const rects = pieces.map((piece) => piece.getBoundingClientRect());
+    return {
+      bottom: Math.max(...rects.map((rect) => rect.bottom)),
+      caret,
+      right: Math.max(...rects.map((rect) => rect.right)),
+      text: pieces.map((piece) => piece.textContent).join(""),
+      top: Math.min(...rects.map((rect) => rect.top)),
+    };
+  });
+
+const waitForProjection = (text: string) =>
+  browser.waitUntil(async () => (await readProjection()).text === text, {
+    timeoutMsg: `Projected math source did not become ${text}.`,
+  });
+
+const readPreviewRect = () =>
+  browser.execute(() => {
+    const { bottom, left, top } = document
+      .querySelector(".leafdown-math-preview")!
+      .getBoundingClientRect();
+    return { bottom, left, top };
+  });
 
 const pressMath = (element: ReturnType<typeof math>) =>
   element.execute((node) =>
@@ -108,36 +149,13 @@ describe("desktop rendered math", () => {
     ).toBe("x|y");
 
     await pressMath(inline);
-    await expect(projected()).toHaveText("$x^2$");
-    expect(
-      await projected().execute((node) => {
-        const selection = window.getSelection();
-        if (
-          !selection?.isCollapsed ||
-          !selection.focusNode ||
-          !node.contains(selection.focusNode)
-        ) {
-          throw new Error("Expected a caret inside projected math source");
-        }
-        const range = document.createRange();
-        range.setStart(node, 0);
-        range.setEnd(selection.focusNode, selection.focusOffset);
-        return range.toString().length;
-      }),
-    ).toBe(1);
-    expect(
-      await browser.execute(() => {
-        const source = document
-          .querySelector('[data-leafdown-source~="math"]')!
-          .getBoundingClientRect();
-        const rendered = document.querySelector(".leafdown-math-preview")!.getBoundingClientRect();
-        return (
-          rendered.left >= source.right - 1 &&
-          rendered.top < source.bottom &&
-          rendered.bottom > source.top
-        );
-      }),
-    ).toBe(true);
+    await waitForProjection("$x^2$");
+    const inlineSource = await readProjection();
+    expect(inlineSource.caret).toBe(1);
+    const inlinePreview = await readPreviewRect();
+    expect(inlinePreview.left).toBeGreaterThanOrEqual(inlineSource.right - 1);
+    expect(inlinePreview.top).toBeLessThan(inlineSource.bottom);
+    expect(inlinePreview.bottom).toBeGreaterThan(inlineSource.top);
     expect(await preview().execute((node) => node.querySelector("annotation")?.textContent)).toBe(
       "x^2",
     );
@@ -146,7 +164,7 @@ describe("desktop rendered math", () => {
       await browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
     ).toBe(true);
     await $(".ProseMirror").addValue("z");
-    expect(await projected().execute((node) => node.textContent)).toBe("$zx^2$");
+    expect((await readProjection()).text).toBe("$zx^2$");
     expect(await preview().execute((node) => node.querySelector("annotation")?.textContent)).toBe(
       "zx^2",
     );
@@ -156,16 +174,26 @@ describe("desktop rendered math", () => {
     await expect(math("$zx^2$")).toHaveAttribute("data-math-rendered", "true");
 
     await pressMath(display);
+    await waitForProjection("$$\n  a\n    b\n$$");
     await expect(preview()).toHaveAttribute("class", /\bleafdown-math-preview--block\b/u);
+    expect((await readPreviewRect()).top).toBeGreaterThanOrEqual(
+      (await readProjection()).bottom - 1,
+    );
+
+    await pressMath(math("$50\\%$"));
+    await waitForProjection("$50\\%$");
     expect(
       await browser.execute(() => {
-        const source = document
-          .querySelector('[data-leafdown-source~="math"]')!
-          .getBoundingClientRect();
-        const rendered = document.querySelector(".leafdown-math-preview")!.getBoundingClientRect();
-        return rendered.top >= source.bottom - 1;
+        const pieces = [...document.querySelectorAll('[data-leafdown-source~="math"]')];
+        const colorOf = (text: string) =>
+          getComputedStyle(pieces.find((piece) => piece.textContent === text)!).color;
+        const [delimiter, content, command] = [colorOf("$"), colorOf("50"), colorOf("\\%")];
+        return {
+          commandStandsApart: command !== delimiter && command !== content,
+          contentIsNotMuted: content !== delimiter,
+        };
       }),
-    ).toBe(true);
+    ).toEqual({ commandStandsApart: true, contentIsNotMuted: true });
 
     expect(
       await browser.execute(

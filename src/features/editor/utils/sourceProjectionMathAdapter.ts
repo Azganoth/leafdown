@@ -9,10 +9,11 @@ import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser } from "@milkdown/kit/transformer";
 
 import { createMathPreviewRenderer, isInTableCell } from "./mathRender";
-import { isDisplayMathSource } from "./mathSyntax";
+import { getMathContentRange, isDisplayMathSource } from "./mathSyntax";
 import {
   createLiteralSourceProjectionSlice,
   type SourceProjectionAdapter,
+  type SourceProjectionPresentationSpan,
   type SourceProjectionTarget,
 } from "./sourceProjectionAdapters";
 
@@ -75,6 +76,37 @@ const parseMathSource = (parser: Parser, source: string): ProseMirrorNode | null
   return node?.type.name === MATH_NODE_NAME && node.attrs.value === source ? node : null;
 };
 
+const MARKER_CLASS_NAME = "leafdown-source-projection__marker";
+const COMMAND_CLASS_NAME = "leafdown-source-projection__math-command";
+const TEX_CONTROL_SEQUENCE_PATTERN = /\\(?:[A-Za-z]+|[\s\S])/gu;
+
+// The delimiters read as markers and each TeX control sequence as a command, while the rest of the
+// TeX reads as content. Punctuation such as braces stays content: a large expression holds thousands
+// of them, and a span for each makes every keystroke in it noticeably slower. In a table cell `\|`
+// is the cell's escape for a pipe rather than TeX, so its backslash reads as a marker.
+const getMathSourceSpans = (
+  source: string,
+  inTableCell: boolean,
+): SourceProjectionPresentationSpan[] => {
+  const { from, to } = getMathContentRange(source);
+  const spans: SourceProjectionPresentationSpan[] = [];
+  if (from > 0) {
+    spans.push({ className: MARKER_CLASS_NAME, from: 0, to: from });
+  }
+  for (const match of source.slice(from, to).matchAll(TEX_CONTROL_SEQUENCE_PATTERN)) {
+    const start = from + match.index;
+    spans.push(
+      inTableCell && match[0] === "\\|"
+        ? { className: MARKER_CLASS_NAME, from: start, to: start + 1 }
+        : { className: COMMAND_CLASS_NAME, from: start, to: start + match[0].length },
+    );
+  }
+  if (to < source.length) {
+    spans.push({ className: MARKER_CLASS_NAME, from: to, to: source.length });
+  }
+  return spans;
+};
+
 export const createMathSourceProjectionAdapter = (
   parser: Parser,
 ): SourceProjectionAdapter<MathSourceProjectionTarget> => {
@@ -106,9 +138,7 @@ export const createMathSourceProjectionAdapter = (
             ]
           : [],
         sourceTypes: ["math"],
-        spans: source
-          ? [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }]
-          : [],
+        spans: getMathSourceSpans(source, inTableCell),
       };
     },
     mapSelectionToSource: (selection, target, context) => {

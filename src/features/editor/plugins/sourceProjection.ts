@@ -1125,7 +1125,9 @@ const createProjectionDecorations = (state: EditorState) => {
   for (const preview of presentation.previews) {
     decorations.push(
       Decoration.widget(
-        session.from + Math.min(Math.max(preview.offset, 0), source.length),
+        preview.afterBlock
+          ? state.doc.resolve(session.from).after()
+          : session.from + Math.min(Math.max(preview.offset, 0), source.length),
         () => createProjectionPreviewElement(preview),
         // The character and the `&` it opens read as one, so the caret at that offset rests on the
         // near side of both rather than between them, which a positive side draws it as. The widget

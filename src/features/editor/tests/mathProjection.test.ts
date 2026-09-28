@@ -106,11 +106,13 @@ describe("math source projection", () => {
     setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline") + 1);
     const getPreview = () => mounted.view.dom.querySelector<HTMLElement>(".leafdown-math-preview")!;
 
-    expect(getPreview()).not.toHaveClass("leafdown-math-preview--block");
-    expect(getPreview().querySelector("annotation")).toHaveTextContent("x^2");
+    const preview = getPreview();
+    expect(preview).not.toHaveClass("leafdown-math-preview--block");
+    expect(preview.querySelector("annotation")).toHaveTextContent("x^2");
     setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
     typeText(mounted.view, "+1");
-    expect(getPreview().querySelector("annotation")).toHaveTextContent("x^2+1");
+    expect(getPreview()).toBe(preview);
+    expect(preview.querySelector("annotation")).toHaveTextContent("x^2+1");
     expect(getEditorTextContent(mounted)).not.toContain("x^2+1x");
 
     typeText(mounted.view, "\\frac");
@@ -127,9 +129,11 @@ describe("math source projection", () => {
     const mounted = await mountEditor("$$\nx\n$$\n\n| a |\n| - |\n| $x\\|y$ |\n\nEnd\n");
     setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isDisplay));
     const preview = mounted.view.dom.querySelector(".leafdown-math-preview");
+    const source = mounted.view.dom.querySelector('[data-leafdown-source~="math"]');
 
     expect(preview).toHaveClass("leafdown-math-preview--block");
     expect(preview?.querySelector(".katex-display")).not.toBeNull();
+    expect(preview?.previousElementSibling).toBe(source?.closest("p"));
 
     setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isInline));
     expect(mounted.view.dom.querySelector(".leafdown-math-preview annotation")).toHaveTextContent(
@@ -145,15 +149,18 @@ describe("math source projection", () => {
       vi.spyOn(performance, "now").mockImplementation(() => (now += 20));
       setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline") + 1);
       setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
-      const getTex = () =>
-        mounted.view.dom.querySelector(".leafdown-math-preview annotation")?.textContent;
+      const getPreview = () => mounted.view.dom.querySelector(".leafdown-math-preview");
+      const preview = getPreview();
+      const rendering = preview?.firstElementChild;
 
       typeText(mounted.view, "+1");
-      expect(getTex()).toBe("x^2");
+      expect(getPreview()).toBe(preview);
+      expect(preview?.firstElementChild).toBe(rendering);
       vi.advanceTimersByTime(299);
-      expect(getTex()).toBe("x^2");
+      expect(preview?.querySelector("annotation")?.textContent).toBe("x^2");
       vi.advanceTimersByTime(1);
-      expect(getTex()).toBe("x^2+1");
+      expect(getPreview()).toBe(preview);
+      expect(preview?.querySelector("annotation")?.textContent).toBe("x^2+1");
     } finally {
       vi.useRealTimers();
     }

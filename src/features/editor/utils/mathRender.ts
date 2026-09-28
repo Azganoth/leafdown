@@ -84,34 +84,35 @@ export const describeMathError = (error: string) => t("editor.math.error", { mes
 const MATH_PREVIEW_RENDER_BUDGET_MS = 8;
 const MATH_PREVIEW_IDLE_DELAY_MS = 300;
 
-// Each edit to projected source draws a new preview. One that replaces a preview still on screen
-// continues the same session, so while renders are costly it takes over the previous rendering and
-// catches up once typing pauses. Every other preview renders at once.
+// Each edit to projected source draws the preview again. While the preview is still on screen the
+// edit continues its session, and the same element is handed back rather than a new one: moving a
+// rendering into a new element would lay all of it out again, which for a large expression costs
+// more than rendering it. While renders are costly the element keeps its rendering until typing
+// pauses.
 export const createMathPreviewRenderer = () => {
-  let current: HTMLElement | null = null;
+  let element: HTMLElement | null = null;
   let renderCost = 0;
   let pendingRender: ReturnType<typeof setTimeout> | undefined;
 
-  const fill = (element: HTMLElement, source: string, inTableCell: boolean) => {
+  const fill = (target: HTMLElement, source: string, inTableCell: boolean) => {
     const start = performance.now();
     const rendered = renderMath(source, inTableCell);
     renderCost = performance.now() - start;
-    element.dataset.mathRendered = String(rendered.error === null);
-    element.replaceChildren(rendered.element ?? describeMathError(rendered.error));
+    target.dataset.mathRendered = String(rendered.error === null);
+    target.replaceChildren(rendered.element ?? describeMathError(rendered.error));
   };
 
   return (source: string, inTableCell: boolean) => {
-    const element = document.createElement("span");
-    element.contentEditable = "false";
-    const previous = current;
-    current = element;
     clearTimeout(pendingRender);
 
-    if (previous?.isConnected && renderCost > MATH_PREVIEW_RENDER_BUDGET_MS) {
-      element.dataset.mathRendered = previous.dataset.mathRendered;
-      element.replaceChildren(...previous.childNodes);
+    if (!element?.isConnected) {
+      element = document.createElement("span");
+      element.contentEditable = "false";
+      fill(element, source, inTableCell);
+    } else if (renderCost > MATH_PREVIEW_RENDER_BUDGET_MS) {
+      const target = element;
       pendingRender = setTimeout(() => {
-        if (element.isConnected) fill(element, source, inTableCell);
+        if (target.isConnected) fill(target, source, inTableCell);
       }, MATH_PREVIEW_IDLE_DELAY_MS);
     } else {
       fill(element, source, inTableCell);

@@ -89,25 +89,28 @@ export const createMathSourceProjectionAdapter = (
         target.to,
         createLiteralSourceProjectionSlice(state, target.originalSource),
       ),
-    getPresentation: ({ block, inTableCell }, source) => ({
-      previews: source
-        ? [
-            {
-              className:
-                block && isDisplayMathSource(source)
+    getPresentation: ({ block, inTableCell }, source) => {
+      const belowSource = block && isDisplayMathSource(source);
+      return {
+        previews: source
+          ? [
+              {
+                afterBlock: belowSource,
+                className: belowSource
                   ? "leafdown-math-preview leafdown-math-preview--block"
                   : "leafdown-math-preview",
-              offset: source.length,
-              render: () => renderPreview(source, inTableCell),
-              text: source,
-            },
-          ]
-        : [],
-      sourceTypes: ["math"],
-      spans: source
-        ? [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }]
-        : [],
-    }),
+                offset: source.length,
+                render: () => renderPreview(source, inTableCell),
+                text: source,
+              },
+            ]
+          : [],
+        sourceTypes: ["math"],
+        spans: source
+          ? [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }]
+          : [],
+      };
+    },
     mapSelectionToSource: (selection, target, context) => {
       if (context.pointerSourceOffset !== null) {
         const position =

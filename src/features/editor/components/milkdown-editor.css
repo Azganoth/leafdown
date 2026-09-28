@@ -107,6 +107,25 @@
     margin: 0;
   }
 
+  /* A display block's preview is the block after the paragraph holding its source, where editing
+     the source does not lay the preview out again. It takes over the gap the paragraph leaves
+     below itself, so it still reads as part of the source. */
+  & .ProseMirror p:has(+ .leafdown-math-preview--block) {
+    @apply mb-0;
+  }
+
+  & .leafdown-math-preview--block {
+    @apply mb-4;
+  }
+
+  & li > .leafdown-math-preview--block {
+    @apply mb-1;
+  }
+
+  & :is(th, td) > .leafdown-math-preview--block {
+    @apply mb-0;
+  }
+
   /* The preview of projected math follows its source: beside inline source, below a display
      block's. */
   & .leafdown-math-preview {

@@ -20,6 +20,7 @@ mod remote_image;
 #[cfg(test)]
 mod test_utils;
 mod text_encoding;
+mod watch_scope;
 mod window;
 
 const TITLEBAR_HEIGHT: u32 = 32;
@@ -76,6 +77,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_zustand::init())
         .manage(diagnostics_runtime)
+        .manage(document::DocumentWatcherState::default())
         .manage(folder::FolderWatcherState::default())
         .manage(window::CloseRequestGuard::default())
         .setup(|app| {
@@ -103,6 +105,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
             document::save_markdown_file,
+            document::inspect_markdown_file,
+            document::watch_markdown_document,
+            document::unwatch_markdown_document,
             drop::inspect_dropped_path,
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,

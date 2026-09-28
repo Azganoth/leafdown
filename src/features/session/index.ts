@@ -1,4 +1,5 @@
 export { DroppedPathOverlay } from "./components/dropped-path-overlay";
+export { useActiveDocumentWatcher } from "./hooks/useActiveDocumentWatcher";
 export { useFolderContextWatcher } from "./hooks/useFolderContextWatcher";
 export { useDroppedPathListener, type DroppedPathIndicator } from "./hooks/useDroppedPathListener";
 export { confirmDiscardActiveDocumentChanges } from "./services/unsavedChanges";

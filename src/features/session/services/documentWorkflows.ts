@@ -172,6 +172,7 @@ const saveActiveMarkdownDocumentToNewPath = async (
     lineEnding: serializedDocument.lineEnding,
     encoding: serializedDocument.encoding,
     metadata: result.metadata,
+    fingerprint: result.fingerprint,
   });
 
   if (nextFolderContext) {
@@ -226,6 +227,7 @@ const saveExistingMarkdownDocument = async (
         lineEnding: serializedDocument.lineEnding,
         encoding: serializedDocument.encoding,
         metadata: result.metadata,
+        fingerprint: result.fingerprint,
       }),
     );
 

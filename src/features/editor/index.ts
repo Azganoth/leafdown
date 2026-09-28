@@ -11,6 +11,7 @@ export {
 export { DocumentTypographyPreview } from "./components/document-typography-preview";
 export {
   MilkdownEditor,
+  type EditorViewState,
   type MilkdownEditorBridge,
   type MilkdownEditorProps,
 } from "./components/milkdown-editor";

@@ -62,6 +62,16 @@ impl Drop for TestDirectory {
     }
 }
 
+#[cfg(unix)]
+pub(crate) fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(target, symlink_path)
+}
+
+#[cfg(windows)]
+pub(crate) fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
+    std::os::windows::fs::symlink_file(target, symlink_path)
+}
+
 /// Expectations built from a raw `canonicalize` would re-encode the verbatim `\\?\` prefix that
 /// #146 removed, so tests compare against the form the backend actually exposes.
 pub(crate) fn canonical_path_string(path: &Path) -> String {

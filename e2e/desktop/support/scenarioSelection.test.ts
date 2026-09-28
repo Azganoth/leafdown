@@ -9,6 +9,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["block-selection"],
       ["diagnostics"],
       ["document-lifecycle"],
+      ["document-watcher"],
       ["folder-watcher"],
       ["folder-actions"],
       ["rendered-images"],

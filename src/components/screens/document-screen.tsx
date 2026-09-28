@@ -40,6 +40,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
   const loadId = useSessionStore((state) => state.activeDocumentLoadId);
+  const initialViewState = useSessionStore((state) => state.activeDocumentViewState);
   const documentKey = getActiveDocumentKey(activeDocument);
   // Prevents MilkdownEditor from remounting plugins due to ref identity changes across renders.
   const setEditorBridgeRef = useCallback(
@@ -61,6 +62,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               key={`${documentKey}:${loadId}`}
               ref={setEditorBridgeRef}
               initialMarkdown={activeDocument.content}
+              initialViewState={initialViewState}
               documentPath={activeDocument.status === "saved" ? activeDocument.path : null}
               folderContextPath={folderContextPath}
               onOpenMarkdownPath={handleOpenMarkdownPath}

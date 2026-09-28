@@ -155,6 +155,61 @@ describe("session store", () => {
     expect(useSessionStore.getState().activeDocumentLoadId).toBe(activeDocumentLoadId + 1);
   });
 
+  it("keeps a view state only for the reload that carries it", () => {
+    const viewState = { anchor: 3, head: 5, focused: true };
+
+    useSessionStore.getState().setActiveDocument(createSavedDocument(), { viewState });
+
+    expect(useSessionStore.getState().activeDocumentViewState).toBeNull();
+
+    useSessionStore
+      .getState()
+      .setActiveDocument(createSavedDocument(), { reload: true, viewState });
+
+    expect(useSessionStore.getState().activeDocumentViewState).toBe(viewState);
+
+    useSessionStore.getState().setActiveDocument(createSavedDocument());
+
+    expect(useSessionStore.getState().activeDocumentViewState).toBeNull();
+  });
+
+  it("records the file's state without replacing the document", () => {
+    const activeDocument = createSavedDocument({ isDirty: true });
+    useSessionStore.getState().setActiveDocument(activeDocument);
+    const { activeDocumentGeneration, activeDocumentLoadId } = useSessionStore.getState();
+    const metadata = { sizeBytes: 12, modifiedAtUnixMs: 1_800_000_000_000 };
+
+    useSessionStore.getState().setActiveDocumentFileState("C:/Other/readme.md", {
+      metadata,
+      externalChange: { kind: "missing" },
+    });
+
+    expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
+
+    useSessionStore.getState().setActiveDocumentFileState(TEST_MARKDOWN_FILE_PATH, {
+      metadata,
+      externalChange: { kind: "missing" },
+    });
+
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocument: { ...activeDocument, metadata, externalChange: { kind: "missing" } },
+      activeDocumentGeneration,
+      activeDocumentLoadId,
+    });
+  });
+
+  it("does not record a file state for an untitled document", () => {
+    const untitledDocument = createUntitledDocument();
+    useSessionStore.getState().setActiveDocument(untitledDocument);
+
+    useSessionStore.getState().setActiveDocumentFileState(TEST_UNTITLED_DOCUMENT_ID, {
+      metadata: { sizeBytes: 1, modifiedAtUnixMs: 1 },
+      externalChange: null,
+    });
+
+    expect(useSessionStore.getState().activeDocument).toBe(untitledDocument);
+  });
+
   it("keeps active documents clean when setting the current line ending", () => {
     useSessionStore.getState().setActiveDocument(createSavedDocument());
     const activeDocument = useSessionStore.getState().activeDocument;

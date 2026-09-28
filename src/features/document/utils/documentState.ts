@@ -10,6 +10,11 @@ export interface FileMetadataSnapshot {
   modifiedAtUnixMs: number;
 }
 
+/** A version of the file on disk that the editor has not loaded. */
+export type ExternalFileChange =
+  | { kind: "missing" }
+  | { kind: "modified"; metadata: FileMetadataSnapshot; fingerprint: string };
+
 export interface SavedDocumentState {
   status: "saved";
   path: string;
@@ -20,6 +25,9 @@ export interface SavedDocumentState {
   /** The encoding the file holds as last read or written, which `encoding` can be converted back to. */
   fileEncoding: DocumentEncoding;
   metadata: FileMetadataSnapshot;
+  /** Names the bytes last read or written, so a metadata-only change can be told from a new version. */
+  fingerprint: string;
+  externalChange: ExternalFileChange | null;
 }
 
 export interface UntitledDocumentState {
@@ -33,7 +41,10 @@ export interface UntitledDocumentState {
 
 export type ActiveDocumentState = SavedDocumentState | UntitledDocumentState;
 
-type SavedDocumentInput = Omit<SavedDocumentState, "status" | "isDirty" | "fileEncoding"> &
+type SavedDocumentInput = Omit<
+  SavedDocumentState,
+  "status" | "isDirty" | "fileEncoding" | "externalChange"
+> &
   Partial<Pick<SavedDocumentState, "isDirty">>;
 
 type UntitledDocumentInput = Omit<UntitledDocumentState, "status" | "isDirty"> &
@@ -46,6 +57,7 @@ export const toSavedDocument = ({
   status: "saved",
   isDirty,
   fileEncoding: documentFields.encoding,
+  externalChange: null,
   ...documentFields,
 });
 

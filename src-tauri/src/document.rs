@@ -1,6 +1,8 @@
 use std::{
     cmp::Ordering,
     fs,
+    hash::{DefaultHasher, Hasher},
+    io::{self, Read},
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -16,8 +18,14 @@ use crate::{
     },
 };
 
+mod watch;
+
+pub(crate) use watch::{DocumentWatcherState, WatchMarkdownDocumentError};
+
 pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
 pub(crate) const MAX_MARKDOWN_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
+
+const FINGERPRINT_CHUNK_SIZE: u64 = 64 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +36,7 @@ pub(crate) struct OpenMarkdownFileResult {
     pub(crate) line_ending: Option<LineEnding>,
     pub(crate) encoding: DocumentEncoding,
     pub(crate) metadata: FileMetadataSnapshot,
+    pub(crate) fingerprint: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -51,6 +60,26 @@ pub(crate) struct SaveMarkdownFileResult {
     pub(crate) path: String,
     pub(crate) parent_folder_path: String,
     pub(crate) metadata: FileMetadataSnapshot,
+    pub(crate) fingerprint: String,
+}
+
+/// How a saved file compares with the version the frontend last read or wrote.
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum MarkdownFileState {
+    Unchanged,
+    MetadataChanged {
+        metadata: FileMetadataSnapshot,
+    },
+    ContentChanged {
+        metadata: FileMetadataSnapshot,
+        fingerprint: String,
+    },
+    Missing,
 }
 
 #[derive(Debug, Serialize)]
@@ -138,6 +167,20 @@ pub(crate) enum SaveMarkdownFileError {
     },
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum InspectMarkdownFileError {
+    UnsupportedFileType { path: String },
+    InvalidPath { path: String },
+    PermissionDenied { path: String, message: String },
+    ReadFailed { path: String, message: String },
+    MetadataFailed { path: String, message: String },
+}
+
 #[tauri::command]
 pub(crate) async fn open_markdown_file(
     path: String,
@@ -185,6 +228,47 @@ pub(crate) async fn save_markdown_file(
     })
 }
 
+#[tauri::command]
+pub(crate) async fn inspect_markdown_file(
+    path: String,
+    metadata: FileMetadataSnapshot,
+    fingerprint: String,
+) -> Result<MarkdownFileState, InspectMarkdownFileError> {
+    let path = PathBuf::from(path);
+    let error_path = path_to_string(path.as_path());
+
+    tauri::async_runtime::spawn_blocking(move || {
+        inspect_markdown_file_state(path.as_path(), metadata, fingerprint.as_str())
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(InspectMarkdownFileError::ReadFailed {
+            path: error_path,
+            message: error.to_string(),
+        })
+    })
+}
+
+#[tauri::command]
+pub(crate) fn watch_markdown_document(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, DocumentWatcherState>,
+    path: String,
+    scope_id: String,
+    scope_generation: u64,
+) -> Result<(), WatchMarkdownDocumentError> {
+    watch::watch_markdown_document(app, state, path, scope_id, scope_generation)
+}
+
+#[tauri::command]
+pub(crate) fn unwatch_markdown_document(
+    state: tauri::State<'_, DocumentWatcherState>,
+    scope_id: String,
+    scope_generation: u64,
+) -> Result<(), WatchMarkdownDocumentError> {
+    watch::unwatch_markdown_document(state, scope_id, scope_generation)
+}
+
 pub(crate) fn read_markdown_file(
     path: &Path,
     chosen_encoding: Option<TextEncoding>,
@@ -214,7 +298,7 @@ pub(crate) fn read_markdown_file(
         });
     }
 
-    let DecodedText { text, encoding } =
+    let (DecodedText { text, encoding }, fingerprint) =
         read_markdown_file_content(path, serialized_path.as_str(), chosen_encoding)?;
 
     Ok(OpenMarkdownFileResult {
@@ -224,6 +308,7 @@ pub(crate) fn read_markdown_file(
         content: text,
         encoding,
         metadata,
+        fingerprint,
     })
 }
 
@@ -270,6 +355,7 @@ pub(crate) fn write_markdown_file(
         path: serialized_path,
         parent_folder_path,
         metadata,
+        fingerprint: fingerprint_bytes(&bytes),
     })
 }
 
@@ -311,7 +397,7 @@ fn read_markdown_file_content(
     path: &Path,
     serialized_path: &str,
     chosen_encoding: Option<TextEncoding>,
-) -> Result<DecodedText, OpenMarkdownFileError> {
+) -> Result<(DecodedText, String), OpenMarkdownFileError> {
     let bytes =
         read_file_with_size_limit(path, MAX_MARKDOWN_FILE_SIZE_BYTES).map_err(
             |error| match error {
@@ -326,18 +412,121 @@ fn read_markdown_file_content(
                 },
             },
         )?;
+    let fingerprint = fingerprint_bytes(bytes.as_slice());
 
-    decode_text(bytes, chosen_encoding).map_err(|error| match (error, chosen_encoding) {
-        (DecodeError::Irreversible, Some(encoding)) => {
-            OpenMarkdownFileError::IrreversibleEncoding {
-                path: serialized_path.to_owned(),
-                encoding,
+    let decoded_text =
+        decode_text(bytes, chosen_encoding).map_err(|error| match (error, chosen_encoding) {
+            (DecodeError::Irreversible, Some(encoding)) => {
+                OpenMarkdownFileError::IrreversibleEncoding {
+                    path: serialized_path.to_owned(),
+                    encoding,
+                }
             }
+            _ => OpenMarkdownFileError::InvalidEncoding {
+                path: serialized_path.to_owned(),
+            },
+        })?;
+
+    Ok((decoded_text, fingerprint))
+}
+
+pub(crate) fn inspect_markdown_file_state(
+    path: &Path,
+    expected_metadata: FileMetadataSnapshot,
+    expected_fingerprint: &str,
+) -> Result<MarkdownFileState, InspectMarkdownFileError> {
+    let serialized_path = path_to_string(path);
+
+    if !is_supported_markdown_path(path) {
+        return Err(InspectMarkdownFileError::UnsupportedFileType {
+            path: serialized_path,
+        });
+    }
+
+    let metadata = match read_file_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(FileMetadataReadError::MissingFile) => return Ok(MarkdownFileState::Missing),
+        Err(FileMetadataReadError::InvalidPath) => {
+            return Err(InspectMarkdownFileError::InvalidPath {
+                path: serialized_path,
+            });
         }
-        _ => OpenMarkdownFileError::InvalidEncoding {
-            path: serialized_path.to_owned(),
-        },
+        Err(FileMetadataReadError::PermissionDenied(message)) => {
+            return Err(InspectMarkdownFileError::PermissionDenied {
+                path: serialized_path,
+                message,
+            });
+        }
+        Err(FileMetadataReadError::Failed(message)) => {
+            return Err(InspectMarkdownFileError::MetadataFailed {
+                path: serialized_path,
+                message,
+            });
+        }
+    };
+
+    if metadata == expected_metadata {
+        return Ok(MarkdownFileState::Unchanged);
+    }
+
+    if !path.is_file() {
+        return Ok(MarkdownFileState::Missing);
+    }
+
+    let fingerprint = match fs::File::open(path).and_then(fingerprint_reader) {
+        Ok(fingerprint) => fingerprint,
+        Err(error) => {
+            return match classify_io_error(error) {
+                IoErrorClass::Missing => Ok(MarkdownFileState::Missing),
+                IoErrorClass::InvalidPath => Err(InspectMarkdownFileError::InvalidPath {
+                    path: serialized_path,
+                }),
+                IoErrorClass::PermissionDenied(message) => {
+                    Err(InspectMarkdownFileError::PermissionDenied {
+                        path: serialized_path,
+                        message,
+                    })
+                }
+                IoErrorClass::Failed(message) => Err(InspectMarkdownFileError::ReadFailed {
+                    path: serialized_path,
+                    message,
+                }),
+            };
+        }
+    };
+
+    if fingerprint == expected_fingerprint {
+        return Ok(MarkdownFileState::MetadataChanged { metadata });
+    }
+
+    Ok(MarkdownFileState::ContentChanged {
+        metadata,
+        fingerprint,
     })
+}
+
+fn fingerprint_bytes(bytes: &[u8]) -> String {
+    fingerprint_reader(bytes).expect("reading from a byte slice cannot fail")
+}
+
+/// `Hasher` does not promise the same hash for the same bytes written in different pieces, so every
+/// caller feeds it the same fixed-size chunks.
+fn fingerprint_reader(mut reader: impl Read) -> io::Result<String> {
+    let mut hasher = DefaultHasher::new();
+    let mut chunk = Vec::new();
+
+    loop {
+        chunk.clear();
+        reader
+            .by_ref()
+            .take(FINGERPRINT_CHUNK_SIZE)
+            .read_to_end(&mut chunk)?;
+        hasher.write(chunk.as_slice());
+
+        if (chunk.len() as u64) < FINGERPRINT_CHUNK_SIZE {
+            return Ok(format!("{:016x}", hasher.finish()));
+        }
+    }
 }
 
 fn detect_line_ending(content: &str) -> Option<LineEnding> {
@@ -518,11 +707,14 @@ mod tests {
         fs,
         io::ErrorKind,
         path::{Path, PathBuf},
+        time::{Duration, UNIX_EPOCH},
     };
 
     use super::{
-        FileMetadataReadError, LineEnding, MAX_MARKDOWN_FILE_SIZE_BYTES, OpenMarkdownFileError,
-        SaveMarkdownFileError, detect_line_ending, open_metadata_error, open_read_error,
+        FINGERPRINT_CHUNK_SIZE, FileMetadataReadError, FileMetadataSnapshot,
+        InspectMarkdownFileError, LineEnding, MAX_MARKDOWN_FILE_SIZE_BYTES, MarkdownFileState,
+        OpenMarkdownFileError, SaveMarkdownFileError, detect_line_ending, fingerprint_bytes,
+        fingerprint_reader, inspect_markdown_file_state, open_metadata_error, open_read_error,
         read_markdown_file, save_metadata_error, save_write_error, write_markdown_file,
     };
     use crate::{
@@ -1194,5 +1386,139 @@ mod tests {
         );
         assert_eq!(detect_line_ending("one\r\ntwo\n"), None);
         assert_eq!(detect_line_ending("no newline"), None);
+    }
+
+    #[test]
+    fn opening_and_saving_the_same_bytes_report_the_same_fingerprint() {
+        let file = create_test_file("document.md", "# Same\n");
+
+        let saved =
+            write_markdown_file(&file.path, "# Same\n", DocumentEncoding::UTF8, None, false)
+                .expect("Markdown file should save");
+        let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+
+        assert_eq!(opened.fingerprint, saved.fingerprint);
+        assert_ne!(
+            fingerprint_bytes(b"# Other\n"),
+            opened.fingerprint,
+            "different bytes should not share a fingerprint"
+        );
+    }
+
+    #[test]
+    fn fingerprints_a_file_read_in_pieces_like_the_same_bytes_in_memory() {
+        let chunk_size = FINGERPRINT_CHUNK_SIZE as usize;
+
+        for length in [
+            0,
+            1,
+            chunk_size - 1,
+            chunk_size,
+            chunk_size + 1,
+            chunk_size * 2,
+        ] {
+            let bytes = (0..length)
+                .map(|index| (index % 251) as u8)
+                .collect::<Vec<_>>();
+            let file = create_test_file_bytes("document.md", bytes.as_slice());
+            let file_fingerprint = fs::File::open(&file.path)
+                .and_then(fingerprint_reader)
+                .expect("test file should be read");
+
+            assert_eq!(
+                file_fingerprint,
+                fingerprint_bytes(bytes.as_slice()),
+                "{length} bytes"
+            );
+        }
+    }
+
+    #[test]
+    fn inspects_an_unchanged_file_from_its_metadata() {
+        let file = create_test_file("document.md", "# Leafdown\n");
+        let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+
+        assert_eq!(
+            inspect_markdown_file_state(&file.path, opened.metadata, "not the fingerprint"),
+            Ok(MarkdownFileState::Unchanged),
+            "matching metadata should not need the file's bytes"
+        );
+    }
+
+    #[test]
+    fn inspects_a_touched_file_as_a_metadata_change() {
+        let file = create_test_file("document.md", "# Leafdown\n");
+        let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+        let touched_at = UNIX_EPOCH + Duration::from_millis(opened.metadata.modified_at_unix_ms)
+            - Duration::from_secs(60);
+        fs::File::options()
+            .write(true)
+            .open(&file.path)
+            .and_then(|touched| touched.set_modified(touched_at))
+            .expect("test file should be touched");
+
+        let state = inspect_markdown_file_state(&file.path, opened.metadata, &opened.fingerprint)
+            .expect("touched file should be inspected");
+
+        assert_matches!(
+            state,
+            MarkdownFileState::MetadataChanged { metadata }
+                if metadata.size_bytes == opened.metadata.size_bytes
+                    && metadata.modified_at_unix_ms != opened.metadata.modified_at_unix_ms
+        );
+    }
+
+    #[test]
+    fn inspects_changed_bytes_as_a_content_change() {
+        let file = create_test_file("document.md", "# Leafdown\n");
+        let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+        // A different length changes the metadata even when both writes share a modification time.
+        fs::write(&file.path, "# Changed outside\r\n").expect("test file should change");
+
+        let state = inspect_markdown_file_state(&file.path, opened.metadata, &opened.fingerprint)
+            .expect("changed file should be inspected");
+        let reopened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+
+        assert_eq!(
+            state,
+            MarkdownFileState::ContentChanged {
+                metadata: reopened.metadata,
+                fingerprint: reopened.fingerprint,
+            }
+        );
+    }
+
+    #[test]
+    fn inspects_a_removed_file_as_missing() {
+        let file = create_test_file("document.md", "# Leafdown\n");
+        let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
+        fs::remove_file(&file.path).expect("test file should be removed");
+
+        assert_eq!(
+            inspect_markdown_file_state(&file.path, opened.metadata, &opened.fingerprint),
+            Ok(MarkdownFileState::Missing)
+        );
+
+        fs::create_dir(&file.path).expect("a directory should take the file's path");
+
+        assert_eq!(
+            inspect_markdown_file_state(&file.path, opened.metadata, &opened.fingerprint),
+            Ok(MarkdownFileState::Missing),
+            "a directory at the path is not the document"
+        );
+    }
+
+    #[test]
+    fn refuses_to_inspect_unsupported_file_types() {
+        let file = create_test_file("document.txt", "text");
+        let metadata = FileMetadataSnapshot {
+            size_bytes: 4,
+            modified_at_unix_ms: 0,
+        };
+
+        assert_matches!(
+            inspect_markdown_file_state(&file.path, metadata, ""),
+            Err(InspectMarkdownFileError::UnsupportedFileType { .. })
+        );
     }
 }

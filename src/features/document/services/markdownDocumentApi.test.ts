@@ -2,10 +2,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  INSPECT_MARKDOWN_FILE_COMMAND,
+  inspectMarkdownFile,
   OPEN_MARKDOWN_FILE_COMMAND,
   openMarkdownFile,
   SAVE_MARKDOWN_FILE_COMMAND,
   saveMarkdownFile,
+  UNWATCH_MARKDOWN_DOCUMENT_COMMAND,
+  unwatchMarkdownDocument,
+  WATCH_MARKDOWN_DOCUMENT_COMMAND,
+  watchMarkdownDocument,
+  type MarkdownFileState,
   type OpenMarkdownFileResult,
   type SaveMarkdownFileResult,
 } from "./markdownDocumentApi";
@@ -22,6 +29,7 @@ describe("markdownDocumentApi", () => {
       content: "# Notes",
       lineEnding: "lf",
       encoding: { name: "UTF-16LE", bom: true },
+      fingerprint: "0123456789abcdef",
     } satisfies OpenMarkdownFileResult;
     vi.mocked(invoke).mockResolvedValueOnce(result);
 
@@ -52,6 +60,7 @@ describe("markdownDocumentApi", () => {
         modifiedAtUnixMs: 2,
         sizeBytes: 24,
       },
+      fingerprint: "fedcba9876543210",
     } satisfies SaveMarkdownFileResult;
     vi.mocked(invoke).mockResolvedValueOnce(result);
 
@@ -71,6 +80,43 @@ describe("markdownDocumentApi", () => {
       encoding: { name: "UTF-8", bom: true },
       expectedMetadata: null,
       overwrite: false,
+    });
+  });
+
+  it("invokes the inspect Markdown file command with the document's version", async () => {
+    const result = { kind: "unchanged" } satisfies MarkdownFileState;
+    const metadata = { modifiedAtUnixMs: 3, sizeBytes: 7 };
+    vi.mocked(invoke).mockResolvedValueOnce(result);
+
+    await expect(
+      inspectMarkdownFile({ path: "C:/Notes/index.md", metadata, fingerprint: "0123456789abcdef" }),
+    ).resolves.toBe(result);
+
+    expect(invoke).toHaveBeenCalledWith(INSPECT_MARKDOWN_FILE_COMMAND, {
+      path: "C:/Notes/index.md",
+      metadata,
+      fingerprint: "0123456789abcdef",
+    });
+  });
+
+  it("invokes the document watch commands with their scope", async () => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+
+    await watchMarkdownDocument({
+      path: "C:/Notes/index.md",
+      scopeId: "document-watch:1",
+      scopeGeneration: 1,
+    });
+    await unwatchMarkdownDocument({ scopeId: "document-watch:1", scopeGeneration: 1 });
+
+    expect(invoke).toHaveBeenCalledWith(WATCH_MARKDOWN_DOCUMENT_COMMAND, {
+      path: "C:/Notes/index.md",
+      scopeId: "document-watch:1",
+      scopeGeneration: 1,
+    });
+    expect(invoke).toHaveBeenCalledWith(UNWATCH_MARKDOWN_DOCUMENT_COMMAND, {
+      scopeId: "document-watch:1",
+      scopeGeneration: 1,
     });
   });
 });

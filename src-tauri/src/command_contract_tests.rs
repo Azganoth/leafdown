@@ -77,6 +77,72 @@ fn saves_scans_and_opens_markdown_documents_through_command_functions() {
         Some(18),
         "metadata.sizeBytes should serialize as a number"
     );
+    assert_eq!(
+        json_string(&open_value, "fingerprint"),
+        json_string(&save_value, "fingerprint"),
+        "the fingerprint should serialize as a string naming the saved bytes"
+    );
+}
+
+#[test]
+fn inspects_a_saved_document_through_command_functions() {
+    let root = TestDirectory::new("command-contract-inspect");
+    let document_path = root.write_file_with_content("article.md", "# Saved\n");
+    let document_path_string = path_string(document_path.as_path());
+    let opened = document::read_markdown_file(document_path.as_path(), None)
+        .expect("test Markdown file should open");
+    let inspect = |metadata, fingerprint: &str| {
+        serialized(
+            tauri::async_runtime::block_on(document::inspect_markdown_file(
+                document_path_string.clone(),
+                metadata,
+                fingerprint.to_owned(),
+            ))
+            .expect("command should inspect the document"),
+        )
+    };
+
+    assert_eq!(
+        inspect(opened.metadata, opened.fingerprint.as_str()),
+        serde_json::json!({ "kind": "unchanged" })
+    );
+
+    let stale_metadata = document::FileMetadataSnapshot {
+        modified_at_unix_ms: 0,
+        ..opened.metadata
+    };
+    let touched = inspect(stale_metadata, opened.fingerprint.as_str());
+
+    assert_eq!(json_string(&touched, "kind"), "metadataChanged");
+    assert_eq!(
+        touched["metadata"]["modifiedAtUnixMs"].as_u64(),
+        Some(opened.metadata.modified_at_unix_ms)
+    );
+
+    let changed = inspect(stale_metadata, "another version");
+
+    assert_eq!(json_string(&changed, "kind"), "contentChanged");
+    assert_eq!(json_string(&changed, "fingerprint"), opened.fingerprint);
+    assert!(changed["metadata"]["sizeBytes"].as_u64().is_some());
+
+    fs::remove_file(document_path.as_path()).expect("test Markdown file should be removed");
+
+    assert_eq!(
+        inspect(opened.metadata, opened.fingerprint.as_str()),
+        serde_json::json!({ "kind": "missing" })
+    );
+
+    let unsupported_error = tauri::async_runtime::block_on(document::inspect_markdown_file(
+        path_string(root.path("notes.txt").as_path()),
+        opened.metadata,
+        opened.fingerprint.clone(),
+    ))
+    .expect_err("unsupported files should be rejected");
+
+    assert_eq!(
+        json_string(&serialized(unsupported_error), "kind"),
+        "unsupportedFileType"
+    );
 }
 
 #[test]

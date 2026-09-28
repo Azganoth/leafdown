@@ -1,4 +1,8 @@
-import type { EditorDocumentStatus, MilkdownEditorBridge } from "@/features/editor";
+import type {
+  EditorDocumentStatus,
+  EditorViewState,
+  MilkdownEditorBridge,
+} from "@/features/editor";
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
   READY_DISABLED_EDITOR_COMMAND_STATE,
@@ -52,6 +56,11 @@ class DocumentEditorBridgeStore {
   getDocumentStatus = (documentKey: string): EditorDocumentStatus | null =>
     this.activeBridgeEntry?.documentKey === documentKey
       ? (this.activeBridgeEntry.bridge.getDocumentStatus?.() ?? null)
+      : null;
+
+  getViewState = (documentKey: string): EditorViewState | null =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.getViewState?.() ?? null)
       : null;
 
   insertLink = (documentKey: string, label: string, target: string) => {

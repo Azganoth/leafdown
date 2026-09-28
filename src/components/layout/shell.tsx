@@ -22,6 +22,7 @@ import {
   getSessionMode,
   notifyOpenMarkdownFileError,
   openMarkdownFileAtPath,
+  useActiveDocumentWatcher,
   useFolderContextWatcher,
   useSessionStore,
 } from "@/features/session";
@@ -47,6 +48,7 @@ const handleOpenArticle = (path: string) => {
 
 export function Shell() {
   useFolderContextWatcher();
+  useActiveDocumentWatcher();
 
   const localization = useLocalization();
   const { t } = localization;

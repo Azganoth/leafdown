@@ -3,10 +3,20 @@ import { localizer, t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { isTaggedPayload } from "@/lib/taggedPayload";
 
-import type { OpenMarkdownFileError, SaveMarkdownFileError } from "../services/markdownDocumentApi";
+import type {
+  InspectMarkdownFileError,
+  OpenMarkdownFileError,
+  SaveMarkdownFileError,
+  WatchMarkdownDocumentError,
+} from "../services/markdownDocumentApi";
 import { formatEncodingName } from "./documentEncoding";
 
-export type { OpenMarkdownFileError, SaveMarkdownFileError } from "../services/markdownDocumentApi";
+export type {
+  InspectMarkdownFileError,
+  OpenMarkdownFileError,
+  SaveMarkdownFileError,
+  WatchMarkdownDocumentError,
+} from "../services/markdownDocumentApi";
 
 const OPEN_MARKDOWN_FILE_ERROR_KINDS = [
   "unsupportedFileType",
@@ -158,6 +168,27 @@ export const getSaveMarkdownFileErrorMessage = (
 
 export const isSaveMarkdownFileError = (error: unknown): error is SaveMarkdownFileError =>
   isTaggedPayload(error, SAVE_MARKDOWN_FILE_ERROR_KINDS);
+
+const INSPECT_MARKDOWN_FILE_ERROR_KINDS = [
+  "unsupportedFileType",
+  "invalidPath",
+  "permissionDenied",
+  "readFailed",
+  "metadataFailed",
+] as const satisfies readonly InspectMarkdownFileError["kind"][];
+
+export const isInspectMarkdownFileError = (error: unknown): error is InspectMarkdownFileError =>
+  isTaggedPayload(error, INSPECT_MARKDOWN_FILE_ERROR_KINDS);
+
+const WATCH_MARKDOWN_DOCUMENT_ERROR_KINDS = [
+  "unsupportedFileType",
+  "invalidPath",
+  "watchFailed",
+  "watcherStateFailed",
+] as const satisfies readonly WatchMarkdownDocumentError["kind"][];
+
+export const isWatchMarkdownDocumentError = (error: unknown): error is WatchMarkdownDocumentError =>
+  isTaggedPayload(error, WATCH_MARKDOWN_DOCUMENT_ERROR_KINDS);
 
 export type UnrepresentableCharactersError = Extract<
   SaveMarkdownFileError,

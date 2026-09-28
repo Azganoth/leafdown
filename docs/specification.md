@@ -97,6 +97,7 @@ These state axes compose. A document session, for example, can have a folder con
 - **Untitled document:** the active document has no file path yet and requires Save as.
 - **Clean:** the document has no user edits since it was opened or saved. Loading and serialization normalization do not make it dirty.
 - **Dirty:** the document has unsaved user edits.
+- **External change:** the saved document's file no longer holds the version the document was read or saved as, because it changed or went missing outside Leafdown. A clean document reloads a changed file instead of keeping this state, as described in [Filesystem Watching](#filesystem-watching).
 - **Line ending:** the line ending used when saving the active document. Opened files start with their detected line ending; untitled documents start with `Default line ending for new documents`. If the opened file contains mixed line endings (both LF and CRLF), the detected line ending is determined by majority vote (whichever occurs more frequently in the file).
 - **Encoding:** the encoding and byte order mark (BOM) form used when saving the active document. Opened files start with the form they were read in, as described in [Loading Limits](#loading-limits); untitled documents start as UTF-8 without a BOM. Like the line ending, it belongs to the document rather than to a setting. `Save with encoding` converts it to UTF-8, UTF-8 with BOM, or back to the encoding the file was last read or saved in, which is listed first. Converting marks the document dirty and takes effect on the next save, as a line-ending change does. It keeps the text as it was decoded: to read the file's bytes in another encoding, reopen the file instead.
 
@@ -430,7 +431,13 @@ The article navigator's context menus act on the row or empty space they were op
 - Leafdown watches the active folder context for filesystem changes.
 - When Markdown files are created, renamed, or deleted externally, the article navigator automatically updates to reflect the changes.
 - The watcher's refresh after a change made through the article navigator arrives at the same tree the navigator already shows.
-- If the active document changes externally, prompt before replacing its editor content. (Deferred)
+- Leafdown also watches the active saved document's file on its own, so a file outside the current folder context, or opened without one, is watched too. Untitled documents have no file to watch.
+- A filesystem event only prompts a check of the file. The check compares the file's size and modification time with those Leafdown recorded for the document, and when they differ it reads the file to tell a new version from a touch. A touch that leaves the file's bytes unchanged updates the recorded metadata without reloading or warning.
+- A clean document reloads a changed file as Open File reads it, in the encoding it was read in, without changing the folder context or recent files. The reloaded text becomes the new clean document with the file's line ending and encoding. `Undo` history starts over, source projection ends, and the caret stays where it was or at the nearest position the new text allows, keeping editor focus. A notification says the file was reloaded. A file that cannot be reloaded, such as one no longer valid in its encoding, shows the open error and leaves the document as it was.
+- A dirty document keeps its content. Leafdown records the external change and warns once for each new version of the file. The recorded metadata stays as it was, so Save still reaches the external-change prompt before overwriting.
+- A document whose file is removed stays open with its content, clean or dirty, and Leafdown warns once. Save then reaches the missing-file prompt, which offers `Save as`. Leafdown does not follow an external rename to another path. A file that returns to the same path is checked like any change: one holding the recorded version ends the external change, and any other reloads or is recorded as for an edit.
+- Saving, `Save as`, and renaming the document or a folder containing it from the article navigator are Leafdown's own changes and never report an external change.
+- A burst of filesystem events leads to one check. A check that finishes after the document was replaced, renamed, or closed is discarded.
 
 ## Link And Image Handling
 
@@ -483,7 +490,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - `Insert final newline on save` controls whether Leafdown writes a final newline when saving.
 - `Line ending` actions affect the active document's save output, not the rendered editor surface.
 - If the active saved file no longer exists when saving, Leafdown shows a missing-file error and offers `Save as` or `Cancel`.
-- Before saving, compare current file metadata with metadata from open/last save. If the file changed externally, warn before overwriting.
+- Before saving, compare current file metadata with the metadata Leafdown recorded for the document when it was read or saved, or when a touch was accepted. If the file changed externally, warn before overwriting.
 - External-change options are `Overwrite anyway` and `Cancel save`.
 - The missing-file and external-change prompts use the app dialog. Confirming `Save as` from the missing-file prompt opens the native Save as picker; file-open, folder-open, and Save as path selection remain native.
 

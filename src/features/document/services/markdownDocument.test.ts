@@ -1,13 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { SLOW_OPERATION_DIAGNOSTIC_THRESHOLD_MS } from "@/features/diagnostics";
-import { createOpenedMarkdownDocument } from "@/test/factories/document";
+import { createOpenedMarkdownDocument, createSavedDocument } from "@/test/factories/document";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { getLastDiagnosticMessage, pollForDiagnosticMessage } from "@/test/utils/diagnostics";
 import { mockTauriApi } from "@/test/utils/tauriApi";
 
 import { NEW_DOCUMENT_ENCODING } from "../utils/documentEncoding";
-import { openMarkdownDocument, saveMarkdownDocument } from "./markdownDocument";
+import {
+  inspectMarkdownDocument,
+  openMarkdownDocument,
+  saveMarkdownDocument,
+} from "./markdownDocument";
 
 describe("markdown document service", () => {
   it("logs slow successful open timing without markdown content", async () => {
@@ -70,6 +74,31 @@ describe("markdown document service", () => {
       event: "operationFailed",
       feature: "document",
       operation: "openMarkdownDocument",
+      path: TEST_MARKDOWN_FILE_PATH,
+    });
+  });
+
+  it("logs expected inspection failures", async () => {
+    mockTauriApi({
+      inspectMarkdownFile: () =>
+        Promise.reject({
+          kind: "permissionDenied",
+          message: "Access is denied.",
+          path: TEST_MARKDOWN_FILE_PATH,
+        }),
+    });
+
+    await expect(inspectMarkdownDocument(createSavedDocument())).rejects.toMatchObject({
+      kind: "permissionDenied",
+    });
+
+    await pollForDiagnosticMessage("warn", '"operation":"inspectMarkdownDocument"');
+
+    expect(JSON.parse(getLastDiagnosticMessage("warn"))).toMatchObject({
+      errorKind: "permissionDenied",
+      event: "operationFailed",
+      feature: "document",
+      operation: "inspectMarkdownDocument",
       path: TEST_MARKDOWN_FILE_PATH,
     });
   });

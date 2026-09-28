@@ -1472,7 +1472,8 @@ mod tests {
     fn inspects_changed_bytes_as_a_content_change() {
         let file = create_test_file("document.md", "# Leafdown\n");
         let opened = read_markdown_file(&file.path, None).expect("Markdown file should open");
-        fs::write(&file.path, "# Changed\r\n").expect("test file should change");
+        // A different length changes the metadata even when both writes share a modification time.
+        fs::write(&file.path, "# Changed outside\r\n").expect("test file should change");
 
         let state = inspect_markdown_file_state(&file.path, opened.metadata, &opened.fingerprint)
             .expect("changed file should be inspected");

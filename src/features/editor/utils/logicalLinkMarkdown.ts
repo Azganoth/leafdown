@@ -53,6 +53,7 @@ const isSerializableLinkNode = (node: ProseMirrorNode) =>
   node.isText ||
   node.type.name === HARD_BREAK_NODE_NAME ||
   node.type.name === "html" ||
+  node.type.name === "math_inline" ||
   node.type.name === "image" ||
   node.type.name === FOOTNOTE_REFERENCE_NODE_NAME;
 

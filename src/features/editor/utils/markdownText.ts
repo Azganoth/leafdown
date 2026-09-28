@@ -9,6 +9,7 @@ import {
 } from "./characterReferenceMarkdown";
 import { resolveLinePrefixes, resolveListItemPaddings } from "./linePrefixMarkdown";
 import { readEnclosingConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
+import { opensMathAt } from "./mathSyntax";
 
 type RemarkStringifyHandlers = NonNullable<
   ReturnType<typeof remarkStringifyOptionsCtx._typeInfo>["handlers"]
@@ -1164,6 +1165,10 @@ const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
       return ANGLE_CONSTRUCT_PATTERN.test(block.slice(position));
     }
 
+    if (block[position] === "$") {
+      return opensMathAt(block, position);
+    }
+
     if (block[position] === "`") {
       const run = readCodeSpanRun(block, position, true);
 
@@ -1278,6 +1283,25 @@ const relaxCharacterReferenceEscapes = (slots: EscapeSlot[], after: string) => {
       slot.escaped = false;
     }
   }
+};
+
+const deferMathEscapes = (
+  slots: EscapeSlot[],
+  before: string,
+  after: string,
+  deferrable: boolean,
+) => {
+  const earlier = before.slice(-1);
+  const text = earlier + slots.map((slot) => slot.character).join("") + after;
+
+  slots.forEach((slot, index) => {
+    if (slot.character !== "$" || slot.escaped) return;
+    if (deferrable) {
+      slot.deferred = true;
+    } else {
+      slot.escaped = opensMathAt(text, earlier.length + index);
+    }
+  });
 };
 
 // `state.safe` escapes a backslash wherever a line ending follows it, which is a wider class than
@@ -1592,6 +1616,7 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxAutolinkLiteralEscapes(slots, info.before, after);
   relaxCharacterReferenceEscapes(slots, after);
   relaxHardBreakEscapes(slots, after, closesBlock);
+  deferMathEscapes(slots, info.before, after, deferrable);
 
   return encodeEscapes(slots) + writtenWhitespace;
 };

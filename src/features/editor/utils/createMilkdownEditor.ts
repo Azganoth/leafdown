@@ -109,6 +109,12 @@ import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
+import {
+  createLeafdownMathRemarkPlugin,
+  createLeafdownMathViewPlugin,
+  leafdownMathSchema,
+  serializeMath,
+} from "../plugins/math";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
   commitReferenceDefinitionFields,
@@ -191,6 +197,7 @@ import {
   type MarkdownReferenceContext,
 } from "./markdownReferences";
 import { serializeMarkdownRoot, serializeMarkdownText } from "./markdownText";
+import { MATH_MARKDOWN_TYPE } from "./mathSyntax";
 import {
   getRawHtmlMarkdownType,
   RAW_HTML_MARKDOWN_TYPE,
@@ -288,6 +295,7 @@ export const createMilkdownEditor = async ({
 
   const configuredEditor = editor
     .use(createLeafdownAutolinkLiteralPositionPlugin())
+    .use(createLeafdownMathRemarkPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownFootnoteLabelPlugin())
@@ -306,6 +314,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
     .use(leafdownCharacterReferenceSchema)
+    .use(leafdownMathSchema)
     .use(leafdownDefinitionSchema)
     .use(leafdownDefinitionLabelSchema)
     .use(leafdownDefinitionDestinationSchema)
@@ -336,6 +345,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownHtmlViewPlugin())
+    .use(createLeafdownMathViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
     .use(createLeafdownCodeBlockViewPlugin())
@@ -379,6 +389,7 @@ export const createMilkdownEditor = async ({
           [FOOTNOTE_DEFINITION_MARKDOWN_TYPE]: serializeMarkdownFootnoteDefinition,
           [FOOTNOTE_REFERENCE_MARKDOWN_TYPE]: serializeMarkdownFootnoteReference,
           [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
+          [MATH_MARKDOWN_TYPE]: serializeMath,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           code: serializeCode,
           definition: serializeMarkdownDefinition,

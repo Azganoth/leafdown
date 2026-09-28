@@ -44,6 +44,7 @@ import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceP
 import { createHtmlSourceProjectionAdapter } from "../utils/sourceProjectionHtmlAdapter";
 import { createImageSourceProjectionAdapter } from "../utils/sourceProjectionImageAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
+import { createMathSourceProjectionAdapter } from "../utils/sourceProjectionMathAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
@@ -246,6 +247,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
         serializer,
       }),
       createHtmlSourceProjectionAdapter(parser),
+      createMathSourceProjectionAdapter(parser),
     ];
 
     const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
@@ -617,7 +619,10 @@ const appendProjectionTransaction = (
   return createEnterProjectionTransaction(state, match, {
     direction: keyboardEntryDirection,
     pointer,
-    pointerSourceOffset: match.adapter.id === "html" ? pointerEntry.htmlSourceOffset : null,
+    pointerSourceOffset:
+      match.adapter.id === "html" || match.adapter.id === "math"
+        ? pointerEntry.htmlSourceOffset
+        : null,
   });
 };
 

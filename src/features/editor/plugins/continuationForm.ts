@@ -9,6 +9,7 @@ import {
   PARAGRAPH_MARKDOWN_TYPE,
   splitAtomLinePrefix,
 } from "../utils/continuationMarkdown";
+import { MATH_MARKDOWN_TYPE } from "../utils/mathSyntax";
 import { HTML_MARKDOWN_TYPE } from "../utils/rawHtmlMarkdown";
 
 // The blocks whose text stands on lines of its own. A setext heading's underline is one of them:
@@ -18,7 +19,11 @@ import { HTML_MARKDOWN_TYPE } from "../utils/rawHtmlMarkdown";
 const RECORDED_MARKDOWN_TYPES = new Set([PARAGRAPH_MARKDOWN_TYPE, HEADING_MARKDOWN_TYPE]);
 
 // The inline nodes whose value holds the lines it spans as the parse left them, indentation included.
-const ATOM_MARKDOWN_TYPES = new Set([HTML_MARKDOWN_TYPE, CODE_SPAN_MARKDOWN_TYPE]);
+const ATOM_MARKDOWN_TYPES = new Set([
+  HTML_MARKDOWN_TYPE,
+  CODE_SPAN_MARKDOWN_TYPE,
+  MATH_MARKDOWN_TYPE,
+]);
 
 const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;
 const SPLIT_LINE_ENDING_PATTERN = /(\r\n|[\n\r])/u;
@@ -57,7 +62,7 @@ const settleAtomLines = (
           const split =
             recorded === undefined
               ? undefined
-              : splitAtomLinePrefix(recorded, kept, child.type === HTML_MARKDOWN_TYPE);
+              : splitAtomLinePrefix(recorded, kept, child.type !== CODE_SPAN_MARKDOWN_TYPE);
 
           if (split !== undefined) {
             continuations[line] = split.prefix;
@@ -65,7 +70,7 @@ const settleAtomLines = (
           }
         }
 
-        if (child.type === HTML_MARKDOWN_TYPE) {
+        if (child.type !== CODE_SPAN_MARKDOWN_TYPE) {
           child.value = parts.join("");
         }
       }

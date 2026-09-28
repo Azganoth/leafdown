@@ -186,6 +186,9 @@ importers:
       lefthook:
         specifier: ^2.1.12
         version: 2.1.12
+      micromark-util-types:
+        specifier: 2.0.2
+        version: 2.0.2
       node:
         specifier: runtime:24.x
         version: runtime:24.20.0

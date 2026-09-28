@@ -35,6 +35,7 @@ Leafdown supports the following CommonMark and GitHub Flavored Markdown (GFM) fe
 - Strikethrough
 - Autolinks
 - Footnotes
+- Dollar-delimited TeX math (`$...$` and `$$...$$`)
 
 Unsupported Markdown is outside Leafdown's supported editing surface. Leafdown treats it as literal text where possible, but does not guarantee recognition, editable semantics, or byte-for-byte round-tripping after a save.
 
@@ -138,6 +139,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 - Code block line numbers are visual only. They number logical source lines, never wrapped rows, and never enter the document, the clipboard, counts, history, or dirty state.
 - A complete CommonMark raw HTML token renders live only when its value parses to exactly one element, every element in its tree is allowlisted, no element carries attributes, and the source is self-contained: a void element or source ending with its matching closing tag. Validation must accept the tree unchanged. Separate inline opening and closing tokens stay raw because neither token owns the Markdown content between them. Comments, processing instructions, CDATA, incomplete fragments, and unsupported content retain their authored source as muted text. That fallback inherits the surrounding typography and spacing so entering its source projection does not move nearby content.
 - The HTML allowlist is `br`, `b`, `strong`, `i`, `em`, `u`, `s`, `del`, `ins`, `mark`, `sub`, `sup`, `code`, `kbd`, `samp`, `var`, `abbr`, `small`, `span`, `div`, `p`, `section`, `details`, `summary`, `hr`, `dl`, `dt`, and `dd`. No attributes are allowed, including `class`, `id`, and `style`. URL-bearing elements, scripts, forms, embedded documents, SVG, and MathML stay text. Separate opening and closing tokens never take ownership of intervening Markdown.
+- Math shows its authored TeX source in the document. Rendering the expression is deferred.
 
 ### Marker Visibility and Presentation
 
@@ -145,7 +147,7 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 - Content that shows the syntax marker decoration when the caret is inside the block or the pointer rests on it: Headings.
 - Content that remains structurally rendered without marker-driven editing controls or raw delimiter exposure: Blockquotes, Lists, Horizontal rules, Code blocks, Tables.
-- Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Footnote definition labels, Link and image reference definitions, Autolinks, Raw HTML.
+- Content that shows the editable raw markdown syntax: Strong, Emphasis, Strikethrough, Inline code, Links, Images, Footnote references, Footnote definition labels, Link and image reference definitions, Autolinks, Raw HTML, Math.
 - Every eligible block has a local gutter aligned to its own logical start, including nested list items and blocks inside blockquotes. From the content outward it contains a block handle, an insertion slot, and a passive source-marker slot. The document reserves the root gutter inside its own width, so controls appearing or disappearing move no text at any window width; nested gutters follow the indentation already carried by their blocks. A list marker or quote rail remains between the action gutter and the block's content.
 - One insertion button follows the pointer through the active local gutter and the gap between adjacent eligible siblings. Moving horizontally among overlapping ancestor and descendant gutters selects their respective structural depth; moving vertically chooses the boundary before or after the block. Hovering the button shows a faint line at that boundary, centered in the visible gap when two adjacent eligible siblings share it, so the line stays in place as hover moves between them. Clicking it opens a menu of blocks valid for that parent. A list-item boundary offers a sibling list item; a blockquote child accepts valid children inside the quote; an atomic block offers boundaries around it, never inside it. Dismissing the menu makes no document change. Inserting focuses the new block and is one undoable action. The same menu opens after the current eligible block with `Mod+Alt+I` while the editor has focus, without adding a tab stop at every gutter. The control and indicator do not change Markdown or move text.
 
@@ -181,6 +183,8 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 ### Inline Content
 
+- An inline math span opens with `$` where no letter, digit, or unescaped `$` precedes it and no whitespace follows it. It closes on a matching single `$` with neither whitespace before it nor a letter or digit after it. A `$` following whitespace inside the span ends that attempt. A display math span opens and closes with exactly `$$`, may contain whitespace and line endings at its edges, and ends within its paragraph. Inside either span, a backslash takes the following character; Markdown emphasis, links, autolinks, and HTML are not parsed. GitHub's ``$`...`$`` form is read as inline math, with the backticks kept in its source. A code span or HTML tag starting before the math opener keeps its characters. Currency such as `$5 and $10`, `$20,000 and $30,000`, `US$5`, and `$5-$10` stays literal, as do dollar runs of three or more, `$x$$y$`, `\(...\)`, and `\[...\]`.
+- A caret on either side of a math span, or a node selection, opens its complete authored source as projected text. Clicking its displayed source places the caret just inside its opening delimiter. `Enter` inserts a line ending. Leaving or saving restores an unchanged span, rehydrates edited source that still reads as exactly one math span, and commits other edited source as literal text. Source edits participate in Undo and Redo.
 - Strong, emphasis, inline code, and strikethrough render visually and expose editable local markers near the caret.
 - Seamless source projection for strong, emphasis, strikethrough, inline code, links, autolinks, images, and footnote references is local to the active inline object. For mark-based content, a caret or text selection activates projection when it is contained within one exact, contiguous combination of supported inline marks, and a line break inside that combination is part of the fragment rather than a boundary of it. Editing a projected marker can change that object's inline style, but it does not automatically merge adjacent marked runs; broader reshaping is done with an explicit selection or formatting command. A projected fragment carries the escapes the file will be written with, as a link label already does, so a run the file keeps literal by a backslash is not shown as the construct that backslash prevents.
 - Source projection styles Markdown punctuation, delimiters, destinations, reference IDs, and hard-break runs as muted markers. A link label keeps its linked-content styling with the same underline color during pointer hover; image descriptions and optional titles read as content. Angle brackets and title delimiters remain markers around those values. These styles are decorations and do not change the source text or its editing behavior.
@@ -313,6 +317,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 
 ### Serialization And Output
 
+- A math span writes its authored delimiters, whitespace, line endings, and TeX commands without interpreting or regenerating them. The document's selected line-ending style applies throughout on save. Container prefixes and indented continuation lines retain their authored form across repeated saves. A literal `$` keeps or gains an escape only when its bare run would open math that closes later in its block; unnecessary escapes follow the usual backslash normalization rule.
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.
 - Raw HTML is written back exactly as authored, including line-break tags.

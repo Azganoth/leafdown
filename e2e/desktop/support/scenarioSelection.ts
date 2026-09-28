@@ -9,6 +9,7 @@ const scenarioTargets = {
   "rendered-images": ["rendered-images"],
   "remote-images": ["remote-images"],
   "rendered-html": ["rendered-html"],
+  "math-source": ["math-source"],
   "separator-presentation": ["separator-presentation"],
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],

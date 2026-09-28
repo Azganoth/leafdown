@@ -17,6 +17,7 @@ const byteIdenticalFiles = [
   "commonmark/code.md",
   "commonmark/html.md",
   "commonmark/lists-and-blockquotes.md",
+  "extensions/math.md",
   "gfm/tagfilter.md",
   "gfm/task-lists.md",
   "isolated/end-of-file/incomplete-html-comment.md",

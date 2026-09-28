@@ -83,6 +83,15 @@
     }
   }
 
+  & [data-type="math"] {
+    @apply text-muted-foreground;
+    white-space: pre-wrap;
+
+    &[data-math-flow="block"] {
+      display: block;
+    }
+  }
+
   /* The gutter is padding inside the block rather than page margin, so it holds at every window
      width; below the combined width the text narrows rather than the gutter collapsing. */
   .ProseMirror {

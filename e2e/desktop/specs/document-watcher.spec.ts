@@ -24,6 +24,8 @@ const waitForEditorText = (text: string) =>
     { timeoutMsg: `The editor did not show "${text}".` },
   );
 
+const documentState = () => $('[data-testid="status-bar-document-state"]');
+
 const toast = (type: "success" | "warning") => $(`[data-slot="toast"][data-type="${type}"]`);
 
 const replaceDocumentText = async (text: string) => {
@@ -76,10 +78,16 @@ describe("desktop active document watcher", () => {
     await expect(toast("success")).toHaveText(expect.stringContaining("Reloaded from disk"));
     await dismissToasts();
 
+    await expect(documentState()).not.toExist();
+
     await replaceDocumentText("Unsaved local edit.");
+
+    await expect(documentState()).toHaveText("Unsaved");
+
     await writeFile(documentWatcher.path, "External edit.\n");
 
     await expect(toast("warning")).toHaveText(expect.stringContaining("File changed on disk"));
+    await expect(documentState()).toHaveText("Unsaved, changed on disk");
     await waitForEditorText("Unsaved local edit.");
     await dismissToasts();
 
@@ -98,11 +106,13 @@ describe("desktop active document watcher", () => {
     );
     await browser.pause(WATCHER_SETTLE_MS);
     expect(await $$('[data-slot="toast"][data-type="warning"]').length).toBe(0);
+    await expect(documentState()).not.toExist();
     await dismissToasts();
 
     await rm(documentWatcher.path);
 
     await expect(toast("warning")).toHaveText(expect.stringContaining("File missing"));
+    await expect(documentState()).toHaveText("File missing");
     await waitForEditorText("Unsaved local edit.");
   });
 });

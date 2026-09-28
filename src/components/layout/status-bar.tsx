@@ -54,6 +54,27 @@ const ENCODING_COMMAND_IDS = [
   "edit.encoding.utf8Bom",
 ] as const satisfies readonly AppCommandId[];
 
+type DocumentFileState =
+  | "changedOnDisk"
+  | "missing"
+  | "unsaved"
+  | "unsavedChangedOnDisk"
+  | "unsavedMissing";
+
+const getDocumentFileState = (activeDocument: ActiveDocumentState): DocumentFileState | null => {
+  const externalChange =
+    activeDocument.status === "saved" ? activeDocument.externalChange?.kind : undefined;
+
+  switch (externalChange) {
+    case "missing":
+      return activeDocument.isDirty ? "unsavedMissing" : "missing";
+    case "modified":
+      return activeDocument.isDirty ? "unsavedChangedOnDisk" : "changedOnDisk";
+    case undefined:
+      return activeDocument.isDirty ? "unsaved" : null;
+  }
+};
+
 const subscribeToDocumentStatusChanges = (listener: () => void) => {
   const listenerDisposable = documentEditorBridge.onDidChangeDocumentStatus(listener);
 
@@ -135,6 +156,7 @@ export function StatusBar({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
+        <DocumentState activeDocument={activeDocument} />
         {status && <DocumentMetrics status={status} />}
         <EncodingMenu
           activeDocument={activeDocument}
@@ -179,6 +201,26 @@ function BlockPath({ blockPath }: BlockPathProps) {
       </TooltipTrigger>
       <TooltipContent side="top">{path}</TooltipContent>
     </Tooltip>
+  );
+}
+
+interface DocumentStateProps {
+  activeDocument: ActiveDocumentState;
+}
+
+function DocumentState({ activeDocument }: DocumentStateProps) {
+  const { t } = useLocalization();
+  const state = getDocumentFileState(activeDocument);
+
+  if (!state) {
+    return null;
+  }
+
+  return (
+    <span data-testid="status-bar-document-state" className="flex items-center gap-1.5">
+      <span aria-hidden="true" className="size-1.5 rounded-full bg-foreground" />
+      {t("statusBar.documentState", { state })}
+    </span>
   );
 }
 

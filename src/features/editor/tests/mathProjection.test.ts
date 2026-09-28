@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
@@ -21,6 +22,8 @@ import { finalizeSourceProjection, hasActiveSourceProjection } from "../plugins/
 
 const mountEditor = setupMilkdownEditorMount();
 const markdown = "Before $x^2$ after\n\nEnd\n";
+const isDisplay = (node: ProseMirrorNode) => (node.attrs.value as string).startsWith("$$");
+const isInline = (node: ProseMirrorNode) => !isDisplay(node);
 
 describe("math source projection", () => {
   it.each(["left", "right", "node"] as const)(
@@ -67,7 +70,10 @@ describe("math source projection", () => {
     expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
     finalizeSourceProjection(mounted.view);
     expect(mounted.getMarkdown()).toBe(markdown.replace("$x^2$", "$x^2+1$"));
-    expect(mounted.view.dom.querySelector('[data-type="math"]')).toHaveTextContent("$x^2+1$");
+    expect(mounted.view.dom.querySelector('[data-type="math"]')).toHaveAttribute(
+      "data-value",
+      "$x^2+1$",
+    );
     expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
     expect(mounted.getMarkdown()).toBe(markdown);
     expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
@@ -92,6 +98,65 @@ describe("math source projection", () => {
     setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
     expect(runKeyDownHandlers(mounted.view, "Enter").handled).toBe(true);
     expect(getEditorTextContent(mounted)).toContain("$x^2\n$");
+  });
+
+  it("previews the rendered source beside inline source as it is edited", async () => {
+    const mounted = await mountEditor(markdown);
+    vi.spyOn(performance, "now").mockReturnValue(0);
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline") + 1);
+    const getPreview = () => mounted.view.dom.querySelector<HTMLElement>(".leafdown-math-preview")!;
+
+    expect(getPreview()).not.toHaveClass("leafdown-math-preview--block");
+    expect(getPreview().querySelector("annotation")).toHaveTextContent("x^2");
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
+    typeText(mounted.view, "+1");
+    expect(getPreview().querySelector("annotation")).toHaveTextContent("x^2+1");
+    expect(getEditorTextContent(mounted)).not.toContain("x^2+1x");
+
+    typeText(mounted.view, "\\frac");
+    expect(getPreview()).toHaveAttribute("data-math-rendered", "false");
+    expect(getPreview()).toHaveTextContent(/^Math error: /u);
+    expect(getPreview().querySelector(".katex")).toBeNull();
+
+    setSelectionAtDocumentEnd(mounted.view);
+    expect(mounted.view.dom.querySelector(".leafdown-math-preview")).toBeNull();
+    expect(mounted.getMarkdown()).toBe(markdown.replace("$x^2$", "$x^2+1\\frac$"));
+  });
+
+  it("previews display source below it and a table cell's TeX after its pipe escapes", async () => {
+    const mounted = await mountEditor("$$\nx\n$$\n\n| a |\n| - |\n| $x\\|y$ |\n\nEnd\n");
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isDisplay));
+    const preview = mounted.view.dom.querySelector(".leafdown-math-preview");
+
+    expect(preview).toHaveClass("leafdown-math-preview--block");
+    expect(preview?.querySelector(".katex-display")).not.toBeNull();
+
+    setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isInline));
+    expect(mounted.view.dom.querySelector(".leafdown-math-preview annotation")).toHaveTextContent(
+      "x|y",
+    );
+  });
+
+  it("holds a costly preview until typing pauses", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const mounted = await mountEditor(markdown);
+      let now = 0;
+      vi.spyOn(performance, "now").mockImplementation(() => (now += 20));
+      setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline") + 1);
+      setTextSelection(mounted.view, getEditorTextPosition(mounted, "^2") + 2);
+      const getTex = () =>
+        mounted.view.dom.querySelector(".leafdown-math-preview annotation")?.textContent;
+
+      typeText(mounted.view, "+1");
+      expect(getTex()).toBe("x^2");
+      vi.advanceTimersByTime(299);
+      expect(getTex()).toBe("x^2");
+      vi.advanceTimersByTime(1);
+      expect(getTex()).toBe("x^2+1");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps indented display lines when edited and saved again", async () => {

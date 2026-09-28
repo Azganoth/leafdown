@@ -124,6 +124,9 @@ export interface SourceProjectionPresentationSpan extends TextRange {
 export interface SourceProjectionPresentationPreview {
   className: string;
   offset: number;
+  // Draws the preview itself in place of `text`, such as the math the source renders. Like a drawn
+  // character, it holds no document position and never reaches the clipboard or the file.
+  render?: () => HTMLElement;
   text: string;
 }
 

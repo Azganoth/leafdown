@@ -8,6 +8,8 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { Parser } from "@milkdown/kit/transformer";
 
+import { createMathPreviewRenderer, isInTableCell } from "./mathRender";
+import { isDisplayMathSource } from "./mathSyntax";
 import {
   createLiteralSourceProjectionSlice,
   type SourceProjectionAdapter,
@@ -19,21 +21,30 @@ const MATH_NODE_NAME = "math_inline";
 interface MathSourceProjectionTarget extends SourceProjectionTarget {
   adapterId: "math";
   ambientMarks: readonly Mark[];
+  // Whether the span is its paragraph's display block, whose preview stands below the source.
+  block: boolean;
+  inTableCell: boolean;
 }
 
 const createTarget = (
   state: EditorState,
   node: ProseMirrorNode,
   from: number,
-): MathSourceProjectionTarget => ({
-  adapterId: "math",
-  ambientMarks: node.marks,
-  from,
-  to: from + node.nodeSize,
-  originalContent: state.doc.slice(from, from + node.nodeSize),
-  originalContentSize: node.nodeSize,
-  originalSource: node.attrs.value as string,
-});
+): MathSourceProjectionTarget => {
+  const $from = state.doc.resolve(from);
+  const source = node.attrs.value as string;
+  return {
+    adapterId: "math",
+    ambientMarks: node.marks,
+    block: $from.parent.childCount === 1 && isDisplayMathSource(source),
+    inTableCell: isInTableCell($from),
+    from,
+    to: from + node.nodeSize,
+    originalContent: state.doc.slice(from, from + node.nodeSize),
+    originalContentSize: node.nodeSize,
+    originalSource: source,
+  };
+};
 
 const findTarget = (state: EditorState): MathSourceProjectionTarget | null => {
   const { selection } = state;
@@ -66,61 +77,77 @@ const parseMathSource = (parser: Parser, source: string): ProseMirrorNode | null
 
 export const createMathSourceProjectionAdapter = (
   parser: Parser,
-): SourceProjectionAdapter<MathSourceProjectionTarget> => ({
-  id: "math",
-  findTarget,
-  createEnterTransaction: (state, target) =>
-    state.tr.replace(
-      target.from,
-      target.to,
-      createLiteralSourceProjectionSlice(state, target.originalSource),
-    ),
-  getPresentation: (_target, source) => ({
-    previews: [],
-    sourceTypes: ["math"],
-    spans: source
-      ? [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }]
-      : [],
-  }),
-  mapSelectionToSource: (selection, target, context) => {
-    if (context.pointerSourceOffset !== null) {
-      const position =
-        target.from +
-        Math.min(Math.max(context.pointerSourceOffset, 0), target.originalSource.length);
-      return { anchor: position, head: position };
-    }
+): SourceProjectionAdapter<MathSourceProjectionTarget> => {
+  const renderPreview = createMathPreviewRenderer();
 
-    const map = (position: number) =>
-      position <= target.from
-        ? position
-        : target.from + target.originalSource.length + (position - target.to);
-    return selection instanceof NodeSelection
-      ? { anchor: target.from, head: target.from + target.originalSource.length }
-      : { anchor: map(selection.anchor), head: map(selection.head) };
-  },
-  mapSelectionFromSource: (selection, session, result) => {
-    const atomic = result.replacement.content.firstChild?.type.name === MATH_NODE_NAME;
-    const map = (position: number) => {
-      if (position <= session.from) return position;
-      if (position >= session.to)
-        return session.from + result.replacementSize + position - session.to;
-      return atomic ? session.from : position;
-    };
-    return { anchor: map(selection.anchor), head: map(selection.head) };
-  },
-  parseSource: (state, source, { ambientMarks }) => {
-    const node = parseMathSource(parser, source);
-    const replacement = node
-      ? new Slice(Fragment.from(node.mark(ambientMarks)), 0, 0)
-      : source
-        ? new Slice(Fragment.from(state.schema.text(source, ambientMarks)), 0, 0)
-        : Slice.empty;
-    return { replacement, replacementSize: replacement.size, source };
-  },
-  canCopySelectionSemantically: (selection, session, parsed) =>
-    parsed.replacement.content.firstChild?.type.name !== MATH_NODE_NAME ||
-    (selection.from === session.from && selection.to === session.to),
-  restoreCleanTarget: (state, session) =>
-    state.tr.replace(session.from, session.to, session.target.originalContent),
-  getEnterKeyText: (event) => (!event.ctrlKey && !event.metaKey && !event.altKey ? "\n" : null),
-});
+  return {
+    id: "math",
+    findTarget,
+    createEnterTransaction: (state, target) =>
+      state.tr.replace(
+        target.from,
+        target.to,
+        createLiteralSourceProjectionSlice(state, target.originalSource),
+      ),
+    getPresentation: ({ block, inTableCell }, source) => ({
+      previews: source
+        ? [
+            {
+              className:
+                block && isDisplayMathSource(source)
+                  ? "leafdown-math-preview leafdown-math-preview--block"
+                  : "leafdown-math-preview",
+              offset: source.length,
+              render: () => renderPreview(source, inTableCell),
+              text: source,
+            },
+          ]
+        : [],
+      sourceTypes: ["math"],
+      spans: source
+        ? [{ className: "leafdown-source-projection__marker", from: 0, to: source.length }]
+        : [],
+    }),
+    mapSelectionToSource: (selection, target, context) => {
+      if (context.pointerSourceOffset !== null) {
+        const position =
+          target.from +
+          Math.min(Math.max(context.pointerSourceOffset, 0), target.originalSource.length);
+        return { anchor: position, head: position };
+      }
+
+      const map = (position: number) =>
+        position <= target.from
+          ? position
+          : target.from + target.originalSource.length + (position - target.to);
+      return selection instanceof NodeSelection
+        ? { anchor: target.from, head: target.from + target.originalSource.length }
+        : { anchor: map(selection.anchor), head: map(selection.head) };
+    },
+    mapSelectionFromSource: (selection, session, result) => {
+      const atomic = result.replacement.content.firstChild?.type.name === MATH_NODE_NAME;
+      const map = (position: number) => {
+        if (position <= session.from) return position;
+        if (position >= session.to)
+          return session.from + result.replacementSize + position - session.to;
+        return atomic ? session.from : position;
+      };
+      return { anchor: map(selection.anchor), head: map(selection.head) };
+    },
+    parseSource: (state, source, { ambientMarks }) => {
+      const node = parseMathSource(parser, source);
+      const replacement = node
+        ? new Slice(Fragment.from(node.mark(ambientMarks)), 0, 0)
+        : source
+          ? new Slice(Fragment.from(state.schema.text(source, ambientMarks)), 0, 0)
+          : Slice.empty;
+      return { replacement, replacementSize: replacement.size, source };
+    },
+    canCopySelectionSemantically: (selection, session, parsed) =>
+      parsed.replacement.content.firstChild?.type.name !== MATH_NODE_NAME ||
+      (selection.from === session.from && selection.to === session.to),
+    restoreCleanTarget: (state, session) =>
+      state.tr.replace(session.from, session.to, session.target.originalContent),
+    getEnterKeyText: (event) => (!event.ctrlKey && !event.metaKey && !event.altKey ? "\n" : null),
+  };
+};

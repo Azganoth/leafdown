@@ -83,12 +83,41 @@
     }
   }
 
-  & [data-type="math"] {
+  /* Math whose TeX does not render keeps its source as muted text, as unsupported raw HTML does. */
+  & [data-type="math"][data-math-rendered="false"] {
     @apply text-muted-foreground;
     white-space: pre-wrap;
+  }
 
-    &[data-math-flow="block"] {
-      display: block;
+  /* A display block wider than the text scrolls on its own, as code blocks and tables do, rather
+     than widening the document. */
+  & [data-type="math"][data-math-flow="block"],
+  & .leafdown-math-preview--block {
+    @apply block overflow-x-auto overflow-y-hidden;
+
+    & .katex-display {
+      margin: 0;
+    }
+  }
+
+  /* Display math sharing its paragraph keeps display style but stays in the line. */
+  & [data-type="math"][data-math-flow="inline"] .katex-display,
+  & .leafdown-math-preview:not(.leafdown-math-preview--block) .katex-display {
+    display: inline-block;
+    margin: 0;
+  }
+
+  /* The preview of projected math follows its source: beside inline source, below a display
+     block's. */
+  & .leafdown-math-preview {
+    @apply ms-2 select-none;
+
+    &[data-math-rendered="false"] {
+      @apply text-sm text-muted-foreground;
+    }
+
+    &.leafdown-math-preview--block {
+      @apply ms-0;
     }
   }
 

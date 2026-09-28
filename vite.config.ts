@@ -1,15 +1,37 @@
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
 const host = process.env.TAURI_DEV_HOST;
+
+const KATEX_STYLESHEET_PATTERN = /[\\/]katex[\\/]dist[\\/]katex(?:\.min)?\.css(?:\?|$)/u;
+const KATEX_FALLBACK_FONT_PATTERN =
+  /,\s*url\([^)]*\.woff\)\s*format\("woff"\),\s*url\([^)]*\.ttf\)\s*format\("truetype"\)/gu;
+
+// KaTeX lists woff and ttf copies after each woff2 font. Every WebView Leafdown runs in loads
+// woff2, so the copies would only ship about 800 KiB of fonts that are never requested.
+const katexWoff2Fonts = (): Plugin => ({
+  name: "leafdown:katex-woff2-fonts",
+  enforce: "pre",
+  transform(code, id) {
+    if (!KATEX_STYLESHEET_PATTERN.test(id)) {
+      return;
+    }
+    const stylesheet = code.replace(KATEX_FALLBACK_FONT_PATTERN, "");
+    if (/\.(?:woff|ttf)\)/u.test(stylesheet)) {
+      this.error("KaTeX's font sources changed shape; update the woff2-only font transform.");
+    }
+    return stylesheet;
+  },
+});
 
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
+  plugins: [katexWoff2Fonts(), react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
   clearScreen: false,
   build: {
     // Inlined fonts become data URIs that `font-src 'self'` blocks, and the assets

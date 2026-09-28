@@ -10,6 +10,27 @@ $$
 \int_0^1 x^2\,dx = \frac{1}{3}
 $$
 
+## Rendering
+
+A display span mid-paragraph $$\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}$$ keeps display style within its line.
+
+GitHub's backtick form renders without its backticks: $`\sqrt{2}`$.
+
+| Norm   |
+| ------ |
+| $x\|y$ |
+
+TeX that does not parse keeps its source: $\frac{a$.
+
+Untrusted commands render as inert text: $\href{https://example.com}{link}$, $\url{https://example.com}$, and $\htmlClass{x}{y}$.
+
+$$
+\begin{pmatrix}
+a_{11} & a_{12} & a_{13} & a_{14} & a_{15} & a_{16} & a_{17} & a_{18} & a_{19} & a_{1,10} & a_{1,11} & a_{1,12} \\
+a_{21} & a_{22} & a_{23} & a_{24} & a_{25} & a_{26} & a_{27} & a_{28} & a_{29} & a_{2,10} & a_{2,11} & a_{2,12}
+\end{pmatrix}
+$$
+
 ## Other delimiters shown as source
 
 Inline: `\(a^2 + b^2 = c^2\)`.

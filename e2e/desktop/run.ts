@@ -136,7 +136,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const imagesPath = path.join(fixtureRoot, "rendered-images.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
-  const mathPath = path.join(fixtureRoot, "math-source.md");
+  const mathPath = path.join(fixtureRoot, "rendered-math.md");
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
@@ -198,7 +198,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
-    { name: "math-source", recentFiles: [mathPath] },
+    { name: "rendered-math", recentFiles: [mathPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
@@ -250,7 +250,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),
         htmlPath,
       ),
-      copyFile(path.join(repositoryRoot, "e2e", "desktop", "fixtures", "math-source.md"), mathPath),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-math.md"),
+        mathPath,
+      ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "find-and-replace.md"),
         searchPath,

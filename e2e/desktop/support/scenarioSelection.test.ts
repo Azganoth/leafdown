@@ -16,7 +16,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["rendered-images"],
       ["remote-images"],
       ["rendered-html"],
-      ["math-source"],
+      ["rendered-math"],
       ["separator-presentation"],
       ["support-links"],
       ["missing-document-error"],

@@ -4,6 +4,9 @@ import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import type { RemarkPluginRaw } from "@milkdown/kit/transformer";
 import { $nodeSchema, $remark, $view } from "@milkdown/kit/utils";
 
+import { localizer } from "@/lib/i18n";
+
+import { describeMathError, isInTableCell, renderMath } from "../utils/mathRender";
 import { isDisplayMathSource, MATH_MARKDOWN_TYPE, mathSyntax } from "../utils/mathSyntax";
 import { SOURCE_PROJECTION_HTML_POINTER_SOURCE_OFFSET_META } from "./sourceProjection";
 
@@ -74,6 +77,8 @@ export const createLeafdownMathViewPlugin = () =>
 
 class LeafdownMathNodeView implements NodeView {
   readonly dom = document.createElement("span");
+  private error: string | null = null;
+  private readonly localizationChange = localizer.onDidChange(() => this.describeError());
 
   constructor(
     private node: ProseMirrorNode,
@@ -103,13 +108,28 @@ class LeafdownMathNodeView implements NodeView {
     return true;
   }
 
+  stopEvent(event: Event) {
+    return event instanceof MouseEvent && this.isScrollbarPress(event);
+  }
+
   destroy() {
+    this.localizationChange.dispose();
     this.dom.removeEventListener("mousedown", this.handleMouseDown);
+  }
+
+  // A press on a wide display block's own scrollbar scrolls it rather than opening its source.
+  private isScrollbarPress(event: MouseEvent) {
+    return (
+      event.target === this.dom &&
+      this.dom.scrollWidth > this.dom.clientWidth &&
+      event.offsetY >= this.dom.clientHeight
+    );
   }
 
   private readonly handleMouseDown = (event: MouseEvent) => {
     if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
       return;
+    if (this.isScrollbarPress(event)) return;
     const position = this.getPos();
     if (position === undefined) return;
     const source = this.node.attrs.value as string;
@@ -127,10 +147,26 @@ class LeafdownMathNodeView implements NodeView {
 
   private render() {
     const source = this.node.attrs.value as string;
+    const position = this.getPos();
+    const rendered = renderMath(
+      source,
+      position !== undefined && isInTableCell(this.view.state.doc.resolve(position)),
+    );
+    this.error = rendered.error;
     this.dom.dataset.value = source;
     this.dom.dataset.mathDisplay = String(isDisplayMathSource(source));
-    this.dom.textContent = source;
+    this.dom.dataset.mathRendered = String(rendered.error === null);
+    this.dom.replaceChildren(rendered.element ?? source);
+    this.describeError();
     this.updateFlow();
+  }
+
+  private describeError() {
+    if (this.error === null) {
+      this.dom.removeAttribute("aria-description");
+    } else {
+      this.dom.setAttribute("aria-description", describeMathError(this.error));
+    }
   }
 
   private updateFlow() {

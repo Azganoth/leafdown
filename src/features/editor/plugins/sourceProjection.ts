@@ -1131,7 +1131,8 @@ const createProjectionDecorations = (state: EditorState) => {
         // near side of both rather than between them, which a positive side draws it as. The widget
         // carries no marks because it is not the document's text; its styling arrives as a class.
         {
-          key: `character-reference-preview:${preview.offset}:${preview.text}`,
+          ignoreSelection: preview.render !== undefined,
+          key: `projection-preview:${preview.offset}:${preview.text}`,
           marks: [],
           side: 1,
         },
@@ -1147,8 +1148,15 @@ const createProjectionDecorations = (state: EditorState) => {
 // covers it, no copy carries it, and nothing serializes it.
 const createProjectionPreviewElement = ({
   className,
+  render,
   text,
 }: SourceProjectionPresentationPreview) => {
+  if (render) {
+    const element = render();
+    element.className = className;
+    return element;
+  }
+
   const element = document.createElement("span");
 
   element.className = `leafdown-source-projection__preview ${className}`.trimEnd();

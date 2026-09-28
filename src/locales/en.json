@@ -299,6 +299,7 @@
   "statusBar.saveWithEncoding": "Save with encoding",
   "statusBar.reopenWithEncoding": "Reopen with encoding",
   "statusBar.zoomReset": "Zoom {zoom}, reset zoom",
+  "statusBar.documentState": "{state, select, changedOnDisk {Changed on disk} unsavedChangedOnDisk {Unsaved, changed on disk} missing {File missing} unsavedMissing {Unsaved, file missing} other {Unsaved}}",
   "editor.contextPopup.label": "Context actions",
   "editor.contextPopup.blockType": "Block type",
   "editor.contextPopup.insert": "Insert",

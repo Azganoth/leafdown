@@ -11,7 +11,11 @@ import {
 import type { EditorDocumentStatus } from "@/features/editor";
 import { documentEditorBridge } from "@/features/session";
 import { createLocalization, localizer, PSEUDO_LOCALE } from "@/lib/i18n";
-import { createSavedDocument } from "@/test/factories/document";
+import {
+  createFileMetadata,
+  createSavedDocument,
+  createUntitledDocument,
+} from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
@@ -291,5 +295,86 @@ describe("StatusBar", () => {
     renderStatusBar();
 
     expect(screen.queryByRole("button", { name: /^Zoom/u })).not.toBeInTheDocument();
+  });
+
+  describe("document state", () => {
+    const changedOnDisk = {
+      kind: "modified" as const,
+      metadata: createFileMetadata({ modifiedAtUnixMs: 1_800_000_000_000 }),
+      fingerprint: "fedcba9876543210",
+    };
+
+    it("shows nothing for a clean document whose file holds its version", () => {
+      renderStatusBar();
+
+      expect(screen.queryByTestId("status-bar-document-state")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["unsaved changes", createSavedDocument({ isDirty: true }), "Unsaved"],
+      ["an untitled draft", createUntitledDocument({ isDirty: true }), "Unsaved"],
+      [
+        "a newer file on disk",
+        createSavedDocument({ externalChange: changedOnDisk }),
+        "Changed on disk",
+      ],
+      [
+        "unsaved changes and a newer file on disk",
+        createSavedDocument({ isDirty: true, externalChange: changedOnDisk }),
+        "Unsaved, changed on disk",
+      ],
+      [
+        "a missing file",
+        createSavedDocument({ externalChange: { kind: "missing" } }),
+        "File missing",
+      ],
+      [
+        "unsaved changes and a missing file",
+        createSavedDocument({ isDirty: true, externalChange: { kind: "missing" } }),
+        "Unsaved, file missing",
+      ],
+    ])("names %s", (_, activeDocument, label) => {
+      renderStatusBar({ activeDocument });
+
+      const state = screen.getByTestId("status-bar-document-state");
+
+      expect(state).toHaveTextContent(label);
+      expect(within(screen.getByRole("contentinfo", { name: "Status bar" })).getByText(label)).toBe(
+        state,
+      );
+    });
+
+    it("does not name an untitled document without changes", () => {
+      renderStatusBar({ activeDocument: createUntitledDocument() });
+
+      expect(screen.queryByTestId("status-bar-document-state")).not.toBeInTheDocument();
+    });
+
+    it("follows the document as it is edited, saved, and changed on disk", () => {
+      const { rerender } = renderStatusBar();
+      const renderWith = (activeDocument: ActiveDocumentState) =>
+        rerender(
+          <StatusBar
+            activeDocument={activeDocument}
+            commandState={() => enabledState}
+            onExecute={vi.fn()}
+            reopenWithEncoding={{ state: enabledState, checkedEncoding: null, reopen: vi.fn() }}
+          />,
+        );
+
+      renderWith(createSavedDocument({ isDirty: true }));
+
+      expect(screen.getByTestId("status-bar-document-state")).toHaveTextContent("Unsaved");
+
+      renderWith(createSavedDocument({ isDirty: true, externalChange: changedOnDisk }));
+
+      expect(screen.getByTestId("status-bar-document-state")).toHaveTextContent(
+        "Unsaved, changed on disk",
+      );
+
+      renderWith(createSavedDocument());
+
+      expect(screen.queryByTestId("status-bar-document-state")).not.toBeInTheDocument();
+    });
   });
 });

@@ -56,6 +56,7 @@ Primary user interface surfaces:
   - **Line ending:** `CRLF` or `LF`, the ending the next save will write. Activating it offers the `Line ending` choices from the Edit menu.
   - **Zoom:** the zoom level while it is not 100%. Activating it resets zoom.
 - **Context popup:** provides quick document actions from selection or right-click.
+- **Search surface:** a non-modal panel at the top right of the document surface for finding and replacing text in the active document, described in [Find And Replace](#find-and-replace).
 - **Modal layer:** presents secondary screens and blocking dialogs outside the main editor surface.
 
 ### Article Navigator Traversal
@@ -256,6 +257,19 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - `Delete word forward` deletes the word in front of the caret.
 - `Delete block` deletes the active block. (Deferred)
 - `Delete sentence` deletes the sentence at or adjacent to the caret. (Deferred)
+
+### Find And Replace
+
+- `Find...` opens the search surface with its query field focused, and `Replace...` opens it with its replace row showing, focusing the replacement field when the query already holds text. A selection within one run of text becomes the query, and the search starts from it; any other selection keeps the query the document last searched for. Asking again while the surface is open returns focus to it, and `Find...` then leaves the replace row as it is. The surface floats over the top right of the document surface and moves no text as it opens; in a narrow window it narrows with the document surface.
+- Opening the surface finalizes active source projection first, so search reads the document as the file holds it, and closes the context popup.
+- Search reads the text a caret can reach, whatever inline formatting it carries: paragraphs, headings, list items, quotes, table cells, code blocks, footnote definition labels, and the fields of link and image reference definitions. It does not read Markdown punctuation, marker chrome, a code block's language, the destination and title a link or image keeps out of sight, image descriptions, raw HTML, or the source of an object whose projection is open. A match lies within one run of text in one block, so it never reaches across a block boundary, a hard break, an image, a footnote reference, or raw HTML.
+- The query is literal text, not a regular expression. It matches regardless of letter case, in any script, until `Match case` is pressed. `Whole word` skips a match where a letter, digit, or underscore at its edge runs on into another beyond it, so `leaf` does not match inside `leaflet`. Matches do not overlap.
+- Every match is highlighted and the current match stands apart from the rest. The surface counts them, as in `2 of 5`, `5 results` while no match is current, or `No results`. Where a document holds many matches, the highlights cover the matches around the current one; every match can still be reached. Highlights are presentation only and never reach the file, the clipboard, the counts, history, or the unsaved state.
+- `Enter` and `Shift+Enter` in the query field, the arrow buttons, and `Find next` and `Find previous` move to the next and previous match, wrapping at either end of the document, and scroll it into view clear of the surface. While the surface is open the document can scroll a little past its first line, so a match there can be brought out from under it. While the surface is open this moves the highlight rather than the caret, so visiting a match opens no source projection and moves no text. The first match is the first at or after the caret, and once the author places the caret elsewhere, the next move starts from the caret.
+- Matches follow edits made while the surface is open, without adding history or marking the document as having unsaved changes. An edit to the current match's text leaves no match current.
+- `Replace`, or `Enter` in the replacement field, replaces the current match and moves to the next; with no current match it only moves to the next. `Replace all`, or `Mod+Alt+Enter` in the replacement field, replaces every match. The replacement is literal text that takes the inline formatting the replaced text started with, so a match inside a link or strong text stays linked or strong and the Markdown around it keeps its structure. A link's destination is not searched, so replacing text in an autolink leaves the destination it had, and the link is then written as an inline link. Each `Replace` and each `Replace all` is one `Undo` step of its own, separate from any typing before it. A replacement in a footnote definition label or a reference definition field commits as typing there does: the references follow it, and a label that cannot be committed stays as it was.
+- `Escape` in the surface, or its close button, closes it and returns focus to the editor with the current match selected. That selection behaves like any other, opening source projection or the context popup where a selection would. Without a current match, the caret stays where it was. The query, `Match case`, and `Whole word` are kept for as long as the editor holds the document, which ends when the document closes, is reopened or reloaded, or takes a new path.
+- While the surface is closed, `Find next` and `Find previous` select the next or previous match of that query from the selection, wrapping at either end, and do nothing when nothing matches.
 
 ### Inline Formatting Commands
 

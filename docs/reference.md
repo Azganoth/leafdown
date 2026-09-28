@@ -153,11 +153,13 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
     - **UTF-8**
     - **UTF-8 with BOM**
   - **Reopen with encoding**: A submenu of the encodings a file can be reopened in, starting with UTF-8, and marking the one it was read in. Available for a saved document whose file has no byte order mark.
-- **Find and replace** (Deferred)
-  - **Find...** (`Mod+F`, Deferred)
-  - **Find next** (`F3`, Deferred)
-  - **Find previous** (`Shift+F3`, Deferred)
-  - **Replace...** (`Mod+H`, Deferred)
+- **Find and replace**
+  - **Find...** (`Mod+F`): Opens the search surface with its query field focused.
+  - **Find next** (`F3`)
+  - **Find previous** (`Shift+F3`)
+  - **Replace...** (`Mod+H`): Opens the search surface with its replace row showing.
+
+The search surface's own keys are `Enter` and `Shift+Enter` in the query field for the next and previous match, `Enter` in the replacement field for `Replace`, `Mod+Alt+Enter` there for `Replace all`, and `Escape` to close it. [Find And Replace](./specification.md#find-and-replace) describes the behavior.
 
 #### Insert Menu
 
@@ -339,7 +341,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 
 #### Search And Updates
 
-- `Find next`, `Find previous`, and `Replace` require an active search query.
+- `Find next` and `Find previous` require a query entered for the active document. The query outlasts closing the search surface.
 - `Check for updates` requires an available update mechanism in the current build.
 
 ### Checked And Radio State

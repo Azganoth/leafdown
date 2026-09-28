@@ -219,6 +219,51 @@ describe("useAppCommands shortcut routing", () => {
   });
 
   it.each([
+    ["the editor", "editor"],
+    ["a text input", "input"],
+  ] as const)("routes search shortcuts from %s", async (_, target) => {
+    const { mounted, runCommand } = await mountActiveEditor("Leaf and leaf");
+    const input = document.createElement("input");
+
+    document.body.append(input);
+    render(<AppCommandsHarness />);
+
+    try {
+      const element = target === "editor" ? mounted.view.dom : input;
+      const findEvent = dispatchKeyDown(element, "f", { ctrl: true });
+
+      expect(findEvent.defaultPrevented).toBe(true);
+      expect(runCommand).toHaveBeenCalledWith("edit.find");
+
+      // Without a query there is nothing to move to, but the key is still kept from the webview.
+      const nextEvent = dispatchKeyDown(element, "F3");
+
+      expect(nextEvent.defaultPrevented).toBe(true);
+      expect(runCommand).not.toHaveBeenCalledWith("edit.findNext");
+
+      dispatchKeyDown(element, "h", { ctrl: true });
+
+      expect(runCommand).toHaveBeenCalledWith("edit.replace");
+    } finally {
+      input.remove();
+    }
+  });
+
+  it.each([
+    ["f", { ctrl: true }],
+    ["h", { ctrl: true }],
+    ["F3", {}],
+    ["F3", { shift: true }],
+  ] satisfies Array<[string, TestKeyboardEventOptions]>)(
+    "suppresses search shortcut %s without a document",
+    (key, init) => {
+      render(<AppCommandsHarness />);
+
+      expect(dispatchKeyDown(window, key, init).defaultPrevented).toBe(true);
+    },
+  );
+
+  it.each([
     ["s", { ctrl: true }],
     ["S", { ctrl: true, shift: true }],
     ["w", { ctrl: true }],

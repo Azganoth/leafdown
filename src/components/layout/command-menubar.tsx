@@ -155,6 +155,11 @@ export function CommandMenubar({
               fileEncodingLabel={fileEncodingLabel}
               reopenWithEncoding={reopenWithEncoding}
             />
+            <MenubarSeparator />
+            <CommandSubmenu
+              commandIds={["edit.find", "edit.findNext", "edit.findPrevious", "edit.replace"]}
+              labelId="menu.edit.findAndReplace"
+            />
           </MenubarContent>
         </MenubarMenu>
 

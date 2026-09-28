@@ -1,0 +1,262 @@
+import { closeHistory } from "@milkdown/kit/prose/history";
+import { TextSelection, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
+
+import {
+  findSearchMatches,
+  getCurrentSearchMatchIndex,
+  getSearchMatches,
+  getSearchState,
+  getSearchTextQuery,
+  setSearchClosed,
+  setSearchUpdate,
+  type SearchMode,
+  type SearchQueryChange,
+  type SearchUpdate,
+} from "../../plugins/search";
+import {
+  finalizeSourceProjection,
+  hasActiveSourceProjection,
+} from "../../plugins/sourceProjection";
+import { CHARACTER_REFERENCE_MARK_NAME } from "../../utils/characterReferenceMarkdown";
+import type { TextRange } from "../../utils/textRanges";
+import { findMatchIndexBefore, findMatchIndexFrom, findTextMatches } from "../../utils/textSearch";
+
+type Direction = 1 | -1;
+
+// A query is one run of text, so only a selection within one run can become one.
+const getSelectionQuery = (state: EditorState) => {
+  const { selection } = state;
+
+  if (!(selection instanceof TextSelection) || selection.empty) {
+    return null;
+  }
+
+  const { $from, $to } = selection;
+
+  if (!$from.sameParent($to) || !$from.parent.isTextblock) {
+    return null;
+  }
+
+  let spansInlineNode = false;
+
+  state.doc.nodesBetween(selection.from, selection.to, (node) => {
+    spansInlineNode ||= node.isInline && !node.isText;
+  });
+
+  const text = state.doc.textBetween(selection.from, selection.to);
+
+  return spansInlineNode || text.includes("\n") ? null : text;
+};
+
+const dispatchSearchUpdate = (view: EditorView, update: SearchUpdate) => {
+  view.dispatch(setSearchUpdate(view.state.tr, update));
+
+  return true;
+};
+
+const findAdjacentIndex = (
+  matches: readonly TextRange[],
+  { from, to }: TextRange,
+  direction: Direction,
+) => (direction === 1 ? findMatchIndexFrom(matches, to) : findMatchIndexBefore(matches, from));
+
+const getMatch = (matches: readonly TextRange[], index: number | null) =>
+  index === null ? null : matches[index];
+
+export const openSearch = (view: EditorView, mode: SearchMode) => {
+  finalizeSourceProjection(view);
+
+  const { state } = view;
+  const search = getSearchState(state);
+  const selectionQuery = getSelectionQuery(state);
+  const query = selectionQuery ?? search.query;
+  const matches = findSearchMatches(state, { ...search, query });
+  // Asking again for a surface already open only brings focus back to it, and `Find...` leaves a
+  // replace row that is showing where it is.
+  const current =
+    search.open && selectionQuery === null
+      ? search.current
+      : getMatch(matches, findMatchIndexFrom(matches, state.selection.from));
+
+  return dispatchSearchUpdate(view, {
+    change: {
+      current,
+      mode: search.open && mode === "find" ? search.mode : mode,
+      open: true,
+      query,
+    },
+    focus: mode === "replace" && query !== "" ? "replacement" : "query",
+    reveal: true,
+  });
+};
+
+export const setSearchMode = (view: EditorView, mode: SearchMode) =>
+  dispatchSearchUpdate(view, { change: { mode } });
+
+// A refined query goes on from the match it had reached rather than back to the caret.
+export const changeSearchQuery = (view: EditorView, change: SearchQueryChange) => {
+  finalizeSourceProjection(view);
+
+  const { state } = view;
+  const search = getSearchState(state);
+  const matches = findSearchMatches(state, { ...search, ...change });
+  const position = search.current?.from ?? state.selection.from;
+
+  return dispatchSearchUpdate(view, {
+    change: { ...change, current: getMatch(matches, findMatchIndexFrom(matches, position)) },
+    reveal: true,
+  });
+};
+
+export const canFindAdjacentMatch = (state: EditorState) => getSearchState(state).query !== "";
+
+const moveToAdjacentMatch = (view: EditorView, direction: Direction) => {
+  const { state } = view;
+  const matches = getSearchMatches(state);
+  const current = getCurrentSearchMatchIndex(state);
+  const next =
+    current === null
+      ? findAdjacentIndex(matches, state.selection, direction)
+      : (current + direction + matches.length) % matches.length;
+
+  if (next === null) {
+    return true;
+  }
+
+  return dispatchSearchUpdate(view, { change: { current: matches[next] }, reveal: true });
+};
+
+// With the surface closed there are no highlights to move, so the match itself is selected, as
+// closing the surface on it would have left it.
+const selectAdjacentMatch = (view: EditorView, direction: Direction) => {
+  const { state } = view;
+  const matches = findSearchMatches(state, getSearchState(state));
+  const match = getMatch(matches, findAdjacentIndex(matches, state.selection, direction));
+
+  if (!match) {
+    return false;
+  }
+
+  view.focus();
+  view.dispatch(
+    state.tr.setSelection(TextSelection.create(state.doc, match.from, match.to)).scrollIntoView(),
+  );
+
+  return true;
+};
+
+const findAdjacentMatch = (view: EditorView, direction: Direction) => {
+  if (!canFindAdjacentMatch(view.state)) {
+    return false;
+  }
+
+  finalizeSourceProjection(view);
+
+  return getSearchState(view.state).open
+    ? moveToAdjacentMatch(view, direction)
+    : selectAdjacentMatch(view, direction);
+};
+
+export const findNext = (view: EditorView) => findAdjacentMatch(view, 1);
+
+export const findPrevious = (view: EditorView) => findAdjacentMatch(view, -1);
+
+// The replacement takes the formatting the replaced text started with. That is read from the text
+// itself rather than as typing would, which drops a link or code span ending with the match. A
+// character reference names the one character it was written for, so it does not carry over.
+const replaceRange = (transaction: Transaction, range: TextRange, replacement: string) => {
+  const from = transaction.mapping.map(range.from);
+  const to = transaction.mapping.map(range.to);
+
+  if (replacement === "") {
+    return transaction.delete(from, to);
+  }
+
+  const marks = (transaction.doc.resolve(from).nodeAfter?.marks ?? []).filter(
+    (mark) => mark.type.name !== CHARACTER_REFERENCE_MARK_NAME,
+  );
+
+  return transaction.replaceWith(from, to, transaction.doc.type.schema.text(replacement, marks));
+};
+
+// Replacing edits canonical text, so a projection that could not settle leaves nothing to replace.
+const getReplaceableMatches = (view: EditorView) => {
+  finalizeSourceProjection(view);
+
+  const search = getSearchState(view.state);
+
+  return search.open && search.query !== "" && !hasActiveSourceProjection(view.state)
+    ? getSearchMatches(view.state)
+    : null;
+};
+
+/** Replaces the current match and moves on; without one, only moves to the next match. */
+export const replaceSearchMatch = (view: EditorView, replacement: string) => {
+  const matches = getReplaceableMatches(view);
+
+  if (!matches) {
+    return false;
+  }
+
+  const match = getMatch(matches, getCurrentSearchMatchIndex(view.state));
+
+  if (!match) {
+    return moveToAdjacentMatch(view, 1);
+  }
+
+  // Each replacement is its own step to undo, even straight after typing.
+  const transaction = replaceRange(closeHistory(view.state.tr), match, replacement);
+  const remaining = findTextMatches(
+    transaction.doc,
+    getSearchTextQuery(getSearchState(view.state)),
+  );
+  const next = findMatchIndexFrom(remaining, transaction.mapping.map(match.to));
+
+  view.dispatch(
+    setSearchUpdate(transaction, { change: { current: getMatch(remaining, next) }, reveal: true }),
+  );
+
+  return true;
+};
+
+export const replaceAllSearchMatches = (view: EditorView, replacement: string) => {
+  const matches = getReplaceableMatches(view);
+
+  if (!matches || matches.length === 0) {
+    return false;
+  }
+
+  const transaction = closeHistory(view.state.tr);
+
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    replaceRange(transaction, matches[index], replacement);
+  }
+
+  view.dispatch(setSearchUpdate(transaction, { change: { current: null } }));
+
+  return true;
+};
+
+/** Leaves the current match selected, or the caret where it was, and returns focus to the text. */
+export const closeSearch = (view: EditorView) => {
+  const { state } = view;
+
+  if (!getSearchState(state).open) {
+    return false;
+  }
+
+  const match = getMatch(getSearchMatches(state), getCurrentSearchMatchIndex(state));
+  const transaction = setSearchClosed(state.tr);
+
+  if (match) {
+    transaction
+      .setSelection(TextSelection.create(transaction.doc, match.from, match.to))
+      .scrollIntoView();
+  }
+
+  view.focus();
+  view.dispatch(transaction);
+
+  return true;
+};

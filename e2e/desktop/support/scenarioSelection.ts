@@ -3,6 +3,7 @@ const scenarioTargets = {
   diagnostics: ["diagnostics"],
   "document-lifecycle": ["document-lifecycle"],
   "document-watcher": ["document-watcher"],
+  "find-and-replace": ["find-and-replace"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],
   "rendered-images": ["rendered-images"],

@@ -36,6 +36,7 @@ vi.mock("@/components/screens/document-screen", () => ({
 
 vi.mock("@/features/session", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/session")>()),
+  useActiveDocumentWatcher: vi.fn(),
   useFolderContextWatcher: vi.fn(),
 }));
 

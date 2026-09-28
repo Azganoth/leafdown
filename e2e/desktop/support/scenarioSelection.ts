@@ -2,6 +2,7 @@ const scenarioTargets = {
   "block-selection": ["block-selection"],
   diagnostics: ["diagnostics"],
   "document-lifecycle": ["document-lifecycle"],
+  "document-watcher": ["document-watcher"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],
   "rendered-images": ["rendered-images"],

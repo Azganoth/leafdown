@@ -139,6 +139,7 @@ describe("folder context service", () => {
           modifiedAtUnixMs: 1_700_000_000_000,
           sizeBytes: 7,
         },
+        fingerprint: "0123456789abcdef",
       },
       indexError: null,
     } satisfies OpenMarkdownFolderResult;

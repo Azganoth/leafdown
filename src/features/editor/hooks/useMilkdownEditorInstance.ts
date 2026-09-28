@@ -1,4 +1,5 @@
 import { editorViewCtx } from "@milkdown/kit/core";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import {
   useCallback,
   useEffect,
@@ -44,10 +45,18 @@ import {
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 
+/** Carries the caret and focus across a remount that replaces the document text. */
+export interface EditorViewState {
+  anchor: number;
+  head: number;
+  focused: boolean;
+}
+
 export interface MilkdownEditorBridge {
   getMarkdown: () => string;
   getCommandState?: () => EditorCommandState;
   getDocumentStatus?: () => EditorDocumentStatus;
+  getViewState?: () => EditorViewState | null;
   insertLink?: (label: string, target: string) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
 }
@@ -56,6 +65,7 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   autoPairBracketsAndQuotes?: boolean;
   displayCodeBlockLineNumbers?: boolean;
   initialMarkdown: string;
+  initialViewState?: EditorViewState | null;
   onCommandStateChanged?: () => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: () => void;
@@ -72,6 +82,7 @@ export const useMilkdownEditorInstance = ({
   documentPath = null,
   folderContextPath = null,
   initialMarkdown,
+  initialViewState = null,
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
@@ -103,6 +114,7 @@ export const useMilkdownEditorInstance = ({
     documentPath,
     folderContextPath,
     initialMarkdown,
+    initialViewState,
     onCommandStateChanged,
     onContentChanged,
     onDocumentStatusChanged,
@@ -118,6 +130,7 @@ export const useMilkdownEditorInstance = ({
       documentPath,
       folderContextPath,
       initialMarkdown,
+      initialViewState,
       onCommandStateChanged,
       onContentChanged,
       onDocumentStatusChanged,
@@ -128,6 +141,7 @@ export const useMilkdownEditorInstance = ({
     autoPairBracketsAndQuotes,
     displayCodeBlockLineNumbers,
     initialMarkdown,
+    initialViewState,
     documentPath,
     folderContextPath,
     onCommandStateChanged,
@@ -147,6 +161,16 @@ export const useMilkdownEditorInstance = ({
       },
       getCommandState: () => commandStateRef.current,
       getDocumentStatus: () => documentStatusRef.current,
+      getViewState: () => {
+        if (!editorRef.current?.ctx) {
+          return null;
+        }
+
+        const view = editorRef.current.ctx.get(editorViewCtx);
+        const { anchor, head } = view.state.selection;
+
+        return { anchor, head, focused: view.hasFocus() };
+      },
       insertLink: (label, target) => {
         if (!editorRef.current?.ctx) {
           return false;
@@ -381,6 +405,7 @@ export const useMilkdownEditorInstance = ({
 
       editorRef.current = editor;
       syncCodeLineNumbers(editor, liveOptionsRef.current.displayCodeBlockLineNumbers);
+      restoreViewState(editor, liveOptionsRef.current.initialViewState);
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
     };
@@ -446,6 +471,33 @@ const syncCodeLineNumbers = (editor: MilkdownEditorInstance, enabled: boolean) =
     setCodeLineNumbersEnabled(editor.ctx.get(editorViewCtx), enabled);
   } catch (error) {
     handleUnexpectedError(error, "syncCodeLineNumbers");
+  }
+};
+
+// The replacement text can be shorter or shaped differently, so each end moves to the nearest
+// position that can hold a text selection.
+const restoreViewState = (editor: MilkdownEditorInstance, viewState: EditorViewState | null) => {
+  if (!viewState || !editor.ctx) {
+    return;
+  }
+
+  try {
+    const view = editor.ctx.get(editorViewCtx);
+    const { doc } = view.state;
+    const resolve = (position: number) =>
+      doc.resolve(Math.min(Math.max(position, 0), doc.content.size));
+
+    view.dispatch(
+      view.state.tr
+        .setSelection(TextSelection.between(resolve(viewState.anchor), resolve(viewState.head)))
+        .scrollIntoView(),
+    );
+
+    if (viewState.focused) {
+      view.focus();
+    }
+  } catch (error) {
+    handleUnexpectedError(error, "restoreEditorViewState");
   }
 };
 

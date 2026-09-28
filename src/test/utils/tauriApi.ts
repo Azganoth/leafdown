@@ -1,12 +1,19 @@
 import { OPEN_WEBVIEW_DEVTOOLS_COMMAND } from "@/commands/actions/help";
 import { GET_DIAGNOSTICS_SUMMARY_COMMAND, type DiagnosticsSummary } from "@/features/diagnostics";
 import {
+  INSPECT_MARKDOWN_FILE_COMMAND,
   OPEN_MARKDOWN_FILE_COMMAND,
   SAVE_MARKDOWN_FILE_COMMAND,
+  UNWATCH_MARKDOWN_DOCUMENT_COMMAND,
+  WATCH_MARKDOWN_DOCUMENT_COMMAND,
+  type InspectMarkdownFileArgs,
+  type MarkdownFileState,
   type OpenMarkdownFileArgs,
   type OpenMarkdownFileResult,
   type SaveMarkdownFileArgs,
   type SaveMarkdownFileResult,
+  type UnwatchMarkdownDocumentArgs,
+  type WatchMarkdownDocumentArgs,
 } from "@/features/document/services/markdownDocumentApi";
 import {
   FETCH_REMOTE_IMAGE_COMMAND,
@@ -54,6 +61,9 @@ import {
 interface TauriApiCommandArgs {
   openMarkdownFile: OpenMarkdownFileArgs;
   saveMarkdownFile: SaveMarkdownFileArgs;
+  inspectMarkdownFile: InspectMarkdownFileArgs;
+  watchMarkdownDocument: WatchMarkdownDocumentArgs;
+  unwatchMarkdownDocument: UnwatchMarkdownDocumentArgs;
   scanMarkdownFolder: ScanMarkdownFolderArgs;
   openMarkdownFolder: OpenMarkdownFolderArgs;
   watchMarkdownFolder: WatchMarkdownFolderArgs;
@@ -73,6 +83,9 @@ interface TauriApiCommandArgs {
 interface TauriApiCommandResults {
   openMarkdownFile: OpenMarkdownFileResult;
   saveMarkdownFile: SaveMarkdownFileResult;
+  inspectMarkdownFile: MarkdownFileState;
+  watchMarkdownDocument: void;
+  unwatchMarkdownDocument: void;
   scanMarkdownFolder: ScanMarkdownFolderResult;
   openMarkdownFolder: OpenMarkdownFolderResult;
   watchMarkdownFolder: void;
@@ -102,6 +115,9 @@ type TauriApiCommandHandlers = Partial<{
 const TAURI_API_COMMANDS = {
   openMarkdownFile: OPEN_MARKDOWN_FILE_COMMAND,
   saveMarkdownFile: SAVE_MARKDOWN_FILE_COMMAND,
+  inspectMarkdownFile: INSPECT_MARKDOWN_FILE_COMMAND,
+  watchMarkdownDocument: WATCH_MARKDOWN_DOCUMENT_COMMAND,
+  unwatchMarkdownDocument: UNWATCH_MARKDOWN_DOCUMENT_COMMAND,
   scanMarkdownFolder: SCAN_MARKDOWN_FOLDER_COMMAND,
   openMarkdownFolder: OPEN_MARKDOWN_FOLDER_COMMAND,
   watchMarkdownFolder: WATCH_MARKDOWN_FOLDER_COMMAND,

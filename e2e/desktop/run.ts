@@ -145,6 +145,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const addedFolderFilePath = path.join(folderPath, addedFolderFileName);
   const missingDocumentPath = path.join(fixtureRoot, "missing-document.md");
   const legacyEncodingPath = path.join(fixtureRoot, "legacy-encoding.md");
+  const documentWatcherPath = path.join(fixtureRoot, "document-watcher", "watched.md");
   const savedMarker = "Saved fixture marker.";
   const context: DesktopE2ERunContext = {
     appIdentifier,
@@ -156,6 +157,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       savedMarkdown: `${savedMarker}\n`,
       savedMarker,
     },
+    documentWatcher: { path: documentWatcherPath },
     images: { path: imagesPath },
     remoteImages: {
       certificatePath: path.join(remoteImageFixtureRoot, "server.pem"),
@@ -185,6 +187,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "block-selection", recentFiles: [blocksPath] },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
+    { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
@@ -224,6 +227,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
 
     await settleTasks(`Failed to create directories for ${label}.`, [
       mkdir(folderPath, { recursive: true }),
+      mkdir(path.dirname(documentWatcherPath), { recursive: true }),
       mkdir(path.join(actionsFolderPath, "notes"), { recursive: true }),
       mkdir(workerArtifactsRoot, { recursive: true }),
     ]);
@@ -254,6 +258,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" viewBox="0 0 1 1"><rect width="1" height="1" fill="transparent" /></svg>',
       ),
       writeFile(remoteImagesPath, ""),
+      writeFile(documentWatcherPath, "Watched fixture marker.\n"),
       writeFile(legacyEncodingPath, Buffer.from("Café legacy fixture marker.\n", "latin1")),
       writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),

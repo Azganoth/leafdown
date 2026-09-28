@@ -55,7 +55,7 @@ The runtime tracks three primary state values:
 
 - **Current folder context:** The directory used for article navigation and folder workflows.
 - **Active document:** The saved or untitled Markdown document currently loaded in the editor.
-- **Active document metadata:** File metadata utilized for dirty-state and external modification checks.
+- **Active document metadata:** File metadata and a content fingerprint utilized for dirty-state and external modification checks.
 
 ## Editor Architecture
 
@@ -120,7 +120,8 @@ The Rust backend manages:
 - Fetching a user-approved remote image under the remote image policy: `https:` only, public destination addresses checked at DNS resolution and for IP literals, re-validated redirects, bounded time and size, and a PNG, JPEG, GIF, or WebP signature. Image resolution never fetches.
 - Directory scanning and article-tree generation.
 - Creating Markdown files and folders, renaming entries, and moving entries to the system Recycle Bin or Trash inside the current folder context. Each operation resolves its target's parent through the filesystem and refuses one outside the folder context, so the root itself is never renamed or trashed. It refuses names the platform cannot hold, never replaces an existing entry, and never falls back to permanent deletion.
-- Filesystem watching to monitor directory changes.
+- Filesystem watching to monitor directory changes: the folder context for the article tree, and the active document's directory, non-recursively, for events naming that file. A symlinked document is watched under its own name and its target's.
+- Inspecting the active document's file against its recorded metadata and fingerprint, reading the file's bytes only when the metadata differs.
 - Intercepting window close requests to prompt for unsaved changes before exit, and closing the window on the next request when the frontend leaves one unanswered.
 - Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
 - Mapping permission and IO errors.
@@ -136,6 +137,7 @@ The React frontend manages:
 - Milkdown integration and custom editor elements.
 - Application state (folder context, active document, settings).
 - Updating the article navigator in response to backend file events.
+- Reconciling the active document with its file after a document watcher event.
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Presenting a fetched remote image through a `blob:` object URL owned by its image node view, which revokes it when the target changes or the view is destroyed and discards results that arrive after either.
 - Marker visibility rules, thematic styling, and error presentation.
@@ -159,6 +161,7 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 ## Data Contracts
 
 - Session owns the active document, folder context, and document metadata used for dirty-state and external-modification checks.
+- Opening and saving return a fingerprint of the file's bytes beside its metadata, which together name the version of the file the document holds. The fingerprint is a 64-bit hash compared only for equality within one run of the application and never persisted. The document also records an external change: a newer version observed on disk, or a missing file.
 - An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. Opening takes an optional chosen encoding name, which the backend ignores when the file has a byte order mark. Session also keeps the encoding the file holds, so the document can be converted back to it, and remounts the editor when a reopen of the same path replaces its text. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
 - The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
@@ -182,11 +185,17 @@ Renames and deletions queue behind a pending save, so a save in flight cannot re
 
 ### Save Workflow
 
-Serialize editor state to Markdown -> Verify metadata freshness via backend -> Encode in the document's encoding and write file to disk -> Update dirty state and cached metadata.
+Serialize editor state to Markdown -> Verify metadata freshness via backend -> Encode in the document's encoding and write file to disk -> Update dirty state, cached metadata, and fingerprint.
 
 ### Save As Workflow
 
 Write document to new path -> Update active document path -> Bootstrap folder context when none exists, refresh the current folder context when the saved file is inside it, or leave the pinned folder context unchanged when the saved file is outside it.
+
+### External Change Workflow
+
+Backend reports an event naming the active document -> Session debounces events into one check -> The check queues behind pending saves and renames, which replace the file and the document's version together -> Backend compares the file's metadata, then its fingerprint, with the document's version -> Session accepts a touch's metadata, reloads a clean document through the open path, records a newer version for a dirty document, or records a missing file -> A result for a document that was replaced, renamed, or closed in the meantime is discarded.
+
+The document watch starts whenever the active saved document's path changes and checks the file once it is in place, since the file can change between being read and being watched. A reload remounts the editor, as a reopen does, and carries the caret and focus into the new editor.
 
 ## Security
 
@@ -202,7 +211,7 @@ Write document to new path -> Update active document path -> Bootstrap folder co
 
 Automated tests cover Markdown round trips; editor commands and projection; file, folder, watcher, and persistence workflows; path, encoding, size, symlink, and permission boundaries; local resource resolution; safe raw HTML; and context popup behavior. Rendered HTML parsing, block layout, and native interactions also need the desktop WebView.
 
-The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
+The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, external changes to the active document, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
 
 Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build, as does the allowance that lets the remote image fetch trust one runner-named host on loopback with a test certificate authority. The E2E build also replaces the opener plugin with one that records URL, path, and reveal requests as diagnostic records instead of handing them to the system shell, so the capability still gates each command but opener scopes and link-click interception are not exercised.
 

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 import {
   useMilkdownEditorInstance,
+  type EditorViewState,
   type MilkdownEditorBridge,
 } from "../hooks/useMilkdownEditorInstance";
 import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
@@ -22,10 +23,11 @@ import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-pick
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
 
-export type { MilkdownEditorBridge } from "../hooks/useMilkdownEditorInstance";
+export type { EditorViewState, MilkdownEditorBridge } from "../hooks/useMilkdownEditorInstance";
 
 export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   initialMarkdown: string;
+  initialViewState?: EditorViewState | null;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
@@ -43,6 +45,7 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
 
 export function MilkdownEditor({
   initialMarkdown,
+  initialViewState = null,
   documentPath = null,
   folderContextPath = null,
   onOpenMarkdownPath,
@@ -79,6 +82,7 @@ export function MilkdownEditor({
     documentPath,
     folderContextPath,
     initialMarkdown,
+    initialViewState,
     onMarkdownUpdated,
     onContentChanged,
     onCommandStateChanged,

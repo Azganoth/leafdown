@@ -5,8 +5,11 @@ import {
   matchesActiveDocumentKey,
   type ActiveDocumentState,
   type DocumentEncoding,
+  type ExternalFileChange,
+  type FileMetadataSnapshot,
   type LineEnding,
 } from "@/features/document";
+import type { EditorViewState } from "@/features/editor";
 import type { FolderContextState } from "@/features/folder-context";
 
 export interface SessionState {
@@ -15,12 +18,20 @@ export interface SessionState {
   activeDocumentGeneration: number;
   /** Changes when the active document's text is replaced from disk without its key changing. */
   activeDocumentLoadId: number;
+  /** The caret and focus the editor restores when a reload remounts it. */
+  activeDocumentViewState: EditorViewState | null;
 }
 
 export type SessionMode = "document" | "folder-only" | "welcome";
 
 export interface ActiveDocumentUpdateOptions {
   reload?: boolean;
+  viewState?: EditorViewState | null;
+}
+
+export interface ActiveDocumentFileState {
+  metadata: FileMetadataSnapshot;
+  externalChange: ExternalFileChange | null;
 }
 
 export interface SessionStore extends SessionState {
@@ -34,6 +45,8 @@ export interface SessionStore extends SessionState {
   setActiveDocumentLineEnding: (documentKey: string, lineEnding: LineEnding) => void;
   setActiveDocumentEncoding: (documentKey: string, encoding: DocumentEncoding) => void;
   markActiveDocumentDirty: (documentKey: string) => void;
+  /** Records what the file on disk holds without replacing the document or invalidating its decisions. */
+  setActiveDocumentFileState: (documentKey: string, fileState: ActiveDocumentFileState) => void;
   setActiveDocumentSession: (
     folderContext: FolderContextState | null,
     activeDocument: ActiveDocumentState,
@@ -47,6 +60,7 @@ const INITIAL_SESSION_STATE: SessionState = {
   activeDocument: null,
   activeDocumentGeneration: 0,
   activeDocumentLoadId: 0,
+  activeDocumentViewState: null,
 };
 
 export const getSessionMode = (
@@ -62,13 +76,14 @@ export const useSessionStore = create<SessionStore>()((set) => ({
     set((state) => ({
       activeDocument: null,
       activeDocumentGeneration: state.activeDocumentGeneration + 1,
+      activeDocumentViewState: null,
       folderContext,
     })),
-  setActiveDocument: (activeDocument, { reload = false } = {}) =>
+  setActiveDocument: (activeDocument, options) =>
     set((state) => ({
       activeDocument,
       activeDocumentGeneration: state.activeDocumentGeneration + 1,
-      activeDocumentLoadId: state.activeDocumentLoadId + (reload ? 1 : 0),
+      ...getActiveDocumentLoad(state, options),
     })),
   setActiveDocumentContent: (documentKey, content) =>
     set((state) =>
@@ -107,12 +122,21 @@ export const useSessionStore = create<SessionStore>()((set) => ({
         activeDocument.isDirty ? activeDocument : { ...activeDocument, isDirty: true },
       ),
     ),
-  setActiveDocumentSession: (folderContext, activeDocument, { reload = false } = {}) =>
+  setActiveDocumentFileState: (documentKey, { externalChange, metadata }) =>
+    set((state) =>
+      updateActiveDocumentByKey(state, documentKey, (activeDocument) =>
+        activeDocument.status !== "saved" ||
+        (activeDocument.metadata === metadata && activeDocument.externalChange === externalChange)
+          ? activeDocument
+          : { ...activeDocument, externalChange, metadata },
+      ),
+    ),
+  setActiveDocumentSession: (folderContext, activeDocument, options) =>
     set((state) => ({
       folderContext,
       activeDocument,
       activeDocumentGeneration: state.activeDocumentGeneration + 1,
-      activeDocumentLoadId: state.activeDocumentLoadId + (reload ? 1 : 0),
+      ...getActiveDocumentLoad(state, options),
     })),
   reset: () =>
     set((state) => ({
@@ -120,6 +144,14 @@ export const useSessionStore = create<SessionStore>()((set) => ({
       activeDocumentGeneration: state.activeDocumentGeneration + 1,
     })),
 }));
+
+const getActiveDocumentLoad = (
+  state: SessionState,
+  { reload = false, viewState = null }: ActiveDocumentUpdateOptions = {},
+): Pick<SessionState, "activeDocumentLoadId" | "activeDocumentViewState"> => ({
+  activeDocumentLoadId: state.activeDocumentLoadId + (reload ? 1 : 0),
+  activeDocumentViewState: reload ? viewState : null,
+});
 
 const updateActiveDocumentByKey = (
   state: SessionStore,

@@ -11,13 +11,16 @@ import { t } from "@/lib/i18n";
 
 import type { TextEncodingName, DocumentEncoding } from "../utils/documentEncoding";
 import {
+  isInspectMarkdownFileError,
   isOpenMarkdownFileError,
   isSaveMarkdownFileError,
+  type InspectMarkdownFileError,
   type OpenMarkdownFileError,
   type SaveMarkdownFileError,
 } from "../utils/documentErrors";
-import type { FileMetadataSnapshot } from "../utils/documentState";
+import type { FileMetadataSnapshot, SavedDocumentState } from "../utils/documentState";
 import {
+  inspectMarkdownFile,
   MARKDOWN_FILE_EXTENSIONS,
   openMarkdownFile,
   saveMarkdownFile,
@@ -26,7 +29,11 @@ import {
   type SaveMarkdownFileResult,
 } from "./markdownDocumentApi";
 
-export { MARKDOWN_FILE_EXTENSIONS, type MarkdownFileExtension } from "./markdownDocumentApi";
+export {
+  MARKDOWN_FILE_EXTENSIONS,
+  type MarkdownFileExtension,
+  type MarkdownFileState,
+} from "./markdownDocumentApi";
 export type OpenedMarkdownDocument = OpenMarkdownFileResult;
 export type SavedMarkdownDocument = SaveMarkdownFileResult;
 
@@ -138,14 +145,31 @@ export const saveMarkdownDocument = async (
   }
 };
 
+export const inspectMarkdownDocument = async (
+  { fingerprint, metadata, path }: Pick<SavedDocumentState, "fingerprint" | "metadata" | "path">,
+  cancellationToken: CancellationToken = CancellationToken.None,
+) => {
+  try {
+    return await raceWithCancellation(cancellationToken, () =>
+      inspectMarkdownFile({ fingerprint, metadata, path }),
+    );
+  } catch (error) {
+    if (isInspectMarkdownFileError(error)) {
+      writeDocumentOperationFailureDiagnostic("inspectMarkdownDocument", error);
+    }
+
+    throw error;
+  }
+};
+
 export const ensureMarkdownExtension = async (
   path: string,
   defaultExtension: MarkdownFileExtension,
 ) => ((await extname(path)) ? path : `${path}${defaultExtension}`);
 
 const writeDocumentOperationFailureDiagnostic = (
-  operation: "openMarkdownDocument" | "saveMarkdownDocument",
-  error: OpenMarkdownFileError | SaveMarkdownFileError,
+  operation: "inspectMarkdownDocument" | "openMarkdownDocument" | "saveMarkdownDocument",
+  error: InspectMarkdownFileError | OpenMarkdownFileError | SaveMarkdownFileError,
   context: Record<string, boolean> = {},
 ) => {
   void writeDiagnosticOperationFailure({

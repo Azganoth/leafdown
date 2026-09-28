@@ -47,7 +47,7 @@ pub(crate) fn write_file_atomically(path: &Path, content: &[u8]) -> io::Result<(
 
 /// A rename replaces a symlink instead of writing through it, which would silently turn a
 /// linked document into a regular file.
-fn resolve_symlinked_target(path: &Path) -> PathBuf {
+pub(crate) fn resolve_symlinked_target(path: &Path) -> PathBuf {
     if !fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
         return path.to_path_buf();
     }
@@ -126,7 +126,7 @@ mod tests {
     use std::{fs, io::ErrorKind, path::Path};
 
     use super::{ReadFileError, read_file_with_size_limit, write_file_atomically};
-    use crate::test_utils::TestDirectory;
+    use crate::test_utils::{TestDirectory, create_file_symlink};
 
     fn staging_file_names(directory: &Path) -> Vec<String> {
         fs::read_dir(directory)
@@ -236,16 +236,6 @@ mod tests {
             "# Leafdown\n"
         );
         assert!(staging_file_names(folder.path.as_path()).is_empty());
-    }
-
-    #[cfg(unix)]
-    fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, symlink_path)
-    }
-
-    #[cfg(windows)]
-    fn create_file_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_file(target, symlink_path)
     }
 
     #[cfg(windows)]

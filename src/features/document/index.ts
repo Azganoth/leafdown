@@ -1,26 +1,37 @@
 export {
   ensureMarkdownExtension,
+  inspectMarkdownDocument,
   MARKDOWN_FILE_EXTENSIONS,
   openMarkdownDocument,
   saveMarkdownDocument,
   selectMarkdownFilePath,
   selectMarkdownSavePath,
   type MarkdownFileExtension,
+  type MarkdownFileState,
   type OpenedMarkdownDocument,
   type SavedMarkdownDocument,
   type WriteMarkdownDocumentOptions,
 } from "./services/markdownDocument";
 export {
+  MARKDOWN_DOCUMENT_CHANGED_EVENT,
+  unwatchMarkdownDocument,
+  watchMarkdownDocument,
+  type MarkdownDocumentChangedEventPayload,
+} from "./services/markdownDocumentApi";
+export {
   formatUnrepresentableCharacters,
   getOpenMarkdownFileErrorMessage,
   getSaveMarkdownFileErrorMessage,
   isEncodingOpenError,
+  isInspectMarkdownFileError,
   isOpenMarkdownFileError,
   isSaveMarkdownFileError,
   isUnrepresentableCharactersError,
+  isWatchMarkdownDocumentError,
   type OpenMarkdownFileError,
   type SaveMarkdownFileError,
   type UnrepresentableCharactersError,
+  type WatchMarkdownDocumentError,
 } from "./utils/documentErrors";
 export {
   ENCODING_CHOICES,
@@ -43,6 +54,7 @@ export {
   toSavedDocument,
   toUntitledDocument,
   type ActiveDocumentState,
+  type ExternalFileChange,
   type FileMetadataSnapshot,
   type LineEnding,
   type SavedDocumentState,

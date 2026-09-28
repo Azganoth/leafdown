@@ -50,6 +50,7 @@ export interface FolderIndexDocument {
   lineEnding: LineEnding | null;
   encoding: DocumentEncoding;
   metadata: FileMetadataSnapshot;
+  fingerprint: string;
 }
 
 export interface ScanMarkdownFolderArgs {

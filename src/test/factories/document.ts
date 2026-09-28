@@ -10,6 +10,7 @@ import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures
 export const TEST_UNTITLED_DOCUMENT_ID = "untitled:test";
 
 const TEST_FILE_MODIFIED_AT_UNIX_MS = 1_773_916_800_000;
+export const TEST_FILE_FINGERPRINT = "0123456789abcdef";
 
 type FileMetadataFactoryOptions = Partial<FileMetadataSnapshot>;
 
@@ -58,6 +59,8 @@ export const createSavedDocument = (
     lineEnding: "lf",
     encoding,
     fileEncoding,
+    fingerprint: TEST_FILE_FINGERPRINT,
+    externalChange: null,
     ...documentOverrides,
     metadata: createFileMetadata({
       sizeBytes: getContentSizeBytes(content),
@@ -89,6 +92,7 @@ export const createOpenedMarkdownDocument = (
     content,
     lineEnding: "lf",
     encoding: { name: "UTF-8", bom: false },
+    fingerprint: TEST_FILE_FINGERPRINT,
     ...documentOverrides,
     metadata: createFileMetadata({
       sizeBytes: getContentSizeBytes(content),
@@ -105,6 +109,7 @@ export const createSavedMarkdownDocumentResult = (
   return {
     path: TEST_MARKDOWN_FILE_PATH,
     parentFolderPath: TEST_NOTES_FOLDER_PATH,
+    fingerprint: TEST_FILE_FINGERPRINT,
     ...documentOverrides,
     metadata: createFileMetadata(metadata),
   };

@@ -178,6 +178,8 @@ describe("desktop article navigator actions", () => {
     await browser.waitUntil(async () => (await activeElementText()) === "roadmap.md", {
       timeoutMsg: "Focus did not move to the renamed row.",
     });
+    await browser.pause(WATCHER_SETTLE_MS);
+    expect(await $$('[data-slot="toast"][data-type="warning"]').length).toBe(0);
 
     await openRowMenu("roadmap.md");
     await chooseMenuItem("Rename");

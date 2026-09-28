@@ -13,6 +13,7 @@ export interface DesktopE2ERunContext {
     savedMarker: string;
   };
   documentWatcher: { path: string };
+  search: { path: string };
   images: {
     path: string;
   };

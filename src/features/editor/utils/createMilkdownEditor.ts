@@ -121,6 +121,7 @@ import {
   createLeafdownReferenceLinkPlugin,
   leafdownDefinitionSchema,
 } from "../plugins/referenceLink";
+import { createLeafdownSearchPlugin, type LeafdownSearchPluginOptions } from "../plugins/search";
 import {
   createLeafdownSourceProjectionContinuationPlugin,
   createLeafdownSourceProjectionPlugin,
@@ -211,6 +212,7 @@ export interface CreateMilkdownEditorOptions {
   blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
+  search?: LeafdownSearchPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
   areCodeLineNumbersEnabled?: () => boolean;
@@ -256,6 +258,7 @@ export const createMilkdownEditor = async ({
   blockInsertion,
   footnotePreview,
   codeBlockLanguage,
+  search,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
   areCodeLineNumbersEnabled = () => false,
@@ -336,6 +339,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
     .use(createLeafdownCodeBlockViewPlugin())
+    .use(createLeafdownSearchPlugin(search))
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())

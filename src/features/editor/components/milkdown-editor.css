@@ -19,12 +19,20 @@
   --leafdown-block-handle-slot: 1.25rem;
   --leafdown-block-insertion-slot: 1.5rem;
   --leafdown-measure: 48rem;
+  /* Space above the document while search is open, at least as tall as the search panel. */
+  --leafdown-search-clearance: 5rem;
   --leafdown-document-font: var(--font-sans);
   --leafdown-text-size: 16px;
   --leafdown-line-spacing: 1.75;
 
   @media (min-width: 40rem) {
     @apply px-8 py-10;
+  }
+
+  /* The clearance above the document has to be scrolled past for the text to hold still as search
+     opens, which a document shorter than the view could not otherwise do. */
+  &[data-search-open] {
+    min-height: calc(100% + var(--leafdown-search-clearance));
   }
 
   &[data-document-font="ibm-plex-sans"] {
@@ -539,6 +547,30 @@
 
     hr.ProseMirror-selectednode {
       @apply outline-none;
+    }
+
+    /* Found text takes a hue of its own, apart from the selection, the accent, and every document
+       style it can land on. The scroll margin keeps a revealed match clear of the search surface. */
+    .leafdown-search-match {
+      @apply rounded-[0.125rem];
+      background-color: oklch(0.93 0.1 95);
+      box-decoration-break: clone;
+      scroll-margin-block: calc(var(--leafdown-search-clearance) + 0.5rem) 2rem;
+      scroll-margin-inline: 2rem;
+
+      &:is(.dark *) {
+        background-color: oklch(0.42 0.07 95);
+      }
+    }
+
+    .leafdown-search-match--current {
+      background-color: oklch(0.82 0.15 70);
+      box-shadow: 0 0 0 1px oklch(0.66 0.16 60);
+
+      &:is(.dark *) {
+        background-color: oklch(0.6 0.13 65);
+        box-shadow: 0 0 0 1px oklch(0.75 0.14 70);
+      }
     }
 
     li.ProseMirror-selectednode {

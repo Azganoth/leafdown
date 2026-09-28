@@ -1,5 +1,6 @@
 import { editorViewCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import {
   useCallback,
   useEffect,
@@ -21,6 +22,15 @@ import {
   type EditorCommandState,
 } from "../commands";
 import {
+  changeSearchQuery,
+  closeSearch,
+  findNext,
+  findPrevious,
+  replaceAllSearchMatches,
+  replaceSearchMatch,
+  setSearchMode,
+} from "../commands/editing/search";
+import {
   applyCodeBlockLanguage as applyCodeBlockLanguageToView,
   closeCodeBlockLanguage as closeCodeBlockLanguageInView,
 } from "../commands/formatting/codeBlockLanguage";
@@ -31,6 +41,12 @@ import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
+import {
+  CLOSED_EDITOR_SEARCH_STATE,
+  type EditorSearchState,
+  type SearchMode,
+  type SearchQueryChange,
+} from "../plugins/search";
 import {
   createMilkdownEditor,
   getMilkdownEditorMarkdown,
@@ -50,6 +66,20 @@ export interface EditorViewState {
   anchor: number;
   head: number;
   focused: boolean;
+}
+
+/** The search surface's view of the editor's search, and the actions it takes on it. */
+export interface EditorSearchControls {
+  state: EditorSearchState;
+  replacement: string;
+  changeQuery: (change: SearchQueryChange) => void;
+  changeReplacement: (replacement: string) => void;
+  close: () => void;
+  findNext: () => void;
+  findPrevious: () => void;
+  replace: () => void;
+  replaceAll: () => void;
+  setMode: (mode: SearchMode) => void;
 }
 
 export interface MilkdownEditorBridge {
@@ -105,6 +135,9 @@ export const useMilkdownEditorInstance = ({
   const [codeBlockLanguageRequest, setCodeBlockLanguageRequest] =
     useState<CodeBlockLanguageRequest | null>(null);
   const codeBlockLanguageOpenRef = useRef(false);
+  const [searchState, setSearchState] = useState<EditorSearchState>(CLOSED_EDITOR_SEARCH_STATE);
+  const [searchReplacement, setSearchReplacement] = useState("");
+  const searchFocusRequestRef = useRef<EditorSearchState["focusRequest"]>(null);
 
   const commandStateRef = useRef<EditorCommandState>(INACTIVE_EDITOR_COMMAND_STATE);
   const documentStatusRef = useRef<EditorDocumentStatus>(INACTIVE_EDITOR_DOCUMENT_STATUS);
@@ -354,6 +387,22 @@ export const useMilkdownEditorInstance = ({
           onClose: releaseCodeBlockLanguage,
           onRequest: requestCodeBlockLanguage,
         },
+        search: {
+          onStateChanged: (nextSearchState) => {
+            if (!isActiveEditorCallback()) {
+              return;
+            }
+
+            // Search takes focus into its own surface, which a popup on the selection would
+            // otherwise stand over.
+            if (nextSearchState.focusRequest !== searchFocusRequestRef.current) {
+              searchFocusRequestRef.current = nextSearchState.focusRequest;
+              closeContextPopup();
+            }
+
+            setSearchState(nextSearchState);
+          },
+        },
         getMarkdownReferenceContext: () => ({
           documentPath: liveOptionsRef.current.documentPath,
           folderContextPath: liveOptionsRef.current.folderContextPath,
@@ -424,6 +473,7 @@ export const useMilkdownEditorInstance = ({
       closeBlockInsertion();
       closeFootnotePreview();
       releaseCodeBlockLanguage();
+      setSearchState(CLOSED_EDITOR_SEARCH_STATE);
     };
   }, [
     closeContextPopup,
@@ -443,6 +493,33 @@ export const useMilkdownEditorInstance = ({
     }
   }, [displayCodeBlockLineNumbers]);
 
+  const runSearch = (run: (view: EditorView) => unknown) => {
+    const editor = editorRef.current;
+
+    if (!editor?.ctx) {
+      return;
+    }
+
+    try {
+      run(editor.ctx.get(editorViewCtx));
+    } catch (error) {
+      handleUnexpectedError(error, "runEditorSearch");
+    }
+  };
+
+  const search: EditorSearchControls = {
+    state: searchState,
+    replacement: searchReplacement,
+    changeQuery: (change) => runSearch((view) => changeSearchQuery(view, change)),
+    changeReplacement: setSearchReplacement,
+    close: () => runSearch(closeSearch),
+    findNext: () => runSearch(findNext),
+    findPrevious: () => runSearch(findPrevious),
+    replace: () => runSearch((view) => replaceSearchMatch(view, searchReplacement)),
+    replaceAll: () => runSearch((view) => replaceAllSearchMatches(view, searchReplacement)),
+    setMode: (mode) => runSearch((view) => setSearchMode(view, mode)),
+  };
+
   return {
     applyCodeBlockLanguage,
     blockInsertionRequest,
@@ -457,6 +534,7 @@ export const useMilkdownEditorInstance = ({
     focusEditor,
     footnotePreviewRequest,
     rootRef,
+    search,
   };
 };
 

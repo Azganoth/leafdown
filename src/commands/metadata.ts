@@ -78,6 +78,10 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.jumpToLineEnd": commandDef({ key: "End" }),
   "edit.jumpToFootnoteDefinition": commandDef(),
   "edit.renameFootnote": commandDef(),
+  "edit.find": commandDef({ key: "f", mod: true }),
+  "edit.findNext": commandDef({ key: "F3" }),
+  "edit.findPrevious": commandDef({ key: "F3", shift: true }),
+  "edit.replace": commandDef({ key: "h", mod: true }),
   "edit.lineEnding.crlf": commandDef(),
   "edit.lineEnding.lf": commandDef(),
   "edit.insertFinalNewline": commandDef(),
@@ -191,6 +195,20 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
 export const APPLICATION_SHORTCUT_COMMAND_IDS = APPLICATION_COMMAND_IDS.filter(
   (commandId) => COMMAND_DEFINITIONS[commandId].shortcuts?.length,
 );
+
+// Search belongs to the document rather than to the editor's focus, so its shortcuts are heard in
+// the search surface and anywhere else in the window, not only in the text.
+export const DOCUMENT_SEARCH_COMMAND_IDS = [
+  "edit.find",
+  "edit.findNext",
+  "edit.findPrevious",
+  "edit.replace",
+] as const satisfies readonly AppCommandId[];
+
+export const WINDOW_SHORTCUT_COMMAND_IDS: readonly AppCommandId[] = [
+  ...APPLICATION_SHORTCUT_COMMAND_IDS,
+  ...DOCUMENT_SEARCH_COMMAND_IDS,
+];
 
 export const formatShortcut = ({ alt, key, mod, shift }: CommandShortcut) =>
   [mod && "Mod", alt && "Alt", shift && "Shift", formatKeyboardKey(key)].filter(isTruthy).join("+");

@@ -17,9 +17,10 @@ import { openRecentFolderContext, openRecentMarkdownFile } from "../actions/file
 import type { AppCommandContext, ReopenWithEncodingControl } from "../context";
 import { dispatchAppCommand, type AppCommandId } from "../dispatch";
 import {
-  APPLICATION_SHORTCUT_COMMAND_IDS,
   COMMAND_DEFINITIONS,
+  DOCUMENT_SEARCH_COMMAND_IDS,
   matchesShortcut,
+  WINDOW_SHORTCUT_COMMAND_IDS,
 } from "../metadata";
 import { getCommandState } from "../state";
 import { useCommandUIStore } from "../stores/commandUi";
@@ -28,6 +29,8 @@ const SUPPRESSED_DISABLED_SHORTCUT_COMMAND_IDS: readonly AppCommandId[] = [
   "file.save",
   "file.saveAs",
   "file.closeDocument",
+  // Left unclaimed, `Mod+F` and `F3` open the webview's own find bar over the application.
+  ...DOCUMENT_SEARCH_COMMAND_IDS,
 ];
 
 const isSuppressedWebviewShortcut = (event: KeyboardEvent) => {
@@ -147,7 +150,7 @@ export const useAppCommands = () => {
         return;
       }
 
-      const shortcutCommandId = APPLICATION_SHORTCUT_COMMAND_IDS.find((commandId) =>
+      const shortcutCommandId = WINDOW_SHORTCUT_COMMAND_IDS.find((commandId) =>
         COMMAND_DEFINITIONS[commandId].shortcuts?.some((shortcut) =>
           matchesShortcut(event, shortcut),
         ),

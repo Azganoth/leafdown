@@ -11,10 +11,11 @@ import {
   formatShortcut,
   getShortcutSignature,
   matchesShortcut,
+  WINDOW_SHORTCUT_COMMAND_IDS,
 } from "./metadata";
 
 describe("command metadata", () => {
-  it("limits window-level shortcut routing to application commands", () => {
+  it("limits application shortcut routing to application commands", () => {
     expect(APPLICATION_SHORTCUT_COMMAND_IDS).toContain("file.save");
     expect(APPLICATION_SHORTCUT_COMMAND_IDS).toContain("view.toggleSidebar");
     expect(
@@ -24,6 +25,32 @@ describe("command metadata", () => {
     ).toBe(true);
     expect(APPLICATION_SHORTCUT_COMMAND_IDS).not.toContain("edit.copy");
     expect(APPLICATION_SHORTCUT_COMMAND_IDS).not.toContain("format.strong");
+  });
+
+  it("adds only the document search commands to window-level routing", () => {
+    const applicationCommandIds: readonly string[] = APPLICATION_COMMAND_IDS;
+    const editorCommandIds = WINDOW_SHORTCUT_COMMAND_IDS.filter(
+      (commandId) => !applicationCommandIds.includes(commandId),
+    );
+
+    expect(editorCommandIds).toEqual([
+      "edit.find",
+      "edit.findNext",
+      "edit.findPrevious",
+      "edit.replace",
+    ]);
+    expect(WINDOW_SHORTCUT_COMMAND_IDS).toEqual(
+      expect.arrayContaining([...APPLICATION_SHORTCUT_COMMAND_IDS]),
+    );
+  });
+
+  it("registers the find and replace shortcuts", () => {
+    expect(COMMAND_DEFINITIONS["edit.find"].shortcuts).toEqual([{ key: "f", mod: true }]);
+    expect(COMMAND_DEFINITIONS["edit.findNext"].shortcuts).toEqual([{ key: "F3" }]);
+    expect(COMMAND_DEFINITIONS["edit.findPrevious"].shortcuts).toEqual([
+      { key: "F3", shift: true },
+    ]);
+    expect(COMMAND_DEFINITIONS["edit.replace"].shortcuts).toEqual([{ key: "h", mod: true }]);
   });
 
   it("registers alternate shortcuts for a command", () => {

@@ -22,6 +22,7 @@ import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
 import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-picker";
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
+import { EditorSearchPanel } from "./editor-search-panel";
 
 export type { EditorViewState, MilkdownEditorBridge } from "../hooks/useMilkdownEditorInstance";
 
@@ -76,6 +77,7 @@ export function MilkdownEditor({
     focusEditor,
     footnotePreviewRequest,
     rootRef,
+    search,
   } = useMilkdownEditorInstance({
     autoPairBracketsAndQuotes,
     displayCodeBlockLineNumbers,
@@ -98,8 +100,10 @@ export function MilkdownEditor({
       data-document-font={documentFont}
       data-text-size={textSize}
       data-line-spacing={lineSpacing}
+      data-search-open={search.state.open || undefined}
       data-testid="milkdown-editor-host"
     >
+      <EditorSearchPanel search={search} />
       <div ref={rootRef} className="min-h-full w-full" />
       <EditorContextPopup
         commandState={commandState}

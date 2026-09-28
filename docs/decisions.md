@@ -202,6 +202,7 @@
 - A clean session restores its original target exactly. Projection entry and exit are housekeeping, while user edits remain ordinary editor changes managed through an explicit projection-session history bridge.
 - Projection finalizes before serialization. Valid source rehydrates semantic content; invalid source becomes the literal text it spells, so no projected character is lost except a backslash that escapes the character after it, which the file writes back.
 - Marker presentation remains separate from projection lifecycle.
+- Search highlights its current match rather than selecting it while the search surface is open, because a selection inside a projectable object opens its source and would reshape the text being searched with every step. Closing the surface hands the match to the selection.
 - Architecture owns projection lifecycle and adapter boundaries; Specification owns supported objects and observable editing behavior.
 
 ### Offer the escape gesture only where the conversion exists

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor } from "@/test/utils/react";
 
 import { READY_DISABLED_EDITOR_COMMAND_STATE } from "../commands";
+import { CLOSED_EDITOR_SEARCH_STATE } from "../plugins/search";
 import type {
   CreateMilkdownEditorOptions,
   MilkdownEditorInstance,
@@ -344,6 +345,41 @@ describe("milkdown-editor", () => {
       getCreateOptions().onCommandStateChanged?.(READY_DISABLED_EDITOR_COMMAND_STATE);
 
       expect(onCommandStateChanged).toHaveBeenCalledTimes(2);
+    });
+
+    it("shows the search surface and closes the context popup when search takes focus", async () => {
+      const editor = createMockEditor();
+      milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
+
+      render(<MilkdownEditor initialMarkdown="Leaf" />);
+
+      await waitFor(() => {
+        expect(editor.create).toHaveBeenCalledTimes(1);
+      });
+
+      const options = getCreateOptions();
+
+      act(() => {
+        options.contextPopup?.onRequest?.({
+          anchor: { contextElement: document.body, getRect: () => new DOMRect(10, 10, 40, 20) },
+          selectionKind: "text",
+          source: "pointer",
+        });
+      });
+
+      expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
+
+      act(() => {
+        options.search?.onStateChanged?.({
+          ...CLOSED_EDITOR_SEARCH_STATE,
+          focusRequest: { id: 1, target: "query" },
+          open: true,
+          query: "leaf",
+        });
+      });
+
+      expect(screen.getByRole("search", { name: "Find and replace" })).toBeInTheDocument();
+      expect(screen.queryByTestId("editor-context-popup")).not.toBeInTheDocument();
     });
   });
 });

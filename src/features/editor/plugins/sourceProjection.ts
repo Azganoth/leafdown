@@ -1353,6 +1353,21 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   const retainsOriginalContent = restoreRange.to > session.to;
   const { selection } = view.state;
 
+  // Chromium can keep the DOM caret in adjacent text at a math source edge, so move the model
+  // selection into its first or last character before the browser handles the arrow.
+  if (
+    session.adapter.id === "math" &&
+    selection instanceof TextSelection &&
+    selection.empty &&
+    ((event.key === "ArrowRight" && selection.from === session.from) ||
+      (event.key === "ArrowLeft" && selection.from === session.to))
+  ) {
+    event.preventDefault();
+    const position = selection.from + (event.key === "ArrowRight" ? 1 : -1);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position)));
+    return true;
+  }
+
   if (
     retainsOriginalContent &&
     selection instanceof TextSelection &&

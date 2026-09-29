@@ -149,6 +149,15 @@ export const createMathSourceProjectionAdapter = (
         return { anchor: position, head: position };
       }
 
+      if (context.direction === "forward") {
+        return { anchor: target.from, head: target.from };
+      }
+
+      if (context.direction === "backward") {
+        const sourceEnd = target.from + target.originalSource.length;
+        return { anchor: sourceEnd, head: sourceEnd };
+      }
+
       const map = (position: number) =>
         position <= target.from
           ? position

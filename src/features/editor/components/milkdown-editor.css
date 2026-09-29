@@ -100,6 +100,18 @@
     }
   }
 
+  & .ProseMirror p:has(> [data-type="math"][data-math-flow="block"]) {
+    @apply py-2;
+
+    > img.ProseMirror-separator {
+      @apply absolute;
+    }
+
+    > br.ProseMirror-trailingBreak {
+      @apply hidden;
+    }
+  }
+
   /* Display math sharing its paragraph keeps display style but stays in the line. */
   & [data-type="math"][data-math-flow="inline"] .katex-display,
   & .leafdown-math-preview:not(.leafdown-math-preview--block) .katex-display {

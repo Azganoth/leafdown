@@ -53,6 +53,27 @@ describe("math source projection", () => {
     },
   );
 
+  it.each([
+    { direction: "right", key: "ArrowRight", offset: 0, side: "right" },
+    { direction: "left", key: "ArrowLeft", offset: "$x^2$".length, side: "left" },
+  ])(
+    "enters from the $direction arrow at the source's matching edge",
+    async ({ key, offset, side }) => {
+      const mounted = await mountEditor(markdown);
+      const position = getEditorNodePosition(mounted, "math_inline");
+      setSelectionAtDocumentEnd(mounted.view);
+      runKeyDownHandlers(mounted.view, key);
+      setTextSelection(mounted.view, position + (side === "right" ? 1 : 0));
+
+      expect(hasActiveSourceProjection(mounted.view.state)).toBe(true);
+      expect(mounted.view.state.selection.from).toBe(position + offset);
+      expect(runKeyDownHandlers(mounted.view, key).handled).toBe(true);
+      expect(mounted.view.state.selection.from).toBe(
+        position + offset + (key === "ArrowRight" ? 1 : -1),
+      );
+    },
+  );
+
   it("places a click just inside the opening delimiter", async () => {
     const mounted = await mountEditor(markdown);
     const position = getEditorNodePosition(mounted, "math_inline");

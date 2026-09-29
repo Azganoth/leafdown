@@ -17,16 +17,14 @@ const readProjection = () =>
     const selection = window.getSelection();
     const focus = selection?.focusNode;
     let caret: number | null = null;
-    if (
-      pieces[0] &&
-      selection?.isCollapsed &&
-      focus &&
-      pieces.some((piece) => piece.contains(focus))
-    ) {
+    if (pieces[0] && selection?.isCollapsed && focus && pieces[0].closest("p")?.contains(focus)) {
       const range = document.createRange();
       range.setStart(pieces[0], 0);
       range.setEnd(focus, selection.focusOffset);
-      caret = range.toString().length;
+      caret = Math.min(
+        range.toString().length,
+        pieces.map((piece) => piece.textContent).join("").length,
+      );
     }
     const rects = pieces.map((piece) => piece.getBoundingClientRect());
     return {
@@ -84,12 +82,31 @@ describe("desktop rendered math", () => {
     expect(
       await display.execute((node) => {
         const katex = node.querySelector<HTMLElement>(".katex-display > .katex")!;
+        const paragraph = node.parentElement!;
+        const trailingBreak = paragraph.querySelector<HTMLElement>(
+          ":scope > br.ProseMirror-trailingBreak",
+        );
+        const separator = paragraph.querySelector<HTMLElement>(
+          ":scope > img.ProseMirror-separator",
+        );
         return {
           display: getComputedStyle(node).display,
+          bottomSpace:
+            paragraph.getBoundingClientRect().bottom - node.getBoundingClientRect().bottom,
+          separatorPosition: separator ? getComputedStyle(separator).position : null,
           textAlign: getComputedStyle(katex).textAlign,
+          topSpace: node.getBoundingClientRect().top - paragraph.getBoundingClientRect().top,
+          trailingBreakDisplay: trailingBreak ? getComputedStyle(trailingBreak).display : null,
         };
       }),
-    ).toEqual({ display: "block", textAlign: "center" });
+    ).toEqual({
+      display: "block",
+      bottomSpace: 8,
+      separatorPosition: "absolute",
+      textAlign: "center",
+      topSpace: 8,
+      trailingBreakDisplay: "none",
+    });
 
     expect(
       await browser.execute(async () => {
@@ -200,5 +217,22 @@ describe("desktop rendered math", () => {
         () => (window as unknown as { mathCspViolations: string[] }).mathCspViolations,
       ),
     ).toEqual([]);
+
+    await browser.execute(() => {
+      const node = document.querySelector<HTMLElement>('[data-type="math"][data-value="$zx^2$"]')!;
+      const before = node.previousSibling!;
+      const range = document.createRange();
+      range.setStart(before, before.textContent!.length);
+      range.collapse(true);
+      node.closest<HTMLElement>(".ProseMirror")!.focus();
+      const selection = window.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event("selectionchange"));
+    });
+    await waitForProjection("$zx^2$");
+    expect((await readProjection()).caret).toBe(0);
+    await browser.keys(Key.ArrowRight);
+    expect((await readProjection()).caret).toBe(1);
   });
 });

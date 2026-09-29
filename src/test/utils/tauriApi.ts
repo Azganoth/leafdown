@@ -25,6 +25,7 @@ import {
 import {
   OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  RESOLVE_WIKI_LINK_TARGET_COMMAND,
   type OpenMarkdownLinkTargetArgs,
   type ResolveMarkdownLinkTargetArgs,
   type ResolveMarkdownLinkTargetResult,
@@ -75,6 +76,7 @@ interface TauriApiCommandArgs {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   fetchRemoteImage: FetchRemoteImageArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
+  resolveWikiLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
@@ -97,6 +99,7 @@ interface TauriApiCommandResults {
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   fetchRemoteImage: ArrayBuffer;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
+  resolveWikiLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
@@ -129,6 +132,7 @@ const TAURI_API_COMMANDS = {
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   fetchRemoteImage: FETCH_REMOTE_IMAGE_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
+  resolveWikiLinkTarget: RESOLVE_WIKI_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,

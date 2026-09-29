@@ -28,6 +28,7 @@ export interface DesktopE2ERunContext {
     path: string;
   };
   folderActions: { path: string };
+  wikiLinks: { folderPath: string; indexPath: string };
   folder: {
     addedFileName: string;
     addedFilePath: string;

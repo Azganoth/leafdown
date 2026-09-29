@@ -45,6 +45,7 @@ import { createHtmlSourceProjectionAdapter } from "../utils/sourceProjectionHtml
 import { createImageSourceProjectionAdapter } from "../utils/sourceProjectionImageAdapter";
 import { createLinkSourceProjectionAdapter } from "../utils/sourceProjectionLinkAdapter";
 import { createMathSourceProjectionAdapter } from "../utils/sourceProjectionMathAdapter";
+import { createWikiLinkSourceProjectionAdapter } from "../utils/sourceProjectionWikiLinkAdapter";
 import { getRangeText, getTextBetween, type TextRange } from "../utils/textRanges";
 
 const EMPTY_PROJECTION_STATE: SourceProjectionPluginState = {
@@ -228,6 +229,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
     const serializer = ctx.get(serializerCtx);
 
     const objectAdapters = [
+      createWikiLinkSourceProjectionAdapter(parser),
       createLinkSourceProjectionAdapter({
         parser,
         remark,

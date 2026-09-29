@@ -24,6 +24,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["legacy-encoding"],
       ["persistence-write", "persistence-restart"],
       ["window-lifecycle"],
+      ["wiki-links"],
     ],
     workerCount: 1,
   });

@@ -17,6 +17,7 @@ const scenarioTargets = {
   "legacy-encoding": ["legacy-encoding"],
   persistence: ["persistence-write", "persistence-restart"],
   "window-lifecycle": ["window-lifecycle"],
+  "wiki-links": ["wiki-links"],
 } as const;
 
 export const MAX_DESKTOP_E2E_WORKERS = 4;

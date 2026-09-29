@@ -527,6 +527,7 @@
   "editor.link.metadataFailed": "Link target metadata unavailable.",
   "editor.link.outsideFolder": "Link target is outside the current folder.",
   "editor.link.resolveFailed": "Could not resolve link.",
+  "editor.wikiLink.suggestions": "Wiki link suggestions",
   "editor.blockInsertion.label": "Insert block",
   "editor.blockInsertion.paragraph": "Paragraph",
   "editor.blockInsertion.heading1": "Heading 1",

@@ -13,11 +13,13 @@ import {
 import type { MarkdownReferenceContext } from "./markdownReferences";
 
 export interface MarkdownLinkContext extends MarkdownReferenceContext {
-  onOpenMarkdownPath: (path: string) => boolean | Promise<boolean>;
+  onOpenMarkdownPath: (path: string, heading?: string) => boolean | Promise<boolean>;
+  onReadMarkdownPath?: (path: string) => Promise<string>;
 }
 
 export interface ActivateMarkdownLinkOptions extends MarkdownLinkContext {
   target: string;
+  heading?: string;
 }
 
 interface ResolveMarkdownLinkOptions extends ActivateMarkdownLinkOptions {
@@ -105,7 +107,9 @@ const activateResolvedMarkdownLink = async (
       return openExternalWebTarget(resolution.url);
 
     case "localMarkdown":
-      return options.onOpenMarkdownPath(resolution.path);
+      return options.heading
+        ? options.onOpenMarkdownPath(resolution.path, options.heading)
+        : options.onOpenMarkdownPath(resolution.path);
 
     case "localFile":
       return openLocalFileTarget(options, resolution.path, allowOutsideFolder);

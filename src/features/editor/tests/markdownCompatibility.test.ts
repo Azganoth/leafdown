@@ -87,11 +87,6 @@ const supportedMarkdownExpected = `${supportedMarkdown}
 
 const unusualMarkdownFixtures = [
   {
-    name: "wiki-link-like text",
-    source: "Keep [[Wiki Link]] as ordinary text.",
-    expected: "Keep [[Wiki Link]] as ordinary text.\n",
-  },
-  {
     name: "directive-like text",
     source: '::note{title="Unsupported"}',
     expected: '::note{title="Unsupported"}\n',

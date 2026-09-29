@@ -31,6 +31,8 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   initialMarkdown: string;
   initialViewState?: EditorViewState | null;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
+  onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
+  wikiCompletionPaths?: string[];
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
@@ -51,6 +53,8 @@ export function MilkdownEditor({
   documentPath = null,
   folderContextPath = null,
   onOpenMarkdownPath,
+  onReadMarkdownPath,
+  wikiCompletionPaths = [],
   className,
   ref,
   onMarkdownUpdated,
@@ -91,6 +95,8 @@ export function MilkdownEditor({
     onCommandStateChanged,
     onDocumentStatusChanged,
     onOpenMarkdownPath,
+    onReadMarkdownPath,
+    wikiCompletionPaths,
     ref,
   });
 

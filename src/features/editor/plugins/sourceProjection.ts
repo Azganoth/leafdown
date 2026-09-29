@@ -1125,13 +1125,16 @@ const createProjectionDecorations = (state: EditorState) => {
   for (const preview of presentation.previews) {
     decorations.push(
       Decoration.widget(
-        session.from + Math.min(Math.max(preview.offset, 0), source.length),
+        preview.afterBlock
+          ? state.doc.resolve(session.from).after()
+          : session.from + Math.min(Math.max(preview.offset, 0), source.length),
         () => createProjectionPreviewElement(preview),
         // The character and the `&` it opens read as one, so the caret at that offset rests on the
         // near side of both rather than between them, which a positive side draws it as. The widget
         // carries no marks because it is not the document's text; its styling arrives as a class.
         {
-          key: `character-reference-preview:${preview.offset}:${preview.text}`,
+          ignoreSelection: preview.render !== undefined,
+          key: `projection-preview:${preview.offset}:${preview.text}`,
           marks: [],
           side: 1,
         },
@@ -1147,8 +1150,15 @@ const createProjectionDecorations = (state: EditorState) => {
 // covers it, no copy carries it, and nothing serializes it.
 const createProjectionPreviewElement = ({
   className,
+  render,
   text,
 }: SourceProjectionPresentationPreview) => {
+  if (render) {
+    const element = render();
+    element.className = className;
+    return element;
+  }
+
   const element = document.createElement("span");
 
   element.className = `leafdown-source-projection__preview ${className}`.trimEnd();
@@ -1342,6 +1352,21 @@ const handleProjectionKeyDown = (view: EditorView, event: KeyboardEvent) => {
   const restoreRange = session.adapter.getRestoreRange?.(session) ?? session;
   const retainsOriginalContent = restoreRange.to > session.to;
   const { selection } = view.state;
+
+  // Chromium can keep the DOM caret in adjacent text at a math source edge, so move the model
+  // selection into its first or last character before the browser handles the arrow.
+  if (
+    session.adapter.id === "math" &&
+    selection instanceof TextSelection &&
+    selection.empty &&
+    ((event.key === "ArrowRight" && selection.from === session.from) ||
+      (event.key === "ArrowLeft" && selection.from === session.to))
+  ) {
+    event.preventDefault();
+    const position = selection.from + (event.key === "ArrowRight" ? 1 : -1);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position)));
+    return true;
+  }
 
   if (
     retainsOriginalContent &&

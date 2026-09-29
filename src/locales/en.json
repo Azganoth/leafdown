@@ -476,6 +476,7 @@
   "editor.codeBlock.badge.empty": "Language",
   "editor.codeBlock.badge.label": "Code block language: {language}",
   "editor.codeBlock.badge.emptyLabel": "Set code block language",
+  "editor.math.error": "Math error: {message}",
   "editor.image.load": "Load image",
   "editor.image.retry": "Retry",
   "editor.image.remote": "Remote image from {host}.",

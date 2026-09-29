@@ -43,6 +43,12 @@ if (typeof Element !== "undefined") {
   elementPrototype.getAnimations ??= () => [];
 }
 
+// happy-dom leaves `compatMode` undefined, which KaTeX reads as quirks mode when it loads and then
+// refuses to render. The app's document declares a doctype, so it renders in standards mode.
+if (typeof document !== "undefined" && document.compatMode === undefined) {
+  Object.defineProperty(document, "compatMode", { configurable: true, value: "CSS1Compat" });
+}
+
 // happy-dom performs no layout, so the document element measures 0x0 and anything clipping
 // against the viewport reads every element as fully off screen. A browser reports the layout
 // viewport here.

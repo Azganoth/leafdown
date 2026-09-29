@@ -219,3 +219,19 @@ export const opensMathAt = (block: string, position: number) => {
 };
 
 export const isDisplayMathSource = (source: string) => source.startsWith("$$");
+
+// Where the TeX of math source lies: inside its delimiters, and inside the backticks of GitHub's
+// `` $`...`$ `` form. Source being edited may have lost its closing delimiter, and then the TeX runs
+// to its end.
+export const getMathContentRange = (source: string) => {
+  const delimiter = isDisplayMathSource(source) ? 2 : source.startsWith("$") ? 1 : 0;
+  const closed =
+    delimiter > 0 && source.length >= 2 * delimiter && source.endsWith(source.slice(0, delimiter));
+  let from = delimiter;
+  let to = closed ? source.length - delimiter : source.length;
+  if (delimiter === 1 && to - from >= 2 && source[from] === "`" && source[to - 1] === "`") {
+    from += 1;
+    to -= 1;
+  }
+  return { from, to };
+};

@@ -83,12 +83,72 @@
     }
   }
 
-  & [data-type="math"] {
+  /* Math whose TeX does not render keeps its source as muted text, as unsupported raw HTML does. */
+  & [data-type="math"][data-math-rendered="false"] {
     @apply text-muted-foreground;
     white-space: pre-wrap;
+  }
 
-    &[data-math-flow="block"] {
-      display: block;
+  /* A display block wider than the text scrolls on its own, as code blocks and tables do, rather
+     than widening the document. */
+  & [data-type="math"][data-math-flow="block"],
+  & .leafdown-math-preview--block {
+    @apply block overflow-x-auto overflow-y-hidden;
+
+    & .katex-display {
+      margin: 0;
+    }
+  }
+
+  & .ProseMirror p:has(> [data-type="math"][data-math-flow="block"]) {
+    @apply py-2;
+
+    > img.ProseMirror-separator {
+      @apply absolute;
+    }
+
+    > br.ProseMirror-trailingBreak {
+      @apply hidden;
+    }
+  }
+
+  /* Display math sharing its paragraph keeps display style but stays in the line. */
+  & [data-type="math"][data-math-flow="inline"] .katex-display,
+  & .leafdown-math-preview:not(.leafdown-math-preview--block) .katex-display {
+    display: inline-block;
+    margin: 0;
+  }
+
+  /* A display block's preview is the block after the paragraph holding its source, where editing
+     the source does not lay the preview out again. It takes over the gap the paragraph leaves
+     below itself, so it still reads as part of the source. */
+  & .ProseMirror p:has(+ .leafdown-math-preview--block) {
+    @apply mb-0;
+  }
+
+  & .leafdown-math-preview--block {
+    @apply mb-4;
+  }
+
+  & li > .leafdown-math-preview--block {
+    @apply mb-1;
+  }
+
+  & :is(th, td) > .leafdown-math-preview--block {
+    @apply mb-0;
+  }
+
+  /* The preview of projected math follows its source: beside inline source, below a display
+     block's. */
+  & .leafdown-math-preview {
+    @apply ms-2 select-none;
+
+    &[data-math-rendered="false"] {
+      @apply text-sm text-muted-foreground;
+    }
+
+    &.leafdown-math-preview--block {
+      @apply ms-0;
     }
   }
 
@@ -730,6 +790,16 @@
       @apply text-muted-foreground;
       font-style: normal;
       font-weight: 400;
+    }
+
+    /* A TeX command in projected math takes the colour the code-block theme gives support
+       functions, which sets it apart from both the delimiters and the rest of the TeX. */
+    .leafdown-source-projection__math-command {
+      color: #005cc5;
+
+      &:is(.dark *) {
+        color: #79b8ff;
+      }
     }
 
     /* A run of spaces spelling a hard break closes its line and draws nothing, so each space carries a

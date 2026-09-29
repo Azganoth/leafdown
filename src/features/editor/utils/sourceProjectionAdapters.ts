@@ -122,8 +122,13 @@ export interface SourceProjectionPresentationSpan extends TextRange {
 // reads as the content it renders, which is why it carries a class of its own: the source beside
 // it is syntax and reads as a marker, and the widget stands outside the document's marks.
 export interface SourceProjectionPresentationPreview {
+  // Places the preview after the block holding the source instead of at `offset` within it.
+  afterBlock?: boolean;
   className: string;
   offset: number;
+  // Draws the preview itself in place of `text`, such as the math the source renders. Like a drawn
+  // character, it holds no document position and never reaches the clipboard or the file.
+  render?: () => HTMLElement;
   text: string;
 }
 

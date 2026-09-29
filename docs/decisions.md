@@ -41,7 +41,7 @@
 
 ### Preserve dollar-delimited math source
 
-**Decision:** Read `$...$` and `$$...$$` under the bounded dollar grammar in the Specification and retain each complete span as one inline atom whose value is its authored source. Show that source until math rendering is implemented. Do not read `\(...\)`, `\[...\]`, or ambiguous longer dollar runs as math.
+**Decision:** Read `$...$` and `$$...$$` under the bounded dollar grammar in the Specification and retain each complete span as one inline atom whose value is its authored source. Do not read `\(...\)`, `\[...\]`, or ambiguous longer dollar runs as math.
 
 **Rationale:** Parsing TeX as ordinary Markdown discards backslashes that TeX needs, including `\,` and `\%`, on a plain open and save. The chosen delimiters admit common math without treating the tested currency forms as equations ([issue #544](https://github.com/Azganoth/leafdown/issues/544)).
 
@@ -151,6 +151,19 @@
 - No attributes, URL-bearing elements, namespaced content, scripts, forms, or embedded documents are admitted. Markdown link and image resolution keep their existing ownership.
 - Raw HTML uses shared in-document source projection. Clean sessions restore the original token, valid edited source returns to safe rendering, and incomplete or unsupported edits become literal text without discarding characters.
 - URL-bearing HTML, configurable allowlists, and custom CSS remain deferred under the existing `Post-rendering HTML controls` Project draft.
+
+### Render math with an untrusted, bundled KaTeX
+
+**Decision:** Render each math atom with KaTeX bundled into the app, under `trust: false`, `maxSize: 50`, `maxExpand: 1000`, `strict: "ignore"`, and a fresh macro table per render, building DOM directly with MathML beside the visual output. Every span renders as its document opens. Math is edited through its source projection, with a rendered preview beside the source.
+
+**Rationale:** KaTeX needs no network, sets consistent typography from its own fonts, and reports parse errors with a position; with `trust: false` it turns every command that could carry a URL, class, id, style, or data attribute into inert text. Temml depends on the platform's math font, and MathJax is one to two orders of magnitude larger and slower ([issue #544](https://github.com/Azganoth/leafdown/issues/544)). In a release build, a 500-paragraph document with 950 spans opened in 929 ms, against 416 ms for the same text without math, and most of the difference was layout of the rendered math. Rendering spans in slices after the document opened did not avoid that layout; it spread it over about a second of long frames ([issue #577](https://github.com/Azganoth/leafdown/issues/577)).
+
+**Consequences:**
+
+- The atom's authored source remains the only serialization and clipboard input; rendered and error presentation never reach the file.
+- KaTeX's fonts ship as woff2 assets served from the app origin, and it applies its inline styles through the CSSOM, so the CSP needs no new source.
+- The text alternative for readers without MathML support is the TeX, set as the MathML's name, because Chromium takes no name from `alttext`.
+- Configurable macros, `\require`, and KaTeX extensions beyond what ships with the renderer are not loaded.
 
 ### Use Milkdown Kit
 

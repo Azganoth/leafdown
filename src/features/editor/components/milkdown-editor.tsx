@@ -1,5 +1,6 @@
 import "@milkdown/kit/prose/tables/style/tables.css";
 import "@milkdown/kit/prose/view/style/prosemirror.css";
+import "katex/dist/katex.min.css";
 import "./milkdown-editor.css";
 import type { Ref } from "react";
 

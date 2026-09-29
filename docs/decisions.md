@@ -75,6 +75,14 @@
 - Application metadata is stored externally from the opened folders.
 - Folder workflows execute without initialization steps.
 
+### Wiki links use document-relative paths
+
+**Decision:** Wiki links name supported Markdown files by paths relative to the saved document. The current article tree supplies completion candidates but does not define target identity. Omitted extensions resolve as `.md` before `.markdown`; aliases change display only; heading fragments match visible/plain heading text, with the first exact duplicate winning. Missing targets stay unresolved and never create content. File moves do not rewrite links.
+
+**Rationale:** The same link should resolve from ordinary files and folders without requiring a vault, database, or application-specific IDs. The extension order and duplicate-heading rule make ambiguous targets deterministic.
+
+**Consequences:** A target may be outside the current folder context and follows the existing local Markdown navigation rule. Untitled documents cannot resolve relative wiki links until saved. Completion does not affect resolution, and frontmatter aliases, embeds, backlinks, and block identifiers remain outside the wiki-link model.
+
 ### Always folder-aware
 
 **Decision:** Opening a folder uses it as the current folder context. Opening a file uses its parent folder as the current folder context only when no folder context is active. Once a folder context exists, it remains pinned until changed by an explicit folder action.

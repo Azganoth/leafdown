@@ -1,9 +1,14 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getActiveDocumentKey, type ActiveDocumentState } from "@/features/document";
+import {
+  getActiveDocumentKey,
+  openMarkdownDocument,
+  type ActiveDocumentState,
+} from "@/features/document";
 import { MilkdownEditor, type MilkdownEditorBridge } from "@/features/editor";
+import type { ArticleTreeNode } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import {
   documentEditorBridge,
@@ -17,14 +22,19 @@ interface DocumentScreenProps {
   activeDocument: ActiveDocumentState;
 }
 
-const handleOpenMarkdownPath = async (path: string) => {
+const handleOpenMarkdownPath = async (path: string, heading?: string) => {
   try {
-    return await openMarkdownFileAtPath(path);
+    const opened = await openMarkdownFileAtPath(path);
+    if (opened && heading) documentEditorBridge.requestHeading(path, heading);
+    return opened;
   } catch (error) {
     notifyOpenMarkdownFileError(error);
     return false;
   }
 };
+
+const articlePaths = (nodes: ArticleTreeNode[]): string[] =>
+  nodes.flatMap((node) => (node.kind === "file" ? [node.path] : articlePaths(node.children)));
 
 export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const { t } = useLocalization();
@@ -36,7 +46,12 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const documentFont = useSettingsStore((state) => state.documentFont);
   const textSize = useSettingsStore((state) => state.textSize);
   const lineSpacing = useSettingsStore((state) => state.lineSpacing);
-  const folderContextPath = useSessionStore((state) => state.folderContext?.path ?? null);
+  const folderContext = useSessionStore((state) => state.folderContext);
+  const folderContextPath = folderContext?.path ?? null;
+  const wikiCompletionPaths = useMemo(
+    () => (folderContext ? articlePaths(folderContext.tree.children) : []),
+    [folderContext],
+  );
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
   const loadId = useSessionStore((state) => state.activeDocumentLoadId);
@@ -66,6 +81,8 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               documentPath={activeDocument.status === "saved" ? activeDocument.path : null}
               folderContextPath={folderContextPath}
               onOpenMarkdownPath={handleOpenMarkdownPath}
+              onReadMarkdownPath={async (path) => (await openMarkdownDocument(path)).content}
+              wikiCompletionPaths={wikiCompletionPaths}
               autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
               displayCodeBlockLineNumbers={displayCodeBlockLineNumbers}
               softWrapCodeBlocks={softWrapCodeBlocks}

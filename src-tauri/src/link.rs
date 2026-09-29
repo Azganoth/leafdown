@@ -72,6 +72,85 @@ pub(crate) async fn resolve_markdown_link_target(
 }
 
 #[tauri::command]
+pub(crate) async fn resolve_wiki_link_target(
+    document_path: Option<String>,
+    folder_context_path: Option<String>,
+    target: String,
+    allow_outside_folder: Option<bool>,
+) -> ResolveMarkdownLinkTargetResult {
+    let error_path = target.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        resolve_wiki_target(
+            document_path.as_deref().map(Path::new),
+            folder_context_path.as_deref().map(Path::new),
+            target.as_str(),
+            allow_outside_folder.unwrap_or(false),
+        )
+    })
+    .await
+    .unwrap_or_else(|error| ResolveMarkdownLinkTargetResult::MetadataFailed {
+        path: error_path,
+        message: error.to_string(),
+    })
+}
+
+pub(crate) fn resolve_wiki_target(
+    document_path: Option<&Path>,
+    folder_context_path: Option<&Path>,
+    target: &str,
+    allow_outside_folder: bool,
+) -> ResolveMarkdownLinkTargetResult {
+    if target.is_empty()
+        || target.starts_with('/')
+        || target
+            .chars()
+            .any(|character| ['\\', '#', '?', ':', '|', '\0'].contains(&character))
+        || target.split('/').any(|part| part.is_empty())
+    {
+        return ResolveMarkdownLinkTargetResult::UnsupportedTarget;
+    }
+
+    let path = Path::new(target);
+    if path.is_absolute() || is_network_or_device_target(path) {
+        return ResolveMarkdownLinkTargetResult::UnsupportedTarget;
+    }
+
+    let extension = path.extension().and_then(|value| value.to_str());
+    let candidates = match extension {
+        Some(value)
+            if value.eq_ignore_ascii_case("md") || value.eq_ignore_ascii_case("markdown") =>
+        {
+            vec![PathBuf::from(target)]
+        }
+        Some(_) => return ResolveMarkdownLinkTargetResult::UnsupportedTarget,
+        None => vec![
+            PathBuf::from(format!("{target}.md")),
+            PathBuf::from(format!("{target}.markdown")),
+        ],
+    };
+
+    let mut first_missing = None;
+    for candidate in candidates {
+        let resolution = resolve_local_link_target(
+            document_path,
+            folder_context_path,
+            candidate.as_path(),
+            allow_outside_folder,
+        );
+        match resolution {
+            ResolveMarkdownLinkTargetResult::Missing { .. } => {
+                if first_missing.is_none() {
+                    first_missing = Some(resolution);
+                }
+            }
+            ResolveMarkdownLinkTargetResult::LocalFile { .. } => continue,
+            other => return other,
+        }
+    }
+    first_missing.unwrap_or(ResolveMarkdownLinkTargetResult::UnsupportedTarget)
+}
+
+#[tauri::command]
 pub(crate) async fn open_markdown_link_target(
     document_path: Option<String>,
     folder_context_path: Option<String>,
@@ -258,7 +337,7 @@ mod tests {
 
     use super::{
         OpenMarkdownLinkTargetError, ResolveMarkdownLinkTargetResult, resolve_link_target,
-        resolve_openable_local_file,
+        resolve_openable_local_file, resolve_wiki_target,
     };
     use crate::test_utils::{TestDirectory, canonical_path_string, pathdiff};
 
@@ -498,6 +577,80 @@ mod tests {
         );
 
         assert_eq!(result, Ok(canonical_path_string(pdf_path.as_path())));
+    }
+
+    #[test]
+    fn resolves_wiki_targets_with_deterministic_extensions() {
+        let root = TestDirectory::new("wiki-targets");
+        let document = root.markdown_document_path();
+        let markdown = root.write_file("docs/guides/setup.markdown");
+        assert_eq!(
+            resolve_wiki_target(
+                Some(document.as_path()),
+                Some(root.path.as_path()),
+                "guides/setup",
+                false
+            ),
+            ResolveMarkdownLinkTargetResult::LocalMarkdown {
+                path: canonical_path_string(markdown.as_path())
+            }
+        );
+        let md = root.write_file("docs/guides/setup.md");
+        assert_eq!(
+            resolve_wiki_target(
+                Some(document.as_path()),
+                Some(root.path.as_path()),
+                "guides/setup",
+                false
+            ),
+            ResolveMarkdownLinkTargetResult::LocalMarkdown {
+                path: canonical_path_string(md.as_path())
+            }
+        );
+        assert_eq!(
+            resolve_wiki_target(
+                Some(document.as_path()),
+                Some(root.path.as_path()),
+                "guides/setup.markdown",
+                false
+            ),
+            ResolveMarkdownLinkTargetResult::LocalMarkdown {
+                path: canonical_path_string(markdown.as_path())
+            }
+        );
+        let uppercase = root.write_file("docs/guides/uppercase.MD");
+        assert_eq!(
+            resolve_wiki_target(
+                Some(document.as_path()),
+                Some(root.path.as_path()),
+                "guides/uppercase.MD",
+                false
+            ),
+            ResolveMarkdownLinkTargetResult::LocalMarkdown {
+                path: canonical_path_string(uppercase.as_path())
+            }
+        );
+    }
+
+    #[test]
+    fn keeps_untitled_and_unsupported_wiki_targets_unresolved() {
+        let root = TestDirectory::new("wiki-invalid");
+        assert_eq!(
+            resolve_wiki_target(None, Some(root.path.as_path()), "setup", false),
+            ResolveMarkdownLinkTargetResult::UntitledRelative
+        );
+        for target in [
+            "manual.pdf",
+            "https://example.com",
+            "/absolute",
+            "folder\\note",
+        ] {
+            assert_eq!(
+                resolve_wiki_target(None, Some(root.path.as_path()), target, false),
+                ResolveMarkdownLinkTargetResult::UnsupportedTarget,
+                "{target}"
+            );
+        }
     }
 
     #[test]

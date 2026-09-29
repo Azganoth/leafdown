@@ -488,6 +488,15 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 - A single link activation shows at most one confirmation for the same non-Markdown target.
 - Link confirmations use an app dialog that displays the resolved target path. Escape, Cancel, or dismissing the dialog leaves the target unopened.
 
+### Wiki Links
+
+- `[[target]]`, `[[target|label]]`, `[[target#Heading]]`, and `[[target#Heading|label]]` link to supported Markdown files. `[[#Heading]]` and `[[#Heading|label]]` target the current document. The optional label changes only the displayed text.
+- A document target is a path relative to the saved document containing it. Forward slashes separate nested paths; `../` may reach outside the current folder context under the same confirmation and pinned-folder rules as ordinary local Markdown links. An authored `.md` or `.markdown` extension is used directly. Without an extension, Leafdown tries `.md` and then `.markdown`; `.md` wins when both exist. Filesystem case behavior follows the platform. A relative target in an untitled document remains unresolved until it has a saved path.
+- A heading fragment matches the first heading with exactly the same visible/plain text in document order. Cross-document navigation moves to that heading after opening the document. Missing files and headings remain wiki links with a distinct unresolved appearance. Activating one shows non-disruptive feedback and never creates content.
+- A caret or contained selection in a wiki link exposes its complete authored source through source projection. Valid edits rehydrate the link; incomplete or invalid edits become literal text. Typing, paste, clipboard, Undo/Redo, and save/reopen retain the source and semantics.
+- With a folder context, typing `[[` offers Markdown files from the current article tree, matched by filename or relative path. Choosing a file inserts a path relative to the saved document. After `#`, heading suggestions insert the target's actual heading text. An untitled document may show suggestions, but its relative links remain unresolved until saved. Suggestions are an authoring aid; resolution uses the filesystem, not an index or hidden document identity.
+- Wiki links do not embed content, resolve block IDs or frontmatter aliases, maintain backlinks, create missing targets, or rewrite links when files move.
+
 ### Images
 
 - Local relative images render automatically when supported.

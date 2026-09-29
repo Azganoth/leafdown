@@ -143,6 +143,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
   const actionsFolderPath = path.join(fixtureRoot, "folder-actions");
+  const wikiFolderPath = path.join(fixtureRoot, "wiki-links");
+  const wikiIndexPath = path.join(wikiFolderPath, "index.md");
+  const wikiTargetPath = path.join(wikiFolderPath, "target.md");
+  const wikiOutsidePath = path.join(fixtureRoot, "outside.md");
   const initialFolderFileName = "readme.md";
   const initialFolderFilePath = path.join(folderPath, initialFolderFileName);
   const addedFolderFileName = "watcher-added.md";
@@ -177,6 +181,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     math: { path: mathPath },
     legacyEncoding: { path: legacyEncodingPath },
     folderActions: { path: actionsFolderPath },
+    wikiLinks: { folderPath: wikiFolderPath, indexPath: wikiIndexPath },
     folder: {
       addedFileName: addedFolderFileName,
       addedFilePath: addedFolderFilePath,
@@ -211,6 +216,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
     { name: "window-lifecycle" },
+    { name: "wiki-links", recentFolders: [wikiFolderPath] },
   ];
 
   const worker: WorkerContext = {
@@ -240,6 +246,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       mkdir(folderPath, { recursive: true }),
       mkdir(path.dirname(documentWatcherPath), { recursive: true }),
       mkdir(path.join(actionsFolderPath, "notes"), { recursive: true }),
+      mkdir(wikiFolderPath, { recursive: true }),
       mkdir(workerArtifactsRoot, { recursive: true }),
     ]);
     await settleTasks(`Failed to create fixtures for ${label}.`, [
@@ -286,6 +293,12 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       writeFile(legacyEncodingPath, Buffer.from("Café legacy fixture marker.\n", "latin1")),
       writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),
+      writeFile(
+        wikiIndexPath,
+        "# Local heading\n\n[[target|Target alias]]\n\n[[target#Target heading|Target section]]\n\n[[#Local heading|Jump local]]\n\n[[missing|Missing]]\n\n[[../outside.md|Outside]]\n",
+      ),
+      writeFile(wikiTargetPath, "# Target heading\n\nTarget body.\n"),
+      writeFile(wikiOutsidePath, "# Outside heading\n\nOutside body.\n"),
       writeFile(
         imagesPath,
         [

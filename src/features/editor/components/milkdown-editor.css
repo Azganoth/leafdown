@@ -258,6 +258,14 @@
       }
     }
 
+    .leafdown-wiki-link {
+      @apply cursor-pointer rounded-sm text-primary underline decoration-primary/45 underline-offset-4;
+    }
+
+    .leafdown-wiki-link[data-wiki-status="unresolved"] {
+      @apply text-muted-foreground decoration-muted-foreground/70 decoration-dotted;
+    }
+
     /* One column opens every item and holds whatever marks it: the marker stands at the column's
        start and the item's own text at its end. A list adds no indentation beyond that column, so
        a nested one opens exactly where its parent's text does. */
@@ -1059,6 +1067,24 @@
 
 .leafdown-context-popup {
   @apply border border-border/70 bg-popover text-popover-foreground shadow-lg;
+}
+
+.leafdown-wiki-completion {
+  @apply z-50 max-h-64 max-w-96 min-w-48 overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-lg;
+  position: fixed;
+}
+
+.leafdown-wiki-completion[hidden] {
+  display: none;
+}
+
+.leafdown-wiki-completion__option {
+  @apply block w-full truncate rounded-sm px-2 py-1 text-left text-sm;
+}
+
+.leafdown-wiki-completion__option.is-active,
+.leafdown-wiki-completion__option:hover {
+  @apply bg-accent text-accent-foreground;
 }
 
 @media (prefers-reduced-motion: no-preference) {

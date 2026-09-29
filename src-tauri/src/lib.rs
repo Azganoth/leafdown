@@ -114,6 +114,7 @@ pub fn run() {
             image::resolve_markdown_image_target,
             remote_image::fetch_remote_image,
             link::resolve_markdown_link_target,
+            link::resolve_wiki_link_target,
             link::open_markdown_link_target,
             folder::scan_markdown_folder,
             folder::open_markdown_folder,

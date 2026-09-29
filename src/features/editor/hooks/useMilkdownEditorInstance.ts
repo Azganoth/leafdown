@@ -12,6 +12,8 @@ import {
 } from "react";
 
 import { handleUnexpectedError, invariant } from "@/lib/errors";
+import { useLocalization } from "@/lib/i18n";
+import { notifyWarning } from "@/lib/toast";
 
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
@@ -60,6 +62,7 @@ import {
 } from "../utils/documentStatus";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
+import { jumpToWikiHeading } from "../utils/wikiHeadings";
 
 /** Carries the caret and focus across a remount that replaces the document text. */
 export interface EditorViewState {
@@ -88,6 +91,7 @@ export interface MilkdownEditorBridge {
   getDocumentStatus?: () => EditorDocumentStatus;
   getViewState?: () => EditorViewState | null;
   insertLink?: (label: string, target: string) => boolean;
+  navigateToHeading?: (heading: string) => void;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
 }
 
@@ -101,6 +105,8 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   onDocumentStatusChanged?: () => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
+  onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
+  wikiCompletionPaths?: string[];
   ref?: Ref<MilkdownEditorBridge>;
 }
 
@@ -118,10 +124,15 @@ export const useMilkdownEditorInstance = ({
   onDocumentStatusChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
+  onReadMarkdownPath,
+  wikiCompletionPaths = [],
   ref,
 }: UseMilkdownEditorInstanceOptions) => {
+  const { t } = useLocalization();
+  const translationRef = useRef(t);
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
+  const pendingHeadingRef = useRef<string | null>(null);
   const [commandState, setCommandState] = useState<EditorCommandState>(
     INACTIVE_EDITOR_COMMAND_STATE,
   );
@@ -153,8 +164,14 @@ export const useMilkdownEditorInstance = ({
     onDocumentStatusChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
+    onReadMarkdownPath,
+    wikiCompletionPaths,
   });
   const contextPopupOpenRef = useRef(false);
+
+  useLayoutEffect(() => {
+    translationRef.current = t;
+  }, [t]);
 
   useLayoutEffect(() => {
     liveOptionsRef.current = {
@@ -169,6 +186,8 @@ export const useMilkdownEditorInstance = ({
       onDocumentStatusChanged,
       onMarkdownUpdated,
       onOpenMarkdownPath,
+      onReadMarkdownPath,
+      wikiCompletionPaths,
     };
   }, [
     autoPairBracketsAndQuotes,
@@ -182,6 +201,8 @@ export const useMilkdownEditorInstance = ({
     onDocumentStatusChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
+    onReadMarkdownPath,
+    wikiCompletionPaths,
   ]);
 
   useImperativeHandle(
@@ -210,6 +231,15 @@ export const useMilkdownEditorInstance = ({
         }
 
         return insertLinkTarget(editorRef.current.ctx.get(editorViewCtx), { label, target });
+      },
+      navigateToHeading: (heading) => {
+        if (!editorRef.current?.ctx) {
+          pendingHeadingRef.current = heading;
+          return;
+        }
+        if (!jumpToWikiHeading(editorRef.current.ctx.get(editorViewCtx), heading)) {
+          notifyWarning(translationRef.current("editor.link.missing"), heading);
+        }
       },
       runCommand: (commandId) => {
         if (!editorRef.current) {
@@ -429,13 +459,19 @@ export const useMilkdownEditorInstance = ({
             updateDocumentStatus(nextDocumentStatus);
           }
         },
-        onOpenMarkdownPath: (path) => {
+        onOpenMarkdownPath: (path, heading) => {
           if (!isActiveEditorCallback()) {
             return false;
           }
 
-          return liveOptionsRef.current.onOpenMarkdownPath(path);
+          return heading
+            ? liveOptionsRef.current.onOpenMarkdownPath(path, heading)
+            : liveOptionsRef.current.onOpenMarkdownPath(path);
         },
+        onReadMarkdownPath: (path) =>
+          liveOptionsRef.current.onReadMarkdownPath?.(path) ??
+          Promise.reject(new Error("Markdown reader is unavailable.")),
+        getWikiCompletionPaths: () => liveOptionsRef.current.wikiCompletionPaths,
       });
 
       activeEditor = editor;
@@ -455,6 +491,13 @@ export const useMilkdownEditorInstance = ({
       editorRef.current = editor;
       syncCodeLineNumbers(editor, liveOptionsRef.current.displayCodeBlockLineNumbers);
       restoreViewState(editor, liveOptionsRef.current.initialViewState);
+      if (pendingHeadingRef.current) {
+        const heading = pendingHeadingRef.current;
+        pendingHeadingRef.current = null;
+        if (!jumpToWikiHeading(editor.ctx.get(editorViewCtx), heading)) {
+          notifyWarning(translationRef.current("editor.link.missing"), heading);
+        }
+      }
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
     };

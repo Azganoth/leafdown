@@ -9,6 +9,7 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "@/features/editor/commands/contract";
+import { isSamePath } from "@/lib/path";
 import { SignalSource } from "@/lib/signal";
 
 interface ActiveDocumentEditorBridgeEntry {
@@ -18,6 +19,7 @@ interface ActiveDocumentEditorBridgeEntry {
 
 class DocumentEditorBridgeStore {
   private activeBridgeEntry: ActiveDocumentEditorBridgeEntry | null = null;
+  private pendingHeading: { documentKey: string; heading: string } | null = null;
   private readonly commandStateChanged = new SignalSource();
   private readonly documentStatusChanged = new SignalSource();
 
@@ -36,6 +38,10 @@ class DocumentEditorBridgeStore {
     }
 
     this.activeBridgeEntry = { bridge, documentKey };
+    if (this.pendingHeading && isSamePath(this.pendingHeading.documentKey, documentKey)) {
+      bridge.navigateToHeading?.(this.pendingHeading.heading);
+      this.pendingHeading = null;
+    }
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
   };
@@ -71,6 +77,14 @@ class DocumentEditorBridgeStore {
     return this.activeBridgeEntry.bridge.insertLink?.(label, target) ?? false;
   };
 
+  requestHeading = (documentKey: string, heading: string) => {
+    if (this.activeBridgeEntry && isSamePath(this.activeBridgeEntry.documentKey, documentKey)) {
+      this.activeBridgeEntry.bridge.navigateToHeading?.(heading);
+      return;
+    }
+    this.pendingHeading = { documentKey, heading };
+  };
+
   runCommand = (documentKey: string, commandId: EditorCommandId) => {
     if (this.activeBridgeEntry?.documentKey !== documentKey) {
       return false;
@@ -81,6 +95,7 @@ class DocumentEditorBridgeStore {
 
   clear = () => {
     this.activeBridgeEntry = null;
+    this.pendingHeading = null;
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
   };

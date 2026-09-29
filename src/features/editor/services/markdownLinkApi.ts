@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export const RESOLVE_MARKDOWN_LINK_TARGET_COMMAND = "resolve_markdown_link_target";
+export const RESOLVE_WIKI_LINK_TARGET_COMMAND = "resolve_wiki_link_target";
 
 export interface ResolveMarkdownLinkTargetArgs {
   allowOutsideFolder: boolean;
@@ -28,6 +29,19 @@ export const resolveMarkdownLinkTarget = ({
   target,
 }: ResolveMarkdownLinkTargetArgs) =>
   invoke<ResolveMarkdownLinkTargetResult>(RESOLVE_MARKDOWN_LINK_TARGET_COMMAND, {
+    allowOutsideFolder,
+    documentPath,
+    folderContextPath,
+    target,
+  });
+
+export const resolveWikiLinkTarget = ({
+  allowOutsideFolder,
+  documentPath,
+  folderContextPath,
+  target,
+}: ResolveMarkdownLinkTargetArgs) =>
+  invoke<ResolveMarkdownLinkTargetResult>(RESOLVE_WIKI_LINK_TARGET_COMMAND, {
     allowOutsideFolder,
     documentPath,
     folderContextPath,

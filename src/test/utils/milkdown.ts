@@ -33,6 +33,8 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
+  onReadMarkdownPath?: (path: string) => Promise<string>;
+  wikiCompletionPaths?: string[];
   onContextPopupClosed?: () => void;
   onContextPopupRequested?: (request: ContextPopupRequest) => void;
   onBlockInsertionRequested?: (request: BlockInsertionRequest) => void;
@@ -81,6 +83,8 @@ export const mountMilkdownEditor = async (
     onDocumentStatusChanged: options.onDocumentStatusChanged,
     onMarkdownUpdated: options.onMarkdownUpdated,
     onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
+    onReadMarkdownPath: options.onReadMarkdownPath,
+    getWikiCompletionPaths: () => options.wikiCompletionPaths ?? [],
   });
   await editor.create();
 

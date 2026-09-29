@@ -67,7 +67,8 @@ export type SourceProjectionAdapterId =
   | "image"
   | "link"
   | "mark"
-  | "math";
+  | "math"
+  | "wiki-link";
 
 export interface SourceProjectionTarget extends TextRange {
   adapterId: SourceProjectionAdapterId;

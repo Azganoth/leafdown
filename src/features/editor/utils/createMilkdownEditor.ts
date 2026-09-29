@@ -159,6 +159,9 @@ import { createLeafdownTableViewPlugin } from "../plugins/tableView";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
 import { createLeafdownThematicBreakPlugin } from "../plugins/thematicBreak";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
+import { createLeafdownWikiCompletionPlugin } from "../plugins/wikiCompletion";
+import { createLeafdownWikiLinkPlugin, leafdownWikiLinkSchema } from "../plugins/wikiLink";
+import { createLeafdownWikiLinkNavigationPlugin } from "../plugins/wikiLinkNavigation";
 import {
   BARE_AUTOLINK_MARKDOWN_TYPE,
   serializeBareAutolink,
@@ -226,6 +229,7 @@ import {
 import { withImageReferenceForm, withLinkReferenceForm } from "./referenceLinkMarkdown";
 import { serializeTable, withTableOuterPipes } from "./tableMarkdown";
 import { serializeThematicBreak, withThematicBreakMarker } from "./thematicBreakMarkdown";
+import { WIKI_LINK_MARKDOWN_TYPE, serializeWikiLink } from "./wikiLinkMarkdown";
 
 export interface MilkdownMarkdownUpdate {
   markdown: string;
@@ -248,6 +252,8 @@ export interface CreateMilkdownEditorOptions {
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
+  onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
+  getWikiCompletionPaths?: () => string[];
 }
 
 export type MilkdownEditorInstance = Editor;
@@ -294,11 +300,14 @@ export const createMilkdownEditor = async ({
   onDocumentStatusChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
+  onReadMarkdownPath,
+  getWikiCompletionPaths = () => [],
 }: CreateMilkdownEditorOptions) => {
   const parser = await createLeafdownHighlightParser();
   const getLinkContext = (): MarkdownLinkContext => ({
     ...getMarkdownReferenceContext(),
     onOpenMarkdownPath,
+    onReadMarkdownPath,
   });
   const editor = Editor.make();
   const runCommand = (commandId: EditorCommandId) => {
@@ -319,6 +328,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownDefinitionListPlugin())
+    .use(createLeafdownWikiLinkPlugin())
     .use(createLeafdownFootnoteLabelPlugin())
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownCodeFormPlugin())
@@ -343,6 +353,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownDefinitionSpacingPlugin())
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownMathSchema)
+    .use(leafdownWikiLinkSchema)
     .use(leafdownDefinitionSchema)
     .use(leafdownDefinitionLabelSchema)
     .use(leafdownDefinitionDestinationSchema)
@@ -366,6 +377,8 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableViewPlugin())
     .use(createLeafdownTableColumnsPlugin())
     .use(createLeafdownLinkActivationPlugin(getLinkContext))
+    .use(createLeafdownWikiLinkNavigationPlugin(getLinkContext))
+    .use(createLeafdownWikiCompletionPlugin(getLinkContext, getWikiCompletionPaths))
     .use(createLeafdownLinkPresentationPlugin())
     .use(createLeafdownSourceProjectionPlugin())
     .use(createLeafdownSourceProjectionContinuationPlugin())
@@ -423,6 +436,7 @@ export const createMilkdownEditor = async ({
           [MATH_MARKDOWN_TYPE]: serializeMath,
           leafdownCallout: serializeCallout,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
+          [WIKI_LINK_MARKDOWN_TYPE]: serializeWikiLink,
           code: serializeCode,
           definition: serializeMarkdownDefinition,
           defList: serializeDefinitionList,

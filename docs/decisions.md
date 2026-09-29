@@ -51,6 +51,18 @@
 - Math content does not form Markdown constructs. Existing source projection handles editing and falls back to literal text when edited source no longer reads as one span.
 - A math atom spans a position in its containing block, including mid-paragraph display math; a standalone `$$` span can be presented as a block.
 
+### Keep callout dialects in one editor container
+
+**Decision:** GitHub alerts, Material for MkDocs admonitions, Docusaurus admonitions, and VitePress custom containers share one editable callout node. Each node retains its source dialect, type token, title spelling, opening marker, and colon fence length. Saving writes that node in its authored dialect. Opening and closing blank lines are retained when the container can own them. The view's temporary disclosure state does not rewrite an authored `???` or `???+` marker.
+
+**Rationale:** These syntaxes carry similar editable block content but disagree about markers, type sets, titles, and collapse state. Converting them to a single source dialect would rewrite documents used by other renderers and can change their meaning.
+
+**Consequences:**
+
+- A callout body uses the ordinary Markdown block model, so links, lists, code, editing history, and save/reopen use the same editor behavior as surrounding content.
+- Unrecognized forms remain ordinary Markdown; support for one dialect does not claim a similar spelling from another.
+- The typed marker starts a new callout while editing. There is no insertion menu or syntax-conversion command in the initial scope.
+
 ### No vault or workspace model
 
 **Decision:** Opening a folder does not create a vault, workspace, import process, database, or metadata files in that folder.

@@ -20,6 +20,7 @@ const byteIdenticalFiles = [
   "extensions/math.md",
   "gfm/tagfilter.md",
   "gfm/task-lists.md",
+  "extensions/admonitions.md",
   "isolated/end-of-file/incomplete-html-comment.md",
   "isolated/end-of-file/unclosed-code-fence.md",
   "isolated/end-of-file/unclosed-directive.md",

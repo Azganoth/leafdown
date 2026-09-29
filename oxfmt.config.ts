@@ -1,7 +1,7 @@
 import { defineConfig } from "oxfmt";
 
 export default defineConfig({
-  ignorePatterns: ["corpus/**"],
+  ignorePatterns: ["corpus/**", "e2e/desktop/fixtures/**"],
   overrides: [
     {
       files: ["*.md", "**/*.md"],

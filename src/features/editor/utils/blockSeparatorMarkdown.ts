@@ -16,6 +16,7 @@ type StringifyState = Parameters<NonNullable<RemarkStringifyHandlers["root"]>>[2
 
 interface SeparatorNode {
   type: string;
+  dialect?: string;
   title?: string | null;
   children?: readonly SeparatorNode[];
 }
@@ -141,6 +142,10 @@ const classifyPrecedingBlock = (node: SeparatorNode): PrecedingBlock => {
 
   if (block.type === PARAGRAPH_MARKDOWN_TYPE) {
     return holdsRawHtmlBlock(block) ? "html" : "open";
+  }
+
+  if (block.type === "leafdownCallout") {
+    return block.dialect === "github" ? "open" : "closed";
   }
 
   if (CLOSED_MARKDOWN_TYPES.has(block.type)) {

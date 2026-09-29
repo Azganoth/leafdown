@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 export interface DesktopE2ERunContext {
   appIdentifier: string;
   blocks: { path: string };
+  callouts: { path: string };
   separator: { path: string };
   html: { path: string };
   math: { path: string };

@@ -7,6 +7,7 @@ void test("runs every scenario when no focused target is requested", () => {
   assert.deepEqual(selectDesktopE2ERun([]), {
     scenarioGroups: [
       ["block-selection"],
+      ["callouts"],
       ["diagnostics"],
       ["document-lifecycle"],
       ["document-watcher"],

@@ -134,6 +134,11 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 ### Rendering
 
 - Markdown renders as rich text. Marker presentation is selected per Markdown object rather than applied uniformly to all syntax.
+- Supported callouts render as typed containers with editable Markdown bodies. The body accepts paragraphs, links, lists, and code blocks. Dialects with titles expose them in the container header; their authored Markdown source is shown while editing.
+- GitHub alerts use a `> [!TYPE]` opening line and accept `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, and `CAUTION`. They remain distinct from formal GFM extensions.
+- Material for MkDocs admonitions use `!!!`, `???`, or `???+`, a type, an optional quoted title, and a four-space-indented body. Supported types are `note`, `abstract`, `info`, `tip`, `success`, `question`, `warning`, `failure`, `danger`, `bug`, `example`, and `quote`. `???` opens collapsed and `???+` opens expanded. The disclosure control changes only the current view; saving retains the authored marker.
+- Docusaurus callouts use a colon fence followed directly by `note`, `tip`, `info`, `warning`, or `danger`, with an optional `[title]`. VitePress containers put a space after the colon fence and accept `info`, `tip`, `warning`, `danger`, or `details`, with an optional plain title after the type. `details` opens collapsed. A closing colon fence must be at least as long as its opening fence. Longer outer fences can hold nested colon callouts.
+- Typing a supported opening marker and pressing Enter creates a callout body; pasting a supported Markdown form creates the same container. Unsupported directives, unknown type markers, and ordinary fenced code keep their existing Markdown interpretation. Directive attributes, MkDocs inline modifiers and custom types, and VitePress container attributes are outside this initial support.
 - Prose blocks wrap to the editor viewport width; horizontal scrolling is restricted to code blocks, tables, and display math blocks.
 - Soft wrap is visual only and never modifies saved Markdown.
 - Code block line numbers are visual only. They number logical source lines, never wrapped rows, and never enter the document, the clipboard, counts, history, or dirty state.

@@ -65,6 +65,9 @@ import {
 import { createLeafdownBlockSelectionKeyboardPlugin } from "../plugins/blockSelectionKeyboard";
 import { createLeafdownBlockSelectionOperationsPlugin } from "../plugins/blockSelectionOperations";
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
+import { calloutSchema, createLeafdownCalloutPlugin } from "../plugins/callout";
+import { createLeafdownCalloutInputPlugin } from "../plugins/calloutInput";
+import { createLeafdownCalloutViewPlugin } from "../plugins/calloutView";
 import {
   createLeafdownCharacterReferencePlugin,
   leafdownCharacterReferenceSchema,
@@ -152,6 +155,7 @@ import {
   withBareAutolinkForm,
 } from "./bareAutolinkMarkdown";
 import { withBlockquoteSeparator, withFootnoteDefinitionSeparator } from "./blockSeparatorMarkdown";
+import { serializeCallout } from "./calloutMarkdown";
 import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   serializeCharacterReference,
@@ -301,6 +305,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFootnoteLabelPlugin())
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownCodeFormPlugin())
+    .use(createLeafdownCalloutPlugin())
     .use(createLeafdownBlockStructurePlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownHardBreakFormPlugin())
@@ -313,6 +318,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableKeyboardPlugin())
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
+    .use(calloutSchema)
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownMathSchema)
     .use(leafdownDefinitionSchema)
@@ -349,6 +355,8 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
     .use(createLeafdownCodeBlockViewPlugin())
+    .use(createLeafdownCalloutViewPlugin())
+    .use(createLeafdownCalloutInputPlugin())
     .use(createLeafdownSearchPlugin(search))
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
@@ -390,6 +398,7 @@ export const createMilkdownEditor = async ({
           [FOOTNOTE_REFERENCE_MARKDOWN_TYPE]: serializeMarkdownFootnoteReference,
           [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
           [MATH_MARKDOWN_TYPE]: serializeMath,
+          leafdownCallout: serializeCallout,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           code: serializeCode,
           definition: serializeMarkdownDefinition,

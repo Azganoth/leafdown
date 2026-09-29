@@ -1,5 +1,6 @@
 const scenarioTargets = {
   "block-selection": ["block-selection"],
+  callouts: ["callouts"],
   diagnostics: ["diagnostics"],
   "document-lifecycle": ["document-lifecycle"],
   "document-watcher": ["document-watcher"],

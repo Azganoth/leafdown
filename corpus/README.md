@@ -86,7 +86,7 @@ The extension survey includes:
 - [Inline, leaf, and container directives](./extensions/directives.md)
 - [Definition lists](./extensions/definition-lists.md)
 - [Wiki links and embeds](./extensions/wiki-links.md)
-- [GitHub, MkDocs, and fenced admonitions](./extensions/admonitions.md)
+- [Supported GitHub, MkDocs, Docusaurus, and VitePress callouts](./extensions/admonitions.md)
 - [MDX JSX and expressions](./extensions/mdx.md), plus isolated
   [ESM](./extensions/mdx-esm.md) and
   [malformed](./extensions/mdx-malformed.md) candidates

@@ -131,6 +131,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const settingsPath = path.join(storeDirectory, "settings.dev.json");
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
+  const calloutsPath = path.join(fixtureRoot, "callouts.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
   const imagesPath = path.join(fixtureRoot, "rendered-images.md");
@@ -152,6 +153,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const context: DesktopE2ERunContext = {
     appIdentifier,
     blocks: { path: blocksPath },
+    callouts: { path: calloutsPath },
     separator: { path: separatorPath },
     document: {
       initialMarker: "Initial fixture marker.",
@@ -189,6 +191,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
 
   const scenarios: Scenario[] = [
     { name: "block-selection", recentFiles: [blocksPath] },
+    { name: "callouts", recentFiles: [calloutsPath] },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
@@ -241,6 +244,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "block-selection.md"),
         blocksPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "callouts.md"),
+        calloutsPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "separator-presentation.md"),

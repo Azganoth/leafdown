@@ -4,7 +4,13 @@ import { $remark } from "@milkdown/kit/utils";
 import { BLOCK_ADJACENT_ATTRIBUTE_NAME } from "../utils/blockSeparatorMarkdown";
 
 // mdast block containers whose ProseMirror counterparts hold block content.
-const BLOCK_CONTAINER_TYPES = new Set(["root", "blockquote", "listItem", "footnoteDefinition"]);
+const BLOCK_CONTAINER_TYPES = new Set([
+  "root",
+  "blockquote",
+  "listItem",
+  "footnoteDefinition",
+  "leafdownCallout",
+]);
 
 const createEmptyParagraph = (): MarkdownNode => ({ type: "paragraph", children: [] });
 

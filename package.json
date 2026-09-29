@@ -66,6 +66,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-resizable-panels": "^4.12.4",
+    "remark-definition-list": "2.0.0",
     "shiki": "4.4.3",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",

@@ -88,6 +88,16 @@ import {
   type LeafdownContextPopupPluginOptions,
 } from "../plugins/contextPopup";
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
+import {
+  createLeafdownDefinitionListPlugin,
+  leafdownDefinitionDescriptionSchema,
+  leafdownDefinitionListSchema,
+  leafdownDefinitionTermSchema,
+} from "../plugins/definitionList";
+import {
+  createLeafdownDefinitionListInputRule,
+  createLeafdownDefinitionSpacingPlugin,
+} from "../plugins/definitionListInputRule";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
 import { createLeafdownDocumentStatusPlugin } from "../plugins/documentStatus";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
@@ -165,6 +175,12 @@ import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
 import { serializeParagraph, withParagraphForm } from "./continuationMarkdown";
+import {
+  joinDefinitionDescriptionBlocks,
+  serializeDefinitionDescription,
+  serializeDefinitionList,
+  serializeDefinitionTerm,
+} from "./definitionListMarkdown";
 import type { EditorDocumentStatus } from "./documentStatus";
 import { withFootnoteDefinitionLabelContent } from "./footnoteDefinitionLabel";
 import {
@@ -302,6 +318,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMathRemarkPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
+    .use(createLeafdownDefinitionListPlugin())
     .use(createLeafdownFootnoteLabelPlugin())
     .use(createLeafdownThematicBreakPlugin())
     .use(createLeafdownCodeFormPlugin())
@@ -319,6 +336,11 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
     .use(calloutSchema)
+    .use(leafdownDefinitionListSchema)
+    .use(leafdownDefinitionTermSchema)
+    .use(leafdownDefinitionDescriptionSchema)
+    .use(createLeafdownDefinitionListInputRule())
+    .use(createLeafdownDefinitionSpacingPlugin())
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownMathSchema)
     .use(leafdownDefinitionSchema)
@@ -390,6 +412,7 @@ export const createMilkdownEditor = async ({
       });
       ctx.update(remarkStringifyOptionsCtx, (options) => ({
         ...options,
+        join: [...(options.join ?? []), joinDefinitionDescriptionBlocks],
         handlers: {
           ...options.handlers,
           [BARE_AUTOLINK_MARKDOWN_TYPE]: serializeBareAutolink,
@@ -402,6 +425,9 @@ export const createMilkdownEditor = async ({
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           code: serializeCode,
           definition: serializeMarkdownDefinition,
+          defList: serializeDefinitionList,
+          defListTerm: serializeDefinitionTerm,
+          defListDescription: serializeDefinitionDescription,
           heading: serializeHeading,
           image: serializeMarkdownImage,
           imageReference: serializeMarkdownImageReference,

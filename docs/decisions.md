@@ -177,6 +177,18 @@
 - The text alternative for readers without MathML support is the TeX, set as the MathML's name, because Chromium takes no name from `alttext`.
 - Configurable macros, `\require`, and KaTeX extensions beyond what ships with the renderer are not loaded.
 
+### Model definition lists as editable block containers
+
+**Decision:** Support a Pandoc-style definition list with one single-line term and one or more definitions. A definition starts with `:` or `~`, indented by up to three spaces, followed by at least one space or tab. One blank line may separate the term from its first definition. Definition bodies accept lazy continuation and supported nested blocks. Distinct term groups require a blank line; consecutive terms sharing one definition remain ordinary Markdown. [Issue #530](https://github.com/Azganoth/leafdown/issues/530) records the accepted grammar.
+
+**Rationale:** A term, its definitions, and the blocks inside each definition need structural editing and selection. Keeping them as ordinary paragraphs would lose their relationship on edits and saves.
+
+**Consequences:**
+
+- One editor-level definition-list model holds editable term and definition content; nested content reuses the ordinary block model.
+- Each definition carries its authored marker, marker-to-content spacing, and compatible indentation. The list carries the compact or loose separation needed for a clean round trip.
+- Shared structural selection, clipboard, history, and block operations apply to definition-list content. No dedicated Insert definition list command or multiple-term grammar is added.
+
 ### Use Milkdown Kit
 
 **Decision:** Use Milkdown Kit as the hybrid WYSIWYG Markdown editor foundation.

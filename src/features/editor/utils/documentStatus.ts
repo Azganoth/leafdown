@@ -14,6 +14,9 @@ export type BlockPathSegment =
       kind:
         | "blockquote"
         | "destination"
+        | "definitionDescription"
+        | "definitionList"
+        | "definitionTerm"
         | "footnoteDefinition"
         | "label"
         | "orderedList"
@@ -183,6 +186,12 @@ const getBlockPathSegment = ($position: ResolvedPos, depth: number): BlockPathSe
       return { kind: "heading", level: Number(node.attrs.level) };
     case "blockquote":
       return { kind: "blockquote" };
+    case "definition_list":
+      return { kind: "definitionList" };
+    case "definition_term":
+      return { kind: "definitionTerm" };
+    case "definition_description":
+      return { kind: "definitionDescription" };
     case "bullet_list":
     case "ordered_list":
       return getListSegment(node, depth < $position.depth ? $position.node(depth + 1) : null);

@@ -64,6 +64,8 @@ const getBlockLabelValues = (node: ProseMirrorNode): MessageValues => {
       return { block: "list" };
     case "code_block":
       return { block: "codeBlock" };
+    case "definition_list":
+      return { block: "definitionList" };
     case "footnote_definition":
       return { block: "footnoteDefinition" };
     case "heading":

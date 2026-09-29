@@ -152,6 +152,35 @@ const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = fa
 };
 
 describe("desktop block selection", () => {
+  it("renders a definition list with a selectable gutter", async () => {
+    const { definitionList } = await getDesktopE2ERunContext();
+    await openRecentPath(definitionList.path);
+    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await dismissToasts();
+
+    const list = $(".ProseMirror dl[data-type='definition-list']");
+    await expect(list).toBeDisplayed();
+    await expect(list.$("dt")).toHaveText("Definition term");
+    await expect(list.$("dd")).toHaveText("Definition body");
+    await expect(list.$("dd")).toHaveAttribute("data-marker", "~");
+    const styles = (await list.execute((node) => ({
+      borderWidth: getComputedStyle(node).borderInlineStartWidth,
+      termColor: getComputedStyle(node.querySelector("dt")!).color,
+      definitionColor: getComputedStyle(node.querySelector("dd")!).color,
+    }))) as { borderWidth: string; termColor: string; definitionColor: string };
+    expect(styles.borderWidth).toBe("0px");
+    expect(styles.definitionColor).toBe(styles.termColor);
+
+    const geometry = (await handleGeometry()).find(({ blockTag }) => blockTag === "DL");
+    if (!geometry) throw new Error("Definition list gutter was not found.");
+    expect(geometry.handleRight).toBeLessThanOrEqual(geometry.blockLeft + 0.5);
+    const handle = $(`[data-leafdown-block-handle][data-leafdown-block-pos="${geometry.pos}"]`);
+    await handle.scrollIntoView();
+    await dispatchHandleGesture(handle);
+    await expect($('[role="status"]')).toHaveText("Definition list selected");
+    await browser.keys(Key.Escape);
+  });
+
   it("inserts a nested sibling from the moving gutter control and cancels without editing", async () => {
     const { blocks } = await getDesktopE2ERunContext();
     const originalWindowSize = await browser.getWindowSize();

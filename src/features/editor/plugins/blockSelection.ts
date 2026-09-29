@@ -66,6 +66,12 @@ const collectSelectableBlocks = (
 
     if (child.type.name === "blockquote" && !isAtomicBlock(child)) {
       collectSelectableBlocks(child, pos + 1, targets, child.type.name);
+    } else if (child.type.name === "definition_list") {
+      child.forEach((member, memberOffset) => {
+        if (member.type.name === "definition_description") {
+          collectSelectableBlocks(member, pos + 2 + memberOffset, targets, member.type.name);
+        }
+      });
     }
   });
 };

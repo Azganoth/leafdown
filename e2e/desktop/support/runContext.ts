@@ -4,6 +4,7 @@ export interface DesktopE2ERunContext {
   appIdentifier: string;
   blocks: { path: string };
   callouts: { path: string };
+  definitionList: { path: string };
   separator: { path: string };
   html: { path: string };
   math: { path: string };

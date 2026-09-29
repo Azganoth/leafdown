@@ -5,6 +5,9 @@ import type { BlockPathSegment } from "./documentStatus";
 const BLOCK_PATH_LABEL_IDS = {
   blockquote: "editor.blockPath.blockquote",
   destination: "editor.blockPath.destination",
+  definitionDescription: "editor.blockPath.definitionDescription",
+  definitionList: "editor.blockPath.definitionList",
+  definitionTerm: "editor.blockPath.definitionTerm",
   footnoteDefinition: "editor.blockPath.footnoteDefinition",
   label: "editor.blockPath.label",
   orderedList: "editor.blockPath.orderedList",

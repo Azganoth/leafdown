@@ -10,6 +10,7 @@ const BLOCK_CONTAINER_TYPES = new Set([
   "listItem",
   "footnoteDefinition",
   "leafdownCallout",
+  "defListDescription",
 ]);
 
 const createEmptyParagraph = (): MarkdownNode => ({ type: "paragraph", children: [] });

@@ -360,6 +360,40 @@
       }
     }
 
+    dl[data-type="definition-list"] {
+      @apply my-5 pl-4 leading-(--leafdown-line-spacing);
+
+      & > dt {
+        @apply mt-3 font-semibold text-foreground;
+      }
+
+      & > dt:first-child {
+        @apply mt-0;
+      }
+
+      & > dd {
+        @apply relative ml-6 text-foreground;
+
+        &::before {
+          @apply absolute font-mono text-primary/70 select-none;
+          content: attr(data-marker);
+          inset-inline-end: calc(100% + 0.5rem);
+        }
+
+        & > :first-child {
+          @apply mt-0;
+        }
+
+        & > :last-child {
+          @apply mb-0;
+        }
+      }
+
+      & > dd + dd {
+        @apply mt-2;
+      }
+    }
+
     blockquote {
       @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 leading-(--leafdown-line-spacing) text-muted-foreground;
 

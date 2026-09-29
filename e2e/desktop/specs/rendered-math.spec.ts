@@ -1,4 +1,4 @@
-import { $, browser, expect } from "@wdio/globals";
+import { $, $$, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 import { Key } from "webdriverio";
 
@@ -189,6 +189,47 @@ describe("desktop rendered math", () => {
     const edited = original.replace("$x^2$", "$zx^2$");
     await browser.waitUntil(async () => (await readFile(fixture.path, "utf8")) === edited);
     await expect(math("$zx^2$")).toHaveAttribute("data-math-rendered", "true");
+
+    const fenced = $('pre[data-language="math"]');
+    await expect(fenced).toHaveAttribute("data-math-code-rendered", "true");
+    expect(
+      await fenced.execute((node) => ({
+        codeDisplay: getComputedStyle(node.querySelector("code")!).display,
+        display: node.querySelector(".leafdown-code-math-preview .katex-display") !== null,
+        tex: node.querySelector("annotation")?.textContent,
+      })),
+    ).toEqual({ codeDisplay: "none", display: true, tex: "x^2 + y^2" });
+
+    const titled = $$('pre[data-math-code-rendered="true"]')[1];
+    await expect(titled).toHaveAttribute("data-math-code-rendered", "true");
+    expect(await titled.execute((node) => node.querySelector("annotation")?.textContent)).toBe(
+      "\\frac{a}{b}",
+    );
+    const capital = $('pre[data-language="Math"]');
+    await expect(capital).not.toHaveAttribute("data-math-code-rendered");
+    const invalid = $('pre[data-math-code-rendered="false"]');
+    await expect(invalid).toHaveAttribute("aria-description", /^Math error: /u);
+    await expect(invalid.$("code")).toHaveText("\\frac{a");
+
+    await fenced
+      .$(".leafdown-code-math-preview")
+      .execute((node) =>
+        node.dispatchEvent(
+          new MouseEvent("mousedown", { bubbles: true, button: 0, cancelable: true }),
+        ),
+      );
+    await expect(fenced).toHaveAttribute("class", /\bleafdown-code-block--active\b/u);
+    expect(await fenced.$("code").execute((node) => getComputedStyle(node).display)).toBe("block");
+    await $(".ProseMirror").addValue("z");
+    expect(await fenced.$("code").getText()).toBe("zx^2 + y^2");
+    expect(await fenced.execute((node) => node.querySelector("annotation")?.textContent)).toBe(
+      "zx^2 + y^2",
+    );
+    await browser.keys([Key.Ctrl, "s", Key.NULL]);
+    await browser.waitUntil(
+      async () =>
+        (await readFile(fixture.path, "utf8")) === edited.replace("x^2 + y^2", "zx^2 + y^2"),
+    );
 
     await pressMath(display);
     await waitForProjection("$$\n  a\n    b\n$$");

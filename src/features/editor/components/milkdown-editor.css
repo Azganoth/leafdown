@@ -417,6 +417,37 @@
         @apply block min-w-max bg-transparent p-0 font-mono text-sm leading-(--leafdown-code-line-height);
       }
 
+      &[data-math-code-rendered="true"]:not(.leafdown-code-block--active) > code {
+        @apply hidden;
+      }
+
+      &[data-math-code-rendered="true"]:not(
+          .leafdown-code-block--active
+        ).leafdown-code-block--numbered {
+        padding-inline-start: 1rem;
+      }
+
+      .leafdown-code-math-preview:not([hidden]) {
+        @apply block overflow-x-auto text-base leading-normal font-normal whitespace-normal;
+
+        .katex-display {
+          margin: 0;
+        }
+      }
+
+      &.leafdown-code-block--active .leafdown-code-math-preview {
+        @apply mt-3;
+      }
+
+      &[data-math-code-rendered="false"]:not(.leafdown-code-block--active)
+        .leafdown-code-math-preview {
+        @apply hidden;
+      }
+
+      &[data-math-code-rendered="false"] .leafdown-code-math-preview {
+        @apply text-sm text-muted-foreground;
+      }
+
       /* Numbering moves the scroll from the block to its code, so the gutter, positioned against
          the block, holds its place while long lines scroll beside it. Each number leaves flow at
          the top of the line it opens, so a wrapped continuation carries none. The empty

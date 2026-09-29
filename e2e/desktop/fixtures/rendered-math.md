@@ -14,3 +14,19 @@ Broken $\frac{a$ keeps its source.
 | Norm   |
 | ------ |
 | $x\|y$ |
+
+```math
+x^2 + y^2
+```
+
+```math title=equation
+\frac{a}{b}
+```
+
+```Math
+x^2
+```
+
+```math
+\frac{a
+```

@@ -139,6 +139,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
+  const mathCorpusPath = path.join(fixtureRoot, "math-corpus.md");
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
@@ -179,6 +180,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     html: { path: htmlPath },
     math: { path: mathPath },
+    mathCorpus: { path: mathCorpusPath },
     legacyEncoding: { path: legacyEncodingPath },
     folderActions: { path: actionsFolderPath },
     wikiLinks: { folderPath: wikiFolderPath, indexPath: wikiIndexPath },
@@ -208,7 +210,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
-    { name: "rendered-math", recentFiles: [mathPath] },
+    { name: "rendered-math", recentFiles: [mathPath, mathCorpusPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
@@ -271,6 +273,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-math.md"),
         mathPath,
       ),
+      copyFile(path.join(repositoryRoot, "corpus", "extensions", "math.md"), mathCorpusPath),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "find-and-replace.md"),
         searchPath,

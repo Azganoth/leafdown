@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { openRecentPath } from "../support/ui.js";
+import { openRecentPath, selectFileMenuItem } from "../support/ui.js";
 
 const math = (value: string) =>
   $(`[data-type="math"][data-value="${value.replaceAll("\\", "\\\\")}"]`);
@@ -55,6 +55,44 @@ const pressMath = (element: ReturnType<typeof math>) =>
   );
 
 describe("desktop rendered math", () => {
+  it("edits and writes the math corpus byte for byte", async () => {
+    const { mathCorpus } = await getDesktopE2ERunContext();
+    const original = await readFile(mathCorpus.path, "utf8");
+    await openRecentPath(mathCorpus.path);
+
+    await expect(math("$E = mc^2$")).toHaveAttribute("data-math-rendered", "true");
+    await expect($('[data-type="math"][data-math-flow="block"]')).toHaveAttribute(
+      "data-math-rendered",
+      "true",
+    );
+    await expect($('pre[data-language="math"]')).toHaveAttribute("data-math-code-rendered", "true");
+
+    await pressMath(math("$E = mc^2$"));
+    await waitForProjection("$E = mc^2$");
+    await $(".ProseMirror").addValue("z");
+    await waitForProjection("$zE = mc^2$");
+    await browser.keys([Key.Ctrl, "s", Key.NULL]);
+    const edited = original.replace("$E = mc^2$", "$zE = mc^2$");
+    await browser.waitUntil(async () => (await readFile(mathCorpus.path, "utf8")) === edited, {
+      timeoutMsg: "The edited math corpus was not saved with its other source unchanged.",
+    });
+
+    await pressMath(math("$zE = mc^2$"));
+    await waitForProjection("$zE = mc^2$");
+    await browser.keys(Key.Delete);
+    await waitForProjection("$E = mc^2$");
+    await browser.keys([Key.Ctrl, "s", Key.NULL]);
+    await browser.waitUntil(async () => (await readFile(mathCorpus.path, "utf8")) === original, {
+      timeoutMsg: "The math corpus was not written back byte for byte.",
+    });
+
+    await selectFileMenuItem("Close document");
+    await openRecentPath(mathCorpus.path);
+    await expect(math("$E = mc^2$")).toHaveAttribute("data-math-rendered", "true");
+    await expect($('pre[data-language="math"]')).toHaveAttribute("data-math-code-rendered", "true");
+    expect(await readFile(mathCorpus.path, "utf8")).toBe(original);
+  });
+
   it("renders math under the app's CSP, previews source edits, and saves the source", async () => {
     const { math: fixture } = await getDesktopE2ERunContext();
     const original = await readFile(fixture.path, "utf8");

@@ -8,6 +8,7 @@ export interface DesktopE2ERunContext {
   separator: { path: string };
   html: { path: string };
   math: { path: string };
+  mathCorpus: { path: string };
   legacyEncoding: { path: string };
   document: {
     initialMarker: string;

@@ -44,14 +44,13 @@ export type MathRenderResult =
   | { element: HTMLElement; error: null }
   | { element: null; error: string };
 
-export const renderMath = (source: string, inTableCell: boolean): MathRenderResult => {
-  const tex = readMathTex(source, inTableCell);
+export const renderMathTex = (tex: string, displayMode: boolean): MathRenderResult => {
   const container = document.createElement("span");
 
   try {
     render(tex, container, {
       ...MATH_RENDER_OPTIONS,
-      displayMode: isDisplayMathSource(source),
+      displayMode,
       macros: {},
     });
   } catch (error) {
@@ -71,6 +70,9 @@ export const renderMath = (source: string, inTableCell: boolean): MathRenderResu
   container.querySelector("math")?.setAttribute("aria-label", tex);
   return { element: container.firstElementChild as HTMLElement, error: null };
 };
+
+export const renderMath = (source: string, inTableCell: boolean): MathRenderResult =>
+  renderMathTex(readMathTex(source, inTableCell), isDisplayMathSource(source));
 
 export const describeMathError = (error: string) => t("editor.math.error", { message: error });
 

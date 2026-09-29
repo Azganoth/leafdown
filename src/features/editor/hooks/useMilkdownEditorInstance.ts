@@ -60,6 +60,11 @@ import {
   INACTIVE_EDITOR_DOCUMENT_STATUS,
   type EditorDocumentStatus,
 } from "../utils/documentStatus";
+import {
+  getHeadingOutline,
+  jumpToOutlineHeading,
+  type HeadingOutlineState,
+} from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { jumpToWikiHeading } from "../utils/wikiHeadings";
@@ -92,6 +97,7 @@ export interface MilkdownEditorBridge {
   getViewState?: () => EditorViewState | null;
   insertLink?: (label: string, target: string) => boolean;
   navigateToHeading?: (heading: string) => void;
+  navigateToOutlineHeading?: (position: number) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
 }
 
@@ -103,6 +109,7 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   onCommandStateChanged?: () => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: () => void;
+  onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
@@ -122,6 +129,7 @@ export const useMilkdownEditorInstance = ({
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
+  onHeadingOutlineChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   onReadMarkdownPath,
@@ -162,6 +170,7 @@ export const useMilkdownEditorInstance = ({
     onCommandStateChanged,
     onContentChanged,
     onDocumentStatusChanged,
+    onHeadingOutlineChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
     onReadMarkdownPath,
@@ -184,6 +193,7 @@ export const useMilkdownEditorInstance = ({
       onCommandStateChanged,
       onContentChanged,
       onDocumentStatusChanged,
+      onHeadingOutlineChanged,
       onMarkdownUpdated,
       onOpenMarkdownPath,
       onReadMarkdownPath,
@@ -199,6 +209,7 @@ export const useMilkdownEditorInstance = ({
     onCommandStateChanged,
     onContentChanged,
     onDocumentStatusChanged,
+    onHeadingOutlineChanged,
     onMarkdownUpdated,
     onOpenMarkdownPath,
     onReadMarkdownPath,
@@ -240,6 +251,10 @@ export const useMilkdownEditorInstance = ({
         if (!jumpToWikiHeading(editorRef.current.ctx.get(editorViewCtx), heading)) {
           notifyWarning(translationRef.current("editor.link.missing"), heading);
         }
+      },
+      navigateToOutlineHeading: (position) => {
+        if (!editorRef.current?.ctx) return false;
+        return jumpToOutlineHeading(editorRef.current.ctx.get(editorViewCtx), position);
       },
       runCommand: (commandId) => {
         if (!editorRef.current) {
@@ -459,6 +474,11 @@ export const useMilkdownEditorInstance = ({
             updateDocumentStatus(nextDocumentStatus);
           }
         },
+        onHeadingOutlineChanged: (outline) => {
+          if (isActiveEditorCallback()) {
+            liveOptionsRef.current.onHeadingOutlineChanged?.(outline);
+          }
+        },
         onOpenMarkdownPath: (path, heading) => {
           if (!isActiveEditorCallback()) {
             return false;
@@ -500,6 +520,9 @@ export const useMilkdownEditorInstance = ({
       }
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
+      liveOptionsRef.current.onHeadingOutlineChanged?.(
+        getHeadingOutline(editor.ctx.get(editorViewCtx).state),
+      );
     };
 
     void createEditor().catch((error) => handleUnexpectedError(error, "createMilkdownEditor"));

@@ -1,7 +1,9 @@
-import type {
-  EditorDocumentStatus,
-  EditorViewState,
-  MilkdownEditorBridge,
+import {
+  EMPTY_HEADING_OUTLINE,
+  type HeadingOutlineState,
+  type EditorDocumentStatus,
+  type EditorViewState,
+  type MilkdownEditorBridge,
 } from "@/features/editor";
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
@@ -22,9 +24,12 @@ class DocumentEditorBridgeStore {
   private pendingHeading: { documentKey: string; heading: string } | null = null;
   private readonly commandStateChanged = new SignalSource();
   private readonly documentStatusChanged = new SignalSource();
+  private readonly headingOutlineChanged = new SignalSource();
+  private headingOutline: HeadingOutlineState = EMPTY_HEADING_OUTLINE;
 
   readonly onDidChangeCommandState = this.commandStateChanged.signal;
   readonly onDidChangeDocumentStatus = this.documentStatusChanged.signal;
+  readonly onDidChangeHeadingOutline = this.headingOutlineChanged.signal;
 
   set = (documentKey: string, bridge: MilkdownEditorBridge | null) => {
     if (!bridge) {
@@ -32,18 +37,22 @@ class DocumentEditorBridgeStore {
         this.activeBridgeEntry = null;
         this.fireCommandStateChanged();
         this.fireDocumentStatusChanged();
+        this.headingOutline = EMPTY_HEADING_OUTLINE;
+        this.headingOutlineChanged.notify();
       }
 
       return;
     }
 
     this.activeBridgeEntry = { bridge, documentKey };
+    this.headingOutline = EMPTY_HEADING_OUTLINE;
     if (this.pendingHeading && isSamePath(this.pendingHeading.documentKey, documentKey)) {
       bridge.navigateToHeading?.(this.pendingHeading.heading);
       this.pendingHeading = null;
     }
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
+    this.headingOutlineChanged.notify();
   };
 
   getMarkdown = (documentKey: string) => {
@@ -68,6 +77,22 @@ class DocumentEditorBridgeStore {
     this.activeBridgeEntry?.documentKey === documentKey
       ? (this.activeBridgeEntry.bridge.getViewState?.() ?? null)
       : null;
+
+  getHeadingOutline = (documentKey: string): HeadingOutlineState =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? this.headingOutline
+      : EMPTY_HEADING_OUTLINE;
+
+  setHeadingOutline = (documentKey: string, outline: HeadingOutlineState) => {
+    if (this.activeBridgeEntry?.documentKey !== documentKey) return;
+    this.headingOutline = outline;
+    this.headingOutlineChanged.notify();
+  };
+
+  navigateToOutlineHeading = (documentKey: string, position: number) =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.navigateToOutlineHeading?.(position) ?? false)
+      : false;
 
   insertLink = (documentKey: string, label: string, target: string) => {
     if (this.activeBridgeEntry?.documentKey !== documentKey) {
@@ -98,6 +123,8 @@ class DocumentEditorBridgeStore {
     this.pendingHeading = null;
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
+    this.headingOutline = EMPTY_HEADING_OUTLINE;
+    this.headingOutlineChanged.notify();
   };
 
   fireCommandStateChanged = () => {

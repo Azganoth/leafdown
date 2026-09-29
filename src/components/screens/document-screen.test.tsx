@@ -14,6 +14,25 @@ import { DocumentScreen } from "./document-screen";
 const MARKDOWN = "# Notes\n\nBody text.\n";
 
 describe("DocumentScreen", () => {
+  it("publishes live headings and navigates to an exact heading without editing", async () => {
+    const activeDocument = createUntitledDocument({ content: "# Same\n\n## Same\n" });
+    const documentKey = getActiveDocumentKey(activeDocument);
+    setDefaultSession({ activeDocument });
+    render(<DocumentScreen activeDocument={activeDocument} />);
+
+    await waitFor(() => {
+      expect(documentEditorBridge.getHeadingOutline(documentKey).headings).toHaveLength(2);
+    });
+    const second = documentEditorBridge.getHeadingOutline(documentKey).headings[1];
+    expect(documentEditorBridge.navigateToOutlineHeading(documentKey, second.position)).toBe(true);
+    expect(documentEditorBridge.getViewState(documentKey)?.head).toBe(second.position + 1);
+    expect(documentEditorBridge.getHeadingOutline(documentKey).activePosition).toBe(
+      second.position,
+    );
+    expect(documentEditorBridge.getMarkdown(documentKey)).toBe(activeDocument.content);
+    expect(useSessionStore.getState().activeDocument?.isDirty).toBe(false);
+  });
+
   it("previews document typography without modifying the document", async () => {
     setDefaultSettings();
     const activeDocument = createUntitledDocument({ content: MARKDOWN });

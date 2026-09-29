@@ -65,6 +65,30 @@ describe("document editor bridge", () => {
     listenerDisposable.dispose();
   });
 
+  it("keeps outline rows and navigation scoped to the current document", () => {
+    const navigateToOutlineHeading = vi.fn(() => true);
+    const outline = {
+      headings: [{ position: 0, level: 1, text: "First", context: [] }],
+      activePosition: 0,
+    };
+    const listener = vi.fn();
+    const subscription = documentEditorBridge.onDidChangeHeadingOutline(listener);
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ navigateToOutlineHeading }));
+    documentEditorBridge.setHeadingOutline("doc:first", outline);
+
+    expect(documentEditorBridge.getHeadingOutline("doc:first")).toBe(outline);
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(true);
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:other", 0)).toBe(false);
+    documentEditorBridge.set("doc:second", createMilkdownEditorBridge());
+    documentEditorBridge.setHeadingOutline("doc:first", outline);
+
+    expect(documentEditorBridge.getHeadingOutline("doc:first").headings).toHaveLength(0);
+    expect(documentEditorBridge.getHeadingOutline("doc:second").headings).toHaveLength(0);
+    expect(navigateToOutlineHeading).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledTimes(3);
+    subscription.dispose();
+  });
+
   it("returns inactive command state for stale document keys", () => {
     documentEditorBridge.set(
       "doc:test",

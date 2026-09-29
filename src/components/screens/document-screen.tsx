@@ -93,6 +93,9 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               onContentChanged={() => markActiveDocumentDirty(documentKey)}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
               onDocumentStatusChanged={documentEditorBridge.fireDocumentStatusChanged}
+              onHeadingOutlineChanged={(outline) =>
+                documentEditorBridge.setHeadingOutline(documentKey, outline)
+              }
             />
           </ScrollArea>
         </CardContent>

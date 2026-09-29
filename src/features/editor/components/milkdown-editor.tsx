@@ -17,6 +17,7 @@ import type {
   DocumentLineSpacing,
   DocumentTextSize,
 } from "../utils/documentTypography";
+import type { HeadingOutlineState } from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
@@ -39,6 +40,7 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   onContentChanged?: () => void;
   onCommandStateChanged?: () => void;
   onDocumentStatusChanged?: () => void;
+  onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
   autoPairBracketsAndQuotes?: boolean;
   displayCodeBlockLineNumbers?: boolean;
   softWrapCodeBlocks?: boolean;
@@ -61,6 +63,7 @@ export function MilkdownEditor({
   onContentChanged,
   onCommandStateChanged,
   onDocumentStatusChanged,
+  onHeadingOutlineChanged,
   autoPairBracketsAndQuotes = true,
   displayCodeBlockLineNumbers = false,
   softWrapCodeBlocks = false,
@@ -94,6 +97,7 @@ export function MilkdownEditor({
     onContentChanged,
     onCommandStateChanged,
     onDocumentStatusChanged,
+    onHeadingOutlineChanged,
     onOpenMarkdownPath,
     onReadMarkdownPath,
     wikiCompletionPaths,

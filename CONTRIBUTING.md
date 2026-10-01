@@ -14,7 +14,7 @@ Leafdown is an open-source project that accepts community contributions through 
 
 Follow the document purposes and precedence defined in [`docs/README.md`](./docs/README.md).
 
-When a change affects product behavior, keep the owning docs and implementation aligned in the same change when practical.
+When a change affects product behavior, keep the owning docs and implementation aligned in the same change when practical. Review the bundled user guides under `docs/help/` when the change affects behavior they explain.
 
 Record notable user-facing changes in [`CHANGELOG.md`](./CHANGELOG.md) under `Unreleased` until they are assigned to a release version.
 
@@ -94,7 +94,7 @@ To run one scenario against an already built binary:
 pnpm test:e2e:desktop:run -- --scenario folder-watcher
 ```
 
-Targets are `block-selection`, `callouts`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `folder-watcher`, `folder-actions`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `persistence`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
+Targets are `block-selection`, `callouts`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `folder-watcher`, `folder-actions`, `help-pages`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `persistence`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
 
 Failure evidence is written under ignored `e2e/desktop/artifacts/<run>/worker-<n>/<scenario>/` directories. It includes runner and app logs, diagnostics, test errors, and a screenshot and semantic UI snapshot for failures. Workers clean their own temporary state, so another worker can finish after one fails. Local artifacts remain until manually removed and may contain sensitive paths or error text. CI uploads artifacts only on failure and retains them for seven days.
 

@@ -65,6 +65,7 @@
     "parse5": "7.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-markdown": "10.1.0",
     "react-resizable-panels": "^4.12.4",
     "remark-definition-list": "2.0.0",
     "shiki": "4.4.3",

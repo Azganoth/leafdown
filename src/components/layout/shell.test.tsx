@@ -62,6 +62,32 @@ const emptyFolderContext = createEmptyFolderContext({
 });
 
 describe("Shell", () => {
+  it("opens and closes Help without changing the active document or folder context", async () => {
+    setDefaultSession({
+      activeDocument: createSavedDocument({ content: "# Unsaved notes", isDirty: true }),
+      folderContext: nestedFolderContext,
+    });
+    setDefaultRecentItems({ recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }] });
+    const activeDocument = useSessionStore.getState().activeDocument;
+    const folderContext = useSessionStore.getState().folderContext;
+    const recentFiles = useRecentItemsStore.getState().recentFiles;
+    const { user } = renderWithUser(<Shell />);
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(screen.getByRole("menuitem", { name: "Getting started" }));
+    expect(screen.getByRole("dialog", { name: "Getting started" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Getting started" }).contains(document.activeElement),
+    ).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
+    expect(useSessionStore.getState().folderContext).toBe(folderContext);
+    expect(useRecentItemsStore.getState().recentFiles).toBe(recentFiles);
+    expect(activeDocument?.isDirty).toBe(true);
+    expect(screen.getByRole("menuitem", { name: "Help" })).toHaveFocus();
+  });
+
   it("renders the welcome shell with menu, document surface, and modal layer", () => {
     render(<Shell />);
 

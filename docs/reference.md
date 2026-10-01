@@ -249,10 +249,10 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 
 - **What's new...** (Deferred)
 - **Keyboard shortcuts** (`Mod+/`, Deferred)
-- **Markdown reference** (Deferred)
-- **Getting started** (Deferred)
-- **File and folder workflows** (Deferred)
-- **Settings reference** (Deferred)
+- **Getting started**
+- **Markdown reference**
+- **File and folder workflows**
+- **Settings reference**
 - **Report issue**
 - **Request feature**
 - **Changelog** (Deferred)
@@ -263,6 +263,8 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 - **About**
 
 `Diagnostics...` opens a dialog that shows app version, platform, log location, retention settings, and local-only privacy notes. Its copied summary includes app, platform, and current diagnostic-run metadata only. The dialog can open Leafdown's app-owned local diagnostic log directory. Local logs may include user content when captured error messages or stack traces include it.
+
+The four documentation commands have no default shortcut. Each opens its bundled page in the read-only Help dialog. See [Help](./specification.md#help) for navigation and focus behavior.
 
 For diagnostic log format and ownership, see [Architecture](./architecture.md#backend-responsibilities).
 

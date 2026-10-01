@@ -7,10 +7,13 @@
 - [Engineering Patterns](./patterns.md): recurring implementation patterns, when to use them, and the mistakes they prevent.
 - [Decisions](./decisions.md): accepted product and technical decisions.
 - [Reference](./reference.md): settings, menus, shortcuts, contextual availability, and checked state.
+- [Help](./help/getting-started.md): bundled user-facing guides for getting started, Markdown, file and folder workflows, and settings.
 
 If product documents overlap or appear to conflict, prefer them in this order: Decisions, Specification, Architecture. Reference owns the detailed settings and command inventory: it lists what exists, while Specification states how it behaves. A surface's keyboard behavior belongs to Specification even though Reference inventories its shortcuts.
 
 Engineering Patterns provides implementation guidance rather than product direction. It yields to Architecture for ownership and dependency boundaries.
+
+Help pages explain shipped behavior to app users. Review affected pages when product behavior changes; Decisions, Specification, and Reference retain their ownership and precedence above these explanations.
 
 ## Repository Guidance
 

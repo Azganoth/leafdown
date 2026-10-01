@@ -337,6 +337,25 @@ describe("CommandMenubar", () => {
     expect(onExecute).toHaveBeenCalledWith("help.openDevTools");
   });
 
+  it("routes the four Help pages in Reference order", async () => {
+    const { onExecute, user } = renderCommandMenuBar();
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    const names = [
+      "Getting started",
+      "Markdown reference",
+      "File and folder workflows",
+      "Settings reference",
+    ];
+    expect(
+      screen
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent?.trim())
+        .filter((name) => names.includes(name ?? "")),
+    ).toEqual(names);
+    await user.click(menuItem("Getting started"));
+    expect(onExecute).toHaveBeenCalledWith("help.gettingStarted");
+  });
+
   it("renders empty recent menus", async () => {
     const { user } = renderCommandMenuBar();
 

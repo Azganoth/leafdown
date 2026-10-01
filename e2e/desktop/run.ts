@@ -205,6 +205,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "find-and-replace", recentFiles: [searchPath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
+    { name: "help-pages", recentFiles: [documentPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },

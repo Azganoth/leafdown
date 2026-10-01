@@ -5,7 +5,17 @@ import { toastManager } from "@/lib/toast";
 import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
-import { openAbout, openDevTools, openDiagnostics, reportIssue, requestFeature } from "./help";
+import {
+  openAbout,
+  openDevTools,
+  openDiagnostics,
+  openFileAndFolderWorkflows,
+  openGettingStarted,
+  openMarkdownReference,
+  openSettingsReference,
+  reportIssue,
+  requestFeature,
+} from "./help";
 
 describe("help actions", () => {
   it("opens the repository forms without local context or prefilled data", async () => {
@@ -72,5 +82,16 @@ describe("help actions", () => {
     useCommandUIStore.getState().setAboutOpen(false);
     openAbout();
     expect(useCommandUIStore.getState().aboutOpen).toBe(true);
+  });
+
+  it("routes each documentation command to its bundled page", () => {
+    openMarkdownReference();
+    expect(useCommandUIStore.getState().helpPage).toBe("markdown-reference");
+    openGettingStarted();
+    expect(useCommandUIStore.getState().helpPage).toBe("getting-started");
+    openFileAndFolderWorkflows();
+    expect(useCommandUIStore.getState().helpPage).toBe("file-and-folder-workflows");
+    openSettingsReference();
+    expect(useCommandUIStore.getState().helpPage).toBe("settings-reference");
   });
 });

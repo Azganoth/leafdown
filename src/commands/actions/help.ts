@@ -26,6 +26,22 @@ export const openAbout = () => {
   useCommandUIStore.getState().setAboutOpen(true);
 };
 
+export const openMarkdownReference = () => {
+  useCommandUIStore.getState().setHelpPage("markdown-reference");
+};
+
+export const openGettingStarted = () => {
+  useCommandUIStore.getState().setHelpPage("getting-started");
+};
+
+export const openFileAndFolderWorkflows = () => {
+  useCommandUIStore.getState().setHelpPage("file-and-folder-workflows");
+};
+
+export const openSettingsReference = () => {
+  useCommandUIStore.getState().setHelpPage("settings-reference");
+};
+
 const openFeedbackForm = async (template: "bug.yml" | "feature.yml") => {
   try {
     await openUrl(`https://github.com/Azganoth/leafdown/issues/new?template=${template}`);

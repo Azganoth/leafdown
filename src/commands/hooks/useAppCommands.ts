@@ -55,12 +55,14 @@ const subscribeToCommandStateChanges = (listener: () => void) => {
 export const useAppCommands = () => {
   const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
   const diagnosticsOpen = useCommandUIStore((state) => state.diagnosticsOpen);
+  const helpPage = useCommandUIStore((state) => state.helpPage);
   const fullscreen = useCommandUIStore((state) => state.fullscreen);
   const pendingSortOrder = useCommandUIStore((state) => state.pendingSortOrder);
   const preferencesOpen = useCommandUIStore((state) => state.preferencesOpen);
   const zoom = useCommandUIStore((state) => state.zoom);
   const setAboutOpen = useCommandUIStore((state) => state.setAboutOpen);
   const setDiagnosticsOpen = useCommandUIStore((state) => state.setDiagnosticsOpen);
+  const setHelpPage = useCommandUIStore((state) => state.setHelpPage);
   const setPreferencesOpen = useCommandUIStore((state) => state.setPreferencesOpen);
   const setFullscreen = useCommandUIStore((state) => state.setFullscreen);
 
@@ -179,6 +181,7 @@ export const useAppCommands = () => {
     aboutOpen,
     commandState,
     diagnosticsOpen,
+    helpPage,
     executeCommand,
     recentItems: {
       recentFiles,
@@ -194,6 +197,7 @@ export const useAppCommands = () => {
     preferencesOpen,
     setAboutOpen,
     setDiagnosticsOpen,
+    setHelpPage,
     setPreferencesOpen,
   };
 };

@@ -17,6 +17,7 @@ import { DiagnosticsDialog } from "@/features/diagnostics";
 import { formatDocumentEncoding } from "@/features/document";
 import { DocumentTypographyPreview } from "@/features/editor";
 import { ArticleNavigator } from "@/features/folder-context";
+import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import {
   getSessionMode,
@@ -209,6 +210,7 @@ export function Shell() {
           onOpenChange={commands.setDiagnosticsOpen}
         />
         <AboutDialog open={commands.aboutOpen} onOpenChange={commands.setAboutOpen} />
+        <HelpDialog page={commands.helpPage} onPageChange={commands.setHelpPage} />
         <ConfirmationDialog />
       </div>
     </>

@@ -355,6 +355,12 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 
 ## Commands And Settings
 
+### Help
+
+The Help menu opens Getting started, Markdown reference, File and folder workflows, and Settings reference as bundled, read-only pages. Each command opens directly to its page without a network request. The dialog shows one page, titled with that page's name. Links to another bundled page replace it in the same dialog and move focus to its content; explicit web links open through the system browser. Help does not send document text, paths, or diagnostics, and opening, navigating, or closing it does not change the document, selection, folder context, dirty state, or editor history. Focus enters the dialog and returns to the prior application control when it closes. Pages remain scrollable in a narrow window.
+
+The source pages under `docs/help/` are the user-facing explanation of shipped behavior. They follow this Specification and the command and settings inventory in Reference.
+
 See [Reference](./reference.md) for current and Deferred settings, command surfaces, contextual availability, and checked or radio state.
 
 ### Appearance

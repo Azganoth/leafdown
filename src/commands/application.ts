@@ -60,6 +60,10 @@ export const APPLICATION_COMMANDS = {
   "view.collapseAllFolders": appCommand(view.collapseAllFolders, view.getCollapseAllFoldersState),
   "view.expandAllFolders": appCommand(view.expandAllFolders, view.getExpandAllFoldersState),
 
+  "help.gettingStarted": appCommand(help.openGettingStarted),
+  "help.markdownReference": appCommand(help.openMarkdownReference),
+  "help.fileAndFolderWorkflows": appCommand(help.openFileAndFolderWorkflows),
+  "help.settingsReference": appCommand(help.openSettingsReference),
   "help.openDevTools": appCommand(help.openDevTools),
   "help.reportIssue": appCommand(help.reportIssue),
   "help.requestFeature": appCommand(help.requestFeature),

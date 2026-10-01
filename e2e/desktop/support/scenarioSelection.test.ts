@@ -14,6 +14,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["find-and-replace"],
       ["folder-watcher"],
       ["folder-actions"],
+      ["help-pages"],
       ["rendered-images"],
       ["remote-images"],
       ["rendered-html"],

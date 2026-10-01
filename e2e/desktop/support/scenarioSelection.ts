@@ -7,6 +7,7 @@ const scenarioTargets = {
   "find-and-replace": ["find-and-replace"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],
+  "help-pages": ["help-pages"],
   "rendered-images": ["rendered-images"],
   "remote-images": ["remote-images"],
   "rendered-html": ["rendered-html"],

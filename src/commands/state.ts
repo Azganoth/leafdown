@@ -20,9 +20,7 @@ export const getCommandState = (
       return disabled("The editor is not ready.");
     }
 
-    return editor.enabledCommands[commandId]
-      ? enabled()
-      : disabled("The editor command is not available.");
+    return editor.enabledCommands[commandId] ? enabled() : disabled();
   }
 
   if (isApplicationCommandId(commandId)) {

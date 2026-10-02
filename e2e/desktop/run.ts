@@ -204,6 +204,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const scenarios: Scenario[] = [
     { name: "block-selection", recentFiles: [blocksPath, definitionListPath] },
     { name: "callouts", recentFiles: [calloutsPath] },
+    { name: "command-palette", recentFiles: [searchPath] },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },

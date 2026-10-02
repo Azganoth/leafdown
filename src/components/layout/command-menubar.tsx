@@ -193,10 +193,14 @@ export function CommandMenubar({
         </MenubarMenu>
 
         <MenubarMenu>
-          <MenubarTrigger className="aria-expanded:text-foreground">
+          <MenubarTrigger data-command-palette-trigger className="aria-expanded:text-foreground">
             {t(getCommandMenuLabelId("view"))}
           </MenubarTrigger>
           <MenubarContent>
+            <MenubarGroup>
+              <CommandItems commandIds={["view.commandPalette"]} inset />
+            </MenubarGroup>
+            <MenubarSeparator />
             <CommandCheckboxItem commandId="view.toggleSidebar" />
             <CommandCheckboxItem commandId="view.toggleStatusBar" />
             <MenubarSeparator />

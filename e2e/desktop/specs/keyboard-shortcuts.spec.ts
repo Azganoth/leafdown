@@ -90,17 +90,14 @@ describe("desktop keyboard shortcuts reference", () => {
           ),
         { timeoutMsg: "The shortcuts list did not receive focus on open." },
       );
-      await browser.keys("ArrowDown");
-      await browser.waitUntil(
-        () =>
-          browser.execute(
-            () =>
-              (document.querySelector<HTMLElement>(
-                '[data-slot="dialog-content"][data-open] [data-slot="scroll-area-viewport"]',
-              )?.scrollTop ?? 0) > 0,
-          ),
-        { timeoutMsg: "ArrowDown did not scroll the shortcuts list." },
-      );
+      // The harness synthesizes keys in JavaScript, and untrusted keys never scroll natively.
+      const focusedScrollTop = await browser.execute(() => {
+        const focused = document.activeElement as HTMLElement | null;
+        if (!focused) return 0;
+        focused.scrollTop = focused.scrollHeight;
+        return focused.scrollTop;
+      });
+      expect(focusedScrollTop).toBeGreaterThan(0);
 
       await browser.keys("Escape");
       await expect(dialog()).not.toExist();

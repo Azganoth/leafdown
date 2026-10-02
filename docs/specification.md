@@ -370,6 +370,11 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - After a version change, What's new opens automatically once if Leafdown has a recorded previous version, the new version has usable notes, and those notes have not been shown before. First installation never opens it automatically. Showing it automatically or manually records that version as seen across restarts; the Help command remains available for manual reopening. A version without notes is recorded as launched without showing a dialog.
 - Opening, scrolling, and closing release notes leave the active document, folder, recent items, and editor state unchanged. Escape and the Close control dismiss the dialog and return focus to the prior surface.
 
+### Keyboard Shortcuts Reference
+
+- `Help > Keyboard shortcuts` and `Mod+/` open the same read-only reference. It groups implemented command shortcuts by menu and shows every registered binding, whether or not a command is currently enabled. Documented Leafdown-owned editor keys that have no command are listed with their editor interactions. Deferred, absent, and shortcut-less commands do not appear.
+- The shortcut list scrolls inside the dialog and can be reached and scrolled by keyboard. `Escape` closes the dialog and returns focus to the control or editor that opened it. Opening and reading the reference does not change the document or other application state.
+
 ### Appearance
 
 - **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.

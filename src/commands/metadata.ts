@@ -192,6 +192,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "help.openDevTools": commandDef(),
   "help.whatsNew": commandDef(),
   "help.changelog": commandDef(),
+  "help.keyboardShortcuts": commandDef({ key: "/", mod: true }),
   "help.reportIssue": commandDef(),
   "help.requestFeature": commandDef(),
   "help.diagnostics": commandDef(),
@@ -216,8 +217,11 @@ export const WINDOW_SHORTCUT_COMMAND_IDS: readonly AppCommandId[] = [
   ...DOCUMENT_SEARCH_COMMAND_IDS,
 ];
 
-export const formatShortcut = ({ alt, key, mod, shift }: CommandShortcut) =>
-  [mod && "Mod", alt && "Alt", shift && "Shift", formatKeyboardKey(key)].filter(isTruthy).join("+");
+export const getShortcutKeyLabels = ({ alt, key, mod, shift }: CommandShortcut) =>
+  [mod && "Mod", alt && "Alt", shift && "Shift", formatKeyboardKey(key)].filter(isTruthy);
+
+export const formatShortcut = (shortcut: CommandShortcut) =>
+  getShortcutKeyLabels(shortcut).join("+");
 
 export const getShortcutSignature = ({ alt, key, mod, shift }: CommandShortcut) =>
   [mod && "mod", alt && "alt", shift && "shift", normalizeKeyboardKey(key)]

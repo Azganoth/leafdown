@@ -23,6 +23,10 @@ export const openDiagnostics = () => {
   useCommandUIStore.getState().setDiagnosticsOpen(true);
 };
 
+export const openKeyboardShortcuts = () => {
+  useCommandUIStore.getState().setKeyboardShortcutsOpen(true);
+};
+
 export const openAbout = () => {
   useCommandUIStore.getState().setAboutOpen(true);
 };

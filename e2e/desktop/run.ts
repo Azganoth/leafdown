@@ -208,6 +208,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "find-and-replace", recentFiles: [searchPath] },
+    { name: "keyboard-shortcuts" },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
     { name: "help-pages", recentFiles: [documentPath] },

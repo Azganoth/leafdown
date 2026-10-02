@@ -322,6 +322,7 @@ describe("CommandMenubar", () => {
     await user.click(screen.getByRole("menuitem", { name: "Help" }));
     expect(menuItem("What's new...")).toBeInTheDocument();
     expect(menuItem("Changelog")).toBeInTheDocument();
+    expect(menuItem("Keyboard shortcuts")).toBeInTheDocument();
     expect(menuItem("Report issue")).toBeInTheDocument();
     expect(menuItem("Request feature")).toBeInTheDocument();
     expect(menuItem("Diagnostics...")).toBeInTheDocument();

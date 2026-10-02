@@ -76,6 +76,7 @@ export const setDefaultUI = (ui: Partial<CommandUIState> = {}) => {
     aboutOpen: false,
     diagnosticsOpen: false,
     helpPage: null,
+    keyboardShortcutsOpen: false,
     preferencesOpen: false,
     fullscreen: false,
     zoom: 1,

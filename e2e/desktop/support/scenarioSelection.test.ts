@@ -12,6 +12,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["document-lifecycle"],
       ["document-watcher"],
       ["find-and-replace"],
+      ["keyboard-shortcuts"],
       ["folder-watcher"],
       ["folder-actions"],
       ["help-pages"],

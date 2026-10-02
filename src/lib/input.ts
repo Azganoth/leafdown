@@ -1,6 +1,7 @@
 import { isMacPlatform } from "./platform";
 
-export const formatKeyboardKey = (key: string) => (key.length === 1 ? key.toUpperCase() : key);
+export const formatKeyboardKey = (key: string) =>
+  key === "ContextMenu" ? "Menu" : key.length === 1 ? key.toUpperCase() : key;
 
 export const hasNoShortcutModifier = (event: KeyboardEvent | MouseEvent) =>
   !event.altKey && !event.ctrlKey && !event.metaKey;

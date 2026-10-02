@@ -70,7 +70,7 @@ $$
 ```
 ````
 
-**Mermaid diagrams** use a fenced code block whose first info word is `mermaid`. The diagram shows while the caret is elsewhere; click it or arrow into it to edit its code, and the diagram updates below once you pause. Wide diagrams scroll sideways at their natural size. Diagrams use Leafdown's light or dark colors, render locally, and never load an external resource. Configuration directives and frontmatter are kept but not previewed.
+**Mermaid diagrams** use a fenced code block whose first info word is `mermaid`. The diagram shows while the caret is elsewhere; click it or arrow into it to edit its syntax-highlighted code, and the diagram updates below once you pause. Wide diagrams scroll sideways at their natural size. Diagrams use Leafdown's light or dark colors, render locally, and never load an external resource. Configuration directives and frontmatter are kept but not previewed.
 
 ````text
 ```mermaid

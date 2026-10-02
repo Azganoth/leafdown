@@ -111,6 +111,21 @@ describe("Mermaid code blocks", () => {
     expect(mermaidPre()).not.toHaveClass("leafdown-mermaid-editing");
   });
 
+  it("syntax highlights Mermaid source while editing without changing the Markdown", async () => {
+    const markdown = block("```mermaid");
+    const mounted = await mountEditor(markdown);
+    setTextSelection(mounted.view, getEditorTextPosition(mounted, "flowchart LR"));
+
+    await vi.waitFor(() => {
+      const keyword = [...mermaidPre().querySelectorAll<HTMLElement>("code .shiki")].find((token) =>
+        token.textContent?.includes("flowchart"),
+      );
+      expect(keyword?.getAttribute("style")).toContain("--shiki-light:");
+    });
+    expect(mermaidPre()).toHaveAttribute("data-mermaid-mode", "source");
+    expect(mounted.getMarkdown()).toBe(markdown);
+  });
+
   it("shows source when either end of a selection lies in the code", async () => {
     const mounted = await mountEditor(block("```mermaid"));
     setTextSelection(

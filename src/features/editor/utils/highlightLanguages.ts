@@ -1,6 +1,7 @@
 // Kept apart from the highlighter so the names can be offered without loading Shiki.
 export const HIGHLIGHT_LANGUAGES = [
   "markdown",
+  "mermaid",
   "typescript",
   "javascript",
   "json",

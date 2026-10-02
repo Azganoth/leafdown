@@ -3,6 +3,7 @@ import bash from "@shikijs/langs/bash";
 import javascript from "@shikijs/langs/javascript";
 import json from "@shikijs/langs/json";
 import markdown from "@shikijs/langs/markdown";
+import mermaid from "@shikijs/langs/mermaid";
 import rust from "@shikijs/langs/rust";
 import typescript from "@shikijs/langs/typescript";
 import githubDark from "@shikijs/themes/github-dark";
@@ -22,7 +23,7 @@ const SHIKI_THEMES = { light: "github-light", dark: "github-dark" } as const;
 const loadParser = async (): Promise<Parser> => {
   const highlighter = await createHighlighterCore({
     themes: [githubLight, githubDark],
-    langs: [markdown, typescript, javascript, json, rust, bash],
+    langs: [markdown, mermaid, typescript, javascript, json, rust, bash],
     engine: createJavaScriptRegexEngine(),
   });
   const parser = createParser(highlighter, { themes: SHIKI_THEMES, defaultColor: false });

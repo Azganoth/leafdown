@@ -104,6 +104,7 @@ describe("EditorCodeBlockLanguagePicker", () => {
       "javascript js, jsx",
       "json",
       "markdown md",
+      "mermaid",
       "rust rs",
       "typescript ts, tsx",
     ]);

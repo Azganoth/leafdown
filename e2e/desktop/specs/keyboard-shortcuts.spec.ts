@@ -83,9 +83,12 @@ describe("desktop keyboard shortcuts reference", () => {
       });
       expect(layout).toEqual({ fits: true, scrolls: true, overflowsHorizontally: false });
 
-      await browser.keys("Tab");
-      expect(await browser.execute(() => document.activeElement?.getAttribute("data-slot"))).toBe(
-        "scroll-area-viewport",
+      await browser.waitUntil(
+        () =>
+          browser.execute(
+            () => document.activeElement?.getAttribute("data-slot") === "scroll-area-viewport",
+          ),
+        { timeoutMsg: "The shortcuts list did not receive focus on open." },
       );
       await browser.keys("ArrowDown");
       await browser.waitUntil(

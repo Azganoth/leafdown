@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useRef } from "react";
 
 import {
   formatShortcut,
@@ -41,15 +41,23 @@ function ShortcutKeys({ shortcut }: { shortcut: CommandShortcut }) {
 export function KeyboardShortcutsDialog({ open, onOpenChange }: KeyboardShortcutsDialogProps) {
   const { t } = useLocalization();
   const groups = getShortcutReferenceGroups();
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(40rem,calc(100dvh-2rem))] min-h-0 flex-col gap-4 sm:max-w-2xl">
+      <DialogContent
+        className="flex h-[min(40rem,calc(100dvh-2rem))] min-h-0 flex-col gap-4 sm:max-w-2xl"
+        initialFocus={viewportRef}
+      >
         <DialogHeader className="shrink-0 pr-10">
           <DialogTitle>{t("command.help.keyboardShortcuts")}</DialogTitle>
           <DialogDescription>{t("shortcuts.description")}</DialogDescription>
         </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-full">
+        <ScrollArea
+          className="min-h-0 flex-1"
+          viewportClassName="max-h-full"
+          viewportRef={viewportRef}
+        >
           <div className="space-y-6 pr-4 pb-1">
             {groups.map((group) => (
               <section aria-label={t(group.labelId)} key={group.id}>

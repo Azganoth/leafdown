@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { renderWithUser, screen, within } from "@/test/utils/react";
+import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 
@@ -43,6 +43,15 @@ describe("KeyboardShortcutsDialog", () => {
       "Z",
     ]);
     expect(dialog.querySelector('[data-slot="scroll-area-viewport"]')).toContainElement(redo);
+  });
+
+  it("focuses the shortcut list when it opens", async () => {
+    renderWithUser(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
+    const viewport = dialog.querySelector('[data-slot="scroll-area-viewport"]');
+
+    await waitFor(() => expect(document.activeElement).toBe(viewport));
   });
 
   it("closes by keyboard without executing a row", async () => {

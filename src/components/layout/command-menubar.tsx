@@ -227,6 +227,8 @@ export function CommandMenubar({
             {t(getCommandMenuLabelId("help"))}
           </MenubarTrigger>
           <MenubarContent>
+            <CommandItems commandIds={["help.whatsNew"]} />
+            <MenubarSeparator />
             <CommandItems
               commandIds={[
                 "help.gettingStarted",
@@ -237,6 +239,7 @@ export function CommandMenubar({
             />
             <MenubarSeparator />
             <CommandItems commandIds={["help.reportIssue", "help.requestFeature"]} />
+            <CommandItems commandIds={["help.changelog"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />

@@ -190,6 +190,8 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "help.fileAndFolderWorkflows": commandDef(),
   "help.settingsReference": commandDef(),
   "help.openDevTools": commandDef(),
+  "help.whatsNew": commandDef(),
+  "help.changelog": commandDef(),
   "help.reportIssue": commandDef(),
   "help.requestFeature": commandDef(),
   "help.diagnostics": commandDef(),

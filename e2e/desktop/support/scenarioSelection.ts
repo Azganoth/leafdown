@@ -17,6 +17,11 @@ const scenarioTargets = {
   "missing-document-error": ["missing-document-error"],
   "legacy-encoding": ["legacy-encoding"],
   persistence: ["persistence-write", "persistence-restart"],
+  "release-notes": [
+    "release-notes-first-install",
+    "release-notes-upgrade",
+    "release-notes-restart",
+  ],
   "window-lifecycle": ["window-lifecycle"],
   "wiki-links": ["wiki-links"],
 } as const;

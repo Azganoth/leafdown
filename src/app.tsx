@@ -14,6 +14,7 @@ import {
   useSettingsStore,
   type SettingsState,
 } from "@/features/preferences";
+import { initializeReleaseNotes } from "@/features/release-notes";
 import {
   confirmDiscardActiveDocumentChanges,
   DroppedPathOverlay,
@@ -57,6 +58,14 @@ export function App() {
         ]);
 
         localizer.setLanguage(useSettingsStore.getState().language);
+
+        await initializeReleaseNotes().catch((error) =>
+          notifyOperationFailure(
+            localizer.current.t("app.loadReleaseNotesFailed"),
+            error,
+            "initializeReleaseNotes",
+          ),
+        );
 
         await applyPersistedAlwaysOnTop().catch((error) =>
           notifyOperationFailure(

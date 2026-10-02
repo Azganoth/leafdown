@@ -65,6 +65,8 @@ export const APPLICATION_COMMANDS = {
   "help.fileAndFolderWorkflows": appCommand(help.openFileAndFolderWorkflows),
   "help.settingsReference": appCommand(help.openSettingsReference),
   "help.openDevTools": appCommand(help.openDevTools),
+  "help.whatsNew": appCommand(help.openWhatsNew),
+  "help.changelog": appCommand(help.openChangelog),
   "help.reportIssue": appCommand(help.reportIssue),
   "help.requestFeature": appCommand(help.requestFeature),
   "help.diagnostics": appCommand(help.openDiagnostics),

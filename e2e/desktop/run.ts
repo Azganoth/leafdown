@@ -15,6 +15,7 @@ import { runWorkerPool } from "./support/workerPool.js";
 interface Scenario {
   name: string;
   continues?: string;
+  releaseNotesLastVersion?: string;
   recentFiles?: string[];
   recentFolders?: string[];
 }
@@ -129,6 +130,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const workerArtifactsRoot = path.join(artifactsRoot, label);
   const storeDirectory = path.join(appDataDirectory, "tauri-plugin-zustand");
   const settingsPath = path.join(storeDirectory, "settings.dev.json");
+  const releaseNotesPath = path.join(storeDirectory, "release-notes.dev.json");
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
   const calloutsPath = path.join(fixtureRoot, "callouts.md");
@@ -195,6 +197,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     missingDocumentPath,
     settingsPath,
+    releaseNotesPath,
     temporaryRoot: fixtureRoot,
   };
 
@@ -218,6 +221,13 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
+    { name: "release-notes-first-install" },
+    {
+      name: "release-notes-upgrade",
+      continues: "release-notes-first-install",
+      releaseNotesLastVersion: "0.0.0-previous",
+    },
+    { name: "release-notes-restart", continues: "release-notes-upgrade" },
     { name: "window-lifecycle" },
     { name: "wiki-links", recentFolders: [wikiFolderPath] },
   ];
@@ -357,6 +367,14 @@ const resetPersistedState = async (
   });
 };
 
+const seedReleaseNotesUpgrade = async (worker: WorkerContext, lastVersion: string) => {
+  await writeJson(path.join(worker.storeDirectory, "release-notes.dev.json"), {
+    lastVersion,
+    seenVersions: [],
+    version: 1,
+  });
+};
+
 const runWdio = (scenario: Scenario, worker: WorkerContext) =>
   new Promise<void>((resolve, reject) => {
     const wdioExecutable = path.join(
@@ -483,6 +501,10 @@ const runScenarioGroup = async (scenarioNames: string[], worker: WorkerContext) 
         }
       } else {
         await resetPersistedState(worker, scenario.recentFiles, scenario.recentFolders);
+      }
+
+      if (scenario.releaseNotesLastVersion) {
+        await seedReleaseNotesUpgrade(worker, scenario.releaseNotesLastVersion);
       }
 
       await runScenario(scenario, worker);

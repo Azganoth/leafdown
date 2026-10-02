@@ -19,6 +19,7 @@ import { DocumentTypographyPreview } from "@/features/editor";
 import { ArticleNavigator } from "@/features/folder-context";
 import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
+import { ReleaseNotesDialog } from "@/features/release-notes";
 import {
   getSessionMode,
   notifyOpenMarkdownFileError,
@@ -211,6 +212,7 @@ export function Shell() {
         />
         <AboutDialog open={commands.aboutOpen} onOpenChange={commands.setAboutOpen} />
         <HelpDialog page={commands.helpPage} onPageChange={commands.setHelpPage} />
+        <ReleaseNotesDialog />
         <ConfirmationDialog />
       </div>
     </>

@@ -320,6 +320,8 @@ describe("CommandMenubar", () => {
     const { onExecute, user } = renderCommandMenuBar();
 
     await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    expect(menuItem("What's new...")).toBeInTheDocument();
+    expect(menuItem("Changelog")).toBeInTheDocument();
     expect(menuItem("Report issue")).toBeInTheDocument();
     expect(menuItem("Request feature")).toBeInTheDocument();
     expect(menuItem("Diagnostics...")).toBeInTheDocument();
@@ -335,6 +337,14 @@ describe("CommandMenubar", () => {
     await user.click(menuItem("Open DevTools"));
 
     expect(onExecute).toHaveBeenCalledWith("help.openDevTools");
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(menuItem("What's new..."));
+    expect(onExecute).toHaveBeenCalledWith("help.whatsNew");
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(menuItem("Changelog"));
+    expect(onExecute).toHaveBeenCalledWith("help.changelog");
   });
 
   it("routes the four Help pages in Reference order", async () => {

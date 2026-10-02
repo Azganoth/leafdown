@@ -247,7 +247,7 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 
 #### Help Menu
 
-- **What's new...** (Deferred)
+- **What's new...**
 - **Keyboard shortcuts** (`Mod+/`, Deferred)
 - **Getting started**
 - **Markdown reference**
@@ -255,12 +255,14 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 - **Settings reference**
 - **Report issue**
 - **Request feature**
-- **Changelog** (Deferred)
+- **Changelog**
 - **Check for updates** (Deferred)
 - **Support / Donate** (Deferred)
 - **Open DevTools**
 - **Diagnostics...**
 - **About**
+
+`What's new...` shows the running version's bundled release notes, or a no-notes state when none are available. `Changelog` shows the complete bundled changelog. Both are read-only dialogs and work without a network connection.
 
 `Diagnostics...` opens a dialog that shows app version, platform, log location, retention settings, and local-only privacy notes. Its copied summary includes app, platform, and current diagnostic-run metadata only. The dialog can open Leafdown's app-owned local diagnostic log directory. Local logs may include user content when captured error messages or stack traces include it.
 

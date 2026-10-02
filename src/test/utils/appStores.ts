@@ -14,6 +14,7 @@ import {
   type RecentItemsState,
   type SettingsPersistedState,
 } from "@/features/preferences";
+import { RELEASE_NOTES_STATE_VERSION, useReleaseNotesStore } from "@/features/release-notes";
 // Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
 // beforeEach in ../setup/common.ts loads this module for every test file.
 import { useSessionStore, type SessionState } from "@/features/session/stores/session";
@@ -88,5 +89,12 @@ export const resetAppStores = () => {
   setDefaultRecentItems();
   setDefaultSession();
   setDefaultUI();
+  useReleaseNotesStore.setState({
+    currentVersion: "",
+    lastVersion: "",
+    seenVersions: [],
+    surface: null,
+    version: RELEASE_NOTES_STATE_VERSION,
+  });
   useArticleNavigatorStore.getState().reset();
 };

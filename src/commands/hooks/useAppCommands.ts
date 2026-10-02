@@ -54,6 +54,7 @@ const subscribeToCommandStateChanges = (listener: () => void) => {
 
 export const useAppCommands = () => {
   const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
+  const commandPaletteOpen = useCommandUIStore((state) => state.commandPaletteOpen);
   const diagnosticsOpen = useCommandUIStore((state) => state.diagnosticsOpen);
   const helpPage = useCommandUIStore((state) => state.helpPage);
   const keyboardShortcutsOpen = useCommandUIStore((state) => state.keyboardShortcutsOpen);
@@ -62,6 +63,7 @@ export const useAppCommands = () => {
   const preferencesOpen = useCommandUIStore((state) => state.preferencesOpen);
   const zoom = useCommandUIStore((state) => state.zoom);
   const setAboutOpen = useCommandUIStore((state) => state.setAboutOpen);
+  const setCommandPaletteOpen = useCommandUIStore((state) => state.setCommandPaletteOpen);
   const setDiagnosticsOpen = useCommandUIStore((state) => state.setDiagnosticsOpen);
   const setHelpPage = useCommandUIStore((state) => state.setHelpPage);
   const setKeyboardShortcutsOpen = useCommandUIStore((state) => state.setKeyboardShortcutsOpen);
@@ -181,6 +183,7 @@ export const useAppCommands = () => {
 
   return {
     aboutOpen,
+    commandPaletteOpen,
     commandState,
     diagnosticsOpen,
     helpPage,
@@ -199,6 +202,7 @@ export const useAppCommands = () => {
     } satisfies ReopenWithEncodingControl,
     preferencesOpen,
     setAboutOpen,
+    setCommandPaletteOpen,
     setDiagnosticsOpen,
     setHelpPage,
     setKeyboardShortcutsOpen,

@@ -45,6 +45,7 @@ export const APPLICATION_COMMANDS = {
   "edit.encoding.file": appCommand(edit.setFileEncoding, edit.getFileEncodingState),
 
   "view.toggleSidebar": appCommand(view.toggleSidebar, view.getToggleSidebarState),
+  "view.commandPalette": appCommand(view.openCommandPalette),
   "view.toggleStatusBar": appCommand(view.toggleStatusBar, view.getToggleStatusBarState),
   "view.zoomIn": appCommand(view.zoomIn, view.getZoomInState),
   "view.zoomOut": appCommand(view.zoomOut, view.getZoomOutState),

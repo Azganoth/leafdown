@@ -8,6 +8,7 @@ void test("runs every scenario when no focused target is requested", () => {
     scenarioGroups: [
       ["block-selection"],
       ["callouts"],
+      ["command-palette"],
       ["diagnostics"],
       ["document-lifecycle"],
       ["document-watcher"],

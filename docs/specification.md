@@ -375,6 +375,14 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - `Help > Keyboard shortcuts` and `Mod+/` open the same read-only reference. It groups implemented command shortcuts by menu and shows every registered binding, whether or not a command is currently enabled. Documented Leafdown-owned editor keys that have no command are listed with their editor interactions. Deferred, absent, and shortcut-less commands do not appear.
 - The shortcut list scrolls inside the dialog and can be reached and scrolled by keyboard. `Escape` closes the dialog and returns focus to the control or editor that opened it. Opening and reading the reference does not change the document or other application state.
 
+### Command Palette
+
+The command palette opens above the application and focuses its search field. An empty search lists registered commands in menu-group order. Search ignores letter case, splits the query at whitespace, and requires every term to match the command label or its menu path; full-label and label-prefix matches rank before looser matches. An unmatched query shows an empty-result message.
+
+Arrow keys move through results, and `Home` and `End` select the first and last result. `Enter`, the footer's `Run` button, or a pointer activates the selected available command. Unavailable commands remain visible and cannot execute; contextual reasons are shown when available. The search field and footer stay visible while the command list scrolls. Tab moves from the search field to `Run` without a separate stop on the results area. The palette closes before executing a command through its existing dispatcher. A command that opens a dialog, picker, or editor interaction keeps that interaction's normal focus and state behavior.
+
+`Escape` dismisses the palette and returns focus to the surface that opened it. Opening, searching, and dismissing it leave the document, selection, dirty state, and history unchanged.
+
 ### Appearance
 
 - **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.

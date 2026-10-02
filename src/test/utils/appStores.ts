@@ -74,6 +74,7 @@ export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {
 export const setDefaultUI = (ui: Partial<CommandUIState> = {}) => {
   useCommandUIStore.setState({
     aboutOpen: false,
+    commandPaletteOpen: false,
     diagnosticsOpen: false,
     helpPage: null,
     keyboardShortcutsOpen: false,

@@ -70,6 +70,10 @@ export const toggleSidebar = () => {
   settings.updateSetting("sidebarVisible", !settings.sidebarVisible);
 };
 
+export const openCommandPalette = () => {
+  useCommandUIStore.getState().setCommandPaletteOpen(true);
+};
+
 export const toggleStatusBar = () => {
   const settings = useSettingsStore.getState();
   settings.updateSetting("statusBarVisible", !settings.statusBarVisible);

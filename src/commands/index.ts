@@ -1,4 +1,5 @@
 export { ARTICLE_NAVIGATOR_ENTRY_ACTIONS } from "./actions/navigator";
+export { getCommandMenuPathIds, PALETTE_COMMAND_IDS } from "./catalog";
 export type { ApplicationCommandId } from "./application";
 export type { AppCommandContext, ReopenWithEncodingControl } from "./context";
 export type { AppCommandId } from "./dispatch";
@@ -15,4 +16,5 @@ export { getCommandState } from "./state";
 export { getShortcutReferenceGroups } from "./shortcutReference";
 export type { CommandState } from "./statePrimitives";
 export { useCommandUIStore } from "./stores/commandUi";
+export { getCommandPaletteOpener } from "./stores/commandUi";
 export type { CommandUIState } from "./stores/commandUi";

@@ -23,6 +23,7 @@ import {
   setDefaultSettings,
   setDefaultUI,
 } from "@/test/utils/appStores";
+import { dispatchKeyDown } from "@/test/utils/events";
 import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
@@ -86,6 +87,46 @@ describe("Shell", () => {
     expect(useRecentItemsStore.getState().recentFiles).toBe(recentFiles);
     expect(activeDocument?.isDirty).toBe(true);
     expect(screen.getByRole("menuitem", { name: "Help" })).toHaveFocus();
+  });
+
+  it("opens the palette from Mod+Shift+P and returns focus on Escape", async () => {
+    setDefaultUI();
+    const { user } = renderWithUser(<Shell />);
+    const opener = screen.getByRole("button", { name: "Open file" });
+    opener.focus();
+
+    act(() => {
+      expect(dispatchKeyDown(opener, "p", { ctrl: true, shift: true }).defaultPrevented).toBe(true);
+    });
+
+    const search = screen.getByRole("combobox", { name: "Search commands" });
+    await waitFor(() => expect(search).toHaveFocus());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("opens the palette from View and returns focus to the menu trigger", async () => {
+    setDefaultUI();
+    const { user } = renderWithUser(<Shell />);
+    const viewTrigger = screen.getByRole("menuitem", { name: "View" });
+    await user.click(viewTrigger);
+    await user.click(screen.getByRole("menuitem", { name: /Command palette/u }));
+    const menuSearch = screen.getByRole("combobox", { name: "Search commands" });
+    await waitFor(() => expect(menuSearch).toHaveFocus());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(viewTrigger).toHaveFocus());
+  });
+
+  it("closes the palette before opening a command dialog", async () => {
+    setDefaultUI();
+    const { user } = renderWithUser(<Shell />);
+    const viewTrigger = screen.getByRole("menuitem", { name: "View" });
+    await user.click(viewTrigger);
+    await user.click(screen.getByRole("menuitem", { name: /Command palette/u }));
+    await user.type(screen.getByRole("combobox", { name: "Search commands" }), "preferences");
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByRole("dialog", { name: /Preferences/u })).toBeVisible());
+    expect(screen.queryByRole("combobox", { name: "Search commands" })).not.toBeInTheDocument();
   });
 
   it("renders the welcome shell with menu, document surface, and modal layer", () => {

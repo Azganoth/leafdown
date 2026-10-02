@@ -5,6 +5,7 @@ import type { HelpPageId } from "@/features/help";
 
 export interface CommandUIState {
   aboutOpen: boolean;
+  commandPaletteOpen: boolean;
   diagnosticsOpen: boolean;
   helpPage: HelpPageId | null;
   keyboardShortcutsOpen: boolean;
@@ -13,6 +14,7 @@ export interface CommandUIState {
   zoom: number;
   pendingSortOrder: ArticleSortOrder | null;
   setAboutOpen: (open: boolean) => void;
+  setCommandPaletteOpen: (open: boolean) => void;
   setDiagnosticsOpen: (open: boolean) => void;
   setHelpPage: (page: HelpPageId | null) => void;
   setKeyboardShortcutsOpen: (open: boolean) => void;
@@ -22,8 +24,13 @@ export interface CommandUIState {
   setPendingSortOrder: (pendingSortOrder: ArticleSortOrder | null) => void;
 }
 
+let commandPaletteOpener: HTMLElement | null = null;
+
+export const getCommandPaletteOpener = () => commandPaletteOpener;
+
 export const useCommandUIStore = create<CommandUIState>()((set) => ({
   aboutOpen: false,
+  commandPaletteOpen: false,
   diagnosticsOpen: false,
   helpPage: null,
   keyboardShortcutsOpen: false,
@@ -32,6 +39,13 @@ export const useCommandUIStore = create<CommandUIState>()((set) => ({
   zoom: 1,
   pendingSortOrder: null,
   setAboutOpen: (aboutOpen) => set({ aboutOpen }),
+  setCommandPaletteOpen: (commandPaletteOpen) => {
+    if (commandPaletteOpen && !useCommandUIStore.getState().commandPaletteOpen) {
+      commandPaletteOpener =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+    set({ commandPaletteOpen });
+  },
   setDiagnosticsOpen: (diagnosticsOpen) => set({ diagnosticsOpen }),
   setHelpPage: (helpPage) => set({ helpPage }),
   setKeyboardShortcutsOpen: (keyboardShortcutsOpen) => set({ keyboardShortcutsOpen }),

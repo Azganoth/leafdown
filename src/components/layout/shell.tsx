@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
 import { CommandMenubar } from "@/components/layout/command-menubar";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { ConfirmationDialog } from "@/components/layout/confirmation-dialog";
 import { KeyboardShortcutsDialog } from "@/components/layout/keyboard-shortcuts-dialog";
 import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-boundary";
@@ -206,6 +207,12 @@ export function Shell() {
           open={commands.preferencesOpen}
           onOpenChange={commands.setPreferencesOpen}
           renderTypographyPreview={(typography) => <DocumentTypographyPreview {...typography} />}
+        />
+        <CommandPalette
+          commandState={commands.commandState}
+          onExecute={commands.executeCommand}
+          onOpenChange={commands.setCommandPaletteOpen}
+          open={commands.commandPaletteOpen}
         />
         <DiagnosticsDialog
           open={commands.diagnosticsOpen}

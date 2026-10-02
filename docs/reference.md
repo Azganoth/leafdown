@@ -75,7 +75,7 @@ Global settings persist across application launches unless specified otherwise.
 
 ## Command Surfaces
 
-Menus, keyboard shortcuts, and the context popup share command IDs and state. Execution follows the interaction ownership in [Architecture](./architecture.md#editor-architecture). Availability and checked states are defined in [Command State](#command-state).
+Menus, keyboard shortcuts, the context popup, and the command palette share command IDs and state. Execution follows the interaction ownership in [Architecture](./architecture.md#editor-architecture). Availability and checked states are defined in [Command State](#command-state).
 
 ### Menu Commands
 
@@ -225,6 +225,7 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 
 #### View Menu
 
+- **Command palette...** (`Mod+Shift+P`)
 - **Toggle sidebar** (`Mod+Shift+E`)
 - **Toggle status bar**
 - **Outline** (Deferred)
@@ -270,6 +271,12 @@ The four documentation commands have no default shortcut. Each opens its bundled
 
 For diagnostic log format and ownership, see [Architecture](./architecture.md#backend-responsibilities).
 
+### Command Palette
+
+`View > Command palette...` and `Mod+Shift+P` open a searchable list of registered application and editor commands. Results show the command label, its menu path, and its registered shortcut when present. Unavailable commands remain visible; contextual reasons appear when they add useful detail.
+
+The palette searches command labels and menu paths. Its keyboard and focus behavior is specified in [Specification](./specification.md#command-palette).
+
 ### Context Popup
 
 The context popup is a contextual menu triggered by a pointer or keyboard selection, right-click, or `Shift+F10` and the `Menu` key within the editor.
@@ -298,7 +305,7 @@ The article navigator's context menu opens on right-click, or with `Shift+F10` o
 
 ## Command State
 
-Availability rules apply to implemented commands across menus, keyboard shortcuts, and the context popup. Implemented commands are active by default unless disabled by context or build constraints; inactive commands are disabled rather than hidden.
+Availability rules apply to implemented commands across menus, keyboard shortcuts, the context popup, and the command palette. Implemented commands are active by default unless disabled by context or build constraints; inactive commands are disabled rather than hidden.
 
 A submenu trigger carries the same state as the commands behind it: it is disabled when every one of them is disabled, and enabled while at least one remains available. A submenu that would open with nothing to act on does not open.
 

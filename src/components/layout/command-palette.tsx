@@ -118,6 +118,7 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
           <ScrollArea
             viewportClassName="max-h-96 snap-y snap-mandatory"
             viewportProps={{
+              tabIndex: -1,
               style: {
                 maxHeight:
                   "round(down, min(24rem, calc(100dvh - min(20dvh, 10rem) - 10rem)), 4rem)",
@@ -127,7 +128,7 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
             <CommandList className="max-h-none overflow-visible">
               <CommandEmpty>{t("commandPalette.noResults")}</CommandEmpty>
               {results.length > 0 && (
-                <CommandGroup value="commands">
+                <CommandGroup className="p-0" value="commands">
                   {results.map(({ id, label, menuPath }) => {
                     const state = commandState(id);
                     const shortcut = COMMAND_DEFINITIONS[id].shortcuts?.[0];

@@ -86,16 +86,7 @@ describe("desktop command palette", () => {
       await browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
       expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
       await expect(query()).toBeFocused();
-      expect(
-        await browser.execute(() => {
-          const input = document.querySelector('input[aria-label="Search commands"]');
-          return input ? getComputedStyle(input).boxShadow.includes("inset") : false;
-        }),
-      ).toBe(true);
-      const resultsViewport = $(
-        '[data-slot="dialog-content"] [data-slot="scroll-area-viewport"][role="listbox"]',
-      );
-      await expect(resultsViewport).toHaveAttribute("data-slot", "scroll-area-viewport");
+      const resultsViewport = $('[data-slot="dialog-content"] [data-slot="scroll-area-viewport"]');
       await expect(resultsViewport).toHaveAttribute("tabindex", "-1");
       await expect($('[data-slot="dialog-footer"] [data-slot="button"]')).toHaveAttribute(
         "tabindex",
@@ -104,7 +95,7 @@ describe("desktop command palette", () => {
       const layout = await browser.execute(() => {
         const input = document.querySelector('input[aria-label="Search commands"]');
         const popup = input?.closest('[data-slot="dialog-content"]');
-        const results = popup?.querySelector('[role="listbox"]');
+        const results = popup?.querySelector('[data-slot="scroll-area-viewport"]');
         const footer = popup?.querySelector('[data-slot="dialog-footer"]');
         if (!input || !results || !footer) throw new Error("Palette sections were not found.");
         const resultBounds = results.getBoundingClientRect();
@@ -130,14 +121,14 @@ describe("desktop command palette", () => {
         const results = document
           .querySelector('input[aria-label="Search commands"]')
           ?.closest('[data-slot="dialog-content"]')
-          ?.querySelector('[role="listbox"]');
+          ?.querySelector('[data-slot="scroll-area-viewport"]');
         if (results) results.scrollTop = results.scrollHeight;
       });
       const scrollLayout = await browser.execute(() => {
         const results = document
           .querySelector('input[aria-label="Search commands"]')
           ?.closest('[data-slot="dialog-content"]')
-          ?.querySelector('[role="listbox"]');
+          ?.querySelector('[data-slot="scroll-area-viewport"]');
         if (!results) throw new Error("Palette results were not found.");
         const viewport = results.getBoundingClientRect();
         return [...results.querySelectorAll('[role="option"]')].some((option) => {

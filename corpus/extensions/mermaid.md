@@ -7,6 +7,13 @@ flowchart LR
   Start --> Finish
 ```
 
+Wide diagram scrolls sideways at its drawn size:
+
+```mermaid
+flowchart LR
+  A[One] --> B[Two] --> C[Three] --> D[Four] --> E[Five] --> F[Six] --> G[Seven] --> H[Eight]
+```
+
 Tilde fence, mixed-case language, and preserved extra info:
 
 ~~~Mermaid title="workflow"

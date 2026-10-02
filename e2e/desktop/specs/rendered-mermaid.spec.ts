@@ -1,8 +1,10 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { type AddressInfo } from "node:net";
+import path from "node:path";
 
+import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { getSaveMenuItem } from "../support/ui.js";
 
@@ -55,6 +57,11 @@ describe("desktop Mermaid diagrams", () => {
       "```mermaid",
       "flowchart LR",
       `  R@{ img: "http://127.0.0.1:${port}/probe.png" }`,
+      "```",
+      "",
+      "```mermaid",
+      "flowchart LR",
+      "  A[One] --> B[Two] --> C[Three] --> D[Four] --> E[Five] --> F[Six] --> G[Seven] --> H[Eight]",
       "```",
       "",
       "Ordinary paragraph.",
@@ -117,7 +124,7 @@ describe("desktop Mermaid diagrams", () => {
       return;
     }
     await $(`//button[@title="${mermaid.path}"]`).click();
-    await browser.waitUntil(async () => (await diagrams().length) === 2, {
+    await browser.waitUntil(async () => (await diagrams().length) === 3, {
       timeoutMsg: "Mermaid code blocks were not recognized.",
     });
 
@@ -166,7 +173,7 @@ describe("desktop Mermaid diagrams", () => {
     await browser.execute(() => document.documentElement.classList.toggle("dark"));
 
     await browser.action("pointer").move({ origin: image }).down().up().perform();
-    expect(await diagrams().length).toBe(2);
+    expect(await diagrams().length).toBe(3);
     await expect(first).toHaveAttribute("data-mermaid-mode", "source");
     await expect(first.$("code")).toBeDisplayed();
     await expect(image).toBeDisplayed();
@@ -198,6 +205,39 @@ describe("desktop Mermaid diagrams", () => {
       },
     );
     expect(await failed.$("[role='alert']").getComputedRole()).toBe("alert");
+
+    await $(".ProseMirror p").click();
+    await browser.execute(() =>
+      document.querySelectorAll("pre[data-mermaid-mode]")[2]?.scrollIntoView(),
+    );
+    const wide = diagrams()[2];
+    await browser.waitUntil(async () => wide.$("img.leafdown-code-mermaid-image").isDisplayed(), {
+      timeout: 30_000,
+      timeoutMsg: "The wide Mermaid diagram did not load as an image.",
+    });
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "mermaid-wide-start.png"));
+    const wideGeometry = await browser.execute(async () => {
+      const block = document.querySelectorAll<HTMLPreElement>("pre[data-mermaid-mode]")[2];
+      const panel = block.querySelector<HTMLElement>(".leafdown-code-mermaid-panel")!;
+      const wideImageElement = panel.querySelector<HTMLImageElement>(
+        "img.leafdown-code-mermaid-image",
+      )!;
+      await wideImageElement.decode();
+      panel.scrollLeft = panel.scrollWidth;
+      return {
+        natural: wideImageElement.naturalWidth,
+        shown: wideImageElement.getBoundingClientRect().width,
+        viewport: panel.clientWidth,
+        content: panel.scrollWidth,
+        scrolled: panel.scrollLeft,
+      };
+    });
+    expect(wideGeometry.natural).toBeGreaterThan(wideGeometry.viewport);
+    expect(Math.abs(wideGeometry.shown - wideGeometry.natural)).toBeLessThan(1);
+    expect(wideGeometry.content).toBeGreaterThan(wideGeometry.viewport);
+    expect(wideGeometry.scrolled).toBeGreaterThan(0);
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "mermaid-wide-end.png"));
 
     await (await getSaveMenuItem()).click();
     expect(await readFile(mermaid.path, "utf8")).toBe(expectedMarkdown);

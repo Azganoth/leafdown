@@ -177,6 +177,19 @@ describe("Mermaid code blocks", () => {
     expect(mounted.view.state.selection.head).toBe(caret);
   });
 
+  it("keeps a scrollbar press from opening the diagram source", async () => {
+    const mounted = await mountEditor(block("```mermaid"));
+    const panel = mermaidPre().querySelector<HTMLElement>(".leafdown-code-mermaid-panel")!;
+    const press = new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 });
+    const selection = mounted.view.state.selection.head;
+
+    panel.dispatchEvent(press);
+
+    expect(press.defaultPrevented).toBe(false);
+    expect(mounted.view.state.selection.head).toBe(selection);
+    expect(mermaidPre()).toHaveAttribute("data-mermaid-mode", "diagram");
+  });
+
   it.each([
     ["ArrowDown", "Intro", "start"],
     ["ArrowRight", "Intro", "start"],

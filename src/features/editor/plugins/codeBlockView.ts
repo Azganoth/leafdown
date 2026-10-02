@@ -313,6 +313,7 @@ ${source}`;
   private readonly handleMermaidPanelMouseDown = (event: MouseEvent) => {
     if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
       return;
+    if (event.target === this.mermaidPanel) return;
     const position = this.getPos();
     if (position === undefined || !this.view.editable) return;
     event.preventDefault();

@@ -197,6 +197,7 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 
 - Source edits and file writes never derive from SVG. Fence marker, length, info spelling, indentation, whitespace, line endings, comments, and directives remain governed by the ordinary code-block round trip.
 - Invalid, unsupported, failed, or over-limit diagrams remain editable source with an error; editing the source retries. A stale render result cannot replace a newer source view.
+- Diagrams use the app's light or dark colors through Mermaid's `base` theme and the `system-ui` font, because neither the opaque child nor an SVG image can load the app's bundled fonts. Authored themes stay unpreviewed with other configuration.
 - The code shows whenever the selection reaches into it, so a document whose initial selection falls in a diagram opens on its code.
 - Mermaid offers no render cancellation signal; retiring a child frame can discard work but does not guarantee a hard CPU timeout.
 

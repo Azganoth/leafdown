@@ -6,7 +6,9 @@ import { $view } from "@milkdown/kit/utils";
 
 import { localizer, t } from "@/lib/i18n";
 
+import type { MermaidTheme } from "../services/mermaidMessages";
 import { renderMermaid } from "../services/mermaidRenderer";
+import { onMermaidThemeChange, readMermaidTheme } from "../services/mermaidTheme";
 import { readCodeFenced } from "../utils/codeMarkdown";
 import { describeMathError, renderMathTex } from "../utils/mathRender";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
@@ -41,10 +43,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
   private readonly mermaidError = document.createElement("span");
   private mermaidImageUrl: string | null = null;
   private mermaidRenderedSource: string | null = null;
-  private mermaidPendingSource: string | null = null;
+  private mermaidRenderedKey: string | null = null;
+  private mermaidPendingKey: string | null = null;
   private mermaidAbort: AbortController | null = null;
   private mermaidDelay: number | null = null;
-  private mermaidDelayedSource: string | null = null;
+  private mermaidDelayedKey: string | null = null;
+  private mermaidThemeChange: (() => void) | null = null;
   private mermaidObserver: IntersectionObserver | null = null;
   private mermaidVisible = typeof IntersectionObserver === "undefined";
   private mermaidFailure: string | null = null;
@@ -142,6 +146,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.mathPreview.removeEventListener("mousedown", this.handlePreviewMouseDown);
     this.mermaidPanel.removeEventListener("mousedown", this.handleMermaidPanelMouseDown);
     this.mermaidObserver?.disconnect();
+    this.mermaidThemeChange?.();
     this.clearMermaidDelay();
     this.mermaidAbort?.abort();
     if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
@@ -202,9 +207,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.cancelMermaidRender();
       this.mermaidObserver?.disconnect();
       this.mermaidObserver = null;
+      this.mermaidThemeChange?.();
+      this.mermaidThemeChange = null;
       if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
       this.mermaidImageUrl = null;
       this.mermaidRenderedSource = null;
+      this.mermaidRenderedKey = null;
       return;
     }
 
@@ -213,7 +221,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     const editing = position === undefined || isEditingMermaidCodeBlock(this.view.state, position);
     const unsupported = mermaidSourceError(source);
     const current = this.mermaidRenderedSource === source;
-    // While editing, the last diagram stays below the code until a newer one replaces it.
+    // The last diagram stays until a newer one replaces it, while editing or after a theme change.
     const showImage =
       !unsupported &&
       this.mermaidImageUrl !== null &&
@@ -240,35 +248,42 @@ class LeafdownCodeBlockNodeView implements NodeView {
       });
       this.mermaidObserver.observe(this.dom);
     }
-    if (!this.mermaidVisible || current || this.mermaidPendingSource === source) return;
+    this.mermaidThemeChange ??= onMermaidThemeChange(() => this.renderMermaid());
+    if (!this.mermaidVisible) return;
+
+    const { theme, key: themeKey } = readMermaidTheme(this.dom);
+    const key = `${themeKey}
+${source}`;
+    if (this.mermaidRenderedKey === key || this.mermaidPendingKey === key) return;
     if (!editing) {
       this.clearMermaidDelay();
-      this.startMermaidRender(source);
+      this.startMermaidRender(source, theme, key);
       return;
     }
-    if (this.mermaidDelayedSource === source) return;
+    if (this.mermaidDelayedKey === key) return;
 
     this.clearMermaidDelay();
-    this.mermaidDelayedSource = source;
+    this.mermaidDelayedKey = key;
     this.mermaidDelay = window.setTimeout(() => {
       this.mermaidDelay = null;
-      this.mermaidDelayedSource = null;
-      if (this.node.textContent === source) this.startMermaidRender(source);
+      this.mermaidDelayedKey = null;
+      if (this.node.textContent === source) this.startMermaidRender(source, theme, key);
     }, MERMAID_EDIT_RENDER_DELAY);
   }
 
-  private startMermaidRender(source: string) {
+  private startMermaidRender(source: string, theme: MermaidTheme, key: string) {
     this.mermaidAbort?.abort();
     const controller = new AbortController();
     this.mermaidAbort = controller;
-    this.mermaidPendingSource = source;
-    renderMermaid(source, controller.signal)
+    this.mermaidPendingKey = key;
+    renderMermaid(source, theme, controller.signal)
       .then((svg) => {
         if (controller.signal.aborted || this.node.textContent !== source) return;
         if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
         this.mermaidImageUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
         this.mermaidImage.src = this.mermaidImageUrl;
         this.mermaidRenderedSource = source;
+        this.mermaidRenderedKey = key;
         this.renderMermaid();
       })
       .catch((error: unknown) => {
@@ -278,7 +293,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
       })
       .finally(() => {
         if (this.mermaidAbort === controller) this.mermaidAbort = null;
-        if (this.mermaidPendingSource === source) this.mermaidPendingSource = null;
+        if (this.mermaidPendingKey === key) this.mermaidPendingKey = null;
       });
   }
 
@@ -286,13 +301,13 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.clearMermaidDelay();
     this.mermaidAbort?.abort();
     this.mermaidAbort = null;
-    this.mermaidPendingSource = null;
+    this.mermaidPendingKey = null;
   }
 
   private clearMermaidDelay() {
     if (this.mermaidDelay !== null) window.clearTimeout(this.mermaidDelay);
     this.mermaidDelay = null;
-    this.mermaidDelayedSource = null;
+    this.mermaidDelayedKey = null;
   }
 
   private readonly handleMermaidPanelMouseDown = (event: MouseEvent) => {

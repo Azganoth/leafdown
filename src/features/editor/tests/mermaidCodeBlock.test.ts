@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   createClipboardData,
@@ -48,6 +48,10 @@ beforeEach(() => {
     createObjectURL: vi.fn(() => "blob:diagram"),
     revokeObjectURL: vi.fn(),
   });
+});
+
+afterEach(() => {
+  document.documentElement.classList.remove("dark");
 });
 
 describe("Mermaid code blocks", () => {
@@ -213,6 +217,27 @@ describe("Mermaid code blocks", () => {
     expect(mermaidPre().querySelector("img")).toBeVisible();
     await vi.waitFor(() => expect(renderMermaid).toHaveBeenCalledTimes(2));
     expect(vi.mocked(renderMermaid).mock.lastCall?.[0]).toBe("flowchart LR\n  C --> B");
+  });
+
+  it("renders with the app theme and again when the theme changes", async () => {
+    await mountEditor(block("```mermaid"));
+    await vi.waitFor(() => expect(mermaidPre().querySelector("img")).toBeVisible());
+    expect(vi.mocked(renderMermaid).mock.lastCall?.[1]).toMatchObject({ dark: false });
+
+    let finishDarkRender: (svg: string) => void = () => {};
+    vi.mocked(renderMermaid).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishDarkRender = resolve;
+        }),
+    );
+    document.documentElement.classList.add("dark");
+    await vi.waitFor(() => expect(renderMermaid).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(renderMermaid).mock.lastCall?.[1]).toMatchObject({ dark: true });
+    expect(mermaidPre()).toHaveAttribute("data-mermaid-mode", "diagram");
+    expect(mermaidPre().querySelector("img")).toBeVisible();
+    expect(mermaidPre().querySelector(".leafdown-code-mermaid-status")).not.toBeVisible();
+    finishDarkRender('<svg xmlns="http://www.w3.org/2000/svg"/>');
   });
 
   it("renders at once when the caret leaves edited code", async () => {

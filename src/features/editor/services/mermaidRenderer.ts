@@ -1,8 +1,9 @@
-import type { MermaidFrameResponse } from "./mermaidMessages";
+import type { MermaidFrameResponse, MermaidTheme } from "./mermaidMessages";
 
 interface RenderRequest {
   id: number;
   source: string;
+  theme: MermaidTheme;
   signal: AbortSignal;
   resolve: (svg: string) => void;
   reject: (error: Error) => void;
@@ -41,7 +42,12 @@ const startNext = () => {
     if (queue.length > 0) createFrame();
   }, 30_000);
   frame.contentWindow.postMessage(
-    { type: "leafdown-mermaid-render", id: active.id, source: active.source },
+    {
+      type: "leafdown-mermaid-render",
+      id: active.id,
+      source: active.source,
+      theme: active.theme,
+    },
     "*",
   );
 };
@@ -102,12 +108,17 @@ const receive = (event: MessageEvent<MermaidFrameResponse>) => {
   startNext();
 };
 
-export const renderMermaid = (source: string, signal: AbortSignal): Promise<string> => {
+export const renderMermaid = (
+  source: string,
+  theme: MermaidTheme,
+  signal: AbortSignal,
+): Promise<string> => {
   if (signal.aborted) return Promise.reject(new Error("Diagram render cancelled."));
   return new Promise((resolve, reject) => {
     const request: RenderRequest = {
       id: ++nextId,
       source,
+      theme,
       signal,
       resolve,
       reject,

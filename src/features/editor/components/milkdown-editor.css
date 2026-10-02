@@ -552,7 +552,7 @@
       }
 
       .leafdown-code-mermaid-image:not([hidden]) {
-        @apply block max-w-full;
+        @apply my-0 block max-w-full rounded-none bg-transparent;
       }
 
       .leafdown-code-mermaid-status:not([hidden]) {

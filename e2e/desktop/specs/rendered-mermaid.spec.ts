@@ -143,6 +143,27 @@ describe("desktop Mermaid diagrams", () => {
       ),
     ).toBe(0);
     await expect(first.$("code")).not.toBeDisplayed();
+    const decoded = await browser.execute(async () => {
+      const node = document.querySelector<HTMLImageElement>(
+        "pre[data-mermaid-mode] img.leafdown-code-mermaid-image",
+      )!;
+      const decoding = await node.decode().then(
+        () => "decoded",
+        (error: unknown) => String(error),
+      );
+      return { decoding, natural: node.naturalWidth, shown: node.getBoundingClientRect().width };
+    });
+    expect(decoded.decoding).toBe("decoded");
+    expect(decoded.natural).toBeGreaterThan(0);
+    expect(decoded.shown).toBe(decoded.natural);
+
+    const themedImage = await image.getAttribute("src");
+    await browser.execute(() => document.documentElement.classList.toggle("dark"));
+    await browser.waitUntil(async () => (await image.getAttribute("src")) !== themedImage, {
+      timeoutMsg: "The diagram did not render again for the other theme.",
+    });
+    await expect(image).toBeDisplayed();
+    await browser.execute(() => document.documentElement.classList.toggle("dark"));
 
     await browser.action("pointer").move({ origin: image }).down().up().perform();
     expect(await diagrams().length).toBe(2);

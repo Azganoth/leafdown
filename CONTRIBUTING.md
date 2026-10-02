@@ -94,7 +94,21 @@ To run one scenario against an already built binary:
 pnpm test:e2e:desktop:run -- --scenario folder-watcher
 ```
 
-Targets are `block-selection`, `callouts`, `command-palette`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `keyboard-shortcuts`, `folder-watcher`, `folder-actions`, `help-pages`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `persistence`, `release-notes`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
+Targets are `block-selection`, `callouts`, `command-palette`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `keyboard-shortcuts`, `folder-watcher`, `folder-actions`, `help-pages`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `rendered-mermaid`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `persistence`, `release-notes`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
+
+For release-build Mermaid timings, build the optimized E2E binary and run the three benchmark cases in PowerShell:
+
+```powershell
+pnpm exec tauri build --no-bundle --features desktop-e2e --config e2e/desktop/tauri.conf.json
+$env:LEAFDOWN_E2E_RELEASE_BINARY = (Resolve-Path src-tauri/target/release/leafdown-e2e.exe).Path
+foreach ($case in @("representative", "pathological", "many")) {
+  $env:LEAFDOWN_MERMAID_BENCHMARK = $case
+  pnpm test:e2e:desktop:run -- --scenario rendered-mermaid
+}
+Remove-Item Env:LEAFDOWN_MERMAID_BENCHMARK,Env:LEAFDOWN_E2E_RELEASE_BINARY
+```
+
+The benchmark prints the time from opening a document to its first diagram image. The `many` case also reports the count rendered before scrolling and the time to show the last diagram. These timings include WebDriver and document-load costs.
 
 Failure evidence is written under ignored `e2e/desktop/artifacts/<run>/worker-<n>/<scenario>/` directories. It includes runner and app logs, diagnostics, test errors, and a screenshot and semantic UI snapshot for failures. Workers clean their own temporary state, so another worker can finish after one fails. Local artifacts remain until manually removed and may contain sensitive paths or error text. CI uploads artifacts only on failure and retains them for seven days.
 

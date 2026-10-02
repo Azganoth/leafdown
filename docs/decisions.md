@@ -185,6 +185,23 @@
 - The text alternative for readers without MathML support is the TeX, set as the MathML's name, because Chromium takes no name from `alttext`.
 - Configurable macros, `\require`, and KaTeX extensions beyond what ships with the renderer are not loaded.
 
+### Render Mermaid from authored fenced code
+
+**Decision:** Recognize fenced code whose first info-string word is `mermaid`, without case sensitivity or aliases. The code block's authored Markdown remains the only document source. Show the diagram while the selection is outside the block's code, and the editable code with the diagram below it while the caret is inside, as fenced `math` does. Clicking the diagram or arrowing into the block enters the code; the diagram renders again once edits pause. Bundle Mermaid 12 in a sandboxed opaque-origin child with a CSP denying network connections and image loads. Lock capability-bearing Mermaid settings, reject configuration directives and frontmatter for preview, and display returned SVG only as a blob image. Start with 10,000 source characters and 200 edges, one queued render at a time, and defer offscreen work. Decided in [issue #543](https://github.com/Azganoth/leafdown/issues/543), whose explicit `Edit source` and `Show diagram` modes the implementation for [issue #592](https://github.com/Azganoth/leafdown/issues/592) replaced with the caret-driven presentation.
+
+**Rationale:** The existing code-block node already owns typing, Markdown form, clipboard, and history. A separate preview document would split the source of truth. Mermaid's `strict` level alone did not prevent authored configuration from re-enabling HTML labels, and its image syntax attempted a loopback request in the WebView2 probe. The opaque child and its CSP keep both attempts outside the app's network boundary; an inert image prevents generated links and click actions from becoming editor controls. The bundled runtime loads only when a visible diagram needs it.
+
+Explicit modes made each diagram edit a two-control round trip that no other rendered block requires. Issue #543 had rejected a selection-driven toggle because ProseMirror can recreate a NodeView on selection updates and because a prototype trapped pointer exit. Deriving the mode from the selection in plugin state leaves nothing on the NodeView to lose. In a 2026-10-02 headless Edge probe with trusted input, clicking a paragraph that rose 352 px as a 15-line source collapsed left the caret in that paragraph, with and without pointer movement during the press. The same probe showed native arrow keys skipping the hidden code, which the plugin's arrow handling addresses.
+
+**Consequences:**
+
+- Source edits and file writes never derive from SVG. Fence marker, length, info spelling, indentation, whitespace, line endings, comments, and directives remain governed by the ordinary code-block round trip.
+- Invalid, unsupported, failed, or over-limit diagrams remain editable source with an error; editing the source retries. A stale render result cannot replace a newer source view.
+- The code shows whenever the selection reaches into it, so a document whose initial selection falls in a diagram opens on its code.
+- Mermaid offers no render cancellation signal; retiring a child frame can discard work but does not guarantee a hard CPU timeout.
+
+**Release measurement (2026-09-29):** On Windows 11 Pro with an i5-11600K and WebView2 153, the optimized desktop E2E binary reached its first image 846 ms after opening a small diagram and 1,446 ms after opening a 180-edge flowchart. A document with 40 small diagrams reached its first image in 971 ms; only five diagrams had rendered in the initial viewport, and scrolling to the last diagram took another 2,327 ms to show its image. These are single-run end-to-end timings that include WebDriver actions, document opening, and cold runtime loading, so they are not isolated Mermaid render times. The results support the initial 10,000-character and 200-edge limits, one active render, and viewport deferral; no limit or scheduling change was warranted.
+
 ### Model definition lists as editable block containers
 
 **Decision:** Support a Pandoc-style definition list with one single-line term and one or more definitions. A definition starts with `:` or `~`, indented by up to three spaces, followed by at least one space or tab. One blank line may separate the term from its first definition. Definition bodies accept lazy continuation and supported nested blocks. Distinct term groups require a blank line; consecutive terms sharing one definition remain ordinary Markdown. [Issue #530](https://github.com/Azganoth/leafdown/issues/530) records the accepted grammar.

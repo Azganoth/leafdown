@@ -128,6 +128,7 @@ import {
   leafdownMathSchema,
   serializeMath,
 } from "../plugins/math";
+import { createLeafdownMermaidModePlugin } from "../plugins/mermaidMode";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
 import {
   commitReferenceDefinitionFields,
@@ -389,6 +390,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMathViewPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
+    .use(createLeafdownMermaidModePlugin())
     .use(createLeafdownCodeBlockViewPlugin())
     .use(createLeafdownCalloutViewPlugin())
     .use(createLeafdownCalloutInputPlugin())

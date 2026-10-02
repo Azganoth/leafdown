@@ -142,6 +142,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
   const mathCorpusPath = path.join(fixtureRoot, "math-corpus.md");
+  const mermaidPath = path.join(fixtureRoot, "rendered-mermaid.md");
   const leafImagePath = path.join(fixtureRoot, "leaf.svg");
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
@@ -183,6 +184,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     html: { path: htmlPath },
     math: { path: mathPath },
     mathCorpus: { path: mathCorpusPath },
+    mermaid: { path: mermaidPath },
     legacyEncoding: { path: legacyEncodingPath },
     folderActions: { path: actionsFolderPath },
     wikiLinks: { folderPath: wikiFolderPath, indexPath: wikiIndexPath },
@@ -217,6 +219,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
     { name: "rendered-html", recentFiles: [htmlPath] },
     { name: "rendered-math", recentFiles: [mathPath, mathCorpusPath] },
+    { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
@@ -287,6 +290,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         mathPath,
       ),
       copyFile(path.join(repositoryRoot, "corpus", "extensions", "math.md"), mathCorpusPath),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-mermaid.md"),
+        mermaidPath,
+      ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "find-and-replace.md"),
         searchPath,
@@ -362,7 +369,10 @@ const resetPersistedState = async (
 ) => {
   await rm(worker.storeDirectory, { force: true, recursive: true });
   await mkdir(worker.storeDirectory, { recursive: true });
-  await writeJson(path.join(worker.storeDirectory, "recent-items.dev.json"), {
+  const storeName = process.env.LEAFDOWN_E2E_RELEASE_BINARY
+    ? "recent-items.json"
+    : "recent-items.dev.json";
+  await writeJson(path.join(worker.storeDirectory, storeName), {
     recentFiles,
     recentFolders,
     version: 1,

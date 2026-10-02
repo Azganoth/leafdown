@@ -1,10 +1,49 @@
 import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
+import { transformSync } from "esbuild";
+import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 
 const host = process.env.TAURI_DEV_HOST;
+
+const mermaidFrameScript = () =>
+  transformSync(
+    readFileSync(
+      new URL("./src/features/editor/services/mermaidFrame.ts", import.meta.url),
+      "utf8",
+    ),
+    { loader: "ts", target: "es2022", format: "iife" },
+  ).code;
+
+const bundledMermaidFrame = (): Plugin => ({
+  name: "leafdown:bundled-mermaid-frame",
+  configureServer(server) {
+    server.middlewares.use((request, response, next) => {
+      const asset = request.url?.split("?", 1)[0];
+      if (asset !== "/mermaid.min.js" && asset !== "/mermaid-frame.js") return next();
+      response.setHeader("Content-Type", "text/javascript; charset=utf-8");
+      response.end(
+        asset === "/mermaid.min.js"
+          ? readFileSync(new URL(import.meta.resolve("mermaid/dist/mermaid.min.js")))
+          : mermaidFrameScript(),
+      );
+    });
+  },
+  generateBundle() {
+    this.emitFile({
+      type: "asset",
+      fileName: "mermaid.min.js",
+      source: readFileSync(new URL(import.meta.resolve("mermaid/dist/mermaid.min.js"))),
+    });
+    this.emitFile({
+      type: "asset",
+      fileName: "mermaid-frame.js",
+      source: mermaidFrameScript(),
+    });
+  },
+});
 
 const KATEX_STYLESHEET_PATTERN = /[\\/]katex[\\/]dist[\\/]katex(?:\.min)?\.css(?:\?|$)/u;
 const KATEX_FALLBACK_FONT_PATTERN =
@@ -31,7 +70,13 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [katexWoff2Fonts(), react(), babel({ presets: [reactCompilerPreset()] }), tailwindcss()],
+  plugins: [
+    katexWoff2Fonts(),
+    bundledMermaidFrame(),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
+    tailwindcss(),
+  ],
   clearScreen: false,
   build: {
     // Inlined fonts become data URIs that `font-src 'self'` blocks, and the assets

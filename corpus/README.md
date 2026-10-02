@@ -83,6 +83,7 @@ The extension survey includes:
   [not-at-start](./extensions/frontmatter/not-at-start.md) and
   [unclosed](./extensions/frontmatter/unclosed.md) boundaries
 - [Dollar and LaTeX-style math](./extensions/math.md)
+- [Mermaid diagrams](./extensions/mermaid.md)
 - [Inline, leaf, and container directives](./extensions/directives.md)
 - [Definition lists](./extensions/definition-lists.md)
 - [Wiki links and embeds](./extensions/wiki-links.md)

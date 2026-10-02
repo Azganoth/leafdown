@@ -70,6 +70,15 @@ $$
 ```
 ````
 
+**Mermaid diagrams** use a fenced code block whose first info word is `mermaid`. The diagram shows while the caret is elsewhere; click it or arrow into it to edit its code, and the diagram updates below once you pause. Diagrams render locally and never load an external resource. Configuration directives and frontmatter are kept but not previewed.
+
+````text
+```mermaid
+flowchart LR
+  Draft --> Review --> Publish
+```
+````
+
 **Callouts** support GitHub alert blocks, Material for MkDocs admonitions, and Docusaurus or VitePress colon fences. Supported types and titles depend on the dialect. For example:
 
 ```text

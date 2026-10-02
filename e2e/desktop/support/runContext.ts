@@ -9,6 +9,7 @@ export interface DesktopE2ERunContext {
   html: { path: string };
   math: { path: string };
   mathCorpus: { path: string };
+  mermaid: { path: string };
   legacyEncoding: { path: string };
   document: {
     initialMarker: string;

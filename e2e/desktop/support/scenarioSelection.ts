@@ -14,6 +14,7 @@ const scenarioTargets = {
   "remote-images": ["remote-images"],
   "rendered-html": ["rendered-html"],
   "rendered-math": ["rendered-math"],
+  "rendered-mermaid": ["rendered-mermaid"],
   "separator-presentation": ["separator-presentation"],
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],

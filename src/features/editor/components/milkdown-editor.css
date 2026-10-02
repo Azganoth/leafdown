@@ -534,6 +534,51 @@
         @apply text-sm text-muted-foreground;
       }
 
+      &[data-mermaid-mode="diagram"] > code {
+        @apply hidden;
+      }
+
+      &[data-mermaid-mode] .leafdown-code-mermaid-panel:not([hidden]) {
+        @apply block min-w-0 overflow-x-auto font-sans text-sm leading-normal whitespace-normal;
+
+        &::-webkit-scrollbar {
+          @apply h-2.5;
+        }
+
+        &::-webkit-scrollbar-track {
+          @apply bg-transparent;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          @apply rounded-full border border-transparent bg-border bg-clip-padding;
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+          @apply bg-foreground/30;
+        }
+      }
+
+      &[data-mermaid-mode="source"]
+        :is(
+          .leafdown-code-mermaid-image,
+          .leafdown-code-mermaid-status,
+          .leafdown-code-mermaid-error
+        ):not([hidden]) {
+        @apply mt-3;
+      }
+
+      .leafdown-code-mermaid-image:not([hidden]) {
+        @apply my-0 block max-w-none rounded-none bg-transparent;
+      }
+
+      .leafdown-code-mermaid-status:not([hidden]) {
+        @apply block text-muted-foreground;
+      }
+
+      .leafdown-code-mermaid-error:not([hidden]) {
+        @apply block text-destructive;
+      }
+
       /* Numbering moves the scroll from the block to its code, so the gutter, positioned against
          the block, holds its place while long lines scroll beside it. Each number leaves flow at
          the top of the line it opens, so a wrapped continuation carries none. The empty

@@ -6,9 +6,24 @@ import { $view } from "@milkdown/kit/utils";
 
 import { localizer, t } from "@/lib/i18n";
 
+import type { MermaidTheme } from "../services/mermaidMessages";
+import { renderMermaid } from "../services/mermaidRenderer";
+import { onMermaidThemeChange, readMermaidTheme } from "../services/mermaidTheme";
 import { readCodeFenced } from "../utils/codeMarkdown";
 import { describeMathError, renderMathTex } from "../utils/mathRender";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
+import { isEditingMermaidCodeBlock, isMermaidCodeBlock } from "./mermaidMode";
+
+let nextMermaidDescriptionId = 0;
+const MERMAID_EDIT_RENDER_DELAY = 400;
+
+const mermaidSourceError = (source: string): string | null => {
+  if (source.length > 10_000) return t("editor.mermaid.tooLong");
+  if (/^---(?:\r?\n|$)/u.test(source) || source.includes("%%{")) {
+    return t("editor.mermaid.configurationUnsupported");
+  }
+  return null;
+};
 
 export const createLeafdownCodeBlockViewPlugin = () =>
   $view(
@@ -21,6 +36,22 @@ class LeafdownCodeBlockNodeView implements NodeView {
   readonly contentDOM = document.createElement("code");
   private readonly badge = document.createElement("button");
   private readonly mathPreview = document.createElement("span");
+  private readonly mermaidPanel = document.createElement("span");
+  private readonly mermaidImage = document.createElement("img");
+  private readonly mermaidSource = document.createElement("span");
+  private readonly mermaidStatus = document.createElement("span");
+  private readonly mermaidError = document.createElement("span");
+  private mermaidImageUrl: string | null = null;
+  private mermaidRenderedSource: string | null = null;
+  private mermaidRenderedKey: string | null = null;
+  private mermaidPendingKey: string | null = null;
+  private mermaidAbort: AbortController | null = null;
+  private mermaidDelay: number | null = null;
+  private mermaidDelayedKey: string | null = null;
+  private mermaidThemeChange: (() => void) | null = null;
+  private mermaidObserver: IntersectionObserver | null = null;
+  private mermaidVisible = typeof IntersectionObserver === "undefined";
+  private mermaidFailure: string | null = null;
   private mathError: string | null = null;
   private readonly localizationChange = localizer.onDidChange(() => this.render());
 
@@ -40,9 +71,27 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.mathPreview.className = "leafdown-code-math-preview";
     this.mathPreview.contentEditable = "false";
     this.mathPreview.addEventListener("mousedown", this.handlePreviewMouseDown);
-    this.dom.append(this.badge, this.contentDOM, this.mathPreview);
+    this.mermaidPanel.className = "leafdown-code-mermaid-panel";
+    this.mermaidPanel.contentEditable = "false";
+    this.mermaidPanel.addEventListener("mousedown", this.handleMermaidPanelMouseDown);
+    this.mermaidImage.className = "leafdown-code-mermaid-image";
+    this.mermaidSource.className = "sr-only";
+    this.mermaidSource.id = `leafdown-mermaid-source-${++nextMermaidDescriptionId}`;
+    this.mermaidImage.setAttribute("aria-describedby", this.mermaidSource.id);
+    this.mermaidError.className = "leafdown-code-mermaid-error";
+    this.mermaidError.setAttribute("role", "alert");
+    this.mermaidStatus.className = "leafdown-code-mermaid-status";
+    this.mermaidStatus.setAttribute("role", "status");
+    this.mermaidPanel.append(
+      this.mermaidImage,
+      this.mermaidSource,
+      this.mermaidStatus,
+      this.mermaidError,
+    );
+    this.dom.append(this.badge, this.contentDOM, this.mathPreview, this.mermaidPanel);
     this.render();
     this.renderMath();
+    this.renderMermaid();
   }
 
   update(node: ProseMirrorNode) {
@@ -54,9 +103,11 @@ class LeafdownCodeBlockNodeView implements NodeView {
       node.textContent !== this.node.textContent ||
       node.attrs.language !== this.node.attrs.language ||
       readCodeFenced(node.attrs) !== readCodeFenced(this.node.attrs);
+    if (node.textContent !== this.node.textContent) this.mermaidFailure = null;
     this.node = node;
     this.render();
     if (mathChanged) this.renderMath();
+    this.renderMermaid();
 
     return true;
   }
@@ -65,6 +116,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     return (
       event.target instanceof Node &&
       (this.badge.contains(event.target) ||
+        this.mermaidPanel.contains(event.target) ||
         (this.mathPreview.contains(event.target) &&
           !(event instanceof MouseEvent && this.isPreviewScrollbarPress(event))))
     );
@@ -75,11 +127,16 @@ class LeafdownCodeBlockNodeView implements NodeView {
       mutation.type === "attributes" &&
       mutation.target === this.dom &&
       (mutation.attributeName === "data-math-code-rendered" ||
+        mutation.attributeName === "data-mermaid-mode" ||
         mutation.attributeName === "aria-description")
     ) {
       return true;
     }
-    return this.badge.contains(mutation.target) || this.mathPreview.contains(mutation.target);
+    return (
+      this.badge.contains(mutation.target) ||
+      this.mathPreview.contains(mutation.target) ||
+      this.mermaidPanel.contains(mutation.target)
+    );
   }
 
   destroy() {
@@ -87,6 +144,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.badge.removeEventListener("mousedown", this.handleBadgeMouseDown);
     this.badge.removeEventListener("click", this.handleBadgeClick);
     this.mathPreview.removeEventListener("mousedown", this.handlePreviewMouseDown);
+    this.mermaidPanel.removeEventListener("mousedown", this.handleMermaidPanelMouseDown);
+    this.mermaidObserver?.disconnect();
+    this.mermaidThemeChange?.();
+    this.clearMermaidDelay();
+    this.mermaidAbort?.abort();
+    if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
   }
 
   private render() {
@@ -136,6 +199,131 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.dom.setAttribute("aria-description", describeMathError(rendered.error));
     }
   }
+
+  private renderMermaid() {
+    if (!isMermaidCodeBlock(this.node)) {
+      delete this.dom.dataset.mermaidMode;
+      this.mermaidPanel.hidden = true;
+      this.cancelMermaidRender();
+      this.mermaidObserver?.disconnect();
+      this.mermaidObserver = null;
+      this.mermaidThemeChange?.();
+      this.mermaidThemeChange = null;
+      if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
+      this.mermaidImageUrl = null;
+      this.mermaidRenderedSource = null;
+      this.mermaidRenderedKey = null;
+      return;
+    }
+
+    const source = this.node.textContent;
+    const position = this.getPos();
+    const editing = position === undefined || isEditingMermaidCodeBlock(this.view.state, position);
+    const unsupported = mermaidSourceError(source);
+    const current = this.mermaidRenderedSource === source;
+    // The last diagram stays until a newer one replaces it, while editing or after a theme change.
+    const showImage =
+      !unsupported &&
+      this.mermaidImageUrl !== null &&
+      (editing || (current && !this.mermaidFailure));
+    this.dom.dataset.mermaidMode =
+      editing || unsupported || this.mermaidFailure ? "source" : "diagram";
+    this.mermaidPanel.hidden = false;
+    this.mermaidSource.textContent = source;
+    this.mermaidImage.alt = t("editor.mermaid.diagramName");
+    this.mermaidError.textContent = unsupported ?? this.mermaidFailure ?? "";
+    this.mermaidError.hidden = !this.mermaidError.textContent;
+    this.mermaidImage.hidden = !showImage;
+    this.mermaidStatus.textContent = t("editor.mermaid.rendering");
+    this.mermaidStatus.hidden = showImage || current || !!unsupported || !!this.mermaidFailure;
+
+    if (unsupported || this.mermaidFailure) {
+      this.cancelMermaidRender();
+      return;
+    }
+    if (!this.mermaidObserver && typeof IntersectionObserver !== "undefined") {
+      this.mermaidObserver = new IntersectionObserver((entries) => {
+        this.mermaidVisible = entries.some((entry) => entry.isIntersecting);
+        if (this.mermaidVisible) this.renderMermaid();
+      });
+      this.mermaidObserver.observe(this.dom);
+    }
+    this.mermaidThemeChange ??= onMermaidThemeChange(() => this.renderMermaid());
+    if (!this.mermaidVisible) return;
+
+    const { theme, key: themeKey } = readMermaidTheme(this.dom);
+    const key = `${themeKey}
+${source}`;
+    if (this.mermaidRenderedKey === key || this.mermaidPendingKey === key) return;
+    if (!editing) {
+      this.clearMermaidDelay();
+      this.startMermaidRender(source, theme, key);
+      return;
+    }
+    if (this.mermaidDelayedKey === key) return;
+
+    this.clearMermaidDelay();
+    this.mermaidDelayedKey = key;
+    this.mermaidDelay = window.setTimeout(() => {
+      this.mermaidDelay = null;
+      this.mermaidDelayedKey = null;
+      if (this.node.textContent === source) this.startMermaidRender(source, theme, key);
+    }, MERMAID_EDIT_RENDER_DELAY);
+  }
+
+  private startMermaidRender(source: string, theme: MermaidTheme, key: string) {
+    this.mermaidAbort?.abort();
+    const controller = new AbortController();
+    this.mermaidAbort = controller;
+    this.mermaidPendingKey = key;
+    renderMermaid(source, theme, controller.signal)
+      .then((svg) => {
+        if (controller.signal.aborted || this.node.textContent !== source) return;
+        if (this.mermaidImageUrl) URL.revokeObjectURL(this.mermaidImageUrl);
+        this.mermaidImageUrl = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+        this.mermaidImage.src = this.mermaidImageUrl;
+        this.mermaidRenderedSource = source;
+        this.mermaidRenderedKey = key;
+        this.renderMermaid();
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || this.node.textContent !== source) return;
+        this.mermaidFailure = String(error);
+        this.renderMermaid();
+      })
+      .finally(() => {
+        if (this.mermaidAbort === controller) this.mermaidAbort = null;
+        if (this.mermaidPendingKey === key) this.mermaidPendingKey = null;
+      });
+  }
+
+  private cancelMermaidRender() {
+    this.clearMermaidDelay();
+    this.mermaidAbort?.abort();
+    this.mermaidAbort = null;
+    this.mermaidPendingKey = null;
+  }
+
+  private clearMermaidDelay() {
+    if (this.mermaidDelay !== null) window.clearTimeout(this.mermaidDelay);
+    this.mermaidDelay = null;
+    this.mermaidDelayedKey = null;
+  }
+
+  private readonly handleMermaidPanelMouseDown = (event: MouseEvent) => {
+    if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)
+      return;
+    if (event.target === this.mermaidPanel) return;
+    const position = this.getPos();
+    if (position === undefined || !this.view.editable) return;
+    event.preventDefault();
+    if (!isEditingMermaidCodeBlock(this.view.state, position)) {
+      this.view.dispatch(
+        this.view.state.tr.setSelection(TextSelection.create(this.view.state.doc, position + 1)),
+      );
+    }
+    this.view.focus();
+  };
 
   private readonly handlePreviewMouseDown = (event: MouseEvent) => {
     if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey)

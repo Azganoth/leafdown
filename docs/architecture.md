@@ -30,11 +30,13 @@ Types are colocated with the module that owns the concept. A `types/` directory 
 
 Application composition lives under `src/components/` in `layout/` and `screens/`. Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in `src/components/ui/` and `src/lib/`.
 
+The `release-notes` feature owns the changelog bundled into the frontend, current-version selection, and persisted launch and seen-version history. It renders notes with the `help` feature's bundled-page Markdown renderer, so both Help surfaces share one link policy, and it does not access document or session state.
+
 The `session` feature owns the relationship between the active document and folder context, plus workflows spanning multiple features. Dependencies flow left to right:
 
 `application components -> commands -> session -> domain features -> shared UI/lib`
 
-Arrows define direction, not required intermediate dependencies: a layer may import any layer to its right. Leaf features (`diagnostics`, `document`, `editor`, `folder-context`, and `preferences`) do not import session, commands, or application components. Cross-feature imports use feature-root public APIs. When these layers or feature groups change, update the matching boundary lists in `oxlint.config.ts`.
+Arrows define direction, not required intermediate dependencies: a layer may import any layer to its right. Leaf features (`diagnostics`, `document`, `editor`, `folder-context`, `preferences`, and `release-notes`) do not import session, commands, or application components. Cross-feature imports use feature-root public APIs. When these layers or feature groups change, update the matching boundary lists in `oxlint.config.ts`.
 
 Global scope does not make code shared. Domain-owned global behavior stays in its feature; only domain-agnostic reuse belongs in shared UI or `lib`.
 
@@ -173,6 +175,7 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 - Opening and saving return a fingerprint of the file's bytes beside its metadata, which together name the version of the file the document holds. The fingerprint is a 64-bit hash compared only for equality within one run of the application and never persisted. The document also records an external change: a newer version observed on disk, or a missing file.
 - An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. Opening takes an optional chosen encoding name, which the backend ignores when the file has a byte order mark. Session also keeps the encoding the file holds, so the document can be converted back to it, and remounts the editor when a reopen of the same path replaces its text. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
+- Release notes own a separate persisted record of the last launched version and versions whose notes were shown. The current dialog and version are runtime state.
 - The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
 - Folder scans return a nested Markdown article tree. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator.
 

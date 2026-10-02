@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
+import { showChangelog, showWhatsNew } from "@/features/release-notes";
 import { notifyOperationFailure } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 
@@ -41,6 +42,9 @@ export const openFileAndFolderWorkflows = () => {
 export const openSettingsReference = () => {
   useCommandUIStore.getState().setHelpPage("settings-reference");
 };
+
+export const openWhatsNew = showWhatsNew;
+export const openChangelog = showChangelog;
 
 const openFeedbackForm = async (template: "bug.yml" | "feature.yml") => {
   try {

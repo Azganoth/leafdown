@@ -1,18 +1,21 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { describe, expect, it, vi } from "vitest";
 
+import { useReleaseNotesStore } from "@/features/release-notes";
 import { toastManager } from "@/lib/toast";
 import { countTauriApiCalls, mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
 import {
   openAbout,
+  openChangelog,
   openDevTools,
   openDiagnostics,
   openFileAndFolderWorkflows,
   openGettingStarted,
   openMarkdownReference,
   openSettingsReference,
+  openWhatsNew,
   reportIssue,
   requestFeature,
 } from "./help";
@@ -93,5 +96,13 @@ describe("help actions", () => {
     expect(useCommandUIStore.getState().helpPage).toBe("file-and-folder-workflows");
     openSettingsReference();
     expect(useCommandUIStore.getState().helpPage).toBe("settings-reference");
+  });
+
+  it("opens the release-notes surfaces without changing application document state", async () => {
+    await openWhatsNew();
+    expect(useReleaseNotesStore.getState().surface).toBe("whatsNew");
+
+    openChangelog();
+    expect(useReleaseNotesStore.getState().surface).toBe("changelog");
   });
 });

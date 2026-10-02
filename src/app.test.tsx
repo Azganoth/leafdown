@@ -14,6 +14,7 @@ import {
   settingsStoreTauriHandler,
   useSettingsStore,
 } from "./features/preferences";
+import { releaseNotesStoreTauriHandler } from "./features/release-notes";
 import { createUntitledDocument } from "./test/factories/document";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
 import { getLastDiagnosticPayload } from "./test/utils/diagnostics";
@@ -31,6 +32,7 @@ describe("App", () => {
     const appWindow = getCurrentWindow();
     const startRecentItemsStore = vi.spyOn(recentItemsStoreTauriHandler, "start");
     const startSettingsStore = vi.spyOn(settingsStoreTauriHandler, "start");
+    const startReleaseNotesStore = vi.spyOn(releaseNotesStoreTauriHandler, "start");
     vi.mocked(appWindow.theme).mockResolvedValue("dark");
 
     try {
@@ -39,6 +41,7 @@ describe("App", () => {
       await waitFor(() => {
         expect(startSettingsStore).toHaveBeenCalled();
         expect(startRecentItemsStore).toHaveBeenCalled();
+        expect(startReleaseNotesStore).toHaveBeenCalled();
         expect(appWindow.show).toHaveBeenCalled();
       });
 
@@ -47,6 +50,7 @@ describe("App", () => {
     } finally {
       startRecentItemsStore.mockRestore();
       startSettingsStore.mockRestore();
+      startReleaseNotesStore.mockRestore();
     }
   });
 

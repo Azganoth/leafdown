@@ -41,6 +41,7 @@ export interface DesktopE2ERunContext {
   };
   missingDocumentPath: string;
   settingsPath: string;
+  releaseNotesPath: string;
   temporaryRoot: string;
 }
 

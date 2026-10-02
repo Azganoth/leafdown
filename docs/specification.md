@@ -363,6 +363,13 @@ The source pages under `docs/help/` are the user-facing explanation of shipped b
 
 See [Reference](./reference.md) for current and Deferred settings, command surfaces, contextual availability, and checked or radio state.
 
+### Release Notes
+
+- `Help > What's new...` opens a scrollable, read-only dialog with the `CHANGELOG.md` section matching the running application version. A release build without a usable matching section shows a clear no-notes state. A development build may use `Unreleased` when there is no usable matching section.
+- `Help > Changelog` opens the complete bundled `CHANGELOG.md` in a scrollable, read-only dialog. Headings, lists, inline formatting, code, and links are rendered as content. External web links use the system browser through Leafdown's safe opener; the dialogs require no network access.
+- After a version change, What's new opens automatically once if Leafdown has a recorded previous version, the new version has usable notes, and those notes have not been shown before. First installation never opens it automatically. Showing it automatically or manually records that version as seen across restarts; the Help command remains available for manual reopening. A version without notes is recorded as launched without showing a dialog.
+- Opening, scrolling, and closing release notes leave the active document, folder, recent items, and editor state unchanged. Escape and the Close control dismiss the dialog and return focus to the prior surface.
+
 ### Appearance
 
 - **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.

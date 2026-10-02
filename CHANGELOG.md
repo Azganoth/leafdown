@@ -9,6 +9,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Added
 
 - Open bundled, read-only Getting started, Markdown reference, File and folder workflows, and Settings reference pages from Help, including offline navigation between pages and explicit web links through the system browser.
+- Read the running version's release notes or the complete bundled changelog from Help without a network connection. What's new appears once after an upgrade with notes, stays quiet on first installation, and can be reopened from Help.
 - Render fenced `math` code blocks as display math when the caret is outside them. Enter the block to edit its code with a live preview below; invalid TeX stays code with an available error. Backtick and tilde fences, metadata, and content retain their authored Markdown.
 - See `$...$` and `$$...$$` math rendered in the document. Inline math sits in its line, and a `$$` span alone in its paragraph is a centered display block that scrolls sideways when wider than the page. Clicking math opens its TeX for editing, with its commands set apart in color and the rendered result beside inline math or below a display block, following each edit. TeX that does not render keeps its source as muted text, and screen readers announce the error. Screen readers read rendered math as MathML. Math never links, loads anything, or restyles the page, and its fonts ship with the app.
 - Keep `$...$` and `$$...$$` TeX source intact when opening, editing, and saving Markdown; ordinary currency remains text.

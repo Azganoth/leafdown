@@ -3,6 +3,7 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useCommandUIStore } from "@/commands/stores/commandUi";
 import { getEditorCommandState, runEditorCommand, type EditorCommandId } from "@/features/editor";
 import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor/commands/contract";
 import { documentEditorBridge, useSessionStore } from "@/features/session";
@@ -302,6 +303,17 @@ describe("useAppCommands shortcut routing", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(closeWindow).toHaveBeenCalledOnce();
+  });
+
+  it("opens the shortcuts reference with Mod+/ without a document", () => {
+    setDefaultSession();
+    useCommandUIStore.getState().setKeyboardShortcutsOpen(false);
+    render(<AppCommandsHarness />);
+
+    const event = dispatchKeyDown(window, "/", { ctrl: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(useCommandUIStore.getState().keyboardShortcutsOpen).toBe(true);
   });
 
   it("reports rejected application command executions", async () => {

@@ -13,6 +13,7 @@ import {
   openDiagnostics,
   openFileAndFolderWorkflows,
   openGettingStarted,
+  openKeyboardShortcuts,
   openMarkdownReference,
   openSettingsReference,
   openWhatsNew,
@@ -79,6 +80,12 @@ describe("help actions", () => {
     useCommandUIStore.getState().setDiagnosticsOpen(false);
     openDiagnostics();
     expect(useCommandUIStore.getState().diagnosticsOpen).toBe(true);
+  });
+
+  it("opens the keyboard shortcuts reference through UI store", () => {
+    useCommandUIStore.getState().setKeyboardShortcutsOpen(false);
+    openKeyboardShortcuts();
+    expect(useCommandUIStore.getState().keyboardShortcutsOpen).toBe(true);
   });
 
   it("opens about dialog through UI store", () => {

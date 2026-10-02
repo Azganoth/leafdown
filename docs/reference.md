@@ -248,7 +248,7 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 #### Help Menu
 
 - **What's new...**
-- **Keyboard shortcuts** (`Mod+/`, Deferred)
+- **Keyboard shortcuts** (`Mod+/`): Opens the [keyboard shortcuts reference](./specification.md#keyboard-shortcuts-reference).
 - **Getting started**
 - **Markdown reference**
 - **File and folder workflows**

@@ -231,6 +231,7 @@ export function CommandMenubar({
             <MenubarSeparator />
             <CommandItems
               commandIds={[
+                "help.keyboardShortcuts",
                 "help.gettingStarted",
                 "help.markdownReference",
                 "help.fileAndFolderWorkflows",

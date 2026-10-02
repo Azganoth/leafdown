@@ -5,6 +5,7 @@ import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
 import { CommandMenubar } from "@/components/layout/command-menubar";
 import { ConfirmationDialog } from "@/components/layout/confirmation-dialog";
+import { KeyboardShortcutsDialog } from "@/components/layout/keyboard-shortcuts-dialog";
 import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-boundary";
 import { DocumentScreen } from "@/components/screens/document-screen";
 import { EmptyFolderScreen } from "@/components/screens/empty-folder-screen";
@@ -213,6 +214,10 @@ export function Shell() {
         <AboutDialog open={commands.aboutOpen} onOpenChange={commands.setAboutOpen} />
         <HelpDialog page={commands.helpPage} onPageChange={commands.setHelpPage} />
         <ReleaseNotesDialog />
+        <KeyboardShortcutsDialog
+          open={commands.keyboardShortcutsOpen}
+          onOpenChange={commands.setKeyboardShortcutsOpen}
+        />
         <ConfirmationDialog />
       </div>
     </>

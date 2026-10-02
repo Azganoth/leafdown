@@ -56,6 +56,7 @@ export const useAppCommands = () => {
   const aboutOpen = useCommandUIStore((state) => state.aboutOpen);
   const diagnosticsOpen = useCommandUIStore((state) => state.diagnosticsOpen);
   const helpPage = useCommandUIStore((state) => state.helpPage);
+  const keyboardShortcutsOpen = useCommandUIStore((state) => state.keyboardShortcutsOpen);
   const fullscreen = useCommandUIStore((state) => state.fullscreen);
   const pendingSortOrder = useCommandUIStore((state) => state.pendingSortOrder);
   const preferencesOpen = useCommandUIStore((state) => state.preferencesOpen);
@@ -63,6 +64,7 @@ export const useAppCommands = () => {
   const setAboutOpen = useCommandUIStore((state) => state.setAboutOpen);
   const setDiagnosticsOpen = useCommandUIStore((state) => state.setDiagnosticsOpen);
   const setHelpPage = useCommandUIStore((state) => state.setHelpPage);
+  const setKeyboardShortcutsOpen = useCommandUIStore((state) => state.setKeyboardShortcutsOpen);
   const setPreferencesOpen = useCommandUIStore((state) => state.setPreferencesOpen);
   const setFullscreen = useCommandUIStore((state) => state.setFullscreen);
 
@@ -182,6 +184,7 @@ export const useAppCommands = () => {
     commandState,
     diagnosticsOpen,
     helpPage,
+    keyboardShortcutsOpen,
     executeCommand,
     recentItems: {
       recentFiles,
@@ -198,6 +201,7 @@ export const useAppCommands = () => {
     setAboutOpen,
     setDiagnosticsOpen,
     setHelpPage,
+    setKeyboardShortcutsOpen,
     setPreferencesOpen,
   };
 };

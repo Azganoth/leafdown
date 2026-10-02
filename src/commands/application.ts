@@ -67,6 +67,7 @@ export const APPLICATION_COMMANDS = {
   "help.openDevTools": appCommand(help.openDevTools),
   "help.whatsNew": appCommand(help.openWhatsNew),
   "help.changelog": appCommand(help.openChangelog),
+  "help.keyboardShortcuts": appCommand(help.openKeyboardShortcuts),
   "help.reportIssue": appCommand(help.reportIssue),
   "help.requestFeature": appCommand(help.requestFeature),
   "help.diagnostics": appCommand(help.openDiagnostics),

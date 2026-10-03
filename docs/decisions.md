@@ -51,6 +51,14 @@
 - Math content does not form Markdown constructs. Existing source projection handles editing and falls back to literal text when edited source no longer reads as one span.
 - A math atom spans a position in its containing block, including mid-paragraph display math; a standalone `$$` span can be presented as a block.
 
+### Preserve leading frontmatter as authored source
+
+**Decision:** One editable metadata block supports YAML between `---`, TOML between `+++`, and JSON between `;;;` at the absolute beginning of a document. It retains its authored source; parsed data is derived only for live validation and future explicit consumers. Closed invalid bodies remain frontmatter, while unclosed or non-leading candidates keep their ordinary Markdown interpretation.
+
+**Rationale:** Parsing and regenerating metadata would rewrite quoting, comments, whitespace, key order, and scalar spelling even when the author did not change them. One source-backed block gives all three formats the same editing, history, and save behavior without assigning product meaning to their keys.
+
+**Consequences:** Editing and save never require valid metadata. The delimiters are presentation chrome outside the editable body. Creation commands insert an empty block but do not convert formats or create structured property controls.
+
 ### Keep callout dialects in one editor container
 
 **Decision:** GitHub alerts, Material for MkDocs admonitions, Docusaurus admonitions, and VitePress custom containers share one editable callout node. Each node retains its source dialect, type token, title spelling, opening marker, and colon fence length. Saving writes that node in its authored dialect. Opening and closing blank lines are retained when the container can own them. The view's temporary disclosure state does not rewrite an authored `???` or `???+` marker.

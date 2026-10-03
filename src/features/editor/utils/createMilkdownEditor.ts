@@ -28,6 +28,7 @@ import {
   inlineCodeInputRule,
   inlineCodeKeymap,
   inlineCodeSchema,
+  insertHrInputRule,
   linkSchema,
   orderedListKeymap,
   orderedListSchema,
@@ -112,6 +113,14 @@ import {
   createLeafdownFootnotePreviewPlugin,
   type LeafdownFootnotePreviewPluginOptions,
 } from "../plugins/footnotePreview";
+import {
+  createLeafdownFrontmatterRemarkPlugin,
+  createLeafdownFrontmatterInputPlugin,
+  leafdownDocumentSchema,
+  createLeafdownFrontmatterViewPlugin,
+  leafdownFrontmatterSchema,
+  serializeFrontmatter,
+} from "../plugins/frontmatter";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
@@ -158,7 +167,10 @@ import {
 } from "../plugins/tableShape";
 import { createLeafdownTableViewPlugin } from "../plugins/tableView";
 import { createLeafdownTaskListCheckboxPlugin } from "../plugins/taskListCheckbox";
-import { createLeafdownThematicBreakPlugin } from "../plugins/thematicBreak";
+import {
+  createLeafdownThematicBreakInputRule,
+  createLeafdownThematicBreakPlugin,
+} from "../plugins/thematicBreak";
 import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagraph";
 import { createLeafdownWikiCompletionPlugin } from "../plugins/wikiCompletion";
 import { createLeafdownWikiLinkPlugin, leafdownWikiLinkSchema } from "../plugins/wikiLink";
@@ -326,12 +338,14 @@ export const createMilkdownEditor = async ({
   const configuredEditor = editor
     .use(createLeafdownAutolinkLiteralPositionPlugin())
     .use(createLeafdownMathRemarkPlugin())
+    .use(createLeafdownFrontmatterRemarkPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
     .use(createLeafdownDefinitionListPlugin())
     .use(createLeafdownWikiLinkPlugin())
     .use(createLeafdownFootnoteLabelPlugin())
     .use(createLeafdownThematicBreakPlugin())
+    .use(createLeafdownThematicBreakInputRule())
     .use(createLeafdownCodeFormPlugin())
     .use(createLeafdownCalloutPlugin())
     .use(createLeafdownBlockStructurePlugin())
@@ -343,6 +357,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
     .use(commonmark)
+    .use(leafdownDocumentSchema)
     .use(createLeafdownTableKeyboardPlugin())
     .use(createLeafdownTableShapeGuardPlugin())
     .use(gfm)
@@ -354,6 +369,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownDefinitionSpacingPlugin())
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownMathSchema)
+    .use(leafdownFrontmatterSchema)
     .use(leafdownWikiLinkSchema)
     .use(leafdownDefinitionSchema)
     .use(leafdownDefinitionLabelSchema)
@@ -388,6 +404,8 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownMarkerPresentationPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownMathViewPlugin())
+    .use(createLeafdownFrontmatterViewPlugin())
+    .use(createLeafdownFrontmatterInputPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
     .use(createLeafdownMermaidModePlugin())
@@ -437,6 +455,7 @@ export const createMilkdownEditor = async ({
           [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
           [MATH_MARKDOWN_TYPE]: serializeMath,
           leafdownCallout: serializeCallout,
+          leafdownFrontmatter: serializeFrontmatter,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,
           [WIKI_LINK_MARKDOWN_TYPE]: serializeWikiLink,
           code: serializeCode,
@@ -615,6 +634,7 @@ export const createMilkdownEditor = async ({
 
   await configuredEditor.remove(strikethroughInputRule);
   await configuredEditor.remove(inlineCodeInputRule);
+  await configuredEditor.remove(insertHrInputRule);
 
   return configuredEditor;
 };

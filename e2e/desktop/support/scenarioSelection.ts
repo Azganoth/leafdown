@@ -2,6 +2,7 @@ const scenarioTargets = {
   "block-selection": ["block-selection"],
   callouts: ["callouts"],
   "command-palette": ["command-palette"],
+  frontmatter: ["frontmatter"],
   diagnostics: ["diagnostics"],
   "document-lifecycle": ["document-lifecycle"],
   "document-watcher": ["document-watcher"],

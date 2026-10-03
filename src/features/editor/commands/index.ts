@@ -17,6 +17,7 @@ import * as inlineFormatting from "./formatting/inline";
 import * as tables from "./formatting/tables";
 import * as blockInsertion from "./inserting/blocks";
 import * as footnoteInsertion from "./inserting/footnotes";
+import * as frontmatterInsertion from "./inserting/frontmatter";
 import * as linkInsertion from "./inserting/links";
 
 type EditorCommandResult = boolean | Promise<boolean>;
@@ -197,6 +198,18 @@ export const EDITOR_COMMANDS = {
   "insert.footnote": viewCommand(
     footnoteInsertion.insertFootnote,
     footnoteInsertion.canInsertFootnote,
+  ),
+  "insert.frontmatter.yaml": viewCommand(
+    (view) => frontmatterInsertion.insertFrontmatter(view, "yaml"),
+    frontmatterInsertion.canInsertFrontmatter,
+  ),
+  "insert.frontmatter.toml": viewCommand(
+    (view) => frontmatterInsertion.insertFrontmatter(view, "toml"),
+    frontmatterInsertion.canInsertFrontmatter,
+  ),
+  "insert.frontmatter.json": viewCommand(
+    (view) => frontmatterInsertion.insertFrontmatter(view, "json"),
+    frontmatterInsertion.canInsertFrontmatter,
   ),
 } satisfies Record<EditorCommandId, EditorCommand>;
 

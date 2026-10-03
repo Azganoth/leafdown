@@ -93,6 +93,15 @@ Keep related articles in one folder.
 :::
 ```
 
+**Frontmatter** is a metadata block at the very start of a document: YAML between `---` lines, TOML between `+++` lines, or JSON between `;;;` lines. Edit it as source. Invalid syntax shows an error but never blocks saving, and the block is saved as you left it. **Insert > Frontmatter** adds an empty block. Leafdown gives its keys no special meaning.
+
+```text
+---
+title: Garden report
+tags: [notes, garden]
+---
+```
+
 Leafdown also displays self-contained raw HTML from a restricted set of elements when there are no attributes. Unsupported HTML remains source text. The [Specification](https://github.com/Azganoth/leafdown/blob/main/docs/specification.md) describes the exact supported elements and extension rules.
 
 For where links and images resolve, see [File and folder workflows](file-and-folder-workflows.md).

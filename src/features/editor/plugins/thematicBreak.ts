@@ -1,5 +1,7 @@
+import { hrSchema } from "@milkdown/kit/preset/commonmark";
+import { InputRule } from "@milkdown/kit/prose/inputrules";
 import type { MarkdownNode } from "@milkdown/kit/transformer";
-import { $remark } from "@milkdown/kit/utils";
+import { $inputRule, $remark } from "@milkdown/kit/utils";
 
 import {
   findThematicBreakMarker,
@@ -27,3 +29,15 @@ export const createLeafdownThematicBreakPlugin = () =>
   $remark("leafdownThematicBreak", () => () => (tree, file) => {
     markAuthoredMarkers(tree as MarkdownNode, String(file));
   });
+
+export const createLeafdownThematicBreakInputRule = () =>
+  $inputRule(
+    (ctx) =>
+      new InputRule(/^(?:---|___\s|\*\*\*\s)$/u, (state, match, start, end) =>
+        state.tr.replaceWith(
+          start - 1,
+          end,
+          hrSchema.type(ctx).create({ marker: match[0].trim() }),
+        ),
+      ),
+  );

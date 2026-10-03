@@ -608,6 +608,30 @@
       }
     }
 
+    .leafdown-frontmatter {
+      @apply my-5 min-w-0 overflow-hidden rounded-md border border-border bg-muted/30;
+
+      &[data-validation="invalid"] {
+        @apply border-destructive;
+      }
+
+      .leafdown-frontmatter-delimiter {
+        @apply px-4 py-1.5 font-mono text-xs text-muted-foreground select-none;
+      }
+
+      > pre {
+        @apply my-0 max-w-full overflow-x-auto rounded-none border-0 bg-transparent px-4 py-2 font-mono text-sm whitespace-pre-wrap;
+
+        > code {
+          @apply block min-h-lh min-w-0 bg-transparent font-mono break-words whitespace-pre-wrap text-foreground;
+        }
+      }
+
+      .leafdown-frontmatter-status:not([hidden]) {
+        @apply border-t border-destructive/30 px-4 py-2 text-xs text-destructive;
+      }
+    }
+
     .tableWrapper {
       @apply my-5 w-full overflow-x-auto;
 

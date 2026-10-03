@@ -37,6 +37,7 @@ Leafdown supports the following CommonMark and GitHub Flavored Markdown (GFM) fe
 - Footnotes
 - Dollar-delimited TeX math (`$...$` and `$$...$$`)
 - Definition lists (Pandoc-style extension)
+- Leading YAML (`---`), TOML (`+++`), and JSON (`;;;`) frontmatter
 
 Unsupported Markdown is outside Leafdown's supported editing surface. Leafdown treats it as literal text where possible, but does not guarantee recognition, editable semantics, or byte-for-byte round-tripping after a save.
 
@@ -162,6 +163,9 @@ The editor is a unified hybrid Markdown surface. Behavior is governed by renderi
 
 ### Blocks
 
+- A document may have one frontmatter block at its absolute start. Matching delimiters later in the document are ordinary Markdown; an unclosed opening delimiter is ordinary Markdown too. Empty and syntactically invalid closed bodies remain frontmatter.
+- Frontmatter appears before the document body as a metadata block. Its opening and closing delimiters are visible non-editable chrome, and its multiline body is directly editable monospace source. Live YAML, TOML, or JSON validation shows an error without blocking editing or save. Temporary invalid syntax while editing does not replace the block with ordinary content.
+- `Insert > Frontmatter` creates an empty YAML, TOML, or JSON block only when the active document has none. The caret moves into its body and one Undo removes the insertion. Typing or pasting a complete leading block produces the same structure as opening it from disk. Metadata keys have no built-in Leafdown meaning.
 - Headings render structurally. When the caret is inside a heading, or the pointer rests on one, show a subtle heading marker in the local gutter's passive outer slot, beside the heading's first line. Either trigger shows the same marker, and both may show at once on different headings. The marker belongs to the heading's pointer area, so moving onto the marker does not dismiss it.
 - Lists render structurally with visual list markers. Adjacent items have an 8-pixel vertical gap, including across adjacent lists split by different Markdown markers or ordered-list delimiters. A list and an adjacent paragraph keep the 16-pixel block gap. This presentation does not change authored list markers or tightness.
 - Definition lists render each editable term above its indented definitions, with no quotation border. A term occupies one physical line and may have multiple definitions marked by `:` or `~`; either marker may stand up to three spaces in and must be followed by whitespace before content. Typing a marker after a term creates the first definition; typing an unindented marker after a definition adds another to the same term. An indented marker inside a definition can begin a nested definition list. One blank line between a term and its first definition is allowed. Definition bodies accept lazy paragraph continuation and ordinary supported blocks, including nested definition lists. A blank line separates distinct term groups. Consecutive terms sharing one definition, missing marker whitespace, and other malformed candidates retain their ordinary Markdown interpretation.
@@ -330,6 +334,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 
 ### Serialization And Output
 
+- Frontmatter keeps its authored source as the serialization authority. Opening and saving an untouched block preserves key order, quoting, whitespace, comments where supported, layout, and scalar spelling. Editing writes the source left in its body, including when validation reports an error; no parsed value is used to regenerate it.
 - A math span writes its authored delimiters, whitespace, line endings, and TeX commands without interpreting or regenerating them. The document's selected line-ending style applies throughout on save. Container prefixes and indented continuation lines retain their authored form across repeated saves. A literal `$` keeps or gains an escape only when its bare run would open math that closes later in its block; unnecessary escapes follow the usual backslash normalization rule.
 - Leafdown preserves Markdown semantics over exact source formatting.
 - Output uses the default output style.

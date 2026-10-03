@@ -134,6 +134,9 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
   const calloutsPath = path.join(fixtureRoot, "callouts.md");
+  const frontmatterYamlPath = path.join(fixtureRoot, "frontmatter-yaml.md");
+  const frontmatterTomlPath = path.join(fixtureRoot, "frontmatter-toml.md");
+  const frontmatterJsonPath = path.join(fixtureRoot, "frontmatter-json.md");
   const definitionListPath = path.join(fixtureRoot, "definition-lists.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
@@ -163,6 +166,11 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     appIdentifier,
     blocks: { path: blocksPath },
     callouts: { path: calloutsPath },
+    frontmatter: {
+      yamlPath: frontmatterYamlPath,
+      tomlPath: frontmatterTomlPath,
+      jsonPath: frontmatterJsonPath,
+    },
     definitionList: { path: definitionListPath },
     separator: { path: separatorPath },
     document: {
@@ -207,6 +215,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "block-selection", recentFiles: [blocksPath, definitionListPath] },
     { name: "callouts", recentFiles: [calloutsPath] },
     { name: "command-palette", recentFiles: [searchPath] },
+    {
+      name: "frontmatter",
+      recentFiles: [frontmatterYamlPath, frontmatterTomlPath, frontmatterJsonPath],
+    },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
@@ -276,6 +288,18 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "callouts.md"),
         calloutsPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "corpus", "extensions", "frontmatter", "yaml.md"),
+        frontmatterYamlPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "corpus", "extensions", "frontmatter", "toml.md"),
+        frontmatterTomlPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "corpus", "extensions", "frontmatter", "json.md"),
+        frontmatterJsonPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "separator-presentation.md"),

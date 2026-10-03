@@ -170,6 +170,14 @@ export function CommandMenubar({
           <MenubarContent>
             <CommandItems commandIds={["insert.paragraph"]} />
             <HeadingSubmenu prefix="insert" />
+            <CommandSubmenu
+              commandIds={[
+                "insert.frontmatter.yaml",
+                "insert.frontmatter.toml",
+                "insert.frontmatter.json",
+              ]}
+              labelId="menu.insert.frontmatter"
+            />
             <MenubarSeparator />
             <CommandItems commandIds={INSERT_COMMAND_IDS} />
           </MenubarContent>

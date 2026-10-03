@@ -1,7 +1,7 @@
 import { parserCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { isTextOnlySlice } from "@milkdown/kit/prose";
-import { DOMParser, DOMSerializer } from "@milkdown/kit/prose/model";
+import { DOMParser, DOMSerializer, type Slice } from "@milkdown/kit/prose/model";
 import { Plugin } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
@@ -11,8 +11,48 @@ import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { deleteClipboardSelection, getDefaultClipboardPayload } from "../utils/clipboard";
 import { isInsideTableCell, readCellCodeSpans } from "../utils/codeMarkdown";
 import { readEnclosingInlineConstructs } from "../utils/logicalLinkMarkdown";
+import { FRONTMATTER_NODE_NAME } from "./frontmatter";
 
 const VSCODE_EDITOR_DATA_MIME_TYPE = "vscode-editor-data";
+
+const parseFrontmatterPaste = (ctx: Ctx, text: string) => {
+  if (!/^(?:---|\+\+\+|;;;)[\r\n]/u.test(text)) return null;
+  const parsed = ctx.get(parserCtx)(text);
+  return parsed &&
+    typeof parsed !== "string" &&
+    parsed.firstChild?.type.name === FRONTMATTER_NODE_NAME
+    ? parsed
+    : null;
+};
+
+const handleFrontmatterPaste = (
+  ctx: Ctx,
+  view: EditorView,
+  event: ClipboardEvent,
+  slice: Slice,
+) => {
+  const text = event.clipboardData?.getData(TEXT_PLAIN_MIME_TYPE);
+  const { state } = view;
+  if (
+    !view.editable ||
+    state.selection.from !== 1 ||
+    state.doc.firstChild?.type.name === FRONTMATTER_NODE_NAME
+  )
+    return false;
+
+  const parsed = text ? parseFrontmatterPaste(ctx, text) : null;
+  const content =
+    parsed?.content ??
+    (slice.content.firstChild?.type.name === FRONTMATTER_NODE_NAME ? slice.content : null);
+  if (!content) return false;
+
+  const emptyDocument = state.doc.childCount === 1 && state.doc.firstChild?.textContent === "";
+  const transaction = emptyDocument
+    ? state.tr.replaceWith(0, state.doc.content.size, content)
+    : state.tr.insert(0, content);
+  view.dispatch(transaction.scrollIntoView());
+  return true;
+};
 
 const handleClipboardEvent = (view: EditorView, event: Event, shouldDeleteSelection: boolean) => {
   const clipboardEvent = event as ClipboardEvent;
@@ -96,7 +136,9 @@ export const createLeafdownClipboardPlugin = () =>
             copy: (view, event) => handleClipboardEvent(view, event, false),
             cut: (view, event) => handleClipboardEvent(view, event, true),
           },
-          handlePaste: (view, event) => handleCellTextPaste(ctx, view, event),
+          handlePaste: (view, event, slice) =>
+            handleFrontmatterPaste(ctx, view, event, slice) ||
+            handleCellTextPaste(ctx, view, event),
         },
       }),
   );

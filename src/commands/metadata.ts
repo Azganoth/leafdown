@@ -105,6 +105,9 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "insert.codeBlock": commandDef(),
   "insert.table": commandDef(),
   "insert.horizontalRule": commandDef(),
+  "insert.frontmatter.yaml": commandDef(),
+  "insert.frontmatter.toml": commandDef(),
+  "insert.frontmatter.json": commandDef(),
   "format.strong": commandDef({ key: "b", mod: true }),
   "format.emphasis": commandDef({ key: "i", mod: true }),
   "format.strikethrough": commandDef({

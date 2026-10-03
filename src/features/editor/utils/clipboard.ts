@@ -1,9 +1,11 @@
 import { schemaCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { isTextOnlySlice } from "@milkdown/kit/prose";
+import { NodeSelection } from "@milkdown/kit/prose/state";
 import type { EditorProps, EditorView } from "@milkdown/kit/prose/view";
 
 import { deleteSelectedBlocks } from "../plugins/blockSelectionOperations";
+import { FRONTMATTER_NODE_NAME, serializeFrontmatter } from "../plugins/frontmatter";
 import {
   deleteSourceProjectionSelection,
   getSourceProjectionClipboardSlice,
@@ -42,10 +44,16 @@ export const getDefaultClipboardPayload = (view: EditorView): EditorClipboardPay
   const serializedHtml = semanticSlice
     ? view.serializeForClipboard(semanticSlice)
     : serializedSelection;
+  const selectedNode =
+    view.state.selection instanceof NodeSelection ? view.state.selection.node : null;
+  const frontmatterText =
+    selectedNode?.type.name === FRONTMATTER_NODE_NAME
+      ? serializeFrontmatter({ ...selectedNode.attrs, value: selectedNode.textContent })
+      : null;
 
   return {
     html: serializedHtml.dom.innerHTML,
-    text: serializedSelection.text,
+    text: frontmatterText ?? serializedSelection.text,
   };
 };
 

@@ -82,6 +82,9 @@ export const EDITOR_COMMAND_IDS = [
   "insert.horizontalRule",
   "insert.link",
   "insert.footnote",
+  "insert.frontmatter.yaml",
+  "insert.frontmatter.toml",
+  "insert.frontmatter.json",
 ] as const;
 
 export type EditorCommandId = (typeof EDITOR_COMMAND_IDS)[number];

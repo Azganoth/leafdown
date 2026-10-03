@@ -171,6 +171,10 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
   - **Heading 4**
   - **Heading 5**
   - **Heading 6**
+- **Frontmatter**
+  - **YAML**
+  - **TOML**
+  - **JSON**
 - **Link** (`Mod+K`)
 - **Footnote**: Inserts a reference with a new generated label at the caret or after the selected text, appends its empty definition to the document, and moves the caret into the definition.
 - **Image**
@@ -325,6 +329,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Jump to selection` requires a selection.
 - `Jump to footnote definition` requires a footnote reference at the caret whose label a definition in the document answers to.
 - `Footnote` in the Insert menu requires a caret or text selection whose end can hold an inline footnote reference, so it is unavailable in code blocks, footnote definition labels, and structural block or node selections.
+- `Insert > Frontmatter` is available only when an active document has no frontmatter block. It has no default shortcut.
 - `Rename footnote` requires the caret or selection within a footnote definition label, or a footnote reference at the caret whose label exactly one definition in the document answers to.
 - `Delete block` requires an active block.
 - `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.

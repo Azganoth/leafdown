@@ -68,6 +68,7 @@ The runtime tracks three primary state values:
 - Providing the installed CommonMark/GFM parsing and serialization behavior.
 - Retaining raw HTML as inline atoms carrying their authored `value`; Leafdown owns their safe live presentation and source-projection adapter.
 - Retaining dollar-delimited math as inline atoms carrying their complete authored source; Leafdown owns the math grammar, safe rendering, projection adapter and its rendered preview, and source-based serialization.
+- Retaining one leading frontmatter block with an editable source body and format discriminator; Leafdown owns live YAML, TOML, and JSON validation and source-based serialization.
 
 ### Leafdown Responsibilities
 

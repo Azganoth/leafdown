@@ -27,6 +27,7 @@ export const APPLICATION_COMMANDS = {
   "file.clearRecentItems": appCommand(file.clearRecentItems, file.getClearRecentItemsState),
   "file.save": appCommand(file.saveDocument, file.getSaveDocumentState),
   "file.saveAs": appCommand(file.saveDocumentAs, file.getSaveDocumentAsState),
+  "file.exportHtml": appCommand(file.exportDocumentAsHtml, file.getExportDocumentAsHtmlState),
   "file.openLocation": appCommand(file.openLocation, file.getOpenLocationState),
   "file.revealInSidebar": appCommand(file.revealInSidebar, file.getRevealInSidebarState),
   "file.preferences": appCommand(file.openPreferences),

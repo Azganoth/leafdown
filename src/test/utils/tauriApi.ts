@@ -6,6 +6,7 @@ import {
   SAVE_MARKDOWN_FILE_COMMAND,
   UNWATCH_MARKDOWN_DOCUMENT_COMMAND,
   WATCH_MARKDOWN_DOCUMENT_COMMAND,
+  WRITE_HTML_EXPORT_COMMAND,
   type InspectMarkdownFileArgs,
   type MarkdownFileState,
   type OpenMarkdownFileArgs,
@@ -14,11 +15,14 @@ import {
   type SaveMarkdownFileResult,
   type UnwatchMarkdownDocumentArgs,
   type WatchMarkdownDocumentArgs,
+  type WriteHtmlExportArgs,
 } from "@/features/document/services/markdownDocumentApi";
 import {
   FETCH_REMOTE_IMAGE_COMMAND,
+  READ_MARKDOWN_IMAGE_COMMAND,
   RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   type FetchRemoteImageArgs,
+  type ReadMarkdownImageArgs,
   type ResolveMarkdownImageTargetArgs,
   type ResolveMarkdownImageTargetResult,
 } from "@/features/editor/services/markdownImageApi";
@@ -75,6 +79,8 @@ interface TauriApiCommandArgs {
   trashFolderEntry: TrashFolderEntryArgs;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetArgs;
   fetchRemoteImage: FetchRemoteImageArgs;
+  readMarkdownImage: ReadMarkdownImageArgs;
+  writeHtmlExport: WriteHtmlExportArgs;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
@@ -98,6 +104,8 @@ interface TauriApiCommandResults {
   trashFolderEntry: void;
   resolveMarkdownImageTarget: ResolveMarkdownImageTargetResult;
   fetchRemoteImage: ArrayBuffer;
+  readMarkdownImage: ArrayBuffer;
+  writeHtmlExport: void;
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
@@ -131,6 +139,8 @@ const TAURI_API_COMMANDS = {
   trashFolderEntry: TRASH_FOLDER_ENTRY_COMMAND,
   resolveMarkdownImageTarget: RESOLVE_MARKDOWN_IMAGE_TARGET_COMMAND,
   fetchRemoteImage: FETCH_REMOTE_IMAGE_COMMAND,
+  readMarkdownImage: READ_MARKDOWN_IMAGE_COMMAND,
+  writeHtmlExport: WRITE_HTML_EXPORT_COMMAND,
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
   resolveWikiLinkTarget: RESOLVE_WIKI_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,

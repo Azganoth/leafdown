@@ -95,6 +95,8 @@ export function CommandMenubar({
             <MenubarSeparator />
             <CommandItems commandIds={["file.save", "file.saveAs"]} />
             <MenubarSeparator />
+            <CommandSubmenu commandIds={["file.exportHtml"]} labelId="menu.file.export" />
+            <MenubarSeparator />
             <CommandItems commandIds={["file.openLocation", "file.revealInSidebar"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["file.preferences"]} />

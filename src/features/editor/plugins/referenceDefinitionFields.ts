@@ -432,6 +432,12 @@ const handleFieldMouseDown = (view: EditorView, event: MouseEvent) => {
   return true;
 };
 
+export const settleReferenceDefinitionFields = (state: EditorState) => {
+  const transaction = createDefinitionCommitTransaction(state, true);
+
+  return transaction ? state.apply(transaction.setMeta("addToHistory", false)) : state;
+};
+
 export const commitReferenceDefinitionFields = (view: EditorView) => {
   const transaction = createDefinitionCommitTransaction(view.state, true);
 

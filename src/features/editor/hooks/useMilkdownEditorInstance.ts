@@ -49,8 +49,10 @@ import {
   type SearchMode,
   type SearchQueryChange,
 } from "../plugins/search";
+import type { HtmlExportSnapshot } from "../services/htmlExport";
 import {
   createMilkdownEditor,
+  getMilkdownEditorHtmlExportSnapshot,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
   type MilkdownMarkdownUpdate,
@@ -92,6 +94,7 @@ export interface EditorSearchControls {
 
 export interface MilkdownEditorBridge {
   getMarkdown: () => string;
+  getHtmlExportSnapshot?: () => HtmlExportSnapshot | null;
   getCommandState?: () => EditorCommandState;
   getDocumentStatus?: () => EditorDocumentStatus;
   getViewState?: () => EditorViewState | null;
@@ -224,6 +227,8 @@ export const useMilkdownEditorInstance = ({
 
         return getMilkdownEditorMarkdown(editorRef.current);
       },
+      getHtmlExportSnapshot: () =>
+        editorRef.current?.ctx ? getMilkdownEditorHtmlExportSnapshot(editorRef.current) : null,
       getCommandState: () => commandStateRef.current,
       getDocumentStatus: () => documentStatusRef.current,
       getViewState: () => {

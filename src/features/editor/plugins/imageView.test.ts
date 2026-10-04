@@ -20,6 +20,7 @@ import {
 } from "@/test/utils/tauriApi";
 
 import { IMAGE_DESTINATION_MARKER_ATTRIBUTE_NAME } from "../utils/characterReferenceMarkdown";
+import { readImageGrants } from "../utils/imageGrants";
 import { TITLE_MARKER_ATTRIBUTE_NAME } from "../utils/markdownTitle";
 
 const mountImageEditor = setupMilkdownEditorMount({
@@ -225,6 +226,26 @@ describe("Markdown images", () => {
       expect(countTauriApiCalls("fetchRemoteImage")).toBe(1);
     });
 
+    it("offers loaded bytes to export only while the approval lasts", async () => {
+      const user = setupUser();
+      mockRemoteImage();
+
+      const mounted = await mountRemoteImage();
+
+      expect(readImageGrants(mounted.view).remoteImages.size).toBe(0);
+
+      await user.click(within(mounted.view.dom).getByRole("button", { name: "Load image" }));
+      await within(mounted.view.dom).findByRole("img", { name: "Remote" });
+
+      expect([...readImageGrants(mounted.view).remoteImages.keys()]).toEqual([
+        "https://example.com/image.png",
+      ]);
+
+      setImageTarget(mounted, "https://images.example.org/other.png");
+
+      expect(readImageGrants(mounted.view).remoteImages.size).toBe(0);
+    });
+
     it("revokes the object URL when the view is destroyed", async () => {
       const user = setupUser();
       const { revokeObjectURL } = mockRemoteImage();
@@ -380,6 +401,11 @@ describe("Markdown images", () => {
       allowOutsideFolder: true,
       target: "../outside.png",
     });
+    expect([...readImageGrants(mounted.view).outsideFolderTargets]).toEqual(["../outside.png"]);
+
+    await mounted.destroy();
+
+    expect(readImageGrants(mounted.view).outsideFolderTargets.size).toBe(0);
   });
 
   it("keeps a failed resolution mounted through a clean source-projection round trip", async () => {

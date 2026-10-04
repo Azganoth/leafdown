@@ -347,6 +347,23 @@ export const finalizeSourceProjection = (view: EditorView) => {
   return true;
 };
 
+/** The state `finalizeSourceProjection` would leave, computed without dispatching to a view. */
+export const settleSourceProjection = (state: EditorState) => {
+  const { session } = getSourceProjectionState(state);
+  const transaction = session ? createFinalizeProjectionTransaction(state, session) : null;
+
+  if (!transaction) {
+    return state;
+  }
+
+  const restored = state.apply(transaction.setMeta(SOURCE_PROJECTION_DEFERRED_COMMIT_META, true));
+  const { pendingCommit } = getSourceProjectionState(restored);
+
+  return pendingCommit
+    ? restored.apply(createCommitAfterRestoreTransaction(restored, pendingCommit))
+    : restored;
+};
+
 export const hasActiveSourceProjection = (state: EditorState) =>
   getSourceProjectionState(state).session !== null;
 

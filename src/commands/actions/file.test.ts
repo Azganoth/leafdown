@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { useArticleNavigatorStore } from "@/features/folder-context";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
+import { exportActiveMarkdownDocumentAsHtml } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createAppCommandContext } from "@/test/factories/commands";
 import { createSavedDocument } from "@/test/factories/document";
@@ -19,12 +20,18 @@ import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 import { useCommandUIStore } from "../stores/commandUi";
 import {
   clearRecentItems,
+  exportDocumentAsHtml,
   openMarkdownFile,
   openLocation,
   openPreferences,
   openRecentMarkdownFile,
   revealInSidebar,
 } from "./file";
+
+vi.mock("@/features/session", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/features/session")>()),
+  exportActiveMarkdownDocumentAsHtml: vi.fn(),
+}));
 
 const OVERSIZED_MARKDOWN_FILE_PATH = "C:/Notes/large-document.md";
 const OVERSIZED_MARKDOWN_FILE_ERROR = {
@@ -120,6 +127,71 @@ describe("file actions", () => {
         "Unexpected error (openLocation).",
         expect.any(Error),
       );
+    });
+  });
+
+  describe("HTML export", () => {
+    const EXPORT_PATH = "C:/Notes/readme.html";
+
+    it("confirms a complete export", async () => {
+      vi.mocked(exportActiveMarkdownDocumentAsHtml).mockResolvedValueOnce({
+        status: "exported",
+        path: EXPORT_PATH,
+        warnings: [],
+      });
+
+      await exportDocumentAsHtml();
+
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description: EXPORT_PATH,
+        title: "Document exported as HTML.",
+        type: "success",
+      });
+    });
+
+    it("lists what the export left out", async () => {
+      vi.mocked(exportActiveMarkdownDocumentAsHtml).mockResolvedValueOnce({
+        status: "exported",
+        path: EXPORT_PATH,
+        warnings: [
+          { kind: "image", target: "a.png", reason: "missing" },
+          { kind: "image", target: "https://x.example/b.png", reason: "remote" },
+          { kind: "diagram" },
+          { kind: "mathFonts" },
+        ],
+      });
+
+      await exportDocumentAsHtml();
+
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description:
+          "Image not found: a.png. Remote image was not loaded: https://x.example/b.png. A diagram that could not be rendered is shown as source. 1 more.",
+        title: "Document exported as HTML with 4 items left out.",
+        type: "warning",
+      });
+    });
+
+    it("stays quiet when the picker is cancelled", async () => {
+      vi.mocked(exportActiveMarkdownDocumentAsHtml).mockResolvedValueOnce({ status: "cancelled" });
+
+      await exportDocumentAsHtml();
+
+      expect(toastManager.add).not.toHaveBeenCalled();
+    });
+
+    it("reports a refused output path", async () => {
+      vi.mocked(exportActiveMarkdownDocumentAsHtml).mockRejectedValueOnce({
+        kind: "sourceDocument",
+        path: EXPORT_PATH,
+      });
+
+      await exportDocumentAsHtml();
+
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description: EXPORT_PATH,
+        title: "Export cannot replace the document being exported.",
+        type: "error",
+      });
     });
   });
 

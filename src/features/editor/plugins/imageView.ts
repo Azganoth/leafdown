@@ -16,6 +16,7 @@ import { isSameNullablePath } from "@/lib/path";
 
 import { fetchRemoteImage } from "../services/markdownImageApi";
 import { writeImageNodeAttrsToDom } from "../utils/characterReferenceMarkdown";
+import { deleteImageGrant, setImageGrant } from "../utils/imageGrants";
 import {
   resolveMarkdownImage,
   type MarkdownImageResolution,
@@ -38,7 +39,7 @@ type ImageResolutionInput = ResolveMarkdownImageOptions & { allowOutsideFolder: 
 type RemoteImageState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "loaded"; objectUrl: string }
+  | { status: "loaded"; objectUrl: string; bytes: ArrayBuffer }
   | { status: "failed"; error: unknown };
 
 interface ImageAttrs {
@@ -123,6 +124,7 @@ class LeafdownImageNodeView implements NodeView {
 
   destroy() {
     this.localizationChange.dispose();
+    deleteImageGrant(this.view, this);
     this.cancelCurrentResolution();
     this.resetRemoteImage();
     this.dom.removeEventListener("mousedown", this.handleMouseDown);
@@ -256,7 +258,7 @@ class LeafdownImageNodeView implements NodeView {
       const objectUrl = URL.createObjectURL(new Blob([bytes]));
 
       this.remoteImageObjectUrl.value = toDisposable(() => URL.revokeObjectURL(objectUrl));
-      this.remoteImageState = { status: "loaded", objectUrl };
+      this.remoteImageState = { status: "loaded", objectUrl, bytes };
     } catch (error) {
       if (
         isCancellationError(error) ||
@@ -277,6 +279,12 @@ class LeafdownImageNodeView implements NodeView {
 
   private render() {
     const attrs = this.getImageAttrs();
+
+    setImageGrant(this.view, this, {
+      target: attrs.src,
+      allowOutsideFolder: this.allowOutsideFolder,
+      remoteImage: this.remoteImageState.status === "loaded" ? this.remoteImageState.bytes : null,
+    });
 
     this.dom.dataset.imageState =
       this.remoteImageState.status === "loaded"

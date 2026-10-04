@@ -98,6 +98,30 @@ describe("CommandMenubar", () => {
     expect(menuItem(/^Close folder/u)).toHaveAttribute("data-disabled");
   });
 
+  it("offers HTML export from the File menu's Export submenu", async () => {
+    const { onExecute, user } = renderCommandMenuBar();
+
+    await user.click(screen.getByRole("menuitem", { name: "File" }));
+    await user.hover(menuItem("Export"));
+    await user.keyboard("{ArrowRight}");
+
+    expect(menuItem(/^Export as HTML\.\.\./u)).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+
+    expect(onExecute).toHaveBeenCalledWith("file.exportHtml");
+  });
+
+  it("disables the Export submenu without a document to export", async () => {
+    const { user } = renderCommandMenuBar({
+      commandState: (commandId) => (commandId === "file.exportHtml" ? disabledState : enabledState),
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "File" }));
+
+    expect(menuItem("Export")).toHaveAttribute("data-disabled");
+  });
+
   it("keeps unavailable view commands disabled and omits Post-MVP commands", async () => {
     const { user } = renderCommandMenuBar({
       commandState: (commandId) => {

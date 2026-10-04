@@ -22,6 +22,10 @@ Relative links and image paths start from the saved document's location. An unti
 
 Local images render when available. A remote `https:` image remains a placeholder until you choose **Load image**; merely opening a document does not request it. Images outside the folder context may ask for approval before rendering. See [Markdown reference](markdown-reference.md) for link syntax.
 
+## Export as HTML
+
+**File > Export > Export as HTML...** writes the open document, including unsaved edits, as a single HTML page you can read in any browser without Leafdown or a network connection. Local images, math, diagrams, and highlighted code are embedded in the page. A remote image is included only if you loaded it in the document first, and an image outside the folder only if you loaded it there. Anything left out is listed when the export finishes. Exporting does not save or change your Markdown file.
+
 ## Save and external changes
 
 **File > Save as** writes the document to a chosen path. Saving outside the current folder does not switch that folder. Leafdown watches the open file: a clean document reloads after another program changes it, while an edited document keeps its changes and warns. Saving over an externally changed file asks first. If the file has disappeared, Save offers Save as. These checks also apply to a file opened outside the pinned folder.

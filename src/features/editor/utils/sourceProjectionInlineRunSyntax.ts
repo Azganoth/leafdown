@@ -7,6 +7,7 @@ import {
   CHARACTER_REFERENCE_MARKDOWN_TYPE,
   decodeWholeCharacterReference,
 } from "./characterReferenceMarkdown";
+import { CITATION_MARKDOWN_TYPE } from "./citationSyntax";
 import {
   isInsideTableCell,
   readCellCodeSpanBoundaries,
@@ -128,7 +129,8 @@ const MARK_MARKDOWN_TYPES = new Map<string, ProjectionMarkName>([
 ]);
 
 const LINK_MARKDOWN_TYPES = new Set(["link", "linkReference"]);
-const IMAGE_MARKDOWN_TYPES = new Set(["image", "imageReference"]);
+// A citation keeps its source as one atom, as an image does in a run.
+const ATOM_MARKDOWN_TYPES = new Set(["image", "imageReference", CITATION_MARKDOWN_TYPE]);
 
 // Walks the source against the text a run holds, returning the source offset each document offset
 // falls on. A preserved reference is a segment of its own, so the only character a run spends
@@ -411,7 +413,7 @@ const addRunChildSegment = (
     return documentOffset + map.documentSize;
   }
 
-  if (IMAGE_MARKDOWN_TYPES.has(node.type)) {
+  if (ATOM_MARKDOWN_TYPES.has(node.type)) {
     segments.push({
       documentFrom: documentOffset,
       documentTo: documentOffset + 1,

@@ -39,6 +39,7 @@ import {
   isBoundarySourceProjectionTarget,
 } from "../utils/sourceProjectionBoundaryAdapter";
 import { createCharacterReferenceSourceProjectionAdapter } from "../utils/sourceProjectionCharacterReferenceAdapter";
+import { createCitationSourceProjectionAdapter } from "../utils/sourceProjectionCitationAdapter";
 import { createEscapeSourceProjectionAdapter } from "../utils/sourceProjectionEscapeAdapter";
 import { createFootnoteReferenceSourceProjectionAdapter } from "../utils/sourceProjectionFootnoteReferenceAdapter";
 import { createHtmlSourceProjectionAdapter } from "../utils/sourceProjectionHtmlAdapter";
@@ -250,6 +251,7 @@ export const createLeafdownSourceProjectionPlugin = () =>
       }),
       createHtmlSourceProjectionAdapter(parser),
       createMathSourceProjectionAdapter(parser),
+      createCitationSourceProjectionAdapter(parser),
     ];
 
     const findLiteralSourceCommit = (state: EditorState, range: TextRange) =>
@@ -645,7 +647,7 @@ const appendProjectionTransaction = (
     direction: keyboardEntryDirection,
     pointer,
     pointerSourceOffset:
-      match.adapter.id === "html" || match.adapter.id === "math"
+      match.adapter.id === "html" || match.adapter.id === "math" || match.adapter.id === "citation"
         ? pointerEntry.htmlSourceOffset
         : null,
   });

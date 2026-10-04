@@ -26,6 +26,7 @@ import {
   type SourceProjectionTarget,
   type SourceProjectionTargetMatch,
 } from "./sourceProjectionAdapters";
+import { getCitationSourceSpans } from "./sourceProjectionCitationAdapter";
 import { getDocumentDefinitionSources } from "./sourceProjectionDefinitions";
 import {
   createInlineRunSourceStructure,
@@ -148,12 +149,20 @@ const getRunPresentation = (
 
     if (segment.type === "atom") {
       spans.push(
-        ...getImageSourcePresentationSpans(
-          source,
-          segment.sourceFrom,
-          segment.sourceTo,
-          contentClassName,
-        ),
+        ...(source[segment.sourceFrom] === "["
+          ? getCitationSourceSpans(source.slice(segment.sourceFrom, segment.sourceTo)).map(
+              (span) => ({
+                ...span,
+                from: span.from + segment.sourceFrom,
+                to: span.to + segment.sourceFrom,
+              }),
+            )
+          : getImageSourcePresentationSpans(
+              source,
+              segment.sourceFrom,
+              segment.sourceTo,
+              contentClassName,
+            )),
       );
       continue;
     }

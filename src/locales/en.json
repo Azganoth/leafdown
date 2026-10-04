@@ -558,6 +558,7 @@
   "editor.mermaid.tooLong": "Diagram source exceeds 10,000 characters. Edit the source to shorten it.",
   "editor.mermaid.configurationUnsupported": "Diagram configuration is not previewed. The source remains editable.",
   "editor.math.error": "Math error: {message}",
+  "editor.citation.name": "Citation {source}",
   "editor.image.load": "Load image",
   "editor.image.retry": "Retry",
   "editor.image.remote": "Remote image from {host}.",

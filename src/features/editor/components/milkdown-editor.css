@@ -84,6 +84,12 @@
     }
   }
 
+  /* A citation reads as the group the file spells, since no bibliography resolves it. */
+  & [data-type="citation"] {
+    @apply text-primary;
+    white-space: pre-wrap;
+  }
+
   /* Math whose TeX does not render keeps its source as muted text, as unsupported raw HTML does. */
   & [data-type="math"][data-math-rendered="false"] {
     @apply text-muted-foreground;
@@ -1084,7 +1090,8 @@
       @apply text-xs text-primary;
     }
 
-    .leafdown-source-projection__content--link {
+    .leafdown-source-projection__content--link,
+    .leafdown-source-projection__content--citation-key {
       @apply text-primary;
     }
 

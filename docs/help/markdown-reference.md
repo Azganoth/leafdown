@@ -70,6 +70,14 @@ $$
 ```
 ````
 
+**Citations** use Pandoc's bracketed form: `@` and a citation key inside square brackets, with items separated by semicolons. An item can carry a prefix before its key, a `-` before `@` to suppress the author, and a locator or other suffix after the key. Leafdown shows the group exactly as written; it does not read a bibliography or format the citation. Click a citation or arrow into it to edit its source. To keep bracketed text with an `@` as plain text, write `\@`.
+
+```text
+As shown before [@doe2026, pp. 4-6], and later [see -@roe2024; @smith2025, chap. 2].
+
+Keys with other characters use braces: [@{https://example.com/bib?id=7}, p. 3].
+```
+
 **Mermaid diagrams** use a fenced code block whose first info word is `mermaid`. The diagram shows while the caret is elsewhere; click it or arrow into it to edit its syntax-highlighted code, and the diagram updates below once you pause. Wide diagrams scroll sideways at their natural size. Diagrams use Leafdown's light or dark colors, render locally, and never load an external resource. Configuration directives and frontmatter are kept but not previewed.
 
 ````text

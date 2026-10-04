@@ -1,6 +1,7 @@
 const scenarioTargets = {
   "block-selection": ["block-selection"],
   callouts: ["callouts"],
+  citations: ["citations"],
   "command-palette": ["command-palette"],
   frontmatter: ["frontmatter"],
   diagnostics: ["diagnostics"],

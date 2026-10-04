@@ -7,8 +7,10 @@ import {
   readCharacterReferenceRun,
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
+import { CITATION_MARKDOWN_TYPE, closesLinkAfter, opensCitationKeyAt } from "./citationSyntax";
 import { resolveLinePrefixes, resolveListItemPaddings } from "./linePrefixMarkdown";
 import { readEnclosingConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
+import { scanInlineTail } from "./linkTailSyntax";
 import { opensMathAt } from "./mathSyntax";
 
 type RemarkStringifyHandlers = NonNullable<
@@ -129,6 +131,10 @@ const readInertValue = (child: PhrasingNode) => {
 
 const normalizeLabel = (label: string) =>
   label.replace(LABEL_WHITESPACE_PATTERN, " ").trim().toLowerCase();
+
+// Footnote definitions share the label set under a `^` prefix, and a link never resolves to one.
+const isLinkLabelDefined = (labels: ReadonlySet<string>, label: string) =>
+  !label.startsWith("^") && labels.has(normalizeLabel(label));
 
 const decodeEscapes = (serialized: string): EscapeSlot[] => {
   const slots: EscapeSlot[] = [];
@@ -763,101 +769,6 @@ const relaxCodeSpanEscapes = (
   }
 };
 
-const TAIL_WHITESPACE_PATTERN = /[\t\n\f\r ]/u;
-const DESTINATION_END_PATTERN = /\s/u;
-
-// A raw destination ends at whitespace or at the parenthesis that closes the tail, so its own
-// parentheses have to balance; an angle destination ends at its `>` and admits no bare `<`.
-const scanDestination = (text: string, start: number) => {
-  let index = start;
-
-  if (text[index] === "<") {
-    for (index += 1; index < text.length; index += 1) {
-      if (text[index] === "\\") {
-        index += 1;
-      } else if (text[index] === ">") {
-        return index + 1;
-      } else if (text[index] === "<" || text[index] === "\n" || text[index] === "\r") {
-        return -1;
-      }
-    }
-
-    return -1;
-  }
-
-  let depth = 0;
-
-  while (index < text.length) {
-    const character = text[index];
-
-    if (character === "\\") {
-      index += 2;
-    } else if (character === "(") {
-      depth += 1;
-      index += 1;
-    } else if (character === ")") {
-      if (depth === 0) {
-        break;
-      }
-
-      depth -= 1;
-      index += 1;
-    } else if (DESTINATION_END_PATTERN.test(character)) {
-      break;
-    } else {
-      index += 1;
-    }
-  }
-
-  return depth === 0 ? index : -1;
-};
-
-const scanTitle = (text: string, start: number) => {
-  const opener = text[start];
-
-  if (opener !== '"' && opener !== "'" && opener !== "(") {
-    return -1;
-  }
-
-  const closer = opener === "(" ? ")" : opener;
-
-  for (let index = start + 1; index < text.length; index += 1) {
-    if (text[index] === "\\") {
-      index += 1;
-    } else if (text[index] === closer) {
-      return index + 1;
-    } else if (opener === "(" && text[index] === "(") {
-      return -1;
-    }
-  }
-
-  return -1;
-};
-
-const skipTailWhitespace = (text: string, start: number) => {
-  let index = start;
-
-  while (index < text.length && TAIL_WHITESPACE_PATTERN.test(text[index])) {
-    index += 1;
-  }
-
-  return index;
-};
-
-const scanInlineTail = (text: string, start: number) => {
-  const destination = scanDestination(text, skipTailWhitespace(text, start + 1));
-
-  if (destination < 0) {
-    return -1;
-  }
-
-  const separated = skipTailWhitespace(text, destination);
-  const title = separated > destination ? scanTitle(text, separated) : -1;
-  const index = skipTailWhitespace(text, title < 0 ? separated : title);
-
-  return text[index] === ")" ? index + 1 : -1;
-};
-
 // Where a link tail ends, or -1 where the run closes no link. The end is what lets a caller step
 // over a destination or a label, whose own brackets belong to the tail rather than to the text.
 const measureLinkTail = (line: string, index: number, labels: ReadonlySet<string>) => {
@@ -1148,6 +1059,7 @@ const opensTableRow = (document: string, index: number) => {
 // them are found once rather than once per marker.
 const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
   const bracketLinks = new Map<number, BracketLinks>();
+  const isDefined = (label: string) => isLinkLabelDefined(labels, label);
   let ranges: { end: number; start: number }[] | undefined;
 
   return (bare: string, index: number) => {
@@ -1167,6 +1079,10 @@ const createDeferredEscapeDecider = (labels: ReadonlySet<string>) => {
 
     if (block[position] === "$") {
       return opensMathAt(block, position);
+    }
+
+    if (block[position] === "@") {
+      return opensCitationKeyAt(block, position, isDefined);
     }
 
     if (block[position] === "`") {
@@ -1282,6 +1198,61 @@ const relaxCharacterReferenceEscapes = (slots: EscapeSlot[], after: string) => {
     if (slot.character === "&" && slot.escaped && !formsCharacterReference(line.slice(index))) {
       slot.escaped = false;
     }
+  }
+};
+
+// A citation is read from bare text, so text spelling one keeps it literal by escaping the `@` of its
+// first key, the escape Pandoc documents. Only that one is needed: a group missing any key is none.
+const deferCitationEscapes = (
+  slots: EscapeSlot[],
+  earlier: string,
+  later: string,
+  deferrable: boolean,
+) => {
+  const line = slots.map((slot) => slot.character).join("");
+  const isDefined = (label: string) => isLinkLabelDefined(documentLabels, label);
+
+  slots.forEach((slot, index) => {
+    if (slot.character !== "@" || slot.escaped) return;
+    if (!earlier.includes("[") && !line.slice(0, index).includes("[")) return;
+    if (deferrable) {
+      slot.deferred = true;
+    } else {
+      slot.escaped = opensCitationKeyAt(earlier + line + later, earlier.length + index, isDefined);
+    }
+  });
+};
+
+// A citation's source closes on its `]`, so text against either side of it can join it to a link: a
+// `!` before it opens an image label, and a tail after it can close a link over the group.
+const protectCitationNeighbors = (
+  slots: EscapeSlot[],
+  parent: { children?: readonly PhrasingNode[] } | undefined,
+  index: number,
+  adjacentAfter: boolean,
+  later: string,
+) => {
+  const previous = parent?.children?.[index - 1];
+  const next = parent?.children?.[index + 1];
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  const isDefined = (label: string) => isLinkLabelDefined(documentLabels, label);
+
+  if (
+    previous?.type === CITATION_MARKDOWN_TYPE &&
+    typeof previous.value === "string" &&
+    (first?.character === "(" || first?.character === "[")
+  ) {
+    const text = previous.value + slots.map((slot) => slot.character).join("") + later;
+    if (closesLinkAfter(text, 0, previous.value.length, isDefined)) {
+      first.escaped = true;
+      first.deferred = false;
+    }
+  }
+
+  if (next?.type === CITATION_MARKDOWN_TYPE && adjacentAfter && last?.character === "!") {
+    last.escaped = true;
+    last.deferred = false;
   }
 };
 
@@ -1617,6 +1588,22 @@ export const serializeMarkdownText: NonNullable<RemarkStringifyHandlers["text"]>
   relaxCharacterReferenceEscapes(slots, after);
   relaxHardBreakEscapes(slots, after, closesBlock);
   deferMathEscapes(slots, info.before, after, deferrable);
+  // A label is closed by its own brackets, so no group can open inside it.
+  if (!state.stack.includes("label") && !readEnclosingConstructs().includes("label")) {
+    deferCitationEscapes(
+      slots,
+      neighbors?.earlier ?? info.before,
+      neighbors?.later ?? after,
+      deferrable,
+    );
+  }
+  protectCitationNeighbors(
+    slots,
+    parent,
+    childIndex,
+    writtenWhitespace === "" && bodyEnd === value.length,
+    writtenWhitespace + (neighbors?.later ?? info.after),
+  );
 
   return encodeEscapes(slots) + writtenWhitespace;
 };

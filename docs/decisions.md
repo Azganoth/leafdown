@@ -51,6 +51,19 @@
 - Math content does not form Markdown constructs. Existing source projection handles editing and falls back to literal text when edited source no longer reads as one span.
 - A math atom spans a position in its containing block, including mid-paragraph display math; a standalone `$$` span can be presented as a block.
 
+### Keep bracketed citations as authored source
+
+**Decision:** Read bracketed Pandoc citation groups under the grammar in the Specification and retain each complete group as one inline atom whose value is its authored source. Show that source rather than a formatted citation, and resolve nothing against a bibliography. Bare author-in-text `@key` citations, bibliography and CSL processing, and special meaning for `bibliography` or `csl` frontmatter keys are deferred ([issue #618](https://github.com/Azganoth/leafdown/issues/618)).
+
+**Rationale:** A citation's prefix, locator, and suffix are author prose that a bibliography record cannot reconstruct, and a group read as ordinary Markdown would be rewritten on save, with its keys exposed to emphasis and escape normalization. Keeping the group as source makes it one object to edit and lets it round-trip whether or not a bibliography exists.
+
+**Consequences:**
+
+- Save writes the atom's source directly. Literal text that spells a group keeps it literal by escaping the `@` of its first key, the escape Pandoc documents, rather than the `[`, so a file written with `\[@key]` saves as `[\@key]`.
+- Only affix content that stays inside the group is supported: inline code, emphasis, strong, and strikethrough that pair within the affix. Brackets, raw HTML, autolinks, math, and hard breaks leave the group ordinary Markdown, so no construct spans the group's edge.
+- Link grammar keeps precedence. A group followed by a link tail, or one a definition names, is that link, and no citation is read inside a pending link label.
+- Hard breaks are excluded partly because micromark records the end of a line ending differently once a failed attempt has read past it inside a container, which would move the source a break's form is read from.
+
 ### Preserve leading frontmatter as authored source
 
 **Decision:** One editable metadata block supports YAML between `---`, TOML between `+++`, and JSON between `;;;` at the absolute beginning of a document. It retains its authored source; parsed data is derived only for live validation and future explicit consumers. Closed invalid bodies remain frontmatter, while unclosed or non-leading candidates keep their ordinary Markdown interpretation.
@@ -292,7 +305,7 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 
 ### Offer the escape gesture only where the conversion exists
 
-**Decision:** A caret reaching text the file keeps literal by escaping projects that escape only where deleting it converts the run to an object the editor can commit. Today that is one inline link or image; every other escaped form shows nothing.
+**Decision:** A caret reaching text the file keeps literal by escaping projects that escape only where deleting it converts the run to an object the editor can commit. Today that is one inline link, image, or citation group; every other escaped form shows nothing.
 
 **Rationale:** Deleting an escape has to change something. An escape with no conversion behind it would be spelled as one deletion whose first half is silent and whose backslash returns on the next save, which is the defect [issue #245](https://github.com/Azganoth/leafdown/issues/245) blocked the gesture on rather than a smaller version of the feature. Restricting targets to plain text also keeps the gesture clear of contexts where escaping is not yet precise, so a projection never shows an escape the file will not write.
 

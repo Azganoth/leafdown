@@ -68,6 +68,7 @@ The runtime tracks three primary state values:
 - Providing the installed CommonMark/GFM parsing and serialization behavior.
 - Retaining raw HTML as inline atoms carrying their authored `value`; Leafdown owns their safe live presentation and source-projection adapter.
 - Retaining dollar-delimited math as inline atoms carrying their complete authored source; Leafdown owns the math grammar, safe rendering, projection adapter and its rendered preview, and source-based serialization.
+- Retaining bracketed Pandoc citation groups as inline atoms carrying their complete authored source; Leafdown owns the citation grammar, presentation, projection adapter, and source-based serialization, including the escape that keeps literal group text literal.
 - Retaining one leading frontmatter block with an editable source body and format discriminator; Leafdown owns live YAML, TOML, and JSON validation and source-based serialization.
 
 ### Leafdown Responsibilities
@@ -110,7 +111,7 @@ A session covers one object or a pair of adjacent objects under one adapter and 
 
 The engine keeps track of text written by the current session. It validates that text through the same adapters used for projected objects when the caret leaves it, but does not retroactively convert untouched escaped source. Relocation steps, such as moving a table row, and source exposed by an escape projection are not newly authored text. Undo clears the corresponding write record. Composition may change the projected range outside the engine's edit path; that change still dirties the document and enters projection-local history, but stays out of native history because committing it changes its coordinates.
 
-Each object adapter owns target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. The precedence is logical link, qualifying marked fragment, standalone image, standalone footnote reference, raw HTML, math, preserved character reference, then escaped literal run. An adapter without a safe semantic mapping commits literal text. A construct just created by an input rule waits until the caret returns before projecting, so the author's next character stays outside it.
+Each object adapter owns target discovery, source generation, validation, rehydration, presentation spans, and selection mapping. The precedence is logical link, qualifying marked fragment, standalone image, standalone footnote reference, raw HTML, math, citation, preserved character reference, then escaped literal run. An adapter without a safe semantic mapping commits literal text. A construct just created by an input rule waits until the caret returns before projecting, so the author's next character stays outside it.
 
 A boundary adapter runs before object precedence only at a caret between two objects. It probes each side without active plugins, then treats their combined source as one range. Committing that range parses it as the file would; otherwise a character inserted at the seam could attach to one object and invalidate it. A caret owned outright by one object still uses ordinary precedence.
 

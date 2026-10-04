@@ -134,6 +134,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
   const calloutsPath = path.join(fixtureRoot, "callouts.md");
+  const citationsPath = path.join(fixtureRoot, "citations.md");
   const frontmatterYamlPath = path.join(fixtureRoot, "frontmatter-yaml.md");
   const frontmatterTomlPath = path.join(fixtureRoot, "frontmatter-toml.md");
   const frontmatterJsonPath = path.join(fixtureRoot, "frontmatter-json.md");
@@ -167,6 +168,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     appIdentifier,
     blocks: { path: blocksPath },
     callouts: { path: calloutsPath },
+    citations: { path: citationsPath },
     frontmatter: {
       yamlPath: frontmatterYamlPath,
       tomlPath: frontmatterTomlPath,
@@ -216,6 +218,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const scenarios: Scenario[] = [
     { name: "block-selection", recentFiles: [blocksPath, definitionListPath] },
     { name: "callouts", recentFiles: [calloutsPath] },
+    { name: "citations", recentFiles: [citationsPath] },
     { name: "command-palette", recentFiles: [searchPath] },
     {
       name: "frontmatter",
@@ -291,6 +294,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "callouts.md"),
         calloutsPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "citations.md"),
+        citationsPath,
       ),
       copyFile(
         path.join(repositoryRoot, "corpus", "extensions", "frontmatter", "yaml.md"),

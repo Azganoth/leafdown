@@ -129,11 +129,16 @@ export function CommandMenubar({
             />
             <MenubarSeparator />
             <CommandSubmenu
-              commandIds={["edit.delete", "edit.deleteWordBackward", "edit.deleteWordForward"]}
+              commandIds={[
+                "edit.delete",
+                "edit.deleteSentence",
+                "edit.deleteWordBackward",
+                "edit.deleteWordForward",
+              ]}
               labelId="menu.edit.delete"
             />
             <CommandSubmenu
-              commandIds={["edit.selectAll", "edit.selectWord"]}
+              commandIds={["edit.selectAll", "edit.selectSentence", "edit.selectWord"]}
               labelId="menu.edit.select"
             />
             <CommandSubmenu

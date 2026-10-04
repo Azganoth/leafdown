@@ -22,6 +22,11 @@ const pressKey = (key: string, init: KeyboardEventInit = {}) =>
     init,
   );
 
+const readSelection = () => browser.execute(() => document.getSelection()?.toString() ?? "");
+
+const isEditorFocused = () =>
+  browser.execute(() => document.activeElement?.matches(".ProseMirror") ?? false);
+
 describe("desktop command palette", () => {
   it("preserves editor state, exposes unavailable commands, and transfers focus to a chosen dialog", async () => {
     const { search } = await getDesktopE2ERunContext();
@@ -170,5 +175,59 @@ describe("desktop command palette", () => {
 
     const selectedText = await browser.execute(() => document.getSelection()?.toString() ?? "");
     expect(selectedText.length).toBeGreaterThan(100);
+  });
+
+  it("reaches the sentence commands from the Edit menu and the palette without shortcuts", async () => {
+    const sentence = "The first lantern hangs by the door.";
+    const placeCaretInSentence = () =>
+      browser.execute((text) => {
+        const paragraph = [...document.querySelectorAll(".ProseMirror p")].find(
+          (element) => element.textContent === text,
+        );
+        const node = paragraph?.firstChild;
+        if (!node) throw new Error("Sentence paragraph was not found.");
+        document.querySelector<HTMLElement>(".ProseMirror")?.focus();
+        document.getSelection()?.collapse(node, "The fir".length);
+      }, sentence);
+
+    await placeCaretInSentence();
+    await openMenu("Edit");
+    await (await findMenuItem((text) => text === "Select")).click();
+    await (await findMenuItem((text) => text === "Select sentence")).click();
+    await browser.waitUntil(async () => (await readSelection()) === sentence, {
+      timeoutMsg: `Select sentence selected: ${await readSelection()}`,
+    });
+    await browser.waitUntil(isEditorFocused, {
+      timeoutMsg: "Editor focus did not return after the menu command.",
+    });
+
+    await placeCaretInSentence();
+    expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
+    await expect(query()).toBeFocused();
+    await query().setValue("delete sentence");
+    await expect($('[role="option"]')).toHaveText(expect.stringContaining("Delete sentence"));
+    await pressKey("Enter");
+    await expect(query()).not.toExist();
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          (text) =>
+            ![...document.querySelectorAll(".ProseMirror p")].some((p) => p.textContent === text),
+          sentence,
+        ),
+      { timeoutMsg: "Delete sentence left the sentence in place." },
+    );
+
+    await openMenu("Edit");
+    await (await findMenuItem((text) => text.startsWith("Undo"))).click();
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          (text) =>
+            [...document.querySelectorAll(".ProseMirror p")].some((p) => p.textContent === text),
+          sentence,
+        ),
+      { timeoutMsg: "Undo did not restore the deleted sentence." },
+    );
   });
 });

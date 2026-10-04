@@ -16,6 +16,7 @@ import {
   getFootnoteDefinitionLabelRange,
 } from "../../utils/footnoteDefinitions";
 import { runProseMirrorCommand } from "../../utils/milkdown";
+import { getSentenceRange } from "../../utils/sentenceRanges";
 import { getTextWordRangeAtSelection } from "../../utils/textRanges";
 
 const dispatchTextSelection = (view: EditorView, from: number, to = from) => {
@@ -31,6 +32,23 @@ export const selectAll = (view: EditorView) => runProseMirrorCommand(view, prose
 
 export const selectWord = (view: EditorView) => {
   const range = getTextWordRangeAtSelection(view.state);
+
+  if (!range) {
+    return false;
+  }
+
+  return dispatchTextSelection(view, range.from, range.to);
+};
+
+const getUnselectedSentenceRange = (state: EditorState) => {
+  const range = getSentenceRange(state, getActiveSourceProjectionRange(state));
+  const { from, to } = state.selection;
+
+  return range && (range.from !== from || range.to !== to) ? range : null;
+};
+
+export const selectSentence = (view: EditorView) => {
+  const range = getUnselectedSentenceRange(view.state);
 
   if (!range) {
     return false;
@@ -115,6 +133,8 @@ export const renameFootnote = (view: EditorView) => {
 };
 
 export const canSelectWord = (state: EditorState) => getTextWordRangeAtSelection(state) !== null;
+
+export const canSelectSentence = (state: EditorState) => getUnselectedSentenceRange(state) !== null;
 
 export const canJumpToFootnoteDefinition = (state: EditorState) =>
   findFootnoteDefinitionAtSelection(state) !== null;

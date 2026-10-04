@@ -17,7 +17,7 @@ export const getCommandMenuPathIds = (commandId: AppCommandId): MessageId[] => {
     path.push("menu.edit.pasteAs");
   } else if (commandId.startsWith("edit.delete")) {
     path.push("menu.edit.delete");
-  } else if (commandId === "edit.selectAll" || commandId === "edit.selectWord") {
+  } else if (commandId.startsWith("edit.select")) {
     path.push("menu.edit.select");
   } else if (commandId.startsWith("edit.jump")) {
     path.push("menu.edit.jump");

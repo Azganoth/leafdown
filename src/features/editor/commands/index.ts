@@ -92,6 +92,7 @@ export const EDITOR_COMMANDS = {
     (view) => moveSelectedBlocks(view, 1),
     (state) => canMoveSelectedBlocks(state, 1),
   ),
+  "edit.deleteSentence": viewCommand(deletion.deleteSentence, deletion.canDeleteSentence),
   "edit.deleteWordBackward": viewCommand(
     deletion.deleteWordBackward,
     deletion.canDeleteWordBackward,
@@ -99,6 +100,7 @@ export const EDITOR_COMMANDS = {
   "edit.deleteWordForward": viewCommand(deletion.deleteWordForward, deletion.canDeleteWordForward),
 
   "edit.selectAll": viewCommand(selection.selectAll),
+  "edit.selectSentence": viewCommand(selection.selectSentence, selection.canSelectSentence),
   "edit.selectWord": viewCommand(selection.selectWord, selection.canSelectWord),
   "edit.jumpToTop": viewCommand(selection.jumpToTop),
   "edit.jumpToBottom": viewCommand(selection.jumpToBottom),

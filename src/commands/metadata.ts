@@ -61,6 +61,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.delete": commandDef({ key: "Delete" }),
   "edit.moveBlockUp": commandDef({ key: "ArrowUp", alt: true }),
   "edit.moveBlockDown": commandDef({ key: "ArrowDown", alt: true }),
+  "edit.deleteSentence": commandDef(),
   "edit.deleteWordBackward": commandDef({
     key: "Backspace",
     mod: true,
@@ -70,6 +71,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
     mod: true,
   }),
   "edit.selectAll": commandDef({ key: "a", mod: true }),
+  "edit.selectSentence": commandDef(),
   "edit.selectWord": commandDef(),
   "edit.jumpToTop": commandDef({ key: "Home", mod: true }),
   "edit.jumpToBottom": commandDef({ key: "End", mod: true }),

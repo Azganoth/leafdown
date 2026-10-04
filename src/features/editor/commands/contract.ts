@@ -26,6 +26,7 @@ export const EDITOR_COMMAND_IDS = [
   "edit.jumpToLineEnd",
   "edit.jumpToFootnoteDefinition",
   "edit.renameFootnote",
+  "edit.replaceImage",
   "edit.find",
   "edit.findNext",
   "edit.findPrevious",

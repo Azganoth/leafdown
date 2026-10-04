@@ -232,6 +232,7 @@ import {
 } from "./markdownDestination";
 import {
   EMPTY_MARKDOWN_REFERENCE_CONTEXT,
+  markdownReferenceContextCtx,
   type MarkdownReferenceContext,
 } from "./markdownReferences";
 import { serializeMarkdownRoot, serializeMarkdownText } from "./markdownText";
@@ -394,6 +395,7 @@ export const createMilkdownEditor = async ({
     .use(listener)
     .use(highlight)
     .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
+    .use(markdownReferenceContextCtx)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownTableViewPlugin())
     .use(createLeafdownTableColumnsPlugin())
@@ -565,6 +567,7 @@ export const createMilkdownEditor = async ({
         (getSchema) => (schemaCtx) => withListItemForm(getSchema(schemaCtx)),
       );
       ctx.set(defaultValueCtx, initialMarkdown);
+      ctx.set(markdownReferenceContextCtx.key, getMarkdownReferenceContext);
       ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({
         ...keymap,

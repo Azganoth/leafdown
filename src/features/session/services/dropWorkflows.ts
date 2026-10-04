@@ -1,7 +1,7 @@
 import { getActiveDocumentKey } from "@/features/document";
 import { useSettingsStore } from "@/features/preferences";
 import { t } from "@/lib/i18n";
-import { getPathParts, getRelativePath, toSlashPath } from "@/lib/path";
+import { getDocumentLinkTarget, getPathParts } from "@/lib/path";
 import { notifyWarning } from "@/lib/toast";
 
 import { useSessionStore } from "../stores/session";
@@ -115,11 +115,10 @@ const insertDroppedPathLink = (droppedPath: SupportedDroppedPath) => {
 
   const documentKey = getActiveDocumentKey(activeDocument);
   const label = getPathParts(droppedPath.path).name;
-  const target =
-    activeDocument.status === "saved"
-      ? (getRelativePath(getPathParts(activeDocument.path).parent, droppedPath.path) ??
-        toSlashPath(droppedPath.path))
-      : toSlashPath(droppedPath.path);
+  const target = getDocumentLinkTarget(
+    activeDocument.status === "saved" ? activeDocument.path : null,
+    droppedPath.path,
+  );
 
   if (!documentEditorBridge.insertLink(documentKey, label, target)) {
     notifyWarning(t("session.drop.missingCaret"));

@@ -131,6 +131,14 @@ export const getRelativePath = (fromFolderPath: string, targetPath: string) => {
   return [...parentSegments, ...targetSegments].join("/") || ".";
 };
 
+/**
+ * How a document at `documentPath` names `targetPath`: relative to the document's folder where one
+ * path can reach it, otherwise absolute, as an untitled document always does.
+ */
+export const getDocumentLinkTarget = (documentPath: string | null, targetPath: string) =>
+  (documentPath === null ? null : getRelativePath(getPathParts(documentPath).parent, targetPath)) ??
+  toSlashPath(targetPath);
+
 const splitPathRoot = (path: string): PathRoot => {
   const slashPath = toSlashPath(path);
   const driveMatch = slashPath.match(WINDOWS_DRIVE_RELATIVE_ROOT_PATTERN);

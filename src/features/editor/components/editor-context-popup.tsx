@@ -13,6 +13,7 @@ import {
   Heading4Icon,
   Heading5Icon,
   Heading6Icon,
+  ImageIcon,
   ItalicIcon,
   Link2Icon,
   ListIcon,
@@ -77,6 +78,10 @@ const INLINE_ACTION_COMMANDS = [
 
 const FOOTNOTE_COMMANDS = [
   { commandId: "edit.renameFootnote", icon: PencilLineIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const IMAGE_COMMANDS = [
+  { commandId: "edit.replaceImage", icon: ImageIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const CODE_BLOCK_COMMANDS = [
@@ -423,33 +428,41 @@ export function EditorContextPopup({
             row={2}
           />
         )}
+        {canExecute("edit.replaceImage") && (
+          <ContextCommandRow
+            commands={IMAGE_COMMANDS}
+            onExecute={onExecute}
+            canExecute={canExecute}
+            row={3}
+          />
+        )}
         {canExecute("format.codeBlockLanguage") && (
           <ContextCommandRow
             commands={CODE_BLOCK_COMMANDS}
             onExecute={onExecute}
             canExecute={canExecute}
-            row={3}
+            row={4}
           />
         )}
         <ContextCommandRow
           commands={BLOCK_FORMATTING_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={4}
+          row={5}
         />
         <ContextCommandSubmenu
           labelId="editor.contextPopup.blockType"
           commands={BLOCK_TYPE_COMMANDS}
           onExecute={onExecute}
           canExecute={canExecute}
-          row={5}
+          row={6}
         />
         <ContextCommandSubmenu
           commands={INSERT_COMMANDS}
           labelId="editor.contextPopup.insert"
           onExecute={onExecute}
           canExecute={canExecute}
-          row={6}
+          row={7}
         />
       </PopoverContent>
     </Popover>

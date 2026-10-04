@@ -147,7 +147,7 @@ export function CommandMenubar({
               ]}
               labelId="menu.edit.jump"
             />
-            <CommandItems commandIds={["edit.renameFootnote"]} />
+            <CommandItems commandIds={["edit.renameFootnote", "edit.replaceImage"]} />
             <CommandItems commandIds={["edit.moveBlockUp", "edit.moveBlockDown"]} />
             <MenubarSeparator />
             <LineEndingSubmenu />

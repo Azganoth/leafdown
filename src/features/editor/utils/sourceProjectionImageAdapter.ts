@@ -22,7 +22,7 @@ import {
   mapSelectionPositionOutsideSourceProjection,
 } from "./sourceProjectionSelection";
 
-const IMAGE_ADAPTER_ID = "image";
+export const IMAGE_ADAPTER_ID = "image";
 const IMAGE_DESCRIPTION_START_OFFSET = 2;
 
 interface ImageSourceProjectionTarget extends SourceProjectionTarget {

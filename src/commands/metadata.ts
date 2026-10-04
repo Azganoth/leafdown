@@ -78,6 +78,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.jumpToLineEnd": commandDef({ key: "End" }),
   "edit.jumpToFootnoteDefinition": commandDef(),
   "edit.renameFootnote": commandDef(),
+  "edit.replaceImage": commandDef(),
   "edit.lineEnding.crlf": commandDef(),
   "edit.lineEnding.lf": commandDef(),
   "edit.insertFinalNewline": commandDef(),

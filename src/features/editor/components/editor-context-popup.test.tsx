@@ -279,6 +279,41 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("format.codeBlockLanguage");
   });
 
+  it("offers image replacement only for a standalone image", async () => {
+    const onExecute = vi.fn();
+    const { rerender, user } = renderWithUser(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Replace image...")).not.toBeInTheDocument();
+
+    rerender(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={{
+          ...enabledPopupCommandState,
+          enabledCommands: {
+            ...enabledPopupCommandState.enabledCommands,
+            "edit.replaceImage": true,
+          },
+        }}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Replace image..."));
+
+    expect(onExecute).toHaveBeenCalledWith("edit.replaceImage");
+  });
+
   it("disables commands while editor command state is inactive", async () => {
     const onExecute = vi.fn();
 

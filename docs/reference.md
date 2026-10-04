@@ -142,6 +142,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to line end** (`End`)
   - **Jump to footnote definition**
 - **Rename footnote**: Selects the complete label of the footnote definition in context for replacement, moving to the definition first when invoked from a reference.
+- **Replace image...**: Picks a local image file and points the standalone image in context at it.
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
 - **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
 - **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the local insertion menu after the current eligible block. Its items depend on the parent schema; inside a list, it offers a sibling list item.
@@ -296,10 +297,11 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 1. Quick actions: Cut, Copy, Paste, Delete.
 2. Inline formatting: Strong, Emphasis, Inline code, Link.
 3. Footnote: Rename footnote, shown only while that command is available.
-4. Code block: Code block language..., shown only while that command is available.
-5. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-6. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
-7. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
+4. Image: Replace image..., shown only while that command is available.
+5. Code block: Code block language..., shown only while that command is available.
+6. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
+7. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
+8. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
 
 ### Article Navigator Context Menu
 
@@ -333,6 +335,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Footnote` in the Insert menu requires a caret or text selection whose end can hold an inline footnote reference, so it is unavailable in code blocks, footnote definition labels, and structural block or node selections.
 - `Insert > Frontmatter` is available only when an active document has no frontmatter block. It has no default shortcut.
 - `Rename footnote` requires the caret or selection within a footnote definition label, or a footnote reference at the caret whose label exactly one definition in the document answers to.
+- `Replace image...` requires a standalone inline image whose source is projected, a selection of exactly that image, or a structural block selection of one paragraph holding only that image. An image inside a link label and a reference image do not offer it.
 - `Delete block` requires an active block.
 - `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.

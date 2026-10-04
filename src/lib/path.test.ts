@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getDocumentLinkTarget,
   getPathIdentityKey,
   getPathParts,
   getRelativePath,
@@ -73,6 +74,16 @@ describe("path utilities", () => {
     expect(getRelativePath("C:/Notes", "D:/Guides/setup.md")).toBeNull();
     expect(getRelativePath("/home/notes", "/home/notes/guide.md")).toBe("guide.md");
     expect(getRelativePath("//server/share/notes", "//SERVER/SHARE/guides")).toBe("../guides");
+  });
+
+  it("names a target relative to a saved document where one path can reach it", () => {
+    expect(getDocumentLinkTarget("C:\\Notes\\drafts\\plan.md", "C:\\Notes\\images\\leaf.png")).toBe(
+      "../images/leaf.png",
+    );
+    expect(getDocumentLinkTarget("C:/Notes/plan.md", "D:\\Images\\leaf.png")).toBe(
+      "D:/Images/leaf.png",
+    );
+    expect(getDocumentLinkTarget(null, "C:\\Images\\leaf.png")).toBe("C:/Images/leaf.png");
   });
 
   it("rebases a path and its descendants onto a renamed path", () => {

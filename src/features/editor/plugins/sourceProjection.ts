@@ -357,6 +357,10 @@ export const getActiveSourceProjectionRange = (state: EditorState): TextRange | 
   return session ? { from: session.from, to: session.to } : null;
 };
 
+/** The adapter an active projection belongs to, which names the kind of object it shows. */
+export const getActiveSourceProjectionAdapterId = (state: EditorState): string | null =>
+  getSourceProjectionState(state).session?.adapter.id ?? null;
+
 export const getSourceProjectionClipboardSlice = (state: EditorState): Slice | null => {
   const { session } = getSourceProjectionState(state);
   const { selection } = state;

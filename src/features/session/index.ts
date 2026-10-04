@@ -12,6 +12,11 @@ export {
 } from "./services/documentWorkflows";
 export { changeArticleSortOrder, closeFolderContext } from "./services/folderContextWorkflows";
 export {
+  exportActiveMarkdownDocumentAsHtml,
+  HtmlExportUnavailableError,
+  type HtmlExportOutcome,
+} from "./services/htmlExportWorkflow";
+export {
   createArticleInFolder,
   createDirectoryInFolder,
   deleteFolderEntry,

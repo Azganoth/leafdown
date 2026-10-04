@@ -36,6 +36,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.clearRecentItems": commandDef(),
   "file.save": commandDef({ key: "s", mod: true }),
   "file.saveAs": commandDef({ key: "s", mod: true, shift: true }),
+  "file.exportHtml": commandDef(),
   "file.openLocation": commandDef(),
   "file.revealInSidebar": commandDef(),
   "file.preferences": commandDef({ key: ",", mod: true }),

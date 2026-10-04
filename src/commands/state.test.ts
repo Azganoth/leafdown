@@ -18,6 +18,22 @@ describe("command state", () => {
     expect(getCommandState("insert.table", context)).toMatchObject({ enabled: false });
   });
 
+  it("offers HTML export for any open document, clean, dirty, or untitled", () => {
+    expect(getCommandState("file.exportHtml", createAppCommandContext())).toMatchObject({
+      enabled: false,
+    });
+
+    for (const activeDocument of [
+      createSavedDocument(),
+      createSavedDocument({ isDirty: true }),
+      createUntitledDocument(),
+    ]) {
+      expect(
+        getCommandState("file.exportHtml", createAppCommandContext({ activeDocument })),
+      ).toMatchObject({ enabled: true });
+    }
+  });
+
   it("enables Close folder when a folder context is open", () => {
     expect(
       getCommandState(

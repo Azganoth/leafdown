@@ -98,9 +98,9 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Save as...** (`Mod+Shift+S`)
 - **Open file location**
 - **Reveal in sidebar**
-- **Export** (Deferred)
+- **Export**
   - **Export as PDF...** (Deferred)
-  - **Export as HTML...** (Deferred)
+  - **Export as HTML...**
 - **Print...** (`Mod+P`, Deferred)
 - **Preferences...** (`Mod+,`)
 - **Close document** (`Mod+W`)

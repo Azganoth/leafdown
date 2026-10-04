@@ -4,7 +4,10 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   getOpenMarkdownFileErrorMessage,
   getSaveMarkdownFileErrorMessage,
+  getWriteHtmlExportErrorMessage,
+  isWriteHtmlExportError,
 } from "@/features/document";
+import type { HtmlExportWarning } from "@/features/editor";
 import {
   getOpenFolderContextErrorMessage,
   useArticleNavigatorStore,
@@ -14,6 +17,7 @@ import {
   closeActiveMarkdownDocument,
   closeFolderContext as closeFolderContextWorkflow,
   createNewMarkdownDocument,
+  exportActiveMarkdownDocumentAsHtml,
   notifyOpenMarkdownFileError,
   openFolderContextAtPath,
   openMarkdownFileAtPath,
@@ -24,7 +28,7 @@ import {
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
 import { t, type MessageId } from "@/lib/i18n";
-import { notifyError, notifySuccess } from "@/lib/toast";
+import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";
 
 import {
   getActiveArticleAncestorPaths,
@@ -123,6 +127,54 @@ export const saveDocumentAs = async () => {
   await saveWithFeedback(saveActiveMarkdownDocumentAs);
 };
 
+const LISTED_EXPORT_WARNING_COUNT = 3;
+
+const describeHtmlExportWarning = (warning: HtmlExportWarning) => {
+  switch (warning.kind) {
+    case "image":
+      return t(`commands.file.exportWarning.image.${warning.reason}`, { target: warning.target });
+    case "diagram":
+      return t("commands.file.exportWarning.diagram");
+    case "mathFonts":
+      return t("commands.file.exportWarning.mathFonts");
+  }
+};
+
+export const exportDocumentAsHtml = async () => {
+  try {
+    const outcome = await exportActiveMarkdownDocumentAsHtml();
+
+    if (outcome.status !== "exported") {
+      return;
+    }
+
+    if (outcome.warnings.length === 0) {
+      notifySuccess(t("commands.file.exported"), outcome.path);
+      return;
+    }
+
+    const listed = outcome.warnings
+      .slice(0, LISTED_EXPORT_WARNING_COUNT)
+      .map(describeHtmlExportWarning);
+    const unlisted = outcome.warnings.length - listed.length;
+
+    notifyWarning(
+      t("commands.file.exportedWithWarnings", { count: outcome.warnings.length }),
+      [
+        ...listed,
+        ...(unlisted > 0 ? [t("commands.file.exportWarning.more", { count: unlisted })] : []),
+      ].join(" "),
+    );
+  } catch (error) {
+    if (isWriteHtmlExportError(error)) {
+      notifyError(getWriteHtmlExportErrorMessage(error));
+      return;
+    }
+
+    notifyOperationFailure(t("document.exportError.fallback"), error, "exportDocumentAsHtml");
+  }
+};
+
 export const revealPathInFileManager = async (
   path: string,
   failureTitle: string,
@@ -193,6 +245,9 @@ export const getSaveDocumentState = (context: AppCommandContext) =>
       : enabled();
 
 export const getSaveDocumentAsState = (context: AppCommandContext) =>
+  documentOnly(context.activeDocument);
+
+export const getExportDocumentAsHtmlState = (context: AppCommandContext) =>
   documentOnly(context.activeDocument);
 
 export const getOpenLocationState = (context: AppCommandContext) =>

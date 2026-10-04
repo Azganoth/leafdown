@@ -131,6 +131,7 @@ The Rust backend manages:
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
+- Reading an image for HTML export through the same resolution the editor renders with, bounded in size and checked for a PNG, JPEG, GIF, WebP, or SVG signature, and writing exported HTML atomically to an `.html` or `.htm` path that is not the source document.
 - Fetching a user-approved remote image under the remote image policy: `https:` only, public destination addresses checked at DNS resolution and for IP literals, re-validated redirects, bounded time and size, and a PNG, JPEG, GIF, or WebP signature. Image resolution never fetches.
 - Directory scanning and article-tree generation.
 - Creating Markdown files and folders, renaming entries, and moving entries to the system Recycle Bin or Trash inside the current folder context. Each operation resolves its target's parent through the filesystem and refuses one outside the folder context, so the root itself is never renamed or trashed. It refuses names the platform cannot hold, never replaces an existing entry, and never falls back to permanent deletion.
@@ -206,6 +207,10 @@ Serialize editor state to Markdown -> Verify metadata freshness via backend -> E
 
 Write document to new path -> Update active document path -> Bootstrap folder context when none exists, refresh the current folder context when the saved file is inside it, or leave the pinned folder context unchanged when the saved file is outside it.
 
+### HTML Export Workflow
+
+Pick the output path -> Read a settled snapshot of the editor state, applying the save-time finalization transactions to a copy rather than dispatching them, with the outside-folder approvals and loaded remote image bytes the image views hold -> Resolve links and wiki links, read image bytes, render diagrams, and load highlighting and KaTeX assets -> Serialize the snapshot through a `DOMSerializer` with export-only node and mark specs into a detached document, building every element with DOM primitives -> Number footnotes, assign heading anchors, and resolve fragment links -> Write the page through the backend.
+
 ### External Change Workflow
 
 Backend reports an event naming the active document -> Session debounces events into one check -> The check queues behind pending saves and renames, which replace the file and the document's version together -> Backend compares the file's metadata, then its fingerprint, with the document's version -> Session accepts a touch's metadata, reloads a clean document through the open path, records a newer version for a dirty document, or records a missing file -> A result for a document that was replaced, renamed, or closed in the meantime is discarded.
@@ -222,6 +227,7 @@ The document watch starts whenever the active saved document's path changes and 
 - Open external links in the default system browser, and keep webview navigation on the local frontend origin.
 - Require confirmation before handing local non-Markdown links to the system default app.
 - Bundle Shiki themes and grammars to avoid runtime network dependencies.
+- Build exported HTML from the document model with DOM primitives, never from editor DOM or a reparsed string. Raw HTML and math reach it only through their safe renderers, Mermaid only as an SVG data image, and images only as data URIs. Export makes no network request, and the page's CSP admits only `data:` images and fonts and inline styles.
 - Keep diagnostic logs local; never upload them automatically. Application code must not intentionally add active document text to diagnostic context, but browser, editor, or library errors may include user content. Treat logs as potentially sensitive rather than as redacted data.
 
 ## Verification Strategy

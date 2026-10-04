@@ -12,6 +12,7 @@ export const SAVE_MARKDOWN_FILE_COMMAND = "save_markdown_file";
 export const INSPECT_MARKDOWN_FILE_COMMAND = "inspect_markdown_file";
 export const WATCH_MARKDOWN_DOCUMENT_COMMAND = "watch_markdown_document";
 export const UNWATCH_MARKDOWN_DOCUMENT_COMMAND = "unwatch_markdown_document";
+export const WRITE_HTML_EXPORT_COMMAND = "write_html_export";
 export const MARKDOWN_DOCUMENT_CHANGED_EVENT = "leafdown://document-changed";
 
 export interface OpenMarkdownFileArgs {
@@ -79,6 +80,20 @@ export type SaveMarkdownFileError =
     }
   | { kind: "writeFailed"; path: string; message: string }
   | { kind: "metadataFailed"; path: string; message: string };
+
+export interface WriteHtmlExportArgs {
+  path: string;
+  content: string;
+  sourceDocumentPath: string | null;
+}
+
+export type WriteHtmlExportError =
+  | { kind: "unsupportedFileType"; path: string }
+  | { kind: "sourceDocument"; path: string }
+  | { kind: "invalidPath"; path: string }
+  | { kind: "missingParentFolder"; path: string; parentFolderPath: string }
+  | { kind: "permissionDenied"; path: string; message: string }
+  | { kind: "writeFailed"; path: string; message: string };
 
 export interface InspectMarkdownFileArgs {
   path: string;
@@ -153,3 +168,6 @@ export const unwatchMarkdownDocument = ({
   scopeId,
 }: UnwatchMarkdownDocumentArgs) =>
   invoke<void>(UNWATCH_MARKDOWN_DOCUMENT_COMMAND, { scopeId, scopeGeneration });
+
+export const writeHtmlExport = ({ content, path, sourceDocumentPath }: WriteHtmlExportArgs) =>
+  invoke<void>(WRITE_HTML_EXPORT_COMMAND, { path, content, sourceDocumentPath });

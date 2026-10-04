@@ -24,6 +24,7 @@ import {
   MARKDOWN_FILE_EXTENSIONS,
   openMarkdownFile,
   saveMarkdownFile,
+  writeHtmlExport,
   type MarkdownFileExtension,
   type OpenMarkdownFileResult,
   type SaveMarkdownFileResult,
@@ -43,6 +44,8 @@ export interface WriteMarkdownDocumentOptions {
 }
 
 const MARKDOWN_FILTERS = [{ name: "Markdown", extensions: [...MARKDOWN_FILE_EXTENSIONS] }];
+const HTML_FILTERS = [{ name: "HTML", extensions: ["html", "htm"] }];
+const HTML_EXTENSION = ".html";
 
 export const selectMarkdownFilePath = async () => {
   const selectedPath = await open({
@@ -161,6 +164,22 @@ export const inspectMarkdownDocument = async (
     throw error;
   }
 };
+
+export const selectHtmlExportPath = (defaultPath: string) =>
+  save({
+    title: t("document.exportDialog.title"),
+    filters: HTML_FILTERS,
+    defaultPath,
+  });
+
+export const ensureHtmlExtension = async (path: string) =>
+  (await extname(path)) ? path : `${path}${HTML_EXTENSION}`;
+
+export const writeHtmlDocument = (
+  path: string,
+  content: string,
+  sourceDocumentPath: string | null,
+) => writeHtmlExport({ path, content, sourceDocumentPath });
 
 export const ensureMarkdownExtension = async (
   path: string,

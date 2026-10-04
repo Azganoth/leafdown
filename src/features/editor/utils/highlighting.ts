@@ -20,12 +20,20 @@ import { normalizeHighlightLanguage } from "./highlightLanguages";
 // stylesheet paints the one the appearance in effect selects.
 const SHIKI_THEMES = { light: "github-light", dark: "github-dark" } as const;
 
+const highlighterCore = new AsyncLazy(
+  () =>
+    createHighlighterCore({
+      themes: [githubLight, githubDark],
+      langs: [markdown, mermaid, typescript, javascript, json, rust, bash],
+      engine: createJavaScriptRegexEngine(),
+    }),
+  { retryOnFailure: true },
+);
+
+export const loadLeafdownHighlighter = () => highlighterCore.value;
+
 const loadParser = async (): Promise<Parser> => {
-  const highlighter = await createHighlighterCore({
-    themes: [githubLight, githubDark],
-    langs: [markdown, mermaid, typescript, javascript, json, rust, bash],
-    engine: createJavaScriptRegexEngine(),
-  });
+  const highlighter = await highlighterCore.value;
   const parser = createParser(highlighter, { themes: SHIKI_THEMES, defaultColor: false });
 
   return (options) =>

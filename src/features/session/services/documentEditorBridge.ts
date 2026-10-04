@@ -54,6 +54,11 @@ class DocumentEditorBridgeStore {
     return this.activeBridgeEntry.bridge.getMarkdown();
   };
 
+  getHtmlExportSnapshot = (documentKey: string) =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.getHtmlExportSnapshot?.() ?? null)
+      : null;
+
   getCommandState = (documentKey: string): EditorCommandState =>
     this.activeBridgeEntry?.documentKey === documentKey
       ? (this.activeBridgeEntry.bridge.getCommandState?.() ?? READY_DISABLED_EDITOR_COMMAND_STATE)

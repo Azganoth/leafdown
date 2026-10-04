@@ -8,6 +8,7 @@ import type {
   OpenMarkdownFileError,
   SaveMarkdownFileError,
   WatchMarkdownDocumentError,
+  WriteHtmlExportError,
 } from "../services/markdownDocumentApi";
 import { formatEncodingName } from "./documentEncoding";
 
@@ -16,6 +17,7 @@ export type {
   OpenMarkdownFileError,
   SaveMarkdownFileError,
   WatchMarkdownDocumentError,
+  WriteHtmlExportError,
 } from "../services/markdownDocumentApi";
 
 const OPEN_MARKDOWN_FILE_ERROR_KINDS = [
@@ -168,6 +170,54 @@ export const getSaveMarkdownFileErrorMessage = (
 
 export const isSaveMarkdownFileError = (error: unknown): error is SaveMarkdownFileError =>
   isTaggedPayload(error, SAVE_MARKDOWN_FILE_ERROR_KINDS);
+
+const WRITE_HTML_EXPORT_ERROR_KINDS = [
+  "unsupportedFileType",
+  "sourceDocument",
+  "invalidPath",
+  "missingParentFolder",
+  "permissionDenied",
+  "writeFailed",
+] as const satisfies readonly WriteHtmlExportError["kind"][];
+
+export const isWriteHtmlExportError = (error: unknown): error is WriteHtmlExportError =>
+  isTaggedPayload(error, WRITE_HTML_EXPORT_ERROR_KINDS);
+
+export const getWriteHtmlExportErrorMessage = (
+  error: unknown,
+  fallback: MessageData = { title: t("document.exportError.fallback") },
+): MessageData => {
+  if (!isWriteHtmlExportError(error)) {
+    return fallback;
+  }
+
+  switch (error.kind) {
+    case "unsupportedFileType":
+      return {
+        title: t("document.exportError.unsupportedFileType.title"),
+        description: t("document.exportError.unsupportedFileType.description"),
+      };
+    case "sourceDocument":
+      return { title: t("document.exportError.sourceDocument"), description: error.path };
+    case "invalidPath":
+      return { title: t("document.exportError.invalidPath"), description: error.path };
+    case "missingParentFolder":
+      return {
+        title: t("document.exportError.missingParentFolder"),
+        description: error.parentFolderPath,
+      };
+    case "permissionDenied":
+      return {
+        title: t("document.exportError.permissionDenied"),
+        description: error.message || error.path,
+      };
+    case "writeFailed":
+      return {
+        title: t("document.exportError.writeFailed"),
+        description: error.message || error.path,
+      };
+  }
+};
 
 const INSPECT_MARKDOWN_FILE_ERROR_KINDS = [
   "unsupportedFileType",

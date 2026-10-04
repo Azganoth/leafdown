@@ -106,6 +106,7 @@ import {
   commitFootnoteDefinitionLabels,
   createLeafdownFootnoteDefinitionLabelPlugin,
   leafdownFootnoteDefinitionLabelSchema,
+  settleFootnoteDefinitionLabels,
 } from "../plugins/footnoteDefinitionLabel";
 import { createLeafdownFootnoteLabelPlugin } from "../plugins/footnoteLabel";
 import { createLeafdownFootnoteNavigationPlugin } from "../plugins/footnoteNavigation";
@@ -147,6 +148,7 @@ import {
   leafdownDefinitionDestinationSchema,
   leafdownDefinitionLabelSchema,
   leafdownDefinitionTitleSchema,
+  settleReferenceDefinitionFields,
 } from "../plugins/referenceDefinitionFields";
 import {
   createLeafdownReferenceLinkPlugin,
@@ -158,6 +160,7 @@ import {
   createLeafdownSourceProjectionPlugin,
   finalizeSourceProjection,
   hasTransientSourceProjection,
+  settleSourceProjection,
 } from "../plugins/sourceProjection";
 import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
 import { createLeafdownTableColumnsPlugin } from "../plugins/tableColumns";
@@ -177,6 +180,7 @@ import { createLeafdownTrailingParagraphPlugin } from "../plugins/trailingParagr
 import { createLeafdownWikiCompletionPlugin } from "../plugins/wikiCompletion";
 import { createLeafdownWikiLinkPlugin, leafdownWikiLinkSchema } from "../plugins/wikiLink";
 import { createLeafdownWikiLinkNavigationPlugin } from "../plugins/wikiLinkNavigation";
+import type { HtmlExportSnapshot } from "../services/htmlExport";
 import {
   BARE_AUTOLINK_MARKDOWN_TYPE,
   serializeBareAutolink,
@@ -215,6 +219,7 @@ import {
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
 import type { HeadingOutlineState } from "./headingOutline";
 import { createLeafdownHighlightParser } from "./highlighting";
+import { readImageGrants } from "./imageGrants";
 import type { MarkdownLinkContext } from "./linkActivation";
 import { withLinkLabelWhitespace } from "./linkLabelMarkdown";
 import {
@@ -657,4 +662,19 @@ export const getMilkdownEditorMarkdown = (editor: MilkdownEditorInstance) => {
   commitReferenceDefinitionFields(view);
 
   return editor.action(getMarkdown());
+};
+
+/**
+ * The document a save would write, settled from a copy of the editor state so that reading it
+ * dispatches nothing: no edit, history step, or dirty change reaches the editor.
+ */
+export const getMilkdownEditorHtmlExportSnapshot = (
+  editor: MilkdownEditorInstance,
+): HtmlExportSnapshot => {
+  const view = editor.ctx.get(editorViewCtx);
+  const state = settleReferenceDefinitionFields(
+    settleFootnoteDefinitionLabels(settleSourceProjection(view.state)),
+  );
+
+  return { doc: state.doc, imageGrants: readImageGrants(view) };
 };

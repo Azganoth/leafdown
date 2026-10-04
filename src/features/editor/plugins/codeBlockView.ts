@@ -17,7 +17,7 @@ import { isEditingMermaidCodeBlock, isMermaidCodeBlock } from "./mermaidMode";
 let nextMermaidDescriptionId = 0;
 const MERMAID_EDIT_RENDER_DELAY = 400;
 
-const mermaidSourceError = (source: string): string | null => {
+export const mermaidSourceError = (source: string): string | null => {
   if (source.length > 10_000) return t("editor.mermaid.tooLong");
   if (/^---(?:\r?\n|$)/u.test(source) || source.includes("%%{")) {
     return t("editor.mermaid.configurationUnsupported");

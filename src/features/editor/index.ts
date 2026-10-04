@@ -35,7 +35,16 @@ export type {
   TextStatistics,
 } from "./utils/documentStatus";
 export {
+  renderHtmlExport,
+  type HtmlExportImageOmission,
+  type HtmlExportOptions,
+  type HtmlExportResult,
+  type HtmlExportSnapshot,
+  type HtmlExportWarning,
+} from "./services/htmlExport";
+export {
   createMilkdownEditor,
+  getMilkdownEditorHtmlExportSnapshot,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
   type MilkdownMarkdownUpdate,

@@ -125,6 +125,12 @@ const createLabelCommitTransaction = (state: EditorState, force: boolean) => {
 const commitLabels = (state: EditorState, force: boolean) =>
   createLabelCommitTransaction(state, force)?.setMeta("addToHistory", false) ?? null;
 
+export const settleFootnoteDefinitionLabels = (state: EditorState) => {
+  const transaction = commitLabels(state, true);
+
+  return transaction ? state.apply(transaction) : state;
+};
+
 export const commitFootnoteDefinitionLabels = (view: EditorView) => {
   const transaction = commitLabels(view.state, true);
 

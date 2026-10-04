@@ -12,6 +12,8 @@ Open **File > Preferences** to change the settings below. Changes persist across
 
 **View > Always on top** is another persistent window setting; it keeps Leafdown above other windows until switched off.
 
+The **H1 to H6** control at the top of the document outline is also remembered across launches. It chooses how deep the outline lists headings, H1–H3 by default.
+
 ## Files
 
 - **Default extension for new documents:** Choose `.md` or `.markdown`.

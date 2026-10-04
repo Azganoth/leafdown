@@ -10,6 +10,7 @@ mod desktop_e2e;
 mod diagnostics;
 mod document;
 mod drop;
+mod export;
 mod file_utils;
 mod folder;
 mod image;
@@ -109,6 +110,8 @@ pub fn run() {
             document::watch_markdown_document,
             document::unwatch_markdown_document,
             drop::inspect_dropped_path,
+            export::read_markdown_image,
+            export::write_html_export,
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,

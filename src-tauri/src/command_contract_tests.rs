@@ -3,7 +3,7 @@ use std::{fs, path::Path};
 use serde_json::Value;
 
 use crate::{
-    document, folder, image, link, remote_image,
+    document, export, folder, image, link, remote_image,
     test_utils::{TestDirectory, canonical_path_string, pathdiff},
     text_encoding::{DocumentEncoding, TextEncoding},
 };
@@ -328,6 +328,81 @@ fn command_errors_serialize_with_frontend_error_kinds() {
     assert_eq!(
         json_string(&scan_error, "path"),
         path_string(missing_folder.as_path())
+    );
+}
+
+#[test]
+fn html_export_commands_serialize_with_frontend_error_kinds() {
+    let root = TestDirectory::new("command-contract-export");
+    let document_path = root.markdown_document_path();
+    let document_path_string = path_string(document_path.as_path());
+    let folder_path_string = path_string(root.path.as_path());
+    root.write_file_with_content("outside.png", b"\x89PNG\r\n\x1a\n");
+    root.write_file_with_content("docs/fake.png", b"text");
+
+    let read_error = |target: &str, folder: Option<String>| {
+        serialized(
+            tauri::async_runtime::block_on(export::read_markdown_image(
+                Some(document_path_string.clone()),
+                folder,
+                target.to_owned(),
+                None,
+            ))
+            .err()
+            .expect("the image should not be read"),
+        )
+    };
+
+    let outside_error = read_error(
+        "../outside.png",
+        Some(path_string(root.path("docs").as_path())),
+    );
+    assert_eq!(json_string(&outside_error, "kind"), "unresolved");
+    assert_eq!(
+        json_string(&outside_error["resolution"], "kind"),
+        "outsideFolder"
+    );
+
+    let content_error = read_error("fake.png", Some(folder_path_string.clone()));
+    assert_eq!(json_string(&content_error, "kind"), "unsupportedContent");
+
+    let source_error = tauri::async_runtime::block_on(export::write_html_export(
+        path_string(root.path("docs/readme.md").as_path()),
+        String::new(),
+        Some(document_path_string.clone()),
+    ))
+    .expect_err("a Markdown path should be refused");
+    assert_eq!(
+        json_string(&serialized(source_error), "kind"),
+        "unsupportedFileType"
+    );
+
+    let missing_parent_error = serialized(
+        tauri::async_runtime::block_on(export::write_html_export(
+            path_string(root.path("missing/out.html").as_path()),
+            String::new(),
+            None,
+        ))
+        .expect_err("a missing parent folder should be reported"),
+    );
+    assert_eq!(
+        json_string(&missing_parent_error, "kind"),
+        "missingParentFolder"
+    );
+    assert_eq!(
+        json_string(&missing_parent_error, "parentFolderPath"),
+        path_string(root.path("missing").as_path())
+    );
+
+    tauri::async_runtime::block_on(export::write_html_export(
+        path_string(root.path("docs/readme.html").as_path()),
+        "<!doctype html>".to_owned(),
+        Some(document_path_string),
+    ))
+    .expect("an HTML path beside the source should be written");
+    assert_eq!(
+        fs::read_to_string(root.path("docs/readme.html")).expect("export should exist"),
+        "<!doctype html>"
     );
 }
 

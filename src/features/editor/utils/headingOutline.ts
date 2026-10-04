@@ -2,7 +2,12 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import { getFoldedSections, isInFoldedSection, revealFoldedPosition } from "../plugins/headingFold";
+import {
+  getFoldedHeadings,
+  getFoldedSections,
+  isInFoldedSection,
+  revealFoldedPosition,
+} from "../plugins/headingFold";
 import { finalizeSourceProjection } from "../plugins/sourceProjection";
 import { findScrollingAncestor } from "./scrollingAncestor";
 import { plainHeadingText } from "./wikiHeadings";
@@ -17,6 +22,7 @@ export interface OutlineHeading {
   level: number;
   text: string;
   context: HeadingContainer[];
+  folded: boolean;
 }
 
 export interface HeadingOutlineState {
@@ -43,7 +49,10 @@ const NAVIGATION_OFFSET = 16;
 // a heading in the last screen of a document cannot scroll up to the active line.
 export const headingOutlinePinKey = new PluginKey<OutlinePin | null>("leafdown-heading-outline");
 
-export const getOutlineHeadings = (doc: ProseMirrorNode): OutlineHeading[] => {
+export const getOutlineHeadings = (
+  doc: ProseMirrorNode,
+  folded: readonly number[] = [],
+): OutlineHeading[] => {
   const headings: OutlineHeading[] = [];
   doc.descendants((node, position) => {
     if (node.type.name !== "heading") return !node.isTextblock;
@@ -66,6 +75,7 @@ export const getOutlineHeadings = (doc: ProseMirrorNode): OutlineHeading[] => {
       level: Number(node.attrs.level),
       text: plainHeadingText(node),
       context,
+      folded: folded.includes(position),
     });
     return false;
   });
@@ -162,7 +172,7 @@ export const measureActiveHeading = (view: EditorView, outlineHeadings: OutlineH
 };
 
 export const readHeadingOutline = (view: EditorView): HeadingOutlineState => {
-  const headings = getOutlineHeadings(view.state.doc);
+  const headings = getOutlineHeadings(view.state.doc, getFoldedHeadings(view.state));
   return { headings, activePosition: measureActiveHeading(view, headings) };
 };
 
@@ -175,6 +185,7 @@ export const headingOutlinesEqual = (left: HeadingOutlineState, right: HeadingOu
       heading.position === other.position &&
       heading.level === other.level &&
       heading.text === other.text &&
+      heading.folded === other.folded &&
       heading.context.join("\0") === other.context.join("\0")
     );
   });

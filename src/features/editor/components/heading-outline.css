@@ -197,4 +197,17 @@
   [aria-current="location"] > &::before {
     @apply bg-primary ring-3 ring-primary/20;
   }
+
+  /* Drawn inside the dot, so a folded heading's dot keeps the size its level gives it. */
+  [data-folded] > &::before {
+    @apply bg-transparent inset-ring-1 inset-ring-muted-foreground/70;
+  }
+
+  [data-folded][data-preview] > &::before {
+    @apply inset-ring-foreground/70;
+  }
+
+  [data-folded][aria-current="location"] > &::before {
+    @apply inset-ring-primary;
+  }
 }

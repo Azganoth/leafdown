@@ -280,6 +280,9 @@ describe("folded content", () => {
     fold(mounted, "Install");
 
     await vi.waitFor(() => expect(current()).toBe(headingAt(mounted, "Install")));
+    expect(
+      onHeadingOutlineChanged.mock.lastCall?.[0].headings.map((heading) => heading.folded),
+    ).toEqual([true, false]);
   });
 
   it("keeps hidden content and the fold through edits elsewhere and undo", async () => {

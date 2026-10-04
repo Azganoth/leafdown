@@ -10,11 +10,11 @@ import { HeadingOutline } from "./heading-outline";
 
 const OUTLINE: HeadingOutlineState = {
   headings: [
-    { position: 0, level: 1, text: "Trip notes", context: [] },
-    { position: 12, level: 2, text: "Gear", context: [] },
-    { position: 20, level: 3, text: "Water", context: [] },
-    { position: 30, level: 4, text: "Filtering", context: [] },
-    { position: 44, level: 3, text: "Bail-out points", context: ["callout"] },
+    { position: 0, level: 1, text: "Trip notes", context: [], folded: false },
+    { position: 12, level: 2, text: "Gear", context: [], folded: true },
+    { position: 20, level: 3, text: "Water", context: [], folded: false },
+    { position: 30, level: 4, text: "Filtering", context: [], folded: false },
+    { position: 44, level: 3, text: "Bail-out points", context: ["callout"], folded: false },
   ],
   activePosition: 30,
 };
@@ -56,6 +56,8 @@ describe("HeadingOutline", () => {
     });
     expect(getRow("Heading 3: Water")).toHaveAttribute("tabindex", "0");
     expect(getRow("Heading 2: Gear")).toHaveAttribute("tabindex", "-1");
+    expect(getRow("Heading 2: Gear")).toHaveAttribute("data-folded");
+    expect(getRow("Heading 3: Water")).not.toHaveAttribute("data-folded");
   });
 
   it("opens on hover at the pointed heading and closes after the pointer leaves", async () => {

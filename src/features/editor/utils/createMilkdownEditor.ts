@@ -122,6 +122,7 @@ import {
   serializeFrontmatter,
 } from "../plugins/frontmatter";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
+import { createLeafdownHeadingFoldPlugin } from "../plugins/headingFold";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
 import { createLeafdownHeadingOutlinePlugin } from "../plugins/headingOutline";
 import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
@@ -408,6 +409,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAttentionPairingPlugin())
     .use(createLeafdownDoubleClickSelectionPlugin())
     .use(createLeafdownMarkerPresentationPlugin())
+    .use(createLeafdownHeadingFoldPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownMathViewPlugin())
     .use(createLeafdownFrontmatterViewPlugin())

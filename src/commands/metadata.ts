@@ -188,6 +188,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "view.sort.name": commandDef(),
   "view.sort.modifiedDate": commandDef(),
   "view.sort.type": commandDef(),
+  "view.toggleSectionFold": commandDef({ key: ".", mod: true }),
   "view.collapseAllFolders": commandDef(),
   "view.expandAllFolders": commandDef(),
   "help.whatsNew": commandDef(),

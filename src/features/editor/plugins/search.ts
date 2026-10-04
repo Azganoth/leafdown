@@ -5,6 +5,7 @@ import { $prose } from "@milkdown/kit/utils";
 
 import type { TextRange } from "../utils/textRanges";
 import { findMatchIndexFrom, findTextMatches, type TextSearchQuery } from "../utils/textSearch";
+import { revealFoldedRange } from "./headingFold";
 import {
   getActiveSourceProjectionRange,
   SOURCE_PROJECTION_ENTRY_SUPPRESSION_META,
@@ -169,10 +170,13 @@ export const getCurrentSearchMatchIndex = (state: EditorState) => {
 
 // Search reads and moves through the document without touching the caret, so none of its own
 // transactions is a reason for the caret's object to open its source.
-export const setSearchUpdate = (transaction: Transaction, update: SearchUpdate) =>
-  transaction
+export const setSearchUpdate = (transaction: Transaction, update: SearchUpdate) => {
+  const { current } = update.change;
+  if (update.reveal && current) revealFoldedRange(transaction, current.from, current.to);
+  return transaction
     .setMeta(leafdownSearchPluginKey, update)
     .setMeta(SOURCE_PROJECTION_ENTRY_SUPPRESSION_META, true);
+};
 
 // Closing hands the match to the caret, which opens its source there as any caret would.
 export const setSearchClosed = (transaction: Transaction) =>

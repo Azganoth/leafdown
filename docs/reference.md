@@ -241,6 +241,7 @@ The search surface's own keys are `Enter` and `Shift+Enter` in the query field f
 - **Reset zoom** (`Mod+0`)
 - **Always on top**
 - **Full screen** (`F11`)
+- **Fold or unfold section** (`Mod+.`)
 - **Appearance**
   - **System**
   - **Light**
@@ -346,6 +347,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Clear inline formatting` requires supported inline formatting in the selection or an active marked inline element.
 - `Clear block formatting` requires removable block formatting in the current or selected blocks.
 - `Increase heading level` and `Decrease heading level` require a heading that can move in the requested direction.
+- `Fold or unfold section` requires the caret in a heading with a section to fold, or inside a heading's section; it acts on that heading, or on the innermost heading whose section holds the caret. It is unavailable while the whole document is selected.
 
 #### Table State
 

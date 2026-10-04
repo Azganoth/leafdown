@@ -9,6 +9,7 @@ import {
   type HeadingOutlineState,
 } from "../utils/headingOutline";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
+import { getFoldedHeadings } from "./headingFold";
 
 export const createLeafdownHeadingOutlinePlugin = (
   onOutlineChanged: (outline: HeadingOutlineState) => void,
@@ -57,7 +58,8 @@ export const createLeafdownHeadingOutlinePlugin = (
                 schedulePublish();
               } else if (
                 headingOutlinePinKey.getState(nextView.state) !==
-                headingOutlinePinKey.getState(previousState)
+                  headingOutlinePinKey.getState(previousState) ||
+                getFoldedHeadings(nextView.state) !== getFoldedHeadings(previousState)
               ) {
                 schedulePublish();
               }

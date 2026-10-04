@@ -2,6 +2,7 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { getFoldedSections, isInFoldedSection, revealFoldedPosition } from "../plugins/headingFold";
 import { finalizeSourceProjection } from "../plugins/sourceProjection";
 import { findScrollingAncestor } from "./scrollingAncestor";
 import { plainHeadingText } from "./wikiHeadings";
@@ -127,7 +128,11 @@ const headingTop = (view: EditorView, position: number) => {
     : Number.POSITIVE_INFINITY;
 };
 
-export const measureActiveHeading = (view: EditorView, headings: OutlineHeading[]) => {
+export const measureActiveHeading = (view: EditorView, outlineHeadings: OutlineHeading[]) => {
+  const sections = getFoldedSections(view.state);
+  const headings = outlineHeadings.filter(
+    (heading) => !isInFoldedSection(sections, heading.position),
+  );
   if (headings.length === 0) return null;
   const viewport = findScrollingAncestor(view.dom);
   const pin = headingOutlinePinKey.getState(view.state);
@@ -183,6 +188,7 @@ export const jumpToOutlineHeading = (view: EditorView, position: number) => {
   if (after.length !== before.length) return false;
   const heading = after[index];
   if (!heading) return false;
+  revealFoldedPosition(view, heading.position);
 
   const viewport = findScrollingAncestor(view.dom);
   const element = view.nodeDOM(heading.position);

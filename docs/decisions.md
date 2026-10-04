@@ -378,6 +378,19 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 - One insertion button follows the pointer within the local gutter. Horizontal position chooses an eligible depth; vertical position chooses a valid sibling boundary. The insertion indicator is presentation only, and the menu commits one block at that boundary. Handle dragging suppresses the popup and moves the selected range among valid siblings through the same boundary rules as keyboard and popup movement; it does not reparent blocks across depths.
 - The context popup has one selection-aware anchor and filters inline-only actions for structural selection instead of introducing a second handle menu.
 
+### Fold heading sections as editor view state
+
+**Decision:** A heading's section is the run of following siblings in its own parent up to the next heading of the same or a higher level. Folding hides that section with node decorations; the heading marker in the outer gutter slot becomes the fold control by gaining a chevron, and a folded heading keeps its marker showing and gains a trailing unfold indicator. The outline lists folded headings and unfolds around a chosen one but carries no fold control, so it stays a navigation surface. Fold state lives in an editor plugin for the open document only. Anything that places the caret or selection inside a folded section unfolds it, while a selection that only spans one leaves it folded. Decided in [issue #518](https://github.com/Azganoth/leafdown/issues/518).
+
+**Rationale:** Making the existing marker the control adds no gutter slot and keeps the #477 lanes, and the marker already belongs to the heading's pointer area, so a press beside the heading can only have landed on it. Keeping folds out of the document, history, and file means Save, Copy, and Undo need no fold awareness and the Markdown never carries a marker other tools would not read. Revealing on any caret placement, rather than steering each edit around hidden blocks, keeps the caret visible through navigation, search, and edits such as `Enter` at a folded heading's end or a join into hidden content, with one rule instead of per-command handling.
+
+**Consequences:**
+
+- The marker remains generated content rather than a focusable button; keyboard access is the `Fold or unfold section` command.
+- A heading inside a list item or blockquote has a marker that reaches into its container's insertion slot, so the insertion button stays hidden while the pointer is over a fold marker.
+- A fold is tracked by its heading's content start, which survives a level change and is deleted with the heading, so a fold whose heading is deleted, moved, or converted ends instead of passing to a neighbour.
+- Folds reset on reopen and on reload after an outside change, since the editor is rebuilt; outline levels and folds stay independent.
+
 ## Technical Decisions
 
 ### Use Tauri

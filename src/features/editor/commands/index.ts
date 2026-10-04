@@ -3,6 +3,7 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { canMoveSelectedBlocks, moveSelectedBlocks } from "../plugins/blockSelectionOperations";
+import { canToggleSectionFold, toggleSectionFold } from "../plugins/headingFold";
 import { withEditorView } from "../utils/milkdown";
 import { EDITOR_COMMAND_IDS, type EditorCommandId, type EditorCommandState } from "./contract";
 import * as clipboard from "./editing/clipboard";
@@ -213,6 +214,8 @@ export const EDITOR_COMMANDS = {
     (view) => frontmatterInsertion.insertFrontmatter(view, "json"),
     frontmatterInsertion.canInsertFrontmatter,
   ),
+
+  "view.toggleSectionFold": viewCommand(toggleSectionFold, canToggleSectionFold),
 } satisfies Record<EditorCommandId, EditorCommand>;
 
 export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) =>

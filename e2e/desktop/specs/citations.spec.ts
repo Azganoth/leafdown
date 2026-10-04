@@ -143,16 +143,15 @@ describe("desktop citations", () => {
     await leaveProjection();
     await openMenu("Edit");
     await (await findMenuItem((text) => text.startsWith("Undo"))).click();
-    await browser.waitUntil(
-      async () =>
-        (await browser.execute(
-          () => document.querySelector('[data-type="citation"]')?.textContent,
-        )) === GROUP,
-      { timeoutMsg: "Undo after saving did not restore the citation." },
-    );
+    // Undo returns the group to the source it was written as, open where the edit was made.
+    await waitForProjection(GROUP);
     await save();
     await waitForFile(fixture.path, original, "Undo did not save the original source back.");
+    await leaveProjection();
     await expect(citations()).toBeElementsArrayOfSize(2);
+    expect(
+      await browser.execute(() => document.querySelector('[data-type="citation"]')?.textContent),
+    ).toBe(GROUP);
   });
 
   it("keeps a broken group as literal text through save and reopen", async () => {

@@ -32,6 +32,7 @@ const outlineHeading = (position: number, level: number): OutlineHeading => ({
   level,
   text: `H${level} at ${position}`,
   context: [],
+  folded: false,
 });
 
 describe("heading outline", () => {

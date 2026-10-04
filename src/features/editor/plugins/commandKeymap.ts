@@ -16,6 +16,7 @@ const LEAFDOWN_KEYBOARD_COMMANDS = {
   "Mod-Home": "edit.jumpToTop",
   "Mod-Enter": "format.toggleTaskChecked",
   "Mod-k": "insert.link",
+  "Mod-.": "view.toggleSectionFold",
   "Mod-\\": "format.clearInline",
   "Mod-Alt-0": "format.paragraph",
   "Mod-Alt-1": "format.heading1",

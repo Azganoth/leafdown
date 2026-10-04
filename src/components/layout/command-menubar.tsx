@@ -216,6 +216,8 @@ export function CommandMenubar({
             <CommandCheckboxItem commandId="view.alwaysOnTop" />
             <CommandCheckboxItem commandId="view.fullscreen" />
             <MenubarSeparator />
+            <CommandItems commandIds={["view.toggleSectionFold"]} inset />
+            <MenubarSeparator />
             <RadioSubmenu
               commandIds={[
                 "view.appearance.system",

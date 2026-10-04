@@ -86,6 +86,7 @@ export const EDITOR_COMMAND_IDS = [
   "insert.frontmatter.yaml",
   "insert.frontmatter.toml",
   "insert.frontmatter.json",
+  "view.toggleSectionFold",
 ] as const;
 
 export type EditorCommandId = (typeof EDITOR_COMMAND_IDS)[number];

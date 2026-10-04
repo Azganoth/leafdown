@@ -9,6 +9,7 @@ import {
   type HeadingOutlineState,
 } from "../utils/headingOutline";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
+import { getFoldedHeadings } from "./headingFold";
 
 export const createLeafdownHeadingOutlinePlugin = (
   onOutlineChanged: (outline: HeadingOutlineState) => void,
@@ -26,7 +27,7 @@ export const createLeafdownHeadingOutlinePlugin = (
           },
         },
         view: (view) => {
-          let headings = getOutlineHeadings(view.state.doc);
+          let headings = getOutlineHeadings(view.state.doc, getFoldedHeadings(view.state));
           let published: HeadingOutlineState | null = null;
           let frame = 0;
           const scrollTarget: HTMLElement | Window = findScrollingAncestor(view.dom) ?? window;
@@ -52,8 +53,12 @@ export const createLeafdownHeadingOutlinePlugin = (
 
           return {
             update: (nextView, previousState) => {
-              if (nextView.state.doc !== previousState.doc) {
-                headings = getOutlineHeadings(nextView.state.doc);
+              const folded = getFoldedHeadings(nextView.state);
+              if (
+                nextView.state.doc !== previousState.doc ||
+                folded !== getFoldedHeadings(previousState)
+              ) {
+                headings = getOutlineHeadings(nextView.state.doc, folded);
                 schedulePublish();
               } else if (
                 headingOutlinePinKey.getState(nextView.state) !==

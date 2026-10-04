@@ -354,6 +354,7 @@ export function HeadingOutline({ outline, depth, onDepthChange, onNavigate }: He
                       : rowLabel
                   }
                   className="leafdown-outline-row"
+                  data-folded={heading.folded || undefined}
                   data-level={heading.level}
                   data-outline-position={heading.position}
                   data-preview={preview === heading.position || undefined}

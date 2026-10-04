@@ -2,6 +2,12 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import {
+  getFoldedHeadings,
+  getFoldedSections,
+  isInFoldedSection,
+  revealFoldedPosition,
+} from "../plugins/headingFold";
 import { finalizeSourceProjection } from "../plugins/sourceProjection";
 import { findScrollingAncestor } from "./scrollingAncestor";
 import { plainHeadingText } from "./wikiHeadings";
@@ -16,6 +22,7 @@ export interface OutlineHeading {
   level: number;
   text: string;
   context: HeadingContainer[];
+  folded: boolean;
 }
 
 export interface HeadingOutlineState {
@@ -42,7 +49,10 @@ const NAVIGATION_OFFSET = 16;
 // a heading in the last screen of a document cannot scroll up to the active line.
 export const headingOutlinePinKey = new PluginKey<OutlinePin | null>("leafdown-heading-outline");
 
-export const getOutlineHeadings = (doc: ProseMirrorNode): OutlineHeading[] => {
+export const getOutlineHeadings = (
+  doc: ProseMirrorNode,
+  folded: readonly number[] = [],
+): OutlineHeading[] => {
   const headings: OutlineHeading[] = [];
   doc.descendants((node, position) => {
     if (node.type.name !== "heading") return !node.isTextblock;
@@ -65,6 +75,7 @@ export const getOutlineHeadings = (doc: ProseMirrorNode): OutlineHeading[] => {
       level: Number(node.attrs.level),
       text: plainHeadingText(node),
       context,
+      folded: folded.includes(position),
     });
     return false;
   });
@@ -127,7 +138,11 @@ const headingTop = (view: EditorView, position: number) => {
     : Number.POSITIVE_INFINITY;
 };
 
-export const measureActiveHeading = (view: EditorView, headings: OutlineHeading[]) => {
+export const measureActiveHeading = (view: EditorView, outlineHeadings: OutlineHeading[]) => {
+  const sections = getFoldedSections(view.state);
+  const headings = outlineHeadings.filter(
+    (heading) => !isInFoldedSection(sections, heading.position),
+  );
   if (headings.length === 0) return null;
   const viewport = findScrollingAncestor(view.dom);
   const pin = headingOutlinePinKey.getState(view.state);
@@ -157,7 +172,7 @@ export const measureActiveHeading = (view: EditorView, headings: OutlineHeading[
 };
 
 export const readHeadingOutline = (view: EditorView): HeadingOutlineState => {
-  const headings = getOutlineHeadings(view.state.doc);
+  const headings = getOutlineHeadings(view.state.doc, getFoldedHeadings(view.state));
   return { headings, activePosition: measureActiveHeading(view, headings) };
 };
 
@@ -170,6 +185,7 @@ export const headingOutlinesEqual = (left: HeadingOutlineState, right: HeadingOu
       heading.position === other.position &&
       heading.level === other.level &&
       heading.text === other.text &&
+      heading.folded === other.folded &&
       heading.context.join("\0") === other.context.join("\0")
     );
   });
@@ -183,6 +199,7 @@ export const jumpToOutlineHeading = (view: EditorView, position: number) => {
   if (after.length !== before.length) return false;
   const heading = after[index];
   if (!heading) return false;
+  revealFoldedPosition(view, heading.position);
 
   const viewport = findScrollingAncestor(view.dom);
   const element = view.nodeDOM(heading.position);

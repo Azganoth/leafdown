@@ -18,6 +18,7 @@ import {
   canMoveSelectedBlocksToBoundary,
   moveSelectedBlocksToBoundary,
 } from "./blockSelectionOperations";
+import { isHeadingFoldMarkerAt } from "./headingFold";
 
 export const leafdownBlockSelectionPluginKey = new PluginKey("leafdownBlockSelection");
 
@@ -388,7 +389,7 @@ class BlockSelectionView {
     for (const [pos, gutter] of this.gutters) {
       const node = this.view.nodeDOM(pos);
 
-      if (!(node instanceof Element)) {
+      if (!(node instanceof Element) || node.getClientRects().length === 0) {
         gutter.hidden = true;
         continue;
       }
@@ -509,8 +510,18 @@ class BlockSelectionView {
     this.insertionIndicator.style.width = `${String(indicatorRect.width)}px`;
   }
 
+  // A nested heading's fold marker reaches into its container's insertion slot, and the marker,
+  // standing nearer the pointer, keeps the press.
+  private isOverHeadingFoldMarker(event: MouseEvent) {
+    const element = this.view.dom.ownerDocument
+      .elementsFromPoint?.(event.clientX, event.clientY)
+      .find((candidate) => !this.overlay.contains(candidate));
+    return isHeadingFoldMarkerAt(element, event.clientX);
+  }
+
   private readonly handleInsertionMouseMove = (event: MouseEvent) => {
     if (this.insertionMenuOpen || this.pressedHandle) return;
+    if (this.isOverHeadingFoldMarker(event)) return this.clearInsertionTarget();
     const candidates = [...this.geometry.entries()].flatMap(
       ([pos, { gutter: rect, block: nodeRect, interactiveLeft, interactiveRight }]) => {
         if (

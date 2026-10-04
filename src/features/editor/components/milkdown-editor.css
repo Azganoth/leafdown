@@ -18,6 +18,7 @@
   --leafdown-gutter: calc(2 * var(--leafdown-gutter-lane) + var(--leafdown-gutter-gap));
   --leafdown-block-handle-slot: 1.25rem;
   --leafdown-block-insertion-slot: 1.5rem;
+  --leafdown-fold-marker-width: 2.75rem;
   --leafdown-measure: 48rem;
   /* Space above the document while search is open, at least as tall as the search panel. */
   --leafdown-search-clearance: 5rem;
@@ -851,7 +852,8 @@
        marker is showing, and centred on the block's first line rather than on the block. Its text is
        sized for the lane, which keeps its width whatever the document's text size. */
     .leafdown-marker-node--subtle::before,
-    :is(h1, h2, h3, h4, h5, h6):hover::before {
+    :is(h1, h2, h3, h4, h5, h6):hover::before,
+    [data-leafdown-fold]:is([data-leafdown-fold="folded"], [data-leafdown-marker-hover])::before {
       @apply absolute inline-flex items-center rounded-sm border border-border/60 bg-muted px-1.5 py-0.5 font-mono text-[0.875rem] leading-none font-medium tracking-wide whitespace-nowrap text-muted-foreground select-none;
       inset-block-start: 0;
       inset-inline-end: calc(
@@ -889,6 +891,61 @@
 
     h6:hover::before {
       content: "H6";
+    }
+
+    /* A heading with a section to fold makes its marker the fold control: the marker widens to hold
+       a chevron at its outer end and stays showing while the section is folded. It also stays while
+       the pointer crosses the gutter between the heading and the marker. */
+    [data-leafdown-fold]:is(
+      :hover,
+      .leafdown-marker-node--subtle,
+      [data-leafdown-fold="folded"],
+      [data-leafdown-marker-hover]
+    ) {
+      &::before {
+        @apply cursor-pointer justify-end;
+        content: attr(data-leafdown-fold-marker);
+        width: var(--leafdown-fold-marker-width);
+      }
+
+      /* Two borders of a square turned to point down, nudged so the drawn angle rather than the
+         square sits centred; turning it a quarter points it along the line while folded. */
+      &::after {
+        @apply absolute size-2 cursor-pointer border-e-2 border-b-2 border-muted-foreground transition-[rotate,translate] duration-200 ease-out motion-reduce:transition-none;
+        content: "";
+        inset-block-start: 0;
+        inset-inline-end: calc(
+          100% + var(--leafdown-gutter-gap) + var(--leafdown-block-handle-slot) +
+            var(--leafdown-block-insertion-slot) + var(--leafdown-fold-marker-width) - 0.9rem
+        );
+        rotate: 45deg;
+        translate: 0 calc(var(--leafdown-block-line) / 2 - 50% - 0.125rem);
+      }
+
+      &:dir(rtl)::after {
+        rotate: -45deg;
+      }
+
+      &[data-leafdown-fold="folded"]::after {
+        rotate: -45deg;
+        translate: -0.125rem calc(var(--leafdown-block-line) / 2 - 50%);
+      }
+
+      &[data-leafdown-fold="folded"]:dir(rtl)::after {
+        rotate: 45deg;
+        translate: 0.125rem calc(var(--leafdown-block-line) / 2 - 50%);
+      }
+    }
+
+    /* Display is forced because every block construct sets its own, and a folded block must stay
+       out of layout whatever it is. */
+    .leafdown-folded-block {
+      display: none !important;
+    }
+
+    /* Reads as the heading's own text trailing off, in the heading's type but muted. */
+    .leafdown-fold-indicator {
+      @apply ms-[0.3em] cursor-pointer text-muted-foreground select-none hover:text-foreground;
     }
 
     /* The label stands where the file spells it, on the line the definition opens on, with the body

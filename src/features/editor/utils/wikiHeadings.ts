@@ -14,7 +14,7 @@ export interface WikiHeading {
   position: number;
 }
 
-const plainHeadingText = (node: ProseMirrorNode): string => {
+export const plainHeadingText = (node: ProseMirrorNode): string => {
   if (node.isText) return node.text ?? "";
   if (node.type.name === "wiki_link")
     return parseWikiLink(node.attrs.source as string)?.label ?? "";

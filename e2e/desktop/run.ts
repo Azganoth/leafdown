@@ -140,6 +140,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const definitionListPath = path.join(fixtureRoot, "definition-lists.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
+  const outlinePath = path.join(fixtureRoot, "heading-outline.md");
   const imagesPath = path.join(fixtureRoot, "rendered-images.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
@@ -181,6 +182,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     documentWatcher: { path: documentWatcherPath },
     search: { path: searchPath },
+    outline: { path: outlinePath },
     images: { path: imagesPath },
     remoteImages: {
       certificatePath: path.join(remoteImageFixtureRoot, "server.pem"),
@@ -224,6 +226,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "find-and-replace", recentFiles: [searchPath] },
     { name: "keyboard-shortcuts" },
+    { name: "heading-outline", recentFiles: [outlinePath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
     { name: "help-pages", recentFiles: [documentPath] },
@@ -321,6 +324,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "find-and-replace.md"),
         searchPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "heading-outline.md"),
+        outlinePath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "document-lifecycle.md"),

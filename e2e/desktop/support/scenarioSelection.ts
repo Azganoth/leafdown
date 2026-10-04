@@ -8,6 +8,7 @@ const scenarioTargets = {
   "document-watcher": ["document-watcher"],
   "find-and-replace": ["find-and-replace"],
   "keyboard-shortcuts": ["keyboard-shortcuts"],
+  "heading-outline": ["heading-outline"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],
   "help-pages": ["help-pages"],

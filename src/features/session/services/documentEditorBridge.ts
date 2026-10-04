@@ -69,6 +69,11 @@ class DocumentEditorBridgeStore {
       ? (this.activeBridgeEntry.bridge.getViewState?.() ?? null)
       : null;
 
+  navigateToOutlineHeading = (documentKey: string, position: number) =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.navigateToOutlineHeading?.(position) ?? false)
+      : false;
+
   insertLink = (documentKey: string, label: string, target: string) => {
     if (this.activeBridgeEntry?.documentKey !== documentKey) {
       return false;

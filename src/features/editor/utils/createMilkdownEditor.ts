@@ -123,6 +123,7 @@ import {
 } from "../plugins/frontmatter";
 import { createLeafdownHardBreakFormPlugin } from "../plugins/hardBreakForm";
 import { createLeafdownHeadingFormPlugin } from "../plugins/headingForm";
+import { createLeafdownHeadingOutlinePlugin } from "../plugins/headingOutline";
 import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
@@ -211,6 +212,7 @@ import {
   withHardBreakForm,
 } from "./hardBreakMarkdown";
 import { serializeHeading, withHeadingForm } from "./headingMarkdown";
+import type { HeadingOutlineState } from "./headingOutline";
 import { createLeafdownHighlightParser } from "./highlighting";
 import type { MarkdownLinkContext } from "./linkActivation";
 import { withLinkLabelWhitespace } from "./linkLabelMarkdown";
@@ -263,6 +265,7 @@ export interface CreateMilkdownEditorOptions {
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
+  onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
@@ -311,6 +314,7 @@ export const createMilkdownEditor = async ({
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
+  onHeadingOutlineChanged,
   onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   onReadMarkdownPath,
@@ -419,6 +423,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))
     .use(createLeafdownCommandStatePlugin((state) => onCommandStateChanged?.(state)))
     .use(createLeafdownDocumentStatusPlugin((status) => onDocumentStatusChanged?.(status)))
+    .use(createLeafdownHeadingOutlinePlugin((outline) => onHeadingOutlineChanged?.(outline)))
     .use(createLeafdownTaskListCheckboxPlugin())
     .use(createLeafdownPrevailingFormPlugin())
     .use(createLeafdownTrailingParagraphPlugin())

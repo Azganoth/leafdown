@@ -65,6 +65,18 @@ describe("document editor bridge", () => {
     listenerDisposable.dispose();
   });
 
+  it("navigates outline headings only in the current document", () => {
+    const navigateToOutlineHeading = vi.fn(() => true);
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ navigateToOutlineHeading }));
+
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(true);
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:other", 0)).toBe(false);
+    documentEditorBridge.set("doc:second", createMilkdownEditorBridge());
+
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(false);
+    expect(navigateToOutlineHeading).toHaveBeenCalledTimes(1);
+  });
+
   it("returns inactive command state for stale document keys", () => {
     documentEditorBridge.set(
       "doc:test",

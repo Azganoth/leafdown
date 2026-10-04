@@ -6,7 +6,12 @@ import {
   type LineEnding,
   type MarkdownFileExtension,
 } from "@/features/document";
-import type { DocumentFont, DocumentLineSpacing, DocumentTextSize } from "@/features/editor";
+import type {
+  DocumentFont,
+  DocumentLineSpacing,
+  DocumentTextSize,
+  OutlineDepth,
+} from "@/features/editor";
 import { ARTICLE_SORT_ORDERS, type ArticleSortOrder } from "@/features/folder-context";
 import { SYSTEM_LANGUAGE } from "@/lib/i18n";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
@@ -45,6 +50,8 @@ export const DOCUMENT_LINE_SPACINGS = [
   "relaxed",
 ] as const satisfies readonly DocumentLineSpacing[];
 
+export const OUTLINE_DEPTHS = [1, 2, 3, 4, 5, 6] as const satisfies readonly OutlineDepth[];
+
 export const DROP_BEHAVIORS = ["open", "insertLink"] as const;
 export type DropBehavior = (typeof DROP_BEHAVIORS)[number];
 
@@ -75,6 +82,7 @@ export interface SettingsState {
   recordRecentItems: boolean;
   sidebarVisible: boolean;
   statusBarVisible: boolean;
+  outlineDepth: OutlineDepth;
   alwaysOnTop: boolean;
   articleSortOrder: ArticleSortOrder;
   defaultNewDocumentExtension: MarkdownFileExtension;
@@ -108,6 +116,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   recordRecentItems: true,
   sidebarVisible: true,
   statusBarVisible: true,
+  outlineDepth: 3,
   alwaysOnTop: false,
   articleSortOrder: "name",
   defaultNewDocumentExtension: ".md",
@@ -140,6 +149,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   recordRecentItems: booleanValue,
   sidebarVisible: booleanValue,
   statusBarVisible: booleanValue,
+  outlineDepth: oneOf(OUTLINE_DEPTHS),
   alwaysOnTop: booleanValue,
   articleSortOrder: oneOf(ARTICLE_SORT_ORDERS),
   defaultNewDocumentExtension: oneOf(MARKDOWN_FILE_EXTENSION_VALUES),

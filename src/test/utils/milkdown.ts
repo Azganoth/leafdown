@@ -10,6 +10,7 @@ import {
   type FootnotePreviewRequest,
   type EditorCommandState,
   type EditorDocumentStatus,
+  type HeadingOutlineState,
   getMilkdownEditorMarkdown,
   type MarkdownReferenceContext,
   type MilkdownEditorInstance,
@@ -31,6 +32,7 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onContentChanged?: () => void;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
+  onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
   onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onReadMarkdownPath?: (path: string) => Promise<string>;
@@ -81,6 +83,7 @@ export const mountMilkdownEditor = async (
     onContentChanged: options.onContentChanged,
     onCommandStateChanged: options.onCommandStateChanged,
     onDocumentStatusChanged: options.onDocumentStatusChanged,
+    onHeadingOutlineChanged: options.onHeadingOutlineChanged,
     onMarkdownUpdated: options.onMarkdownUpdated,
     onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
     onReadMarkdownPath: options.onReadMarkdownPath,

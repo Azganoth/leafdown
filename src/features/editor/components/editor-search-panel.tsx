@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 
 import type { EditorSearchControls } from "../hooks/useMilkdownEditorInstance";
 import type { EditorSearchState } from "../plugins/search";
+import { findScrollingAncestor } from "../utils/scrollingAncestor";
 
 interface EditorSearchPanelProps {
   search: EditorSearchControls;
@@ -63,18 +64,6 @@ const describeResults = (t: Translate, state: EditorSearchState) => {
 };
 
 const isComposing = (event: KeyboardEvent) => event.nativeEvent.isComposing;
-
-const SCROLLING_OVERFLOW_PATTERN = /auto|scroll|overlay/u;
-
-const findScrollingAncestor = (element: Element) => {
-  for (let current = element.parentElement; current; current = current.parentElement) {
-    if (SCROLLING_OVERFLOW_PATTERN.test(getComputedStyle(current).overflowY)) {
-      return current;
-    }
-  }
-
-  return null;
-};
 
 function SearchPanel({ search }: EditorSearchPanelProps) {
   const { t } = useLocalization();

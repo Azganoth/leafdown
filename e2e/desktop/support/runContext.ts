@@ -20,6 +20,7 @@ export interface DesktopE2ERunContext {
   };
   documentWatcher: { path: string };
   search: { path: string };
+  outline: { path: string };
   images: {
     path: string;
   };

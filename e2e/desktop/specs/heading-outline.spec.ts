@@ -52,19 +52,23 @@ const getPlacement = () =>
     const viewport = document.querySelector(
       '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
-    const heading = document.getSelection()?.anchorNode?.parentElement?.closest("h1");
+    const heading = document
+      .getSelection()
+      ?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6");
     if (!outline || !surface || !viewport || !heading)
       throw new Error("Outline geometry is missing.");
     const outlineRect = outline.getBoundingClientRect();
     const surfaceRect = surface.getBoundingClientRect();
     const viewportRect = viewport.getBoundingClientRect();
-    const headingTop = heading.getBoundingClientRect().top - viewportRect.top;
+    const headingRect = heading.getBoundingClientRect();
+    const headingTop = headingRect.top - viewportRect.top;
     return {
       insideSurface:
         outlineRect.left >= surfaceRect.left &&
         outlineRect.right <= surfaceRect.right &&
         outlineRect.top >= surfaceRect.top &&
         outlineRect.bottom <= surfaceRect.bottom,
+      headingVisible: headingTop >= 0 && headingRect.bottom <= viewportRect.bottom,
       headingNearTop: headingTop >= 0 && headingTop <= 48,
       scrollTop: viewport.scrollTop,
     };
@@ -113,9 +117,10 @@ describe("desktop heading outline", () => {
       async () => (await rows[3].getAttribute("aria-current")) === "location",
       { timeoutMsg: "The chosen heading did not become current." },
     );
+    // The last heading ends the document, so it cannot scroll up to the top of the view.
     const placement = await getPlacement();
     expect(placement.insideSurface).toBe(true);
-    expect(placement.headingNearTop).toBe(true);
+    expect(placement.headingVisible).toBe(true);
     expect(placement.scrollTop).toBeGreaterThan(0);
 
     await leaveOutline();
@@ -133,6 +138,11 @@ describe("desktop heading outline", () => {
     await browser.waitUntil(async () => (await selectedHeading()) === "Quoted", {
       timeoutMsg: "Choosing the focused row did not move the caret to the quoted heading.",
     });
+    await browser.waitUntil(
+      async () => (await rows[1].getAttribute("aria-current")) === "location",
+      { timeoutMsg: "The quoted heading did not become current." },
+    );
+    expect((await getPlacement()).headingNearTop).toBe(true);
 
     await hoverRow(await rows[0].getAttribute("data-outline-position"));
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not reopen the outline." });

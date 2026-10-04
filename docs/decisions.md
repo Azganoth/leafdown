@@ -391,6 +391,18 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 - A fold is tracked by its heading's content start, which survives a level change and is deleted with the heading, so a fold whose heading is deleted, moved, or converted ends instead of passing to a neighbour.
 - Folds reset on reopen and on reload after an outside change, since the editor is rebuilt; outline levels and folds stay independent.
 
+### Segment sentences with the platform's Unicode rules
+
+**Decision:** Sentence selection and deletion take their boundaries from `Intl.Segmenter` with sentence granularity, created without a locale as document statistics' word segmentation is. They read one run of a textblock at a time: text joined across marks and soft wraps, ended by the textblock's edges, hard breaks, inline atoms, and an active source projection's edges. `Select sentence` and `Delete sentence` act on the whole sentences around the caret or selection rather than extending from the caret in a direction. They ship without default shortcuts. Decided in [issue #619](https://github.com/Azganoth/leafdown/issues/619).
+
+**Rationale:** Unicode segmentation already handles non-Latin terminators, closing quotes and brackets, combining characters, and astral characters, which a period matcher or an abbreviation list would have to reimplement and would still get wrong in some language. Its answers for ambiguous punctuation, such as a title abbreviation ending a sentence, are recorded in tests rather than corrected, because a correction would be a linguistic claim the editor cannot back for every script. Extending a selection one sentence at a time is a repeated keystroke, which a menu or palette command cannot offer, so without shortcuts directional commands would add little; one command on the whole sentence matches `Select word`. Leafdown has no established sentence bindings, and the word, line, paragraph, and structural-selection shortcuts it has keep their keys rather than giving one up to sentences.
+
+**Consequences:**
+
+- Boundaries can differ between runtimes whose Unicode data differs; tests pin the cases Leafdown relies on.
+- A soft wrap reads as a space, since Unicode would otherwise take a line ending for a paragraph separator, and every offset stays in place.
+- Inside source projection the delimiters are text, so a closing `**` after a terminator can form its own segment.
+
 ## Technical Decisions
 
 ### Use Tauri

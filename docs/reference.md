@@ -126,13 +126,13 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Delete**
   - **Delete** (`Delete`): Removes a structural block selection as one range. `Backspace` does the same while that selection is active.
   - **Delete block** (Deferred)
-  - **Delete sentence** (Deferred)
+  - **Delete sentence**
   - **Delete word backward** (`Mod+Backspace`)
   - **Delete word forward** (`Mod+Delete`)
 - **Select**
   - **Select all** (`Mod+A`): Selects the whole document immediately from the Edit menu. In a focused ordinary editor, `Mod+A` progressively selects the nearest block, its siblings, containing scopes, and then the document.
   - **Select block** (Deferred)
-  - **Select sentence** (Deferred)
+  - **Select sentence**
   - **Select word**
 - **Jump**
   - **Jump to top** (`Mod+Home`)
@@ -340,7 +340,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Delete block` requires an active block.
 - `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.
-- `Delete sentence` and `Select sentence` require a sentence at or adjacent to the caret.
+- `Delete sentence` requires a text caret or selection within one run of text, which a textblock edge, hard break, inline object, or active source projection's edge ends, and that run must hold text. `Select sentence` also requires that the selection does not already cover whole sentences. Both are unavailable in code blocks, frontmatter, footnote definition labels, reference definition fields, and structural block, node, or table cell selections, and have no default shortcut.
 - `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.
 - `Toggle task checked` requires a task list item.
 - `Code block language...` requires the caret or selection within one fenced code block, or a structural block selection of exactly one; indented code does not offer it.

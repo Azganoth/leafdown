@@ -505,16 +505,18 @@ export const pasteIntoSourceProjection = (view: EditorView, text: string) => {
   return true;
 };
 
-export const deleteSourceProjectionSelection = (view: EditorView) => {
-  const session = getSourceProjectionState(view.state).session;
-  const { selection } = view.state;
+export const deleteSourceProjectionSelection = (view: EditorView) =>
+  deleteSourceProjectionRange(view, view.state.selection);
 
-  if (!session || selection.empty || !isRangeInside(selection, session)) {
+export const deleteSourceProjectionRange = (view: EditorView, range: TextRange) => {
+  const session = getSourceProjectionState(view.state).session;
+
+  if (!session || range.from === range.to || !isRangeInside(range, session)) {
     return false;
   }
 
   view.focus();
-  dispatchProjectionEdit(view, selection.from, selection.to, "");
+  dispatchProjectionEdit(view, range.from, range.to, "");
 
   return true;
 };

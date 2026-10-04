@@ -280,7 +280,10 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - `Delete word backward` deletes the word behind the caret.
 - `Delete word forward` deletes the word in front of the caret.
 - `Delete block` deletes the active block. (Deferred)
-- `Delete sentence` deletes the sentence at or adjacent to the caret. (Deferred)
+- `Select sentence` selects the whole sentence holding the caret. A caret on the boundary between two sentences takes the one after it, and a caret at the end of the text the one it ends. A text selection widens to the sentences it touches. Once the selection already covers whole sentences, the command is unavailable.
+- `Delete sentence` deletes what `Select sentence` would select, or the selection itself when it already covers whole sentences. Each deletion is one `Undo` step of its own, separate from any typing before it, and whitespace around it is left as it is.
+- Sentence boundaries come from the platform's Unicode sentence segmentation, whatever the interface language, so non-Latin terminators such as `。` and `।` end sentences, while an abbreviation such as `Dr.` may end one and a decimal such as `3.50` does not. A sentence owns its terminating punctuation, any closing quote or bracket after it, and the whitespace that follows. Text joins across inline formatting and link text, but not their hidden syntax or destinations, and a soft wrap stays inside its sentence. Each paragraph, heading, list item, quote, table cell, and footnote keeps its own text, and a hard break or inline object such as an image, math, raw HTML, or a footnote reference divides it. A sentence ends there, and a selection that crosses one does not offer the commands.
+- Within active source projection the sentence commands work on the projected source and stop at its edges, and a deletion is a projection-local edit that finalizes like typing there. They are unavailable in code blocks, frontmatter, footnote definition labels, reference definition fields, and structural block, node, or table cell selections. Selecting changes neither the document nor its history. The sentence commands have no default shortcuts and are reached from `Edit > Select`, `Edit > Delete`, and the command palette.
 
 ### Find And Replace
 

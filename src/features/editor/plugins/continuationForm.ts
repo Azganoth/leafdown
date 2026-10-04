@@ -1,6 +1,7 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $remark } from "@milkdown/kit/utils";
 
+import { CITATION_MARKDOWN_TYPE } from "../utils/citationSyntax";
 import { CODE_SPAN_MARKDOWN_TYPE } from "../utils/codeMarkdown";
 import {
   CONTINUATIONS_ATTRIBUTE_NAME,
@@ -23,6 +24,7 @@ const ATOM_MARKDOWN_TYPES = new Set([
   HTML_MARKDOWN_TYPE,
   CODE_SPAN_MARKDOWN_TYPE,
   MATH_MARKDOWN_TYPE,
+  CITATION_MARKDOWN_TYPE,
 ]);
 
 const LINE_ENDING_PATTERN = /\r\n|[\n\r]/u;

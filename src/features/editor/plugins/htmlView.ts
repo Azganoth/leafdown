@@ -102,7 +102,7 @@ interface CaretPoint {
   offset: number;
 }
 
-const getCaretAtPoint = (document: Document, x: number, y: number): CaretPoint | null => {
+export const getCaretAtPoint = (document: Document, x: number, y: number): CaretPoint | null => {
   const position = document.caretPositionFromPoint?.(x, y);
 
   if (position) {
@@ -111,7 +111,7 @@ const getCaretAtPoint = (document: Document, x: number, y: number): CaretPoint |
 
   // Chromium WebView still provides this fallback when caretPositionFromPoint is unavailable.
   // oxlint-disable-next-line typescript/no-deprecated
-  const range = document.caretRangeFromPoint(x, y);
+  const range = document.caretRangeFromPoint?.(x, y);
 
   return range ? { node: range.startContainer, offset: range.startOffset } : null;
 };

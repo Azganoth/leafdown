@@ -73,6 +73,12 @@ import {
   createLeafdownCharacterReferencePlugin,
   leafdownCharacterReferenceSchema,
 } from "../plugins/characterReference";
+import {
+  createLeafdownCitationRemarkPlugin,
+  createLeafdownCitationViewPlugin,
+  leafdownCitationSchema,
+  serializeCitation,
+} from "../plugins/citation";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import {
   createLeafdownCodeBlockLanguagePlugin,
@@ -189,6 +195,7 @@ import {
   serializeCharacterReference,
   withAuthoredDestination,
 } from "./characterReferenceMarkdown";
+import { CITATION_MARKDOWN_TYPE } from "./citationSyntax";
 import { createClipboardTextSerializer } from "./clipboard";
 import { normalizeProseMirrorClipboardHtml } from "./clipboardHtml";
 import { serializeCode, serializeCodeSpan, withCodeForm, withCodeSpanForm } from "./codeMarkdown";
@@ -344,6 +351,7 @@ export const createMilkdownEditor = async ({
   const configuredEditor = editor
     .use(createLeafdownAutolinkLiteralPositionPlugin())
     .use(createLeafdownMathRemarkPlugin())
+    .use(createLeafdownCitationRemarkPlugin())
     .use(createLeafdownFrontmatterRemarkPlugin())
     .use(createLeafdownCharacterReferencePlugin())
     .use(createLeafdownReferenceLinkPlugin())
@@ -375,6 +383,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownDefinitionSpacingPlugin())
     .use(leafdownCharacterReferenceSchema)
     .use(leafdownMathSchema)
+    .use(leafdownCitationSchema)
     .use(leafdownFrontmatterSchema)
     .use(leafdownWikiLinkSchema)
     .use(leafdownDefinitionSchema)
@@ -412,6 +421,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownHeadingFoldPlugin())
     .use(createLeafdownHtmlViewPlugin())
     .use(createLeafdownMathViewPlugin())
+    .use(createLeafdownCitationViewPlugin())
     .use(createLeafdownFrontmatterViewPlugin())
     .use(createLeafdownFrontmatterInputPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
@@ -463,6 +473,7 @@ export const createMilkdownEditor = async ({
           [FOOTNOTE_REFERENCE_MARKDOWN_TYPE]: serializeMarkdownFootnoteReference,
           [HARD_BREAK_MARKDOWN_TYPE]: serializeHardBreak,
           [MATH_MARKDOWN_TYPE]: serializeMath,
+          [CITATION_MARKDOWN_TYPE]: serializeCitation,
           leafdownCallout: serializeCallout,
           leafdownFrontmatter: serializeFrontmatter,
           [RAW_HTML_MARKDOWN_TYPE]: serializeRawHtml,

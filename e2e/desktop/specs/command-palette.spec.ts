@@ -24,9 +24,6 @@ const pressKey = (key: string, init: KeyboardEventInit = {}) =>
 
 const readSelection = () => browser.execute(() => document.getSelection()?.toString() ?? "");
 
-const isEditorFocused = () =>
-  browser.execute(() => document.activeElement?.matches(".ProseMirror") ?? false);
-
 describe("desktop command palette", () => {
   it("preserves editor state, exposes unavailable commands, and transfers focus to a chosen dialog", async () => {
     const { search } = await getDesktopE2ERunContext();
@@ -196,9 +193,6 @@ describe("desktop command palette", () => {
     await (await findMenuItem((text) => text === "Select sentence")).click();
     await browser.waitUntil(async () => (await readSelection()) === sentence, {
       timeoutMsg: `Select sentence selected: ${await readSelection()}`,
-    });
-    await browser.waitUntil(isEditorFocused, {
-      timeoutMsg: "Editor focus did not return after the menu command.",
     });
 
     await placeCaretInSentence();

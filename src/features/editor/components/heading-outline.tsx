@@ -21,7 +21,11 @@ import {
   type OutlineDepth,
   type OutlineHeading,
 } from "../utils/headingOutline";
-import { getOutlinePanelLayout, type OutlinePanelLayout } from "../utils/outlinePanelLayout";
+import {
+  getAnchoredOutlinePanelLayout,
+  getOutlinePanelLayout,
+  type OutlinePanelLayout,
+} from "../utils/outlinePanelLayout";
 
 interface HeadingOutlineProps {
   outline: HeadingOutlineState;
@@ -263,10 +267,21 @@ export function HeadingOutline({ outline, depth, onDepthChange, onNavigate }: He
   const changeDepth = (nextDepth: OutlineDepth) => {
     onDepthChange(nextDepth);
     const nextVisible = getVisibleOutlineHeadings(outline.headings, nextDepth);
-    openAt(
-      nextVisible,
-      getShownHeadingPosition(nextVisible, preview ?? current),
-      pointerRef.current.y,
+    const anchor = getShownHeadingPosition(nextVisible, outline.activePosition);
+    const index = Math.max(
+      0,
+      nextVisible.findIndex((heading) => heading.position === anchor),
+    );
+    if (!rootRef.current || !layout) return;
+    scrubOriginRef.current = null;
+    setPreview(null);
+    setLayout(
+      getAnchoredOutlinePanelLayout(
+        layout.top,
+        index,
+        nextVisible.length,
+        rootRef.current.clientHeight,
+      ),
     );
   };
 

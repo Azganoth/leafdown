@@ -132,6 +132,36 @@ describe("HeadingOutline", () => {
     expect(isOpen()).toBe(true);
   });
 
+  it("keeps the open outline in place while the levels change", async () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
+    // Rows sit 10px apart from 300px down the surface, in document order.
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+      function (this: HTMLElement) {
+        const rows = [...document.querySelectorAll("[data-outline-position]")];
+        const index = rows.indexOf(this);
+        return DOMRect.fromRect({
+          x: 0,
+          y: index < 0 ? 0 : 300 + index * 10,
+          width: 24,
+          height: 10,
+        });
+      },
+    );
+    const { user } = renderWithUser(<OutlineHarness />);
+    act(() => getRow("Heading 3: Water").focus());
+    const levels = within(getOutline()).getByRole("group", { name: "Heading levels" });
+
+    // Water, the third row, opens level with its rail position at 325px.
+    expect(getOutline()).toHaveStyle({ top: "208px" });
+    await user.click(within(levels).getByRole("button", { name: "Show headings down to level 1" }));
+    expect(getOutline()).toHaveStyle({ top: "208px" });
+    await user.click(within(levels).getByRole("button", { name: "Show headings down to level 3" }));
+    expect(getOutline()).toHaveStyle({ top: "208px" });
+
+    await user.unhover(getOutline());
+    await waitFor(() => expect(isOpen()).toBe(false));
+  });
+
   it("renders nothing for a document without headings", () => {
     renderWithUser(<OutlineHarness outline={{ headings: [], activePosition: null }} />);
 

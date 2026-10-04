@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getOutlinePanelLayout } from "./outlinePanelLayout";
+import { getAnchoredOutlinePanelLayout, getOutlinePanelLayout } from "./outlinePanelLayout";
 
 // A row's center sits 9 + 34 + index * 30 + 14 below the panel's top.
 describe("outline panel layout", () => {
@@ -10,6 +10,12 @@ describe("outline panel layout", () => {
 
   it("scrolls a long list when the panel cannot move far enough", () => {
     expect(getOutlinePanelLayout(40, 60, 300, 600)).toEqual({ top: 12, scrollTop: 969 });
+  });
+
+  it("keeps the panel's top unless the list must move up to stay on the surface", () => {
+    expect(getAnchoredOutlinePanelLayout(200, 0, 1, 600)).toEqual({ top: 200, scrollTop: 0 });
+    expect(getAnchoredOutlinePanelLayout(500, 3, 4, 600)).toEqual({ top: 418, scrollTop: 0 });
+    expect(getAnchoredOutlinePanelLayout(300, 40, 60, 600)).toEqual({ top: 12, scrollTop: 969 });
   });
 
   it("keeps the panel inside the surface at the ends of a short list", () => {

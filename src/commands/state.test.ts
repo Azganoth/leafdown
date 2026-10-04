@@ -80,13 +80,7 @@ describe("command state", () => {
       checked: false,
       enabled: true,
     });
-    expect(getCommandState("view.toggleSidebar", context)).toMatchObject({
-      checked: false,
-      enabled: true,
-    });
-    expect(
-      getCommandState("view.toggleSidebar", { ...context, activeDocument: null }),
-    ).toMatchObject({ enabled: false });
+    expect(getCommandState("view.toggleSidebar", context)).toMatchObject({ enabled: false });
     expect(
       getCommandState("view.toggleSidebar", {
         ...context,

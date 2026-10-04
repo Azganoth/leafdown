@@ -3,9 +3,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
-import { documentEditorBridge, useSessionStore } from "@/features/session";
+import { useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";
-import { createSavedDocument, createUntitledDocument } from "@/test/factories/document";
+import { createSavedDocument } from "@/test/factories/document";
 import {
   createArticleTree,
   createEmptyFolderContext,
@@ -127,10 +127,6 @@ describe("Shell", () => {
     await user.keyboard("{Enter}");
     await waitFor(() => expect(screen.getByRole("dialog", { name: /Preferences/u })).toBeVisible());
     expect(screen.queryByRole("combobox", { name: "Search commands" })).not.toBeInTheDocument();
-  });
-
-  afterEach(() => {
-    documentEditorBridge.clear();
   });
 
   it("renders the welcome shell with menu, document surface, and modal layer", () => {
@@ -260,7 +256,7 @@ describe("Shell", () => {
     });
   });
 
-  it("withholds the sidebar and its toggle without a document or folder", () => {
+  it("withholds the sidebar and its toggle without a folder context", () => {
     render(<Shell />);
 
     expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
@@ -271,54 +267,6 @@ describe("Shell", () => {
     const sidebarToggle = screen.getByRole("button", { name: "Show sidebar" });
     expect(sidebarToggle).toHaveAttribute("aria-disabled", "true");
     expect(sidebarToggle).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("shows an outline for an untitled document without a folder", async () => {
-    const activeDocument = createUntitledDocument({ content: "# Draft" });
-    setDefaultSession({ activeDocument });
-    const { user } = renderWithUser(<Shell />);
-
-    expect(screen.getByRole("complementary", { name: "Document outline" })).toHaveTextContent(
-      "No headings in this document.",
-    );
-    expect(screen.getByRole("button", { name: "Hide sidebar" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Articles" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Hide sidebar" }));
-    expect(screen.queryByTestId("heading-outline-host")).not.toBeInTheDocument();
-    expect(useSettingsStore.getState().sidebarVisible).toBe(false);
-  });
-
-  it("switches between the article navigator and position-based outline rows", async () => {
-    const activeDocument = createSavedDocument({ content: "# Same\n\n# Same\n" });
-    setDefaultSession({ activeDocument, folderContext: nestedFolderContext });
-    const navigateToOutlineHeading = vi.fn(() => true);
-    const { user } = renderWithUser(<Shell />);
-    const documentKey = activeDocument.path;
-    act(() => {
-      documentEditorBridge.set(documentKey, {
-        getMarkdown: () => activeDocument.content,
-        navigateToOutlineHeading,
-      });
-      documentEditorBridge.setHeadingOutline(documentKey, {
-        headings: [
-          { position: 0, level: 1, text: "Same", context: [] },
-          { position: 8, level: 3, text: "Same", context: ["blockquote"] },
-        ],
-        activePosition: 8,
-      });
-    });
-
-    await user.click(screen.getByRole("button", { name: "Outline" }));
-    expect(screen.queryByTestId("article-navigator-host")).not.toBeInTheDocument();
-    const rows = screen.getAllByRole("button", { name: /Heading [13]: Same/u });
-    expect(rows).toHaveLength(2);
-    expect(rows[1]).toHaveAttribute("aria-current", "location");
-    await user.click(rows[1]);
-    expect(navigateToOutlineHeading).toHaveBeenCalledWith(8);
-
-    await user.click(screen.getByRole("button", { name: "Articles" }));
-    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
   });
 
   it("frames the article navigator beside the document once a folder opens", () => {

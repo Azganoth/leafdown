@@ -2,11 +2,13 @@ import { Plugin } from "@milkdown/kit/prose/state";
 import { $prose } from "@milkdown/kit/utils";
 
 import {
-  getActiveHeadingPosition,
-  getHeadingOutline,
+  getOutlineHeadings,
+  headingOutlinePinKey,
   headingOutlinesEqual,
+  measureActiveHeading,
   type HeadingOutlineState,
 } from "../utils/headingOutline";
+import { findScrollingAncestor } from "../utils/scrollingAncestor";
 
 export const createLeafdownHeadingOutlinePlugin = (
   onOutlineChanged: (outline: HeadingOutlineState) => void,
@@ -14,29 +16,56 @@ export const createLeafdownHeadingOutlinePlugin = (
   $prose(
     () =>
       new Plugin({
+        key: headingOutlinePinKey,
+        state: {
+          init: () => null,
+          apply: (transaction, pin) => {
+            const meta = transaction.getMeta(headingOutlinePinKey) as typeof pin | undefined;
+            if (meta !== undefined) return meta;
+            return transaction.docChanged ? null : pin;
+          },
+        },
         view: (view) => {
-          let outline = getHeadingOutline(view.state);
+          let headings = getOutlineHeadings(view.state.doc);
+          let published: HeadingOutlineState | null = null;
+          let frame = 0;
+          const scrollTarget: HTMLElement | Window = findScrollingAncestor(view.dom) ?? window;
+
+          const publish = () => {
+            frame = 0;
+            if (view.isDestroyed) return;
+            const outline = { headings, activePosition: measureActiveHeading(view, headings) };
+            if (published && headingOutlinesEqual(published, outline)) return;
+            published = outline;
+            onOutlineChanged(outline);
+          };
+          const schedulePublish = () => {
+            if (!frame) frame = window.requestAnimationFrame(publish);
+          };
+
+          scrollTarget.addEventListener("scroll", schedulePublish, { passive: true });
+          const resizeObserver =
+            typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedulePublish);
+          resizeObserver?.observe(view.dom);
+          if (scrollTarget instanceof HTMLElement) resizeObserver?.observe(scrollTarget);
+          schedulePublish();
+
           return {
             update: (nextView, previousState) => {
-              if (
-                nextView.state.doc === previousState.doc &&
-                nextView.state.selection.eq(previousState.selection)
-              )
-                return;
-
-              const nextOutline =
-                nextView.state.doc === previousState.doc
-                  ? {
-                      headings: outline.headings,
-                      activePosition: getActiveHeadingPosition(
-                        outline.headings,
-                        nextView.state.selection.head,
-                      ),
-                    }
-                  : getHeadingOutline(nextView.state);
-              if (headingOutlinesEqual(outline, nextOutline)) return;
-              outline = nextOutline;
-              onOutlineChanged(outline);
+              if (nextView.state.doc !== previousState.doc) {
+                headings = getOutlineHeadings(nextView.state.doc);
+                schedulePublish();
+              } else if (
+                headingOutlinePinKey.getState(nextView.state) !==
+                headingOutlinePinKey.getState(previousState)
+              ) {
+                schedulePublish();
+              }
+            },
+            destroy: () => {
+              window.cancelAnimationFrame(frame);
+              scrollTarget.removeEventListener("scroll", schedulePublish);
+              resizeObserver?.disconnect();
             },
           };
         },

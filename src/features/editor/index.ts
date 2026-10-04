@@ -43,4 +43,4 @@ export {
 export type { MarkdownReferenceContext } from "./utils/markdownReferences";
 export type { TableCellCoordinates } from "./utils/tables";
 export { EMPTY_HEADING_OUTLINE } from "./utils/headingOutline";
-export type { HeadingOutlineState, OutlineHeading } from "./utils/headingOutline";
+export type { HeadingOutlineState, OutlineDepth, OutlineHeading } from "./utils/headingOutline";

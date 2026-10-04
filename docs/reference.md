@@ -20,7 +20,9 @@ Global settings persist across application launches unless specified otherwise.
   - A single recent file or folder can be removed from its list on the welcome screen; every other entry in both lists stays where it was.
   - `Clear recent items` clears both recent lists.
 - **Sidebar visibility:** Visible or hidden. Default: Visible.
-  - The setting applies while a folder context or document is open. A document without a folder shows its outline; a folder without a document shows its article navigator. With neither, the setting is preserved rather than changed.
+  - The setting applies while a folder context is open. Without one the article navigator is not shown, and the setting is preserved rather than changed.
+- **Outline levels:** H1 only through H1–H6. Default: H1–H3.
+  - Set from the H1 to H6 control in the document outline's header. See the document outline in the [Interface Model](./specification.md#interface-model).
 - **Status bar visibility:** Visible or hidden. Default: Visible.
   - The setting applies while a document is open. Without one the status bar is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
@@ -353,7 +355,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Toggle sidebar` requires an active document or folder context. `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
+- `Toggle sidebar`, `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 
 #### Search And Updates
 

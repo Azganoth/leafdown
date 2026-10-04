@@ -215,25 +215,27 @@ describe("block selection interaction", () => {
   });
 
   it("repositions handles when a block resizes inside an editor that keeps its size", async () => {
-    let notifyResize: () => void = () => undefined;
-    const observed = new Set<Element>();
+    const observers: { callback: () => void; observed: Set<Element> }[] = [];
     vi.stubGlobal(
       "ResizeObserver",
       class {
+        private readonly entry: (typeof observers)[number];
+
         constructor(callback: () => void) {
-          notifyResize = callback;
+          this.entry = { callback, observed: new Set() };
+          observers.push(this.entry);
         }
 
         observe(element: Element) {
-          observed.add(element);
+          this.entry.observed.add(element);
         }
 
         unobserve(element: Element) {
-          observed.delete(element);
+          this.entry.observed.delete(element);
         }
 
         disconnect() {
-          observed.clear();
+          this.entry.observed.clear();
         }
       },
     );
@@ -244,11 +246,14 @@ describe("block selection interaction", () => {
     if (!(firstNode instanceof Element) || !(secondNode instanceof Element)) {
       throw new Error("Expected rendered paragraphs.");
     }
+    const blockObserver = observers.find((observer) => observer.observed.has(firstNode));
+    if (!blockObserver) throw new Error("Expected the top-level blocks to be observed.");
+    const { observed } = blockObserver;
 
     expect(observed).toEqual(new Set([mounted.view.dom, firstNode, secondNode]));
 
     vi.spyOn(secondNode, "getBoundingClientRect").mockReturnValue(createRect(100, 60, 40));
-    notifyResize();
+    blockObserver.callback();
     await settleAnimationFrame();
 
     expect(getHandle(second.pos).parentElement?.style.top).toBe("60px");

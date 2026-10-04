@@ -1,0 +1,200 @@
+@reference "../../../app.css";
+
+/* A zero-width column on the document surface's right edge. Its size container lets the rail's
+   row pitch and the panel's height follow the surface's height. */
+.leafdown-outline {
+  @apply pointer-events-none absolute inset-y-0 right-3 z-20 w-0;
+  container-type: size;
+  --outline-pitch: clamp(5px, calc((100cqh - 60px) / var(--outline-count)), 12px);
+  --outline-edge: 12px;
+  --outline-row: 28px;
+  --outline-row-gap: 2px;
+  --outline-header: 34px;
+  --outline-title: min(15rem, calc(100vw - 7.5rem));
+}
+
+.leafdown-outline-panel {
+  @apply pointer-events-auto absolute right-0 flex flex-col rounded-xl border border-transparent p-2 transition-[top,background-color,border-color,box-shadow] duration-200 ease-out motion-reduce:transition-none;
+  top: max(
+    var(--outline-edge),
+    calc(50% - (var(--outline-count) * var(--outline-pitch) + 18px) / 2)
+  );
+
+  &:hover {
+    @apply bg-muted/75;
+  }
+
+  .leafdown-outline[data-open] & {
+    @apply border-border bg-popover text-popover-foreground shadow-md;
+  }
+}
+
+.leafdown-outline-header {
+  @apply flex h-0 shrink-0 items-center justify-between gap-2 overflow-hidden pr-0.5 pl-2.5 text-xs font-semibold whitespace-nowrap opacity-0 transition-[height,opacity] duration-200 ease-out motion-reduce:transition-none;
+  /* Keeps the header from widening the closed rail. */
+  contain: inline-size;
+
+  .leafdown-outline[data-open] & {
+    @apply opacity-100;
+    height: var(--outline-header);
+  }
+}
+
+/* The chosen levels read as one band from H1 to the chosen level. */
+.leafdown-outline-levels {
+  @apply flex items-center rounded-md bg-muted p-0.5;
+
+  button {
+    @apply h-5 rounded-[4px] px-1.5 text-[11px] font-medium text-muted-foreground tabular-nums outline-hidden hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50;
+  }
+
+  button[data-included] {
+    @apply rounded-none bg-primary/12 text-foreground;
+  }
+
+  button[data-included]:first-child {
+    @apply rounded-l-[4px];
+  }
+
+  button[aria-pressed="true"] {
+    @apply rounded-r-[4px] bg-primary/22;
+  }
+}
+
+/* Registered so the scroll-driven animations below can interpolate them. A list that does not
+   overflow has no active scroll timeline, so both stay at zero and nothing fades. */
+@property --outline-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --outline-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes leafdown-outline-fade-top {
+  from {
+    --outline-fade-top: 0px;
+  }
+
+  to {
+    --outline-fade-top: 1.25rem;
+  }
+}
+
+@keyframes leafdown-outline-fade-bottom {
+  from {
+    --outline-fade-bottom: 1.25rem;
+  }
+
+  to {
+    --outline-fade-bottom: 0px;
+  }
+}
+
+.leafdown-outline-list {
+  @apply flex min-h-0 flex-col overflow-hidden transition-[gap] duration-200 ease-out motion-reduce:transition-none;
+  max-height: calc(100cqh - 2 * var(--outline-edge) - 18px);
+  scrollbar-width: none;
+  /* Each edge fades in over the first 1.25rem scrolled away from it, marking headings beyond. */
+  animation:
+    leafdown-outline-fade-top linear both,
+    leafdown-outline-fade-bottom linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range:
+    0 1.25rem,
+    calc(100% - 1.25rem) 100%;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--outline-fade-top),
+    black calc(100% - var(--outline-fade-bottom)),
+    transparent
+  );
+
+  .leafdown-outline[data-open] & {
+    @apply overflow-y-auto;
+    gap: var(--outline-row-gap);
+    max-height: calc(100cqh - 2 * var(--outline-edge) - 18px - var(--outline-header));
+  }
+}
+
+.leafdown-outline-row {
+  @apply flex w-full shrink-0 cursor-pointer items-stretch rounded-md text-left text-[13px] text-foreground/80 outline-hidden transition-[height] duration-200 ease-out focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none;
+  height: var(--outline-pitch);
+
+  &[data-level="1"] {
+    @apply font-semibold text-foreground;
+  }
+
+  &[data-level="2"] {
+    @apply font-medium text-foreground;
+  }
+
+  &[data-level="4"],
+  &[data-level="5"],
+  &[data-level="6"] {
+    @apply text-[12.5px] text-muted-foreground;
+  }
+
+  .leafdown-outline[data-open] & {
+    height: var(--outline-row);
+  }
+
+  .leafdown-outline[data-open] &:hover,
+  .leafdown-outline[data-open] &[data-preview] {
+    @apply bg-muted text-foreground;
+  }
+
+  .leafdown-outline[data-open] &[aria-current="location"] {
+    @apply bg-primary/10 text-foreground;
+  }
+}
+
+.leafdown-outline-title {
+  @apply flex w-0 min-w-0 items-center overflow-hidden opacity-0 transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none;
+
+  > span {
+    @apply min-w-0 flex-1 truncate pr-2;
+    padding-left: calc(0.625rem + var(--outline-indent));
+  }
+
+  .leafdown-outline[data-open] & {
+    @apply opacity-100;
+    width: var(--outline-title);
+  }
+}
+
+.leafdown-outline-mark {
+  @apply flex w-6 shrink-0 items-center justify-center;
+
+  &::before {
+    @apply size-1 rounded-full bg-muted-foreground/45 transition-[background-color,box-shadow,scale] duration-150 motion-reduce:transition-none;
+    content: "";
+  }
+
+  [data-level="1"] > &::before {
+    @apply size-[7px];
+  }
+
+  [data-level="2"] > &::before {
+    @apply size-1.5;
+  }
+
+  [data-level="4"] > &::before,
+  [data-level="5"] > &::before,
+  [data-level="6"] > &::before {
+    @apply size-[3px];
+  }
+
+  [data-preview] > &::before {
+    @apply scale-140 bg-foreground/70;
+  }
+
+  [aria-current="location"] > &::before {
+    @apply bg-primary ring-3 ring-primary/20;
+  }
+}

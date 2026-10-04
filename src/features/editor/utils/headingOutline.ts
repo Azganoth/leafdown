@@ -1,10 +1,15 @@
-import { TextSelection, type EditorState } from "@milkdown/kit/prose/state";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { finalizeSourceProjection } from "../plugins/sourceProjection";
+import { findScrollingAncestor } from "./scrollingAncestor";
 import { plainHeadingText } from "./wikiHeadings";
 
 export type HeadingContainer = "blockquote" | "bullet_list" | "ordered_list" | "callout";
+
+export const OUTLINE_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
+export type OutlineDepth = (typeof OUTLINE_DEPTHS)[number];
 
 export interface OutlineHeading {
   position: number;
@@ -18,24 +23,34 @@ export interface HeadingOutlineState {
   activePosition: number | null;
 }
 
+interface OutlinePin {
+  position: number;
+  scrollTop: number;
+}
+
 export const EMPTY_HEADING_OUTLINE: HeadingOutlineState = {
   headings: [],
   activePosition: null,
 };
 
-export const getActiveHeadingPosition = (headings: OutlineHeading[], caret: number) =>
-  headings.findLast((heading) => heading.position < caret)?.position ?? null;
+// The current heading is the last one to have reached this distance below the top of the view.
+// It clears the editor's top padding, so a document opening on a heading marks that heading.
+const ACTIVE_LINE_OFFSET = 80;
+const NAVIGATION_OFFSET = 16;
 
-export const getHeadingOutline = (state: EditorState): HeadingOutlineState => {
+// Holds the heading chosen from the outline while the view stays where navigation left it, since
+// a heading in the last screen of a document cannot scroll up to the active line.
+export const headingOutlinePinKey = new PluginKey<OutlinePin | null>("leafdown-heading-outline");
+
+export const getOutlineHeadings = (doc: ProseMirrorNode): OutlineHeading[] => {
   const headings: OutlineHeading[] = [];
-  state.doc.descendants((node, position) => {
-    if (node.type.name !== "heading") return true;
+  doc.descendants((node, position) => {
+    if (node.type.name !== "heading") return !node.isTextblock;
 
-    const $position = state.doc.resolve(position);
+    const $position = doc.resolve(position);
     const context: HeadingContainer[] = [];
     for (let depth = 1; depth <= $position.depth; depth += 1) {
-      const ancestor = $position.node(depth);
-      const kind = ancestor.type.name;
+      const kind = $position.node(depth).type.name;
       if (
         kind === "blockquote" ||
         kind === "bullet_list" ||
@@ -53,9 +68,97 @@ export const getHeadingOutline = (state: EditorState): HeadingOutlineState => {
     });
     return false;
   });
+  return headings;
+};
 
-  const activePosition = getActiveHeadingPosition(headings, state.selection.head);
-  return { headings, activePosition };
+// Headings deeper than the chosen depth are left out, except that a document whose shallowest
+// heading is deeper than the depth still lists that shallowest level.
+export const getVisibleOutlineHeadings = (headings: OutlineHeading[], depth: OutlineDepth) => {
+  if (headings.length === 0) return headings;
+  const limit = Math.max(depth, Math.min(...headings.map((heading) => heading.level)));
+  return headings.filter((heading) => heading.level <= limit);
+};
+
+export const getShownHeadingPosition = (
+  visible: OutlineHeading[],
+  activePosition: number | null,
+) =>
+  activePosition === null
+    ? null
+    : (visible.findLast((heading) => heading.position <= activePosition)?.position ?? null);
+
+export const findLastHeadingAtOrAbove = (
+  count: number,
+  topAt: (index: number) => number,
+  line: number,
+) => {
+  let low = 0;
+  let high = count - 1;
+  let found = -1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    if (topAt(middle) <= line) {
+      found = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return found;
+};
+
+// Over the last stretch of scrolling the line moves down to the bottom of the view, so the
+// headings of a final screen become current in turn as the document reaches its end.
+export const getActiveLine = (
+  top: number,
+  height: number,
+  remaining: number,
+  maxScroll: number,
+) => {
+  const travel = Math.min(maxScroll, height - ACTIVE_LINE_OFFSET);
+  const progress = travel > 0 ? Math.max(0, travel - remaining) / travel : 0;
+  return top + ACTIVE_LINE_OFFSET + progress * Math.max(0, height - ACTIVE_LINE_OFFSET);
+};
+
+const headingTop = (view: EditorView, position: number) => {
+  const element = view.nodeDOM(position);
+  return element instanceof Element
+    ? element.getBoundingClientRect().top
+    : Number.POSITIVE_INFINITY;
+};
+
+export const measureActiveHeading = (view: EditorView, headings: OutlineHeading[]) => {
+  if (headings.length === 0) return null;
+  const viewport = findScrollingAncestor(view.dom);
+  const pin = headingOutlinePinKey.getState(view.state);
+  if (
+    pin &&
+    viewport &&
+    Math.abs(viewport.scrollTop - pin.scrollTop) < 1 &&
+    headings.some((heading) => heading.position === pin.position)
+  ) {
+    return pin.position;
+  }
+
+  const line = viewport
+    ? getActiveLine(
+        viewport.getBoundingClientRect().top,
+        viewport.clientHeight,
+        viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop,
+        viewport.scrollHeight - viewport.clientHeight,
+      )
+    : ACTIVE_LINE_OFFSET;
+  const index = findLastHeadingAtOrAbove(
+    headings.length,
+    (candidate) => headingTop(view, headings[candidate].position),
+    line,
+  );
+  return index < 0 ? null : headings[index].position;
+};
+
+export const readHeadingOutline = (view: EditorView): HeadingOutlineState => {
+  const headings = getOutlineHeadings(view.state.doc);
+  return { headings, activePosition: measureActiveHeading(view, headings) };
 };
 
 export const headingOutlinesEqual = (left: HeadingOutlineState, right: HeadingOutlineState) =>
@@ -72,19 +175,37 @@ export const headingOutlinesEqual = (left: HeadingOutlineState, right: HeadingOu
   });
 
 export const jumpToOutlineHeading = (view: EditorView, position: number) => {
-  const before = getHeadingOutline(view.state);
-  const index = before.headings.findIndex((heading) => heading.position === position);
+  const before = getOutlineHeadings(view.state.doc);
+  const index = before.findIndex((heading) => heading.position === position);
   if (index < 0) return false;
   finalizeSourceProjection(view);
-  const after = getHeadingOutline(view.state);
-  if (after.headings.length !== before.headings.length) return false;
-  const heading = after.headings[index];
+  const after = getOutlineHeadings(view.state.doc);
+  if (after.length !== before.length) return false;
+  const heading = after[index];
   if (!heading) return false;
 
+  const viewport = findScrollingAncestor(view.dom);
+  const element = view.nodeDOM(heading.position);
+  if (element instanceof Element) {
+    if (viewport) {
+      viewport.scrollTop +=
+        element.getBoundingClientRect().top -
+        viewport.getBoundingClientRect().top -
+        NAVIGATION_OFFSET;
+    } else {
+      element.scrollIntoView({ block: "start" });
+    }
+  }
+
   const selection = TextSelection.near(view.state.doc.resolve(heading.position + 1), 1);
-  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
+  view.dispatch(
+    view.state.tr
+      .setSelection(selection)
+      .setMeta(
+        headingOutlinePinKey,
+        viewport ? { position: heading.position, scrollTop: viewport.scrollTop } : null,
+      ),
+  );
   view.focus();
-  const headingElement = view.nodeDOM(heading.position);
-  if (headingElement instanceof Element) headingElement.scrollIntoView({ block: "center" });
   return true;
 };

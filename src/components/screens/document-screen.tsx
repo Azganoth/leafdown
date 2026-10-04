@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,7 +7,13 @@ import {
   openMarkdownDocument,
   type ActiveDocumentState,
 } from "@/features/document";
-import { MilkdownEditor, type MilkdownEditorBridge } from "@/features/editor";
+import {
+  EMPTY_HEADING_OUTLINE,
+  HeadingOutline,
+  MilkdownEditor,
+  type HeadingOutlineState,
+  type MilkdownEditorBridge,
+} from "@/features/editor";
 import type { ArticleTreeNode } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import {
@@ -46,6 +52,8 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const documentFont = useSettingsStore((state) => state.documentFont);
   const textSize = useSettingsStore((state) => state.textSize);
   const lineSpacing = useSettingsStore((state) => state.lineSpacing);
+  const outlineDepth = useSettingsStore((state) => state.outlineDepth);
+  const updateSetting = useSettingsStore((state) => state.updateSetting);
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextPath = folderContext?.path ?? null;
   const wikiCompletionPaths = useMemo(
@@ -57,6 +65,13 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const loadId = useSessionStore((state) => state.activeDocumentLoadId);
   const initialViewState = useSessionStore((state) => state.activeDocumentViewState);
   const documentKey = getActiveDocumentKey(activeDocument);
+  const editorKey = `${documentKey}:${loadId}`;
+  const [publishedOutline, setPublishedOutline] = useState<{
+    editorKey: string;
+    outline: HeadingOutlineState;
+  } | null>(null);
+  const headingOutline =
+    publishedOutline?.editorKey === editorKey ? publishedOutline.outline : EMPTY_HEADING_OUTLINE;
   // Prevents MilkdownEditor from remounting plugins due to ref identity changes across renders.
   const setEditorBridgeRef = useCallback(
     (bridge: MilkdownEditorBridge | null) => {
@@ -71,10 +86,10 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
       className="flex size-full"
     >
       <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
-        <CardContent className="min-h-0 flex-1 p-0">
+        <CardContent className="relative min-h-0 flex-1 p-0">
           <ScrollArea className="min-h-0 flex-1" data-testid="document-surface-scroll-area">
             <MilkdownEditor
-              key={`${documentKey}:${loadId}`}
+              key={editorKey}
               ref={setEditorBridgeRef}
               initialMarkdown={activeDocument.content}
               initialViewState={initialViewState}
@@ -93,11 +108,17 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               onContentChanged={() => markActiveDocumentDirty(documentKey)}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
               onDocumentStatusChanged={documentEditorBridge.fireDocumentStatusChanged}
-              onHeadingOutlineChanged={(outline) =>
-                documentEditorBridge.setHeadingOutline(documentKey, outline)
-              }
+              onHeadingOutlineChanged={(outline) => setPublishedOutline({ editorKey, outline })}
             />
           </ScrollArea>
+          <HeadingOutline
+            depth={outlineDepth}
+            onDepthChange={(depth) => updateSetting("outlineDepth", depth)}
+            onNavigate={(position) =>
+              documentEditorBridge.navigateToOutlineHeading(documentKey, position)
+            }
+            outline={headingOutline}
+          />
         </CardContent>
       </Card>
     </section>

@@ -1,5 +1,5 @@
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
-import { lazy, Suspense, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useState } from "react";
 
 import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
@@ -16,14 +16,13 @@ import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DiagnosticsDialog } from "@/features/diagnostics";
-import { formatDocumentEncoding, getActiveDocumentKey } from "@/features/document";
-import { DocumentTypographyPreview, HeadingOutline } from "@/features/editor";
+import { formatDocumentEncoding } from "@/features/document";
+import { DocumentTypographyPreview } from "@/features/editor";
 import { ArticleNavigator } from "@/features/folder-context";
 import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import { ReleaseNotesDialog } from "@/features/release-notes";
 import {
-  documentEditorBridge,
   getSessionMode,
   notifyOpenMarkdownFileError,
   openMarkdownFileAtPath,
@@ -51,11 +50,6 @@ const handleOpenArticle = (path: string) => {
   });
 };
 
-const subscribeToHeadingOutline = (listener: () => void) => {
-  const subscription = documentEditorBridge.onDidChangeHeadingOutline(listener);
-  return () => subscription.dispose();
-};
-
 export function Shell() {
   useFolderContextWatcher();
   useActiveDocumentWatcher();
@@ -63,7 +57,6 @@ export function Shell() {
   const localization = useLocalization();
   const { t } = localization;
   const [simulatedRenderFailureId, setSimulatedRenderFailureId] = useState(0);
-  const [sidebarView, setSidebarView] = useState<"articles" | "outline">("articles");
   const commands = useAppCommands();
   const sessionMode = useSessionStore(getSessionMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
@@ -71,17 +64,8 @@ export function Shell() {
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
-  const documentKey = activeDocument ? getActiveDocumentKey(activeDocument) : null;
-  const outline = useSyncExternalStore(subscribeToHeadingOutline, () =>
-    documentEditorBridge.getHeadingOutline(documentKey ?? ""),
-  );
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
   const sidebarShown = sidebarAvailable && sidebarVisible;
-  const visibleSidebarView = folderContext
-    ? activeDocument
-      ? sidebarView
-      : "articles"
-    : "outline";
   const statusBarShown = activeDocument !== null && statusBarVisible;
 
   return (
@@ -159,82 +143,29 @@ export function Shell() {
             className={cn("flex min-h-0 flex-1 px-3 pt-1", statusBarShown ? "pb-0" : "pb-3")}
           >
             <ResizablePanelGroup className="min-h-0 flex-1" orientation="horizontal">
-              {sidebarShown && (
+              {folderContext && sidebarVisible && (
                 <>
                   <ResizablePanel
                     defaultSize={256}
                     groupResizeBehavior="preserve-pixel-size"
-                    id="sidebar"
+                    id="article-navigator"
                     maxSize={480}
                     minSize={192}
                   >
-                    <div className="flex size-full min-h-0 min-w-0 flex-col gap-2">
-                      {folderContext && activeDocument && (
-                        <div
-                          aria-label={t("shell.sidebar.views")}
-                          className="flex shrink-0 gap-1 rounded-lg bg-muted p-1"
-                          role="group"
-                        >
-                          <Button
-                            aria-pressed={visibleSidebarView === "articles"}
-                            className="min-w-0 flex-1"
-                            onClick={() => setSidebarView("articles")}
-                            size="sm"
-                            type="button"
-                            variant={visibleSidebarView === "articles" ? "secondary" : "ghost"}
-                          >
-                            {t("shell.sidebar.articles")}
-                          </Button>
-                          <Button
-                            aria-pressed={visibleSidebarView === "outline"}
-                            className="min-w-0 flex-1"
-                            onClick={() => setSidebarView("outline")}
-                            size="sm"
-                            type="button"
-                            variant={visibleSidebarView === "outline" ? "secondary" : "ghost"}
-                          >
-                            {t("shell.sidebar.outline")}
-                          </Button>
-                        </div>
-                      )}
-                      {visibleSidebarView === "articles" && folderContext && (
-                        <aside
-                          aria-label={t("shell.articleNavigator")}
-                          data-testid="article-navigator-host"
-                          className="flex min-h-0 min-w-0 flex-1"
-                        >
-                          <ArticleNavigator
-                            actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
-                            activeArticlePath={activeArticlePath}
-                            folderContext={folderContext}
-                            onOpenArticle={handleOpenArticle}
-                          />
-                        </aside>
-                      )}
-                      {visibleSidebarView === "outline" && documentKey && (
-                        <aside
-                          aria-label={t("headingOutline.title")}
-                          data-testid="heading-outline-host"
-                          className="flex min-h-0 min-w-0 flex-1"
-                        >
-                          <HeadingOutline
-                            outline={outline}
-                            onNavigate={(position) =>
-                              documentEditorBridge.navigateToOutlineHeading(documentKey, position)
-                            }
-                          />
-                        </aside>
-                      )}
-                    </div>
+                    <aside
+                      aria-label={t("shell.articleNavigator")}
+                      data-testid="article-navigator-host"
+                      className="flex size-full min-h-0 min-w-0"
+                    >
+                      <ArticleNavigator
+                        actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
+                        activeArticlePath={activeArticlePath}
+                        folderContext={folderContext}
+                        onOpenArticle={handleOpenArticle}
+                      />
+                    </aside>
                   </ResizablePanel>
-                  <ResizableHandle
-                    aria-label={t(
-                      visibleSidebarView === "articles"
-                        ? "shell.resizeArticleNavigator"
-                        : "shell.resizeSidebar",
-                    )}
-                    withHandle
-                  />
+                  <ResizableHandle aria-label={t("shell.resizeArticleNavigator")} withHandle />
                 </>
               )}
 

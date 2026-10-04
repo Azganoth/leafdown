@@ -61,8 +61,8 @@ import {
   type EditorDocumentStatus,
 } from "../utils/documentStatus";
 import {
-  getHeadingOutline,
   jumpToOutlineHeading,
+  readHeadingOutline,
   type HeadingOutlineState,
 } from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
@@ -521,7 +521,7 @@ export const useMilkdownEditorInstance = ({
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
       liveOptionsRef.current.onHeadingOutlineChanged?.(
-        getHeadingOutline(editor.ctx.get(editorViewCtx).state),
+        readHeadingOutline(editor.ctx.get(editorViewCtx)),
       );
     };
 

@@ -4,7 +4,13 @@ import { readFile } from "node:fs/promises";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { openRecentPath, selectFileMenuItem } from "../support/ui.js";
 
-const outlineRows = () => $$('[data-testid="heading-outline-host"] button[data-outline-position]');
+const OUTLINE = '[data-testid="heading-outline"]';
+const outlineRows = () => $$(`${OUTLINE} button[data-outline-position]`);
+const isOutlineOpen = () =>
+  browser.execute(
+    (selector) => document.querySelector(selector)?.hasAttribute("data-open") ?? false,
+    OUTLINE,
+  );
 const selectedHeading = () =>
   browser.execute(
     () =>
@@ -12,33 +18,37 @@ const selectedHeading = () =>
         ?.textContent ?? "",
   );
 const getPlacement = () =>
-  browser.execute(() => {
-    const sidebar = document.querySelector('[data-testid="heading-outline-host"]');
-    const editor = document.querySelector('[data-testid="document-surface-host"]');
+  browser.execute((selector) => {
+    const outline = document.querySelector(`${selector} nav`);
+    const surface = document.querySelector('[data-testid="document-surface-host"]');
     const viewport = document.querySelector(
       '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
     const heading = document.getSelection()?.anchorNode?.parentElement?.closest("h1");
-    if (!sidebar || !editor || !viewport || !heading)
+    if (!outline || !surface || !viewport || !heading)
       throw new Error("Outline geometry is missing.");
+    const outlineRect = outline.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    const headingTop = heading.getBoundingClientRect().top - viewportRect.top;
     return {
-      separated: sidebar.getBoundingClientRect().right <= editor.getBoundingClientRect().left,
-      visible:
-        heading.getBoundingClientRect().top >= viewport.getBoundingClientRect().top &&
-        heading.getBoundingClientRect().bottom <= viewport.getBoundingClientRect().bottom,
+      insideSurface:
+        outlineRect.left >= surfaceRect.left &&
+        outlineRect.right <= surfaceRect.right &&
+        outlineRect.top >= surfaceRect.top &&
+        outlineRect.bottom <= surfaceRect.bottom,
+      headingNearTop: headingTop >= 0 && headingTop <= 48,
       scrollTop: viewport.scrollTop,
     };
-  });
+  }, OUTLINE);
 
 describe("desktop heading outline", () => {
-  it("navigates exact headings from a folderless document at a narrow window width", async () => {
+  it("navigates exact headings from the floating outline at a narrow window width", async () => {
     const { outline } = await getDesktopE2ERunContext();
     const original = await readFile(outline.path, "utf8");
     await $("aria/New document").click();
-    await expect($('[data-testid="heading-outline-host"] p')).toHaveText(
-      "No headings in this document.",
-    );
-    await expect($('[aria-label="Sidebar views"]')).not.toExist();
+    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($(OUTLINE)).not.toExist();
 
     await openRecentPath(outline.path);
     await browser.waitUntil(
@@ -49,59 +59,64 @@ describe("desktop heading outline", () => {
         ),
       { timeout: 15_000, timeoutMsg: "The saved document did not replace the untitled editor." },
     );
-    await expect($(".ProseMirror")).toBeDisplayed();
-    await $('[aria-label="Sidebar views"] button:last-child').click();
-    await expect($('[data-testid="heading-outline-host"]')).toBeDisplayed();
     await browser.setWindowSize(640, 600);
 
     await browser.waitUntil(async () => (await outlineRows().length) === 4, {
-      timeoutMsg: "The document outline did not show all four headings.",
+      timeoutMsg: "The document outline did not list all four headings.",
     });
     const rows = await outlineRows().getElements();
-    expect(await rows[0].getAttribute("aria-label")).toContain("Heading 1: Same");
+    expect(await rows[0].getAttribute("aria-label")).toBe("Heading 1: Same");
     expect(await rows[1].getAttribute("aria-label")).toContain("Heading 3: Quoted");
     expect(await rows[2].getAttribute("aria-label")).toContain("Unordered list");
-    expect(await rows[3].getAttribute("aria-label")).toContain("Heading 1: Same");
+    expect(await rows[3].getAttribute("aria-label")).toBe("Heading 1: Same");
     expect(await rows[0].getAttribute("data-outline-position")).not.toBe(
       await rows[3].getAttribute("data-outline-position"),
     );
+    expect(await rows[0].getAttribute("aria-current")).toBe("location");
 
+    await rows[3].moveTo();
+    await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not open the outline." });
+    await browser.waitUntil(async () => (await rows[3].getSize("width")) > 100, {
+      timeoutMsg: "The open outline did not show heading titles.",
+    });
     await rows[3].click();
     expect(await selectedHeading()).toBe("Same");
-    expect(await rows[3].getAttribute("aria-current")).toBe("location");
-    await browser.waitUntil(async () => (await getPlacement()).visible, {
-      timeoutMsg: "The selected heading was not scrolled into the document viewport.",
-    });
+    await browser.waitUntil(
+      async () => (await rows[3].getAttribute("aria-current")) === "location",
+      { timeoutMsg: "The chosen heading did not become current." },
+    );
     const placement = await getPlacement();
-    expect(placement.separated).toBe(true);
-    expect(placement.visible).toBe(true);
+    expect(placement.insideSurface).toBe(true);
+    expect(placement.headingNearTop).toBe(true);
     expect(placement.scrollTop).toBeGreaterThan(0);
 
     const quotedPosition = await rows[1].getAttribute("data-outline-position");
     await browser.execute((position) => {
       document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)?.focus();
     }, quotedPosition);
+    await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Focus did not open the outline." });
     await browser.keys("Enter");
     await browser.waitUntil(async () => (await selectedHeading()) === "Quoted", {
       timeoutMsg: "Keyboard activation did not move the caret to the quoted heading.",
     });
-    expect(await rows[1].getAttribute("aria-current")).toBe("location");
-    const firstPosition = await rows[0].getAttribute("data-outline-position");
-    await browser.execute((position) => {
-      document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)?.focus();
-    }, firstPosition);
-    await browser.keys(" ");
-    await browser.waitUntil(
-      async () => (await rows[0].getAttribute("aria-current")) === "location",
-      {
-        timeoutMsg: "Space did not activate the first heading.",
-      },
-    );
+
+    await rows[0].moveTo();
+    await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not reopen the outline." });
+    await $(`${OUTLINE} [aria-label="Show headings down to level 1"]`).click();
+    await browser.waitUntil(async () => (await outlineRows().length) === 2, {
+      timeoutMsg: "Choosing level 1 did not hide the deeper headings.",
+    });
+    await $(`${OUTLINE} [aria-label="Show headings down to level 3"]`).click();
+    await browser.waitUntil(async () => (await outlineRows().length) === 4, {
+      timeoutMsg: "Choosing level 3 did not list the deeper headings again.",
+    });
+    await $(".ProseMirror").moveTo();
+    await browser.waitUntil(async () => !(await isOutlineOpen()), {
+      timeoutMsg: "The outline did not close after the pointer left it.",
+    });
     expect(await readFile(outline.path, "utf8")).toBe(original);
 
     await selectFileMenuItem("New");
-    await expect($('[data-testid="heading-outline-host"] p')).toHaveText(
-      "No headings in this document.",
-    );
+    await expect($(OUTLINE)).not.toExist();
   });
 });

@@ -17,6 +17,34 @@ const selectedHeading = () =>
       document.getSelection()?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6")
         ?.textContent ?? "",
   );
+// The WebDriver harness turns a pointer move into a bare `mousemove`, so hovering is dispatched as
+// the pointer events a real mouse produces.
+const hoverRow = (position: string | null) =>
+  browser.execute((value) => {
+    const row = document.querySelector(`[data-outline-position="${value}"]`);
+    if (!row) throw new Error("Outline row is missing.");
+    const rect = row.getBoundingClientRect();
+    const init = {
+      bubbles: true,
+      composed: true,
+      pointerType: "mouse",
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+    };
+    row.dispatchEvent(new PointerEvent("pointerover", init));
+    row.dispatchEvent(new PointerEvent("pointermove", init));
+  }, position);
+const leaveOutline = () =>
+  browser.execute((selector) => {
+    document.querySelector(`${selector} nav`)?.dispatchEvent(
+      new PointerEvent("pointerout", {
+        bubbles: true,
+        composed: true,
+        pointerType: "mouse",
+        relatedTarget: document.querySelector(".ProseMirror"),
+      }),
+    );
+  }, OUTLINE);
 const getPlacement = () =>
   browser.execute((selector) => {
     const outline = document.querySelector(`${selector} nav`);
@@ -74,7 +102,7 @@ describe("desktop heading outline", () => {
     );
     expect(await rows[0].getAttribute("aria-current")).toBe("location");
 
-    await rows[3].moveTo();
+    await hoverRow(await rows[3].getAttribute("data-outline-position"));
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not open the outline." });
     await browser.waitUntil(async () => (await rows[3].getSize("width")) > 100, {
       timeoutMsg: "The open outline did not show heading titles.",
@@ -90,17 +118,23 @@ describe("desktop heading outline", () => {
     expect(placement.headingNearTop).toBe(true);
     expect(placement.scrollTop).toBeGreaterThan(0);
 
+    await leaveOutline();
+    await browser.waitUntil(async () => !(await isOutlineOpen()), {
+      timeoutMsg: "The outline did not close after the pointer left it.",
+    });
     const quotedPosition = await rows[1].getAttribute("data-outline-position");
     await browser.execute((position) => {
       document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)?.focus();
     }, quotedPosition);
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Focus did not open the outline." });
-    await browser.keys("Enter");
+    // Synthesized keys are untrusted and never activate a button, so the focused row is chosen
+    // with a click; component tests cover Enter.
+    await rows[1].click();
     await browser.waitUntil(async () => (await selectedHeading()) === "Quoted", {
-      timeoutMsg: "Keyboard activation did not move the caret to the quoted heading.",
+      timeoutMsg: "Choosing the focused row did not move the caret to the quoted heading.",
     });
 
-    await rows[0].moveTo();
+    await hoverRow(await rows[0].getAttribute("data-outline-position"));
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not reopen the outline." });
     await $(`${OUTLINE} [aria-label="Show headings down to level 1"]`).click();
     await browser.waitUntil(async () => (await outlineRows().length) === 2, {
@@ -110,7 +144,7 @@ describe("desktop heading outline", () => {
     await browser.waitUntil(async () => (await outlineRows().length) === 4, {
       timeoutMsg: "Choosing level 3 did not list the deeper headings again.",
     });
-    await $(".ProseMirror").moveTo();
+    await leaveOutline();
     await browser.waitUntil(async () => !(await isOutlineOpen()), {
       timeoutMsg: "The outline did not close after the pointer left it.",
     });

@@ -24,6 +24,12 @@ const pressKey = (key: string, init: KeyboardEventInit = {}) =>
 
 const readSelection = () => browser.execute(() => document.getSelection()?.toString() ?? "");
 
+const waitForEditorFocus = (afterCommand: string) =>
+  browser.waitUntil(
+    () => browser.execute(() => document.activeElement?.matches(".ProseMirror") ?? false),
+    { timeoutMsg: `Editor focus was not kept after ${afterCommand}.` },
+  );
+
 describe("desktop command palette", () => {
   it("preserves editor state, exposes unavailable commands, and transfers focus to a chosen dialog", async () => {
     const { search } = await getDesktopE2ERunContext();
@@ -194,6 +200,8 @@ describe("desktop command palette", () => {
     await browser.waitUntil(async () => (await readSelection()) === sentence, {
       timeoutMsg: `Select sentence selected: ${await readSelection()}`,
     });
+    await waitForEditorFocus("Select sentence");
+    expect(await readSelection()).toBe(sentence);
 
     await placeCaretInSentence();
     expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
@@ -223,5 +231,6 @@ describe("desktop command palette", () => {
         ),
       { timeoutMsg: "Undo did not restore the deleted sentence." },
     );
+    await waitForEditorFocus("Undo");
   });
 });

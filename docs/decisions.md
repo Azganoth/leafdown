@@ -38,6 +38,7 @@
 - Formatting preserves unnamed form attributes while a block remains the same construct, such as a heading changing level. Conversion to another construct starts with that construct's default form ([issue #359](https://github.com/Azganoth/leafdown/issues/359)). An edit that changes the property a form spells drops that form: unchecking and rechecking `[X]` writes the default `[x]`.
 - Equivalent constructs follow one serialization rule; for example, strikethrough wraps a link as strong and emphasis do. A nesting order ProseMirror stores only as a mark set has no authored order to preserve.
 - Output-formatting preferences remain deferred. Preserving existing form and choosing the initial form for new content are separate concerns; prevailing document form currently answers the latter for lists and headings.
+- A replacement across a folder writes only the lines it changes into a file no editor holds, so a normalization a save would make, such as table padding, does not reach files the author never opened. A file is written as a save writes it only when a changed line is itself one the save rewrites, or the spliced file would not reload as the saved one, and the preview marks it ([issue #632](https://github.com/Azganoth/leafdown/issues/632)).
 
 ### Preserve dollar-delimited math source
 

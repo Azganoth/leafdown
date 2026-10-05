@@ -8,9 +8,17 @@ export interface ConfirmationOptions {
   detail?: string;
 }
 
+export interface DecisionOptions extends ConfirmationOptions {
+  /** A second way to go ahead, offered between cancelling and confirming. */
+  alternateLabel: string;
+}
+
+export type Decision = "confirm" | "alternate" | "cancel";
+
 interface ConfirmationRequest extends ConfirmationOptions {
   id: number;
-  resolve: (confirmed: boolean) => void;
+  alternateLabel?: string;
+  resolve: (decision: Decision) => void;
 }
 
 interface ConfirmationState {
@@ -25,8 +33,8 @@ export const useConfirmationStore = create<ConfirmationState>(() => ({
   queued: [],
 }));
 
-export const requestConfirmation = (options: ConfirmationOptions): Promise<boolean> =>
-  new Promise((resolve) => {
+const enqueue = (options: ConfirmationOptions & { alternateLabel?: string }) =>
+  new Promise<Decision>((resolve) => {
     const request = { ...options, id: nextRequestId++, resolve };
 
     useConfirmationStore.setState(({ current, queued }) =>
@@ -34,7 +42,13 @@ export const requestConfirmation = (options: ConfirmationOptions): Promise<boole
     );
   });
 
-export const answerConfirmation = (id: number, confirmed: boolean) => {
+export const requestConfirmation = async (options: ConfirmationOptions): Promise<boolean> =>
+  (await enqueue(options)) === "confirm";
+
+/** Asks for one of three answers; dismissing the dialog answers `cancel`. */
+export const requestDecision = (options: DecisionOptions): Promise<Decision> => enqueue(options);
+
+export const answerConfirmation = (id: number, answer: boolean | Decision) => {
   let resolve: ConfirmationRequest["resolve"] | undefined;
 
   useConfirmationStore.setState((state) => {
@@ -47,12 +61,12 @@ export const answerConfirmation = (id: number, confirmed: boolean) => {
     return { current: queued[0] ?? null, queued: queued.slice(1) };
   });
 
-  resolve?.(confirmed);
+  resolve?.(answer === true ? "confirm" : answer === false ? "cancel" : answer);
 };
 
 export const cancelPendingConfirmations = () => {
   const { current, queued } = useConfirmationStore.getState();
   useConfirmationStore.setState({ current: null, queued: [] });
-  current?.resolve(false);
-  queued.forEach((request) => request.resolve(false));
+  current?.resolve("cancel");
+  queued.forEach((request) => request.resolve("cancel"));
 };

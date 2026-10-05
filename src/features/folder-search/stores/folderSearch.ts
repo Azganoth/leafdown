@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { getPathIdentityKey, PathSet } from "@/lib/path";
 
+import type { FolderReplaceApplyState } from "../services/folderReplaceReport";
 import type { FolderSearchResults } from "../services/folderSearchEngine";
 
 /** One match of the current results, named by its file and its place among the file's matches. */
@@ -10,13 +11,20 @@ export interface FolderSearchMatchKey {
   ordinal: number;
 }
 
+export type FolderSearchField = "query" | "replacement";
+
 export interface FolderSearchState {
   open: boolean;
-  /** Increases each time the query field should take focus. */
+  /** Increases each time a field should take focus. */
   focusRequestId: number;
+  focusTarget: FolderSearchField;
   query: string;
   caseSensitive: boolean;
   wholeWord: boolean;
+  /** Whether the replace row shows, which makes the search plan replacing every match. */
+  replaceOpen: boolean;
+  replacement: string;
+  apply: FolderReplaceApplyState;
   results: FolderSearchResults | null;
   collapsedPaths: PathSet;
   /** Matches of the current results found gone when chosen, by {@link getMatchIdentity}. */
@@ -25,11 +33,14 @@ export interface FolderSearchState {
 }
 
 export interface FolderSearchStore extends FolderSearchState {
-  openFolderSearch: () => void;
+  openFolderSearch: (mode?: "find" | "replace") => void;
   closeFolderSearch: () => void;
   setQuery: (query: string) => void;
   setCaseSensitive: (caseSensitive: boolean) => void;
   setWholeWord: (wholeWord: boolean) => void;
+  setReplaceOpen: (replaceOpen: boolean) => void;
+  setReplacement: (replacement: string) => void;
+  setApplyState: (apply: FolderReplaceApplyState) => void;
   setResults: (results: FolderSearchResults | null) => void;
   toggleFileCollapsed: (path: string) => void;
   markMatchUnavailable: (match: FolderSearchMatchKey) => void;
@@ -42,17 +53,28 @@ export const getMatchIdentity = ({ ordinal, path }: FolderSearchMatchKey) =>
 
 const EMPTY_MATCHES: ReadonlySet<string> = new Set();
 
+const IDLE_APPLY: FolderReplaceApplyState = { status: "idle" };
+
 const INITIAL_FOLDER_SEARCH_STATE: FolderSearchState = {
   open: false,
   focusRequestId: 0,
+  focusTarget: "query",
   query: "",
   caseSensitive: false,
   wholeWord: false,
+  replaceOpen: false,
+  replacement: "",
+  apply: IDLE_APPLY,
   results: null,
   collapsedPaths: new PathSet(),
   unavailableMatches: EMPTY_MATCHES,
   chosenMatch: null,
 };
+
+// An Apply's report stays until the author changes what the next Apply would do, while an Apply in
+// progress keeps its own state until it ends.
+const changedPlan = (state: FolderSearchState): Partial<FolderSearchState> =>
+  state.apply.status === "done" ? { apply: IDLE_APPLY } : {};
 
 // Results are read afresh for every opening, while the query and its options are kept for the
 // folder until it closes.
@@ -97,12 +119,25 @@ const keepMarksOfUnchangedFiles = (
 export const useFolderSearchStore = create<FolderSearchStore>()((set) => ({
   ...INITIAL_FOLDER_SEARCH_STATE,
 
-  openFolderSearch: () =>
-    set((state) => ({ open: true, focusRequestId: state.focusRequestId + 1 })),
-  closeFolderSearch: () => set({ open: false, ...CLOSED_RESULTS }),
-  setQuery: (query) => set({ query }),
-  setCaseSensitive: (caseSensitive) => set({ caseSensitive }),
-  setWholeWord: (wholeWord) => set({ wholeWord }),
+  openFolderSearch: (mode = "find") =>
+    set((state) => {
+      const replaceOpen = mode === "replace" || state.replaceOpen;
+
+      return {
+        open: true,
+        replaceOpen,
+        focusRequestId: state.focusRequestId + 1,
+        focusTarget: mode === "replace" && state.query !== "" ? "replacement" : "query",
+      };
+    }),
+  closeFolderSearch: () =>
+    set((state) => ({ open: false, ...CLOSED_RESULTS, ...changedPlan(state) })),
+  setQuery: (query) => set((state) => ({ query, ...changedPlan(state) })),
+  setCaseSensitive: (caseSensitive) => set((state) => ({ caseSensitive, ...changedPlan(state) })),
+  setWholeWord: (wholeWord) => set((state) => ({ wholeWord, ...changedPlan(state) })),
+  setReplaceOpen: (replaceOpen) => set((state) => ({ replaceOpen, ...changedPlan(state) })),
+  setReplacement: (replacement) => set((state) => ({ replacement, ...changedPlan(state) })),
+  setApplyState: (apply) => set({ apply }),
   setResults: (results) =>
     set((state) =>
       results && results.id === state.results?.id
@@ -125,5 +160,10 @@ export const useFolderSearchStore = create<FolderSearchStore>()((set) => ({
     })),
   setChosenMatch: (chosenMatch) => set({ chosenMatch }),
   reset: () =>
-    set((state) => ({ ...INITIAL_FOLDER_SEARCH_STATE, focusRequestId: state.focusRequestId })),
+    set((state) => ({
+      ...INITIAL_FOLDER_SEARCH_STATE,
+      focusRequestId: state.focusRequestId,
+      // An Apply in progress finishes and reports, even once its folder closes.
+      apply: state.apply.status === "applying" ? state.apply : IDLE_APPLY,
+    })),
 }));

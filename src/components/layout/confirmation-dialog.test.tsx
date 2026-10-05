@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cancelPendingConfirmations,
   requestConfirmation,
+  requestDecision,
   useConfirmationStore,
 } from "@/lib/confirmation";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
@@ -54,6 +55,29 @@ describe("ConfirmationDialog", () => {
 
     await waitFor(() => expect(decision).toHaveBeenLastCalledWith(true));
     await waitFor(() => expect(initiator).toHaveFocus());
+  });
+
+  it("offers a second way to go ahead between cancelling and confirming", async () => {
+    const { user } = renderWithUser(<ConfirmationDialog />);
+    const decision = requestDecision({ ...OPTIONS, alternateLabel: "Open folder" });
+    const prompt = await screen.findByRole("dialog", { name: OPTIONS.title });
+
+    expect(
+      within(prompt)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Cancel", "Open folder", "Open file"]);
+
+    await user.click(within(prompt).getByRole("button", { name: "Open folder" }));
+
+    await expect(decision).resolves.toBe("alternate");
+
+    const dismissed = requestDecision({ ...OPTIONS, alternateLabel: "Open folder" });
+
+    await screen.findByRole("dialog", { name: OPTIONS.title });
+    await user.keyboard("{Escape}");
+
+    await expect(dismissed).resolves.toBe("cancel");
   });
 
   it("cancels on outside press and does not dismiss from the titlebar", async () => {

@@ -22,6 +22,7 @@ const createResults = (overrides: Partial<FolderSearchResults> = {}): FolderSear
   id: 1,
   folderPath: FOLDER,
   query: { caseSensitive: false, text: "leaf", wholeWord: false },
+  replacement: null,
   status: "completed",
   searchedFileCount: 3,
   articleCount: 3,
@@ -31,6 +32,7 @@ const createResults = (overrides: Partial<FolderSearchResults> = {}): FolderSear
       path: `${FOLDER}\\docs\\notes.md`,
       version: { source: "editor" },
       clipped: false,
+      replacement: null,
       matches: [
         { ordinal: 0, context: context("One ", "leaf", " here.") },
         { ordinal: 1, context: context("Another ", "leaf", ".") },
@@ -40,6 +42,7 @@ const createResults = (overrides: Partial<FolderSearchResults> = {}): FolderSear
       path: `${FOLDER}\\guide.md`,
       version: { source: "editor" },
       clipped: false,
+      replacement: null,
       matches: [{ ordinal: 0, context: context("", "Leaf", "let") }],
     },
   ],
@@ -50,6 +53,7 @@ const createResults = (overrides: Partial<FolderSearchResults> = {}): FolderSear
 const renderPanel = (results: FolderSearchResults | null = createResults()) => {
   const handlers = {
     onActivateMatch: vi.fn(),
+    onApply: vi.fn(),
     onCancel: vi.fn(),
     onClose: vi.fn(),
     onSearchFurther: vi.fn(),
@@ -142,6 +146,7 @@ describe("folder search panel", () => {
             path: `${FOLDER}\\code.md`,
             version: { source: "editor" },
             clipped: false,
+            replacement: null,
             matches: [
               { ordinal: 0, context: context("first line\nconst ", "leaf", " = 1;\nlast") },
             ],
@@ -236,5 +241,201 @@ describe("folder search panel", () => {
     expect(screen.getByTestId("folder-search-skipped")).toHaveTextContent(
       "latin.md: not valid in its encoding",
     );
+  });
+});
+
+const createPlan = (overrides: Partial<FolderSearchResults> = {}) => {
+  const results = createResults({ replacement: "tree", ...overrides });
+
+  return {
+    ...results,
+    files: results.files.map((file, index) => ({
+      ...file,
+      replacement: {
+        source: "disk" as const,
+        content: "planned",
+        encoding: { name: "UTF-8" as const, bom: false },
+        rewritesOtherText: index === 1,
+      },
+    })),
+  };
+};
+
+const renderReplacePanel = (results: FolderSearchResults | null = createPlan()) => {
+  useFolderSearchStore.setState({ replaceOpen: true, replacement: results?.replacement ?? "" });
+
+  return renderPanel(results);
+};
+
+const getReplacement = () => screen.getByRole("textbox", { name: "Replace with" });
+
+describe("folder search panel, replacing", () => {
+  it("shows the replace field from its toggle and keeps the replacement in the store", async () => {
+    const { user } = renderPanel(null);
+    const toggle = screen.getByRole("button", { name: "Show replace" });
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("textbox", { name: "Replace with" })).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    await user.type(getReplacement(), "tree");
+
+    expect(screen.getByRole("button", { name: "Hide replace" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(useFolderSearchStore.getState()).toMatchObject({
+      replaceOpen: true,
+      replacement: "tree",
+    });
+    expect(screen.getByText(/once you choose Replace all/u)).toBeInTheDocument();
+  });
+
+  it("focuses the replacement when opened to replace a query it already holds", async () => {
+    renderPanel(null);
+
+    act(() => {
+      useFolderSearchStore.getState().setQuery("leaf");
+      useFolderSearchStore.getState().openFolderSearch("replace");
+    });
+
+    await waitFor(() => expect(getReplacement()).toHaveFocus());
+  });
+
+  it("previews each change and marks a file written as Save writes it", () => {
+    renderReplacePanel();
+
+    const rows = getRows();
+
+    expect(rows[0]).toHaveAccessibleName("docs\\notes.md, 2 replacements");
+    expect(rows[1].querySelector("del")).toHaveTextContent("leaf");
+    expect(rows[1].querySelector("ins")).toHaveTextContent("tree");
+    expect(rows[1]).toHaveTextContent("One leaftree here.");
+    expect(rows[1]).toHaveAccessibleName("One leaf here.: “leaf” becomes “tree”");
+    expect(rows[0].querySelector("[data-testid=folder-search-rewrites-other-text]")).toBeNull();
+    expect(
+      within(rows[3]).getByRole("img", {
+        name: "Written as Save writes it, which also changes other lines",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("folder-search-status")).toHaveTextContent(
+      "3 replacements in 2 files",
+    );
+  });
+
+  it("offers Replace all once the plan is complete, from the button or the keyboard", async () => {
+    const { onApply, onSubmit, user } = renderReplacePanel();
+
+    await user.click(screen.getByRole("button", { name: "Replace all" }));
+    await user.click(getReplacement());
+    await user.keyboard("{Enter}");
+    await user.keyboard("{Control>}{Alt>}{Enter}{/Alt}{/Control}");
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds Replace all back while it prepares or the fields have moved on, and shows progress while it writes", async () => {
+    const { onApply, user } = renderReplacePanel(
+      createPlan({ status: "searching", searchedFileCount: 1 }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Replace all" }));
+
+    expect(screen.getByRole("button", { name: "Replace all" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(onApply).not.toHaveBeenCalled();
+
+    act(() => useFolderSearchStore.setState({ results: createPlan(), replacement: "bush" }));
+
+    expect(screen.queryByRole("button", { name: "Replace all" })).not.toBeInTheDocument();
+
+    act(() => useFolderSearchStore.setState({ replacement: "tree" }));
+
+    expect(screen.getByRole("button", { name: "Replace all" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    act(() =>
+      useFolderSearchStore.setState({
+        results: createPlan({ status: "searching", searchedFileCount: 1 }),
+      }),
+    );
+    expect(screen.getByTestId("folder-search-status")).toHaveTextContent("Preparing… 1 of 3 files");
+
+    act(() =>
+      useFolderSearchStore.setState({
+        results: createPlan(),
+        apply: { status: "applying", phase: "writing", completed: 1, total: 2 },
+      }),
+    );
+
+    expect(screen.queryByRole("button", { name: "Replace all" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("folder-search-status")).toHaveTextContent("Replacing… 1 of 2 files");
+  });
+
+  it("reports what an Apply wrote and why it left files alone, until dismissed", async () => {
+    const { user } = renderReplacePanel(createPlan({ files: [], matchCount: 0 }));
+
+    act(() =>
+      useFolderSearchStore.setState({
+        apply: {
+          status: "done",
+          report: {
+            written: [{ path: `${FOLDER}\\a.md`, matchCount: 3 }],
+            stale: [
+              { path: `${FOLDER}\\b.md`, reason: "changedOnDisk", unsavedInEditor: false },
+              { path: `${FOLDER}\\open.md`, reason: "changedOnDisk", unsavedInEditor: true },
+            ],
+            failed: [
+              {
+                path: `${FOLDER}\\c.md`,
+                reason: "unrepresentableCharacters",
+                unsavedInEditor: false,
+                encoding: "windows-1252",
+                detail: "🍃",
+              },
+            ],
+            notAttempted: [`${FOLDER}\\d.md`],
+          },
+        },
+      }),
+    );
+
+    const report = screen.getByTestId("folder-replace-report");
+
+    expect(within(report).getByRole("status")).toHaveTextContent("Replaced 3 matches in 1 file.");
+    expect(screen.getByTestId("folder-replace-stale")).toHaveTextContent("b.md: changed on disk");
+    expect(screen.getByTestId("folder-replace-stale")).toHaveTextContent(
+      "open.md: changed on disk; replaced in the editor, not saved",
+    );
+    expect(screen.getByTestId("folder-replace-failed")).toHaveTextContent(
+      "c.md: windows-1252 cannot hold 🍃",
+    );
+    expect(screen.getByTestId("folder-replace-not-attempted")).toHaveTextContent("d.md");
+    expect(screen.getByTestId("folder-search-status")).toHaveTextContent("Nothing to replace");
+
+    await user.click(screen.getByRole("button", { name: "Dismiss report" }));
+
+    expect(screen.queryByTestId("folder-replace-report")).not.toBeInTheDocument();
+    expect(useFolderSearchStore.getState().apply).toEqual({ status: "idle" });
+  });
+
+  it("drops the report once the query or replacement changes", async () => {
+    const { user } = renderReplacePanel();
+
+    act(() =>
+      useFolderSearchStore.setState({
+        apply: {
+          status: "done",
+          report: { written: [], stale: [], failed: [], notAttempted: [] },
+        },
+      }),
+    );
+
+    await user.type(getReplacement(), "s");
+
+    expect(useFolderSearchStore.getState().apply).toEqual({ status: "idle" });
   });
 });

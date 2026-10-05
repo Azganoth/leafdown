@@ -12,6 +12,7 @@ export {
   saveActiveMarkdownDocumentAs,
 } from "./services/documentWorkflows";
 export { changeArticleSortOrder, closeFolderContext } from "./services/folderContextWorkflows";
+export { applyFolderReplacement } from "./services/folderReplaceWorkflows";
 export {
   cancelFolderSearch,
   closeFolderSearch,

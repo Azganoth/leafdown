@@ -1,5 +1,6 @@
 import { closeHistory } from "@milkdown/kit/prose/history";
-import { TextSelection, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
+import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { TextSelection, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { revealFoldedRange } from "../../plugins/headingFold";
@@ -21,8 +22,14 @@ import {
   getActiveSourceProjectionRange,
   hasActiveSourceProjection,
 } from "../../plugins/sourceProjection";
-import { CHARACTER_REFERENCE_MARK_NAME } from "../../utils/characterReferenceMarkdown";
 import type { TextRange } from "../../utils/textRanges";
+import {
+  planStateReplacement,
+  replaceTextRange,
+  replaceTextRanges,
+  settleStateForSave,
+  type DocumentReplacementPlan,
+} from "../../utils/textReplacement";
 import {
   findDocumentTextMatches,
   findMatchIndexBefore,
@@ -175,24 +182,6 @@ export const findNext = (view: EditorView) => findAdjacentMatch(view, 1);
 
 export const findPrevious = (view: EditorView) => findAdjacentMatch(view, -1);
 
-// The replacement takes the formatting the replaced text started with. That is read from the text
-// itself rather than as typing would, which drops a link or code span ending with the match. A
-// character reference names the one character it was written for, so it does not carry over.
-const replaceRange = (transaction: Transaction, range: TextRange, replacement: string) => {
-  const from = transaction.mapping.map(range.from);
-  const to = transaction.mapping.map(range.to);
-
-  if (replacement === "") {
-    return transaction.delete(from, to);
-  }
-
-  const marks = (transaction.doc.resolve(from).nodeAfter?.marks ?? []).filter(
-    (mark) => mark.type.name !== CHARACTER_REFERENCE_MARK_NAME,
-  );
-
-  return transaction.replaceWith(from, to, transaction.doc.type.schema.text(replacement, marks));
-};
-
 // Replacing edits canonical text, so a projection that could not settle leaves nothing to replace.
 const getReplaceableMatches = (view: EditorView) => {
   finalizeSourceProjection(view);
@@ -219,7 +208,7 @@ export const replaceSearchMatch = (view: EditorView, replacement: string) => {
   }
 
   // Each replacement is its own step to undo, even straight after typing.
-  const transaction = replaceRange(closeHistory(view.state.tr), match, replacement);
+  const transaction = replaceTextRange(closeHistory(view.state.tr), match, replacement);
   const remaining = findTextMatches(
     transaction.doc,
     getSearchTextQuery(getSearchState(view.state)),
@@ -240,11 +229,7 @@ export const replaceAllSearchMatches = (view: EditorView, replacement: string) =
     return false;
   }
 
-  const transaction = closeHistory(view.state.tr);
-
-  for (let index = matches.length - 1; index >= 0; index -= 1) {
-    replaceRange(transaction, matches[index], replacement);
-  }
+  const transaction = replaceTextRanges(closeHistory(view.state.tr), matches, replacement);
 
   view.dispatch(setSearchUpdate(transaction, { change: { current: null } }));
 
@@ -271,6 +256,45 @@ export const readDocumentSearchMatches = (
       getActiveSourceProjectionRange(view.state),
     ).map(({ offsets }) => offsets),
   };
+};
+
+/** What replacing every match of a folder search would make of the document, dispatching nothing. */
+export const planSearchReplacement = (
+  view: EditorView,
+  query: TextSearchQuery,
+  replacement: string,
+  serialize: (doc: ProseMirrorNode) => string,
+): DocumentReplacementPlan => planStateReplacement(view.state, query, replacement, serialize);
+
+/**
+ * Replaces every match as one step to undo, but only while the document still reads as the
+ * Markdown a plan was made from. Returns the number of matches replaced, or `null` when the
+ * document changed or a projection could not settle.
+ */
+export const applySearchReplacement = (
+  view: EditorView,
+  query: TextSearchQuery,
+  replacement: string,
+  baseline: string,
+  serialize: (doc: ProseMirrorNode) => string,
+) => {
+  if (serialize(settleStateForSave(view.state).doc) !== baseline) {
+    return null;
+  }
+
+  finalizeSourceProjection(view);
+
+  if (hasActiveSourceProjection(view.state)) {
+    return null;
+  }
+
+  const matches = findTextMatches(view.state.doc, query);
+
+  if (matches.length > 0) {
+    view.dispatch(replaceTextRanges(closeHistory(view.state.tr), matches, replacement));
+  }
+
+  return matches.length;
 };
 
 /**

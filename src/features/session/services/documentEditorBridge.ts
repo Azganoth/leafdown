@@ -1,4 +1,5 @@
 import type {
+  DocumentReplacementPlan,
   DocumentSearchMatches,
   EditorDocumentStatus,
   EditorViewState,
@@ -114,6 +115,26 @@ class DocumentEditorBridgeStore {
   ): DocumentSearchMatches | null =>
     this.activeBridgeEntry?.documentKey === documentKey
       ? (this.activeBridgeEntry.bridge.readSearchMatches?.(query, options) ?? null)
+      : null;
+
+  planSearchReplacement = (
+    documentKey: string,
+    query: TextSearchQuery,
+    replacement: string,
+  ): DocumentReplacementPlan | null =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.planSearchReplacement?.(query, replacement) ?? null)
+      : null;
+
+  applySearchReplacement = (
+    documentKey: string,
+    query: TextSearchQuery,
+    replacement: string,
+    baseline: string,
+  ): number | null =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.applySearchReplacement?.(query, replacement, baseline) ??
+        null)
       : null;
 
   /**

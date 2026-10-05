@@ -56,7 +56,11 @@ import {
   type WatchMarkdownFolderArgs,
 } from "@/features/folder-context/services/folderContextApi";
 import {
+  PREFLIGHT_FOLDER_REPLACEMENT_COMMAND,
   READ_FOLDER_SEARCH_FILES_COMMAND,
+  WRITE_FOLDER_REPLACEMENT_FILES_COMMAND,
+  type FolderReplacementArgs,
+  type FolderReplacementOutcome,
   type FolderSearchFileOutcome,
   type ReadFolderSearchFilesArgs,
 } from "@/features/folder-search/services/folderSearchApi";
@@ -91,6 +95,8 @@ interface TauriApiCommandArgs {
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
   readFolderSearchFiles: ReadFolderSearchFilesArgs;
+  preflightFolderReplacement: FolderReplacementArgs;
+  writeFolderReplacementFiles: FolderReplacementArgs;
   takeLaunchDocumentPath: undefined;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
@@ -118,6 +124,8 @@ interface TauriApiCommandResults {
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
   readFolderSearchFiles: FolderSearchFileOutcome[];
+  preflightFolderReplacement: FolderReplacementOutcome[];
+  writeFolderReplacementFiles: FolderReplacementOutcome[];
   takeLaunchDocumentPath: string | null;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
@@ -155,6 +163,8 @@ const TAURI_API_COMMANDS = {
   resolveWikiLinkTarget: RESOLVE_WIKI_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   readFolderSearchFiles: READ_FOLDER_SEARCH_FILES_COMMAND,
+  preflightFolderReplacement: PREFLIGHT_FOLDER_REPLACEMENT_COMMAND,
+  writeFolderReplacementFiles: WRITE_FOLDER_REPLACEMENT_FILES_COMMAND,
   takeLaunchDocumentPath: TAKE_LAUNCH_DOCUMENT_PATH_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,

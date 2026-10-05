@@ -7,10 +7,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     document::{
-        FileMetadataSnapshot, OpenMarkdownFileError, read_markdown_file,
+        FileMetadataSnapshot, LineEnding, OpenMarkdownFileError, read_markdown_file,
         read_markdown_file_metadata,
     },
     path_utils::path_to_string,
+    text_encoding::DocumentEncoding,
 };
 
 /// The most files one request reads, so a request cannot hold the backend for a whole folder.
@@ -39,6 +40,8 @@ pub(crate) enum FolderSearchFileOutcome {
     Read {
         path: String,
         content: String,
+        line_ending: Option<LineEnding>,
+        encoding: DocumentEncoding,
         metadata: FileMetadataSnapshot,
         fingerprint: String,
     },
@@ -114,6 +117,8 @@ fn read_search_file(
         Ok(document) => FolderSearchFileOutcome::Read {
             path: document.path,
             content: document.content,
+            line_ending: document.line_ending,
+            encoding: document.encoding,
             metadata: document.metadata,
             fingerprint: document.fingerprint,
         },
@@ -126,7 +131,7 @@ fn read_search_file(
 
 // Paths come from the folder's own scan, so a lexical check suffices: reading is no privilege the
 // open command does not already grant, and the scan never descends through a symbolic link.
-fn is_inside_folder(folder_path: &Path, path: &Path) -> bool {
+pub(super) fn is_inside_folder(folder_path: &Path, path: &Path) -> bool {
     path.strip_prefix(folder_path).is_ok_and(|relative| {
         relative.components().next().is_some()
             && relative
@@ -135,7 +140,7 @@ fn is_inside_folder(folder_path: &Path, path: &Path) -> bool {
     })
 }
 
-fn is_symlink(path: &Path) -> bool {
+pub(super) fn is_symlink(path: &Path) -> bool {
     fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
 }
 

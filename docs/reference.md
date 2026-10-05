@@ -163,10 +163,11 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Find previous** (`Shift+F3`)
   - **Replace...** (`Mod+H`): Opens the search surface with its replace row showing.
   - **Find in folder...** (`Mod+Shift+F`): Opens the folder search view in the sidebar with its query field focused.
+  - **Replace in folder...** (`Mod+Shift+H`): Opens the folder search view with its replace field showing.
 
 The search surface's own keys are `Enter` and `Shift+Enter` in the query field for the next and previous match, `Enter` in the replacement field for `Replace`, `Mod+Alt+Enter` there for `Replace all`, and `Escape` to close it. [Find And Replace](./specification.md#find-and-replace) describes the behavior.
 
-In the folder search view, `Enter` in the query field searches at once and `ArrowDown` moves into the results. The results take one tab stop: `ArrowUp`, `ArrowDown`, `Home`, and `End` move between rows, `ArrowRight` and `ArrowLeft` expand and collapse a file or move between a match and its file, `Enter` or `Space` toggles a file or opens a match, and `Escape` closes the view. [Find In Folder](./specification.md#find-in-folder) describes the behavior.
+In the folder search view, `Enter` in the query field searches at once and `ArrowDown` moves into the results. The results take one tab stop: `ArrowUp`, `ArrowDown`, `Home`, and `End` move between rows, `ArrowRight` and `ArrowLeft` expand and collapse a file or move between a match and its file, `Enter` or `Space` toggles a file or opens a match, and `Escape` closes the view. With the replace field showing, `Enter` in the replacement field plans again at once and `Mod+Alt+Enter` there runs `Replace all`. [Find In Folder](./specification.md#find-in-folder) and [Replace In Folder](./specification.md#replace-in-folder) describe the behavior.
 
 #### Insert Menu
 
@@ -365,7 +366,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
 - `Toggle sidebar`, `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
-- `Find in folder` requires a folder context, with or without an open document.
+- `Find in folder` and `Replace in folder` require a folder context, with or without an open document.
 
 #### Search And Updates
 

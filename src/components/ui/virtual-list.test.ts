@@ -1,8 +1,10 @@
 // @vitest-environment happy-dom
 
+import { render } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { withPinnedIndexes } from "./virtual-list";
+import { VirtualListItem, withPinnedIndexes } from "./virtual-list";
 
 describe("withPinnedIndexes", () => {
   it("leaves the rendered range alone when nothing is pinned", () => {
@@ -25,5 +27,22 @@ describe("withPinnedIndexes", () => {
 
   it("adds a row pinned twice only once", () => {
     expect(withPinnedIndexes([4, 5, 6], [40, 40])).toEqual([4, 5, 6, 40]);
+  });
+});
+
+describe("VirtualListItem", () => {
+  it("keeps the transform that places a row out of its transitions", () => {
+    const { container } = render(
+      createElement(VirtualListItem, {
+        className: "transition-all",
+        virtualRow: { end: 52, index: 1, key: "row", lane: 0, size: 26, start: 26 },
+      }),
+    );
+    const item = container.querySelector("li")!;
+
+    expect(item.style.transform).toBe("translate3d(0, 26px, 0)");
+    expect(item).not.toHaveClass("transition-all");
+    expect(item.className).toContain("transition-[");
+    expect(item.className).not.toContain("transform");
   });
 });

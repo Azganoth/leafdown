@@ -92,6 +92,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "edit.findNext": commandDef({ key: "F3" }),
   "edit.findPrevious": commandDef({ key: "F3", shift: true }),
   "edit.replace": commandDef({ key: "h", mod: true }),
+  "edit.findInFolder": commandDef({ key: "f", mod: true, shift: true }),
   "insert.paragraph": commandDef(),
   "insert.heading1": commandDef(),
   "insert.heading2": commandDef(),

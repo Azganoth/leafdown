@@ -12,6 +12,7 @@ const scenarioTargets = {
   "heading-outline": ["heading-outline"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],
+  "folder-search": ["folder-search"],
   "help-pages": ["help-pages"],
   "rendered-images": ["rendered-images"],
   "remote-images": ["remote-images"],

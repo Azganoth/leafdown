@@ -26,7 +26,13 @@ export const getCommandMenuPathIds = (commandId: AppCommandId): MessageId[] => {
   } else if (commandId.startsWith("edit.encoding")) {
     path.push("menu.edit.encoding", "menu.edit.saveWithEncoding");
   } else if (
-    ["edit.find", "edit.findNext", "edit.findPrevious", "edit.replace"].includes(commandId)
+    [
+      "edit.find",
+      "edit.findNext",
+      "edit.findPrevious",
+      "edit.replace",
+      "edit.findInFolder",
+    ].includes(commandId)
   ) {
     path.push("menu.edit.findAndReplace");
   } else if (commandId.startsWith("insert.heading") || commandId.startsWith("format.heading")) {

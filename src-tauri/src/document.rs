@@ -312,6 +312,13 @@ pub(crate) fn read_markdown_file(
     })
 }
 
+/// The metadata `read_markdown_file` records for a file, read without reading the file.
+pub(crate) fn read_markdown_file_metadata(
+    path: &Path,
+) -> Result<FileMetadataSnapshot, OpenMarkdownFileError> {
+    read_file_metadata(path).map_err(|error| open_metadata_error(error, &path_to_string(path)))
+}
+
 pub(crate) fn write_markdown_file(
     path: &Path,
     content: &str,

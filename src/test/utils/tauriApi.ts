@@ -55,6 +55,11 @@ import {
   type UnwatchMarkdownFolderArgs,
   type WatchMarkdownFolderArgs,
 } from "@/features/folder-context/services/folderContextApi";
+import {
+  READ_FOLDER_SEARCH_FILES_COMMAND,
+  type FolderSearchFileOutcome,
+  type ReadFolderSearchFilesArgs,
+} from "@/features/folder-search/services/folderSearchApi";
 
 import {
   countInvokeCalls,
@@ -84,6 +89,7 @@ interface TauriApiCommandArgs {
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetArgs;
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
+  readFolderSearchFiles: ReadFolderSearchFilesArgs;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
 }
@@ -109,6 +115,7 @@ interface TauriApiCommandResults {
   resolveMarkdownLinkTarget: ResolveMarkdownLinkTargetResult;
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
+  readFolderSearchFiles: FolderSearchFileOutcome[];
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
@@ -144,6 +151,7 @@ const TAURI_API_COMMANDS = {
   resolveMarkdownLinkTarget: RESOLVE_MARKDOWN_LINK_TARGET_COMMAND,
   resolveWikiLinkTarget: RESOLVE_WIKI_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
+  readFolderSearchFiles: READ_FOLDER_SEARCH_FILES_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;

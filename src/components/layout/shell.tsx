@@ -19,17 +19,25 @@ import { DiagnosticsDialog } from "@/features/diagnostics";
 import { formatDocumentEncoding } from "@/features/document";
 import { DocumentTypographyPreview } from "@/features/editor";
 import { ArticleNavigator } from "@/features/folder-context";
+import { FolderSearchPanel, useFolderSearchStore } from "@/features/folder-search";
 import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import { ReleaseNotesDialog } from "@/features/release-notes";
 import {
+  cancelFolderSearch,
+  closeFolderSearch,
   getSessionMode,
   notifyOpenMarkdownFileError,
+  openFolderSearchMatch,
   openMarkdownFileAtPath,
+  searchFolderFurther,
+  submitFolderSearch,
   useActiveDocumentWatcher,
   useFolderContextWatcher,
+  useFolderSearchSession,
   useSessionStore,
 } from "@/features/session";
+import { handleUnexpectedError } from "@/lib/errors";
 import { useLocalization } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -50,9 +58,16 @@ const handleOpenArticle = (path: string) => {
   });
 };
 
+const handleActivateFolderSearchMatch = (match: Parameters<typeof openFolderSearchMatch>[0]) => {
+  void openFolderSearchMatch(match).catch((error) =>
+    handleUnexpectedError(error, "openFolderSearchMatch"),
+  );
+};
+
 export function Shell() {
   useFolderContextWatcher();
   useActiveDocumentWatcher();
+  useFolderSearchSession();
 
   const localization = useLocalization();
   const { t } = localization;
@@ -62,6 +77,7 @@ export function Shell() {
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const folderSearchOpen = useFolderSearchStore((state) => state.open);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
@@ -153,16 +169,30 @@ export function Shell() {
                     minSize={192}
                   >
                     <aside
-                      aria-label={t("shell.articleNavigator")}
+                      aria-label={t(
+                        folderSearchOpen ? "shell.folderSearch" : "shell.articleNavigator",
+                      )}
                       data-testid="article-navigator-host"
                       className="flex size-full min-h-0 min-w-0"
                     >
-                      <ArticleNavigator
-                        actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
-                        activeArticlePath={activeArticlePath}
-                        folderContext={folderContext}
-                        onOpenArticle={handleOpenArticle}
-                      />
+                      {folderSearchOpen ? (
+                        <FolderSearchPanel
+                          folderName={folderContext.tree.name}
+                          folderPath={folderContext.path}
+                          onActivateMatch={handleActivateFolderSearchMatch}
+                          onCancel={cancelFolderSearch}
+                          onClose={closeFolderSearch}
+                          onSearchFurther={searchFolderFurther}
+                          onSubmit={submitFolderSearch}
+                        />
+                      ) : (
+                        <ArticleNavigator
+                          actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
+                          activeArticlePath={activeArticlePath}
+                          folderContext={folderContext}
+                          onOpenArticle={handleOpenArticle}
+                        />
+                      )}
                     </aside>
                   </ResizablePanel>
                   <ResizableHandle aria-label={t("shell.resizeArticleNavigator")} withHandle />

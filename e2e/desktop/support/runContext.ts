@@ -33,6 +33,7 @@ export interface DesktopE2ERunContext {
     path: string;
   };
   folderActions: { path: string };
+  folderSearch: { folderPath: string; nearPath: string; farPath: string };
   wikiLinks: { folderPath: string; indexPath: string };
   folder: {
     addedFileName: string;

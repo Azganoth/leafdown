@@ -15,9 +15,11 @@ mod defaults;
 mod entries;
 mod index;
 mod scan;
+mod search;
 mod watch;
 
 pub(crate) use entries::{FolderEntryError, FolderEntryResult};
+pub(crate) use search::{FolderSearchFileOutcome, FolderSearchFileRequest};
 pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError};
 
 #[derive(Debug, Serialize)]
@@ -103,6 +105,16 @@ pub(crate) enum OpenMarkdownFolderError {
     ScanFailed { error: ScanMarkdownFolderError },
 }
 
+#[derive(Debug, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub(crate) enum ReadFolderSearchFilesError {
+    ReadFailed { path: String, message: String },
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ScanDepth {
     Recursive,
@@ -168,6 +180,30 @@ pub(crate) async fn open_markdown_folder(
                 path: error_path,
                 message: error.to_string(),
             },
+        })
+    })
+}
+
+/// Reads a folder's articles for a search, a bounded part at a time: the result covers the first
+/// files requested, and the caller asks again for the rest.
+#[tauri::command]
+pub(crate) async fn read_folder_search_files(
+    folder_path: String,
+    files: Vec<FolderSearchFileRequest>,
+) -> Result<Vec<FolderSearchFileOutcome>, ReadFolderSearchFilesError> {
+    let error_path = folder_path.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        Ok(search::read_search_files(
+            Path::new(folder_path.as_str()),
+            files,
+        ))
+    })
+    .await
+    .unwrap_or_else(|error| {
+        Err(ReadFolderSearchFilesError::ReadFailed {
+            path: error_path,
+            message: error.to_string(),
         })
     })
 }

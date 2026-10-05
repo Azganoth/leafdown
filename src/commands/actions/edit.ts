@@ -9,7 +9,11 @@ import {
   type DocumentEncoding,
 } from "@/features/document";
 import { useSettingsStore } from "@/features/preferences";
-import { reopenMarkdownFileWithChosenEncoding, useSessionStore } from "@/features/session";
+import {
+  openFolderSearch,
+  reopenMarkdownFileWithChosenEncoding,
+  useSessionStore,
+} from "@/features/session";
 
 import type { AppCommandContext } from "../context";
 import { checked, disabled, enabled } from "../statePrimitives";
@@ -133,3 +137,10 @@ export const getLfLineEndingState = (context: AppCommandContext) =>
 
 export const getFinalNewlineState = (context: AppCommandContext) =>
   checked(context.settings.insertFinalNewline);
+
+export const findInFolder = () => {
+  openFolderSearch();
+};
+
+export const getFindInFolderState = ({ folderContext }: AppCommandContext) =>
+  folderContext ? enabled() : disabled("No folder context is open.");

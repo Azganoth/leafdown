@@ -44,6 +44,7 @@ export const APPLICATION_COMMANDS = {
     edit.getUtf8WithBomEncodingState,
   ),
   "edit.encoding.file": appCommand(edit.setFileEncoding, edit.getFileEncodingState),
+  "edit.findInFolder": appCommand(edit.findInFolder, edit.getFindInFolderState),
 
   "view.toggleSidebar": appCommand(view.toggleSidebar, view.getToggleSidebarState),
   "view.commandPalette": appCommand(view.openCommandPalette),

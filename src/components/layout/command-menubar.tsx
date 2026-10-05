@@ -164,7 +164,13 @@ export function CommandMenubar({
             />
             <MenubarSeparator />
             <CommandSubmenu
-              commandIds={["edit.find", "edit.findNext", "edit.findPrevious", "edit.replace"]}
+              commandIds={[
+                "edit.find",
+                "edit.findNext",
+                "edit.findPrevious",
+                "edit.replace",
+                "edit.findInFolder",
+              ]}
               labelId="menu.edit.findAndReplace"
             />
           </MenubarContent>

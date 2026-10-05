@@ -5,6 +5,8 @@ import type {
   UntitledDocumentState,
 } from "@/features/document";
 import { useArticleNavigatorStore } from "@/features/folder-context";
+// Deep import by design: the feature root loads the editor for its search engine.
+import { useFolderSearchStore } from "@/features/folder-search/stores/folderSearch";
 import {
   createDefaultSettingsState,
   RECENT_ITEMS_VERSION,
@@ -99,4 +101,5 @@ export const resetAppStores = () => {
     version: RELEASE_NOTES_STATE_VERSION,
   });
   useArticleNavigatorStore.getState().reset();
+  useFolderSearchStore.getState().reset();
 };

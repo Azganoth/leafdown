@@ -19,6 +19,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["heading-outline"],
       ["folder-watcher"],
       ["folder-actions"],
+      ["folder-search"],
       ["help-pages"],
       ["rendered-images"],
       ["remote-images"],

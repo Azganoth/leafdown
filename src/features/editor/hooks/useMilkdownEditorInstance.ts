@@ -25,9 +25,12 @@ import {
 } from "../commands";
 import {
   changeSearchQuery,
+  chooseSearchMatch,
   closeSearch,
   findNext,
   findPrevious,
+  focusChosenSearchMatch,
+  readDocumentSearchMatches,
   replaceAllSearchMatches,
   replaceSearchMatch,
   setSearchMode,
@@ -69,6 +72,11 @@ import {
 } from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
+import type {
+  DocumentSearchMatches,
+  SearchMatchTarget,
+  TextSearchQuery,
+} from "../utils/textSearch";
 import { jumpToWikiHeading } from "../utils/wikiHeadings";
 
 /** Carries the caret and focus across a remount that replaces the document text. */
@@ -102,6 +110,20 @@ export interface MilkdownEditorBridge {
   navigateToHeading?: (heading: string) => void;
   navigateToOutlineHeading?: (position: number) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
+  /** The document's matches, or `null` while the editor is not ready. */
+  readSearchMatches?: (
+    query: TextSearchQuery,
+    options: { finalizeProjection: boolean },
+  ) => DocumentSearchMatches | null;
+  /** Resolves once the editor is ready, to the chosen match's place, or `null` when it is gone. */
+  chooseSearchMatch?: (query: TextSearchQuery, target: SearchMatchTarget) => Promise<number | null>;
+  focusChosenSearchMatch?: () => void;
+}
+
+interface PendingSearchMatch {
+  query: TextSearchQuery;
+  target: SearchMatchTarget;
+  resolve: (ordinal: number | null) => void;
 }
 
 interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceContext> {
@@ -144,6 +166,7 @@ export const useMilkdownEditorInstance = ({
   const rootRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MilkdownEditorInstance | null>(null);
   const pendingHeadingRef = useRef<string | null>(null);
+  const pendingSearchMatchRef = useRef<PendingSearchMatch | null>(null);
   const [commandState, setCommandState] = useState<EditorCommandState>(
     INACTIVE_EDITOR_COMMAND_STATE,
   );
@@ -267,6 +290,31 @@ export const useMilkdownEditorInstance = ({
         }
 
         return runEditorCommand(editorRef.current, commandId);
+      },
+      readSearchMatches: (query, options) => {
+        if (!editorRef.current?.ctx) {
+          return null;
+        }
+
+        return readDocumentSearchMatches(editorRef.current.ctx.get(editorViewCtx), query, options);
+      },
+      chooseSearchMatch: (query, target) => {
+        if (editorRef.current?.ctx) {
+          return Promise.resolve(
+            chooseSearchMatch(editorRef.current.ctx.get(editorViewCtx), query, target),
+          );
+        }
+
+        pendingSearchMatchRef.current?.resolve(null);
+
+        return new Promise((resolve) => {
+          pendingSearchMatchRef.current = { query, target, resolve };
+        });
+      },
+      focusChosenSearchMatch: () => {
+        if (editorRef.current?.ctx) {
+          focusChosenSearchMatch(editorRef.current.ctx.get(editorViewCtx));
+        }
       },
     }),
     [],
@@ -523,6 +571,11 @@ export const useMilkdownEditorInstance = ({
           notifyWarning(translationRef.current("editor.link.missing"), heading);
         }
       }
+      if (pendingSearchMatchRef.current) {
+        const { query, resolve, target } = pendingSearchMatchRef.current;
+        pendingSearchMatchRef.current = null;
+        resolve(chooseSearchMatch(editor.ctx.get(editorViewCtx), query, target));
+      }
       updateCommandState(readEditorCommandState(editor));
       updateDocumentStatus(readEditorDocumentStatus(editor));
       liveOptionsRef.current.onHeadingOutlineChanged?.(
@@ -534,6 +587,8 @@ export const useMilkdownEditorInstance = ({
 
     return () => {
       disposed = true;
+      pendingSearchMatchRef.current?.resolve(null);
+      pendingSearchMatchRef.current = null;
 
       if (editorRef.current) {
         void editorRef.current.destroy();

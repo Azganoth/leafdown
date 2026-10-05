@@ -241,6 +241,18 @@ export class PathSet implements Iterable<string> {
 export class PathMap<T> {
   private readonly valuesByKey = new Map<string, T>();
 
+  get size() {
+    return this.valuesByKey.size;
+  }
+
+  clear() {
+    this.valuesByKey.clear();
+  }
+
+  delete(path: string) {
+    return this.valuesByKey.delete(getPathIdentityKey(path));
+  }
+
   get(path: string) {
     return this.valuesByKey.get(getPathIdentityKey(path));
   }

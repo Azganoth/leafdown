@@ -1,13 +1,16 @@
 import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 
+import { CURRENT_RELEASE_HIGHLIGHT, CURRENT_VERSION } from "../support/releaseNotes.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 
 describe("release notes after an upgrade", () => {
   it("automatically shows current notes once and records the seen version", async () => {
     const { releaseNotesPath } = await getDesktopE2ERunContext();
-    await expect($("aria/Changes in Leafdown 0.1.0-alpha.1")).toBeDisplayed();
-    await expect($("aria/Initial internal alpha release.")).toBeDisplayed();
+    await expect($(`aria/Changes in Leafdown ${CURRENT_VERSION}`)).toBeDisplayed();
+    await expect($("[role='dialog'] article")).toHaveText(
+      expect.stringContaining(CURRENT_RELEASE_HIGHLIGHT),
+    );
 
     await browser.waitUntil(
       async () => {
@@ -17,9 +20,9 @@ describe("release notes after an upgrade", () => {
             unknown
           >;
           return (
-            state.lastVersion === "0.1.0-alpha.1" &&
+            state.lastVersion === CURRENT_VERSION &&
             Array.isArray(state.seenVersions) &&
-            state.seenVersions.includes("0.1.0-alpha.1")
+            state.seenVersions.includes(CURRENT_VERSION)
           );
         } catch {
           return false;
@@ -28,6 +31,6 @@ describe("release notes after an upgrade", () => {
       { timeoutMsg: "Upgrade release-note state was not persisted." },
     );
     await browser.keys("Escape");
-    await expect($("aria/Changes in Leafdown 0.1.0-alpha.1")).not.toExist();
+    await expect($(`aria/Changes in Leafdown ${CURRENT_VERSION}`)).not.toExist();
   });
 });

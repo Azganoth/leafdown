@@ -1,6 +1,7 @@
 import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 
+import { CURRENT_RELEASE_HIGHLIGHT, CURRENT_VERSION } from "../support/releaseNotes.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { findMenuItem, openMenu } from "../support/ui.js";
 
@@ -17,10 +18,12 @@ describe("release notes on first installation", () => {
 
     await openMenu("Help");
     await (await findMenuItem((text) => text.startsWith("What's new"))).click();
-    await expect($("aria/Changes in Leafdown 0.1.0-alpha.1")).toBeDisplayed();
-    await expect($("aria/Initial internal alpha release.")).toBeDisplayed();
+    await expect($(`aria/Changes in Leafdown ${CURRENT_VERSION}`)).toBeDisplayed();
+    await expect($("[role='dialog'] article")).toHaveText(
+      expect.stringContaining(CURRENT_RELEASE_HIGHLIGHT),
+    );
     await browser.keys("Escape");
-    await expect($("aria/Changes in Leafdown 0.1.0-alpha.1")).not.toExist();
+    await expect($(`aria/Changes in Leafdown ${CURRENT_VERSION}`)).not.toExist();
 
     await openMenu("Help");
     await (await findMenuItem((text) => text === "Changelog")).click();
@@ -64,9 +67,9 @@ describe("release notes on first installation", () => {
             unknown
           >;
           return (
-            state.lastVersion === "0.1.0-alpha.1" &&
+            state.lastVersion === CURRENT_VERSION &&
             Array.isArray(state.seenVersions) &&
-            state.seenVersions.includes("0.1.0-alpha.1")
+            state.seenVersions.includes(CURRENT_VERSION)
           );
         } catch {
           return false;

@@ -6,6 +6,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-10-05
+
 ### Added
 
 - Open bundled, read-only Getting started, Markdown reference, File and folder workflows, and Settings reference pages from Help, including offline navigation between pages and explicit web links through the system browser.

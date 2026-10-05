@@ -87,6 +87,23 @@ const waitForChosenMatch = async (paragraphText: string) => {
   return (await getChosenMatch())!;
 };
 
+// Rows are positioned by the virtual list, so two rows drawn at one height would read as one.
+const expectRowsInPlace = async (screenshot: string) => {
+  const rows = await browser.execute(() =>
+    Array.from(
+      document.querySelectorAll('[data-testid="folder-search-panel"] [role="treeitem"]'),
+      (row) => ({ text: row.textContent ?? "", top: Math.round(row.getBoundingClientRect().top) }),
+    ),
+  );
+  const tops = rows.map(({ top }) => top);
+
+  if (new Set(tops).size !== tops.length) {
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, screenshot));
+    throw new Error(`Folder search rows overlap: ${JSON.stringify(rows)}`);
+  }
+};
+
 const searchFor = async (query: string, outcome: string) => {
   await queryField().setValue(query);
   await browser.waitUntil(async () => (await status().getText()) === outcome, {
@@ -191,6 +208,12 @@ describe("desktop folder search", () => {
     expect(pieces.text).toBe("lantern");
     await expect(documentState()).not.toExist();
     expect(await readFile(folderSearch.farPath, "utf8")).toBe(farMarkdown);
+
+    // The discarded document is read from its file again, which adds back the match the edit took.
+    await browser.waitUntil(async () => (await status().getText()) === "4 results in 2 files", {
+      timeoutMsg: "The folder search did not read the discarded document from its file again.",
+    });
+    await expectRowsInPlace("folder-search-rows-after-switch.png");
   });
 
   it("fits a narrow window without scrolling sideways", async () => {
@@ -198,33 +221,37 @@ describe("desktop folder search", () => {
 
     try {
       await browser.setWindowSize(640, 720);
+      await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "folder-search-narrow.png"));
 
       const layout = await browser.execute(() => {
         const searchPanel = document.querySelector<HTMLElement>(
           '[data-testid="folder-search-panel"]',
         );
         const query = document.querySelector('input[aria-label="Search in folder"]');
+        const sidebar = document.querySelector('[data-testid="article-navigator-host"]');
         const rows = Array.from(
           document.querySelectorAll<HTMLElement>(
             '[data-testid="folder-search-panel"] [role="treeitem"]',
           ),
         );
 
-        if (!searchPanel || !query || rows.length === 0) {
+        if (!searchPanel || !query || !sidebar || rows.length === 0) {
           throw new Error("The folder search panel, its query, or its results are missing.");
         }
 
         return {
           overflows: searchPanel.scrollWidth > searchPanel.clientWidth,
+          panelWidth: searchPanel.getBoundingClientRect().width,
           queryWidth: query.getBoundingClientRect().width,
           rowsFit: rows.every((row) => row.scrollWidth <= row.clientWidth + 1),
+          sidebarWidth: sidebar.getBoundingClientRect().width,
+          windowWidth: window.innerWidth,
         };
       });
 
-      expect(layout).toMatchObject({ overflows: false, rowsFit: true });
-      expect(layout.queryWidth).toBeGreaterThanOrEqual(80);
-
-      await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "folder-search-narrow.png"));
+      if (layout.overflows || !layout.rowsFit || layout.queryWidth < 80) {
+        throw new Error(`The folder search view does not fit: ${JSON.stringify(layout)}`);
+      }
     } finally {
       await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
     }

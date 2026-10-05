@@ -36,6 +36,7 @@ export {
 export {
   notifyOpenMarkdownFileError,
   openFolderContextAtPath,
+  openLaunchDocument,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
   pickAndOpenMarkdownFile,

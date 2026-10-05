@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Registers Leafdown as a candidate handler for its Markdown file extensions without claiming
+     the default: the `.ext` default value and the user's choice are never written. Windows
+     Installer owns these values, so repair restores them and uninstall removes them. -->
+<?include $(sys.SOURCEFILEDIR)..\gen\windows\markdown-file-extensions.wxi ?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <!-- The main binary belongs to another feature, so ICE69 rejects referencing its file key from
+             these registry values directly. The binary always installs with the product. -->
+        <SetProperty Id="LeafdownExecutable" Value="[#Path]" After="CostFinalize" Sequence="execute" />
+        <DirectoryRef Id="INSTALLDIR">
+            <Component Id="MarkdownFileAssociations" Guid="{995333E7-D28B-4160-A1C3-9BBDBBA99FDD}">
+                <RegistryKey Root="HKLM" Key="Software\Classes\Leafdown.Markdown">
+                    <RegistryValue Type="string" Value="Markdown Document" KeyPath="yes" />
+                    <RegistryValue Key="DefaultIcon" Type="string" Value="&quot;[LeafdownExecutable]&quot;,0" />
+                    <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[LeafdownExecutable]&quot; &quot;%1&quot;" />
+                </RegistryKey>
+                <RegistryKey Root="HKLM" Key="Software\[Manufacturer]\[ProductName]\Capabilities">
+                    <RegistryValue Name="ApplicationName" Type="string" Value="[ProductName]" />
+                    <RegistryValue Name="ApplicationDescription" Type="string" Value="A local-first Markdown editor for ordinary files and folders" />
+                </RegistryKey>
+                <?foreach Extension in $(var.MarkdownFileExtensions) ?>
+                <RegistryValue Root="HKLM" Key="Software\Classes\.$(var.Extension)\OpenWithProgids" Name="Leafdown.Markdown" Type="string" Value="" />
+                <RegistryValue Root="HKLM" Key="Software\[Manufacturer]\[ProductName]\Capabilities\FileAssociations" Name=".$(var.Extension)" Type="string" Value="Leafdown.Markdown" />
+                <?endforeach ?>
+                <RegistryValue Root="HKLM" Key="Software\RegisteredApplications" Name="[ProductName]" Type="string" Value="Software\[Manufacturer]\[ProductName]\Capabilities" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+</Wix>

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { setTheme } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,17 +16,22 @@ import {
   useSettingsStore,
 } from "./features/preferences";
 import { releaseNotesStoreTauriHandler } from "./features/release-notes";
-import { createUntitledDocument } from "./test/factories/document";
+import { useSessionStore } from "./features/session";
+import { createOpenedMarkdownDocument, createUntitledDocument } from "./test/factories/document";
+import { createEmptyFolderContext } from "./test/factories/folderContext";
+import { TEST_MARKDOWN_FILE_PATH } from "./test/fixtures/paths";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
 import { getLastDiagnosticPayload } from "./test/utils/diagnostics";
 import { dispatchDOMEvent } from "./test/utils/events";
 import { render, renderWithUser, screen, waitFor } from "./test/utils/react";
 import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/utils/tauri";
+import { countTauriApiCalls, mockTauriApi, tauriApiCommand } from "./test/utils/tauriApi";
 
 describe("App", () => {
   beforeEach(() => {
     document.documentElement.className = "";
     delete document.documentElement.dataset.accentColor;
+    mockTauriApi({ takeLaunchDocumentPath: () => null });
   });
 
   it("starts persisted stores, applies the theme, and shows the window", async () => {
@@ -375,5 +381,56 @@ describe("App", () => {
 
     expect(dragover.defaultPrevented).toBe(true);
     expect(drop.defaultPrevented).toBe(true);
+  });
+
+  it("opens the launch document after showing the window", async () => {
+    const appWindow = getCurrentWindow();
+    mockTauriApi({
+      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      openMarkdownFile: () => createOpenedMarkdownDocument(),
+      scanMarkdownFolder: () => createEmptyFolderContext(),
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        path: TEST_MARKDOWN_FILE_PATH,
+      });
+    });
+
+    const takeCallIndex = vi
+      .mocked(invoke)
+      .mock.calls.findIndex(([command]) => command === tauriApiCommand("takeLaunchDocumentPath"));
+
+    expect(countTauriApiCalls("takeLaunchDocumentPath")).toBe(1);
+    expect(vi.mocked(appWindow.show).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(invoke).mock.invocationCallOrder[takeCallIndex],
+    );
+  });
+
+  it("opens the launch document with default settings when preferences fail to load", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockRejectedValue(new Error("Persisted settings are unreadable."));
+    mockTauriApi({
+      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      openMarkdownFile: () => createOpenedMarkdownDocument(),
+      scanMarkdownFolder: () => createEmptyFolderContext(),
+    });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(useSessionStore.getState().activeDocument).toMatchObject({
+          path: TEST_MARKDOWN_FILE_PATH,
+        });
+      });
+    } finally {
+      consoleError.mockRestore();
+      startSettingsStore.mockRestore();
+    }
   });
 });

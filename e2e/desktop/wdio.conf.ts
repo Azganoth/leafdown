@@ -42,6 +42,7 @@ export const config: WebdriverIO.Config = {
       "@wdio/tauri-service",
       {
         appBinaryPath,
+        appArgs: JSON.parse(process.env.LEAFDOWN_E2E_APP_ARGS ?? "[]") as string[],
         driverProvider: "embedded",
         embeddedPort: WEBDRIVER_PORT,
         captureBackendLogs: true,

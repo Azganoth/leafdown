@@ -136,7 +136,8 @@ The Rust backend manages:
 - Native file and folder path pickers and file IO.
 - Decoding a Markdown file in the encoding its byte order mark names, otherwise in the encoding the user chose or as UTF-8, and refusing a chosen encoding whose re-encoded text would not reproduce the file's bytes. Encoding saved text back strictly in the document's encoding and byte order mark form, reporting each character that encoding cannot represent instead of substituting it. Legacy encodings go through `encoding_rs`'s non-replacing encoder; UTF-8 and UTF-16 use the standard library.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
-- Owning the built-in Markdown file extension registry, `src-tauri/markdown-file-extensions.json`, listed in omitted-extension resolution order. The build script validates it and generates the Rust constant, and the frontend imports the same file for native picker filters, so opening, saving, scanning, watching, drops, folder entries, index and wiki-link resolution, and pickers accept one set. The new-document extension preference is a separate, narrower list.
+- Owning the built-in Markdown file extension registry, `src-tauri/markdown-file-extensions.json`, listed in omitted-extension resolution order. The build script validates it and generates the Rust constant, and the frontend imports the same file for native picker filters, so opening, saving, scanning, watching, drops, folder entries, index and wiki-link resolution, and pickers accept one set. The build script also writes the extension lists the Windows installers register file associations from, as described in [Packaging](#packaging). The new-document extension preference is a separate, narrower list.
+- Recording the process's first command-line argument as the launch document's absolute path, which the frontend takes once.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Reading an image for HTML export through the same resolution the editor renders with, bounded in size and checked for a PNG, JPEG, GIF, WebP, or SVG signature, and writing exported HTML atomically to an `.html` or `.htm` path that is not the source document.
@@ -167,7 +168,7 @@ The React frontend manages:
 - Presenting a fetched remote image through a `blob:` object URL owned by its image node view, which revokes it when the target changes or the view is destroyed and discards results that arrive after either.
 - Marker visibility rules, thematic styling, and error presentation.
 - Mirroring shared unexpected-error reports and feature-owned operational diagnostics into local logs as event-specific payloads, and exposing the Help diagnostics dialog.
-- Showing the window once startup initialization finishes or fails, and answering intercepted close requests by destroying the window or declining the request.
+- Showing the window once startup initialization finishes or fails, then opening the launch document, and answering intercepted close requests by destroying the window or declining the request.
 - Suppressing standard window-level drag-and-drop navigation and routing native file and folder drops through session workflows.
 
 The frontend calls feature-owned Rust commands only through feature-owned Tauri API modules. See [Engineering Patterns](./patterns.md#tauri-api-modules) for the implementation rules for that boundary.
@@ -198,6 +199,10 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 ### Open Workflow
 
 Backend reads target document -> Session updates active document -> Session bootstraps folder context only when none exists.
+
+### Launch Workflow
+
+Backend records the launch document path -> Frontend starts persisted stores and shows the window -> Session takes the path once and runs the Open workflow.
 
 ### Drop Workflow
 
@@ -235,6 +240,18 @@ Backend reports an event naming the active document -> Session debounces events 
 
 The document watch starts whenever the active saved document's path changes and checks the file once it is in place, since the file can change between being read and being watched. A reload remounts the editor, as a reopen does, and carries the caret and focus into the new editor.
 
+## Packaging
+
+Leafdown ships as Windows x64 NSIS and MSI installers built by the Tauri bundler. The NSIS installer installs for the current user and registers under `HKCU`; the MSI installs for all users and registers under `HKLM`.
+
+File associations come from `src-tauri/windows/installer-hooks.nsh` for NSIS and the `src-tauri/windows/file-associations.wxs` fragment for MSI, not from Tauri's file association metadata, as recorded in [Decisions](./decisions.md#register-file-associations-without-claiming-the-default). Both include the extension list the build script generates from the registry into `src-tauri/gen/windows/`, and both register:
+
+- the `Leafdown.Markdown` ProgID, whose open command quotes the executable path and `%1`;
+- a `Leafdown.Markdown` value under each extension's `OpenWithProgids`; and
+- `Capabilities` under the product's registry key, listed in `RegisteredApplications`, so Default apps can offer Leafdown.
+
+Neither writes an extension's default value or its `UserChoice`. The MSI's values belong to one component, so Windows Installer restores them on repair and removes them on uninstall and major upgrade. The NSIS installer writes them on every install, and its uninstaller removes them only while the ProgID's command still names its own executable, so uninstalling a stale installation location leaves another location's registration in place.
+
 ## Security
 
 - Prevent script execution from Markdown content.
@@ -252,7 +269,7 @@ The document watch starts whenever the active saved document's path changes and 
 
 Automated tests cover Markdown round trips; editor commands and projection; file, folder, watcher, and persistence workflows; path, encoding, size, symlink, and permission boundaries; local resource resolution; safe raw HTML; safe math rendering; and context popup behavior. Rendered HTML parsing, block layout, and native interactions also need the desktop WebView.
 
-The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, folder watching, external changes to the active document, find and replace from the keyboard and the Edit menu, folder search from the keyboard and the Edit menu with its unsaved-changes prompt, replacing across the folder through the open document's editor, math rendering, its preview, and source editing under the app's CSP, Mermaid image rendering and its opaque child network boundary, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
+The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, opening a document named on the command line, folder watching, external changes to the active document, find and replace from the keyboard and the Edit menu, folder search from the keyboard and the Edit menu with its unsaved-changes prompt, replacing across the folder through the open document's editor, math rendering, its preview, and source editing under the app's CSP, Mermaid image rendering and its opaque child network boundary, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
 
 Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build, as does the allowance that lets the remote image fetch trust one runner-named host on loopback with a test certificate authority. The E2E build also replaces the opener plugin with one that records URL, path, and reveal requests as diagnostic records instead of handing them to the system shell, so the capability still gates each command but opener scopes and link-click interception are not exercised.
 

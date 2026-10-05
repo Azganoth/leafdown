@@ -13,6 +13,7 @@ export interface DesktopE2ERunContext {
   mathCorpus: { path: string };
   mermaid: { path: string };
   legacyEncoding: { path: string };
+  launchDocument: { folderPath: string; marker: string; path: string; siblingFileName: string };
   document: {
     initialMarker: string;
     path: string;

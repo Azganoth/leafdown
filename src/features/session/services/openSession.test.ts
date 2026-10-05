@@ -18,6 +18,7 @@ import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures
 import { setDefaultSession } from "@/test/utils/appStores";
 import {
   countTauriApiCalls,
+  getLastTauriApiArgs,
   mockTauriApi,
   mockTauriApiCommand,
   tauriApiCommand,
@@ -26,6 +27,7 @@ import {
 import {
   notifyOpenMarkdownFileError,
   openFolderContextAtPath,
+  openLaunchDocument,
   openMarkdownFileAtPath,
   reopenMarkdownFileWithChosenEncoding,
 } from "./openSession";
@@ -185,6 +187,81 @@ describe("reopen with a chosen encoding", () => {
       title: "Markdown file not found.",
       type: "error",
     });
+  });
+});
+
+describe("launch document", () => {
+  const LAUNCH_MARKDOWN_PATH = "C:/Users/Ana Lúcia/Notas de reunião/日本語.md";
+
+  it("opens the launch document through the open workflow and records recent items", async () => {
+    mockTauriApi({
+      takeLaunchDocumentPath: () => LAUNCH_MARKDOWN_PATH,
+      openMarkdownFile: () =>
+        createOpenedMarkdownDocument({
+          path: LAUNCH_MARKDOWN_PATH,
+          parentFolderPath: "C:/Users/Ana Lúcia/Notas de reunião",
+        }),
+      scanMarkdownFolder: () =>
+        createEmptyFolderContext({ path: "C:/Users/Ana Lúcia/Notas de reunião" }),
+    });
+
+    await expect(openLaunchDocument()).resolves.toBe(true);
+
+    expect(getLastTauriApiArgs("openMarkdownFile")).toEqual({
+      path: LAUNCH_MARKDOWN_PATH,
+      encoding: null,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: "C:/Users/Ana Lúcia/Notas de reunião" },
+      activeDocument: { path: LAUNCH_MARKDOWN_PATH, status: "saved" },
+    });
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: [{ path: LAUNCH_MARKDOWN_PATH }],
+      recentFolders: [{ path: "C:/Users/Ana Lúcia/Notas de reunião" }],
+    });
+  });
+
+  it("opens nothing when the process was launched without a document", async () => {
+    mockTauriApi({ takeLaunchDocumentPath: () => null });
+
+    await expect(openLaunchDocument()).resolves.toBe(false);
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().activeDocument).toBeNull();
+  });
+
+  it("reports a launch document that cannot be opened like any other open failure", async () => {
+    mockTauriApi({
+      takeLaunchDocumentPath: () => "C:/Notes/readings.text",
+      openMarkdownFile: () =>
+        Promise.reject({ kind: "unsupportedFileType", path: "C:/Notes/readings.text" }),
+    });
+
+    await expect(openLaunchDocument()).resolves.toBe(false);
+
+    expect(toastManager.add).toHaveBeenCalledWith({
+      description: "Leafdown opens .md, .markdown, .mdown, and .mkd files.",
+      title: "Unsupported Markdown file type.",
+      type: "error",
+    });
+    expect(useSessionStore.getState().activeDocument).toBeNull();
+    expect(useRecentItemsStore.getState().recentFiles).toEqual([]);
+  });
+
+  it("offers reopening a launch document that is not valid UTF-8", async () => {
+    mockTauriApi({
+      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      openMarkdownFile: () =>
+        Promise.reject({ kind: "invalidEncoding", path: TEST_MARKDOWN_FILE_PATH }),
+    });
+
+    await expect(openLaunchDocument()).resolves.toBe(false);
+
+    expect(toastManager.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { actionMenu: expect.objectContaining({ label: "Reopen with encoding" }) },
+      }),
+    );
   });
 });
 

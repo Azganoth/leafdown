@@ -15,6 +15,7 @@ import { runWorkerPool } from "./support/workerPool.js";
 interface Scenario {
   name: string;
   continues?: string;
+  launchArguments?: string[];
   releaseNotesLastVersion?: string;
   recentFiles?: string[];
   recentFolders?: string[];
@@ -165,6 +166,9 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const addedFolderFilePath = path.join(folderPath, addedFolderFileName);
   const missingDocumentPath = path.join(fixtureRoot, "missing-document.md");
   const legacyEncodingPath = path.join(fixtureRoot, "legacy-encoding.md");
+  const launchFolderPath = path.join(fixtureRoot, "launch folder");
+  const launchDocumentPath = path.join(launchFolderPath, "Notas de reunião 日本語.md");
+  const launchSiblingFileName = "sibling.md";
   const documentWatcherPath = path.join(fixtureRoot, "document-watcher", "watched.md");
   const savedMarker = "Saved fixture marker.";
   const context: DesktopE2ERunContext = {
@@ -201,6 +205,12 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     mathCorpus: { path: mathCorpusPath },
     mermaid: { path: mermaidPath },
     legacyEncoding: { path: legacyEncodingPath },
+    launchDocument: {
+      folderPath: launchFolderPath,
+      marker: "Launch fixture marker.",
+      path: launchDocumentPath,
+      siblingFileName: launchSiblingFileName,
+    },
     folderActions: { path: actionsFolderPath },
     folderSearch: {
       folderPath: searchFolderPath,
@@ -251,6 +261,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
+    { name: "launch-document", launchArguments: [launchDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
     { name: "release-notes-first-install" },
@@ -294,6 +305,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       mkdir(path.join(searchFolderPath, "notes"), { recursive: true }),
       mkdir(path.join(searchFolderPath, "node_modules"), { recursive: true }),
       mkdir(wikiFolderPath, { recursive: true }),
+      mkdir(launchFolderPath, { recursive: true }),
       mkdir(workerArtifactsRoot, { recursive: true }),
     ]);
     await settleTasks(`Failed to create fixtures for ${label}.`, [
@@ -363,6 +375,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       writeFile(remoteImagesPath, ""),
       writeFile(documentWatcherPath, "Watched fixture marker.\n"),
       writeFile(legacyEncodingPath, Buffer.from("Café legacy fixture marker.\n", "latin1")),
+      writeFile(launchDocumentPath, "Launch fixture marker.\n"),
+      writeFile(path.join(launchFolderPath, launchSiblingFileName), "Sibling fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),
       writeFile(
@@ -465,6 +479,7 @@ const runWdio = (scenario: Scenario, worker: WorkerContext) =>
       cwd: repositoryRoot,
       env: {
         ...process.env,
+        LEAFDOWN_E2E_APP_ARGS: JSON.stringify(scenario.launchArguments ?? []),
         LEAFDOWN_E2E_APP_IDENTIFIER: worker.context.appIdentifier,
         LEAFDOWN_E2E_ARTIFACT_RUN: RUN_LABEL,
         LEAFDOWN_E2E_CONTEXT_PATH: worker.contextPath,

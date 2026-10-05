@@ -476,7 +476,7 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 ### Open File
 
-- Opening a file may be initiated from Open, recent files, or article navigator selection.
+- Opening a file may be initiated from Open, recent files, article navigator selection, or the operating system, as described in [Open From The Operating System](#open-from-the-operating-system).
 - Read the selected Markdown file.
 - If no folder context is active, set the current folder context to the file's parent folder and scan that folder for supported Markdown files, skipping ignored directories.
 - If a folder context is already active, keep it unchanged.
@@ -503,6 +503,14 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 - Insert link requires an active document and inserts at its current editor selection. An inline text selection becomes the link label; otherwise the dropped item's name is used. A selection that cannot hold one inline link shows a non-disruptive warning and changes nothing.
 - A link inserted into a saved document is relative to that document when the dropped item shares its filesystem root; otherwise it uses the absolute path. A link inserted into an untitled document uses the absolute path.
 - Insert link with no active document shows a non-disruptive warning and changes nothing.
+
+### Open From The Operating System
+
+- The Windows installers register Leafdown as able to open each supported Markdown extension, so File Explorer offers it under Open with and Settings lists it under Default apps. Installing, upgrading, repairing, or reinstalling never makes Leafdown the default application: each extension's default and the user's choice stay as they were, and choosing Leafdown is the user's step in Windows.
+- Opening a file through that registration, or starting Leafdown with a path as its first command-line argument, starts a new Leafdown window with that file, even when another Leafdown window is open. A relative path resolves against the directory Leafdown started in; later arguments are ignored.
+- The file opens through [Open File](#open-file) once preferences have loaded, so it sets the folder context and records recents as File > Open does. A missing, unreadable, oversized, unsupported, or undecodable file shows its open error, as described in [Error Handling](#error-handling), and leaves the welcome screen.
+- Upgrading, reinstalling, or repairing points the registration at the installed executable. Uninstalling removes the registration that installation made and nothing else. The NSIS installation registers for the current user and the MSI installation for all users; while both are installed, Windows uses the current user's.
+- Opening files and folders from within Leafdown does not depend on the registration.
 
 ### New Document
 

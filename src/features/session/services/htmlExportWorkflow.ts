@@ -3,6 +3,7 @@ import { documentDir, join } from "@tauri-apps/api/path";
 import {
   ensureHtmlExtension,
   getActiveDocumentKey,
+  MARKDOWN_FILE_EXTENSIONS,
   matchesActiveDocumentKey,
   selectHtmlExportPath,
   writeHtmlDocument,
@@ -28,7 +29,10 @@ export class HtmlExportUnavailableError extends Error {
 }
 
 const HTML_EXTENSION = ".html";
-const MARKDOWN_EXTENSION_PATTERN = /\.(?:md|markdown)$/iu;
+const MARKDOWN_EXTENSION_PATTERN = new RegExp(
+  `\\.(?:${MARKDOWN_FILE_EXTENSIONS.join("|")})$`,
+  "iu",
+);
 
 const exportTaskQueue = new SequentialTaskQueue();
 

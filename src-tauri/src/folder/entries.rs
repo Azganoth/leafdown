@@ -7,7 +7,7 @@ use std::{
 use serde::Serialize;
 
 use crate::{
-    document::{MARKDOWN_FILE_EXTENSIONS, is_supported_markdown_path},
+    document::{is_supported_markdown_extension, is_supported_markdown_path},
     path_utils::{IoErrorClass, classify_io_error, path_to_string},
 };
 
@@ -130,7 +130,7 @@ pub(super) fn rename_folder_entry(
         let current_extension = Path::new(current_name.as_str())
             .extension()
             .and_then(|extension| extension.to_str())
-            .filter(|extension| is_markdown_extension(extension))
+            .filter(|extension| is_supported_markdown_extension(extension))
             .ok_or_else(|| FolderEntryError::UnsupportedExtension {
                 name: current_name.clone(),
             })?
@@ -184,7 +184,11 @@ fn markdown_file_name(name: &str, default_extension: &str) -> Result<String, Fol
 
     match Path::new(name).extension() {
         None => Ok(format!("{name}.{default_extension}")),
-        Some(extension) if extension.to_str().is_some_and(is_markdown_extension) => {
+        Some(extension)
+            if extension
+                .to_str()
+                .is_some_and(is_supported_markdown_extension) =>
+        {
             Ok(name.to_owned())
         }
         Some(_) => Err(FolderEntryError::UnsupportedExtension {
@@ -196,19 +200,13 @@ fn markdown_file_name(name: &str, default_extension: &str) -> Result<String, Fol
 fn parse_markdown_extension(extension: &str) -> Result<&str, FolderEntryError> {
     let extension = extension.strip_prefix('.').unwrap_or(extension);
 
-    if is_markdown_extension(extension) {
+    if is_supported_markdown_extension(extension) {
         Ok(extension)
     } else {
         Err(FolderEntryError::UnsupportedExtension {
             name: extension.to_owned(),
         })
     }
-}
-
-fn is_markdown_extension(extension: &str) -> bool {
-    MARKDOWN_FILE_EXTENSIONS
-        .iter()
-        .any(|supported| extension.eq_ignore_ascii_case(supported))
 }
 
 fn validate_entry_name(name: &str) -> Result<(), FolderEntryError> {
@@ -387,6 +385,18 @@ mod tests {
     }
 
     #[test]
+    fn keeps_added_markdown_extensions_when_creating_articles() {
+        let root = TestDirectory::new("entries-create-added-extension");
+
+        for name in ["Guide.mdown", "Plan.MKD"] {
+            let result = create_markdown_article(&root.path, &root.path, name, ".md")
+                .expect("article should be created");
+
+            assert_eq!(result.path, root.path(name).to_string_lossy());
+        }
+    }
+
+    #[test]
     fn rejects_unsupported_explicit_extensions_before_writing() {
         let root = TestDirectory::new("entries-create-unsupported-extension");
 
@@ -396,6 +406,12 @@ mod tests {
         assert_matches!(error, FolderEntryError::UnsupportedExtension { name } if name == "notes.txt");
         assert!(!root.path("notes.txt").exists());
         assert!(!root.path("notes.txt.md").exists());
+
+        let error = create_markdown_article(&root.path, &root.path, "notes.text", ".md")
+            .expect_err("generic text extension should be refused");
+
+        assert_matches!(error, FolderEntryError::UnsupportedExtension { name } if name == "notes.text");
+        assert!(!root.path("notes.text").exists());
     }
 
     #[test]
@@ -531,6 +547,24 @@ mod tests {
         assert_eq!(
             fs::read_to_string(renamed).expect("renamed article should be read"),
             "# Draft\n"
+        );
+    }
+
+    #[test]
+    fn renames_added_extension_articles_keeping_their_extension() {
+        let root = TestDirectory::new("entries-rename-added-extension");
+        let article = root.write_file_with_content(
+            "docs/draft.mkd",
+            "# Draft
+",
+        );
+
+        let result =
+            rename_folder_entry(&root.path, &article, "final").expect("article should rename");
+
+        assert_eq!(
+            result.path,
+            root.path("docs").join("final.mkd").to_string_lossy()
         );
     }
 

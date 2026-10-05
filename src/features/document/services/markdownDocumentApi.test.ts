@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   INSPECT_MARKDOWN_FILE_COMMAND,
   inspectMarkdownFile,
+  MARKDOWN_FILE_EXTENSIONS,
+  NEW_DOCUMENT_EXTENSIONS,
   OPEN_MARKDOWN_FILE_COMMAND,
   openMarkdownFile,
   SAVE_MARKDOWN_FILE_COMMAND,
@@ -18,6 +20,17 @@ import {
 } from "./markdownDocumentApi";
 
 describe("markdownDocumentApi", () => {
+  it("accepts the built-in Markdown file extensions in resolution order", () => {
+    expect(MARKDOWN_FILE_EXTENSIONS).toEqual(["md", "markdown", "mdown", "mkd"]);
+  });
+
+  it("offers only accepted extensions for new documents", () => {
+    expect(NEW_DOCUMENT_EXTENSIONS).toEqual([".md", ".markdown"]);
+    for (const extension of NEW_DOCUMENT_EXTENSIONS) {
+      expect(MARKDOWN_FILE_EXTENSIONS).toContain(extension.slice(1));
+    }
+  });
+
   it("invokes the open Markdown file command", async () => {
     const result = {
       path: "C:/Notes/index.md",

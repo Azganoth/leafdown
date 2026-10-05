@@ -18,6 +18,7 @@ import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import {
   countTauriApiCalls,
+  getLastTauriApiArgs,
   mockTauriApi,
   mockTauriApiCommand,
   tauriApiCommand,
@@ -206,6 +207,35 @@ describe("document workflows", () => {
   });
 
   describe("save as", () => {
+    it.each(["C:/Notes/draft.mdown", "C:/Notes/draft.MKD"])(
+      "keeps the supplied %s extension instead of the default",
+      async (selectedPath) => {
+        setDefaultSettings({ defaultNewDocumentExtension: ".md", insertFinalNewline: false });
+        setDefaultSession({
+          folderContext: notesFolderContext,
+          activeDocument: createUntitledDocument(),
+        });
+        documentEditorBridge.set(
+          TEST_UNTITLED_DOCUMENT_ID,
+          createMilkdownEditorBridge({ getMarkdown: () => "Draft\n" }),
+        );
+        vi.mocked(save).mockResolvedValue(selectedPath);
+        mockTauriApi({
+          saveMarkdownFile: () =>
+            createSavedMarkdownDocumentResult({ path: selectedPath, metadata: { sizeBytes: 5 } }),
+          scanMarkdownFolder: () => updatedFolderContext,
+        });
+
+        await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+
+        expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({ path: selectedPath });
+        expect(useSessionStore.getState().activeDocument).toMatchObject({
+          status: "saved",
+          path: selectedPath,
+        });
+      },
+    );
+
     it("routes untitled Save through Save As and applies the default extension", async () => {
       setDefaultSettings({
         defaultNewDocumentExtension: ".markdown",
@@ -235,7 +265,7 @@ describe("document workflows", () => {
 
       expect(save).toHaveBeenCalledWith({
         title: "Save Markdown document",
-        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd"] }],
         defaultPath: "C:/Notes/Untitled.markdown",
       });
       expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("saveMarkdownFile"), {
@@ -586,7 +616,7 @@ describe("document workflows", () => {
       });
       expect(save).toHaveBeenCalledWith({
         title: "Save Markdown document",
-        filters: [{ name: "Markdown", extensions: ["md", "markdown"] }],
+        filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd"] }],
         defaultPath: TEST_MARKDOWN_FILE_PATH,
       });
       expect(saveMarkdownFile).toHaveBeenNthCalledWith(2, {

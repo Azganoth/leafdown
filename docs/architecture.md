@@ -134,6 +134,7 @@ The Rust backend manages:
 - Native file and folder path pickers and file IO.
 - Decoding a Markdown file in the encoding its byte order mark names, otherwise in the encoding the user chose or as UTF-8, and refusing a chosen encoding whose re-encoded text would not reproduce the file's bytes. Encoding saved text back strictly in the document's encoding and byte order mark form, reporting each character that encoding cannot represent instead of substituting it. Legacy encodings go through `encoding_rs`'s non-replacing encoder; UTF-8 and UTF-16 use the standard library.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
+- Owning the built-in Markdown file extension registry, `src-tauri/markdown-file-extensions.json`, listed in omitted-extension resolution order. The build script validates it and generates the Rust constant, and the frontend imports the same file for native picker filters, so opening, saving, scanning, watching, drops, folder entries, index and wiki-link resolution, and pickers accept one set. The new-document extension preference is a separate, narrower list.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Reading an image for HTML export through the same resolution the editor renders with, bounded in size and checked for a PNG, JPEG, GIF, WebP, or SVG signature, and writing exported HTML atomically to an `.html` or `.htm` path that is not the source document.

@@ -2,9 +2,9 @@ import { create } from "zustand";
 
 import {
   LINE_ENDINGS,
-  MARKDOWN_FILE_EXTENSIONS,
+  NEW_DOCUMENT_EXTENSIONS,
   type LineEnding,
-  type MarkdownFileExtension,
+  type NewDocumentExtension,
 } from "@/features/document";
 import type {
   DocumentFont,
@@ -85,7 +85,7 @@ export interface SettingsState {
   outlineDepth: OutlineDepth;
   alwaysOnTop: boolean;
   articleSortOrder: ArticleSortOrder;
-  defaultNewDocumentExtension: MarkdownFileExtension;
+  defaultNewDocumentExtension: NewDocumentExtension;
   defaultNewDocumentLineEnding: LineEnding;
   insertFinalNewline: boolean;
   indexFileNames: string[];
@@ -133,12 +133,6 @@ export const createDefaultSettingsState = (): SettingsState => ({
 
 export const getSystemDefaultLineEnding = (): LineEnding => (isWindowsPlatform() ? "crlf" : "lf");
 
-const MARKDOWN_FILE_EXTENSION_VALUES = MARKDOWN_FILE_EXTENSIONS.map(
-  // The template literal widens to `string`; the assertion is what keeps the union.
-  // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
-  (extension) => `.${extension}` as MarkdownFileExtension,
-);
-
 const SETTINGS_CONTRACT = definePersistedState({
   language: stringValue,
   accentColor: oneOf(APPEARANCE_ACCENT_COLORS),
@@ -152,7 +146,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   outlineDepth: oneOf(OUTLINE_DEPTHS),
   alwaysOnTop: booleanValue,
   articleSortOrder: oneOf(ARTICLE_SORT_ORDERS),
-  defaultNewDocumentExtension: oneOf(MARKDOWN_FILE_EXTENSION_VALUES),
+  defaultNewDocumentExtension: oneOf(NEW_DOCUMENT_EXTENSIONS),
   defaultNewDocumentLineEnding: oneOf(LINE_ENDINGS),
   insertFinalNewline: booleanValue,
   indexFileNames: listOf(stringValue),

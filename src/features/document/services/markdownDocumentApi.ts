@@ -1,11 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 
+import markdownFileExtensions from "../../../../src-tauri/markdown-file-extensions.json";
 import type { DocumentEncoding, TextEncodingName } from "../utils/documentEncoding";
 import type { FileMetadataSnapshot, LineEnding } from "../utils/documentState";
 
-export const MARKDOWN_FILE_EXTENSIONS = ["md", "markdown"] as const;
+export const MARKDOWN_FILE_EXTENSIONS: readonly string[] = markdownFileExtensions;
 
-export type MarkdownFileExtension = `.${(typeof MARKDOWN_FILE_EXTENSIONS)[number]}`;
+export const NEW_DOCUMENT_EXTENSIONS = [".md", ".markdown"] as const;
+
+export type NewDocumentExtension = (typeof NEW_DOCUMENT_EXTENSIONS)[number];
 
 export const OPEN_MARKDOWN_FILE_COMMAND = "open_markdown_file";
 export const SAVE_MARKDOWN_FILE_COMMAND = "save_markdown_file";

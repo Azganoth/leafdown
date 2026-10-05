@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use crate::{
-    document::is_supported_markdown_path,
+    document::{
+        MARKDOWN_FILE_EXTENSIONS, is_supported_markdown_extension, is_supported_markdown_path,
+    },
     path_utils::{
         ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
         is_network_or_device_target, parse_file_url_path, resolve_existing_path,
@@ -117,16 +119,12 @@ pub(crate) fn resolve_wiki_target(
 
     let extension = path.extension().and_then(|value| value.to_str());
     let candidates = match extension {
-        Some(value)
-            if value.eq_ignore_ascii_case("md") || value.eq_ignore_ascii_case("markdown") =>
-        {
-            vec![PathBuf::from(target)]
-        }
+        Some(value) if is_supported_markdown_extension(value) => vec![PathBuf::from(target)],
         Some(_) => return ResolveMarkdownLinkTargetResult::UnsupportedTarget,
-        None => vec![
-            PathBuf::from(format!("{target}.md")),
-            PathBuf::from(format!("{target}.markdown")),
-        ],
+        None => MARKDOWN_FILE_EXTENSIONS
+            .iter()
+            .map(|extension| PathBuf::from(format!("{target}.{extension}")))
+            .collect(),
     };
 
     let mut first_missing = None;
@@ -427,6 +425,51 @@ mod tests {
     }
 
     #[test]
+    fn resolves_every_supported_extension_as_local_markdown() {
+        let root = TestDirectory::new("supported-extensions");
+        let document_path = root.markdown_document_path();
+
+        for file_name in [
+            "note.md",
+            "note.markdown",
+            "note.mdown",
+            "note.mkd",
+            "upper.MKD",
+            "mixed.MDown",
+        ] {
+            let target_path = root.write_file(format!("docs/{file_name}").as_str());
+
+            let result = resolve_link_target(
+                Some(document_path.as_path()),
+                Some(root.path.as_path()),
+                file_name,
+                false,
+            );
+
+            assert_eq!(
+                result,
+                ResolveMarkdownLinkTargetResult::LocalMarkdown {
+                    path: canonical_path_string(target_path.as_path())
+                },
+                "{file_name}"
+            );
+        }
+
+        let text_path = root.write_file("docs/note.text");
+        let text_result = resolve_link_target(
+            Some(document_path.as_path()),
+            Some(root.path.as_path()),
+            "note.text",
+            false,
+        );
+
+        assert_eq!(
+            local_file_path(text_result),
+            canonical_path_string(text_path.as_path())
+        );
+    }
+
+    #[test]
     fn resolves_local_non_markdown_files_and_directories() {
         let root = TestDirectory::new("non-markdown");
         let document_path = root.markdown_document_path();
@@ -629,6 +672,44 @@ mod tests {
             ResolveMarkdownLinkTargetResult::LocalMarkdown {
                 path: canonical_path_string(uppercase.as_path())
             }
+        );
+    }
+
+    #[test]
+    fn tries_added_wiki_extensions_after_md_and_markdown() {
+        let root = TestDirectory::new("wiki-added-extensions");
+        let document = root.markdown_document_path();
+        let resolve = |target: &str| {
+            resolve_wiki_target(
+                Some(document.as_path()),
+                Some(root.path.as_path()),
+                target,
+                false,
+            )
+        };
+        let local_markdown = |path: &Path| ResolveMarkdownLinkTargetResult::LocalMarkdown {
+            path: canonical_path_string(path),
+        };
+
+        let mkd = root.write_file("docs/notes/plan.mkd");
+        assert_eq!(resolve("notes/plan"), local_markdown(mkd.as_path()));
+
+        let mdown = root.write_file("docs/notes/plan.mdown");
+        assert_eq!(resolve("notes/plan"), local_markdown(mdown.as_path()));
+
+        let markdown = root.write_file("docs/notes/plan.markdown");
+        assert_eq!(resolve("notes/plan"), local_markdown(markdown.as_path()));
+
+        let md = root.write_file("docs/notes/plan.md");
+        assert_eq!(resolve("notes/plan"), local_markdown(md.as_path()));
+
+        assert_eq!(resolve("notes/plan.mkd"), local_markdown(mkd.as_path()));
+        assert_eq!(resolve("notes/plan.mdown"), local_markdown(mdown.as_path()));
+
+        root.write_file("docs/notes/plan.text");
+        assert_eq!(
+            resolve("notes/plan.text"),
+            ResolveMarkdownLinkTargetResult::UnsupportedTarget
         );
     }
 

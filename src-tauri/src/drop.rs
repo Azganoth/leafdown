@@ -116,6 +116,25 @@ mod tests {
                 path: path_to_string(unsupported_path.as_path()),
             })
         );
+
+        for file_name in ["notes.mdown", "notes.MKD"] {
+            let path = root.write_file(file_name);
+            assert_eq!(
+                classify_dropped_path(path.clone()),
+                Ok(DroppedPath::MarkdownFile {
+                    path: path_to_string(path.as_path()),
+                }),
+                "{file_name}"
+            );
+        }
+
+        let text_path = root.write_file("notes.text");
+        assert_eq!(
+            classify_dropped_path(text_path.clone()),
+            Ok(DroppedPath::Unsupported {
+                path: path_to_string(text_path.as_path()),
+            })
+        );
     }
 
     #[test]

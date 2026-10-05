@@ -8,6 +8,8 @@ Open [[../environment/article-navigator/nested/probe-placement.markdown]] with i
 
 Open [[../environment/wiki-links/extension-priority]] to see `.md` win when both extensions exist.
 
+Open [[../environment/wiki-links/added-extension]] to reach a `.mdown` file that has no `.md` or `.markdown` sibling.
+
 ## Supported aliases
 
 Open [[../commonmark/links-and-images|the link examples]].

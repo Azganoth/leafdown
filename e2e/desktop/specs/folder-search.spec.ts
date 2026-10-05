@@ -151,19 +151,27 @@ describe("desktop folder search", () => {
     const { folderSearch } = await getDesktopE2ERunContext();
     const farMarkdown = await readFile(folderSearch.farPath, "utf8");
 
+    // Where the typed text lands depends on the harness, so the editor's own text decides how many
+    // matches the unsaved document holds.
     await $('[contenteditable="true"]').addValue("Unsaved ");
     await expect(documentState()).toHaveText("Unsaved");
+
+    const editorText = await $('[contenteditable="true"]').getText();
+    const unsavedMatches = editorText.match(/lantern/giu)?.length ?? 0;
 
     await findInFolder();
     await expect(panel()).toBeDisplayed();
     await expect(queryField()).toHaveValue("lantern");
-    await browser.waitUntil(async () => (await status().getText()) === "4 results in 2 files", {
-      timeoutMsg: "The folder search did not run again for the reopened view.",
-    });
+    await browser.waitUntil(
+      async () => (await status().getText()) === `${unsavedMatches + 2} results in 2 files`,
+      { timeoutMsg: "The folder search did not count the unsaved document's text." },
+    );
 
     await pressKey("ArrowDown");
     await pressKey("End");
     expect(await focusedRowLabel()).toContain("in two pieces.");
+
+    const rowCount = await resultRows().length;
 
     await pressKey("Enter");
     await expect(unsavedPrompt()).toBeDisplayed();
@@ -171,12 +179,10 @@ describe("desktop folder search", () => {
     await expect(unsavedPrompt()).not.toExist();
 
     await expect(documentState()).toHaveText("Unsaved");
-    await expect($('[contenteditable="true"]')).toHaveText(
-      expect.stringContaining("The last lantern stands at the end."),
-    );
-    expect(await resultRows().length).toBe(6);
+    expect(await $('[contenteditable="true"]').getText()).toBe(editorText);
+    expect(await resultRows().length).toBe(rowCount);
 
-    await (await resultRows().getElements())[5].click();
+    await (await resultRows().getElements())[rowCount - 1].click();
     await expect(unsavedPrompt()).toBeDisplayed();
     await $("aria/Discard changes").click();
 

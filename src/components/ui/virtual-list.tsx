@@ -175,7 +175,13 @@ function VirtualListItem({
   return (
     <li
       data-slot="virtual-list-item"
-      className={cn("absolute top-0 left-0 w-full", className)}
+      className={cn(
+        "absolute top-0 left-0 w-full",
+        className,
+        // Rows are placed by `transform`, so animating it would slide existing rows across rows
+        // that mount in place whenever the list above them changes.
+        "transition-[color,background-color,border-color,box-shadow,opacity,translate]",
+      )}
       style={{
         ...style,
         // No `paint`: a row and its control share a box, so it would clip the

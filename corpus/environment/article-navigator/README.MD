@@ -7,5 +7,7 @@ preferred when this directory is opened directly.
 
 - [Overview](./01-overview.md)
 - [Placement decision](./nested/probe-placement.markdown)
+- [Survey route](./nested/survey-route.mdown)
+- [Sample log](./nested/sample-log.mkd)
 - [São Paulo field notes](<./nested/field-notes – são-paulo.md>)
 - [Index precedence](./index-precedence/readme.md)

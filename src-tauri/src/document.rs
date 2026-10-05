@@ -22,7 +22,7 @@ mod watch;
 
 pub(crate) use watch::{DocumentWatcherState, WatchMarkdownDocumentError};
 
-pub(crate) const MARKDOWN_FILE_EXTENSIONS: [&str; 2] = ["md", "markdown"];
+include!(concat!(env!("OUT_DIR"), "/markdown_file_extensions.rs"));
 pub(crate) const MAX_MARKDOWN_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
 
 const FINGERPRINT_CHUNK_SIZE: u64 = 64 * 1024;
@@ -394,7 +394,7 @@ pub(crate) fn is_supported_markdown_path(path: &Path) -> bool {
         .is_some_and(is_supported_markdown_extension)
 }
 
-fn is_supported_markdown_extension(extension: &str) -> bool {
+pub(crate) fn is_supported_markdown_extension(extension: &str) -> bool {
     MARKDOWN_FILE_EXTENSIONS
         .iter()
         .any(|supported_extension| supported_extension.eq_ignore_ascii_case(extension))
@@ -1170,11 +1170,60 @@ mod tests {
 
     #[test]
     fn rejects_unsupported_file_types() {
-        let file = create_test_file("notes.txt", "not Markdown");
+        for file_name in ["notes.txt", "notes.text", "notes.mdx"] {
+            let file = create_test_file(file_name, "not Markdown");
 
-        let error = read_markdown_file(&file.path, None).expect_err("text file should be rejected");
+            let error = read_markdown_file(&file.path, None)
+                .expect_err("unsupported file should be rejected");
 
-        assert_matches!(error, OpenMarkdownFileError::UnsupportedFileType { .. });
+            assert_matches!(
+                error,
+                OpenMarkdownFileError::UnsupportedFileType { .. },
+                "{file_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn opens_saves_and_reopens_every_supported_extension_in_place() {
+        let root = TestDirectory::new("supported-extensions");
+
+        for file_name in [
+            "lower.md",
+            "lower.markdown",
+            "lower.mdown",
+            "lower.mkd",
+            "upper.MDOWN",
+            "mixed.MkD",
+        ] {
+            let path = root.write_file_with_content(
+                file_name, "# Draft
+",
+            );
+            let serialized_path = path.to_string_lossy();
+
+            let opened = read_markdown_file(&path, None).expect("supported file should open");
+            let saved = write_markdown_file(
+                &path,
+                "# Saved
+",
+                opened.encoding,
+                Some(opened.metadata),
+                false,
+            )
+            .expect("supported file should save in place");
+            let reopened = read_markdown_file(&path, None).expect("saved file should reopen");
+
+            assert_eq!(opened.path, serialized_path, "{file_name}");
+            assert_eq!(saved.path, serialized_path, "{file_name}");
+            assert_eq!(reopened.path, serialized_path, "{file_name}");
+            assert_eq!(
+                reopened.content,
+                "# Saved
+",
+                "{file_name}"
+            );
+        }
     }
 
     #[test]
@@ -1250,19 +1299,26 @@ mod tests {
     #[test]
     fn rejects_unsupported_save_file_types() {
         let file = create_test_file("notes.md", "");
-        let unsupported_path = file.root.path.join("notes.txt");
 
-        let error = write_markdown_file(
-            &unsupported_path,
-            "not Markdown",
-            DocumentEncoding::UTF8,
-            None,
-            false,
-        )
-        .expect_err("text file should be rejected");
+        for file_name in ["notes.txt", "notes.text"] {
+            let unsupported_path = file.root.path.join(file_name);
 
-        assert_matches!(error, SaveMarkdownFileError::UnsupportedFileType { .. });
-        assert!(!unsupported_path.exists());
+            let error = write_markdown_file(
+                &unsupported_path,
+                "not Markdown",
+                DocumentEncoding::UTF8,
+                None,
+                false,
+            )
+            .expect_err("unsupported file should be rejected");
+
+            assert_matches!(
+                error,
+                SaveMarkdownFileError::UnsupportedFileType { .. },
+                "{file_name}"
+            );
+            assert!(!unsupported_path.exists(), "{file_name}");
+        }
     }
 
     #[test]

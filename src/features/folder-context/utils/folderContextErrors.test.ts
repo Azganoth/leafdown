@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { MARKDOWN_FILE_EXTENSIONS } from "@/features/document";
+
 import {
   getFolderEntryErrorMessage,
   getOpenFolderContextErrorMessage,
@@ -175,4 +177,16 @@ describe("folder context errors", () => {
     ).toEqual({ title: "Could not rename item.", description: "disk full" });
     expect(getFolderEntryErrorMessage(new Error("boom"), fallback)).toBe(fallback);
   });
+
+  it.each(MARKDOWN_FILE_EXTENSIONS)(
+    "names .%s in the unsupported extension message",
+    (extension) => {
+      const message = getFolderEntryErrorMessage(
+        { kind: "unsupportedExtension", name: "notes.txt" },
+        { title: "fallback" },
+      );
+
+      expect(message.description).toMatch(new RegExp(`\\.${extension}\\b`, "u"));
+    },
+  );
 });

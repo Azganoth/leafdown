@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { LineEnding, MarkdownFileExtension } from "@/features/document";
+import type { LineEnding, NewDocumentExtension } from "@/features/document";
 import type { DocumentFont, DocumentLineSpacing, DocumentTypography } from "@/features/editor";
 import type { ArticleSortOrder } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
@@ -123,7 +123,7 @@ const ARTICLE_SORT_OPTIONS: LocalizedOption<ArticleSortOrder>[] = [
   { labelId: "preferences.articleSortOrder.type", value: "type" },
 ];
 
-const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<MarkdownFileExtension>[] = [
+const NEW_DOCUMENT_EXTENSION_OPTIONS: ChoiceOption<NewDocumentExtension>[] = [
   { label: ".md", value: ".md" },
   { label: ".markdown", value: ".markdown" },
 ];

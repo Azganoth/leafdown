@@ -85,6 +85,19 @@ describe("HTML export workflow", () => {
     expect(sessionAfter.activeDocumentGeneration).toBe(sessionBefore.activeDocumentGeneration);
   });
 
+  it.each(["Guide.mdown", "Guide.MKD"])(
+    "names the export of %s after the document without its Markdown extension",
+    async (fileName) => {
+      setExportableDocument(createSavedDocument({ path: `C:/Notes/${fileName}` }));
+      vi.mocked(save).mockResolvedValue("C:/Notes/Guide.html");
+
+      await exportActiveMarkdownDocumentAsHtml();
+
+      expect(vi.mocked(save).mock.calls[0][0]?.defaultPath).toBe("C:/Notes/Guide.html");
+      expect(vi.mocked(renderHtmlExport).mock.calls[0][1]).toMatchObject({ title: "Guide" });
+    },
+  );
+
   it("names an untitled export after Untitled and adds the HTML extension", async () => {
     setExportableDocument(createUntitledDocument());
     vi.mocked(save).mockResolvedValue("C:/Notes/page");

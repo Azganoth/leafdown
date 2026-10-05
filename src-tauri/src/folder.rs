@@ -436,7 +436,10 @@ mod tests {
         let root = TestDirectory::new("scan-markdown-folder");
         root.write_file("readme.md");
         root.write_file("notes.MARKDOWN");
+        root.write_file("guide.mdown");
+        root.write_file("nested/plan.MKD");
         root.write_file("notes.txt");
+        root.write_file("notes.text");
         root.write_file("nested/draft.md");
         root.create_directory("empty");
 
@@ -446,8 +449,11 @@ mod tests {
         assert!(!result.is_empty);
         assert!(tree_has_file(&result.tree, "readme.md"));
         assert!(tree_has_file(&result.tree, "notes.MARKDOWN"));
+        assert!(tree_has_file(&result.tree, "guide.mdown"));
+        assert!(tree_has_file(&result.tree, "plan.MKD"));
         assert!(tree_has_file(&result.tree, "draft.md"));
         assert!(!tree_has_file(&result.tree, "notes.txt"));
+        assert!(!tree_has_file(&result.tree, "notes.text"));
         assert!(tree_has_directory(&result.tree, "empty"));
     }
 
@@ -647,6 +653,32 @@ mod tests {
                 .path,
             expected_index.to_string_lossy()
         );
+    }
+
+    #[test]
+    fn tries_added_index_extensions_after_md_and_markdown() {
+        let root = TestDirectory::new("open-index-added-extension");
+        let open_index_path = || {
+            open_folder(
+                &root.path,
+                vec!["readme".to_owned()],
+                ignored_directories(),
+                FileTreeSortOrder::Name,
+            )
+            .expect("folder with an index should open")
+            .index_document
+            .expect("Markdown index should open")
+            .path
+        };
+
+        let mkd = root.write_file("readme.mkd");
+        assert_eq!(open_index_path(), mkd.to_string_lossy());
+
+        let mdown = root.write_file("README.MDOWN");
+        assert_eq!(open_index_path(), mdown.to_string_lossy());
+
+        let markdown = root.write_file("readme.markdown");
+        assert_eq!(open_index_path(), markdown.to_string_lossy());
     }
 
     #[test]

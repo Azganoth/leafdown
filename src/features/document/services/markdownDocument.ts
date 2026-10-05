@@ -25,14 +25,15 @@ import {
   openMarkdownFile,
   saveMarkdownFile,
   writeHtmlExport,
-  type MarkdownFileExtension,
+  type NewDocumentExtension,
   type OpenMarkdownFileResult,
   type SaveMarkdownFileResult,
 } from "./markdownDocumentApi";
 
 export {
   MARKDOWN_FILE_EXTENSIONS,
-  type MarkdownFileExtension,
+  NEW_DOCUMENT_EXTENSIONS,
+  type NewDocumentExtension,
   type MarkdownFileState,
 } from "./markdownDocumentApi";
 export type OpenedMarkdownDocument = OpenMarkdownFileResult;
@@ -183,7 +184,7 @@ export const writeHtmlDocument = (
 
 export const ensureMarkdownExtension = async (
   path: string,
-  defaultExtension: MarkdownFileExtension,
+  defaultExtension: NewDocumentExtension,
 ) => ((await extname(path)) ? path : `${path}${defaultExtension}`);
 
 const writeDocumentOperationFailureDiagnostic = (

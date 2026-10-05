@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { MARKDOWN_FILE_EXTENSIONS } from "../services/markdownDocumentApi";
 import {
   formatUnrepresentableCharacters,
   getOpenMarkdownFileErrorMessage,
@@ -13,7 +14,7 @@ describe("document IO errors", () => {
       error: { kind: "unsupportedFileType", path: "C:/Notes/notes.txt" },
       expected: {
         title: "Unsupported Markdown file type.",
-        description: "Leafdown opens .md and .markdown files.",
+        description: "Leafdown opens .md, .markdown, .mdown, and .mkd files.",
       },
     },
     {
@@ -109,7 +110,7 @@ describe("document IO errors", () => {
       error: { kind: "unsupportedFileType", path: "C:/Notes/readme.txt" },
       expected: {
         title: "Unsupported save file type.",
-        description: "Save Markdown documents as .md or .markdown files.",
+        description: "Save Markdown documents as .md, .markdown, .mdown, or .mkd files.",
       },
     },
     {
@@ -203,6 +204,14 @@ describe("document IO errors", () => {
     },
   ])("maps save error: $name", ({ error, expected }) => {
     expect(getSaveMarkdownFileErrorMessage(error)).toEqual(expected);
+  });
+
+  it.each(MARKDOWN_FILE_EXTENSIONS)("names .%s in unsupported file type messages", (extension) => {
+    const error = { kind: "unsupportedFileType", path: "C:/Notes/notes.txt" } as const;
+    const extensionPattern = new RegExp(`\\.${extension}\\b`, "u");
+
+    expect(getOpenMarkdownFileErrorMessage(error).description).toMatch(extensionPattern);
+    expect(getSaveMarkdownFileErrorMessage(error).description).toMatch(extensionPattern);
   });
 
   it("lists a bounded number of unrepresentable characters by code point", () => {

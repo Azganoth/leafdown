@@ -1,0 +1,3 @@
+# Mdown extension
+
+An omitted wiki-link extension opens this file only when no `.md` or `.markdown` sibling exists.

@@ -14,7 +14,7 @@ Items marked `Deferred` describe approved future behavior. They are not implemen
 
 ## Supported Content
 
-Supported files are `.md` and `.markdown` formats.
+Supported Markdown files use the `.md`, `.markdown`, `.mdown`, or `.mkd` extension, in any letter case. Every other file, including generic `.text` files, is not a Markdown document: Leafdown does not open, list, search, or save it as one.
 
 Leafdown supports the following CommonMark and GitHub Flavored Markdown (GFM) features, plus footnotes:
 
@@ -307,7 +307,7 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 ### Find In Folder
 
 - `Find in folder...` opens the folder search view in place of the article navigator, named for the folder context, with its query field focused, and shows the sidebar if it is hidden. It needs a folder context, with or without an open document, and searches apart from the document's search surface, whose query it neither reads nor changes. Asking again returns focus to the query field. The close button or `Escape` returns the sidebar to the article navigator and puts focus in the editor, with a chosen match selected, or on the navigator when no document is open.
-- It searches the articles the article navigator lists: `.md` and `.markdown` files in the folder context, outside ignored directories, without following symbolic links, and only at the top level of a drive or partition root. A document outside the folder context and an untitled document are not searched.
+- It searches the articles the article navigator lists: supported Markdown files in the folder context, outside ignored directories, without following symbolic links, and only at the top level of a drive or partition root. A document outside the folder context and an untitled document are not searched.
 - Matching is the [Find And Replace](#find-and-replace) matching: literal text that a caret can reach, read from each file as the editor reads it once the file opens, with `Match case` and `Whole word`. Reading a file for a search renders nothing and fetches nothing.
 - The open document is searched as the editor holds it, with its unsaved changes and the encoding it was read in, even when its file has since changed or gone. A search the author starts settles an open source projection first, as opening the search surface does. Its results follow edits without saving, marking unsaved changes, or adding history.
 - Every other file is read as Open File reads it, in the encoding its byte order mark names or otherwise as UTF-8, never in a guessed encoding. A file that is too large, is not valid in that encoding, or cannot be read is skipped, and the search goes on; the view names each skipped file and why.
@@ -471,7 +471,7 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 - Scan the folder for supported Markdown files, skipping ignored directories.
 - Open a root-level configured index file when one exists.
 - Match index file names case-insensitively in configured order.
-- Prefer `.md` before `.markdown` for the same configured index name.
+- For the same configured index name, prefer `.md`, then `.markdown`, `.mdown`, and `.mkd`.
 - Otherwise leave no document open.
 - Show an empty-folder state only when no supported Markdown files exist.
 - Add the folder to recents when `Record recent files and folders` is enabled.
@@ -495,6 +495,7 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 ### Save As
 
 - Write the document to the chosen path.
+- The native picker offers every supported Markdown extension. A chosen name with a supported extension keeps it; a name without one receives the `Default extension for new documents`, and any other extension is refused.
 - Update the active document path.
 - If no folder context is active, set the current folder context to the saved file's parent folder.
 - If the saved file is inside the current folder context, refresh the article navigator for the current folder context.
@@ -523,7 +524,7 @@ The article navigator's context menus act on the row or empty space they were op
 - A Markdown file row offers `Open`, `New file`, `New folder`, `Rename`, `Delete`, `Open file location`, `Copy path`, and `Copy relative path`. A directory row offers the same without `Open`, with `Open folder location` in place of `Open file location`. The empty space offers `New file`, `New folder`, `Open folder location`, `Copy path`, and `Copy relative path`.
 - `Open` follows the Open File workflow, as activating the row does.
 - `New file` and `New folder` create the entry inside a directory row, beside a file row in its parent, or in the folder context root from the empty space. A temporary row in that folder, expanded if needed, takes the name. `Enter` or moving focus elsewhere in Leafdown commits it, and `Escape` or an empty name cancels it. Switching to another window leaves the name open.
-- A new file name without an extension receives the `Default extension for new documents`. A name ending in `.md` or `.markdown`, in any letter case, keeps it, and any other extension is refused. Leafdown asks about unsaved changes to the active document before creating the file, so declining leaves no file behind, then opens and selects the new, empty document. A new folder takes the focused row without changing the active document.
+- A new file name without an extension receives the `Default extension for new documents`. A name ending in a supported Markdown extension, in any letter case, keeps it, and any other extension is refused. Leafdown asks about unsaved changes to the active document before creating the file, so declining leaves no file behind, then opens and selects the new, empty document. A new folder takes the focused row without changing the active document.
 - `Rename` edits the row's name in place, with the name before a file's extension selected. `Enter` or moving focus elsewhere in Leafdown commits it, and `Escape` or an unchanged name cancels it. A file renamed without an extension keeps its current one. Renaming only the letter case of a name is allowed.
 - A name that is empty, `.` or `..`, holds a path separator or a character the platform cannot store in a name, ends in a period or space on Windows, or is a reserved Windows device name is refused. So is a name another entry in the folder already has. A refused name leaves the filesystem unchanged and explains why; after `Enter` the name stays open for correction, and after focus moves elsewhere in Leafdown the edit ends.
 - Renaming the active saved document, or a folder containing it, moves the document to its new path and keeps its editor content and unsaved changes. Recent files and folders at or inside the renamed path move with it, and folders expanded inside it stay expanded. Links in other documents are not rewritten.
@@ -564,7 +565,7 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 ### Wiki Links
 
 - `[[target]]`, `[[target|label]]`, `[[target#Heading]]`, and `[[target#Heading|label]]` link to supported Markdown files. `[[#Heading]]` and `[[#Heading|label]]` target the current document. The optional label changes only the displayed text.
-- A document target is a path relative to the saved document containing it. Forward slashes separate nested paths; `../` may reach outside the current folder context under the same confirmation and pinned-folder rules as ordinary local Markdown links. An authored `.md` or `.markdown` extension is used directly. Without an extension, Leafdown tries `.md` and then `.markdown`; `.md` wins when both exist. Filesystem case behavior follows the platform. A relative target in an untitled document remains unresolved until it has a saved path.
+- A document target is a path relative to the saved document containing it. Forward slashes separate nested paths; `../` may reach outside the current folder context under the same confirmation and pinned-folder rules as ordinary local Markdown links. An authored supported Markdown extension is used directly. Without an extension, Leafdown tries `.md`, `.markdown`, `.mdown`, and then `.mkd`, and the first that exists wins. Filesystem case behavior follows the platform. A relative target in an untitled document remains unresolved until it has a saved path.
 - A heading fragment matches the first heading with exactly the same visible/plain text in document order. Cross-document navigation moves to that heading after opening the document. Missing files and headings remain wiki links with a distinct unresolved appearance. Activating one shows non-disruptive feedback and never creates content.
 - A caret or contained selection in a wiki link exposes its complete authored source through source projection. Valid edits rehydrate the link; incomplete or invalid edits become literal text. Typing, paste, clipboard, Undo/Redo, and save/reopen retain the source and semantics.
 - With a folder context, typing `[[` offers Markdown files from the current article tree, matched by filename or relative path. Choosing a file inserts a path relative to the saved document. After `#`, heading suggestions insert the target's actual heading text. An untitled document may show suggestions, but its relative links remain unresolved until saved. Suggestions are an authoring aid; resolution uses the filesystem, not an index or hidden document identity.

@@ -32,6 +32,7 @@ Global settings persist across application launches unless specified otherwise.
 ### Files
 
 - **Default extension for new documents:** `.md` or `.markdown`. Default: `.md`.
+  - Leafdown also opens and saves `.mdown` and `.mkd` files; see [Supported Content](./specification.md#supported-content).
 - **Default line ending for new documents:** LF or CRLF. Default: system dependent.
   - Windows defaults to CRLF. macOS and Linux default to LF.
 - **Insert final newline on save:** On or Off. Default: On.

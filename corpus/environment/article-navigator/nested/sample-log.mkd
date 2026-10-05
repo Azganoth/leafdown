@@ -1,0 +1,3 @@
+# Sample Log
+
+This article uses the `.mkd` extension and appears in the navigator.

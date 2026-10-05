@@ -4,7 +4,7 @@ Leafdown keeps the open document and the folder context separate. The folder con
 
 ## Open and revisit
 
-**File > Open** opens one `.md` or `.markdown` file. If no folder is open, Leafdown also opens its parent folder as context. If a folder is already pinned, opening a file elsewhere leaves that context in place. **File > Open folder** scans the folder for Markdown articles and opens a matching root-level `readme` or `index` file when present. Ignored directories do not appear in the navigator.
+**File > Open** opens one Markdown file: `.md`, `.markdown`, `.mdown`, or `.mkd`. If no folder is open, Leafdown also opens its parent folder as context. If a folder is already pinned, opening a file elsewhere leaves that context in place. **File > Open folder** scans the folder for Markdown articles and opens a matching root-level `readme` or `index` file when present. Ignored directories do not appear in the navigator.
 
 The welcome screen and **File > Open recent** show previously opened files and folders when **Record recent files and folders** is on. You can remove one recent item or clear both lists without deleting files. See [Settings reference](settings-reference.md) for the setting.
 

@@ -250,6 +250,8 @@ File associations come from `src-tauri/windows/installer-hooks.nsh` for NSIS and
 - a `Leafdown.Markdown` value under each extension's `OpenWithProgids`; and
 - `Capabilities` under the product's registry key, listed in `RegisteredApplications`, so Default apps can offer Leafdown.
 
+The document icon is separate from the application icon. `bundle.resources` maps `src-tauri/icons/document.ico` to `document.ico` beside the installed executable, and both installers point the ProgID's `DefaultIcon` at that quoted path. The source and installed filenames match because the bundled WiX generator retains the source filename when mapping resources. The bundler owns installing and removing this resource; MSI also repairs it. The editable source is `src-tauri/icons/document/icon.svg`, with separate 16, 20, 24, and 32 pixel sources for small-size adjustments. The ICO contains those sizes plus 40, 48, 64, 128, and 256 pixel frames. Application, window, and shortcut icons continue to use the existing leaf artwork.
+
 Neither writes an extension's default value or its `UserChoice`. The MSI's values belong to one component, so Windows Installer restores them on repair and removes them on uninstall and major upgrade. The NSIS installer writes them on every install, and its uninstaller removes them only while the ProgID's command still names its own executable, so uninstalling a stale installation location leaves another location's registration in place.
 
 ## Security

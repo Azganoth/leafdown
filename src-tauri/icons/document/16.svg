@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Leafdown document — leaf and Markdown</title>
+  <path d="M7 3H46L60 17V58Q60 61 57 61H7Q4 61 4 58V6Q4 3 7 3Z" fill="#F8FAF8" stroke="#657069" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M46 3V14Q46 17 49 17H60" fill="#E4E9E5" stroke="#657069" stroke-width="4" stroke-linejoin="round"/>
+  <path transform="translate(12 2) scale(.078)" fill="#22B573" d="M74.65,353.8c-14.67-22.67-38.65-174.11,234.22-207.56,68.89-8.44,108.44-21.33,136.44-56.89,0,0-94.67,481.33-355.56,287.11,0,0,66.17-68.94,144.89-95.56,97.18-32.85,102.78-61.28,102.78-61.28,0,0-25.33,20.33-112.56,45.28-98.27,28.1-150.22,88.89-150.22,88.89"/>
+  <path fill="#35443C" d="M12 40H16L24 48L32 40H36V56H32V48L24 56L16 48V56H12ZM44 40H48V48H56L46 58L36 48H44Z"/>
+</svg>

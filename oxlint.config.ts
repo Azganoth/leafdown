@@ -5,6 +5,7 @@ const leafFeatures = [
   "document",
   "editor",
   "folder-context",
+  "folder-search",
   "preferences",
   "release-notes",
 ];

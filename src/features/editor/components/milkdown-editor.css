@@ -825,7 +825,8 @@
       }
     }
 
-    .leafdown-search-match--current {
+    .leafdown-search-match--current,
+    .leafdown-search-match--chosen {
       background-color: oklch(0.82 0.15 70);
       box-shadow: 0 0 0 1px oklch(0.66 0.16 60);
 

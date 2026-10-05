@@ -1,5 +1,11 @@
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
+import {
+  Plugin,
+  PluginKey,
+  TextSelection,
+  type EditorState,
+  type Transaction,
+} from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
@@ -40,6 +46,8 @@ export interface LeafdownSearchPluginOptions {
 interface SearchPluginState {
   caseSensitive: boolean;
   current: TextRange | null;
+  /** A match chosen from outside the editor, shown until the editor takes it or a pointer press. */
+  chosen: TextRange | null;
   focusRequest: SearchFocusRequest | null;
   mode: SearchMode;
   open: boolean;
@@ -55,7 +63,10 @@ export type SearchQueryChange = Partial<
 
 export interface SearchUpdate {
   change: Partial<
-    Pick<SearchPluginState, "caseSensitive" | "current" | "mode" | "open" | "query" | "wholeWord">
+    Pick<
+      SearchPluginState,
+      "caseSensitive" | "chosen" | "current" | "mode" | "open" | "query" | "wholeWord"
+    >
   >;
   focus?: SearchFocusRequest["target"];
   reveal?: boolean;
@@ -74,6 +85,7 @@ export const CLOSED_EDITOR_SEARCH_STATE: EditorSearchState = {
 
 export const SEARCH_MATCH_CLASS = "leafdown-search-match";
 export const CURRENT_SEARCH_MATCH_CLASS = "leafdown-search-match--current";
+export const CHOSEN_SEARCH_MATCH_CLASS = "leafdown-search-match--chosen";
 
 // Highlights are drawn for the matches around the current one. Building a decoration set costs its
 // size times the document's top-level blocks, which at the 5 MB load limit is about 30 ms for 400
@@ -84,6 +96,7 @@ const NO_MATCHES: readonly TextRange[] = [];
 
 const INITIAL_SEARCH_STATE: SearchPluginState = {
   caseSensitive: false,
+  chosen: null,
   current: null,
   focusRequest: null,
   mode: "find",
@@ -186,23 +199,17 @@ export const setSearchClosed = (transaction: Transaction) =>
 
 // An edit carries the current match along with the text it covers, and a caret the author places
 // elsewhere takes over from it, so `Find next` goes on from the caret instead.
-const applySearchTransaction = (
+const mapRange = (transaction: Transaction, range: TextRange): TextRange | null => {
+  const from = transaction.mapping.map(range.from, 1);
+  const to = transaction.mapping.map(range.to, -1);
+
+  return from < to ? { from, to } : null;
+};
+
+const applyCurrentMatch = (
   transaction: Transaction,
   value: SearchPluginState,
 ): SearchPluginState => {
-  const update = transaction.getMeta(leafdownSearchPluginKey) as SearchUpdate | undefined;
-
-  if (update) {
-    return {
-      ...value,
-      ...update.change,
-      focusRequest: update.focus
-        ? { id: (value.focusRequest?.id ?? 0) + 1, target: update.focus }
-        : value.focusRequest,
-      revealed: update.reveal ? value.revealed + 1 : value.revealed,
-    };
-  }
-
   if (!value.open || !value.current) {
     return value;
   }
@@ -215,10 +222,68 @@ const applySearchTransaction = (
     return value;
   }
 
-  const from = transaction.mapping.map(value.current.from, 1);
-  const to = transaction.mapping.map(value.current.to, -1);
+  return { ...value, current: mapRange(transaction, value.current) };
+};
 
-  return { ...value, current: from < to ? { from, to } : null };
+// The chosen match does not follow the selection, which source projection moves on its own as a
+// document opens; it ends when the editor takes it or the author presses into the text.
+const applyChosenMatch = (transaction: Transaction, value: SearchPluginState): SearchPluginState =>
+  value.chosen && transaction.docChanged
+    ? { ...value, chosen: mapRange(transaction, value.chosen) }
+    : value;
+
+/** Makes the chosen match the selection, which opens its source or the popup as a selection would. */
+export const takeChosenSearchMatch = (view: EditorView) => {
+  const { chosen } = getSearchState(view.state);
+
+  if (!chosen) {
+    return false;
+  }
+
+  view.dispatch(
+    view.state.tr
+      .setSelection(TextSelection.create(view.state.doc, chosen.from, chosen.to))
+      .setMeta(leafdownSearchPluginKey, { change: { chosen: null } } satisfies SearchUpdate),
+  );
+
+  return true;
+};
+
+const dropChosenSearchMatch = (view: EditorView) => {
+  if (getSearchState(view.state).chosen) {
+    view.dispatch(
+      view.state.tr.setMeta(leafdownSearchPluginKey, {
+        change: { chosen: null },
+      } satisfies SearchUpdate),
+    );
+  }
+
+  return false;
+};
+
+const applySearchTransaction = (
+  transaction: Transaction,
+  value: SearchPluginState,
+): SearchPluginState => {
+  const update = transaction.getMeta(leafdownSearchPluginKey) as SearchUpdate | undefined;
+
+  if (update) {
+    const chosen = Object.hasOwn(update.change, "chosen")
+      ? (update.change.chosen ?? null)
+      : applyChosenMatch(transaction, value).chosen;
+
+    return {
+      ...value,
+      ...update.change,
+      chosen,
+      focusRequest: update.focus
+        ? { id: (value.focusRequest?.id ?? 0) + 1, target: update.focus }
+        : value.focusRequest,
+      revealed: update.reveal ? value.revealed + 1 : value.revealed,
+    };
+  }
+
+  return applyChosenMatch(transaction, applyCurrentMatch(transaction, value));
 };
 
 const createSearchDecorations = (
@@ -265,10 +330,14 @@ export const getEditorSearchState = (state: EditorState): EditorSearchState => {
 const areEditorSearchStatesEqual = (left: EditorSearchState, right: EditorSearchState) =>
   (Object.keys(left) as (keyof EditorSearchState)[]).every((key) => left[key] === right[key]);
 
+// A match chosen from another surface may sit anywhere in a document just opened, so it is brought
+// to the middle of the view rather than to the nearest edge.
 const revealCurrentMatch = (view: EditorView) => {
+  const chosen = getSearchState(view.state).chosen !== null;
+
   view.dom
-    .querySelector(`.${CURRENT_SEARCH_MATCH_CLASS}`)
-    ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    .querySelector(`.${chosen ? CHOSEN_SEARCH_MATCH_CLASS : CURRENT_SEARCH_MATCH_CLASS}`)
+    ?.scrollIntoView?.({ block: chosen ? "center" : "nearest", inline: "nearest" });
 };
 
 export const createLeafdownSearchPlugin = (options: LeafdownSearchPluginOptions = {}) =>
@@ -281,7 +350,44 @@ export const createLeafdownSearchPlugin = (options: LeafdownSearchPluginOptions 
       matches: readonly TextRange[];
     } | null = null;
 
+    let chosenDecorationCache: {
+      base: DecorationSet | null;
+      chosen: TextRange;
+      decorations: DecorationSet;
+      document: ProseMirrorNode;
+    } | null = null;
+
     const getDecorations = (state: EditorState) => {
+      const base = getMatchDecorations(state);
+      const { chosen } = getSearchState(state);
+
+      if (!chosen) {
+        return base;
+      }
+
+      if (
+        chosenDecorationCache?.document !== state.doc ||
+        chosenDecorationCache.chosen !== chosen ||
+        chosenDecorationCache.base !== base
+      ) {
+        const decoration = Decoration.inline(chosen.from, chosen.to, {
+          class: `${SEARCH_MATCH_CLASS} ${CHOSEN_SEARCH_MATCH_CLASS}`,
+        });
+
+        chosenDecorationCache = {
+          base,
+          chosen,
+          decorations: base
+            ? base.add(state.doc, [decoration])
+            : DecorationSet.create(state.doc, [decoration]),
+          document: state.doc,
+        };
+      }
+
+      return chosenDecorationCache.decorations;
+    };
+
+    const getMatchDecorations = (state: EditorState) => {
       const matches = getSearchMatches(state);
 
       if (matches.length === 0) {
@@ -317,6 +423,15 @@ export const createLeafdownSearchPlugin = (options: LeafdownSearchPluginOptions 
       },
       props: {
         decorations: getDecorations,
+        // A press places the caret where it lands, so it drops the match before focus arrives;
+        // focus from the keyboard finds the match still chosen and takes it.
+        handleDOMEvents: {
+          focus: (view) => {
+            takeChosenSearchMatch(view);
+            return false;
+          },
+          mousedown: dropChosenSearchMatch,
+        },
       },
       view: (editorView) => {
         let published = getEditorSearchState(editorView.state);

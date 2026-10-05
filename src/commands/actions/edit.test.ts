@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { describe, expect, it } from "vitest";
 
 import type { DocumentEncoding } from "@/features/document";
+import { useFolderSearchStore } from "@/features/folder-search";
+import { useSettingsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
 import { createAppCommandContext } from "@/test/factories/commands";
 import {
@@ -10,11 +12,13 @@ import {
   createUntitledDocument,
 } from "@/test/factories/document";
 import { createEmptyFolderContext } from "@/test/factories/folderContext";
-import { setDefaultSession } from "@/test/utils/appStores";
+import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { mockTauriApi, tauriApiCommand } from "@/test/utils/tauriApi";
 
 import {
+  findInFolder,
   getFileEncodingState,
+  getFindInFolderState,
   getReopenedEncodingName,
   getReopenWithEncodingState,
   getUtf8EncodingState,
@@ -28,6 +32,23 @@ import {
 const windows1252 = { name: "windows-1252", bom: false } as const;
 
 describe("edit actions", () => {
+  it("finds in the folder only while one is open, showing the sidebar to search in", () => {
+    expect(getFindInFolderState(createAppCommandContext()).enabled).toBe(false);
+    expect(
+      getFindInFolderState(createAppCommandContext({ folderContext: createEmptyFolderContext() }))
+        .enabled,
+    ).toBe(true);
+
+    setDefaultSettings({ sidebarVisible: false });
+    findInFolder();
+
+    expect(useSettingsStore.getState().sidebarVisible).toBe(true);
+    expect(useFolderSearchStore.getState()).toMatchObject({
+      open: true,
+      focusRequestId: expect.any(Number),
+    });
+  });
+
   it("routes document state commands to their feature APIs", () => {
     const activeDocument = createSavedDocument();
 

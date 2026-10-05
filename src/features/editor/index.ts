@@ -50,6 +50,20 @@ export {
   type MilkdownMarkdownUpdate,
 } from "./utils/createMilkdownEditor";
 export type { MarkdownReferenceContext } from "./utils/markdownReferences";
+export {
+  createMarkdownSearchTextParser,
+  type MarkdownSearchTextParser,
+} from "./utils/markdownSearchText";
+export {
+  findSearchableTextMatches,
+  getSearchMatchContext,
+  SEARCH_MATCH_CONTEXT_RADIUS,
+  type DocumentSearchMatches,
+  type SearchableTextRange,
+  type SearchMatchContext,
+  type SearchMatchTarget,
+  type TextSearchQuery,
+} from "./utils/textSearch";
 export type { TableCellCoordinates } from "./utils/tables";
 export { EMPTY_HEADING_OUTLINE } from "./utils/headingOutline";
 export type { HeadingOutlineState, OutlineDepth, OutlineHeading } from "./utils/headingOutline";

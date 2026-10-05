@@ -2,6 +2,7 @@ import { closeHistory } from "@milkdown/kit/prose/history";
 import { TextSelection, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
+import { revealFoldedRange } from "../../plugins/headingFold";
 import {
   findSearchMatches,
   getCurrentSearchMatchIndex,
@@ -10,17 +11,29 @@ import {
   getSearchTextQuery,
   setSearchClosed,
   setSearchUpdate,
+  takeChosenSearchMatch,
   type SearchMode,
   type SearchQueryChange,
   type SearchUpdate,
 } from "../../plugins/search";
 import {
   finalizeSourceProjection,
+  getActiveSourceProjectionRange,
   hasActiveSourceProjection,
 } from "../../plugins/sourceProjection";
 import { CHARACTER_REFERENCE_MARK_NAME } from "../../utils/characterReferenceMarkdown";
 import type { TextRange } from "../../utils/textRanges";
-import { findMatchIndexBefore, findMatchIndexFrom, findTextMatches } from "../../utils/textSearch";
+import {
+  findDocumentTextMatches,
+  findMatchIndexBefore,
+  findMatchIndexFrom,
+  findSearchMatchTarget,
+  findTextMatches,
+  getSearchableText,
+  type DocumentSearchMatches,
+  type SearchMatchTarget,
+  type TextSearchQuery,
+} from "../../utils/textSearch";
 
 type Direction = 1 | -1;
 
@@ -236,6 +249,66 @@ export const replaceAllSearchMatches = (view: EditorView, replacement: string) =
   view.dispatch(setSearchUpdate(transaction, { change: { current: null } }));
 
   return true;
+};
+
+/** The active document's matches for a search of its folder, as the document Find would read them. */
+export const readDocumentSearchMatches = (
+  view: EditorView,
+  query: TextSearchQuery,
+  { finalizeProjection }: { finalizeProjection: boolean },
+): DocumentSearchMatches => {
+  if (finalizeProjection) {
+    finalizeSourceProjection(view);
+  }
+
+  const searchable = getSearchableText(view.state.doc);
+
+  return {
+    text: searchable.text,
+    matches: findDocumentTextMatches(
+      searchable,
+      query,
+      getActiveSourceProjectionRange(view.state),
+    ).map(({ offsets }) => offsets),
+  };
+};
+
+/**
+ * Shows a match chosen outside the editor while focus stays where the choice was made, returning
+ * its place among the document's matches. Like a match visited from the open search surface, it
+ * moves no caret and opens nothing until the editor takes focus, which selects it.
+ */
+export const chooseSearchMatch = (
+  view: EditorView,
+  query: TextSearchQuery,
+  target: SearchMatchTarget,
+) => {
+  finalizeSourceProjection(view);
+
+  const searchable = getSearchableText(view.state.doc);
+  const matches = findDocumentTextMatches(searchable, query);
+  const index = findSearchMatchTarget(
+    searchable.text,
+    matches.map(({ offsets }) => offsets),
+    target,
+  );
+
+  if (index === null) {
+    return null;
+  }
+
+  const { range } = matches[index];
+  const transaction = revealFoldedRange(view.state.tr, range.from, range.to);
+
+  view.dispatch(setSearchUpdate(transaction, { change: { chosen: range }, reveal: true }));
+
+  return index;
+};
+
+/** Returns focus to the text with a chosen match selected, as closing the search surface does. */
+export const focusChosenSearchMatch = (view: EditorView) => {
+  takeChosenSearchMatch(view);
+  view.focus();
 };
 
 /** Leaves the current match selected, or the caret where it was, and returns focus to the text. */

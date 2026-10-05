@@ -121,6 +121,7 @@ pub fn run() {
             link::open_markdown_link_target,
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
+            folder::read_folder_search_files,
             folder::watch_markdown_folder,
             folder::unwatch_markdown_folder,
             folder::create_markdown_article,

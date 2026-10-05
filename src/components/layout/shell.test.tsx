@@ -429,6 +429,29 @@ describe("Shell", () => {
       "false",
     );
   });
+  it("searches the folder in the sidebar and returns to the navigator on Escape", async () => {
+    setDefaultSettings({ sidebarVisible: false });
+    setDefaultSession({ folderContext: nestedFolderContext });
+
+    const { user } = renderWithUser(<Shell />);
+
+    act(() => {
+      dispatchKeyDown(window, "F", { ctrl: true, shift: true });
+    });
+
+    const searchHost = screen.getByRole("complementary", { name: "Folder search" });
+
+    expect(within(searchHost).getByRole("search", { name: "Search in Notes" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(searchHost).getByRole("textbox", { name: "Search in folder" })).toHaveFocus(),
+    );
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("complementary", { name: "Article navigator" })).toBeInTheDocument();
+    expect(screen.queryByRole("search", { name: "Search in Notes" })).not.toBeInTheDocument();
+  });
+
   it("reports article open failures from the sidebar", async () => {
     setDefaultSession({
       folderContext: nestedFolderContext,

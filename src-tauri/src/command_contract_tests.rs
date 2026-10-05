@@ -669,6 +669,54 @@ fn folder_entry_errors_serialize_with_frontend_error_kinds() {
     assert_eq!(json_string(&missing, "kind"), "missingEntry");
 }
 
+#[test]
+fn folder_search_reads_serialize_with_frontend_outcome_kinds() {
+    let root = TestDirectory::new("command-contract-folder-search");
+    let root_path_string = path_string(root.path.as_path());
+    let note_path_string = path_string(root.write_file_with_content("note.md", "leaf\n").as_path());
+    let invalid_path_string =
+        path_string(root.write_file_with_content("invalid.md", [0xff]).as_path());
+    let outside_path_string = path_string(root.path("../outside.md").as_path());
+    let request = |known_metadata: Value| {
+        serde_json::from_value::<Vec<folder::FolderSearchFileRequest>>(serde_json::json!([
+            { "path": note_path_string, "knownMetadata": known_metadata },
+            { "path": invalid_path_string },
+            { "path": outside_path_string, "knownMetadata": null },
+        ]))
+        .expect("frontend request should deserialize")
+    };
+
+    let read = serialized(
+        tauri::async_runtime::block_on(folder::read_folder_search_files(
+            root_path_string.clone(),
+            request(Value::Null),
+        ))
+        .expect("command should read the folder's files"),
+    );
+
+    assert_eq!(json_string(&read[0], "kind"), "read");
+    assert_eq!(json_string(&read[0], "path"), note_path_string);
+    assert_eq!(json_string(&read[0], "content"), "leaf\n");
+    assert_eq!(read[0]["metadata"]["sizeBytes"].as_u64(), Some(5));
+    assert!(read[0]["metadata"]["modifiedAtUnixMs"].is_u64());
+    assert!(read[0]["fingerprint"].is_string());
+    assert_eq!(json_string(&read[1], "kind"), "skipped");
+    assert_eq!(json_string(&read[1]["error"], "kind"), "invalidEncoding");
+    assert_eq!(json_string(&read[1]["error"], "path"), invalid_path_string);
+    assert_eq!(json_string(&read[2], "kind"), "notArticle");
+
+    let unchanged = serialized(
+        tauri::async_runtime::block_on(folder::read_folder_search_files(
+            root_path_string,
+            request(read[0]["metadata"].clone()),
+        ))
+        .expect("command should check the folder's files"),
+    );
+
+    assert_eq!(json_string(&unchanged[0], "kind"), "unchanged");
+    assert_eq!(json_string(&unchanged[0], "path"), note_path_string);
+}
+
 fn serialized(value: impl serde::Serialize) -> Value {
     serde_json::to_value(value).expect("command payload should serialize")
 }

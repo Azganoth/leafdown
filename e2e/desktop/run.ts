@@ -152,6 +152,9 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
   const actionsFolderPath = path.join(fixtureRoot, "folder-actions");
+  const searchFolderPath = path.join(fixtureRoot, "folder-search");
+  const searchNearPath = path.join(searchFolderPath, "alpha.md");
+  const searchFarPath = path.join(searchFolderPath, "notes", "beta.md");
   const wikiFolderPath = path.join(fixtureRoot, "wiki-links");
   const wikiIndexPath = path.join(wikiFolderPath, "index.md");
   const wikiTargetPath = path.join(wikiFolderPath, "target.md");
@@ -199,6 +202,11 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     mermaid: { path: mermaidPath },
     legacyEncoding: { path: legacyEncodingPath },
     folderActions: { path: actionsFolderPath },
+    folderSearch: {
+      folderPath: searchFolderPath,
+      nearPath: searchNearPath,
+      farPath: searchFarPath,
+    },
     wikiLinks: { folderPath: wikiFolderPath, indexPath: wikiIndexPath },
     folder: {
       addedFileName: addedFolderFileName,
@@ -232,6 +240,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "heading-outline", recentFiles: [outlinePath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
+    { name: "folder-search", recentFolders: [searchFolderPath] },
     { name: "help-pages", recentFiles: [documentPath] },
     { name: "rendered-images", recentFiles: [imagesPath] },
     { name: "remote-images", recentFiles: [remoteImagesPath, imagesPath] },
@@ -282,6 +291,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       mkdir(folderPath, { recursive: true }),
       mkdir(path.dirname(documentWatcherPath), { recursive: true }),
       mkdir(path.join(actionsFolderPath, "notes"), { recursive: true }),
+      mkdir(path.join(searchFolderPath, "notes"), { recursive: true }),
+      mkdir(path.join(searchFolderPath, "node_modules"), { recursive: true }),
       mkdir(wikiFolderPath, { recursive: true }),
       mkdir(workerArtifactsRoot, { recursive: true }),
     ]);
@@ -354,6 +365,21 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       writeFile(legacyEncodingPath, Buffer.from("Café legacy fixture marker.\n", "latin1")),
       writeFile(path.join(actionsFolderPath, "readme.md"), "Actions fixture marker.\n"),
       writeFile(path.join(actionsFolderPath, "notes", "idea.md"), "Idea fixture marker.\n"),
+      writeFile(
+        searchNearPath,
+        "# Alpha\n\nThe lantern hangs by the door.\n\nA **lan**tern in two pieces.\n",
+      ),
+      writeFile(
+        searchFarPath,
+        [
+          "Beta keeps one lantern near the top.",
+          ...Array.from({ length: 80 }, (_, index) => `Filler paragraph ${index + 1}.`),
+          "The last lantern stands at the end.",
+          "",
+        ].join("\n\n"),
+      ),
+      writeFile(path.join(searchFolderPath, "unreadable.md"), Buffer.from([0x61, 0xff, 0x62])),
+      writeFile(path.join(searchFolderPath, "node_modules", "hidden.md"), "A hidden lantern.\n"),
       writeFile(
         wikiIndexPath,
         "# Local heading\n\n[[target|Target alias]]\n\n[[target#Target heading|Target section]]\n\n[[#Local heading|Jump local]]\n\n[[missing|Missing]]\n\n[[../outside.md|Outside]]\n",

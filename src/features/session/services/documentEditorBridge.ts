@@ -1,7 +1,10 @@
 import type {
+  DocumentSearchMatches,
   EditorDocumentStatus,
   EditorViewState,
   MilkdownEditorBridge,
+  SearchMatchTarget,
+  TextSearchQuery,
 } from "@/features/editor";
 import {
   INACTIVE_EDITOR_COMMAND_STATE,
@@ -17,9 +20,17 @@ interface ActiveDocumentEditorBridgeEntry {
   documentKey: string;
 }
 
+interface PendingSearchMatch {
+  documentKey: string;
+  query: TextSearchQuery;
+  target: SearchMatchTarget;
+  resolve: (ordinal: number | null) => void;
+}
+
 class DocumentEditorBridgeStore {
   private activeBridgeEntry: ActiveDocumentEditorBridgeEntry | null = null;
   private pendingHeading: { documentKey: string; heading: string } | null = null;
+  private pendingSearchMatch: PendingSearchMatch | null = null;
   private readonly commandStateChanged = new SignalSource();
   private readonly documentStatusChanged = new SignalSource();
 
@@ -42,6 +53,7 @@ class DocumentEditorBridgeStore {
       bridge.navigateToHeading?.(this.pendingHeading.heading);
       this.pendingHeading = null;
     }
+    this.settlePendingSearchMatch(documentKey, bridge);
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
   };
@@ -95,6 +107,49 @@ class DocumentEditorBridgeStore {
     this.pendingHeading = { documentKey, heading };
   };
 
+  readSearchMatches = (
+    documentKey: string,
+    query: TextSearchQuery,
+    options: { finalizeProjection: boolean },
+  ): DocumentSearchMatches | null =>
+    this.activeBridgeEntry?.documentKey === documentKey
+      ? (this.activeBridgeEntry.bridge.readSearchMatches?.(query, options) ?? null)
+      : null;
+
+  /**
+   * Chooses a match in the document once its editor is ready, which may be after the document was
+   * just opened. Resolves to the match's place, or `null` when it is gone or another document took
+   * the editor first.
+   */
+  chooseSearchMatch = (
+    documentKey: string,
+    query: TextSearchQuery,
+    target: SearchMatchTarget,
+  ): Promise<number | null> => {
+    this.pendingSearchMatch?.resolve(null);
+    this.pendingSearchMatch = null;
+
+    if (this.activeBridgeEntry && isSamePath(this.activeBridgeEntry.documentKey, documentKey)) {
+      return (
+        this.activeBridgeEntry.bridge.chooseSearchMatch?.(query, target) ?? Promise.resolve(null)
+      );
+    }
+
+    return new Promise((resolve) => {
+      this.pendingSearchMatch = { documentKey, query, target, resolve };
+    });
+  };
+
+  focusChosenSearchMatch = (documentKey: string) => {
+    if (this.activeBridgeEntry?.documentKey !== documentKey) {
+      return false;
+    }
+
+    this.activeBridgeEntry.bridge.focusChosenSearchMatch?.();
+
+    return true;
+  };
+
   runCommand = (documentKey: string, commandId: EditorCommandId) => {
     if (this.activeBridgeEntry?.documentKey !== documentKey) {
       return false;
@@ -106,9 +161,30 @@ class DocumentEditorBridgeStore {
   clear = () => {
     this.activeBridgeEntry = null;
     this.pendingHeading = null;
+    this.pendingSearchMatch?.resolve(null);
+    this.pendingSearchMatch = null;
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
   };
+
+  private settlePendingSearchMatch(documentKey: string, bridge: MilkdownEditorBridge) {
+    const pending = this.pendingSearchMatch;
+
+    if (!pending) {
+      return;
+    }
+
+    this.pendingSearchMatch = null;
+
+    if (!isSamePath(pending.documentKey, documentKey) || !bridge.chooseSearchMatch) {
+      pending.resolve(null);
+      return;
+    }
+
+    void bridge
+      .chooseSearchMatch(pending.query, pending.target)
+      .then(pending.resolve, () => pending.resolve(null));
+  }
 
   fireCommandStateChanged = () => {
     this.commandStateChanged.notify();

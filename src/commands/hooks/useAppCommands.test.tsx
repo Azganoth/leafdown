@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCommandUIStore } from "@/commands/stores/commandUi";
 import { getEditorCommandState, runEditorCommand, type EditorCommandId } from "@/features/editor";
 import { INACTIVE_EDITOR_COMMAND_STATE } from "@/features/editor/commands/contract";
+import { useFolderSearchStore } from "@/features/folder-search";
 import { documentEditorBridge, useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
@@ -314,6 +315,22 @@ describe("useAppCommands shortcut routing", () => {
 
     expect(event.defaultPrevented).toBe(true);
     expect(useCommandUIStore.getState().keyboardShortcutsOpen).toBe(true);
+  });
+
+  it("opens folder search with Mod+Shift+F in a folder-only session, and not without a folder", () => {
+    setDefaultSession();
+    render(<AppCommandsHarness />);
+
+    dispatchKeyDown(window, "F", { ctrl: true, shift: true });
+
+    expect(useFolderSearchStore.getState().open).toBe(false);
+
+    act(() => useSessionStore.getState().setFolderOnlySession(createFolderContext()));
+
+    const event = dispatchKeyDown(window, "F", { ctrl: true, shift: true });
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(useFolderSearchStore.getState().open).toBe(true);
   });
 
   it("reports rejected application command executions", async () => {

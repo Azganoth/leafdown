@@ -296,19 +296,19 @@ describe("desktop folder search", () => {
       { timeoutMsg: "The replacement did not report its outcome." },
     );
 
-    // The bold half of the split match carries over, as Replace all keeps the formatting the
-    // replaced text starts with.
+    // The open document, left on the near file by the previous case, is replaced in its editor and
+    // saved. The bold half of the split match carries over, as Replace all keeps the formatting
+    // the replaced text starts with.
     expect(await readFile(folderSearch.nearPath, "utf8")).toBe(
       "# Alpha\n\nThe lamp hangs by the door.\n\nA **lamp** in two pieces.\n",
     );
-    // The open document is saved as Save writes it, ending in one final newline.
+    // The far file is not open, so only its replaced lines change and it keeps the blank line it
+    // ends with, which Save would drop.
     expect(await readFile(folderSearch.farPath, "utf8")).toBe(
-      `${farMarkdown.replaceAll("lantern", "lamp").trimEnd()}\n`,
+      farMarkdown.replaceAll("lantern", "lamp"),
     );
     await expect(documentState()).not.toExist();
-    expect(await $('[contenteditable="true"]').getText()).toContain(
-      "The last lamp stands at the end.",
-    );
+    expect(await $('[contenteditable="true"]').getText()).toContain("The lamp hangs by the door.");
     await browser.waitUntil(async () => (await status().getText()) === "Nothing to replace", {
       timeoutMsg: "The folder was not planned again after the replacement.",
     });

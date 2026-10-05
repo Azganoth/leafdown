@@ -57,6 +57,29 @@ const UNAVAILABLE_REOPEN_WITH_ENCODING: ReopenWithEncodingControl = {
 
 const CommandMenuContext = createContext<CommandMenuContextValue | null>(null);
 
+const MENU_FOCUS_SELECTOR = '[role="menu"], [role="menubar"]';
+
+const isMenuFocus = (element: Element | null) =>
+  !element ||
+  element === element.ownerDocument.body ||
+  element.closest(MENU_FOCUS_SELECTOR) !== null;
+
+// Base UI focuses a menu item again after the item's click handler runs, and the closing menu then
+// returns focus to its trigger, so focus a command moved out of the menus is restored a frame later.
+const keepFocusMovedByCommand = () => {
+  const target = document.activeElement;
+
+  if (!(target instanceof HTMLElement) || isMenuFocus(target)) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    if (target.isConnected && isMenuFocus(document.activeElement)) {
+      target.focus({ preventScroll: true });
+    }
+  });
+};
+
 const useCommandMenu = () => {
   const context = useContext(CommandMenuContext);
   invariant(context, "useCommandMenu must be used within a CommandMenuProvider");
@@ -75,8 +98,13 @@ export function CommandMenubar({
 }: CommandMenubarProps) {
   const { t } = useLocalization();
 
+  const executeCommand = (commandId: AppCommandId) => {
+    onExecute(commandId);
+    keepFocusMovedByCommand();
+  };
+
   return (
-    <CommandMenuContext.Provider value={{ commandState, onExecute }}>
+    <CommandMenuContext.Provider value={{ commandState, onExecute: executeCommand }}>
       <Menubar className="border-0 bg-transparent p-0 text-muted-foreground shadow-none">
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">

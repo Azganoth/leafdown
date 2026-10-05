@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { type AppCommandId, type CommandState, type ReopenWithEncodingControl } from "@/commands";
 import type { RecentItem } from "@/features/preferences";
@@ -63,6 +63,24 @@ const menuItem = (name: string | RegExp) => {
     screen.queryByRole("menuitemcheckbox", { name: matcher }) ??
     screen.getByRole("menuitemradio", { name: matcher })
   );
+};
+
+const nextFrame = () =>
+  new Promise((resolve) => {
+    requestAnimationFrame(resolve);
+  });
+
+const appendFocusTarget = (element: HTMLElement) => {
+  element.tabIndex = 0;
+  document.body.append(element);
+  onTestFinished(() => element.remove());
+  return element;
+};
+
+const appendEditor = () => {
+  const editor = document.createElement("div");
+  editor.contentEditable = "true";
+  return appendFocusTarget(editor);
 };
 
 describe("CommandMenubar", () => {
@@ -457,5 +475,47 @@ describe("CommandMenubar", () => {
     await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
 
     expect(onExecute).toHaveBeenCalledWith("file.clearRecentItems");
+  });
+
+  it("leaves focus where a top-level command moved it", async () => {
+    const editor = appendEditor();
+    const { onExecute, user } = renderCommandMenuBar({ onExecute: vi.fn(() => editor.focus()) });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.click(menuItem("Undo"));
+    await nextFrame();
+
+    expect(onExecute).toHaveBeenCalledWith("edit.undo");
+    expect(editor).toHaveFocus();
+  });
+
+  it("leaves focus where a submenu command moved it", async () => {
+    const editor = appendEditor();
+    const { onExecute, user } = renderCommandMenuBar({ onExecute: vi.fn(() => editor.focus()) });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Select"));
+    await user.keyboard("{ArrowRight}{ArrowDown}{Enter}");
+    await nextFrame();
+
+    expect(onExecute).toHaveBeenCalledWith("edit.selectSentence");
+    expect(editor).toHaveFocus();
+  });
+
+  it("lets a command focus its own surface after the menu closes", async () => {
+    const editor = appendEditor();
+    const field = appendFocusTarget(document.createElement("input"));
+    editor.focus();
+    const { user } = renderCommandMenuBar({
+      onExecute: vi.fn(() => requestAnimationFrame(() => field.focus())),
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Find and replace"));
+    await user.keyboard("{ArrowRight}{Enter}");
+    await nextFrame();
+    await nextFrame();
+
+    expect(field).toHaveFocus();
   });
 });

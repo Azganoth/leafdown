@@ -14,11 +14,13 @@ use crate::{
 mod defaults;
 mod entries;
 mod index;
+mod replace;
 mod scan;
 mod search;
 mod watch;
 
 pub(crate) use entries::{FolderEntryError, FolderEntryResult};
+pub(crate) use replace::{FolderReplacementFile, FolderReplacementOutcome};
 pub(crate) use search::{FolderSearchFileOutcome, FolderSearchFileRequest};
 pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError};
 
@@ -206,6 +208,43 @@ pub(crate) async fn read_folder_search_files(
             message: error.to_string(),
         })
     })
+}
+
+/// Checks files planned for a folder replacement against the versions they were planned from, and
+/// that their text can be encoded, without writing. The result covers the first files requested.
+#[tauri::command]
+pub(crate) async fn preflight_folder_replacement(
+    folder_path: String,
+    files: Vec<FolderReplacementFile>,
+) -> Result<Vec<FolderReplacementOutcome>, ReadFolderSearchFilesError> {
+    run_folder_replacement(folder_path, files, replace::preflight_replacement_files).await
+}
+
+/// Writes files planned for a folder replacement, each checked again against the version it was
+/// planned from just before it is written. The result covers the first files requested.
+#[tauri::command]
+pub(crate) async fn write_folder_replacement_files(
+    folder_path: String,
+    files: Vec<FolderReplacementFile>,
+) -> Result<Vec<FolderReplacementOutcome>, ReadFolderSearchFilesError> {
+    run_folder_replacement(folder_path, files, replace::write_replacement_files).await
+}
+
+async fn run_folder_replacement(
+    folder_path: String,
+    files: Vec<FolderReplacementFile>,
+    run: fn(&Path, Vec<FolderReplacementFile>) -> Vec<FolderReplacementOutcome>,
+) -> Result<Vec<FolderReplacementOutcome>, ReadFolderSearchFilesError> {
+    let error_path = folder_path.clone();
+
+    tauri::async_runtime::spawn_blocking(move || Ok(run(Path::new(folder_path.as_str()), files)))
+        .await
+        .unwrap_or_else(|error| {
+            Err(ReadFolderSearchFilesError::ReadFailed {
+                path: error_path,
+                message: error.to_string(),
+            })
+        })
 }
 
 #[tauri::command]

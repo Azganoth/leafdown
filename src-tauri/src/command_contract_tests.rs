@@ -715,6 +715,88 @@ fn folder_search_reads_serialize_with_frontend_outcome_kinds() {
 
     assert_eq!(json_string(&unchanged[0], "kind"), "unchanged");
     assert_eq!(json_string(&unchanged[0], "path"), note_path_string);
+    assert_eq!(read[0]["lineEnding"], "lf");
+    assert_eq!(json_string(&read[0]["encoding"], "name"), "UTF-8");
+    assert_eq!(read[0]["encoding"]["bom"], false);
+}
+
+#[test]
+fn folder_replacement_serializes_with_frontend_outcome_kinds() {
+    let root = TestDirectory::new("command-contract-folder-replace");
+    let root_path_string = path_string(root.path.as_path());
+    let note_path = root.write_file_with_content("note.md", "leaf\n");
+    let note_path_string = path_string(note_path.as_path());
+    let stale_path_string =
+        path_string(root.write_file_with_content("stale.md", "leaf\n").as_path());
+    let outside_path_string = path_string(root.path("../outside.md").as_path());
+    let read = serialized(
+        tauri::async_runtime::block_on(folder::read_folder_search_files(
+            root_path_string.clone(),
+            serde_json::from_value(serde_json::json!([{ "path": note_path_string }]))
+                .expect("frontend request should deserialize"),
+        ))
+        .expect("command should read the folder's files"),
+    );
+    let plan = |path: &str, content: &str, encoding: Value| {
+        serde_json::json!({
+            "path": path,
+            "content": content,
+            "encoding": encoding,
+            "expectedMetadata": read[0]["metadata"],
+            "expectedFingerprint": read[0]["fingerprint"],
+        })
+    };
+    let files = || {
+        serde_json::from_value::<Vec<folder::FolderReplacementFile>>(serde_json::json!([
+            plan(&note_path_string, "tree\n", read[0]["encoding"].clone()),
+            plan(&stale_path_string, "tree\n", read[0]["encoding"].clone()),
+            plan(&outside_path_string, "tree\n", read[0]["encoding"].clone()),
+            plan(
+                &note_path_string,
+                "\u{1F343}",
+                serde_json::json!({ "name": "windows-1252", "bom": false }),
+            ),
+        ]))
+        .expect("frontend request should deserialize")
+    };
+
+    fs::write(root.path("stale.md"), "changed\n").expect("stale file should be rewritten");
+
+    let preflight = serialized(
+        tauri::async_runtime::block_on(folder::preflight_folder_replacement(
+            root_path_string.clone(),
+            files(),
+        ))
+        .expect("command should check the planned files"),
+    );
+
+    assert_eq!(json_string(&preflight[0], "kind"), "ready");
+    assert_eq!(json_string(&preflight[0], "path"), note_path_string);
+    assert_eq!(json_string(&preflight[1], "kind"), "stale");
+    assert_eq!(preflight[1]["missing"], false);
+    assert_eq!(json_string(&preflight[2], "kind"), "failed");
+    assert_eq!(json_string(&preflight[2]["error"], "kind"), "notArticle");
+    assert_eq!(
+        json_string(&preflight[3]["error"], "kind"),
+        "unrepresentableCharacters"
+    );
+    assert_eq!(
+        json_string(&preflight[3]["error"], "encoding"),
+        "windows-1252"
+    );
+    assert_eq!(preflight[3]["error"]["characters"][0], "\u{1F343}");
+    assert_eq!(fs::read_to_string(&note_path).unwrap(), "leaf\n");
+
+    let written = serialized(
+        tauri::async_runtime::block_on(folder::write_folder_replacement_files(
+            root_path_string,
+            files().into_iter().take(1).collect(),
+        ))
+        .expect("command should write the planned files"),
+    );
+
+    assert_eq!(json_string(&written[0], "kind"), "written");
+    assert_eq!(fs::read_to_string(&note_path).unwrap(), "tree\n");
 }
 
 fn serialized(value: impl serde::Serialize) -> Value {

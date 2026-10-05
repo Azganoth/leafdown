@@ -1,7 +1,9 @@
 import {
   CaseSensitiveIcon,
   ChevronRightIcon,
+  ReplaceIcon,
   SearchIcon,
+  TriangleAlertIcon,
   WholeWordIcon,
   XIcon,
 } from "lucide-react";
@@ -33,10 +35,15 @@ import {
   type VirtualListHandle,
 } from "@/components/ui/virtual-list";
 import { useLocalization, type Localization } from "@/lib/i18n";
+import { isPrimaryModifierEvent } from "@/lib/input";
 import { getRelativePath } from "@/lib/path";
 import { cn } from "@/lib/utils";
 
-import type { FolderSearchResults } from "../services/folderSearchEngine";
+import type { FolderReplaceApplyState, FolderReplaceReport } from "../services/folderReplaceReport";
+import {
+  hasCompleteReplacementPlan,
+  type FolderSearchResults,
+} from "../services/folderSearchEngine";
 import { useFolderSearchStore, type FolderSearchMatchKey } from "../stores/folderSearch";
 import {
   getFolderSearchRows,
@@ -55,6 +62,7 @@ export interface FolderSearchPanelProps {
   folderName: string;
   folderPath: string;
   onActivateMatch: (match: FolderSearchMatchKey) => void;
+  onApply: () => void;
   onCancel: () => void;
   onClose: () => void;
   onSearchFurther: () => void;
@@ -67,6 +75,7 @@ export function FolderSearchPanel({
   folderName,
   folderPath,
   onActivateMatch,
+  onApply,
   onCancel,
   onClose,
   onSearchFurther,
@@ -76,15 +85,39 @@ export function FolderSearchPanel({
   const { t } = localization;
   const panelRef = useRef<HTMLDivElement>(null);
   const queryRef = useRef<HTMLInputElement>(null);
+  const replacementRef = useRef<HTMLInputElement>(null);
   const resultRowsRef = useRef<FolderSearchResultRowsHandle>(null);
   const query = useFolderSearchStore((state) => state.query);
   const caseSensitive = useFolderSearchStore((state) => state.caseSensitive);
   const wholeWord = useFolderSearchStore((state) => state.wholeWord);
   const results = useFolderSearchStore((state) => state.results);
   const focusRequestId = useFolderSearchStore((state) => state.focusRequestId);
+  const replaceOpen = useFolderSearchStore((state) => state.replaceOpen);
+  const replacement = useFolderSearchStore((state) => state.replacement);
+  const apply = useFolderSearchStore((state) => state.apply);
   const setQuery = useFolderSearchStore((state) => state.setQuery);
   const setCaseSensitive = useFolderSearchStore((state) => state.setCaseSensitive);
   const setWholeWord = useFolderSearchStore((state) => state.setWholeWord);
+  const setReplaceOpen = useFolderSearchStore((state) => state.setReplaceOpen);
+  const setReplacement = useFolderSearchStore((state) => state.setReplacement);
+  const setApplyState = useFolderSearchStore((state) => state.setApplyState);
+  const canApply =
+    replaceOpen &&
+    apply.status !== "applying" &&
+    hasCompleteReplacementPlan(results, {
+      query: { caseSensitive, text: query, wholeWord },
+      replacement,
+    });
+
+  // Replace all leaves while it writes, so focus that went with it returns to the replacement.
+  useEffect(() => {
+    if (
+      apply.status === "done" &&
+      (document.activeElement === null || document.activeElement === document.body)
+    ) {
+      replacementRef.current?.focus();
+    }
+  }, [apply.status]);
   const title = t("folderSearch.title", { folder: folderName || folderPath });
 
   useEffect(() => {
@@ -93,8 +126,14 @@ export function FolderSearchPanel({
     }
 
     const focusQuery = () => {
-      queryRef.current?.focus();
-      queryRef.current?.select();
+      // The field is the one this request named, read as it is handled rather than followed.
+      const field =
+        useFolderSearchStore.getState().focusTarget === "replacement"
+          ? replacementRef.current
+          : queryRef.current;
+
+      field?.focus();
+      field?.select();
     };
 
     focusQuery();
@@ -130,6 +169,22 @@ export function FolderSearchPanel({
     }
   };
 
+  const handleReplacementKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (isComposing(event) || event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (isPrimaryModifierEvent(event.nativeEvent) && event.altKey) {
+      if (canApply) {
+        onApply();
+      }
+    } else {
+      onSubmit();
+    }
+  };
+
   return (
     <Card
       aria-label={title}
@@ -152,47 +207,90 @@ export function FolderSearchPanel({
       </CardHeader>
 
       <CardContent className="min-h-0 flex-1 gap-2">
-        <InputGroup className="h-7 shrink-0">
-          <InputGroupAddon align="inline-start">
-            <SearchIcon className="size-3.5" />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label={t("folderSearch.query")}
-            autoComplete="off"
-            className="text-xs md:text-xs"
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={handleQueryKeyDown}
-            placeholder={t("folderSearch.placeholder")}
-            ref={queryRef}
-            spellCheck={false}
-            type="text"
-            value={query}
-          />
-          <InputGroupAddon align="inline-end" className="gap-0.5">
-            <PanelToggle
-              label={t("folderSearch.matchCase")}
-              onPressedChange={setCaseSensitive}
-              pressed={caseSensitive}
-            >
-              <CaseSensitiveIcon />
-            </PanelToggle>
-            <PanelToggle
-              label={t("folderSearch.wholeWord")}
-              onPressedChange={setWholeWord}
-              pressed={wholeWord}
-            >
-              <WholeWordIcon />
-            </PanelToggle>
-          </InputGroupAddon>
-        </InputGroup>
+        <div className="flex shrink-0 items-start gap-0.5">
+          <PanelButton
+            aria-expanded={replaceOpen}
+            className="mt-0.5 size-6"
+            label={t(replaceOpen ? "folderSearch.hideReplace" : "folderSearch.showReplace")}
+            onClick={() => setReplaceOpen(!replaceOpen)}
+          >
+            <ChevronRightIcon className={cn("transition-transform", replaceOpen && "rotate-90")} />
+          </PanelButton>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <InputGroup className="h-7 shrink-0">
+              <InputGroupAddon align="inline-start">
+                <SearchIcon className="size-3.5" />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label={t("folderSearch.query")}
+                autoComplete="off"
+                className="text-xs md:text-xs"
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={handleQueryKeyDown}
+                placeholder={t("folderSearch.placeholder")}
+                ref={queryRef}
+                spellCheck={false}
+                type="text"
+                value={query}
+              />
+              <InputGroupAddon align="inline-end" className="gap-0.5">
+                <PanelToggle
+                  label={t("folderSearch.matchCase")}
+                  onPressedChange={setCaseSensitive}
+                  pressed={caseSensitive}
+                >
+                  <CaseSensitiveIcon />
+                </PanelToggle>
+                <PanelToggle
+                  label={t("folderSearch.wholeWord")}
+                  onPressedChange={setWholeWord}
+                  pressed={wholeWord}
+                >
+                  <WholeWordIcon />
+                </PanelToggle>
+              </InputGroupAddon>
+            </InputGroup>
+            {replaceOpen && (
+              <InputGroup className="h-7 shrink-0">
+                <InputGroupAddon align="inline-start">
+                  <ReplaceIcon className="size-3.5" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  aria-label={t("folderSearch.replacement")}
+                  autoComplete="off"
+                  className="text-xs md:text-xs"
+                  onChange={(event) => setReplacement(event.target.value)}
+                  onKeyDown={handleReplacementKeyDown}
+                  placeholder={t("folderSearch.replacementPlaceholder")}
+                  ref={replacementRef}
+                  spellCheck={false}
+                  type="text"
+                  value={replacement}
+                />
+              </InputGroup>
+            )}
+          </div>
+        </div>
 
         <FolderSearchStatus
+          apply={apply}
+          canApply={canApply}
           localization={localization}
+          onApply={onApply}
           onCancel={onCancel}
           onSearchFurther={onSearchFurther}
           query={query}
+          replaceOpen={replaceOpen}
           results={results}
         />
+
+        {apply.status === "done" && (
+          <FolderReplaceReportView
+            folderPath={folderPath}
+            onDismiss={() => setApplyState({ status: "idle" })}
+            report={apply.report}
+          />
+        )}
 
         {results && results.skipped.length > 0 && (
           <SkippedFiles folderPath={folderPath} results={results} />
@@ -211,28 +309,46 @@ export function FolderSearchPanel({
 }
 
 interface FolderSearchStatusProps {
+  apply: FolderReplaceApplyState;
+  canApply: boolean;
   localization: Localization;
+  onApply: () => void;
   onCancel: () => void;
   onSearchFurther: () => void;
   query: string;
+  replaceOpen: boolean;
   results: FolderSearchResults | null;
 }
 
 const describeResults = ({ formatNumber, t }: Localization, results: FolderSearchResults) => {
-  const summary = t("folderSearch.summary", {
-    files: results.files.length,
-    matches: results.matchCount,
-  });
+  const replacing = results.replacement !== null;
+  const summary = replacing
+    ? t("folderSearch.replaceSummary", {
+        files: results.files.length,
+        matches: results.matchCount,
+      })
+    : t("folderSearch.summary", {
+        files: results.files.length,
+        matches: results.matchCount,
+      });
+  const noResults = t(replacing ? "folderSearch.nothingToReplace" : "folderSearch.noResults");
 
   switch (results.status) {
     case "searching":
       return {
-        text: t("folderSearch.searching", {
-          searched: formatNumber(results.searchedFileCount),
-          total: results.articleCount,
-        }),
+        text: replacing
+          ? t("folderSearch.planning", {
+              searched: formatNumber(results.searchedFileCount),
+              total: results.articleCount,
+            })
+          : t("folderSearch.searching", {
+              searched: formatNumber(results.searchedFileCount),
+              total: results.articleCount,
+            }),
         detail: results.matchCount > 0 ? summary : null,
-        announcement: t("folderSearch.searchingAnnouncement"),
+        announcement: t(
+          replacing ? "folderSearch.planningAnnouncement" : "folderSearch.searchingAnnouncement",
+        ),
       };
     case "cancelled":
       return {
@@ -248,28 +364,45 @@ const describeResults = ({ formatNumber, t }: Localization, results: FolderSearc
       };
     case "completed":
       return results.matchCount === 0
-        ? {
-            text: t("folderSearch.noResults"),
-            detail: null,
-            announcement: t("folderSearch.noResults"),
-          }
+        ? { text: noResults, detail: null, announcement: noResults }
         : { text: summary, detail: null, announcement: summary };
   }
 };
 
 function FolderSearchStatus({
+  apply,
+  canApply,
   localization,
+  onApply,
   onCancel,
   onSearchFurther,
   query,
+  replaceOpen,
   results,
 }: FolderSearchStatusProps) {
-  const { t } = localization;
+  const { formatNumber, t } = localization;
+
+  if (apply.status === "applying") {
+    return (
+      <div className="shrink-0 px-1 text-xs leading-5 text-muted-foreground">
+        <p data-testid="folder-search-status">
+          {t("folderSearch.applying", {
+            phase: apply.phase,
+            completed: formatNumber(apply.completed),
+            total: apply.total,
+          })}
+        </p>
+        <p aria-live="polite" className="sr-only" role="status">
+          {t("folderSearch.applyingAnnouncement")}
+        </p>
+      </div>
+    );
+  }
 
   if (query === "" || !results) {
     return (
       <p className="shrink-0 px-1 text-xs leading-5 text-muted-foreground">
-        {t("folderSearch.hint")}
+        {t(replaceOpen ? "folderSearch.replaceHint" : "folderSearch.hint")}
       </p>
     );
   }
@@ -308,7 +441,127 @@ function FolderSearchStatus({
           {t("folderSearch.searchFurther")}
         </Button>
       )}
+      {/* Kept in place while a plan is made again, so focus is not lost with it. */}
+      {replaceOpen &&
+        results.replacement !== null &&
+        (canApply || results.status === "searching") && (
+          <Button
+            aria-disabled={canApply ? undefined : true}
+            className="h-5 px-1.5 text-xs aria-disabled:opacity-50"
+            onClick={() => {
+              if (canApply) {
+                onApply();
+              }
+            }}
+            size="xs"
+            type="button"
+          >
+            {t("folderSearch.replaceAll")}
+          </Button>
+        )}
     </div>
+  );
+}
+
+function FolderReplaceReportView({
+  folderPath,
+  onDismiss,
+  report,
+}: {
+  folderPath: string;
+  onDismiss: () => void;
+  report: FolderReplaceReport;
+}) {
+  const { t } = useLocalization();
+  const displayPath = (path: string) => getRelativePath(folderPath, path) ?? path;
+  const summary = t("folderSearch.report.written", {
+    files: report.written.length,
+    matches: report.written.reduce((count, { matchCount }) => count + matchCount, 0),
+  });
+
+  return (
+    <div
+      className="flex shrink-0 items-start gap-2 rounded-md bg-muted/60 px-2 py-1 text-xs leading-5"
+      data-testid="folder-replace-report"
+    >
+      <div className="min-w-0 flex-1">
+        <p aria-live="polite" role="status">
+          {summary}
+        </p>
+        {report.stale.length > 0 && (
+          <ReportList
+            items={report.stale.map(({ path, reason, unsavedInEditor }) => ({
+              path,
+              text: t("folderSearch.report.staleFile", {
+                path: displayPath(path),
+                reason,
+                unsaved: unsavedInEditor ? "yes" : "no",
+              }),
+            }))}
+            label={t("folderSearch.report.stale", { count: report.stale.length })}
+            testId="folder-replace-stale"
+          />
+        )}
+        {report.failed.length > 0 && (
+          <ReportList
+            items={report.failed.map(({ detail, encoding, path, reason, unsavedInEditor }) => ({
+              path,
+              text: t("folderSearch.report.failedFile", {
+                path: displayPath(path),
+                reason,
+                encoding: encoding ?? "",
+                detail: detail ?? "",
+                unsaved: unsavedInEditor ? "yes" : "no",
+              }),
+              title: detail,
+            }))}
+            label={t("folderSearch.report.failed", { count: report.failed.length })}
+            testId="folder-replace-failed"
+          />
+        )}
+        {report.notAttempted.length > 0 && (
+          <ReportList
+            items={report.notAttempted.map((path) => ({ path, text: displayPath(path) }))}
+            label={t("folderSearch.report.notAttempted", { count: report.notAttempted.length })}
+            testId="folder-replace-not-attempted"
+          />
+        )}
+      </div>
+      <PanelButton label={t("folderSearch.report.dismiss")} onClick={onDismiss}>
+        <XIcon />
+      </PanelButton>
+    </div>
+  );
+}
+
+function ReportList({
+  items,
+  label,
+  testId,
+}: {
+  items: { path: string; text: string; title?: string }[];
+  label: string;
+  testId: string;
+}) {
+  return (
+    <Collapsible defaultOpen>
+      <CollapsibleTrigger className="group flex items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground">
+        <ChevronRightIcon className="size-3 transition-transform group-data-panel-open:rotate-90" />
+        {label}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul
+          className="mt-1 max-h-32 overflow-y-auto pl-4 text-muted-foreground"
+          data-testid={testId}
+        >
+          {items.map(({ path, text, title }) => (
+            <li className="truncate" key={path} title={title ?? path}>
+              {text}
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -489,6 +742,7 @@ function FolderSearchResultRows({ onActivateMatch, ref, results }: FolderSearchR
                   rowElementsRef.current.delete(row.key);
                 }
               }}
+              replacement={results.replacement}
               row={row}
               virtualRow={virtualRow}
             />
@@ -504,6 +758,7 @@ interface FolderSearchTreeItemProps {
   onActivate: () => void;
   onFocus: () => void;
   registerElement: (element: HTMLLIElement | null) => void;
+  replacement: string | null;
   row: FolderSearchRow;
   virtualRow: VirtualItem;
 }
@@ -513,6 +768,7 @@ function FolderSearchTreeItem({
   onActivate,
   onFocus,
   registerElement,
+  replacement,
   row,
   virtualRow,
 }: FolderSearchTreeItemProps) {
@@ -522,12 +778,17 @@ function FolderSearchTreeItem({
   return (
     <VirtualListItem
       aria-disabled={row.kind === "match" && row.unavailable ? true : undefined}
-      aria-expanded={isFile ? row.expanded : undefined}
       aria-label={
         isFile
-          ? t("folderSearch.fileLabel", { count: row.matchCount, path: row.relativePath })
-          : undefined
+          ? t(replacement === null ? "folderSearch.fileLabel" : "folderSearch.replaceFileLabel", {
+              count: row.matchCount,
+              path: row.relativePath,
+            })
+          : replacement === null
+            ? undefined
+            : getReplacementLabel(t, row, replacement)
       }
+      aria-expanded={isFile ? row.expanded : undefined}
       aria-level={isFile ? 1 : 2}
       aria-posinset={row.posInSet}
       aria-selected={row.kind === "match" && row.chosen}
@@ -553,7 +814,7 @@ function FolderSearchTreeItem({
       {isFile ? (
         <FileRowContent formatCount={formatNumber} row={row} />
       ) : (
-        <MatchRowContent row={row} />
+        <MatchRowContent replacement={replacement} row={row} />
       )}
     </VirtualListItem>
   );
@@ -578,6 +839,7 @@ function FileRowContent({
       {row.directory && (
         <span className="min-w-0 flex-1 truncate text-muted-foreground">{row.directory}</span>
       )}
+      {row.rewritesOtherText && <RewritesOtherTextMarker />}
       <Badge className="ml-auto shrink-0 tabular-nums" variant="secondary">
         {formatCount(row.matchCount)}
         {row.clipped && "+"}
@@ -586,16 +848,67 @@ function FileRowContent({
   );
 }
 
-function MatchRowContent({ row }: { row: FolderSearchMatchRow }) {
+const getReplacementLabel = (
+  t: Localization["t"],
+  row: FolderSearchMatchRow,
+  replacement: string,
+) => {
+  const { after, before, match } = getMatchSnippet(row.match.context);
+
+  return t("folderSearch.replaceMatchLabel", {
+    text: `${before}${match}${after}`,
+    match,
+    replacement,
+    removed: replacement === "" ? "yes" : "no",
+  });
+};
+
+function RewritesOtherTextMarker() {
+  const { t } = useLocalization();
+  const label = t("folderSearch.rewritesOtherText");
+
+  return (
+    <span
+      aria-label={label}
+      className="flex shrink-0 text-muted-foreground"
+      data-testid="folder-search-rewrites-other-text"
+      role="img"
+      title={label}
+    >
+      <TriangleAlertIcon aria-hidden="true" className="size-3" />
+    </span>
+  );
+}
+
+function MatchRowContent({
+  replacement,
+  row,
+}: {
+  replacement: string | null;
+  row: FolderSearchMatchRow;
+}) {
   const snippet = getMatchSnippet(row.match.context);
+  const highlight =
+    "rounded-[0.125rem] bg-[oklch(0.88_0.12_90)] text-inherit dark:bg-[oklch(0.5_0.09_90)]";
 
   return (
     <span className="min-w-0 truncate whitespace-pre">
       {snippet.clippedBefore && "…"}
       {snippet.before}
-      <mark className="rounded-[0.125rem] bg-[oklch(0.88_0.12_90)] text-inherit dark:bg-[oklch(0.5_0.09_90)]">
-        {snippet.match}
-      </mark>
+      {replacement === null ? (
+        <mark className={highlight}>{snippet.match}</mark>
+      ) : (
+        <>
+          <del className="rounded-[0.125rem] bg-destructive/15 text-muted-foreground">
+            {snippet.match}
+          </del>
+          {replacement !== "" && (
+            <ins className="rounded-[0.125rem] bg-[oklch(0.9_0.1_150)] no-underline dark:bg-[oklch(0.45_0.08_150)]">
+              {replacement}
+            </ins>
+          )}
+        </>
+      )}
       {snippet.after}
       {snippet.clippedAfter && "…"}
     </span>

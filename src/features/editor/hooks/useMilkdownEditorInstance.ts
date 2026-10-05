@@ -1,4 +1,4 @@
-import { editorViewCtx } from "@milkdown/kit/core";
+import { editorViewCtx, serializerCtx } from "@milkdown/kit/core";
 import { TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import {
@@ -30,6 +30,8 @@ import {
   findNext,
   findPrevious,
   focusChosenSearchMatch,
+  applySearchReplacement,
+  planSearchReplacement,
   readDocumentSearchMatches,
   replaceAllSearchMatches,
   replaceSearchMatch,
@@ -72,6 +74,7 @@ import {
 } from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
+import type { DocumentReplacementPlan } from "../utils/textReplacement";
 import type {
   DocumentSearchMatches,
   SearchMatchTarget,
@@ -118,6 +121,17 @@ export interface MilkdownEditorBridge {
   /** Resolves once the editor is ready, to the chosen match's place, or `null` when it is gone. */
   chooseSearchMatch?: (query: TextSearchQuery, target: SearchMatchTarget) => Promise<number | null>;
   focusChosenSearchMatch?: () => void;
+  /** What replacing every match would make of the document, or `null` while the editor is not ready. */
+  planSearchReplacement?: (
+    query: TextSearchQuery,
+    replacement: string,
+  ) => DocumentReplacementPlan | null;
+  /** Replaces every match while the document still saves as `baseline`; see `applySearchReplacement`. */
+  applySearchReplacement?: (
+    query: TextSearchQuery,
+    replacement: string,
+    baseline: string,
+  ) => number | null;
 }
 
 interface PendingSearchMatch {
@@ -315,6 +329,31 @@ export const useMilkdownEditorInstance = ({
         if (editorRef.current?.ctx) {
           focusChosenSearchMatch(editorRef.current.ctx.get(editorViewCtx));
         }
+      },
+      planSearchReplacement: (query, replacement) => {
+        const ctx = editorRef.current?.ctx;
+
+        return ctx
+          ? planSearchReplacement(
+              ctx.get(editorViewCtx),
+              query,
+              replacement,
+              ctx.get(serializerCtx),
+            )
+          : null;
+      },
+      applySearchReplacement: (query, replacement, baseline) => {
+        const ctx = editorRef.current?.ctx;
+
+        return ctx
+          ? applySearchReplacement(
+              ctx.get(editorViewCtx),
+              query,
+              replacement,
+              baseline,
+              ctx.get(serializerCtx),
+            )
+          : null;
       },
     }),
     [],

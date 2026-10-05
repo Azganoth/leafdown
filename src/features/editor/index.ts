@@ -50,6 +50,7 @@ export {
   type MilkdownMarkdownUpdate,
 } from "./utils/createMilkdownEditor";
 export type { MarkdownReferenceContext } from "./utils/markdownReferences";
+export type { DocumentReplacementPlan } from "./utils/textReplacement";
 export {
   createMarkdownSearchTextParser,
   type MarkdownSearchTextParser,

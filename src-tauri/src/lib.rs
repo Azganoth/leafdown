@@ -122,6 +122,8 @@ pub fn run() {
             folder::scan_markdown_folder,
             folder::open_markdown_folder,
             folder::read_folder_search_files,
+            folder::preflight_folder_replacement,
+            folder::write_folder_replacement_files,
             folder::watch_markdown_folder,
             folder::unwatch_markdown_folder,
             folder::create_markdown_article,

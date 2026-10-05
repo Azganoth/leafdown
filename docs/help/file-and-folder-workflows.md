@@ -16,6 +16,14 @@ Choose a file row to open it. A row's context menu can create a file or folder, 
 
 **Edit > Find and replace > Find in folder** (`Mod+Shift+F`) turns the sidebar into a search of the open folder's Markdown files, the same files the navigator lists. Type to search; matching works as **Find** does inside a document, with **Match case** and **Whole word**, and the open document is searched as you have it, unsaved edits included. Matches are grouped by file, with the text around each one. Choose a match, or move to it with the arrow keys and press `Enter`, to open its file and highlight the match while you stay in the results. Files that are too large or not valid UTF-8 or UTF-16 are skipped and listed. `Escape` returns to the navigator and to the document, with the match selected.
 
+## Replace across the folder
+
+**Edit > Find and replace > Replace in folder** (`Mod+Shift+H`), or the arrow before the search field, shows a **Replace with** field. While it shows, the view previews every change instead of searching: each match is shown struck through with its replacement beside it, across every file, however many there are. Nothing is written until you choose **Replace all**, which appears once the preview is complete; changing the search, the replacement, or an option first changes nothing.
+
+**Replace all** writes each file in turn and then reports what it did. Only the lines holding a replacement change; a file marked with a warning sign is written as **Save** would write it, which can also change other lines, such as the padding of a table. If the open document has unsaved changes and is part of the preview, you are asked to save or discard them first, and the preview updates before anything is written. A file that changed since the preview is left alone and listed, as is any file that cannot be written, and the other files are still replaced.
+
+A replacement cannot be undone across files. In the open document, **Undo** undoes it for that document only; other files keep their new text, so commit or back up your notes first if you may want them back.
+
 ## Drop a file or folder
 
 Drop one supported Markdown file or folder onto the app to open it. A preview shows the configured action while dragging. In **Preferences > Files**, each drop type can instead insert a link into the active document. A saved document receives a relative link when the paths share a filesystem root; an untitled document receives an absolute link. Multiple or unsupported items are not opened.

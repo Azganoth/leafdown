@@ -1,9 +1,14 @@
-import type { FileMetadataSnapshot, OpenMarkdownFileError } from "@/features/document";
+import type {
+  DocumentEncoding,
+  FileMetadataSnapshot,
+  OpenMarkdownFileError,
+} from "@/features/document";
 import {
   createMarkdownSearchTextParser,
   findSearchableTextMatches,
   getSearchMatchContext,
   SEARCH_MATCH_CONTEXT_RADIUS,
+  type DocumentReplacementPlan,
   type DocumentSearchMatches,
   type MarkdownSearchTextParser,
   type SearchableTextRange,
@@ -23,6 +28,7 @@ import { handleUnexpectedError } from "@/lib/errors";
 import { MutableDisposable, type Disposable } from "@/lib/lifecycle";
 import { isSamePath, PathMap } from "@/lib/path";
 
+import { planFileReplacement, type FolderReplaceSaveOptions } from "./folderReplacePlan";
 import {
   readFolderSearchFiles,
   type FolderSearchFileOutcome,
@@ -47,15 +53,33 @@ export interface FolderSearchMatch {
   context: SearchMatchContext;
 }
 
+/** What replacing a file's matches writes, planned against the version the file was read in. */
+export type FolderReplaceFilePlan =
+  | {
+      source: "disk";
+      content: string;
+      encoding: DocumentEncoding;
+      /** Whether the file is written as a save writes it, changing text outside the matches. */
+      rewritesOtherText: boolean;
+    }
+  /** The open document is replaced in its editor while it still saves as `baseline`. */
+  | { source: "editor"; baseline: string };
+
 export interface FolderSearchFileResult {
   path: string;
   version: FolderSearchFileVersion;
   matches: FolderSearchMatch[];
   /** Whether the match limit cut the file's matches short. */
   clipped: boolean;
+  /** The file's replacement while the search plans one, otherwise `null`. */
+  replacement: FolderReplaceFilePlan | null;
 }
 
-export type FolderSearchSkipReason = OpenMarkdownFileError["kind"] | "parseFailed";
+export type FolderSearchSkipReason =
+  | OpenMarkdownFileError["kind"]
+  | "parseFailed"
+  /** The file would not read as its matches replaced. */
+  | "replacementRefused";
 
 export interface FolderSearchSkippedFile {
   path: string;
@@ -69,6 +93,8 @@ export interface FolderSearchResults {
   id: number;
   folderPath: string;
   query: TextSearchQuery;
+  /** The text replacing every match while the search plans a replacement, otherwise `null`. */
+  replacement: string | null;
   status: FolderSearchStatus;
   searchedFileCount: number;
   articleCount: number;
@@ -84,6 +110,7 @@ export interface FolderSearchActiveDocument {
     query: TextSearchQuery,
     options: { finalizeProjection: boolean },
   ) => DocumentSearchMatches | null;
+  planReplacement: (query: TextSearchQuery, replacement: string) => DocumentReplacementPlan | null;
 }
 
 export interface FolderSearchHost {
@@ -94,10 +121,17 @@ export interface FolderSearchHost {
   createParser?: () => Promise<MarkdownSearchTextParser>;
 }
 
+/** Plans replacing every match, which a search does in full rather than stopping at its limit. */
+export interface FolderReplaceRequest {
+  text: string;
+  save: FolderReplaceSaveOptions;
+}
+
 export interface FolderSearchRequest {
   folderPath: string;
   articlePaths: readonly string[];
   query: TextSearchQuery;
+  replacement: FolderReplaceRequest | null;
   /** Searches the editor's document as the file holds it, as opening document Find does. */
   finalizeProjection: boolean;
 }
@@ -106,6 +140,7 @@ interface ActiveSearch {
   id: number;
   folderPath: string;
   query: TextSearchQuery;
+  replacement: FolderReplaceRequest | null;
   articlePaths: readonly string[];
   articleIndexes: PathMap<number>;
   files: PathMap<FolderSearchFileResult>;
@@ -127,6 +162,28 @@ const isSameQuery = (left: TextSearchQuery, right: TextSearchQuery) =>
   left.text === right.text &&
   left.caseSensitive === right.caseSensitive &&
   left.wholeWord === right.wholeWord;
+
+/**
+ * Whether results hold a complete replacement plan with something to write, made for the query,
+ * options, and replacement given; a plan for text since changed is not one to write.
+ */
+export const hasCompleteReplacementPlan = (
+  results: FolderSearchResults | null,
+  current: { query: TextSearchQuery; replacement: string },
+) =>
+  results !== null &&
+  results.replacement === current.replacement &&
+  isSameQuery(results.query, current.query) &&
+  results.status === "completed" &&
+  results.files.some((file) => file.replacement !== null);
+
+const isSameReplacement = (left: FolderReplaceRequest | null, right: FolderReplaceRequest | null) =>
+  left === right ||
+  (left !== null &&
+    right !== null &&
+    left.text === right.text &&
+    left.save.defaultLineEnding === right.save.defaultLineEnding &&
+    left.save.insertFinalNewline === right.save.insertFinalNewline);
 
 const yieldToEventLoop = () => {
   const { scheduler } = globalThis as { scheduler?: { yield?: () => Promise<void> } };
@@ -196,8 +253,13 @@ export class FolderSearchEngine implements Disposable {
     }
 
     const articleIndexes = indexPaths(request.articlePaths);
+    const refreshesInPlace =
+      current !== null &&
+      sameFolder &&
+      isSameQuery(current.query, request.query) &&
+      isSameReplacement(current.replacement, request.replacement);
 
-    if (current && sameFolder && isSameQuery(current.query, request.query)) {
+    if (current && refreshesInPlace) {
       current.articlePaths = request.articlePaths;
       current.articleIndexes = articleIndexes;
       this.forgetFilesOutside(current);
@@ -206,6 +268,7 @@ export class FolderSearchEngine implements Disposable {
         id: this.nextSearchId++,
         folderPath: request.folderPath,
         query: request.query,
+        replacement: request.replacement,
         articlePaths: request.articlePaths,
         articleIndexes,
         files: new PathMap(),
@@ -224,13 +287,20 @@ export class FolderSearchEngine implements Disposable {
       return;
     }
 
-    search.matchLimit = FOLDER_SEARCH_MATCH_LIMIT;
+    search.matchLimit = search.replacement ? Infinity : FOLDER_SEARCH_MATCH_LIMIT;
 
     if (request.finalizeProjection) {
       this.host.getActiveDocument()?.readMatches(search.query, { finalizeProjection: true });
     }
 
     this.run(search, 0);
+
+    // Results kept in place are no longer complete once the run starts, so a plan among them stops
+    // being one an Apply can write at once rather than at the next publication.
+    if (refreshesInPlace) {
+      this.publishNow();
+      this.schedulePublish();
+    }
   }
 
   /** Searches on from where the match limit stopped the search, keeping what it found. */
@@ -389,7 +459,7 @@ export class FolderSearchEngine implements Disposable {
       const sequence = this.nextSequence++;
       const files = search.articlePaths
         .slice(requestIndex, requestIndex + READ_BATCH_SIZE)
-        .map((path) => ({ path, knownMetadata: this.texts.get(path)?.metadata ?? null }));
+        .map((path) => ({ path, knownMetadata: this.getKnownMetadata(search, path) }));
       const outcomes = this.readFiles({ folderPath: search.folderPath, files }).then((read) => {
         if (read.length === 0) {
           throw new Error("A folder search read returned no files.");
@@ -428,11 +498,29 @@ export class FolderSearchEngine implements Disposable {
     };
   }
 
+  // A replacement is planned from a file's text, so a file whose kept text has matches is read again.
+  private getKnownMetadata(search: ActiveSearch, path: string) {
+    const cached = this.texts.get(path);
+
+    if (
+      !cached ||
+      (search.replacement && findSearchableTextMatches(cached.text, search.query).length > 0)
+    ) {
+      return null;
+    }
+
+    return cached.metadata;
+  }
+
   private writeActiveDocument(search: ActiveSearch, path: string, capacity = Infinity) {
     const active = this.host.getActiveDocument();
 
     if (!active || !isSamePath(active.path, path)) {
       return false;
+    }
+
+    if (search.replacement) {
+      return this.writeActiveDocumentReplacement(search, active, path);
     }
 
     const found = active.readMatches(search.query, { finalizeProjection: false });
@@ -452,6 +540,38 @@ export class FolderSearchEngine implements Disposable {
         capacity,
         sequence: this.nextSequence++,
       },
+    );
+
+    return true;
+  }
+
+  private writeActiveDocumentReplacement(
+    search: ActiveSearch,
+    active: FolderSearchActiveDocument,
+    path: string,
+  ) {
+    const plan = active.planReplacement(search.query, search.replacement?.text ?? "");
+
+    if (!plan) {
+      return false;
+    }
+
+    const sequence = this.nextSequence++;
+
+    if (plan.matches.length > 0 && plan.replaced === null) {
+      this.skip(search, path, "replacementRefused", sequence);
+      return true;
+    }
+
+    search.skipped.delete(path);
+    this.writeMatches(
+      search,
+      path,
+      plan.text,
+      plan.replaced === plan.baseline ? [] : plan.matches,
+      { source: "editor" },
+      { capacity: Infinity, sequence },
+      { source: "editor", baseline: plan.baseline },
     );
 
     return true;
@@ -479,6 +599,11 @@ export class FolderSearchEngine implements Disposable {
         return;
       }
       case "read": {
+        if (search.replacement) {
+          this.applyReplacementOutcome(search, path, outcome, parser, sequence);
+          return;
+        }
+
         const cached = this.texts.get(path);
         let text = cached?.fingerprint === outcome.fingerprint ? cached.text : null;
 
@@ -507,6 +632,62 @@ export class FolderSearchEngine implements Disposable {
         search.skipped.delete(path);
         search.writes.set(path, sequence);
     }
+  }
+
+  private applyReplacementOutcome(
+    search: ActiveSearch,
+    path: string,
+    outcome: Extract<FolderSearchFileOutcome, { kind: "read" }>,
+    parser: MarkdownSearchTextParser,
+    sequence: number,
+  ) {
+    const replacement = search.replacement;
+
+    if (!replacement) {
+      return;
+    }
+
+    let plan;
+    let file;
+
+    try {
+      plan = parser.planReplacement(outcome.content, search.query, replacement.text);
+      file =
+        plan.matches.length > 0
+          ? planFileReplacement(parser, outcome.content, outcome.lineEnding, plan, replacement.save)
+          : null;
+    } catch (error) {
+      handleUnexpectedError(error, "planFolderReplacement");
+      this.skip(search, path, "parseFailed", sequence);
+      return;
+    }
+
+    const { fingerprint, metadata } = outcome;
+
+    this.texts.set(path, { metadata, fingerprint, text: plan.text });
+
+    if (file?.kind === "refused") {
+      this.skip(search, path, "replacementRefused", sequence);
+      return;
+    }
+
+    search.skipped.delete(path);
+    this.writeMatches(
+      search,
+      path,
+      plan.text,
+      file?.kind === "planned" ? plan.matches : [],
+      { source: "disk", metadata, fingerprint },
+      { capacity: Infinity, sequence },
+      file?.kind === "planned"
+        ? {
+            source: "disk",
+            content: file.content,
+            encoding: outcome.encoding,
+            rewritesOtherText: file.rewritesOtherText,
+          }
+        : null,
+    );
   }
 
   private skip(
@@ -545,6 +726,7 @@ export class FolderSearchEngine implements Disposable {
     ranges: readonly SearchableTextRange[],
     version: FolderSearchFileVersion,
     { capacity, sequence }: { capacity: number; sequence: number },
+    replacement: FolderReplaceFilePlan | null = null,
   ) {
     search.writes.set(path, sequence);
 
@@ -563,6 +745,7 @@ export class FolderSearchEngine implements Disposable {
         context: getSearchMatchContext(text, range, SEARCH_MATCH_CONTEXT_RADIUS),
       })),
       clipped: kept.length < ranges.length,
+      replacement,
     });
   }
 
@@ -663,6 +846,7 @@ export class FolderSearchEngine implements Disposable {
       id: search.id,
       folderPath: search.folderPath,
       query: search.query,
+      replacement: search.replacement?.text ?? null,
       status: search.status,
       searchedFileCount: search.searchedFileCount,
       articleCount: search.articlePaths.length,

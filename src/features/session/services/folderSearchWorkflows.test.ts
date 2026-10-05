@@ -66,6 +66,8 @@ const readOutcome = (path: string): FolderSearchFileOutcome => {
     kind: "read",
     path,
     content,
+    lineEnding: "lf",
+    encoding: { name: "UTF-8", bom: false },
     metadata: { sizeBytes: content.length, modifiedAtUnixMs: 1 },
     fingerprint: content,
   };

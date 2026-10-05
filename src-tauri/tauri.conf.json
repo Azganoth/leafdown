@@ -32,8 +32,13 @@
     "active": true,
     "targets": ["nsis", "msi"],
     "windows": {
+      "nsis": {
+        "installerHooks": "windows/installer-hooks.nsh"
+      },
       "wix": {
-        "version": "0.1.0.1"
+        "version": "0.1.0.1",
+        "fragmentPaths": ["windows/file-associations.wxs"],
+        "componentRefs": ["MarkdownFileAssociations"]
       }
     },
     "icon": [

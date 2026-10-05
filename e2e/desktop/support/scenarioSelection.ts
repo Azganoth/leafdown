@@ -23,6 +23,7 @@ const scenarioTargets = {
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],
   "legacy-encoding": ["legacy-encoding"],
+  "launch-document": ["launch-document"],
   persistence: ["persistence-write", "persistence-restart"],
   "release-notes": [
     "release-notes-first-install",

@@ -591,6 +591,18 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 - Metadata and About dialogs reference `GPL-3.0-or-later`.
 - Contributions are accepted under the project license.
 
+### Register file associations without claiming the default
+
+**Decision:** The Windows installers offer Leafdown for its Markdown extensions under Open with and Default apps and never make it the default application. They register through a Leafdown-owned NSIS hook and WiX fragment rather than Tauri's file association metadata.
+
+**Rationale:** Tauri 2.11's NSIS and WiX templates write each extension's default value. That replaces the registration another application made there, and makes Leafdown the default wherever the user has not chosen one. The NSIS template also leaves the executable path unquoted in its open command, and on reinstall it overwrites its backup of the previous default with its own class, so uninstalling restores a class that no longer exists. Microsoft's file association guidance reserves the default for the user's choice.
+
+**Consequences:**
+
+- Making Leafdown the default is the user's step in Windows.
+- The registration follows the extension registry through lists the build script generates, so a new built-in extension needs no installer edit.
+- Moving to Tauri's metadata requires its templates to stop writing the extension default.
+
 ### Free app with optional donation support
 
 **Decision:** Core functionality is free, with optional donation/support.

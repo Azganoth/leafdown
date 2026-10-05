@@ -23,6 +23,7 @@ What should this release deliver?
 - [ ] Required issues and pull requests complete.
 - [ ] Version matches across `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and the WiX block, which carries the same version in its four-part numeric form.
 - [ ] Verification complete.
+- [ ] NSIS and MSI installers install, upgrade over the previous release, and uninstall, offering Leafdown under Open with for each built-in Markdown extension without changing its default app.
 - [ ] Changelog or release notes prepared.
 - [ ] Build or package published.
 - [ ] Pending security advisories published with patched versions set.

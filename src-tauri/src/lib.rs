@@ -14,6 +14,9 @@ mod export;
 mod file_utils;
 mod folder;
 mod image;
+#[cfg(test)]
+mod installer_tests;
+mod launch;
 mod link;
 mod navigation;
 mod path_utils;
@@ -80,6 +83,7 @@ pub fn run() {
         .manage(diagnostics_runtime)
         .manage(document::DocumentWatcherState::default())
         .manage(folder::FolderWatcherState::default())
+        .manage(launch::LaunchDocument::from_process())
         .manage(window::CloseRequestGuard::default())
         .setup(|app| {
             let package_info = app.package_info();
@@ -115,6 +119,7 @@ pub fn run() {
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
+            launch::take_launch_document_path,
             remote_image::fetch_remote_image,
             link::resolve_markdown_link_target,
             link::resolve_wiki_link_target,

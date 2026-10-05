@@ -18,6 +18,7 @@ import { initializeReleaseNotes } from "@/features/release-notes";
 import {
   confirmDiscardActiveDocumentChanges,
   DroppedPathOverlay,
+  openLaunchDocument,
   useDroppedPathListener,
 } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
@@ -83,13 +84,16 @@ export function App() {
       }
     };
 
-    void initializeApp().catch((error) =>
-      notifyOperationFailure(
-        localizer.current.t("app.loadPreferencesFailed"),
-        error,
-        "initializeApp",
-      ),
-    );
+    void initializeApp()
+      .catch((error) =>
+        notifyOperationFailure(
+          localizer.current.t("app.loadPreferencesFailed"),
+          error,
+          "initializeApp",
+        ),
+      )
+      .then(() => openLaunchDocument())
+      .catch((error) => handleUnexpectedError(error, "openLaunchDocument"));
   }, []);
 
   useTauriEvent<void>(

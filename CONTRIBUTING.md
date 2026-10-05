@@ -94,7 +94,7 @@ To run one scenario against an already built binary:
 pnpm test:e2e:desktop:run -- --scenario folder-watcher
 ```
 
-Targets are `block-selection`, `callouts`, `command-palette`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `keyboard-shortcuts`, `folder-watcher`, `folder-actions`, `folder-search`, `heading-outline`, `help-pages`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `rendered-mermaid`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `persistence`, `release-notes`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
+Targets are `block-selection`, `callouts`, `command-palette`, `diagnostics`, `document-lifecycle`, `document-watcher`, `find-and-replace`, `keyboard-shortcuts`, `folder-watcher`, `folder-actions`, `folder-search`, `heading-outline`, `help-pages`, `rendered-images`, `remote-images`, `rendered-html`, `rendered-math`, `rendered-mermaid`, `separator-presentation`, `missing-document-error`, `legacy-encoding`, `launch-document`, `persistence`, `release-notes`, `wiki-links`, and `window-lifecycle`. Focused runs use the same isolation, evidence capture, and cleanup as the full suite. The `:run` command does not check binary freshness; run `pnpm build:e2e:desktop` when its inputs change.
 
 For release-build Mermaid timings, build the optimized E2E binary and run the three benchmark cases in PowerShell:
 

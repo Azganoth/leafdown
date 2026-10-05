@@ -60,6 +60,7 @@ import {
   type FolderSearchFileOutcome,
   type ReadFolderSearchFilesArgs,
 } from "@/features/folder-search/services/folderSearchApi";
+import { TAKE_LAUNCH_DOCUMENT_PATH_COMMAND } from "@/features/session/services/launchDocumentApi";
 
 import {
   countInvokeCalls,
@@ -90,6 +91,7 @@ interface TauriApiCommandArgs {
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetArgs;
   openMarkdownLinkTarget: OpenMarkdownLinkTargetArgs;
   readFolderSearchFiles: ReadFolderSearchFilesArgs;
+  takeLaunchDocumentPath: undefined;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
 }
@@ -116,6 +118,7 @@ interface TauriApiCommandResults {
   resolveWikiLinkTarget: ResolveMarkdownLinkTargetResult;
   openMarkdownLinkTarget: void;
   readFolderSearchFiles: FolderSearchFileOutcome[];
+  takeLaunchDocumentPath: string | null;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
@@ -152,6 +155,7 @@ const TAURI_API_COMMANDS = {
   resolveWikiLinkTarget: RESOLVE_WIKI_LINK_TARGET_COMMAND,
   openMarkdownLinkTarget: OPEN_MARKDOWN_LINK_TARGET_COMMAND,
   readFolderSearchFiles: READ_FOLDER_SEARCH_FILES_COMMAND,
+  takeLaunchDocumentPath: TAKE_LAUNCH_DOCUMENT_PATH_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;

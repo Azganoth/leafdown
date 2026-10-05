@@ -28,6 +28,7 @@ import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toa
 
 import { useSessionStore } from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
+import { takeLaunchDocumentPath } from "./launchDocumentApi";
 import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
 
 const openTransitionRunner = new RestartableTaskRunner();
@@ -127,6 +128,22 @@ export const reopenMarkdownFileWithChosenEncoding = async (
     }
 
     return opened;
+  } catch (error) {
+    notifyOpenMarkdownFileError(error);
+    return false;
+  }
+};
+
+/** Opens the file the operating system launched Leafdown with, once persisted stores are ready. */
+export const openLaunchDocument = async () => {
+  const path = await takeLaunchDocumentPath();
+
+  if (!path) {
+    return false;
+  }
+
+  try {
+    return await openMarkdownFileAtPath(path);
   } catch (error) {
     notifyOpenMarkdownFileError(error);
     return false;

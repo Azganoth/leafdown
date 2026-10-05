@@ -40,10 +40,14 @@ export const SEARCHABLE_TEXT_SEPARATOR = "\u0000";
 // Combining marks count as part of a word, so `cafe` does not stop short of a decomposed `café`.
 const WORD_CHARACTER = String.raw`[\p{L}\p{M}\p{N}_]`;
 const WORD_CHARACTER_PATTERN = new RegExp(`^${WORD_CHARACTER}$`, "u");
+const WORD_PATTERN = new RegExp(`^${WORD_CHARACTER}+$`, "u");
 const REGEXP_SYNTAX_PATTERN = /[\\^$.*+?()[\]{}|]/gu;
 
 const isWordCharacter = (character: string | undefined) =>
   character !== undefined && WORD_CHARACTER_PATTERN.test(character);
+
+/** Whether `text` is one word, as a whole-word search reads words. */
+export const isWord = (text: string) => WORD_PATTERN.test(text);
 
 // A boundary is asked for only on an edge the query itself ends in a word character, so a whole-word
 // search for `-flag` still finds it after a space or at the start of a line. The separator is not a
@@ -62,8 +66,12 @@ const createSearchPattern = ({ caseSensitive, text, wholeWord }: TextSearchQuery
 };
 
 // Only adjacent text nodes form one run, so a match never reaches across a hard break, an image, a
-// footnote reference, raw HTML, or any other inline node the text flows around.
-export const getSearchableText = (document: ProseMirrorNode): SearchableText => {
+// footnote reference, raw HTML, or any other inline node the text flows around. A node `includes`
+// rejects is left out with everything inside it.
+export const getSearchableText = (
+  document: ProseMirrorNode,
+  includes: (node: ProseMirrorNode) => boolean = () => true,
+): SearchableText => {
   const runs: string[] = [];
   const runOffsets: number[] = [];
   const runPositions: number[] = [];
@@ -84,6 +92,10 @@ export const getSearchableText = (document: ProseMirrorNode): SearchableText => 
   };
 
   document.descendants((node, position) => {
+    if (!includes(node)) {
+      return false;
+    }
+
     if (!node.isTextblock) {
       return true;
     }

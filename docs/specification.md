@@ -317,6 +317,14 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - Opening a match opens its file as Open File does, first asking about unsaved changes in the open document; declining leaves the editor and the results as they were. A match in the open document is found there without reopening it, keeping its unsaved changes. While focus stays in the results, the match is scrolled into view and highlighted without moving the caret, opening its source, or raising the selection popup, so the next one can be opened from the keyboard. Returning to the text with `Escape`, the close button, or `Tab` selects the match, which then opens source projection or the popup as any selection does; a click in the text places the caret there instead. A match whose file is gone, or whose text is no longer where it was, is marked as no longer in the file instead of selecting other text, and that file is searched again.
 - When files are added, removed, renamed, or changed, the search runs again with its results in place. Results last only while the view is open; nothing is written to disk or kept between sessions.
 
+### Selected Word Occurrences
+
+- A text selection that is exactly one whole word, as `Whole word` reads words, highlights the other occurrences of that word in the open document with a quiet tint, while the selected word keeps the ordinary selection highlight. Occurrences match the selected spelling exactly, letter case included, and only as whole words, so selecting `leaf` marks neither `Leaf` nor `leaflet`.
+- Occurrences are found in the text [Find And Replace](#find-and-replace) reads, across inline formatting and never across a block, a hard break, or an inline object, but not in frontmatter, footnote definition labels, or the fields of link and image reference definitions, which are document metadata rather than its text. A word selected there highlights nothing.
+- A caret, part of a word, more than one word, a selection reaching across a hard break or an inline object, a structural block, node, or table cell selection, and a selection in projected source highlight nothing. Selecting a word inside formatting opens that formatting's source, so it highlights nothing either.
+- The highlights follow the selection and the document: changing or collapsing the selection, editing, or opening another document updates or clears them. While the search surface is open or a folder search match is shown, only search highlights its matches; closing the surface highlights the occurrences of the match it leaves selected when that match is one whole word.
+- Where a document holds many occurrences, the highlights cover those around the selection, as search does. Highlights are presentation only and never reach the file, the clipboard, history, or the unsaved state. There is no setting for them.
+
 ### Inline Formatting Commands
 
 - With a selection, inline formatting commands apply to the selection.

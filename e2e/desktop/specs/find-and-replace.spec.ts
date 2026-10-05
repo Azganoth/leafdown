@@ -1,4 +1,4 @@
-import { $, browser, expect } from "@wdio/globals";
+import { $, $$, browser, expect } from "@wdio/globals";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -48,6 +48,47 @@ const firstParagraphTop = () =>
   );
 
 const getSelectionText = () => browser.execute(() => document.getSelection()?.toString() ?? "");
+
+const getOccurrenceTexts = () =>
+  browser.execute(() =>
+    Array.from(
+      document.querySelectorAll(".leafdown-selection-occurrence"),
+      (element) => element.textContent ?? "",
+    ),
+  );
+
+// Selects the first `word` in the paragraph starting with `paragraphStart` through the DOM
+// selection, which the editor reads as it reads a pointer or keyboard selection.
+const selectWordInParagraph = (paragraphStart: string, word: string) =>
+  browser.execute(
+    (start, target) => {
+      const paragraph = Array.from(document.querySelectorAll(".ProseMirror p")).find((element) =>
+        element.textContent?.startsWith(start),
+      );
+
+      if (!paragraph) {
+        return false;
+      }
+
+      const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const offset = node.textContent?.indexOf(target) ?? -1;
+
+        if (offset !== -1) {
+          document.getSelection()?.setBaseAndExtent(node, offset, node, offset + target.length);
+          return true;
+        }
+      }
+
+      return false;
+    },
+    paragraphStart,
+    word,
+  );
+
+const waitForOccurrenceCount = (count: number, timeoutMsg: string) =>
+  browser.waitUntil(async () => (await getOccurrenceTexts()).length === count, { timeoutMsg });
 
 // A selected match opens the source projection of the object it lies in, so the paragraph's text
 // names which match holds the selection.
@@ -211,6 +252,41 @@ describe("desktop find and replace", () => {
     } finally {
       await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
     }
+  });
+
+  it("highlights a selected word's other occurrences until Find takes over", async () => {
+    await focusEditorAtStart();
+
+    expect(await selectWordInParagraph("The first", "lantern")).toBe(true);
+    await waitForOccurrenceCount(3, "The selected word's other occurrences were not highlighted.");
+    expect(await getSelectionText()).toBe("lantern");
+    expect(await getOccurrenceTexts()).toEqual(["lantern", "lantern", "lantern"]);
+    // The selected word keeps the selection's own presentation.
+    expect(
+      await browser.execute(
+        () =>
+          Array.from(document.querySelectorAll(".ProseMirror p"))
+            .find((element) => element.textContent?.startsWith("The first"))
+            ?.querySelectorAll(".leafdown-selection-occurrence").length,
+      ),
+    ).toBe(0);
+
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "find-and-replace-occurrences.png"));
+
+    await pressKey("f", { ctrlKey: true });
+    await expect(panel()).toBeDisplayed();
+    await expect(results()).toHaveText("2 of 5");
+    expect(await getOccurrenceTexts()).toEqual([]);
+    await expect($$(".leafdown-search-match")).toBeElementsArrayOfSize(5);
+
+    await pressKey("Escape");
+    await expect(panel()).not.toExist();
+    expect(await getSelectionText()).toBe("lantern");
+    await waitForOccurrenceCount(3, "Closing Find did not restore the selection's occurrences.");
+
+    await browser.execute(() => document.getSelection()?.collapseToEnd());
+    await waitForOccurrenceCount(0, "Collapsing the selection did not clear its occurrences.");
+    await expect(documentState()).not.toExist();
   });
 
   it("replaces one match and then every match as undoable edits", async () => {

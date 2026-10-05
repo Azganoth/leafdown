@@ -286,11 +286,12 @@ const applySearchTransaction = (
   return applyChosenMatch(transaction, applyCurrentMatch(transaction, value));
 };
 
-const createSearchDecorations = (
+/** Highlights for the matches around the one at `center`, each with the class `getClass` names. */
+export const createBoundedMatchDecorations = (
   document: ProseMirrorNode,
   matches: readonly TextRange[],
-  current: number | null,
   center: number,
+  getClass: (index: number) => string,
 ) => {
   const start = Math.max(0, center - HIGHLIGHT_RADIUS);
   const end = Math.min(matches.length, center + HIGHLIGHT_RADIUS);
@@ -299,18 +300,21 @@ const createSearchDecorations = (
   for (let index = start; index < end; index += 1) {
     const { from, to } = matches[index];
 
-    decorations.push(
-      Decoration.inline(from, to, {
-        class:
-          index === current
-            ? `${SEARCH_MATCH_CLASS} ${CURRENT_SEARCH_MATCH_CLASS}`
-            : SEARCH_MATCH_CLASS,
-      }),
-    );
+    decorations.push(Decoration.inline(from, to, { class: getClass(index) }));
   }
 
   return DecorationSet.create(document, decorations);
 };
+
+const createSearchDecorations = (
+  document: ProseMirrorNode,
+  matches: readonly TextRange[],
+  current: number | null,
+  center: number,
+) =>
+  createBoundedMatchDecorations(document, matches, center, (index) =>
+    index === current ? `${SEARCH_MATCH_CLASS} ${CURRENT_SEARCH_MATCH_CLASS}` : SEARCH_MATCH_CLASS,
+  );
 
 export const getEditorSearchState = (state: EditorState): EditorSearchState => {
   const search = getSearchState(state);

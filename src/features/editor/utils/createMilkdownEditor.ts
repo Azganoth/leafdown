@@ -161,6 +161,7 @@ import {
   leafdownDefinitionSchema,
 } from "../plugins/referenceLink";
 import { createLeafdownSearchPlugin, type LeafdownSearchPluginOptions } from "../plugins/search";
+import { createLeafdownSelectionOccurrencesPlugin } from "../plugins/selectionOccurrences";
 import {
   createLeafdownSourceProjectionContinuationPlugin,
   createLeafdownSourceProjectionPlugin,
@@ -436,6 +437,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCalloutViewPlugin())
     .use(createLeafdownCalloutInputPlugin())
     .use(createLeafdownSearchPlugin(search))
+    .use(createLeafdownSelectionOccurrencesPlugin())
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())

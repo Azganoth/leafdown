@@ -836,6 +836,14 @@
       }
     }
 
+    /* Occurrences of a selected word stay quieter than found text: a neutral tint that does not
+       read as a match the author asked for. */
+    .leafdown-selection-occurrence {
+      @apply rounded-[0.125rem];
+      background-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+      box-decoration-break: clone;
+    }
+
     li.ProseMirror-selectednode {
       @apply outline-none;
 

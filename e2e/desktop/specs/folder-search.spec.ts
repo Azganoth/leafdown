@@ -9,7 +9,10 @@ import { dismissToasts, findMenuItem, openMenu, openRecentPath } from "../suppor
 const panel = () => $('[data-testid="folder-search-panel"]');
 const queryField = () =>
   $('[data-testid="folder-search-panel"] input[aria-label="Search in folder"]');
+const replacementField = () =>
+  $('[data-testid="folder-search-panel"] input[aria-label="Replace with"]');
 const status = () => $('[data-testid="folder-search-status"]');
+const replaceReport = () => $('[data-testid="folder-replace-report"]');
 const resultRows = () => $$('[data-testid="folder-search-panel"] [role="treeitem"]');
 const documentState = () => $('[data-testid="status-bar-document-state"]');
 const unsavedPrompt = () => $('[data-slot="dialog-content"][data-open]');
@@ -36,6 +39,8 @@ const pressKey = (key: string, init: KeyboardEventInit = {}) =>
   );
 
 const findInFolder = () => pressKey("F", { ctrlKey: true, shiftKey: true });
+
+const replaceInFolder = () => pressKey("H", { ctrlKey: true, shiftKey: true });
 
 const isFocused = (selector: string) =>
   browser.execute((target) => document.activeElement?.matches(target) ?? false, selector);
@@ -255,6 +260,66 @@ describe("desktop folder search", () => {
     } finally {
       await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
     }
+
+    await pressKey("Escape");
+    await expect(panel()).not.toExist();
+  });
+
+  it("replaces across the folder only once the preview is applied, through the open document's editor", async () => {
+    const { folderSearch } = await getDesktopE2ERunContext();
+    const nearMarkdown = await readFile(folderSearch.nearPath, "utf8");
+    const farMarkdown = await readFile(folderSearch.farPath, "utf8");
+
+    await dismissToasts();
+    expect(await replaceInFolder()).toBe(true);
+    await expect(panel()).toBeDisplayed();
+    await expect(queryField()).toHaveValue("lantern");
+    await browser.waitUntil(() => isFocused('input[aria-label="Replace with"]'), {
+      timeoutMsg: "The replacement field did not take focus.",
+    });
+
+    await replacementField().setValue("lamp");
+    await browser.waitUntil(
+      async () => (await status().getText()) === "4 replacements in 2 files",
+      { timeoutMsg: "The replacement was not planned." },
+    );
+    expect(await $('[data-testid="folder-search-panel"] del').getText()).toBe("lantern");
+    expect(await $('[data-testid="folder-search-panel"] ins').getText()).toBe("lamp");
+    expect(await readFile(folderSearch.nearPath, "utf8")).toBe(nearMarkdown);
+    expect(await readFile(folderSearch.farPath, "utf8")).toBe(farMarkdown);
+
+    await $('[data-testid="folder-search-panel"]').$("aria/Replace all").click();
+    await browser.waitUntil(
+      async () =>
+        (await replaceReport().isExisting()) &&
+        (await replaceReport().getText()).includes("Replaced 4 matches in 2 files."),
+      { timeoutMsg: "The replacement did not report its outcome." },
+    );
+
+    // The open document, left on the near file by the previous case, is replaced in its editor and
+    // saved. The bold half of the split match carries over, as Replace all keeps the formatting
+    // the replaced text starts with.
+    expect(await readFile(folderSearch.nearPath, "utf8")).toBe(
+      "# Alpha\n\nThe lamp hangs by the door.\n\nA **lamp** in two pieces.\n",
+    );
+    // The far file is not open, so only its replaced lines change and it keeps the blank line it
+    // ends with, which Save would drop.
+    expect(await readFile(folderSearch.farPath, "utf8")).toBe(
+      farMarkdown.replaceAll("lantern", "lamp"),
+    );
+    await expect(documentState()).not.toExist();
+    expect(await $('[contenteditable="true"]').getText()).toContain("The lamp hangs by the door.");
+    await browser.waitUntil(async () => (await status().getText()) === "Nothing to replace", {
+      timeoutMsg: "The folder was not planned again after the replacement.",
+    });
+
+    // Leafdown's own writes are not taken for changes made outside it.
+    await browser.pause(1_000);
+    expect(await $("aria/Reloaded from disk").isExisting()).toBe(false);
+    expect(await $("aria/File changed on disk").isExisting()).toBe(false);
+
+    await mkdir(ARTIFACTS_DIR, { recursive: true });
+    await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "folder-replace-report.png"));
 
     await pressKey("Escape");
     await expect(panel()).not.toExist();

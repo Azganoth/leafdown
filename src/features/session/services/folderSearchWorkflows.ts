@@ -43,13 +43,30 @@ const getActiveDocument = (): FolderSearchActiveDocument | null => {
     path: activeDocument.path,
     readMatches: (query, options) =>
       documentEditorBridge.readSearchMatches(documentKey, query, options),
+    planReplacement: (query, replacement) =>
+      documentEditorBridge.planSearchReplacement(documentKey, query, replacement),
   };
 };
 
 const hasQueryChanged = (state: FolderSearchState, previous: FolderSearchState) =>
   state.query !== previous.query ||
   state.caseSensitive !== previous.caseSensitive ||
-  state.wholeWord !== previous.wholeWord;
+  state.wholeWord !== previous.wholeWord ||
+  state.replaceOpen !== previous.replaceOpen ||
+  (state.replaceOpen && state.replacement !== previous.replacement);
+
+const getReplaceRequest = ({ replaceOpen, replacement }: FolderSearchState) => {
+  if (!replaceOpen) {
+    return null;
+  }
+
+  const { defaultNewDocumentLineEnding, insertFinalNewline } = useSettingsStore.getState();
+
+  return {
+    text: replacement,
+    save: { defaultLineEnding: defaultNewDocumentLineEnding, insertFinalNewline },
+  };
+};
 
 /**
  * Keeps a folder search in step with the session while its surface is open: the folder's articles,
@@ -71,6 +88,19 @@ class FolderSearchSession implements Disposable {
     );
     this.subscriptions.add(
       useSessionStore.subscribe((state, previous) => this.handleSessionChange(state, previous)),
+    );
+    // A planned replacement is written as Save writes, so it follows the settings Save follows.
+    this.subscriptions.add(
+      useSettingsStore.subscribe((state, previous) => {
+        if (
+          this.engine &&
+          useFolderSearchStore.getState().replaceOpen &&
+          (state.defaultNewDocumentLineEnding !== previous.defaultNewDocumentLineEnding ||
+            state.insertFinalNewline !== previous.insertFinalNewline)
+        ) {
+          this.search(false);
+        }
+      }),
     );
 
     if (useFolderSearchStore.getState().open) {
@@ -161,7 +191,8 @@ class FolderSearchSession implements Disposable {
     globalThis.clearTimeout(this.queryTimeout);
 
     const { folderContext } = useSessionStore.getState();
-    const { caseSensitive, open, query, wholeWord } = useFolderSearchStore.getState();
+    const searchState = useFolderSearchStore.getState();
+    const { caseSensitive, open, query, wholeWord } = searchState;
 
     if (!folderContext || !open) {
       return;
@@ -175,6 +206,7 @@ class FolderSearchSession implements Disposable {
       folderPath: folderContext.path,
       articlePaths: this.readArticlePaths(folderContext),
       query: { caseSensitive, text: query, wholeWord },
+      replacement: getReplaceRequest(searchState),
       finalizeProjection,
     });
   }
@@ -226,17 +258,20 @@ export const startFolderSearchSession = (): Disposable => {
 };
 
 /** Opens the search surface in the sidebar, showing the sidebar if it is hidden. */
-export const openFolderSearch = () => {
+export const openFolderSearch = (mode: "find" | "replace" = "find") => {
   const settings = useSettingsStore.getState();
 
   if (!settings.sidebarVisible) {
     settings.updateSetting("sidebarVisible", true);
   }
 
-  useFolderSearchStore.getState().openFolderSearch();
+  useFolderSearchStore.getState().openFolderSearch(mode);
 };
 
 export const submitFolderSearch = () => activeSession?.searchNow();
+
+/** Searches again in place, as a folder refresh does, so a plan reads every file as it now is. */
+export const refreshFolderSearch = () => activeSession?.searchNow();
 
 export const cancelFolderSearch = () => activeSession?.cancel();
 

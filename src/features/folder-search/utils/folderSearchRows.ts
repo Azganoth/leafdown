@@ -20,6 +20,8 @@ export interface FolderSearchFileRow extends FolderSearchRowBase {
   matchCount: number;
   clipped: boolean;
   expanded: boolean;
+  /** Whether the planned replacement writes the file as a save writes it. */
+  rewritesOtherText: boolean;
 }
 
 export interface FolderSearchMatchRow extends FolderSearchRowBase {
@@ -79,6 +81,7 @@ export const getFolderSearchRows = ({
       matchCount: file.matches.length,
       clipped: file.clipped,
       expanded,
+      rewritesOtherText: file.replacement?.source === "disk" && file.replacement.rewritesOtherText,
       posInSet: fileIndex + 1,
       setSize: results.files.length,
     });

@@ -32,6 +32,7 @@ export const getCommandMenuPathIds = (commandId: AppCommandId): MessageId[] => {
       "edit.findPrevious",
       "edit.replace",
       "edit.findInFolder",
+      "edit.replaceInFolder",
     ].includes(commandId)
   ) {
     path.push("menu.edit.findAndReplace");

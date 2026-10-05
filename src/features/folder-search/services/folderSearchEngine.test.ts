@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OpenMarkdownFileError } from "@/features/document";
 import {
   findSearchableTextMatches,
+  type DocumentReplacementPlan,
   type MarkdownSearchTextParser,
   type TextSearchQuery,
 } from "@/features/editor";
@@ -39,14 +40,55 @@ const query = (text: string, options: Partial<Omit<TextSearchQuery, "text">> = {
 });
 
 // Each line is a run of its own, as a paragraph's text would be.
+const toText = (markdown: string) => markdown.split("\n").filter(Boolean).join(SEPARATOR);
+
+// A replacement holding `!` is one the document refuses, as a footnote label can.
+const planText = (
+  text: string,
+  baseline: string,
+  search: TextSearchQuery,
+  replacement: string,
+): DocumentReplacementPlan => {
+  const matches = findSearchableTextMatches(text, search);
+  let replaced = "";
+  let offset = 0;
+
+  for (const { end, start } of matches) {
+    replaced += text.slice(offset, start) + replacement;
+    offset = end;
+  }
+
+  return {
+    text,
+    matches,
+    baseline,
+    replaced:
+      replacement.includes("!") && matches.length > 0
+        ? null
+        : matches.length > 0
+          ? (replaced + text.slice(offset)).split(SEPARATOR).join("\n")
+          : baseline,
+  };
+};
+
 const createParser = () => {
   const parser: MarkdownSearchTextParser & { reads: number; disposed: boolean } = {
     reads: 0,
     disposed: false,
     read: (markdown) => {
       parser.reads += 1;
-      return markdown.split("\n").filter(Boolean).join(SEPARATOR);
+      return toText(markdown);
     },
+    planReplacement: (markdown, search, replacement) => {
+      parser.reads += 1;
+      return planText(
+        toText(markdown),
+        toText(markdown).split(SEPARATOR).join("\n"),
+        search,
+        replacement,
+      );
+    },
+    normalize: (markdown) => toText(markdown).split(SEPARATOR).join("\n"),
     dispose: () => {
       parser.disposed = true;
     },
@@ -90,7 +132,15 @@ const createDisk = (files: Record<string, string>) => {
         return { kind: "unchanged", path };
       }
 
-      return { kind: "read", path, content: entry.content, metadata, fingerprint: entry.content };
+      return {
+        kind: "read",
+        path,
+        content: entry.content,
+        lineEnding: null,
+        encoding: { name: "UTF-8", bom: false },
+        metadata,
+        fingerprint: entry.content,
+      };
     });
   });
 
@@ -139,17 +189,21 @@ const createEngine = (
   engines.push(engine);
 
   const latest = () => published.at(-1) ?? null;
-  // Results published after `since` that no run is still adding to.
+  // Results published after `since` that no run is still adding to. A full-size folder can take
+  // longer than the default wait while the rest of the suite shares the machine.
   const settled = (since = 0) =>
-    vi.waitFor(() => {
-      const results = latest();
+    vi.waitFor(
+      () => {
+        const results = latest();
 
-      expect(published.length).toBeGreaterThan(since);
-      expect(results).not.toBeNull();
-      expect(results?.status).not.toBe("searching");
+        expect(published.length).toBeGreaterThan(since);
+        expect(results).not.toBeNull();
+        expect(results?.status).not.toBe("searching");
 
-      return results as FolderSearchResults;
-    });
+        return results as FolderSearchResults;
+      },
+      { timeout: 10_000 },
+    );
   const search = (text: string, options: Partial<Omit<TextSearchQuery, "text">> = {}) => {
     const since = published.length;
 
@@ -157,13 +211,34 @@ const createEngine = (
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query(text, options),
+      replacement: null,
+      finalizeProjection: true,
+    });
+
+    return settled(since);
+  };
+  const replace = (
+    text: string,
+    replacement: string,
+    options: Partial<Omit<TextSearchQuery, "text">> = {},
+  ) => {
+    const since = published.length;
+
+    engine.start({
+      folderPath: FOLDER,
+      articlePaths: disk.paths(),
+      query: query(text, options),
+      replacement: {
+        text: replacement,
+        save: { defaultLineEnding: "lf", insertFinalNewline: true },
+      },
       finalizeProjection: true,
     });
 
     return settled(since);
   };
 
-  return { engine, latest, parser, published, search, settled };
+  return { engine, latest, parser, published, replace, search, settled };
 };
 
 const engines: FolderSearchEngine[] = [];
@@ -201,6 +276,8 @@ const createActiveDocument = (path: string, text: string) => {
         matches: findSearchableTextMatches(document.text, search),
       };
     },
+    planReplacement: (search: TextSearchQuery, replacement: string) =>
+      planText(document.text, document.text, search, replacement),
   };
 
   return document;
@@ -260,6 +337,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query(""),
+      replacement: null,
       finalizeProjection: true,
     });
 
@@ -356,6 +434,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query("leaf"),
+      replacement: null,
       finalizeProjection: true,
     });
     await vi.waitFor(() => expect(disk.readFiles).toHaveBeenCalledTimes(1));
@@ -376,6 +455,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query("leaf"),
+      replacement: null,
       finalizeProjection: true,
     });
     await vi.waitFor(() => expect(disk.readFiles).toHaveBeenCalledTimes(1));
@@ -383,6 +463,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query("branch"),
+      replacement: null,
       finalizeProjection: true,
     });
     release();
@@ -406,6 +487,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query("leaf"),
+      replacement: null,
       finalizeProjection: false,
     });
     await pause(150);
@@ -537,6 +619,7 @@ describe("folder search engine", () => {
       folderPath: FOLDER,
       articlePaths: disk.paths(),
       query: query("leaf"),
+      replacement: null,
       finalizeProjection: true,
     });
 
@@ -551,6 +634,183 @@ describe("folder search engine", () => {
     release();
 
     expect(await settled()).toMatchObject({ status: "completed", matchCount: 40 });
+  });
+
+  describe("planning a replacement", () => {
+    it("plans each file's text against the version it read", async () => {
+      const disk = createDisk({
+        "a.md": "One leaf\nkeep\n",
+        "b.md": "none",
+        "c.md": "leaf leaf\n",
+      });
+      const { replace } = createEngine(disk);
+
+      const results = await replace("leaf", "tree");
+
+      expect(results).toMatchObject({ status: "completed", replacement: "tree", matchCount: 3 });
+      expect(
+        results.files.map(({ path, replacement, version }) => ({ path, replacement, version })),
+      ).toEqual([
+        {
+          path: `${FOLDER}/a.md`,
+          replacement: {
+            source: "disk",
+            content: "One tree\nkeep\n",
+            encoding: { name: "UTF-8", bom: false },
+            rewritesOtherText: false,
+          },
+          version: {
+            source: "disk",
+            metadata: { sizeBytes: 14, modifiedAtUnixMs: 1 },
+            fingerprint: "One leaf\nkeep\n",
+          },
+        },
+        {
+          path: `${FOLDER}/c.md`,
+          replacement: {
+            source: "disk",
+            content: "tree tree\n",
+            encoding: { name: "UTF-8", bom: false },
+            rewritesOtherText: false,
+          },
+          version: {
+            source: "disk",
+            metadata: { sizeBytes: 10, modifiedAtUnixMs: 1 },
+            fingerprint: "leaf leaf\n",
+          },
+        },
+      ]);
+    });
+
+    it("keeps the lines a save would rewrite, or marks a file it must write whole", async () => {
+      const disk = createDisk({
+        "kept.md": "\n\nleaf\n",
+        "whole.md": "leaf\n\nleaf\n",
+      });
+      const { replace } = createEngine(disk);
+
+      const [kept, whole] = (await replace("leaf", "tree")).files;
+
+      expect(kept.replacement).toMatchObject({ content: "\n\ntree\n", rewritesOtherText: false });
+      expect(whole.replacement).toMatchObject({ content: "tree\ntree\n", rewritesOtherText: true });
+    });
+
+    it("plans every match rather than stopping at the search limit", async () => {
+      const dense = Array.from({ length: 1_000 }, () => "e e e e e e e e e e").join("\n");
+      const disk = createDisk(
+        Object.fromEntries(Array.from({ length: 2 }, (_, index) => [`${index}.md`, dense])),
+      );
+      const { replace } = createEngine(disk);
+
+      const results = await replace("e", "f");
+
+      expect(results.status).toBe("completed");
+      expect(results.matchCount).toBe(2 * FOLDER_SEARCH_MATCH_LIMIT);
+      expect(results.files.every(({ clipped }) => !clipped)).toBe(true);
+    });
+
+    it("reads again only the files whose kept text has matches", async () => {
+      const disk = createDisk({ "a.md": "leaf", "b.md": "branch" });
+      const { replace, search } = createEngine(disk);
+
+      await search("leaf");
+      disk.requests.length = 0;
+      await replace("leaf", "tree");
+
+      expect(disk.requests.flatMap(({ files }) => files)).toEqual([
+        { path: `${FOLDER}/a.md`, knownMetadata: null },
+        { path: `${FOLDER}/b.md`, knownMetadata: { sizeBytes: 6, modifiedAtUnixMs: 1 } },
+      ]);
+    });
+
+    it("skips a file that would not read as its matches replaced", async () => {
+      const disk = createDisk({ "a.md": "leaf", "b.md": "branch" });
+      const { replace } = createEngine(disk);
+
+      const results = await replace("leaf", "tree!");
+
+      expect(results.files).toEqual([]);
+      expect(results.skipped).toEqual([{ path: `${FOLDER}/a.md`, reason: "replacementRefused" }]);
+    });
+
+    it("leaves out a file the replacement would not change", async () => {
+      const disk = createDisk({ "a.md": "leaf", "b.md": "Leaf" });
+      const { replace } = createEngine(disk);
+
+      const results = await replace("leaf", "leaf");
+
+      expect(results.files.map(({ path }) => path)).toEqual([`${FOLDER}/b.md`]);
+    });
+
+    it("plans the active document from its editor", async () => {
+      const disk = createDisk({ "a.md": "leaf on disk", "b.md": "leaf" });
+      const active = createActiveDocument(`${FOLDER}/a.md`, "unsaved leaf");
+      const { replace } = createEngine(disk, () => active);
+
+      const [file] = (await replace("leaf", "tree")).files;
+
+      expect(file).toMatchObject({
+        path: `${FOLDER}/a.md`,
+        version: { source: "editor" },
+        replacement: { source: "editor", baseline: "unsaved leaf" },
+      });
+      expect(file.matches).toHaveLength(1);
+    });
+
+    it("plans the supported folder size in bounded reads, every match included", async () => {
+      const files = Object.fromEntries(
+        Array.from({ length: 10_000 }, (_, index) => [
+          `${String(index).padStart(5, "0")}.md`,
+          index % 10 === 0 ? "a needle here\n" : "nothing to find\n",
+        ]),
+      );
+      const disk = createDisk(files);
+      const { replace } = createEngine(disk);
+
+      const results = await replace("needle", "pin");
+
+      expect(results).toMatchObject({
+        status: "completed",
+        matchCount: 1_000,
+        searchedFileCount: 10_000,
+      });
+      expect(results.files.every(({ replacement }) => replacement?.source === "disk")).toBe(true);
+      expect(
+        Math.max(...disk.requests.map(({ files: requested }) => requested.length)),
+      ).toBeLessThanOrEqual(64);
+    });
+
+    it("withdraws a complete plan the moment it is made again in place", async () => {
+      const disk = createDisk({ "a.md": "leaf" });
+      const { engine, latest, replace } = createEngine(disk);
+
+      const planned = await replace("leaf", "tree");
+
+      disk.write("a.md", "leaf leaf");
+      engine.start({
+        folderPath: FOLDER,
+        articlePaths: disk.paths(),
+        query: query("leaf"),
+        replacement: {
+          text: "tree",
+          save: { defaultLineEnding: "lf", insertFinalNewline: true },
+        },
+        finalizeProjection: false,
+      });
+
+      expect(latest()).toMatchObject({ id: planned.id, status: "searching" });
+    });
+
+    it("starts afresh when the replacement changes", async () => {
+      const disk = createDisk({ "a.md": "leaf" });
+      const { replace } = createEngine(disk);
+
+      const first = await replace("leaf", "tree");
+      const second = await replace("leaf", "bush");
+
+      expect(second.id).not.toBe(first.id);
+      expect(second.files[0].replacement).toMatchObject({ content: "bush" });
+    });
   });
 
   it("disposes the parser it created", async () => {

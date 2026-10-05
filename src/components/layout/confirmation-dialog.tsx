@@ -47,6 +47,11 @@ export function ConfirmationDialog() {
             <Button variant="outline" onClick={() => answerConfirmation(request.id, false)}>
               {request.cancelLabel}
             </Button>
+            {request.alternateLabel && (
+              <Button variant="outline" onClick={() => answerConfirmation(request.id, "alternate")}>
+                {request.alternateLabel}
+              </Button>
+            )}
             <Button onClick={() => answerConfirmation(request.id, true)}>
               {request.confirmLabel}
             </Button>

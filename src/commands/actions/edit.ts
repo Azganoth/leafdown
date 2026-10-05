@@ -142,5 +142,9 @@ export const findInFolder = () => {
   openFolderSearch();
 };
 
+export const replaceInFolder = () => {
+  openFolderSearch("replace");
+};
+
 export const getFindInFolderState = ({ folderContext }: AppCommandContext) =>
   folderContext ? enabled() : disabled("No folder context is open.");

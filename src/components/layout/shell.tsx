@@ -24,6 +24,7 @@ import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
 import { ReleaseNotesDialog } from "@/features/release-notes";
 import {
+  applyFolderReplacement,
   cancelFolderSearch,
   closeFolderSearch,
   getSessionMode,
@@ -61,6 +62,12 @@ const handleOpenArticle = (path: string) => {
 const handleActivateFolderSearchMatch = (match: Parameters<typeof openFolderSearchMatch>[0]) => {
   void openFolderSearchMatch(match).catch((error) =>
     handleUnexpectedError(error, "openFolderSearchMatch"),
+  );
+};
+
+const handleApplyFolderReplacement = () => {
+  void applyFolderReplacement().catch((error) =>
+    handleUnexpectedError(error, "applyFolderReplacement"),
   );
 };
 
@@ -180,6 +187,7 @@ export function Shell() {
                           folderName={folderContext.tree.name}
                           folderPath={folderContext.path}
                           onActivateMatch={handleActivateFolderSearchMatch}
+                          onApply={handleApplyFolderReplacement}
                           onCancel={cancelFolderSearch}
                           onClose={closeFolderSearch}
                           onSearchFurther={searchFolderFurther}

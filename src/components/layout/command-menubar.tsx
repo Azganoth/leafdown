@@ -198,6 +198,7 @@ export function CommandMenubar({
                 "edit.findPrevious",
                 "edit.replace",
                 "edit.findInFolder",
+                "edit.replaceInFolder",
               ]}
               labelId="menu.edit.findAndReplace"
             />

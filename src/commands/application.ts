@@ -45,6 +45,7 @@ export const APPLICATION_COMMANDS = {
   ),
   "edit.encoding.file": appCommand(edit.setFileEncoding, edit.getFileEncodingState),
   "edit.findInFolder": appCommand(edit.findInFolder, edit.getFindInFolderState),
+  "edit.replaceInFolder": appCommand(edit.replaceInFolder, edit.getFindInFolderState),
 
   "view.toggleSidebar": appCommand(view.toggleSidebar, view.getToggleSidebarState),
   "view.commandPalette": appCommand(view.openCommandPalette),

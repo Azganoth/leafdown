@@ -512,7 +512,7 @@ pub(crate) fn inspect_markdown_file_state(
     })
 }
 
-fn fingerprint_bytes(bytes: &[u8]) -> String {
+pub(crate) fn fingerprint_bytes(bytes: &[u8]) -> String {
     fingerprint_reader(bytes).expect("reading from a byte slice cannot fail")
 }
 

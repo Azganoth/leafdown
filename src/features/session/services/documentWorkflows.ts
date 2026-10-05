@@ -19,6 +19,7 @@ import {
   type DocumentEncoding,
   type LineEnding,
   type SavedDocumentState,
+  type SaveMarkdownFileError,
   type UnrepresentableCharactersError,
 } from "@/features/document";
 import { scanFolderContext } from "@/features/folder-context";
@@ -271,6 +272,60 @@ const saveExistingMarkdownDocument = async (
     throw error;
   }
 };
+
+export type UnpromptedSaveResult =
+  | { kind: "saved" }
+  | { kind: "closed" }
+  | { kind: "failed"; error: SaveMarkdownFileError };
+
+/**
+ * Saves the active saved document as Save does, but reports a missing file, a newer version on
+ * disk, or text its encoding cannot hold instead of asking about it.
+ */
+export const saveActiveMarkdownDocumentWithoutPrompts = (documentKey: string) =>
+  saveTaskQueue.run(async (): Promise<UnpromptedSaveResult> => {
+    const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
+
+    if (
+      activeDocument?.status !== "saved" ||
+      !matchesActiveDocumentKey(activeDocument, documentKey)
+    ) {
+      return { kind: "closed" };
+    }
+
+    const serializedDocument = serializeActiveDocumentForSave(activeDocument);
+    let result;
+
+    try {
+      result = await saveMarkdownDocument(
+        activeDocument.path,
+        serializedDocument.content,
+        serializedDocument.encoding,
+        { expectedMetadata: activeDocument.metadata },
+      );
+    } catch (error) {
+      if (isSaveMarkdownFileError(error)) {
+        return { kind: "failed", error };
+      }
+
+      throw error;
+    }
+
+    if (getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+      useSessionStore.getState().setActiveDocument(
+        toSavedDocument({
+          path: result.path,
+          content: serializedDocument.content,
+          lineEnding: serializedDocument.lineEnding,
+          encoding: serializedDocument.encoding,
+          metadata: result.metadata,
+          fingerprint: result.fingerprint,
+        }),
+      );
+    }
+
+    return { kind: "saved" };
+  });
 
 const handleUnrepresentableCharacters = async (
   error: UnrepresentableCharactersError,

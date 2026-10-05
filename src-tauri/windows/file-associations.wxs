@@ -12,7 +12,7 @@
             <Component Id="MarkdownFileAssociations" Guid="{995333E7-D28B-4160-A1C3-9BBDBBA99FDD}">
                 <RegistryKey Root="HKLM" Key="Software\Classes\Leafdown.Markdown">
                     <RegistryValue Type="string" Value="Markdown Document" KeyPath="yes" />
-                    <RegistryValue Key="DefaultIcon" Type="string" Value="&quot;[LeafdownExecutable]&quot;,0" />
+                    <RegistryValue Key="DefaultIcon" Type="string" Value="&quot;[INSTALLDIR]document.ico&quot;,0" />
                     <RegistryValue Key="shell\open\command" Type="string" Value="&quot;[LeafdownExecutable]&quot; &quot;%1&quot;" />
                 </RegistryKey>
                 <RegistryKey Root="HKLM" Key="Software\[Manufacturer]\[ProductName]\Capabilities">

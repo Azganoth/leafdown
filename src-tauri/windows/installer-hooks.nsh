@@ -24,7 +24,7 @@
 !macro NSIS_HOOK_POSTINSTALL
   !insertmacro LEAFDOWN_OPEN_COMMAND $R0
   WriteRegStr SHCTX "${LEAFDOWN_PROGID_KEY}" "" "Markdown Document"
-  WriteRegStr SHCTX "${LEAFDOWN_PROGID_KEY}\DefaultIcon" "" `"$INSTDIR\${MAINBINARYNAME}.exe",0`
+  WriteRegStr SHCTX "${LEAFDOWN_PROGID_KEY}\DefaultIcon" "" `"$INSTDIR\document.ico",0`
   WriteRegStr SHCTX "${LEAFDOWN_PROGID_KEY}\shell\open\command" "" $R0
 
   WriteRegStr SHCTX "${MANUPRODUCTKEY}\Capabilities" "ApplicationName" "${PRODUCTNAME}"

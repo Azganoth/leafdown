@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Give Markdown files associated with Leafdown a dedicated folded-page icon with the green leaf and Markdown symbol, separate from the application icon. Both Windows installers include it without changing your default app.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 ### Added

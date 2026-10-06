@@ -173,6 +173,7 @@ describe("math source projection", () => {
 
   it("previews display source below it and a table cell's TeX after its pipe escapes", async () => {
     const mounted = await mountEditor("$$\nx\n$$\n\n| a |\n| - |\n| $x\\|y$ |\n\nEnd\n");
+    vi.spyOn(performance, "now").mockReturnValue(0);
     setTextSelection(mounted.view, getEditorNodePosition(mounted, "math_inline", isDisplay));
     const preview = mounted.view.dom.querySelector(".leafdown-math-preview");
     const source = mounted.view.dom.querySelector('[data-leafdown-source~="math"]');

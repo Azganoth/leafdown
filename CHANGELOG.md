@@ -12,6 +12,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
 - Prevent `Ctrl+click` in ordinary editor text (`Cmd+click` on macOS) from creating a separate outlined node selection. Gutter and keyboard block selection, atomic-node and table-cell selection, and modifier-click link activation retain their gestures.
 
 ## [0.1.0-alpha.2] - 2026-10-05

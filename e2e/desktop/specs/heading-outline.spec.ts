@@ -1,5 +1,5 @@
 import { $, $$, browser, expect } from "@wdio/globals";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { openRecentPath, selectFileMenuItem } from "../support/ui.js";
@@ -16,6 +16,44 @@ const selectedHeading = () =>
     () =>
       document.getSelection()?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6")
         ?.textContent ?? "",
+  );
+const markerState = () =>
+  browser.execute(() => {
+    const editor = document.querySelector(".ProseMirror");
+    const heading = editor?.querySelector("h1");
+    const selection = document.getSelection();
+    return {
+      focused: document.activeElement === editor,
+      marker: heading?.getAttribute("data-leafdown-marker") ?? null,
+      hover: heading?.hasAttribute("data-leafdown-marker-hover") ?? false,
+      content: heading ? getComputedStyle(heading, "::before").content : null,
+      anchorOffset: selection?.anchorOffset,
+      focusOffset: selection?.focusOffset,
+      anchorHeading:
+        selection?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6")?.textContent ?? null,
+      selectedMarker:
+        selection?.anchorNode?.parentElement
+          ?.closest("h1,h2,h3,h4,h5,h6")
+          ?.getAttribute("data-leafdown-marker") ?? null,
+      editorClass: editor?.className,
+      documentFocused: document.hasFocus(),
+    };
+  });
+const focusOpeningHeading = () =>
+  browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
+const blurEditor = () =>
+  browser.execute(() =>
+    document.querySelector<HTMLElement>('[data-slot="menubar-trigger"]')!.focus(),
+  );
+const movePointerAway = () => $("aria/File").moveTo();
+const waitForHeadingText = (text: string) =>
+  browser.waitUntil(
+    () =>
+      browser.execute(
+        (value) => document.querySelector(".ProseMirror h1")?.textContent === value,
+        text,
+      ),
+    { timeoutMsg: `The editor did not show the heading "${text}".` },
   );
 // The WebDriver harness turns a pointer move into a bare `mousemove`, so hovering is dispatched as
 // the pointer events a real mouse produces.
@@ -75,10 +113,111 @@ const getPlacement = () =>
   }, OUTLINE);
 
 describe("desktop heading outline", () => {
+  beforeEach(async () => {
+    await browser.tauri.execute(({ core }) =>
+      core.invoke("plugin:window|set_focus", { label: "main" }),
+    );
+    await browser.waitUntil(() => browser.execute(() => document.hasFocus()), {
+      timeoutMsg: "The desktop window did not receive focus.",
+    });
+  });
+
+  it("keeps caret markers tied to focus across fresh opens and same-document reloads", async () => {
+    const { outline } = await getDesktopE2ERunContext();
+    const original = await readFile(outline.path, "utf8");
+    try {
+      await openRecentPath(outline.path);
+      await expect($(".ProseMirror h1")).toHaveText("Same");
+      await expect($('[data-slot="menubar-content"]')).not.toExist();
+      await movePointerAway();
+      await browser.waitUntil(async () => !(await markerState()).hover);
+
+      expect(await markerState()).toMatchObject({ focused: false, marker: null, content: "none" });
+
+      await focusOpeningHeading();
+      await browser.waitUntil(async () => (await markerState()).marker === "H1", {
+        timeoutMsg: `Focusing the editor did not show its heading marker: ${JSON.stringify(await markerState())}`,
+      });
+      const focusedSelection = await markerState();
+      expect(focusedSelection).toMatchObject({ focused: true, anchorOffset: 0, focusOffset: 0 });
+
+      await blurEditor();
+      expect(await markerState()).toMatchObject({
+        focused: false,
+        marker: null,
+        content: "none",
+        anchorOffset: focusedSelection.anchorOffset,
+        focusOffset: focusedSelection.focusOffset,
+      });
+
+      await focusOpeningHeading();
+      await writeFile(outline.path, original.replace("# Same", "# Focused reload"));
+      await browser.waitUntil(
+        async () => (await $(".ProseMirror h1").getText()) === "Focused reload",
+      );
+      expect(await markerState()).toMatchObject({ focused: true, marker: "H1", anchorOffset: 0 });
+
+      await blurEditor();
+      await writeFile(outline.path, original.replace("# Same", "# Unfocused reload"));
+      await browser.waitUntil(
+        async () => (await $(".ProseMirror h1").getText()) === "Unfocused reload",
+      );
+      expect(await markerState()).toMatchObject({ focused: false, marker: null, content: "none" });
+
+      await browser.execute(() => {
+        const heading = document.querySelector(".ProseMirror h1")!;
+        const rect = heading.getBoundingClientRect();
+        heading.dispatchEvent(
+          new MouseEvent("mousemove", {
+            bubbles: true,
+            clientX: rect.left - 20,
+            clientY: rect.top + 10,
+          }),
+        );
+      });
+      await browser.waitUntil(async () => (await markerState()).hover);
+      expect(await markerState()).toMatchObject({ focused: false, marker: null, content: '"H1"' });
+
+      await browser.execute(() => {
+        const heading = document.querySelector(".ProseMirror h1")!;
+        const rect = heading.getBoundingClientRect();
+        heading.dispatchEvent(
+          new MouseEvent("mousedown", {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientX: rect.left - 20,
+            clientY: rect.top + 10,
+          }),
+        );
+      });
+      await expect($(".ProseMirror h1")).toHaveAttribute("data-leafdown-fold", "folded");
+      await blurEditor();
+      await movePointerAway();
+      await browser.waitUntil(async () => !(await markerState()).hover);
+      expect(await markerState()).toMatchObject({ focused: false, marker: null, content: '"H1"' });
+      await browser.execute(() =>
+        document
+          .querySelector(".leafdown-fold-indicator")!
+          .dispatchEvent(
+            new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }),
+          ),
+      );
+      await expect($(".ProseMirror h1")).toHaveAttribute("data-leafdown-fold", "open");
+
+      await expect($('[data-testid="status-bar-document-state"]')).not.toExist();
+    } finally {
+      await writeFile(outline.path, original);
+    }
+    await waitForHeadingText("Same");
+  });
+
   it("navigates exact headings from the floating outline at a narrow window width", async () => {
     const { outline } = await getDesktopE2ERunContext();
     const original = await readFile(outline.path, "utf8");
-    await $("aria/New document").click();
+    await browser.keys("Escape");
+    await expect($('[data-slot="menubar-content"]')).not.toExist();
+    await selectFileMenuItem("New");
     await expect($(".ProseMirror")).toBeDisplayed();
     await expect($(OUTLINE)).not.toExist();
 
@@ -111,8 +250,14 @@ describe("desktop heading outline", () => {
     await browser.waitUntil(async () => (await rows[3].getSize("width")) > 100, {
       timeoutMsg: "The open outline did not show heading titles.",
     });
-    await rows[3].click();
+    await browser.execute(
+      (position) => {
+        document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)!.click();
+      },
+      await rows[3].getAttribute("data-outline-position"),
+    );
     expect(await selectedHeading()).toBe("Same");
+    expect(await markerState()).toMatchObject({ focused: true, selectedMarker: "H1" });
     await browser.waitUntil(
       async () => (await rows[3].getAttribute("aria-current")) === "location",
       { timeoutMsg: "The chosen heading did not become current." },
@@ -134,10 +279,13 @@ describe("desktop heading outline", () => {
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Focus did not open the outline." });
     // Synthesized keys are untrusted and never activate a button, so the focused row is chosen
     // with a click; component tests cover Enter.
-    await rows[1].click();
+    await browser.execute((position) => {
+      document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)!.click();
+    }, quotedPosition);
     await browser.waitUntil(async () => (await selectedHeading()) === "Quoted", {
       timeoutMsg: "Choosing the focused row did not move the caret to the quoted heading.",
     });
+    await expect($(".ProseMirror h3")).toHaveAttribute("data-leafdown-marker", "H3");
     await browser.waitUntil(
       async () => (await rows[1].getAttribute("aria-current")) === "location",
       { timeoutMsg: "The quoted heading did not become current." },

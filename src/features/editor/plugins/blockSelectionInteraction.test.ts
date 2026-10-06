@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,6 +13,7 @@ import {
   dispatchKeyDown,
 } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { withWindowsUserAgent } from "@/test/utils/platform";
 import { selectTableCellRange } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
@@ -56,6 +58,51 @@ const createRect = (left: number, top: number, height = 28, width = 200): DOMRec
 });
 
 describe("block selection interaction", () => {
+  it.each([
+    ["Paragraph text\n", true],
+    ["# Heading text\n", true],
+    ["Paragraph text\n", false],
+  ] as const)(
+    "keeps Ctrl-click in ordinary text out of node selection: %s, modifier held on release: %s",
+    async (markdown, ctrlOnRelease) => {
+      await withWindowsUserAgent(async () => {
+        const mounted = await mountEditor(markdown);
+        const target = mounted.view.nodeDOM(0) as HTMLElement;
+        vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({ pos: 3, inside: 0 });
+
+        dispatchMouseDown(target, { ctrl: true, clientX: 10, clientY: 10 });
+        const release = dispatchMouseUp(target, { ctrl: ctrlOnRelease, clientX: 10, clientY: 10 });
+        dispatchMouseEvent(target, "click", { ctrl: ctrlOnRelease, clientX: 10, clientY: 10 });
+
+        expect(release.defaultPrevented).toBe(true);
+        expect(mounted.view.state.selection).toBeInstanceOf(TextSelection);
+        expect(mounted.view.state.selection.from).toBe(3);
+        expect(mounted.view.hasFocus()).toBe(true);
+        expect(mounted.view.dom.querySelector(".ProseMirror-selectednode")).toBeNull();
+        expect(mounted.getMarkdown()).toBe(markdown);
+      });
+    },
+  );
+
+  it("preserves native atomic-node selection for Ctrl-click and plain click", async () => {
+    await withWindowsUserAgent(async () => {
+      const mounted = await mountEditor("---\n\nParagraph\n");
+      const target = mounted.view.nodeDOM(0) as HTMLElement;
+      vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({ pos: 0, inside: 0 });
+
+      for (const ctrl of [false, true]) {
+        mounted.view.dispatch(
+          mounted.view.state.tr.setSelection(TextSelection.create(mounted.view.state.doc, 3)),
+        );
+        dispatchMouseDown(target, { ctrl, clientX: 10, clientY: 10 });
+        dispatchMouseUp(target, { ctrl, clientX: 10, clientY: 10 });
+        dispatchMouseEvent(target, "click", { ctrl, clientX: 10, clientY: 10 });
+        expect(mounted.view.state.selection).toBeInstanceOf(NodeSelection);
+        expect((mounted.view.state.selection as NodeSelection).node.type.name).toBe("hr");
+      }
+    });
+  });
+
   it("keeps one indicator position between adjacent sibling blocks", async () => {
     const onBlockInsertionRequested = vi.fn();
     const mounted = await mountEditor("First\n\nSecond\n", { onBlockInsertionRequested });
@@ -496,5 +543,23 @@ describe("block selection interaction", () => {
     expect(mounted.view.state.selection).toBeInstanceOf(CellSelection);
     expect(getHandles()).toHaveLength(1);
     expect(getHandles()[0]).toHaveAccessibleName("Select table block");
+  });
+
+  it("keeps native mouse selection across table cells", async () => {
+    const mounted = await mountEditor("| A | B |\n| --- | --- |\n| C | D |\n");
+    const cells = [...mounted.view.dom.querySelectorAll("th, td")];
+    const firstPos = mounted.view.posAtDOM(cells[0], 0);
+    const lastPos = mounted.view.posAtDOM(cells[3], 0);
+    vi.spyOn(mounted.view, "posAtCoords").mockImplementation(({ left }) => {
+      const pos = left === 10 ? firstPos : lastPos;
+      return { pos, inside: pos - 1 };
+    });
+
+    dispatchMouseDown(cells[0], { clientX: 10, clientY: 10 });
+    dispatchMouseEvent(cells[3], "mousemove", { buttons: 1, clientX: 30, clientY: 30 });
+    dispatchMouseUp(cells[3], { clientX: 30, clientY: 30 });
+
+    expect(mounted.view.state.selection).toBeInstanceOf(CellSelection);
+    expect(mounted.view.dom.querySelectorAll(".selectedCell")).toHaveLength(4);
   });
 });

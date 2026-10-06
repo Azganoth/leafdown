@@ -10,6 +10,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Give Markdown files associated with Leafdown a dedicated folded-page icon with the green leaf and Markdown symbol, separate from the application icon. Both Windows installers include it without changing your default app.
 
+### Fixed
+
+- Prevent `Ctrl+click` in ordinary editor text (`Cmd+click` on macOS) from creating a separate outlined node selection. Gutter and keyboard block selection, atomic-node and table-cell selection, and modifier-click link activation retain their gestures.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 ### Added

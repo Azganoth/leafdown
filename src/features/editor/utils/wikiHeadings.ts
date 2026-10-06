@@ -53,7 +53,7 @@ export const jumpToWikiHeading = (view: EditorView, text: string) => {
   const heading = findWikiHeading(view.state.doc, text);
   if (!heading) return false;
   const selection = TextSelection.near(view.state.doc.resolve(heading.position), 1);
-  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
   view.focus();
+  view.dispatch(view.state.tr.setSelection(selection).scrollIntoView());
   return true;
 };

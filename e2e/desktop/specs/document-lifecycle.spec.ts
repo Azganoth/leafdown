@@ -1,11 +1,136 @@
 import { $, browser, expect } from "@wdio/globals";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { getSaveMenuItem, openRecentPath, selectFileMenuItem } from "../support/ui.js";
+import {
+  findTreeItem,
+  getSaveMenuItem,
+  openRecentPath,
+  selectFileMenuItem,
+} from "../support/ui.js";
+
+const VIEWPORT = '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]';
+
+const viewportGeometry = () =>
+  browser.execute((selector) => {
+    const viewport = document.querySelector<HTMLElement>(selector)!;
+    const firstBlock = document.querySelector(".ProseMirror > :first-child")!;
+    const viewportRect = viewport.getBoundingClientRect();
+    const blockRect = firstBlock.getBoundingClientRect();
+    return {
+      scrollTop: viewport.scrollTop,
+      overflow: viewport.scrollHeight - viewport.clientHeight,
+      firstBlockVisible:
+        blockRect.top >= viewportRect.top && blockRect.bottom <= viewportRect.bottom,
+    };
+  }, VIEWPORT);
+
+const scrollDocument = async () => {
+  const offset = await browser.execute((selector) => {
+    const viewport = document.querySelector<HTMLElement>(selector)!;
+    viewport.scrollTop = 800;
+    viewport.dispatchEvent(new Event("scroll"));
+    return viewport.scrollTop;
+  }, VIEWPORT);
+  expect(offset).toBeGreaterThan(0);
+};
+
+const expectDocumentAtTop = async (marker: string) => {
+  await expect($(".ProseMirror")).toHaveText(expect.stringContaining(marker));
+  await browser.waitUntil(async () => (await viewportGeometry()).firstBlockVisible, {
+    timeoutMsg: "The replacement document's first block was outside its viewport.",
+  });
+  expect((await viewportGeometry()).scrollTop).toBe(0);
+};
+
+const selectedHeadingGeometry = () =>
+  browser.execute((selector) => {
+    const viewport = document.querySelector(selector)!;
+    const heading = document.getSelection()?.anchorNode?.parentElement?.closest("h1");
+    if (!heading) return null;
+    const viewportRect = viewport.getBoundingClientRect();
+    const headingRect = heading.getBoundingClientRect();
+    return {
+      text: heading.textContent,
+      visible: headingRect.top >= viewportRect.top && headingRect.bottom <= viewportRect.bottom,
+      scrollTop: viewport.scrollTop,
+    };
+  }, VIEWPORT);
 
 describe("desktop document lifecycle", () => {
+  it("starts replacement documents at the top and preserves explicit navigation and reloads", async () => {
+    const { document: fixture } = await getDesktopE2ERunContext();
+    const replacementPath = path.join(path.dirname(fixture.path), "viewport-replacement.md");
+    const filler = Array.from(
+      { length: 80 },
+      (_, index) => `Viewport paragraph ${index + 1}.`,
+    ).join("\n\n");
+    const original = `# First viewport document\n\n${filler}\n\n# Scroll target\n`;
+    await writeFile(fixture.scrollPath, original);
+    await writeFile(
+      replacementPath,
+      `# Second viewport document\n\n[[document-scroll#Scroll target|Jump to target]]\n\n${filler}\n`,
+    );
+
+    await openRecentPath(fixture.scrollPath);
+    await expectDocumentAtTop("First viewport document");
+    expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
+    await scrollDocument();
+    await (await findTreeItem("viewport-replacement.md")).click();
+    await expectDocumentAtTop("Second viewport document");
+    expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
+
+    await scrollDocument();
+    await openRecentPath(fixture.scrollPath);
+    await expectDocumentAtTop("First viewport document");
+    await scrollDocument();
+    await (await findTreeItem("document-lifecycle.md")).click();
+    await expectDocumentAtTop(fixture.initialMarker);
+
+    await openRecentPath(replacementPath);
+    await expectDocumentAtTop("Second viewport document");
+    await scrollDocument();
+    await openRecentPath(fixture.path);
+    await expectDocumentAtTop(fixture.initialMarker);
+
+    await openRecentPath(replacementPath);
+    await expectDocumentAtTop("Second viewport document");
+    await $('[data-type="wiki-link"]').execute((target) => {
+      target.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, button: 0, cancelable: true, ctrlKey: true }),
+      );
+    });
+    await browser.waitUntil(
+      async () => {
+        const heading = await selectedHeadingGeometry();
+        return heading?.text === "Scroll target" && heading.visible;
+      },
+      { timeoutMsg: "The cross-document heading link did not reveal its target." },
+    );
+    expect(await selectedHeadingGeometry()).toMatchObject({ text: "Scroll target", visible: true });
+    expect((await selectedHeadingGeometry())!.scrollTop).toBeGreaterThan(800);
+
+    await writeFile(fixture.scrollPath, `${original}\nReloaded viewport marker.\n`);
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          () =>
+            document
+              .querySelector(".ProseMirror")
+              ?.textContent?.includes("Reloaded viewport marker.") ?? false,
+        ),
+      { timeoutMsg: "The external reload did not replace the editor's text." },
+    );
+    await browser.waitUntil(async () => (await selectedHeadingGeometry())?.visible === true, {
+      timeoutMsg: "The external reload did not restore the caret's heading into view.",
+    });
+    expect(await selectedHeadingGeometry()).toMatchObject({ text: "Scroll target", visible: true });
+    expect((await selectedHeadingGeometry())!.scrollTop).toBeGreaterThan(800);
+    await selectFileMenuItem("Close document");
+  });
+
   it("opens, edits, saves, and reopens a fixture through real IPC", async () => {
     const { document } = await getDesktopE2ERunContext();
 

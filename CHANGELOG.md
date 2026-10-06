@@ -130,6 +130,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Start a replacement document at the top instead of retaining the previous document's scroll position, while heading and search navigation still reveal their targets and external reloads restore the caret.
+
 - Keep the text after a code block's language on its opening fence, such as `title="app.js"` or `{1,3}` in ` ```js title="app.js" {1,3} `, which documentation tools read for captions and highlighted lines. Saving used to drop it and keep only the language, and copying the block within Leafdown dropped it too.
 - Keep the indentation of a raw HTML tag or a code span that continues onto indented lines, such as `<span` with `id="b">` indented on the next line. Every save added indentation to those lines, so the file changed each time it was saved, and a code span's text grew with it. Such lines now save as written, tabs included, in a paragraph, a heading, a list item, or a blockquote. The only exception is a code span line indented with a tab that a list item or blockquote takes only part of: that line is saved once with the spaces the tab covered, and its text is unchanged.
 - Keep the backslashes in a footnote's label, such as `[^a\*b]` and its definition `[^a\*b]: note`. Saving wrote both as `[^a*b]`, which GitHub reads as a different label: in a file that also held `[^a*b]`, the two footnotes became one, both references led to the first, and the other stopped showing. Each reference now keeps the label it was written with and leads to its own footnote while the file is open, and a definition's label shows those backslashes. A label renamed to end in a backslash is refused, because that backslash would take the closing `]` into the label.

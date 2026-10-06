@@ -13,6 +13,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Fixed
 
 - Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
+- Prevent `Ctrl+click` in ordinary editor text (`Cmd+click` on macOS) from creating a separate outlined node selection. Gutter and keyboard block selection, atomic-node and table-cell selection, and modifier-click link activation retain their gestures.
 
 ## [0.1.0-alpha.2] - 2026-10-05
 
@@ -129,6 +130,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Show notifications at the top right of the window, just below the titlebar, instead of the bottom right. New notifications arrive from above and older ones stack beneath them, swiping up or right dismisses one, and a notification's menu, such as `Reopen with encoding`, opens downward.
 
 ### Fixed
+
+- Start a replacement document at the top instead of retaining the previous document's scroll position, while heading and search navigation still reveal their targets and external reloads restore the caret.
 
 - Keep the text after a code block's language on its opening fence, such as `title="app.js"` or `{1,3}` in ` ```js title="app.js" {1,3} `, which documentation tools read for captions and highlighted lines. Saving used to drop it and keep only the language, and copying the block within Leafdown dropped it too.
 - Keep the indentation of a raw HTML tag or a code span that continues onto indented lines, such as `<span` with `id="b">` indented on the next line. Every save added indentation to those lines, so the file changed each time it was saved, and a code span's text grew with it. Such lines now save as written, tabs included, in a paragraph, a heading, a list item, or a blockquote. The only exception is a code span line indented with a tab that a list item or blockquote takes only part of: that line is saved once with the spaces the tab covered, and its text is unchanged.

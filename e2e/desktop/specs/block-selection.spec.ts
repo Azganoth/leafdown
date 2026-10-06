@@ -4,6 +4,7 @@ import path from "node:path";
 import { Key } from "webdriverio";
 
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
+import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { dismissToasts, openRecentPath } from "../support/ui.js";
 
@@ -94,6 +95,27 @@ const moveToHandle = async (handle: ReturnType<typeof $>) => {
     .perform();
 };
 
+// The embedded driver omits modifiers from pointer actions. Use its rendered hit target with
+// an explicit modifier through the complete mouse sequence.
+const ctrlClickAt = (point: { x: number; y: number }) =>
+  browser.execute(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    if (!target) throw new Error("Modifier-click target was not found.");
+    for (const type of ["mousedown", "mouseup", "click"]) {
+      target.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          buttons: type === "mousedown" ? 1 : 0,
+          ctrlKey: true,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    }
+  }, point);
+
 const dispatchEditorKey = (key: string, init: KeyboardEventInit = {}) =>
   browser.execute(
     (eventKey, eventInit) => {
@@ -152,6 +174,72 @@ const dispatchHandleGesture = async (handle: ReturnType<typeof $>, shiftKey = fa
 };
 
 describe("desktop block selection", () => {
+  it("keeps Ctrl-click text as a caret and activates rendered links", async () => {
+    const { modifierClick } = await getDesktopE2ERunContext();
+    await openRecentPath(modifierClick.path);
+    await expect($(".ProseMirror")).toBeDisplayed();
+    await dismissToasts();
+
+    for (const selector of [".ProseMirror h1", ".ProseMirror > p"]) {
+      const target = $(selector);
+      await target.scrollIntoView();
+      const point = (await target.execute((node) => {
+        const text = node.firstChild;
+        if (!(text instanceof Text)) throw new Error("Expected ordinary text.");
+        const range = document.createRange();
+        range.setStart(text, 5);
+        range.setEnd(text, 6);
+        const rect = range.getBoundingClientRect();
+        return {
+          x: Math.round(rect.left + rect.width / 2),
+          y: Math.round(rect.top + rect.height / 2),
+        };
+      })) as { x: number; y: number };
+      await ctrlClickAt(point);
+      await expect($$(".ProseMirror-selectednode")).toBeElementsArrayOfSize(0);
+      await expect($$(".leafdown-selected-block")).toBeElementsArrayOfSize(0);
+      const caret = (await target.execute((node) => {
+        const selection = window.getSelection();
+        return {
+          collapsed: selection?.isCollapsed,
+          inside: node.contains(selection?.anchorNode ?? null),
+          offset: selection?.anchorOffset,
+        };
+      })) as { collapsed: boolean; inside: boolean; offset: number };
+      expect(caret.collapsed).toBe(true);
+      expect(caret.inside).toBe(true);
+      expect(caret.offset).toBeGreaterThanOrEqual(5);
+      expect(caret.offset).toBeLessThanOrEqual(6);
+    }
+
+    for (const [label, href] of [
+      ["External guide", "https://example.com/leafdown-modifier-click"],
+      ["Missing guide", "missing-modifier-click.md"],
+    ]) {
+      const link = $(`.ProseMirror a[href="${href}"]`);
+      await link.scrollIntoView();
+      await ctrlClickAt(await getHandlePoint(link));
+      if (label === "External guide") {
+        await waitForDiagnosticRecord(
+          (record) =>
+            record.event === "desktopE2eOpenerSuppressed" &&
+            record.command === "openUrl" &&
+            record.request === "https://example.com/leafdown-modifier-click",
+        );
+      } else {
+        await expect($('[data-slot="toast"]')).toHaveText(expect.stringContaining("not found"));
+        await dismissToasts();
+      }
+      await expect(link).toBeDisplayed();
+      await expect($$(".ProseMirror-selectednode")).toBeElementsArrayOfSize(0);
+    }
+
+    const atom = $(".ProseMirror hr");
+    await atom.scrollIntoView();
+    await ctrlClickAt(await getHandlePoint(atom));
+    await expect(atom).toHaveElementClass("ProseMirror-selectednode");
+  });
+
   it("renders a definition list with a selectable gutter", async () => {
     const { definitionList } = await getDesktopE2ERunContext();
     await openRecentPath(definitionList.path);

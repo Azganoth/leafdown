@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 export interface DesktopE2ERunContext {
   appIdentifier: string;
   blocks: { path: string };
+  modifierClick: { path: string };
   callouts: { path: string };
   citations: { path: string };
   frontmatter: { yamlPath: string; tomlPath: string; jsonPath: string };
@@ -17,6 +18,7 @@ export interface DesktopE2ERunContext {
   document: {
     initialMarker: string;
     path: string;
+    scrollPath: string;
     savedMarkdown: string;
     savedMarker: string;
   };

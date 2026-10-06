@@ -133,7 +133,9 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const settingsPath = path.join(storeDirectory, "settings.dev.json");
   const releaseNotesPath = path.join(storeDirectory, "release-notes.dev.json");
   const documentPath = path.join(fixtureRoot, "document-lifecycle.md");
+  const documentScrollPath = path.join(fixtureRoot, "document-scroll.md");
   const blocksPath = path.join(fixtureRoot, "block-selection.md");
+  const modifierClickPath = path.join(fixtureRoot, "modifier-click.md");
   const calloutsPath = path.join(fixtureRoot, "callouts.md");
   const citationsPath = path.join(fixtureRoot, "citations.md");
   const frontmatterYamlPath = path.join(fixtureRoot, "frontmatter-yaml.md");
@@ -174,6 +176,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const context: DesktopE2ERunContext = {
     appIdentifier,
     blocks: { path: blocksPath },
+    modifierClick: { path: modifierClickPath },
     callouts: { path: calloutsPath },
     citations: { path: citationsPath },
     frontmatter: {
@@ -186,6 +189,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
+      scrollPath: documentScrollPath,
       savedMarkdown: `${savedMarker}\n`,
       savedMarker,
     },
@@ -234,7 +238,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   };
 
   const scenarios: Scenario[] = [
-    { name: "block-selection", recentFiles: [blocksPath, definitionListPath] },
+    { name: "block-selection", recentFiles: [blocksPath, definitionListPath, modifierClickPath] },
     { name: "callouts", recentFiles: [calloutsPath] },
     { name: "citations", recentFiles: [citationsPath] },
     { name: "command-palette", recentFiles: [searchPath] },
@@ -243,7 +247,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       recentFiles: [frontmatterYamlPath, frontmatterTomlPath, frontmatterJsonPath],
     },
     { name: "diagnostics" },
-    { name: "document-lifecycle", recentFiles: [documentPath] },
+    { name: "document-lifecycle", recentFiles: [documentPath, documentScrollPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "find-and-replace", recentFiles: [searchPath] },
     { name: "keyboard-shortcuts" },
@@ -312,6 +316,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "block-selection.md"),
         blocksPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "modifier-click.md"),
+        modifierClickPath,
       ),
       writeFile(definitionListPath, "Definition term\n~ Definition body\n"),
       copyFile(

@@ -6,6 +6,8 @@ Leafdown keeps the open document and the folder context separate. The folder con
 
 **File > Open** opens one Markdown file: `.md`, `.markdown`, `.mdown`, or `.mkd`. If no folder is open, Leafdown also opens its parent folder as context. If a folder is already pinned, opening a file elsewhere leaves that context in place. **File > Open folder** scans the folder for Markdown articles and opens a matching root-level `readme` or `index` file when present. Ignored directories do not appear in the navigator.
 
+Opening another document starts it at the top. Following a heading link or choosing a search result instead brings its target into view.
+
 On Windows, installing Leafdown adds it to File Explorer's **Open with** menu for these files and to **Settings > Apps > Default apps**, without changing which app opens them by default. Choose Leafdown there to open Markdown files from File Explorer. Files associated with Leafdown show a folded-page icon with the green leaf and Markdown symbol. Each file opened this way starts its own Leafdown window, with the file's folder as context. **File > Open** works either way.
 
 The welcome screen and **File > Open recent** show previously opened files and folders when **Record recent files and folders** is on. You can remove one recent item or clear both lists without deleting files. See [Settings reference](settings-reference.md) for the setting.

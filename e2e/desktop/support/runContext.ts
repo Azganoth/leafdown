@@ -17,6 +17,7 @@ export interface DesktopE2ERunContext {
   document: {
     initialMarker: string;
     path: string;
+    scrollPath: string;
     savedMarkdown: string;
     savedMarker: string;
   };

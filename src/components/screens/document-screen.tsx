@@ -23,6 +23,7 @@ import {
   useSessionStore,
 } from "@/features/session";
 import { useLocalization } from "@/lib/i18n";
+import { getPathIdentityKey } from "@/lib/path";
 
 interface DocumentScreenProps {
   activeDocument: ActiveDocumentState;
@@ -65,6 +66,8 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const loadId = useSessionStore((state) => state.activeDocumentLoadId);
   const initialViewState = useSessionStore((state) => state.activeDocumentViewState);
   const documentKey = getActiveDocumentKey(activeDocument);
+  const viewportKey =
+    activeDocument.status === "saved" ? getPathIdentityKey(activeDocument.path) : activeDocument.id;
   const editorKey = `${documentKey}:${loadId}`;
   const [publishedOutline, setPublishedOutline] = useState<{
     editorKey: string;
@@ -87,7 +90,11 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     >
       <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
         <CardContent className="relative min-h-0 flex-1 p-0">
-          <ScrollArea className="min-h-0 flex-1" data-testid="document-surface-scroll-area">
+          <ScrollArea
+            key={viewportKey}
+            className="min-h-0 flex-1"
+            data-testid="document-surface-scroll-area"
+          >
             <MilkdownEditor
               key={editorKey}
               ref={setEditorBridgeRef}

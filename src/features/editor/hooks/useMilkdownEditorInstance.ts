@@ -730,15 +730,15 @@ const restoreViewState = (editor: MilkdownEditorInstance, viewState: EditorViewS
     const resolve = (position: number) =>
       doc.resolve(Math.min(Math.max(position, 0), doc.content.size));
 
+    if (viewState.focused) {
+      view.focus();
+    }
+
     view.dispatch(
       view.state.tr
         .setSelection(TextSelection.between(resolve(viewState.anchor), resolve(viewState.head)))
         .scrollIntoView(),
     );
-
-    if (viewState.focused) {
-      view.focus();
-    }
   } catch (error) {
     handleUnexpectedError(error, "restoreEditorViewState");
   }

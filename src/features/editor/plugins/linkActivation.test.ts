@@ -1,15 +1,16 @@
 // @vitest-environment happy-dom
 
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { toastManager } from "@/lib/toast";
 import {
   EDITOR_TEST_ROOT_CLASS_NAME,
   createMarkdownReferenceContext,
 } from "@/test/factories/editor";
-import { dispatchClick, dispatchMouseEvent } from "@/test/utils/events";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { dispatchClick, dispatchMouseEvent, type TestMouseEventOptions } from "@/test/utils/events";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 import { waitFor, within } from "@/test/utils/react";
 import {
@@ -26,6 +27,20 @@ const mountLinkEditor = (
   initialMarkdown: string,
   documentPath: string | null = "C:/Notes/readme.md",
 ) => mountEditor(initialMarkdown, createMarkdownReferenceContext({ documentPath }));
+
+const dispatchLinkGesture = (
+  mounted: MountedMilkdownEditor,
+  link: HTMLElement,
+  modifiers: TestMouseEventOptions,
+) => {
+  vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({ pos: 3, inside: 0 });
+  for (const type of ["mousedown", "mouseup"]) {
+    dispatchMouseEvent(link, type, { ...modifiers, clientX: 10, clientY: 10 });
+  }
+  expect(link.isConnected).toBe(true);
+  expect(mounted.view.state.selection).toBeInstanceOf(TextSelection);
+  return dispatchClick(link, { ...modifiers, clientX: 10, clientY: 10 });
+};
 
 describe("Markdown links", () => {
   it("places the caret for normal link clicks without activating links", async () => {
@@ -77,7 +92,7 @@ describe("Markdown links", () => {
       const mounted = await mountLinkEditor("[Docs](https://example.com/docs)");
       const link = within(mounted.view.dom).getByRole("link", { name: "Docs" });
 
-      const event = dispatchClick(link, { ctrl: true });
+      const event = dispatchLinkGesture(mounted, link, { ctrl: true });
 
       await waitFor(() => {
         expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
@@ -101,7 +116,7 @@ describe("Markdown links", () => {
       const mounted = await mountLinkEditor("[Docs](https://example.com/docs)");
       const link = within(mounted.view.dom).getByRole("link", { name: "Docs" });
 
-      const event = dispatchClick(link, { meta: true });
+      const event = dispatchLinkGesture(mounted, link, { meta: true });
 
       await waitFor(() => {
         expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
@@ -116,7 +131,7 @@ describe("Markdown links", () => {
       const mounted = await mountLinkEditor("[Guide](guide.md)", null);
       const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
 
-      dispatchClick(link, { ctrl: true });
+      dispatchLinkGesture(mounted, link, { ctrl: true });
 
       await waitFor(() => {
         expect(toastManager.add).toHaveBeenCalledWith({

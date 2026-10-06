@@ -1,12 +1,14 @@
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey, type EditorState } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, TextSelection, type EditorState } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
 import { localizer, t, type MessageValues } from "@/lib/i18n";
+import { isPrimaryModifierEvent } from "@/lib/input";
 import type { Disposable } from "@/lib/lifecycle";
 
 import { canInsertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
+import { getRenderedLinkAtTarget } from "../utils/renderedLinks";
 import {
   BlockSelection,
   createHierarchicalBlockSelection,
@@ -817,10 +819,37 @@ class BlockSelectionView {
 export const createLeafdownBlockSelectionPlugin = (insertion: BlockInsertionOptions = {}) =>
   $prose(() => {
     let presentation: BlockSelectionView | null = null;
+    let primaryModifierClick = false;
     return new Plugin({
       key: leafdownBlockSelectionPluginKey,
       props: {
         decorations: (state) => getSelectionDecorations(state),
+        handleDOMEvents: {
+          mousedown: (_view, event) => {
+            primaryModifierClick = event.button === 0 && isPrimaryModifierEvent(event);
+            return false;
+          },
+        },
+        handleClickOn: (view, pos, node, nodePos, event, direct) => {
+          if (!direct || !node.isTextblock || event.button !== 0 || !primaryModifierClick) {
+            return false;
+          }
+
+          const parent = view.state.doc.resolve(nodePos).parent;
+          if (parent.type.spec.tableRole) return false;
+
+          // ProseMirror records the modifier on mousedown and selects on mouseup. Links need
+          // their rendered target until click; entering their source here would replace it.
+          if (!getRenderedLinkAtTarget(view.dom, event.target)) {
+            view.dispatch(
+              view.state.tr
+                .setSelection(TextSelection.near(view.state.doc.resolve(pos)))
+                .setMeta("pointer", true),
+            );
+            view.focus();
+          }
+          return true;
+        },
         handleKeyDown: (_view, event) => {
           if (
             (event.metaKey || event.ctrlKey) &&

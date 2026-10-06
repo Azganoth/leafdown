@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
+import { undo } from "@milkdown/kit/prose/history";
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN, UNCHECKED_TASK_MARKDOWN } from "@/test/fixtures/editorMarkdown";
@@ -15,14 +16,76 @@ import {
 } from "@/test/utils/prosemirror";
 import { within } from "@/test/utils/react";
 
+import { jumpToOutlineHeading } from "../utils/headingOutline";
+
 const mountStyledEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
 
 describe("marker presentation", () => {
+  it("updates heading markers on focus and blur without changing the initial selection or document", async () => {
+    const onContentChanged = vi.fn();
+    const mounted = await mountStyledEditor("# Heading\n\nBody", { onContentChanged });
+    const heading = getEditorDomElement(mounted, "h1");
+    const { doc, selection } = mounted.view.state;
+
+    expect(selection.from).toBe(1);
+    expect(mounted.view.hasFocus()).toBe(false);
+    expect(heading).not.toHaveAttribute("data-leafdown-marker");
+
+    mounted.view.focus();
+
+    expect(heading).toHaveAttribute("data-leafdown-marker", "H1");
+    expect(mounted.view.state.selection.eq(selection)).toBe(true);
+
+    mounted.view.dom.blur();
+
+    expect(heading).not.toHaveClass("leafdown-marker-node--subtle");
+    expect(heading).not.toHaveAttribute("data-leafdown-marker");
+    expect(mounted.view.state.selection.eq(selection)).toBe(true);
+
+    mounted.view.focus();
+
+    expect(heading).toHaveAttribute("data-leafdown-marker", "H1");
+    expect(mounted.view.state.doc.eq(doc)).toBe(true);
+    expect(onContentChanged).not.toHaveBeenCalled();
+    expect(undo(mounted.view.state, mounted.view.dispatch)).toBe(false);
+  });
+
+  it("shows the destination marker when outline navigation focuses a nested heading", async () => {
+    const mounted = await mountStyledEditor("# First\n\n> ### Nested\n\nBody");
+    const first = getEditorDomElement(mounted, "h1");
+    const nested = getEditorDomElement(mounted, "h3");
+    const position = getEditorNodePosition(mounted, "heading", (node) => node.attrs.level === 3);
+
+    expect(jumpToOutlineHeading(mounted.view, position)).toBe(true);
+    expect(mounted.view.hasFocus()).toBe(true);
+    expect(first).not.toHaveAttribute("data-leafdown-marker");
+    expect(nested).toHaveAttribute("data-leafdown-marker", "H3");
+
+    mounted.view.dom.blur();
+
+    expect(nested).not.toHaveAttribute("data-leafdown-marker");
+    expect(mounted.view.state.selection.from).toBe(position + 1);
+  });
+
+  it("leaves rendered inline content and its selection unchanged when focus changes", async () => {
+    const mounted = await mountStyledEditor("**Strong** text");
+    const { doc, selection } = mounted.view.state;
+
+    mounted.view.focus();
+    mounted.view.dom.blur();
+
+    expect(mounted.view.state.doc.eq(doc)).toBe(true);
+    expect(mounted.view.state.selection.eq(selection)).toBe(true);
+    expect(mounted.view.dom.querySelector("strong")).toHaveTextContent("Strong");
+    expect(mounted.view.dom.querySelector("[data-leafdown-source]")).not.toBeInTheDocument();
+  });
+
   it("shows subtle heading markers only for collapsed caret context", async () => {
     const mounted = await mountStyledEditor("# Heading");
     const heading = getEditorDomElement(mounted, "h1");
+    mounted.view.focus();
 
     const position = setSelectionAtElementTextEnd(mounted.view, heading);
 
@@ -47,6 +110,7 @@ ${UNCHECKED_TASK_MARKDOWN}`);
     const orderedListItem = getEditorDomElement(mounted, "ol li");
     const unorderedListItem = getEditorDomElement(mounted, "ul li:not([data-checked])");
     const taskListItem = getEditorDomElement(mounted, "li[data-checked='false']");
+    mounted.view.focus();
 
     setSelectionAtElementTextEnd(mounted.view, blockquote);
 

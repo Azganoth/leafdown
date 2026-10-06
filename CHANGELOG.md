@@ -10,6 +10,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Give Markdown files associated with Leafdown a dedicated folded-page icon with the green leaf and Markdown symbol, separate from the application icon. Both Windows installers include it without changing your default app.
 
+### Fixed
+
+- Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 ### Added

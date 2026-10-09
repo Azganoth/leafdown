@@ -118,6 +118,21 @@
 - Opening Markdown documents outside the current folder context does not switch or prompt for a folder-context change.
 - Untitled documents associate with the active folder context before saving.
 
+### Open documents as tabs within windows
+
+**Decision:** Leafdown holds several open documents as tabs within independent windows, all in one process. Each window has its own tabs and at most one folder context. A saved file is open in at most one tab across all windows, and opening a file adds a tab or activates the tab that holds it. A file opened from the operating system while Leafdown runs is handed to the running process.
+
+**Rationale:** A tab costs a few MiB where another window costs tens, so tabs carry many documents, while windows keep two documents side by side or two folders open. One process lets every window know which documents are open and keeps one copy of settings, recent items, and application data; separate processes each overwrite the others' state when they exit. A folder context per window keeps the pinned-folder rule above.
+
+**Consequences:**
+
+- Opening a document never replaces another, so opening does not ask about unsaved changes.
+- Native watchers, their events, and close requests belong to one window, and each open saved document has its own watch.
+- Closing a window or quitting asks once per window about its unsaved documents, and closing the last window quits.
+- Settings and recent items apply live to every window.
+- Windows and tabs are not restored after a restart, and unsaved text is never written outside the document's file.
+- Moving tabs between windows and split views are outside the model.
+
 ### Use one hybrid document surface
 
 **Decision:** The default document surface is one active hybrid WYSIWYG Markdown editor, without a permanent source/preview split or separate read/edit modes.

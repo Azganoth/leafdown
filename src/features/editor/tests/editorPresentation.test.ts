@@ -66,6 +66,16 @@ const value = 1;
     expect(editorCss).toContain("&[data-checked] {");
   });
 
+  it("leaves the editor's scrolling blocks to the app's shared scrollbar", () => {
+    const editorCss = readFileSync(editorCssPath, "utf8");
+    const appCss = readFileSync(resolve(process.cwd(), "src/app.css"), "utf8");
+
+    expect(appCss).toMatch(/::-webkit-scrollbar-thumb \{[^}]*bg-border/su);
+    expect(editorCss).not.toContain("::-webkit-scrollbar-thumb");
+    // Chromium ignores `::-webkit-scrollbar` styling on an element that sets either standard property.
+    expect(editorCss).not.toMatch(/scrollbar-(?:color|width):(?!\s*none;)/u);
+  });
+
   it("draws unsupported raw HTML as layout-neutral muted text", async () => {
     const mounted = await mountStyledEditor('<div class="note">Block</div>');
     const htmlNode = getEditorDomElement(mounted, '[data-type="html"]');

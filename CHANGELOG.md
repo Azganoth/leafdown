@@ -13,7 +13,9 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
-- Keep typing smooth in larger documents. Leafdown converted the whole document back to Markdown shortly after every edit, which froze the window for about a third of a second in a 200 KB document of tables and about a second at 500 KB. It now reads the document only when something needs it, such as saving.
+- Stop larger documents from freezing just after you pause typing. Leafdown converted the whole document back to Markdown 200 ms after each edit, which froze the window for about a third of a second in a 200 KB document of tables and about a second at 500 KB. It now reads the document only when something needs it, such as saving.
+- Type without long pauses in large documents. Every keystroke used to update the block gutters of the whole document, so in several hundred kilobytes of Markdown with many headings and lists each character could take seconds to appear. The gutters now keep only the blocks in view up to date, and large documents open faster too.
+- Open documents with many list items faster. Reading each item's indentation searched back toward the start of the file, so opening took longer with every item and with the file's size, adding about a second to a 1 MB document and much more to larger ones.
 - Draw the scrollbars of wide code blocks, tables, and display math in the same thin, rounded style as the rest of Leafdown instead of the system default. Help code samples, Find in folder's skipped-file lists, the code block language and wiki link suggestion lists, and menus cut short by a small window match it too.
 - Show a file opened from File Explorer, File > Open, recent files, or a drop as soon as it is read instead of after its whole folder has been scanned. A file in a large folder such as Documents could leave the window on the welcome screen for several seconds, looking as if the file had not opened. The article navigator shows placeholder rows until the folder is ready, and a folder that cannot be scanned reports its error without closing the document.
 - Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
@@ -22,6 +24,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Keep the editor's gutter from reacting through an open menu. Pointing at a menu that covers the gutter no longer shows the insertion button, its insertion line, or a heading's marker beneath it, and clicking the gutter to close an open menu no longer also opens block insertion or selects a block. The gutter responds again once the menu closes.
 - Follow links again with `Ctrl+click` (`Cmd+click` on macOS). Pressing a link, wiki link, or footnote reference with the modifier no longer turns it into its Markdown source or outlines it before the click lands, so web links open in the system browser, local Markdown links open in Leafdown, and footnote references move to their definitions. A plain click still places the caret for editing.
 - Leave a heading chosen from the outline with the same space above it as the document's first line, instead of close under the top edge. Choosing the heading that opens the document scrolls back to the very top.
+- Open documents with large tables about ten times faster. Reading tables took time that grew with the square of their cell count, so a document with hundreds of kilobytes of tables could take most of a minute to open, and larger ones never finished opening.
 
 ## [0.1.0-alpha.2] - 2026-10-05
 

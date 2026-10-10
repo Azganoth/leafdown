@@ -3131,6 +3131,24 @@ describe("List item indentation", () => {
     expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
   });
 
+  it.each([
+    { lineEnding: "\n", name: "line feeds" },
+    { lineEnding: "\r\n", name: "carriage returns and line feeds" },
+    { lineEnding: "\r", name: "carriage returns" },
+  ])(
+    "reads each item's prefix off its own line in a file ending lines with $name",
+    async ({ lineEnding }) => {
+      const authored =
+        "- parent\n\n\t- child\n\t - sibling\n\nText\n\n> - quoted\n>\n> \t- nested\n";
+      const { mounted, reopened, saved } = await saveAndReopen(
+        authored.replaceAll("\n", lineEnding),
+      );
+
+      expect(saved).toBe(authored);
+      expect(reopened.view.state.doc.toJSON()).toEqual(mounted.view.state.doc.toJSON());
+    },
+  );
+
   // A marker written even one column past the item before it falls inside that item, so a list
   // standing right after another gives way: the file the record came from cannot have held that,
   // and the columns the containers write are no longer the ones the file wrote.

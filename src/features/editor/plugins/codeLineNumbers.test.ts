@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
 
 import { undoDepth } from "@milkdown/kit/prose/history";
-import type { EditorView } from "@milkdown/kit/prose/view";
+import { Schema, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { EditorState, type Transaction } from "@milkdown/kit/prose/state";
+import { liftTarget } from "@milkdown/kit/prose/transform";
+import { Decoration, type EditorView } from "@milkdown/kit/prose/view";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { dispatchClipboardEvent, parseClipboardHtml } from "@/test/utils/events";
@@ -12,7 +15,12 @@ import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { setTextSelection } from "@/test/utils/prosemirror";
 
 import { getEditorDocumentStatus } from "../utils/documentStatus";
-import { areCodeLineNumbersEnabled, setCodeLineNumbersEnabled } from "./codeLineNumbers";
+import {
+  areCodeLineNumbersEnabled,
+  createCodeLineNumbersPlugin,
+  leafdownCodeLineNumbersPluginKey,
+  setCodeLineNumbersEnabled,
+} from "./codeLineNumbers";
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -142,5 +150,257 @@ describe("code block line numbers", () => {
 
     expect(clipboardData.getData(TEXT_PLAIN_MIME_TYPE)).toBe(CODE);
     expect(parseClipboardHtml(clipboardData).textContent).toBe(CODE);
+  });
+});
+
+const schema = new Schema({
+  nodes: {
+    doc: { content: "block+" },
+    text: { group: "inline" },
+    paragraph: { content: "inline*", group: "block" },
+    code_block: { content: "text*", group: "block", code: true, marks: "" },
+    blockquote: { content: "block+", group: "block" },
+  },
+});
+
+const paragraph = (text: string) => schema.nodes.paragraph.create(null, schema.text(text));
+const code = (text: string) =>
+  schema.nodes.code_block.create(null, text ? schema.text(text) : null);
+const quote = (...content: ProseMirrorNode[]) => schema.nodes.blockquote.create(null, content);
+
+const createDoc = () =>
+  schema.nodes.doc.create(null, [
+    paragraph("Intro"),
+    code("first\nsecond"),
+    paragraph("Middle"),
+    code("one\n\nthree\n"),
+    quote(code("quoted\nline"), paragraph("Quoted")),
+    code(""),
+    code(Array.from({ length: 99 }, (_, index) => `line ${index + 1}`).join("\n")),
+    paragraph("End"),
+  ]);
+
+const findPositions = (doc: ProseMirrorNode, predicate: (node: ProseMirrorNode) => boolean) => {
+  const positions: number[] = [];
+
+  doc.descendants((node, position) => {
+    if (predicate(node)) {
+      positions.push(position);
+    }
+  });
+
+  return positions;
+};
+
+const codeBlockPositions = (doc: ProseMirrorNode) =>
+  findPositions(doc, (node) => node.type.name === "code_block");
+
+const codeBlockAt = (doc: ProseMirrorNode, index: number) => codeBlockPositions(doc)[index];
+
+const paragraphAt = (doc: ProseMirrorNode, text: string) =>
+  findPositions(doc, (node) => node.type.name === "paragraph" && node.textContent === text)[0];
+
+const topLevelTypes = (doc: ProseMirrorNode) => doc.children.map((node) => node.type.name);
+
+const createState = (enabled: boolean, doc = createDoc()) =>
+  EditorState.create({ doc, plugins: [createCodeLineNumbersPlugin(() => enabled)] });
+
+const describeDecorations = (state: EditorState) =>
+  (leafdownCodeLineNumbersPluginKey.getState(state)?.decorations.find() ?? [])
+    .map(
+      (decoration) =>
+        `${decoration.from}-${decoration.to} ${JSON.stringify(
+          (decoration as unknown as { type: { attrs: unknown } }).type.attrs,
+        )}`,
+    )
+    .toSorted();
+
+// Each numbered block gets one node decoration, so those created while applying a transaction
+// name the blocks it numbered.
+let numbered: number[] = [];
+
+const applyAndCompare = (state: EditorState, transaction: Transaction) => {
+  const numbering = vi.spyOn(Decoration, "node");
+  const next = state.apply(transaction);
+
+  numbered.push(...numbering.mock.calls.map(([from]) => from));
+  numbering.mockRestore();
+
+  expect(describeDecorations(next)).toEqual(
+    describeDecorations(createState(areCodeLineNumbersEnabled(next), next.doc)),
+  );
+
+  return next;
+};
+
+describe("code block line numbers across edits", () => {
+  beforeEach(() => {
+    numbered = [];
+  });
+
+  it("numbers no block for an edit outside code blocks", () => {
+    const state = createState(true);
+    let next = applyAndCompare(
+      state,
+      state.tr.insertText(" typed", paragraphAt(state.doc, "Middle") + 1),
+    );
+
+    next = applyAndCompare(next, next.tr.insertText("!", paragraphAt(next.doc, "Quoted") + 1));
+    applyAndCompare(next, next.tr.insertText("!", paragraphAt(next.doc, "End") + 4));
+
+    expect(numbered).toEqual([]);
+  });
+
+  it("keeps blocks numbered when paragraphs between them are inserted or removed", () => {
+    const state = createState(true);
+    let next = applyAndCompare(state, state.tr.insert(codeBlockAt(state.doc, 1), paragraph("New")));
+    const middle = paragraphAt(next.doc, "Middle");
+
+    next = applyAndCompare(
+      next,
+      next.tr.delete(middle, middle + next.doc.nodeAt(middle)!.nodeSize),
+    );
+    const inserted = paragraphAt(next.doc, "New");
+    applyAndCompare(next, next.tr.delete(inserted, inserted + next.doc.nodeAt(inserted)!.nodeSize));
+
+    expect(numbered).toEqual([]);
+  });
+
+  it("renumbers only the code block an edit changes", () => {
+    const state = createState(true);
+    const second = codeBlockAt(state.doc, 1);
+    let next = applyAndCompare(state, state.tr.insertText("\ntwo", second + 4));
+
+    expect(next.doc.nodeAt(second)?.textContent).toBe("one\ntwo\n\nthree\n");
+    expect(numbered).toEqual([second]);
+
+    numbered = [];
+    const quoted = codeBlockAt(next.doc, 2);
+    next = applyAndCompare(next, next.tr.delete(quoted + 7, quoted + 8));
+
+    expect(next.doc.nodeAt(quoted)?.textContent).toBe("quotedline");
+    expect(numbered).toEqual([quoted]);
+
+    numbered = [];
+    const empty = codeBlockAt(next.doc, 3);
+    next = applyAndCompare(next, next.tr.insertText("\n", empty + 1));
+
+    expect(numbered).toEqual([empty]);
+
+    numbered = [];
+    const long = codeBlockAt(next.doc, 4);
+    applyAndCompare(
+      next,
+      next.tr.insertText("\nline 100", long + next.doc.nodeAt(long)!.nodeSize - 1),
+    );
+
+    expect(numbered).toEqual([long]);
+  });
+
+  it("numbers the joined block once when a deletion spans code blocks", () => {
+    const state = createState(true);
+    const from = codeBlockAt(state.doc, 0) + 7;
+    const to = codeBlockAt(state.doc, 1) + 4;
+    const next = applyAndCompare(state, state.tr.delete(from, to));
+
+    expect(next.doc.nodeAt(codeBlockAt(next.doc, 0))?.textContent).toBe("first\n\n\nthree\n");
+    expect(numbered).toEqual([codeBlockAt(next.doc, 0)]);
+  });
+
+  it("numbers both halves of a split code block and the block two others join into", () => {
+    const state = createState(true);
+    let next = applyAndCompare(state, state.tr.split(codeBlockAt(state.doc, 1) + 5));
+
+    expect(next.doc.nodeAt(codeBlockAt(next.doc, 2))?.textContent).toBe("\nthree\n");
+
+    next = applyAndCompare(next, next.tr.join(codeBlockAt(next.doc, 2)));
+    applyAndCompare(next, next.tr.join(codeBlockAt(next.doc, 4)));
+  });
+
+  it("clears a code block turned into a paragraph and numbers a paragraph turned into code", () => {
+    const state = createState(true);
+    const first = codeBlockAt(state.doc, 0);
+    let next = applyAndCompare(
+      state,
+      state.tr.setBlockType(first + 1, first + 1, schema.nodes.paragraph),
+    );
+
+    expect(numbered).toEqual([]);
+
+    const middle = paragraphAt(next.doc, "Middle");
+    next = applyAndCompare(
+      next,
+      next.tr.setBlockType(middle + 1, middle + 1, schema.nodes.code_block),
+    );
+
+    expect(numbered).toEqual([middle]);
+  });
+
+  it("keeps code blocks numbered when they are wrapped in or lifted out of a quote", () => {
+    const state = createState(true);
+    const doc = state.doc;
+    const range = doc
+      .resolve(codeBlockAt(doc, 0) + 1)
+      .blockRange(doc.resolve(codeBlockAt(doc, 1) + 1))!;
+    let next = applyAndCompare(state, state.tr.wrap(range, [{ type: schema.nodes.blockquote }]));
+
+    expect(topLevelTypes(next.doc).slice(0, 3)).toEqual(["paragraph", "blockquote", "blockquote"]);
+
+    const quoted = next.doc.resolve(codeBlockAt(next.doc, 2) + 1).blockRange()!;
+    next = applyAndCompare(next, next.tr.lift(quoted, liftTarget(quoted)!));
+
+    const wrapped = next.doc
+      .resolve(codeBlockAt(next.doc, 0) + 1)
+      .blockRange(next.doc.resolve(codeBlockAt(next.doc, 1) + 1))!;
+    next = applyAndCompare(next, next.tr.lift(wrapped, liftTarget(wrapped)!));
+
+    expect(topLevelTypes(next.doc).slice(0, 6)).toEqual([
+      "paragraph",
+      "code_block",
+      "paragraph",
+      "code_block",
+      "code_block",
+      "blockquote",
+    ]);
+  });
+
+  it("numbers every block when the whole document is replaced", () => {
+    const state = createState(true);
+    const next = applyAndCompare(
+      state,
+      state.tr.replaceWith(0, state.doc.content.size, createDoc().content),
+    );
+
+    expect(numbered).toEqual(codeBlockPositions(next.doc));
+  });
+
+  it("does no numbering while off and numbers the edited document when turned on", () => {
+    const state = createState(false);
+    let next = applyAndCompare(
+      state,
+      state.tr.insertText("\nadded", codeBlockAt(state.doc, 0) + 6),
+    );
+
+    expect(numbered).toEqual([]);
+    expect(describeDecorations(next)).toEqual([]);
+
+    next = applyAndCompare(next, next.tr.setMeta(leafdownCodeLineNumbersPluginKey, true));
+
+    expect(numbered).toEqual(codeBlockPositions(next.doc));
+
+    next = applyAndCompare(next, next.tr.insertText("\nmore", codeBlockAt(next.doc, 0) + 6));
+    next = applyAndCompare(next, next.tr.setMeta(leafdownCodeLineNumbersPluginKey, false));
+
+    expect(describeDecorations(next)).toEqual([]);
+  });
+
+  it("keeps the decorations of a transaction that changes no content", () => {
+    const state = createState(true);
+    const next = applyAndCompare(state, state.tr.setMeta("leafdown-test", true));
+
+    expect(leafdownCodeLineNumbersPluginKey.getState(next)).toBe(
+      leafdownCodeLineNumbersPluginKey.getState(state),
+    );
+    expect(numbered).toEqual([]);
   });
 });

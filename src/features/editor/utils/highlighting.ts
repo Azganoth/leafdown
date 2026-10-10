@@ -1,3 +1,4 @@
+import type { Decoration } from "@milkdown/kit/prose/view";
 import { createParser, type Parser } from "@milkdown/plugin-highlight/shiki";
 import bash from "@shikijs/langs/bash";
 import javascript from "@shikijs/langs/javascript";
@@ -32,15 +33,22 @@ const highlighterCore = new AsyncLazy(
 
 export const loadLeafdownHighlighter = () => highlighterCore.value;
 
-const loadParser = async (): Promise<Parser> => {
+export type LeafdownHighlightParser = (options: Parameters<Parser>[0]) => Decoration[];
+
+// The highlighter has loaded before the parser exists, so Shiki never answers with the promise a
+// still-loading highlighter would.
+const loadParser = async (): Promise<LeafdownHighlightParser> => {
   const highlighter = await highlighterCore.value;
   const parser = createParser(highlighter, { themes: SHIKI_THEMES, defaultColor: false });
 
-  return (options) =>
-    parser({
+  return (options) => {
+    const decorations = parser({
       ...options,
       language: normalizeHighlightLanguage(options.language),
     });
+
+    return Array.isArray(decorations) ? decorations : [];
+  };
 };
 
 const highlightParser = new AsyncLazy(loadParser, { retryOnFailure: true });

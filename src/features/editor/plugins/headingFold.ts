@@ -13,6 +13,7 @@ import { $prose } from "@milkdown/kit/utils";
 
 import { t } from "@/lib/i18n";
 
+import { getEditorSurfaceElementAt, isEditorSurfaceElement } from "../utils/editorSurface";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
 import { finalizeSourceProjection } from "./sourceProjection";
 
@@ -330,6 +331,7 @@ export const isHeadingFoldMarkerAt = (
 const findMarkerRowHeading = (view: EditorView, x: number, y: number) => {
   const surface = (findScrollingAncestor(view.dom) ?? view.dom).getBoundingClientRect();
   if (x < surface.left || x > surface.right || y < surface.top || y > surface.bottom) return null;
+  if (!isEditorSurfaceElement(view, getEditorSurfaceElementAt(view, x, y))) return null;
   for (const heading of view.dom.querySelectorAll<HTMLElement>("[data-leafdown-fold]")) {
     const rect = heading.getBoundingClientRect();
     if (rect.height > 0 && y >= rect.top && y <= rect.bottom) return heading;
@@ -368,11 +370,13 @@ const trackMarkerHover = (view: EditorView) => {
   };
 
   document.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseover", handleMouseMove);
   document.addEventListener("mouseleave", handleMouseLeave);
   return {
     destroy: () => {
       window?.cancelAnimationFrame(frame);
       document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseover", handleMouseMove);
       document.removeEventListener("mouseleave", handleMouseLeave);
     },
   };

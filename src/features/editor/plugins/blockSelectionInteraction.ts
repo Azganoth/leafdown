@@ -14,6 +14,7 @@ import {
   isEditorSurfaceElement,
 } from "../utils/editorSurface";
 import { getRenderedLinkAtTarget } from "../utils/renderedLinks";
+import { findScrollingAncestor } from "../utils/scrollingAncestor";
 import {
   BlockSelection,
   createHierarchicalBlockSelection,
@@ -191,10 +192,13 @@ class BlockSelectionView {
   private pressedHandle: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private observedBlocks = new Set<Element>();
+  private observedSurface: Element | null = null;
+  private surface: DOMRect | null = null;
   private insertionTarget: {
     pos: number;
     boundary: number;
     kinds: readonly BoundaryInsertKind[];
+    y: number;
   } | null = null;
   private insertionMenuOpen = false;
 
@@ -376,6 +380,42 @@ class BlockSelectionView {
     this.observedBlocks = blocks;
   }
 
+  // The layer spans the window, so it is clipped to the scrolled view that holds the document,
+  // which hides and disarms any part of a control past that view's edges.
+  private clipToSurface() {
+    const scroller = findScrollingAncestor(this.view.dom);
+
+    if (this.resizeObserver && scroller !== this.observedSurface) {
+      if (this.observedSurface) this.resizeObserver.unobserve(this.observedSurface);
+      if (scroller) this.resizeObserver.observe(scroller);
+      this.observedSurface = scroller;
+    }
+
+    this.surface = scroller?.getBoundingClientRect() ?? null;
+
+    if (!this.surface) {
+      this.overlay.style.removeProperty("clip-path");
+      return;
+    }
+
+    const layer = this.overlay.getBoundingClientRect();
+    const insets = [
+      this.surface.top - layer.top,
+      layer.right - this.surface.right,
+      layer.bottom - this.surface.bottom,
+      this.surface.left - layer.left,
+    ];
+    this.overlay.style.clipPath = `inset(${insets.map((inset) => `${String(Math.max(inset, 0))}px`).join(" ")})`;
+  }
+
+  private isInSurface(x: number, y: number) {
+    const { surface } = this;
+    return (
+      !surface ||
+      (x >= surface.left && x <= surface.right && y >= surface.top && y <= surface.bottom)
+    );
+  }
+
   private readonly schedulePosition = () => {
     if (!this.insertionMenuOpen) this.clearInsertionTarget();
     const frame = this.view.dom.ownerDocument.defaultView?.requestAnimationFrame;
@@ -395,6 +435,7 @@ class BlockSelectionView {
       ? this.geometry.get(this.insertionTarget.pos)?.block
       : null;
     this.geometry.clear();
+    this.clipToSurface();
     const visibleBlocks = new Map<number, DOMRect>();
     for (const [pos, gutter] of this.gutters) {
       const node = this.view.nodeDOM(pos);
@@ -405,20 +446,31 @@ class BlockSelectionView {
       }
 
       const rect = node.getBoundingClientRect();
+      const top = Math.max(rect.top, this.surface?.top ?? -Infinity);
+      const bottom = Math.min(
+        rect.top + Math.max(rect.height, 1),
+        this.surface?.bottom ?? Infinity,
+      );
+
+      if (bottom <= top) {
+        gutter.hidden = true;
+        continue;
+      }
+
       const lineHeight = Number.parseFloat(
         this.view.dom.ownerDocument.defaultView?.getComputedStyle(node).lineHeight ?? "",
       );
-      const blockHeight = Math.max(rect.height, 1);
+      const gutterHeight = bottom - top;
       const firstLineHeight = Number.isFinite(lineHeight)
-        ? Math.min(blockHeight, lineHeight)
-        : Math.min(blockHeight, 28);
+        ? Math.min(gutterHeight, lineHeight)
+        : Math.min(gutterHeight, 28);
 
       gutter.hidden = false;
       const direction = this.view.dom.ownerDocument.defaultView?.getComputedStyle(node).direction;
       gutter.toggleAttribute("data-rtl", direction === "rtl");
       gutter.style.left = `${String(direction === "rtl" ? rect.right : rect.left)}px`;
-      gutter.style.top = `${String(rect.top)}px`;
-      gutter.style.height = `${String(blockHeight)}px`;
+      gutter.style.top = `${String(top)}px`;
+      gutter.style.height = `${String(gutterHeight)}px`;
       gutter.style.setProperty(
         "--leafdown-block-first-line",
         `${String(Math.max(firstLineHeight, 1))}px`,
@@ -448,15 +500,11 @@ class BlockSelectionView {
     if (this.insertionTarget && !this.gutters.has(this.insertionTarget.pos)) {
       this.clearInsertionTarget();
     } else if (this.insertionMenuOpen && this.insertionTarget) {
-      const { pos, boundary } = this.insertionTarget;
+      const { pos, boundary, y } = this.insertionTarget;
       const before = previousBlock;
       const after = this.geometry.get(pos)?.block;
       if (before && after) {
-        this.setInsertionTarget(
-          pos,
-          boundary,
-          Number.parseFloat(this.insertionButton.style.top) + after.top - before.top,
-        );
+        this.setInsertionTarget(pos, boundary, y + after.top - before.top);
         this.insertionIndicator.hidden = false;
       }
     }
@@ -493,7 +541,7 @@ class BlockSelectionView {
             canInsertBlockAtBoundary(this.view.state, boundary, kind),
           );
     if (kinds.length === 0) return this.clearInsertionTarget();
-    this.insertionTarget = { pos, boundary, kinds };
+    this.insertionTarget = { pos, boundary, kinds, y };
     const slot = gutter.querySelector(".leafdown-block-gutter__insertion-slot");
     const slotRect = slot?.getBoundingClientRect();
     const { gutter: gutterRect, block: nodeRect } = geometry;
@@ -502,7 +550,9 @@ class BlockSelectionView {
         ? slotRect.left + slotRect.width / 2
         : gutterRect.left + gutterRect.width / 2;
     this.insertionButton.style.left = `${String(x)}px`;
-    this.insertionButton.style.top = `${String(y)}px`;
+    this.insertionButton.style.top = `${String(
+      this.surface ? Math.min(Math.max(y, this.surface.top), this.surface.bottom) : y,
+    )}px`;
     this.insertionButton.hidden = false;
     this.insertionIndicator.hidden = pointerX === undefined || Math.abs(pointerX - x) > 12;
     const { beforeGeometry, afterGeometry } = this.getSiblingBoundaryGeometry(boundary);
@@ -522,6 +572,7 @@ class BlockSelectionView {
 
   private readonly handleInsertionPointer = (event: MouseEvent) => {
     if (this.insertionMenuOpen || this.pressedHandle) return;
+    if (!this.isInSurface(event.clientX, event.clientY)) return this.clearInsertionTarget();
     const element = getEditorSurfaceElementAt(this.view, event.clientX, event.clientY);
     // A nested heading's fold marker reaches into its container's insertion slot, and the marker,
     // standing nearer the pointer, keeps the press.
@@ -627,6 +678,10 @@ class BlockSelectionView {
       .at(-1);
     if (!target) return false;
     this.position();
+    if (!this.geometry.has(target.pos)) {
+      this.view.dispatch(this.view.state.tr.scrollIntoView());
+      this.position();
+    }
     const node = this.view.nodeDOM(target.pos);
     if (!(node instanceof Element)) return false;
     const rect = node.getBoundingClientRect();

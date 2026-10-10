@@ -11,7 +11,7 @@ import {
   type Ref,
 } from "react";
 
-import { handleUnexpectedError, invariant } from "@/lib/errors";
+import { handleUnexpectedError } from "@/lib/errors";
 import { useLocalization } from "@/lib/i18n";
 import { notifyWarning } from "@/lib/toast";
 
@@ -60,7 +60,6 @@ import {
   getMilkdownEditorHtmlExportSnapshot,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
-  type MilkdownMarkdownUpdate,
 } from "../utils/createMilkdownEditor";
 import {
   getEditorDocumentStatus,
@@ -104,7 +103,7 @@ export interface EditorSearchControls {
 }
 
 export interface MilkdownEditorBridge {
-  getMarkdown: () => string;
+  getMarkdown: () => string | null;
   getHtmlExportSnapshot?: () => HtmlExportSnapshot | null;
   getCommandState?: () => EditorCommandState;
   getDocumentStatus?: () => EditorDocumentStatus;
@@ -149,7 +148,6 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   onContentChanged?: () => void;
   onDocumentStatusChanged?: () => void;
   onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
-  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
   wikiCompletionPaths?: string[];
@@ -169,7 +167,6 @@ export const useMilkdownEditorInstance = ({
   onContentChanged,
   onDocumentStatusChanged,
   onHeadingOutlineChanged,
-  onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   onReadMarkdownPath,
   wikiCompletionPaths = [],
@@ -211,7 +208,6 @@ export const useMilkdownEditorInstance = ({
     onContentChanged,
     onDocumentStatusChanged,
     onHeadingOutlineChanged,
-    onMarkdownUpdated,
     onOpenMarkdownPath,
     onReadMarkdownPath,
     wikiCompletionPaths,
@@ -234,7 +230,6 @@ export const useMilkdownEditorInstance = ({
       onContentChanged,
       onDocumentStatusChanged,
       onHeadingOutlineChanged,
-      onMarkdownUpdated,
       onOpenMarkdownPath,
       onReadMarkdownPath,
       wikiCompletionPaths,
@@ -250,7 +245,6 @@ export const useMilkdownEditorInstance = ({
     onContentChanged,
     onDocumentStatusChanged,
     onHeadingOutlineChanged,
-    onMarkdownUpdated,
     onOpenMarkdownPath,
     onReadMarkdownPath,
     wikiCompletionPaths,
@@ -259,11 +253,7 @@ export const useMilkdownEditorInstance = ({
   useImperativeHandle(
     ref,
     () => ({
-      getMarkdown: () => {
-        invariant(editorRef.current, "Milkdown editor is not available.");
-
-        return getMilkdownEditorMarkdown(editorRef.current);
-      },
+      getMarkdown: () => (editorRef.current ? getMilkdownEditorMarkdown(editorRef.current) : null),
       getHtmlExportSnapshot: () =>
         editorRef.current?.ctx ? getMilkdownEditorHtmlExportSnapshot(editorRef.current) : null,
       getCommandState: () => commandStateRef.current,
@@ -546,11 +536,6 @@ export const useMilkdownEditorInstance = ({
         }),
         isAutoPairEnabled: () => liveOptionsRef.current.autoPairBracketsAndQuotes,
         areCodeLineNumbersEnabled: () => liveOptionsRef.current.displayCodeBlockLineNumbers,
-        onMarkdownUpdated: (update) => {
-          if (isActiveEditorCallback()) {
-            liveOptionsRef.current.onMarkdownUpdated?.(update);
-          }
-        },
         onContentChanged: () => {
           if (isActiveEditorCallback()) {
             liveOptionsRef.current.onContentChanged?.();

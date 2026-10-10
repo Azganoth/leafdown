@@ -202,6 +202,25 @@ const serializeActiveDocumentForSave = (
   };
 };
 
+/**
+ * The session holds a document's text only as it was opened or saved, and reads edits from its
+ * editor. An editor that lets go of an edited document that stays open hands its text over, so
+ * Save, or the next editor, does not fall back to the text from before the edits.
+ */
+export const retainEditorMarkdown = (documentKey: string) => {
+  const { activeDocument, setActiveDocumentContent } = useSessionStore.getState();
+
+  if (!activeDocument?.isDirty || !matchesActiveDocumentKey(activeDocument, documentKey)) {
+    return;
+  }
+
+  const markdown = documentEditorBridge.getMarkdown(documentKey);
+
+  if (markdown !== null) {
+    setActiveDocumentContent(documentKey, markdown);
+  }
+};
+
 const saveExistingMarkdownDocument = async (
   activeDocument: SavedDocumentState,
   serializedDocument: SerializedDocumentForSave,

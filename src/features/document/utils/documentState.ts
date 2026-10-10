@@ -18,6 +18,10 @@ export type ExternalFileChange =
 export interface SavedDocumentState {
   status: "saved";
   path: string;
+  /**
+   * The Markdown the document was opened, created, or last saved with. While an editor holds the
+   * document, its edits are read from the editor instead.
+   */
   content: string;
   isDirty: boolean;
   lineEnding: LineEnding | null;
@@ -33,6 +37,10 @@ export interface SavedDocumentState {
 export interface UntitledDocumentState {
   status: "untitled";
   id: string;
+  /**
+   * The Markdown the document was opened, created, or last saved with. While an editor holds the
+   * document, its edits are read from the editor instead.
+   */
   content: string;
   isDirty: boolean;
   lineEnding: LineEnding;

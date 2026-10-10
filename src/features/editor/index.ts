@@ -47,7 +47,6 @@ export {
   getMilkdownEditorHtmlExportSnapshot,
   getMilkdownEditorMarkdown,
   type MilkdownEditorInstance,
-  type MilkdownMarkdownUpdate,
 } from "./utils/createMilkdownEditor";
 export type { MarkdownReferenceContext } from "./utils/markdownReferences";
 export type { DocumentReplacementPlan } from "./utils/textReplacement";

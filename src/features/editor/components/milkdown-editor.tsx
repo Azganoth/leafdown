@@ -11,7 +11,6 @@ import {
   type EditorViewState,
   type MilkdownEditorBridge,
 } from "../hooks/useMilkdownEditorInstance";
-import type { MilkdownMarkdownUpdate } from "../utils/createMilkdownEditor";
 import type {
   DocumentFont,
   DocumentLineSpacing,
@@ -36,7 +35,6 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   wikiCompletionPaths?: string[];
   className?: string;
   ref?: Ref<MilkdownEditorBridge>;
-  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onContentChanged?: () => void;
   onCommandStateChanged?: () => void;
   onDocumentStatusChanged?: () => void;
@@ -59,7 +57,6 @@ export function MilkdownEditor({
   wikiCompletionPaths = [],
   className,
   ref,
-  onMarkdownUpdated,
   onContentChanged,
   onCommandStateChanged,
   onDocumentStatusChanged,
@@ -93,7 +90,6 @@ export function MilkdownEditor({
     folderContextPath,
     initialMarkdown,
     initialViewState,
-    onMarkdownUpdated,
     onContentChanged,
     onCommandStateChanged,
     onDocumentStatusChanged,

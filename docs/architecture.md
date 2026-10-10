@@ -57,7 +57,7 @@ Session and editor workflows request yes/no decisions through the shared confirm
 The runtime tracks three primary state values:
 
 - **Current folder context:** The directory used for article navigation and folder workflows.
-- **Active document:** The saved or untitled Markdown document currently loaded in the editor.
+- **Active document:** The saved or untitled Markdown document currently loaded in the editor. The session keeps the Markdown it was opened or last saved with; the editor holds the current text, which workflows such as Save and rename read through the editor bridge instead of a copy refreshed on each edit.
 - **Active document metadata:** File metadata and a content fingerprint utilized for dirty-state and external modification checks.
 
 ## Editor Architecture

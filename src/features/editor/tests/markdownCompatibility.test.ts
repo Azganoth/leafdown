@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { NodeSelection } from "@milkdown/kit/prose/state";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { BASIC_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
@@ -526,26 +526,6 @@ describe("Markdown compatibility", () => {
     const mounted = await mountEditor(`${source}\n\n[^note]: Detail`);
 
     expect(mounted.getMarkdown()).toBe(`${source}\n\n[^note]: Detail\n`);
-  });
-
-  it("uses logical link serialization for Markdown update listeners", async () => {
-    const onMarkdownUpdated = vi.fn();
-    const mounted = await mountEditor("[plain **bold**](first)\n\nTail", { onMarkdownUpdated });
-
-    vi.useFakeTimers();
-
-    try {
-      setSelectionAtDocumentEnd(mounted.view);
-      typeText(mounted.view, "!");
-      await vi.advanceTimersByTimeAsync(300);
-
-      expect(onMarkdownUpdated).toHaveBeenCalledWith({
-        markdown: "[plain **bold**](first)\n\nTail!\n",
-        previousMarkdown: "[plain **bold**](first)\n\nTail\n",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
   });
 
   // A placeholder is a private-use opening that spells its index, padded to the width of the source

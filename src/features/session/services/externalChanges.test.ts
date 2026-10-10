@@ -470,7 +470,6 @@ describe("external document changes", () => {
 
       const checking = checkActiveDocumentFile();
       await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
-      useSessionStore.getState().setActiveDocumentContent(TEST_MARKDOWN_FILE_PATH, "# Typed\n");
       useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
       reload.resolve(createReloadedDocument());
       await checking;
@@ -478,7 +477,7 @@ describe("external document changes", () => {
       expect(useSessionStore.getState()).toMatchObject({
         activeDocumentLoadId,
         activeDocument: {
-          content: "# Typed\n",
+          content: "# Before\n",
           isDirty: true,
           metadata: activeDocument.metadata,
           externalChange: {

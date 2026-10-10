@@ -139,6 +139,30 @@ describe("reopen with a chosen encoding", () => {
     });
   });
 
+  it("reloads the editor of a discarded edit whose session text still matches the file", async () => {
+    setDefaultSession({
+      folderContext: emptyNotesFolderContext,
+      activeDocument: createSavedDocument({ content: "# Plain", isDirty: true }),
+    });
+    mockTauriApi({
+      openMarkdownFile: () =>
+        createOpenedMarkdownDocument({
+          content: "# Plain",
+          encoding: { name: "windows-1252", bom: false },
+        }),
+    });
+    vi.mocked(requestConfirmation).mockResolvedValueOnce(true);
+
+    await expect(
+      reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
+    ).resolves.toBe(true);
+
+    expect(useSessionStore.getState()).toMatchObject({
+      activeDocumentLoadId: 1,
+      activeDocument: { content: "# Plain", isDirty: false },
+    });
+  });
+
   it("offers reopening from an encoding error and shows a failed choice the same way", async () => {
     mockTauriApiCommand("openMarkdownFile", () =>
       Promise.reject({

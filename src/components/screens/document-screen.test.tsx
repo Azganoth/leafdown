@@ -80,6 +80,41 @@ describe("DocumentScreen", () => {
     });
   });
 
+  it("keeps an edited document's text when its editor lets go while the document stays open", async () => {
+    const activeDocument = createUntitledDocument({ content: MARKDOWN });
+    const documentKey = getActiveDocumentKey(activeDocument);
+    setDefaultSession({ activeDocument });
+    const contentChanges: string[] = [];
+    const subscription = documentEditorBridge.onDidChangeContent((key) => contentChanges.push(key));
+    const { unmount } = render(<DocumentScreen activeDocument={activeDocument} />);
+    await waitFor(() => {
+      expect(documentEditorBridge.getCommandState(documentKey).status).toBe("ready");
+    });
+
+    act(() => {
+      expect(documentEditorBridge.insertLink(documentKey, "Guide", "guide.md")).toBe(true);
+    });
+    const edited = documentEditorBridge.getMarkdown(documentKey);
+
+    subscription.dispose();
+    expect(edited).toContain("[Guide](guide.md)");
+    expect(contentChanges).toEqual([documentKey]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      content: MARKDOWN,
+      isDirty: true,
+    });
+
+    unmount();
+
+    const retained = useSessionStore.getState().activeDocument!;
+    expect(retained).toMatchObject({ content: edited, isDirty: true });
+
+    render(<DocumentScreen activeDocument={retained} />);
+    await waitFor(() => {
+      expect(documentEditorBridge.getMarkdown(documentKey)).toBe(edited);
+    });
+  });
+
   it("navigates to an exact heading from the floating outline without editing", async () => {
     setDefaultSettings();
     const activeDocument = createUntitledDocument({

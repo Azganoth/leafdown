@@ -444,12 +444,6 @@ export const getSourceProjectionCanonicalState = (
   return { doc: transaction.doc, anchor, head };
 };
 
-export const hasTransientSourceProjection = (state: EditorState) => {
-  const projectionState = getSourceProjectionState(state);
-
-  return projectionState.session !== null || projectionState.pendingCommit !== null;
-};
-
 export const canUndoSourceProjection = (state: EditorState) => {
   const { session } = getSourceProjectionState(state);
 

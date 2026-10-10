@@ -34,17 +34,12 @@ import {
 const mountProjectionEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
-const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
 
 const getProjectedFootnoteSource = (mounted: MountedMilkdownEditor) =>
   Array.from(
     mounted.view.dom.querySelectorAll("[data-leafdown-source~='footnote-reference']"),
     (element) => element.textContent,
   ).join("");
-
-const waitForMarkdownUpdateListener = async () => {
-  await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
-};
 
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
@@ -1225,42 +1220,21 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).toBe("Text[^updated]\n\n[^note]: Detail\n");
     });
 
-    it("tracks only real edits and suppresses transient Markdown updates", async () => {
+    it("tracks only real edits", async () => {
       const onContentChanged = vi.fn();
-      const onMarkdownUpdated = vi.fn();
       const mounted = await mountProjectionEditor("Text[^note]\n\n[^note]: Detail", {
         onContentChanged,
-        onMarkdownUpdated,
       });
 
-      vi.useFakeTimers();
+      selectFootnoteReference(mounted);
 
-      try {
-        selectFootnoteReference(mounted);
-        await waitForMarkdownUpdateListener();
+      expect(onContentChanged).not.toHaveBeenCalled();
 
-        expect(onContentChanged).not.toHaveBeenCalled();
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+      expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
 
-        expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
-        await waitForMarkdownUpdateListener();
-
-        expect(onContentChanged).toHaveBeenCalledTimes(1);
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
-        expect(mounted.getMarkdown()).toBe("Text[^updated]\n\n[^note]: Detail\n");
-        expect(onContentChanged).toHaveBeenCalledTimes(1);
-
-        await waitForMarkdownUpdateListener();
-
-        expect(onMarkdownUpdated).toHaveBeenCalledWith(
-          expect.objectContaining({
-            markdown: "Text[^updated]\n\n[^note]: Detail\n",
-          }),
-        );
-        expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+      expect(mounted.getMarkdown()).toBe("Text[^updated]\n\n[^note]: Detail\n");
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
     });
 
     it("preserves the caret when active invalid source is finalized for saving", async () => {
@@ -1359,41 +1333,20 @@ describe("source projection", () => {
       expect(mounted.getMarkdown()).not.toContain("[^updated]:");
     });
 
-    it("tracks only marked-fragment edits and emits the finalized Markdown update", async () => {
+    it("tracks only marked-fragment edits", async () => {
       const onContentChanged = vi.fn();
-      const onMarkdownUpdated = vi.fn();
       const mounted = await mountProjectionEditor("**Text[^note]**\n\n[^note]: Detail", {
         onContentChanged,
-        onMarkdownUpdated,
       });
 
-      vi.useFakeTimers();
+      selectFootnoteReference(mounted);
 
-      try {
-        selectFootnoteReference(mounted);
-        await waitForMarkdownUpdateListener();
+      expect(onContentChanged).not.toHaveBeenCalled();
 
-        expect(onContentChanged).not.toHaveBeenCalled();
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
+      expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
 
-        expect(pasteIntoSourceProjection(mounted.view, "updated")).toBe(true);
-        await waitForMarkdownUpdateListener();
-
-        expect(onContentChanged).toHaveBeenCalledTimes(1);
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
-        expect(mounted.getMarkdown()).toBe("**Text[^updated]**\n\n[^note]: Detail\n");
-
-        await waitForMarkdownUpdateListener();
-
-        expect(onMarkdownUpdated).toHaveBeenCalledWith(
-          expect.objectContaining({
-            markdown: "**Text[^updated]**\n\n[^note]: Detail\n",
-          }),
-        );
-        expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(onContentChanged).toHaveBeenCalledTimes(1);
+      expect(mounted.getMarkdown()).toBe("**Text[^updated]**\n\n[^note]: Detail\n");
     });
 
     it.each([

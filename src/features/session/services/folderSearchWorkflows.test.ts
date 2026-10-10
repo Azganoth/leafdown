@@ -215,12 +215,18 @@ describe("folder search workflows", () => {
     expect(useFolderSearchStore.getState().results?.skipped).toEqual([]);
 
     editor.text = "edited leaf\nleaf\nleaf";
-    useSessionStore.getState().setActiveDocumentContent(ALPHA, "edited");
+    documentEditorBridge.fireContentChanged(ALPHA);
 
     expect(summarize()).toEqual([
-      [ALPHA, 3],
+      [ALPHA, 2],
       [BETA, 2],
     ]);
+    await vi.waitFor(() =>
+      expect(summarize()).toEqual([
+        [ALPHA, 3],
+        [BETA, 2],
+      ]),
+    );
     expect(useSessionStore.getState().activeDocument).toMatchObject({ isDirty: true });
     expect(countTauriApiCalls("saveMarkdownFile")).toBe(0);
   });

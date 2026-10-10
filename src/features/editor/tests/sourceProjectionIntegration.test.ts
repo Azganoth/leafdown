@@ -26,12 +26,6 @@ import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 const mountProjectionEditor = setupMilkdownEditorMount({
   rootClassName: EDITOR_TEST_ROOT_CLASS_NAME,
 });
-const MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS = 300;
-
-const waitForMarkdownUpdateListener = async () => {
-  await vi.advanceTimersByTimeAsync(MARKDOWN_UPDATE_LISTENER_DEBOUNCE_MS);
-};
-
 const runCommand = async (mounted: MountedMilkdownEditor, commandId: "edit.redo" | "edit.undo") =>
   runEditorCommand(mounted.editor, commandId);
 
@@ -374,35 +368,6 @@ describe("source projection integration", () => {
       expect(hasActiveSourceProjection(mounted.view.state)).toBe(false);
       expect(mounted.view.state.selection.empty).toBe(false);
       expect(getSelectedEditorText(mounted)).toBe("Bold plain");
-    });
-
-    it("does not emit transient projected source through markdown updates", async () => {
-      const onMarkdownUpdated = vi.fn();
-      const mounted = await mountProjectionEditor(BOLD_PLAIN_MARKDOWN, { onMarkdownUpdated });
-
-      vi.useFakeTimers();
-
-      try {
-        enterProjection(mounted, "strong");
-        await waitForMarkdownUpdateListener();
-
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
-
-        typeText(mounted.view, "er");
-        await waitForMarkdownUpdateListener();
-
-        expect(onMarkdownUpdated).not.toHaveBeenCalled();
-
-        setSelectionAtDocumentEnd(mounted.view);
-        await waitForMarkdownUpdateListener();
-
-        expect(onMarkdownUpdated).toHaveBeenCalledWith(
-          expect.objectContaining({ markdown: "**Bolder** plain\n" }),
-        );
-        expect(onMarkdownUpdated).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.useRealTimers();
-      }
     });
 
     it("serializes one logical mixed link after finalizing active projected source", async () => {

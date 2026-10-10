@@ -9,6 +9,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Added
 
 - Give Markdown files associated with Leafdown a dedicated folded-page icon with the green leaf and Markdown symbol, separate from the application icon. Both Windows installers include it without changing your default app.
+- List a folder's other files, such as images and PDFs, in the article navigator, so a folder holding only those no longer looks empty. They are dimmed, hovering one says that Leafdown can only open Markdown files, and choosing one does nothing; its context menu can still reveal it in File Explorer or copy its path. The article count, the filter, Find in folder, and wiki link suggestions still cover Markdown files only.
 
 ### Fixed
 

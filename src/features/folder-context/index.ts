@@ -36,6 +36,8 @@ export { useArticleNavigatorStore } from "./stores/articleNavigator";
 export {
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
+  getArticlePaths,
+  getArticleTreeEntryPaths,
 } from "./utils/articleNavigatorRows";
 export {
   getFolderEntryErrorMessage,

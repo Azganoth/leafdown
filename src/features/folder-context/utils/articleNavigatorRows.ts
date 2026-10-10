@@ -23,6 +23,10 @@ export interface ArticleNavigatorFileRow extends ArticleNavigatorRowBase {
   isActive: boolean;
 }
 
+export interface ArticleNavigatorUnsupportedFileRow extends ArticleNavigatorRowBase {
+  kind: "unsupportedFile";
+}
+
 export type ArticleNavigatorEntryKind = "directory" | "file";
 
 /** The row that holds the name of an entry being created, before it exists on disk. */
@@ -33,6 +37,7 @@ export interface ArticleNavigatorDraftRow extends ArticleNavigatorRowBase {
 
 export type ArticleNavigatorRow =
   | ArticleNavigatorFileRow
+  | ArticleNavigatorUnsupportedFileRow
   | ArticleNavigatorDirectoryRow
   | ArticleNavigatorDraftRow;
 
@@ -81,41 +86,23 @@ export const buildArticleNavigatorRows = ({
   return entries.map(({ depth, node }, index): ArticleNavigatorRow => {
     const { parentIndex, posInSet, setSize } = positions[index];
 
-    if (node.kind === "draft") {
-      return {
-        kind: "draft",
-        depth,
-        entryKind: node.entryKind,
-        name: node.name,
-        parentIndex,
-        path: node.path,
-        posInSet,
-        setSize,
-      };
-    }
+    const base = { depth, name: node.name, parentIndex, path: node.path, posInSet, setSize };
 
-    return node.kind === "file"
-      ? {
-          kind: "file",
-          depth,
-          isActive: activeArticlePaths.has(node.path),
-          name: node.name,
-          parentIndex,
-          path: node.path,
-          posInSet,
-          setSize,
-        }
-      : {
+    switch (node.kind) {
+      case "draft":
+        return { ...base, kind: "draft", entryKind: node.entryKind };
+      case "file":
+        return { ...base, kind: "file", isActive: activeArticlePaths.has(node.path) };
+      case "unsupportedFile":
+        return { ...base, kind: "unsupportedFile" };
+      case "directory":
+        return {
+          ...base,
           kind: "directory",
-          depth,
           hasChildren: node.children.length > 0,
           isExpanded: expandedDirectoryPathSet.has(node.path),
-          name: node.name,
-          parentIndex,
-          path: node.path,
-          posInSet,
-          setSize,
         };
+    }
   });
 };
 
@@ -129,6 +116,12 @@ export const getArticleNavigatorRowIndexes = (rows: ArticleNavigatorRow[]) => {
 
 export const getArticleDirectoryPaths = (tree: ArticleTree) =>
   flattenArticleTree(tree).flatMap(({ node }) => (node.kind === "directory" ? [node.path] : []));
+
+export const getArticlePaths = (tree: ArticleTree) =>
+  flattenArticleTree(tree).flatMap(({ node }) => (node.kind === "file" ? [node.path] : []));
+
+export const getArticleTreeEntryPaths = (tree: ArticleTree) =>
+  flattenArticleTree(tree).map(({ node }) => node.path);
 
 export const getArticleFileCount = (tree: ArticleTree) =>
   flattenArticleTree(tree).filter(({ node }) => node.kind === "file").length;
@@ -151,13 +144,17 @@ const filterArticleTreeNodesByArticleName = (
   normalizedQuery: string,
 ): ArticleTreeNode[] =>
   nodes.flatMap((node): ArticleTreeNode[] => {
-    if (node.kind === "file") {
-      return node.name.toLowerCase().includes(normalizedQuery) ? [node] : [];
+    switch (node.kind) {
+      case "file":
+        return node.name.toLowerCase().includes(normalizedQuery) ? [node] : [];
+      case "unsupportedFile":
+        return [];
+      case "directory": {
+        const children = filterArticleTreeNodesByArticleName(node.children, normalizedQuery);
+
+        return children.length > 0 ? [{ ...node, children }] : [];
+      }
     }
-
-    const children = filterArticleTreeNodesByArticleName(node.children, normalizedQuery);
-
-    return children.length > 0 ? [{ ...node, children }] : [];
   });
 export const getArticleAncestorDirectoryPaths = (
   tree: ArticleTree,

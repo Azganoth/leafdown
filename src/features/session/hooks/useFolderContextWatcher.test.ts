@@ -39,6 +39,14 @@ const dottedDirectoryFolderContext = createFolderContext({
     ],
   }),
 });
+const unsupportedFileFolderContext = createFolderContext({
+  tree: createArticleTree({
+    children: [
+      ...notesFolderTree.children,
+      { kind: "unsupportedFile", name: "cover.png", path: "C:/Notes/cover.png" },
+    ],
+  }),
+});
 
 interface FolderContextWatchScope {
   generation: number;
@@ -57,7 +65,7 @@ const createFolderContextChangedEvent = (
   payload: {
     folderPath: "C:/Notes",
     paths: ["C:/Notes/new.md"],
-    possibleDirectoryPaths: [],
+    possibleEntryPaths: [],
     ...payload,
   },
 });
@@ -464,7 +472,7 @@ describe("useFolderContextWatcher", () => {
         getFolderChangedHandler()(
           createFolderContextChangedEvent({
             paths: [],
-            possibleDirectoryPaths: ["C:\\Notes\\notes.d"],
+            possibleEntryPaths: ["C:\\Notes\\notes.d"],
           }),
         );
         await advanceFolderRefreshTimer();
@@ -473,7 +481,29 @@ describe("useFolderContextWatcher", () => {
         expect(useSessionStore.getState().folderContext?.tree).toEqual(notesFolderTree);
       });
 
-      it("ignores vanished paths the navigator does not show as directories", async () => {
+      it("refreshes when a vanished path is an unsupported file the navigator shows", async () => {
+        setDefaultSession({ folderContext: unsupportedFileFolderContext });
+        mockTauriApi({
+          scanMarkdownFolder: () => notesFolderContext,
+          watchMarkdownFolder: () => undefined,
+          unwatchMarkdownFolder: () => undefined,
+        });
+
+        renderHook(() => useFolderContextWatcher());
+
+        getFolderChangedHandler()(
+          createFolderContextChangedEvent({
+            paths: [],
+            possibleEntryPaths: ["C:\\Notes\\cover.png"],
+          }),
+        );
+        await advanceFolderRefreshTimer();
+
+        expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
+        expect(useSessionStore.getState().folderContext?.tree).toEqual(notesFolderTree);
+      });
+
+      it("ignores vanished paths the navigator does not show", async () => {
         setDefaultSession({ folderContext: dottedDirectoryFolderContext });
         mockTauriApi({
           scanMarkdownFolder: () => notesFolderContext,
@@ -486,7 +516,7 @@ describe("useFolderContextWatcher", () => {
         getFolderChangedHandler()(
           createFolderContextChangedEvent({
             paths: [],
-            possibleDirectoryPaths: ["C:/Notes/notes.txt", "C:/Notes/notes.d/a.md"],
+            possibleEntryPaths: ["C:/Notes/notes.txt", "C:/Notes/notes.d/cover.png"],
           }),
         );
         await advanceFolderRefreshTimer();
@@ -520,7 +550,7 @@ describe("useFolderContextWatcher", () => {
         getFolderChangedHandler()(
           createFolderContextChangedEvent({
             paths: [],
-            possibleDirectoryPaths: ["C:/Notes/notes.d"],
+            possibleEntryPaths: ["C:/Notes/notes.d"],
           }),
         );
         firstScan.resolve(dottedDirectoryFolderContext);

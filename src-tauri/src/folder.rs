@@ -65,6 +65,10 @@ pub(crate) enum MarkdownFolderTreeNode {
         name: String,
         path: String,
     },
+    UnsupportedFile {
+        name: String,
+        path: String,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -468,10 +472,14 @@ mod tests {
         ScanMarkdownFolderError, defaults::ignored_directories, open_folder, scan_folder,
         scan_folder_metadata_error, scan_folder_read_error, scan_folder_with_depth,
     };
-    use crate::{document::OpenMarkdownFileError, test_utils::TestDirectory};
+    use crate::{
+        document::OpenMarkdownFileError,
+        file_utils::staging_path,
+        test_utils::{TestDirectory, create_file_symlink},
+    };
 
     #[test]
-    fn scans_markdown_files_and_keeps_non_ignored_directories() {
+    fn scans_markdown_and_unsupported_files_and_keeps_non_ignored_directories() {
         let root = TestDirectory::new("scan-markdown-folder");
         root.write_file("readme.md");
         root.write_file("notes.MARKDOWN");
@@ -480,6 +488,7 @@ mod tests {
         root.write_file("notes.txt");
         root.write_file("notes.text");
         root.write_file("nested/draft.md");
+        root.write_file("nested/cover.png");
         root.create_directory("empty");
 
         let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
@@ -493,6 +502,10 @@ mod tests {
         assert!(tree_has_file(&result.tree, "draft.md"));
         assert!(!tree_has_file(&result.tree, "notes.txt"));
         assert!(!tree_has_file(&result.tree, "notes.text"));
+        assert!(tree_has_unsupported_file(&result.tree, "notes.txt"));
+        assert!(tree_has_unsupported_file(&result.tree, "notes.text"));
+        assert!(tree_has_unsupported_file(&result.tree, "cover.png"));
+        assert!(!tree_has_unsupported_file(&result.tree, "readme.md"));
         assert!(tree_has_directory(&result.tree, "empty"));
     }
 
@@ -500,12 +513,14 @@ mod tests {
     fn skips_default_ignored_directories_with_platform_case_behavior() {
         let root = TestDirectory::new("scan-ignored-folders");
         root.write_file(".cache/hidden.md");
+        root.write_file(".cache/hidden.png");
         root.write_file("NODE_MODULES/dependency.md");
 
         let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
             .expect("folder with ignored directories should scan");
 
         assert!(!tree_has_file(&result.tree, "hidden.md"));
+        assert!(!tree_has_unsupported_file(&result.tree, "hidden.png"));
 
         if cfg!(windows) {
             assert!(!tree_has_file(&result.tree, "dependency.md"));
@@ -526,6 +541,59 @@ mod tests {
         assert!(result.is_empty);
         assert!(tree_has_directory(&result.tree, "nested"));
         assert!(tree_has_directory(&result.tree, "empty"));
+        assert!(tree_has_unsupported_file(&result.tree, "ignored.txt"));
+    }
+
+    #[test]
+    fn distinguishes_unsupported_only_directories_from_empty_directories() {
+        let root = TestDirectory::new("scan-unsupported-only-folder");
+        root.write_file("assets/cover.png");
+        root.write_file("assets/manual.pdf");
+        root.create_directory("empty");
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("folder without Markdown files should scan");
+
+        assert!(result.is_empty);
+        assert_eq!(
+            directory_child_names(&result.tree, "assets"),
+            Some(vec!["cover.png", "manual.pdf"])
+        );
+        assert_eq!(directory_child_names(&result.tree, "empty"), Some(vec![]));
+    }
+
+    #[test]
+    fn does_not_list_save_staging_files() {
+        let root = TestDirectory::new("scan-staging-file");
+        let document_path = root.write_file("notes.md");
+        let staging_name = staging_path(document_path.as_path())
+            .file_name()
+            .expect("staging path should have a file name")
+            .to_string_lossy()
+            .into_owned();
+        root.write_file(staging_name.as_str());
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("folder with a staging file should scan");
+
+        assert_eq!(direct_child_names(&result.tree), vec!["notes.md"]);
+    }
+
+    #[test]
+    fn does_not_list_file_symlinks() {
+        let root = TestDirectory::new("scan-file-symlink-root");
+        let target = TestDirectory::new("scan-file-symlink-target");
+        let target_path = target.write_file("cover.png");
+        let symlink_path = root.path.join("linked.png");
+
+        if create_file_symlink(&target_path, &symlink_path).is_err() {
+            return;
+        }
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("folder with a file symlink should scan");
+
+        assert!(!tree_has_unsupported_file(&result.tree, "linked.png"));
     }
 
     #[test]
@@ -578,10 +646,29 @@ mod tests {
     }
 
     #[test]
+    fn sorts_unsupported_files_among_articles_by_name() {
+        let root = TestDirectory::new("scan-unsupported-name-sort");
+        root.write_file("gamma.md");
+        root.write_file("Beta.png");
+        root.write_file("alpha.md");
+        root.create_directory("zeta");
+
+        let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Name)
+            .expect("folder should scan with name sorting");
+
+        assert_eq!(
+            direct_child_names(&result.tree),
+            vec!["zeta", "alpha.md", "Beta.png", "gamma.md"]
+        );
+    }
+
+    #[test]
     fn sorts_tree_nodes_by_type_when_configured() {
         let root = TestDirectory::new("scan-type-sort");
         root.write_file("zeta.md");
         root.write_file("alpha.markdown");
+        root.write_file("cover.png");
+        root.write_file("appendix.md");
         root.create_directory("notes");
 
         let result = scan_folder(&root.path, ignored_directories(), FileTreeSortOrder::Type)
@@ -589,7 +676,13 @@ mod tests {
 
         assert_eq!(
             direct_child_names(&result.tree),
-            vec!["notes", "alpha.markdown", "zeta.md"]
+            vec![
+                "notes",
+                "alpha.markdown",
+                "appendix.md",
+                "zeta.md",
+                "cover.png"
+            ]
         );
     }
 
@@ -625,6 +718,26 @@ mod tests {
         assert_eq!(
             direct_child_names(&result.tree),
             vec!["newer.md", "older.md"]
+        );
+    }
+
+    #[test]
+    fn sorts_unsupported_files_among_articles_by_modified_date() {
+        let root = TestDirectory::new("scan-unsupported-modified-date-sort");
+        write_file_with_modified_time(&root, "older.md", 1_700_000_000_000);
+        write_file_with_modified_time(&root, "middle.png", 1_700_000_001_000);
+        write_file_with_modified_time(&root, "newer.md", 1_700_000_002_000);
+
+        let result = scan_folder(
+            &root.path,
+            ignored_directories(),
+            FileTreeSortOrder::ModifiedDate,
+        )
+        .expect("folder should scan with modified-date sorting");
+
+        assert_eq!(
+            direct_child_names(&result.tree),
+            vec!["newer.md", "middle.png", "older.md"]
         );
     }
 
@@ -718,6 +831,25 @@ mod tests {
 
         let markdown = root.write_file("readme.markdown");
         assert_eq!(open_index_path(), markdown.to_string_lossy());
+    }
+
+    #[test]
+    fn does_not_open_unsupported_files_named_as_indexes() {
+        let root = TestDirectory::new("open-unsupported-index");
+        root.write_file("readme.txt");
+        root.write_file("index.html");
+
+        let result = open_folder(
+            &root.path,
+            vec!["readme".to_owned(), "index".to_owned()],
+            ignored_directories(),
+            FileTreeSortOrder::Name,
+        )
+        .expect("folder with unsupported index names should open");
+
+        assert!(result.index_document.is_none());
+        assert!(result.index_error.is_none());
+        assert!(result.folder.is_empty);
     }
 
     #[test]
@@ -845,11 +977,29 @@ mod tests {
     }
 
     fn direct_child_names(tree: &MarkdownFolderTree) -> Vec<&str> {
-        tree.children
+        node_names(&tree.children)
+    }
+
+    fn directory_child_names<'a>(tree: &'a MarkdownFolderTree, name: &str) -> Option<Vec<&'a str>> {
+        tree.children.iter().find_map(|child| match child {
+            MarkdownFolderTreeNode::Directory {
+                name: child_name,
+                children,
+                ..
+            } if child_name == name => Some(node_names(children)),
+            MarkdownFolderTreeNode::Directory { .. }
+            | MarkdownFolderTreeNode::File { .. }
+            | MarkdownFolderTreeNode::UnsupportedFile { .. } => None,
+        })
+    }
+
+    fn node_names(nodes: &[MarkdownFolderTreeNode]) -> Vec<&str> {
+        nodes
             .iter()
-            .map(|child| match child {
+            .map(|node| match node {
                 MarkdownFolderTreeNode::Directory { name, .. }
-                | MarkdownFolderTreeNode::File { name, .. } => name.as_str(),
+                | MarkdownFolderTreeNode::File { name, .. }
+                | MarkdownFolderTreeNode::UnsupportedFile { name, .. } => name.as_str(),
             })
             .collect()
     }
@@ -899,19 +1049,13 @@ mod tests {
                 children,
                 ..
             } => child_name == name || child_nodes_have_directory(children, name),
-            MarkdownFolderTreeNode::File { .. } => false,
+            MarkdownFolderTreeNode::File { .. }
+            | MarkdownFolderTreeNode::UnsupportedFile { .. } => false,
         })
     }
 
     fn tree_has_file(tree: &MarkdownFolderTree, name: &str) -> bool {
-        tree.children.iter().any(|child| match child {
-            MarkdownFolderTreeNode::Directory { children, .. } => {
-                child_nodes_have_file(children, name)
-            }
-            MarkdownFolderTreeNode::File {
-                name: child_name, ..
-            } => child_name == name,
-        })
+        child_nodes_have_file(&tree.children, name)
     }
 
     fn child_nodes_have_file(children: &[MarkdownFolderTreeNode], name: &str) -> bool {
@@ -922,6 +1066,23 @@ mod tests {
             MarkdownFolderTreeNode::File {
                 name: child_name, ..
             } => child_name == name,
+            MarkdownFolderTreeNode::UnsupportedFile { .. } => false,
+        })
+    }
+
+    fn tree_has_unsupported_file(tree: &MarkdownFolderTree, name: &str) -> bool {
+        child_nodes_have_unsupported_file(&tree.children, name)
+    }
+
+    fn child_nodes_have_unsupported_file(children: &[MarkdownFolderTreeNode], name: &str) -> bool {
+        children.iter().any(|child| match child {
+            MarkdownFolderTreeNode::Directory { children, .. } => {
+                child_nodes_have_unsupported_file(children, name)
+            }
+            MarkdownFolderTreeNode::UnsupportedFile {
+                name: child_name, ..
+            } => child_name == name,
+            MarkdownFolderTreeNode::File { .. } => false,
         })
     }
 

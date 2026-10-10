@@ -42,7 +42,13 @@ export interface ArticleFileNode {
   path: string;
 }
 
-export type ArticleTreeNode = ArticleDirectoryNode | ArticleFileNode;
+export interface UnsupportedFileNode {
+  kind: "unsupportedFile";
+  name: string;
+  path: string;
+}
+
+export type ArticleTreeNode = ArticleDirectoryNode | ArticleFileNode | UnsupportedFileNode;
 
 export interface FolderIndexDocument {
   path: string;
@@ -118,7 +124,7 @@ export type WatchMarkdownFolderError =
 export interface FolderContextChangedEventPayload {
   folderPath: string;
   paths: string[];
-  possibleDirectoryPaths: string[];
+  possibleEntryPaths: string[];
 }
 
 export interface FolderContextWatchErrorEventPayload {

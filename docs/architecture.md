@@ -46,7 +46,8 @@ Session and editor workflows request yes/no decisions through the shared confirm
 
 - **Folder context:** the runtime root folder used for scanning, navigation, path resolution, and watching. It creates no metadata.
 - **Article:** a supported Markdown file.
-- **Article navigator:** the presentation of articles within a folder context.
+- **Article navigator:** the presentation of a folder context's articles, directories, and unsupported files.
+- **Unsupported file:** a regular file in a folder context that is not an article. The article navigator lists it but never opens it.
 - **Session:** the active document, when one exists, plus an optional folder context.
 - **Source projection:** a temporary editable source representation of a supported Markdown object while the editor retains its canonical document model.
 - **Workspace:** not an application domain term; Leafdown creates neither a workspace model nor workspace metadata.
@@ -142,11 +143,11 @@ The Rust backend manages:
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Reading an image for HTML export through the same resolution the editor renders with, bounded in size and checked for a PNG, JPEG, GIF, WebP, or SVG signature, and writing exported HTML atomically to an `.html` or `.htm` path that is not the source document.
 - Fetching a user-approved remote image under the remote image policy: `https:` only, public destination addresses checked at DNS resolution and for IP literals, re-validated redirects, bounded time and size, and a PNG, JPEG, GIF, or WebP signature. Image resolution never fetches.
-- Directory scanning and article-tree generation.
+- Directory scanning and article-tree generation, marking each file as an article or an unsupported file and leaving out save staging files.
 - Reading a folder context's articles for a search in bounded batches through the document loader, answering `unchanged` instead of the text for a file whose metadata matches the version already read, and refusing paths outside the folder context or naming symbolic links.
 - Writing a folder replacement in bounded batches: checking each planned file against the metadata and fingerprint it was planned from, reading the whole file rather than trusting its metadata, and encoding its text strictly, first for every file without writing and again for each file just before its atomic write. A file that changed is left as it is, a failure is reported per file, and the same folder and symbolic-link refusals apply.
 - Creating Markdown files and folders, renaming entries, and moving entries to the system Recycle Bin or Trash inside the current folder context. Each operation resolves its target's parent through the filesystem and refuses one outside the folder context, so the root itself is never renamed or trashed. It refuses names the platform cannot hold, never replaces an existing entry, and never falls back to permanent deletion.
-- Filesystem watching to monitor directory changes: the folder context for the article tree, and the active document's directory, non-recursively, for events naming that file. A symlinked document is watched under its own name and its target's.
+- Filesystem watching to monitor directory changes: the folder context for the article tree, where an unsupported file matters only when it appears, vanishes, or is renamed, and the active document's directory, non-recursively, for events naming that file. A symlinked document is watched under its own name and its target's.
 - Inspecting the active document's file against its recorded metadata and fingerprint, reading the file's bytes only when the metadata differs.
 - Intercepting window close requests to prompt for unsaved changes before exit, and closing the window on the next request when the frontend leaves one unanswered.
 - Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
@@ -192,7 +193,7 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 - Preferences own persisted settings and session history.
 - Release notes own a separate persisted record of the last launched version and versions whose notes were shown. The current dialog and version are runtime state.
 - The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
-- Folder scans return a nested Markdown article tree. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator.
+- Folder scans return a nested tree of directory, article (`file`), and `unsupportedFile` nodes, with `isEmpty` set when it holds no article. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator. Only article nodes reach opening, the article count and filter, folder search and replace, and wiki-link completion.
 
 ## Data Flow
 

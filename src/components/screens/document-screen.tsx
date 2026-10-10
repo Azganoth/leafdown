@@ -14,7 +14,7 @@ import {
   type HeadingOutlineState,
   type MilkdownEditorBridge,
 } from "@/features/editor";
-import type { ArticleTreeNode } from "@/features/folder-context";
+import { getArticlePaths } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import {
   documentEditorBridge,
@@ -41,9 +41,6 @@ const handleOpenMarkdownPath = async (path: string, heading?: string) => {
   }
 };
 
-const articlePaths = (nodes: ArticleTreeNode[]): string[] =>
-  nodes.flatMap((node) => (node.kind === "file" ? [node.path] : articlePaths(node.children)));
-
 export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const { t } = useLocalization();
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
@@ -59,7 +56,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextPath = useSessionStore(getSessionFolderPath);
   const wikiCompletionPaths = useMemo(
-    () => (folderContext ? articlePaths(folderContext.tree.children) : []),
+    () => (folderContext ? getArticlePaths(folderContext.tree) : []),
     [folderContext],
   );
   const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);

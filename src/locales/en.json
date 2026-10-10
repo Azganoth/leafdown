@@ -497,6 +497,7 @@
   "articleNavigator.scanWarnings": "Some folder entries could not be scanned. {count, plural, one {# issue found.} other {# issues found.}}",
   "articleNavigator.tree.label": "Articles",
   "articleNavigator.draftRow.label": "{entryKind, select, file {New file} other {New folder}}",
+  "articleNavigator.unsupportedFile.description": "Leafdown can only open Markdown files.",
   "articleNavigator.nameEditor.label": "{entryKind, select, file {File name} other {Folder name}}",
   "folderSearch.title": "Search in {folder}",
   "folderSearch.close": "Close search",

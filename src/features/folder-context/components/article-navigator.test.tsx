@@ -4,11 +4,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FolderContextState } from "@/features/folder-context";
 import {
+  createArticleTree,
   createEmptyFolderContext,
   createFolderContext,
   createNestedArticleTree,
 } from "@/test/factories/folderContext";
-import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
+import {
+  TEST_MARKDOWN_FILE_PATH,
+  TEST_NESTED_DIRECTORY_PATH,
+  TEST_NOTES_FOLDER_PATH,
+} from "@/test/fixtures/paths";
 import { act, render, renderWithUser, screen, setupUser, waitFor } from "@/test/utils/react";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
@@ -565,6 +570,140 @@ describe("article-navigator", () => {
   });
 });
 
+const mixedFolderTree = createArticleTree({
+  children: [
+    {
+      kind: "directory",
+      name: "assets",
+      path: `${TEST_NOTES_FOLDER_PATH}/assets`,
+      children: [
+        {
+          kind: "unsupportedFile",
+          name: "cover.png",
+          path: `${TEST_NOTES_FOLDER_PATH}/assets/cover.png`,
+        },
+      ],
+    },
+    { kind: "directory", name: "empty", path: `${TEST_NOTES_FOLDER_PATH}/empty`, children: [] },
+    { kind: "unsupportedFile", name: "manual.pdf", path: `${TEST_NOTES_FOLDER_PATH}/manual.pdf` },
+    { kind: "file", name: "readme.md", path: TEST_MARKDOWN_FILE_PATH },
+  ],
+});
+
+const mixedFolderContext = createFolderContext({ tree: mixedFolderTree });
+
+describe("article-navigator unsupported files", () => {
+  beforeEach(() => useArticleNavigatorStore.getState().reset());
+
+  it("shows unsupported files as rows that say Leafdown cannot open them", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByRole("treeitem", { name: "manual.pdf" });
+
+    expect(row).toHaveAttribute("aria-description", "Leafdown can only open Markdown files.");
+    expect(row).toHaveAttribute(
+      "title",
+      `${TEST_NOTES_FOLDER_PATH}/manual.pdf\nLeafdown can only open Markdown files.`,
+    );
+    expect(row).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).not.toHaveAttribute(
+      "aria-description",
+    );
+  });
+
+  it("focuses an unsupported file without opening it from a click, Enter, or Space", async () => {
+    const onOpenArticle = vi.fn();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={onOpenArticle}
+      />,
+    );
+
+    const row = screen.getByRole("treeitem", { name: "manual.pdf" });
+    await user.click(row);
+
+    expect(row).toHaveFocus();
+    expect(row).toHaveAttribute("tabindex", "0");
+
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+
+    expect(onOpenArticle).not.toHaveBeenCalled();
+    expect(row).toHaveFocus();
+  });
+
+  it("tells a folder of unsupported files from an empty folder", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const assets = screen.getByRole("treeitem", { name: "assets" });
+
+    expect(assets).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("treeitem", { name: "empty" })).not.toHaveAttribute("aria-expanded");
+
+    assets.focus();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+
+    expect(screen.getByRole("treeitem", { name: "cover.png" })).toHaveFocus();
+  });
+
+  it("counts and filters articles only", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("1 article")).toHaveTextContent(/^1$/u);
+
+    const filter = screen.getByRole("textbox", { name: "Filter articles" });
+    await user.type(filter, "manual");
+
+    expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
+    expect(screen.getByText("No matching articles.")).toBeInTheDocument();
+
+    await user.clear(filter);
+    await user.type(filter, "e");
+
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "manual.pdf" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "cover.png" })).not.toBeInTheDocument();
+  });
+
+  it("lists unsupported files beside the empty Markdown message", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={createEmptyFolderContext({
+          tree: createArticleTree({
+            children: mixedFolderTree.children.filter((child) => child.kind !== "file"),
+          }),
+        })}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "manual.pdf" })).toBeInTheDocument();
+    expect(screen.getByLabelText("0 articles")).toBeInTheDocument();
+  });
+});
+
 const createEntryActions = (): ArticleNavigatorEntryActions => ({
   copyPath: vi.fn(),
   createEntry: vi.fn(async (): Promise<ArticleNavigatorEntryActionResult> => ({
@@ -634,6 +773,45 @@ describe("article-navigator entry actions", () => {
       "Copy path",
       "Copy relative path",
     ]);
+  });
+
+  it("offers location and path actions, but no open, rename, or delete, on an unsupported file", async () => {
+    const actions = createEntryActions();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        actions={actions}
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+    const path = `${TEST_NOTES_FOLDER_PATH}/manual.pdf`;
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "manual.pdf" }),
+    });
+
+    expect(await screen.findByRole("menu", { name: "File actions" })).toBeInTheDocument();
+    expect(getMenuItemNames()).toEqual([
+      "New file",
+      "New folder",
+      "Open file location",
+      "Copy path",
+      "Copy relative path",
+    ]);
+
+    await user.click(screen.getByRole("menuitem", { name: "Open file location" }));
+
+    expect(actions.revealEntry).toHaveBeenCalledWith(path);
+
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByRole("treeitem", { name: "manual.pdf" }),
+    });
+    await user.click(await screen.findByRole("menuitem", { name: "New file" }));
+
+    expect(screen.getByRole("treeitem", { name: "New file" })).toHaveAttribute("aria-level", "1");
   });
 
   it("opens the focused row's menu from the keyboard and returns focus on Escape", async () => {

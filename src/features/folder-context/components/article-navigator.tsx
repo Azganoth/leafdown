@@ -1,6 +1,7 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  FileIcon,
   FileTextIcon,
   FolderIcon,
   FolderOpenIcon,
@@ -66,6 +67,7 @@ import {
   type ArticleNavigatorEntryKind,
   type ArticleNavigatorFileRow,
   type ArticleNavigatorRow,
+  type ArticleNavigatorUnsupportedFileRow,
 } from "../utils/articleNavigatorRows";
 import {
   ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS,
@@ -109,7 +111,8 @@ interface ArticleNavigatorProps {
 
 type ArticleNavigatorMenuTarget =
   | { kind: "root"; path: string }
-  | { kind: ArticleNavigatorEntryKind; parentPath: string; path: string };
+  | { kind: ArticleNavigatorEntryKind; parentPath: string; path: string }
+  | { kind: "unsupportedFile"; parentPath: string; path: string };
 
 type ArticleNavigatorEdit =
   | (ArticleNavigatorDraft & { kind: "create"; originPath: string | null })
@@ -160,6 +163,7 @@ export function ArticleNavigator({
     tree: filteredTree,
   });
   const hasRows = rows.length > 0;
+  const menuTargetLabelKind = menuTarget.kind === "unsupportedFile" ? "file" : menuTarget.kind;
   const renamingPath = edit?.kind === "rename" ? edit.path : null;
   const isEditing =
     edit !== null &&
@@ -203,7 +207,10 @@ export function ArticleNavigator({
   };
 
   const startCreate = (entryKind: ArticleNavigatorEntryKind) => {
-    const parentPath = menuTarget.kind === "file" ? menuTarget.parentPath : menuTarget.path;
+    const parentPath =
+      menuTarget.kind === "file" || menuTarget.kind === "unsupportedFile"
+        ? menuTarget.parentPath
+        : menuTarget.path;
 
     if (!isSamePath(parentPath, folderContext.path)) {
       expandDirectories([parentPath]);
@@ -220,7 +227,7 @@ export function ArticleNavigator({
   };
 
   const startRename = () => {
-    if (menuTarget.kind === "root") {
+    if (menuTarget.kind === "root" || menuTarget.kind === "unsupportedFile") {
       return;
     }
 
@@ -389,7 +396,7 @@ export function ArticleNavigator({
               {rowsContent}
             </ContextMenuTrigger>
             <ContextMenuContent
-              aria-label={t("articleNavigator.menu.label", { kind: menuTarget.kind })}
+              aria-label={t("articleNavigator.menu.label", { kind: menuTargetLabelKind })}
               className="min-w-48"
               finalFocus={getMenuFinalFocus}
             >
@@ -411,7 +418,7 @@ export function ArticleNavigator({
                   {t("articleNavigator.menu.newFolder")}
                 </ContextMenuItem>
               </ContextMenuGroup>
-              {menuTarget.kind !== "root" && (
+              {(menuTarget.kind === "file" || menuTarget.kind === "directory") && (
                 <>
                   <ContextMenuSeparator />
                   <ContextMenuGroup>
@@ -429,7 +436,7 @@ export function ArticleNavigator({
               <ContextMenuSeparator />
               <ContextMenuGroup>
                 <ContextMenuItem onClick={() => actions.revealEntry(menuTarget.path)}>
-                  {t("articleNavigator.menu.openLocation", { kind: menuTarget.kind })}
+                  {t("articleNavigator.menu.openLocation", { kind: menuTargetLabelKind })}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.copyPath(menuTarget.path)}>
                   {t("articleNavigator.menu.copyPath")}
@@ -791,10 +798,16 @@ function ArticleNavigatorTreeItem({
   virtualRow,
 }: ArticleNavigatorTreeItemProps) {
   const { t } = useLocalization();
-  const isFileRow = row.kind === "file" || (row.kind === "draft" && row.entryKind === "file");
+  const isUnsupportedFile = row.kind === "unsupportedFile";
+  const isFileRow =
+    row.kind === "file" || isUnsupportedFile || (row.kind === "draft" && row.entryKind === "file");
+  const unsupportedFileDescription = isUnsupportedFile
+    ? t("articleNavigator.unsupportedFile.description")
+    : undefined;
 
   return (
     <VirtualListItem
+      aria-description={unsupportedFileDescription}
       aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
       aria-label={
         row.kind === "draft"
@@ -809,6 +822,7 @@ function ArticleNavigatorTreeItem({
         buttonVariants({ variant: "ghost" }),
         "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
         "data-active:bg-accent/80 data-active:font-medium data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)] data-active:hover:bg-accent",
+        isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
       )}
       data-active={row.kind === "file" ? row.isActive : undefined}
       data-navigator-path={row.kind === "draft" ? undefined : row.path}
@@ -818,15 +832,19 @@ function ArticleNavigatorTreeItem({
       role="treeitem"
       style={{ paddingLeft: `${row.depth * 14 + (isFileRow ? 23 : 6)}px` }}
       tabIndex={isTabStop ? 0 : -1}
-      title={row.kind === "draft" ? undefined : row.path}
+      title={
+        row.kind === "draft"
+          ? undefined
+          : [row.path, unsupportedFileDescription].filter(Boolean).join("\n")
+      }
       virtualRow={virtualRow}
     >
       {row.kind === "directory" ? (
         <DirectoryRowContent nameEditor={nameEditor} row={row} />
-      ) : row.kind === "file" ? (
-        <ArticleRowContent nameEditor={nameEditor} row={row} />
-      ) : (
+      ) : row.kind === "draft" ? (
         <DraftRowContent entryKind={row.entryKind} nameEditor={nameEditor} />
+      ) : (
+        <FileRowContent nameEditor={nameEditor} row={row} />
       )}
     </VirtualListItem>
   );
@@ -855,16 +873,18 @@ function DirectoryRowContent({
   );
 }
 
-function ArticleRowContent({
+function FileRowContent({
   nameEditor,
   row,
 }: {
   nameEditor: ReactNode;
-  row: ArticleNavigatorFileRow;
+  row: ArticleNavigatorFileRow | ArticleNavigatorUnsupportedFileRow;
 }) {
+  const Icon = row.kind === "file" ? FileTextIcon : FileIcon;
+
   return (
     <>
-      <FileTextIcon className="size-3.5 text-muted-foreground" />
+      <Icon className="size-3.5 text-muted-foreground" />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
     </>
   );

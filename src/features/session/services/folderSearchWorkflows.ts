@@ -1,7 +1,7 @@
 import { getActiveDocumentKey, inspectMarkdownDocument } from "@/features/document";
 import {
+  getArticlePaths,
   useArticleNavigatorStore,
-  type ArticleTreeNode,
   type FolderContextState,
 } from "@/features/folder-context";
 import {
@@ -24,11 +24,6 @@ import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSessi
 
 // Typing waits this long for the query to settle before the folder is read for it.
 const QUERY_DELAY_MS = 200;
-
-const getTreeArticlePaths = (nodes: readonly ArticleTreeNode[]): string[] =>
-  nodes.flatMap((node) =>
-    node.kind === "file" ? [node.path] : getTreeArticlePaths(node.children),
-  );
 
 const getActiveDocument = (): FolderSearchActiveDocument | null => {
   const { activeDocument } = useSessionStore.getState();
@@ -214,7 +209,7 @@ class FolderSearchSession implements Disposable {
   // A document with unsaved changes stays among the articles it was searched with when its file
   // leaves the folder, since what is searched is the editor's text rather than the file.
   private readArticlePaths(folderContext: FolderContextState) {
-    const paths = getTreeArticlePaths(folderContext.tree.children);
+    const paths = getArticlePaths(folderContext.tree);
     const { activeDocument } = useSessionStore.getState();
 
     if (activeDocument?.status === "saved" && activeDocument.isDirty) {

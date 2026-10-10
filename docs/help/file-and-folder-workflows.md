@@ -14,11 +14,13 @@ The welcome screen and **File > Open recent** show previously opened files and f
 
 ## Work in the article navigator
 
-Choose a file row to open it. A row's context menu can create a file or folder, rename or delete an entry, reveal its location in the system file manager, or copy its absolute or folder-relative path. Empty navigator space offers actions for the folder root. New files open after creation. Deleting asks for confirmation and moves an entry to the system Recycle Bin or Trash; Leafdown does not permanently delete it on its own. Renaming an open file keeps its unsaved edits and updates its recent path. Links in other files are not rewritten.
+Choose a Markdown file row to open it. A row's context menu can create a file or folder, rename or delete an entry, reveal its location in the system file manager, or copy its absolute or folder-relative path. Empty navigator space offers actions for the folder root. New files open after creation. Deleting asks for confirmation and moves an entry to the system Recycle Bin or Trash; Leafdown does not permanently delete it on its own. Renaming an open file keeps its unsaved edits and updates its recent path. Links in other files are not rewritten.
+
+The navigator also lists the folder's other files, such as images and PDFs, dimmed. Leafdown can only open Markdown files, so choosing one of them does nothing, and its context menu does not rename or delete it. A folder holding only such files can still be expanded, while an empty folder has no arrow.
 
 ## Search the folder
 
-**Edit > Find and replace > Find in folder** (`Mod+Shift+F`) turns the sidebar into a search of the open folder's Markdown files, the same files the navigator lists. Type to search; matching works as **Find** does inside a document, with **Match case** and **Whole word**, and the open document is searched as you have it, unsaved edits included. Matches are grouped by file, with the text around each one. Choose a match, or move to it with the arrow keys and press `Enter`, to open its file and highlight the match while you stay in the results. Files that are too large or not valid UTF-8 or UTF-16 are skipped and listed. `Escape` returns to the navigator and to the document, with the match selected.
+**Edit > Find and replace > Find in folder** (`Mod+Shift+F`) turns the sidebar into a search of the open folder's Markdown files, the same files the navigator opens. Type to search; matching works as **Find** does inside a document, with **Match case** and **Whole word**, and the open document is searched as you have it, unsaved edits included. Matches are grouped by file, with the text around each one. Choose a match, or move to it with the arrow keys and press `Enter`, to open its file and highlight the match while you stay in the results. Files that are too large or not valid UTF-8 or UTF-16 are skipped and listed. `Escape` returns to the navigator and to the document, with the match selected.
 
 ## Replace across the folder
 

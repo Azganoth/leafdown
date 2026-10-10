@@ -14,7 +14,7 @@ import {
 } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { withWindowsUserAgent } from "@/test/utils/platform";
-import { selectTableCellRange } from "@/test/utils/prosemirror";
+import { selectTableCellRange, setTextSelection } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
 import {
@@ -213,6 +213,109 @@ describe("block selection interaction", () => {
       document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")?.tabIndex,
     ).toBe(-1);
   });
+  describe("within a scrolled document view", () => {
+    const blockTops = [0, 60, 150, 280, 330];
+    const blockHeight = 60;
+
+    const mountScrolled = async (onBlockInsertionRequested = vi.fn()) => {
+      const mounted = await mountEditor("Above\n\nFirst\n\nSecond\n\nThird\n\nBelow\n", {
+        onBlockInsertionRequested,
+      });
+      mounted.root.style.overflowY = "auto";
+      vi.spyOn(mounted.root, "getBoundingClientRect").mockReturnValue(createRect(0, 100, 200, 400));
+      const layer = document.querySelector(".leafdown-block-gutter-layer")!;
+      vi.spyOn(layer, "getBoundingClientRect").mockReturnValue(createRect(0, 0, 768, 1024));
+      const targets = getSelectableBlockTargets(mounted.view.state.doc);
+      const nodeRects = targets.map(({ pos }, index) => {
+        const node = mounted.view.nodeDOM(pos);
+        if (!(node instanceof Element)) throw new Error("Expected a rendered paragraph.");
+        return vi
+          .spyOn(node, "getBoundingClientRect")
+          .mockReturnValue(createRect(100, blockTops[index], blockHeight));
+      });
+      const getGutter = (index: number) => getHandle(targets[index].pos).parentElement!;
+      dispatchDOMEvent(window, "resize");
+      await settleAnimationFrame();
+      return { mounted, targets, nodeRects, getGutter, layer };
+    };
+
+    it("clips the control layer and fits each gutter to its block's visible part", async () => {
+      const { getGutter, layer } = await mountScrolled();
+
+      expect(layer).toHaveStyle({ clipPath: "inset(100px 624px 468px 0px)" });
+      expect(getGutter(0)).toHaveAttribute("hidden");
+      expect(getGutter(1).style).toMatchObject({ top: "100px", height: "20px" });
+      expect(getGutter(1).style.getPropertyValue("--leafdown-block-first-line")).toBe("20px");
+      expect(getGutter(2).style).toMatchObject({ top: "150px", height: "60px" });
+      expect(getGutter(3).style).toMatchObject({ top: "280px", height: "20px" });
+      expect(getGutter(4)).toHaveAttribute("hidden");
+    });
+
+    it("tracks insertion only while the pointer is inside the view", async () => {
+      const { getGutter } = await mountScrolled();
+      const gutter = getGutter(1);
+      const laidOut = (width: number) => () =>
+        createRect(
+          50,
+          Number.parseFloat(gutter.style.top),
+          Number.parseFloat(gutter.style.height),
+          width,
+        );
+      vi.spyOn(gutter, "getBoundingClientRect").mockImplementation(laidOut(52));
+      vi.spyOn(gutter.firstElementChild!, "getBoundingClientRect").mockImplementation(laidOut(12));
+      dispatchDOMEvent(window, "resize");
+      await settleAnimationFrame();
+      const button = document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!;
+
+      dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 104 });
+      expect(button).not.toHaveAttribute("hidden");
+      expect(button.style.top).toBe("104px");
+      dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 96 });
+      expect(button).toHaveAttribute("hidden");
+    });
+
+    it("keeps the keyboard insertion anchor inside the view", async () => {
+      const onBlockInsertionRequested = vi.fn();
+      const { mounted, targets, nodeRects } = await mountScrolled(onBlockInsertionRequested);
+      const button = document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!;
+      setTextSelection(mounted.view, targets[3].pos + 1);
+      mounted.view.focus();
+
+      dispatchKeyDown(mounted.view.dom, "i", { ctrl: true, alt: true });
+
+      expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+        expect.objectContaining({ boundary: targets[3].pos + targets[3].node.nodeSize }),
+      );
+      expect(button.style.top).toBe("300px");
+
+      nodeRects[3].mockReturnValue(createRect(100, 220, blockHeight));
+      dispatchDOMEvent(window, "resize");
+      await settleAnimationFrame();
+      expect(button.style.top).toBe("280px");
+    });
+
+    it("scrolls a keyboard insertion target outside the view into it", async () => {
+      const onBlockInsertionRequested = vi.fn();
+      const { mounted, targets, nodeRects } = await mountScrolled(onBlockInsertionRequested);
+      setTextSelection(mounted.view, targets[4].pos + 1);
+      mounted.view.focus();
+      const dispatch = mounted.view.dispatch.bind(mounted.view);
+      vi.spyOn(mounted.view, "dispatch").mockImplementation((tr) => {
+        if (tr.scrolledIntoView) nodeRects[4].mockReturnValue(createRect(100, 230, blockHeight));
+        dispatch(tr);
+      });
+
+      dispatchKeyDown(mounted.view.dom, "i", { ctrl: true, alt: true });
+
+      expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+        expect.objectContaining({ boundary: targets[4].pos + targets[4].node.nodeSize }),
+      );
+      expect(
+        document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!.style.top,
+      ).toBe("290px");
+    });
+  });
+
   it("renders local non-tabbable handle, insertion, and marker slots for nested blocks", async () => {
     const mounted = await mountEditor("- Parent\n  - First\n  - Second\n\n> Quote\n");
     const targets = getSelectableBlockTargets(mounted.view.state.doc);

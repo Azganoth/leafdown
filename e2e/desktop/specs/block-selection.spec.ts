@@ -8,6 +8,9 @@ import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { dismissToasts, openRecentPath } from "../support/ui.js";
 
+const SURFACE_SELECTOR =
+  "[data-testid='document-surface-scroll-area'] [data-slot='scroll-area-viewport']";
+
 interface GutterGeometry {
   barHeight: number;
   barTop: number;
@@ -743,5 +746,115 @@ describe("desktop block selection", () => {
     await expect($(".ProseMirror")).toHaveText(
       expect.stringContaining("Plus item starts another list"),
     );
+  });
+
+  it("keeps gutter controls and their hit areas inside the scrolled document view", async () => {
+    const originalWindowSize = await browser.getWindowSize();
+    await browser.setWindowSize(640, 400);
+    await browser.keys(Key.Escape);
+    await expect($("[data-testid='editor-context-popup']")).not.toExist();
+    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Quote second"));
+
+    for (const [text, edge] of [
+      ["Parent itemNested firstNested second", "top"],
+      ["Quote firstQuote second", "bottom"],
+    ] as const) {
+      const { pos } = await getGeometryForText(text);
+      await browser.execute(
+        (blockPos, side, surfaceSelector) => {
+          const viewport = document.querySelector<HTMLElement>(surfaceSelector);
+          const block = document.querySelector(
+            `.ProseMirror [data-leafdown-block-pos="${blockPos}"]`,
+          );
+          if (!viewport || !block) throw new Error("Document view or block was not found.");
+          const surface = viewport.getBoundingClientRect();
+          const rect = block.getBoundingClientRect();
+          viewport.scrollTop +=
+            rect.top + rect.height / 2 - (side === "top" ? surface.top : surface.bottom);
+        },
+        pos,
+        edge,
+        SURFACE_SELECTOR,
+      );
+
+      const boundary = await browser.waitUntil(
+        () =>
+          browser.execute(
+            (blockPos, side, surfaceSelector) => {
+              const viewport = document.querySelector<HTMLElement>(surfaceSelector);
+              const block = document.querySelector(
+                `.ProseMirror [data-leafdown-block-pos="${blockPos}"]`,
+              );
+              const gutter = document.querySelector<HTMLElement>(
+                `.leafdown-block-gutter[data-leafdown-block-pos="${blockPos}"]`,
+              );
+              if (!viewport || !block || !gutter) return false;
+              const surface = viewport.getBoundingClientRect();
+              const rect = block.getBoundingClientRect();
+              const edgeY = side === "top" ? surface.top : surface.bottom;
+              if (rect.top >= edgeY || rect.bottom <= edgeY) return false;
+              const gutterRect = gutter.getBoundingClientRect();
+              const visibleTop = Math.max(rect.top, surface.top);
+              const visibleBottom = Math.min(rect.bottom, surface.bottom);
+              if (
+                Math.abs(gutterRect.top - visibleTop) > 0.5 ||
+                Math.abs(gutterRect.bottom - visibleBottom) > 0.5
+              ) {
+                return false;
+              }
+              const gutters = Array.from(
+                document.querySelectorAll<HTMLElement>(".leafdown-block-gutter:not([hidden])"),
+              ).map((node) => node.getBoundingClientRect());
+              const slot = gutter.querySelector(".leafdown-block-gutter__insertion-slot");
+              const handle = gutter.querySelector("[data-leafdown-block-handle]");
+              if (!slot || !handle) return false;
+              const slotRect = slot.getBoundingClientRect();
+              const handleRect = handle.getBoundingClientRect();
+              const outsideY = side === "top" ? surface.top - 2 : surface.bottom + 2;
+              return {
+                contained: gutters.every(
+                  ({ top, bottom }) => top >= surface.top - 0.5 && bottom <= surface.bottom + 0.5,
+                ),
+                handleOutsideHit: Boolean(
+                  document
+                    .elementFromPoint(handleRect.left + handleRect.width / 2, outsideY)
+                    ?.closest(".leafdown-block-gutter-layer"),
+                ),
+                insideY: Math.round(side === "top" ? surface.top + 3 : surface.bottom - 3),
+                outsideY: Math.round(outsideY),
+                slotX: Math.round(slotRect.left + slotRect.width / 2),
+              };
+            },
+            pos,
+            edge,
+            SURFACE_SELECTOR,
+          ),
+        { timeoutMsg: `Gutter did not fit the visible part of "${text}" at the ${edge} edge.` },
+      );
+      if (!boundary) throw new Error("Boundary geometry was not measured.");
+      expect(boundary.contained).toBe(true);
+      expect(boundary.handleOutsideHit).toBe(false);
+
+      const button = $("[data-leafdown-block-insert]");
+      await browser
+        .action("pointer")
+        .move({ duration: 0, origin: "viewport", x: boundary.slotX, y: boundary.insideY })
+        .perform();
+      await expect(button).toBeDisplayed();
+      expect(
+        await browser.execute(
+          ({ x, y }) =>
+            Boolean(document.elementFromPoint(x, y)?.closest("[data-leafdown-block-insert]")),
+          { x: boundary.slotX, y: boundary.outsideY },
+        ),
+      ).toBe(false);
+      await browser
+        .action("pointer")
+        .move({ duration: 0, origin: "viewport", x: boundary.slotX, y: boundary.outsideY })
+        .perform();
+      await expect(button).not.toBeDisplayed();
+    }
+
+    await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
   });
 });

@@ -13,6 +13,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Open documents with many list items faster. Reading each item's indentation searched back toward the start of the file, so opening took longer with every item and with the file's size, adding about a second to a 1 MB document and much more to larger ones.
 - Draw the scrollbars of wide code blocks, tables, and display math in the same thin, rounded style as the rest of Leafdown instead of the system default. Help code samples, Find in folder's skipped-file lists, the code block language and wiki link suggestion lists, and menus cut short by a small window match it too.
 - Show a file opened from File Explorer, File > Open, recent files, or a drop as soon as it is read instead of after its whole folder has been scanned. A file in a large folder such as Documents could leave the window on the welcome screen for several seconds, looking as if the file had not opened. The article navigator shows placeholder rows until the folder is ready, and a folder that cannot be scanned reports its error without closing the document.
 - Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.

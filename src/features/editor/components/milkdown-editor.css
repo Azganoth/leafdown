@@ -1136,8 +1136,10 @@
   }
 }
 
+/* Stays level with the page, so popups portalled after it, a modal menu's backdrop among them,
+   stack above its controls and keep the press. */
 .leafdown-block-gutter-layer {
-  @apply pointer-events-none fixed inset-0 z-20;
+  @apply pointer-events-none fixed inset-0 z-0;
   --leafdown-block-handle-slot: 1.25rem;
   --leafdown-block-insertion-slot: 1.5rem;
   --leafdown-block-first-line: 1.75rem;

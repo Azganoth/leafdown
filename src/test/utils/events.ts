@@ -1,3 +1,5 @@
+import { onTestFinished } from "vitest";
+
 import { TEXT_HTML_MIME_TYPE } from "@/lib/mime";
 
 interface ModifierAliases {
@@ -169,3 +171,11 @@ export const dispatchMouseDown = (element: Element, init: TestMouseEventOptions 
 
 export const dispatchMouseUp = (element: Element, init: TestMouseEventOptions = {}) =>
   dispatchMouseEvent(element, "mouseup", init);
+
+// happy-dom has no layout, so it has no hit testing to answer this.
+export const stubElementsFromPoint = (resolve: (x: number, y: number) => Element[]) => {
+  Object.defineProperty(document, "elementsFromPoint", { configurable: true, value: resolve });
+  onTestFinished(() => {
+    Reflect.deleteProperty(document, "elementsFromPoint");
+  });
+};

@@ -242,6 +242,25 @@
     @apply bg-primary/60 text-foreground;
   }
 
+  /* Matches the ScrollArea thumb for regions that scroll natively, such as editor blocks that
+     ProseMirror renders outside React. */
+  ::-webkit-scrollbar {
+    @apply size-2.5;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border border-transparent bg-border bg-clip-padding;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-foreground/30;
+  }
+
   button:not(:disabled, [aria-disabled="true"]) {
     @apply cursor-pointer;
   }

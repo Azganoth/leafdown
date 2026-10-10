@@ -13,6 +13,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Stop larger documents from freezing just after you pause typing. Leafdown converted the whole document back to Markdown 200 ms after each edit, which froze the window for about a third of a second in a 200 KB document of tables and about a second at 500 KB. It now reads the document only when something needs it, such as saving.
 - Keep typing responsive in documents with many code blocks. Every keystroke used to highlight all of the document's code again, so typing slowed sharply as a document's code grew; now an edit highlights only the code blocks it changes, and typing outside code highlights nothing.
 - Type without long pauses in large documents. Every keystroke used to update the block gutters of the whole document, so in several hundred kilobytes of Markdown with many headings and lists each character could take seconds to appear. The gutters now keep only the blocks in view up to date, and large documents open faster too.
 - Open documents with many list items faster. Reading each item's indentation searched back toward the start of the file, so opening took longer with every item and with the file's size, adding about a second to a 1 MB document and much more to larger ones.

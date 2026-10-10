@@ -21,6 +21,7 @@ import {
   getSessionFolderPath,
   notifyOpenMarkdownFileError,
   openMarkdownFileAtPath,
+  retainEditorMarkdown,
   useSessionStore,
 } from "@/features/session";
 import { useLocalization } from "@/lib/i18n";
@@ -59,7 +60,6 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     () => (folderContext ? getArticlePaths(folderContext.tree) : []),
     [folderContext],
   );
-  const setActiveDocumentContent = useSessionStore((state) => state.setActiveDocumentContent);
   const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
   const loadId = useSessionStore((state) => state.activeDocumentLoadId);
   const initialViewState = useSessionStore((state) => state.activeDocumentViewState);
@@ -76,6 +76,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   // Prevents MilkdownEditor from remounting plugins due to ref identity changes across renders.
   const setEditorBridgeRef = useCallback(
     (bridge: MilkdownEditorBridge | null) => {
+      if (!bridge) retainEditorMarkdown(documentKey);
       documentEditorBridge.set(documentKey, bridge);
     },
     [documentKey],
@@ -109,8 +110,10 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               documentFont={documentFont}
               textSize={textSize}
               lineSpacing={lineSpacing}
-              onMarkdownUpdated={(update) => setActiveDocumentContent(documentKey, update.markdown)}
-              onContentChanged={() => markActiveDocumentDirty(documentKey)}
+              onContentChanged={() => {
+                markActiveDocumentDirty(documentKey);
+                documentEditorBridge.fireContentChanged(documentKey);
+              }}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}
               onDocumentStatusChanged={documentEditorBridge.fireDocumentStatusChanged}
               onHeadingOutlineChanged={(outline) => setPublishedOutline({ editorKey, outline })}

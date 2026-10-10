@@ -29,6 +29,7 @@ import {
   closeActiveMarkdownDocument,
   createNewMarkdownDocument,
   resetDocumentWorkflowIdsForTests,
+  retainEditorMarkdown,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "./documentWorkflows";
@@ -203,6 +204,40 @@ describe("document workflows", () => {
 
       secondSave.resolve(createSavedMarkdownDocumentResult({ metadata: { sizeBytes: 12 } }));
       await expect(secondSavePromise).resolves.toBe(true);
+    });
+
+    it("saves the text an editor handed over when it let go of the edited document", async () => {
+      setDefaultSettings({ insertFinalNewline: true });
+      setDefaultSession({
+        activeDocument: createSavedDocument({ content: "# Original\n", isDirty: true }),
+      });
+      documentEditorBridge.set(
+        TEST_MARKDOWN_FILE_PATH,
+        createMilkdownEditorBridge({ getMarkdown: () => "# Edited\n" }),
+      );
+      mockTauriApiCommand("saveMarkdownFile", () => createSavedMarkdownDocumentResult());
+
+      retainEditorMarkdown(TEST_MARKDOWN_FILE_PATH);
+      documentEditorBridge.set(TEST_MARKDOWN_FILE_PATH, null);
+
+      await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({ content: "# Edited\n" });
+    });
+
+    it("reads nothing from the editor of a clean or replaced document", () => {
+      const getMarkdown = vi.fn(() => "# Edited\n");
+      setDefaultSession({ activeDocument: createSavedDocument({ content: "# Original\n" }) });
+      documentEditorBridge.set(
+        TEST_MARKDOWN_FILE_PATH,
+        createMilkdownEditorBridge({ getMarkdown }),
+      );
+
+      retainEditorMarkdown(TEST_MARKDOWN_FILE_PATH);
+      useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+      retainEditorMarkdown(OUTSIDE_DRAFT_MD_PATH);
+
+      expect(getMarkdown).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().activeDocument).toMatchObject({ content: "# Original\n" });
     });
   });
 

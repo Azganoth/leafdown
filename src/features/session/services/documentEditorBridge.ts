@@ -34,9 +34,12 @@ class DocumentEditorBridgeStore {
   private pendingSearchMatch: PendingSearchMatch | null = null;
   private readonly commandStateChanged = new SignalSource();
   private readonly documentStatusChanged = new SignalSource();
+  private readonly contentChanged = new SignalSource<string>();
 
   readonly onDidChangeCommandState = this.commandStateChanged.signal;
   readonly onDidChangeDocumentStatus = this.documentStatusChanged.signal;
+  /** Fires with the document's key on each edit, without reading the editor's text. */
+  readonly onDidChangeContent = this.contentChanged.signal;
 
   set = (documentKey: string, bridge: MilkdownEditorBridge | null) => {
     if (!bridge) {
@@ -213,6 +216,10 @@ class DocumentEditorBridgeStore {
 
   fireDocumentStatusChanged = () => {
     this.documentStatusChanged.notify();
+  };
+
+  fireContentChanged = (documentKey: string) => {
+    this.contentChanged.notify(documentKey);
   };
 }
 

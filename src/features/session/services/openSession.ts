@@ -96,14 +96,18 @@ const loadFolderContext = async ({ id, path }: FolderContextLoad) => {
   }
 };
 
-/** The editor keeps its state across a same-path update, so a reopen must say when the text changed. */
+/**
+ * The editor keeps its state across a same-path update, so a reopen must say when the text changed.
+ * The session's text predates any edits, so an edited document is replaced: its edits were already
+ * discarded to reopen it.
+ */
 const replacesActiveDocumentText = (openedDocument: SavedDocumentState) => {
   const { activeDocument } = useSessionStore.getState();
 
   return (
     activeDocument !== null &&
     matchesActiveDocumentKey(activeDocument, openedDocument.path) &&
-    activeDocument.content !== openedDocument.content
+    (activeDocument.isDirty || activeDocument.content !== openedDocument.content)
   );
 };
 

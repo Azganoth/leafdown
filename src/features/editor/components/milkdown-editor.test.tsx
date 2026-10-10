@@ -244,40 +244,16 @@ describe("milkdown-editor", () => {
       unmount();
 
       expect(bridgeRef.current).toBeNull();
-      expect(() => bridge.getMarkdown()).toThrow("Milkdown editor is not available.");
+      expect(bridge.getMarkdown()).toBeNull();
     });
   });
 
   describe("callbacks", () => {
-    it("registers the markdown update hook without firing an initial update", async () => {
-      const editor = createMockEditor();
-      const onMarkdownUpdated = vi.fn();
-      milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
-
-      render(<MilkdownEditor initialMarkdown="# Notes" onMarkdownUpdated={onMarkdownUpdated} />);
-
-      await waitFor(() => {
-        expect(editor.create).toHaveBeenCalledTimes(1);
-      });
-
-      expect(onMarkdownUpdated).not.toHaveBeenCalled();
-
-      getCreateOptions().onMarkdownUpdated?.({
-        markdown: "# New Notes",
-        previousMarkdown: "# Notes",
-      });
-
-      expect(onMarkdownUpdated).toHaveBeenCalledWith({
-        markdown: "# New Notes",
-        previousMarkdown: "# Notes",
-      });
-    });
-
     it("ignores delayed callbacks from a destroyed editor after document changes", async () => {
       const firstEditor = createMockEditor();
       const secondEditor = createMockEditor();
-      const firstMarkdownUpdated = vi.fn();
-      const secondMarkdownUpdated = vi.fn();
+      const firstContentChanged = vi.fn();
+      const secondContentChanged = vi.fn();
       milkdownEditorMocks.createMilkdownEditor
         .mockResolvedValueOnce(firstEditor.instance)
         .mockResolvedValueOnce(secondEditor.instance);
@@ -286,7 +262,7 @@ describe("milkdown-editor", () => {
         <MilkdownEditor
           key="C:/Notes/first.md"
           initialMarkdown="# First"
-          onMarkdownUpdated={firstMarkdownUpdated}
+          onContentChanged={firstContentChanged}
         />,
       );
 
@@ -300,7 +276,7 @@ describe("milkdown-editor", () => {
         <MilkdownEditor
           key="C:/Notes/second.md"
           initialMarkdown="# Second"
-          onMarkdownUpdated={secondMarkdownUpdated}
+          onContentChanged={secondContentChanged}
         />,
       );
 
@@ -308,23 +284,14 @@ describe("milkdown-editor", () => {
         expect(secondEditor.create).toHaveBeenCalledTimes(1);
       });
 
-      firstOptions.onMarkdownUpdated?.({
-        markdown: "# Late First",
-        previousMarkdown: "# First",
-      });
+      firstOptions.onContentChanged?.();
 
-      expect(firstMarkdownUpdated).not.toHaveBeenCalled();
-      expect(secondMarkdownUpdated).not.toHaveBeenCalled();
+      expect(firstContentChanged).not.toHaveBeenCalled();
+      expect(secondContentChanged).not.toHaveBeenCalled();
 
-      milkdownEditorMocks.createMilkdownEditor.mock.calls[1][0].onMarkdownUpdated?.({
-        markdown: "# Current Second",
-        previousMarkdown: "# Second",
-      });
+      milkdownEditorMocks.createMilkdownEditor.mock.calls[1][0].onContentChanged?.();
 
-      expect(secondMarkdownUpdated).toHaveBeenCalledWith({
-        markdown: "# Current Second",
-        previousMarkdown: "# Second",
-      });
+      expect(secondContentChanged).toHaveBeenCalledTimes(1);
     });
 
     it("registers the command-state update hook and fires it when the editor is ready", async () => {

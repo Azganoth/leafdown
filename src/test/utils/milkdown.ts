@@ -14,7 +14,6 @@ import {
   getMilkdownEditorMarkdown,
   type MarkdownReferenceContext,
   type MilkdownEditorInstance,
-  type MilkdownMarkdownUpdate,
 } from "@/features/editor";
 
 export interface MountedMilkdownEditor {
@@ -33,7 +32,6 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
-  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: (path: string) => boolean | Promise<boolean>;
   onReadMarkdownPath?: (path: string) => Promise<string>;
   wikiCompletionPaths?: string[];
@@ -84,7 +82,6 @@ export const mountMilkdownEditor = async (
     onCommandStateChanged: options.onCommandStateChanged,
     onDocumentStatusChanged: options.onDocumentStatusChanged,
     onHeadingOutlineChanged: options.onHeadingOutlineChanged,
-    onMarkdownUpdated: options.onMarkdownUpdated,
     onOpenMarkdownPath: options.onOpenMarkdownPath ?? (() => false),
     onReadMarkdownPath: options.onReadMarkdownPath,
     getWikiCompletionPaths: () => options.wikiCompletionPaths ?? [],

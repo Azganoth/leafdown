@@ -9,7 +9,6 @@ import {
 } from "@milkdown/kit/core";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history, historyKeymap } from "@milkdown/kit/plugin/history";
-import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import {
   blockquoteKeymap,
   blockquoteSchema,
@@ -166,7 +165,6 @@ import {
   createLeafdownSourceProjectionContinuationPlugin,
   createLeafdownSourceProjectionPlugin,
   finalizeSourceProjection,
-  hasTransientSourceProjection,
   settleSourceProjection,
 } from "../plugins/sourceProjection";
 import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
@@ -261,11 +259,6 @@ import { serializeTable, withTableOuterPipes } from "./tableMarkdown";
 import { serializeThematicBreak, withThematicBreakMarker } from "./thematicBreakMarkdown";
 import { WIKI_LINK_MARKDOWN_TYPE, serializeWikiLink } from "./wikiLinkMarkdown";
 
-export interface MilkdownMarkdownUpdate {
-  markdown: string;
-  previousMarkdown: string;
-}
-
 export interface CreateMilkdownEditorOptions {
   root: HTMLElement;
   initialMarkdown: string;
@@ -281,7 +274,6 @@ export interface CreateMilkdownEditorOptions {
   onContentChanged?: () => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
   onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
-  onMarkdownUpdated?: (update: MilkdownMarkdownUpdate) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
   getWikiCompletionPaths?: () => string[];
@@ -330,7 +322,6 @@ export const createMilkdownEditor = async ({
   onContentChanged,
   onDocumentStatusChanged,
   onHeadingOutlineChanged,
-  onMarkdownUpdated,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   onReadMarkdownPath,
   getWikiCompletionPaths = () => [],
@@ -408,7 +399,6 @@ export const createMilkdownEditor = async ({
     .use(history)
     .use(createLeafdownClipboardPlugin())
     .use(clipboard)
-    .use(listener)
     .use(createLeafdownCodeHighlightPlugin(parser))
     .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
     .use(markdownReferenceContextCtx)
@@ -638,16 +628,6 @@ export const createMilkdownEditor = async ({
         ...keymap,
         ToggleStrikethrough: { ...keymap.ToggleStrikethrough, shortcuts: [] },
       }));
-
-      if (onMarkdownUpdated) {
-        ctx.get(listenerCtx).markdownUpdated((updateCtx, markdown, previousMarkdown) => {
-          if (hasTransientSourceProjection(updateCtx.get(editorViewCtx).state)) {
-            return;
-          }
-
-          onMarkdownUpdated({ markdown, previousMarkdown });
-        });
-      }
     });
 
   // The preset pairs empty-paragraph serialization with a parse-time plugin that deletes every

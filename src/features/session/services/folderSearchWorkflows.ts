@@ -1,4 +1,8 @@
-import { getActiveDocumentKey, inspectMarkdownDocument } from "@/features/document";
+import {
+  getActiveDocumentKey,
+  inspectMarkdownDocument,
+  matchesActiveDocumentKey,
+} from "@/features/document";
 import {
   getArticlePaths,
   useArticleNavigatorStore,
@@ -24,6 +28,9 @@ import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSessi
 
 // Typing waits this long for the query to settle before the folder is read for it.
 const QUERY_DELAY_MS = 200;
+// Reading the open document's text costs as much as the document is long, so an edit waits this
+// long for typing to settle before the document is searched again.
+const EDIT_DELAY_MS = 200;
 
 const getActiveDocument = (): FolderSearchActiveDocument | null => {
   const { activeDocument } = useSessionStore.getState();
@@ -75,6 +82,7 @@ class FolderSearchSession implements Disposable {
   private readonly textCache = new FolderSearchTextCache();
   private articlePaths: string[] = [];
   private queryTimeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+  private editTimeout: ReturnType<typeof globalThis.setTimeout> | undefined;
   private readonly subscriptions = new DisposableStore();
 
   constructor() {
@@ -83,6 +91,11 @@ class FolderSearchSession implements Disposable {
     );
     this.subscriptions.add(
       useSessionStore.subscribe((state, previous) => this.handleSessionChange(state, previous)),
+    );
+    this.subscriptions.add(
+      documentEditorBridge.onDidChangeContent((documentKey) =>
+        this.handleContentChange(documentKey),
+      ),
     );
     // A planned replacement is written as Save writes, so it follows the settings Save follows.
     this.subscriptions.add(
@@ -182,6 +195,24 @@ class FolderSearchSession implements Disposable {
     }
   }
 
+  private handleContentChange(documentKey: string) {
+    if (!this.engine) {
+      return;
+    }
+
+    globalThis.clearTimeout(this.editTimeout);
+    this.editTimeout = globalThis.setTimeout(() => {
+      const { activeDocument } = useSessionStore.getState();
+
+      if (
+        activeDocument?.status === "saved" &&
+        matchesActiveDocumentKey(activeDocument, documentKey)
+      ) {
+        this.engine?.refreshFile(activeDocument.path);
+      }
+    }, EDIT_DELAY_MS);
+  }
+
   private search(finalizeProjection: boolean) {
     globalThis.clearTimeout(this.queryTimeout);
 
@@ -229,6 +260,7 @@ class FolderSearchSession implements Disposable {
 
   private stop() {
     globalThis.clearTimeout(this.queryTimeout);
+    globalThis.clearTimeout(this.editTimeout);
     this.engine?.dispose();
     this.engine = null;
     this.articlePaths = [];

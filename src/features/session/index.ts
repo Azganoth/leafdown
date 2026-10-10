@@ -8,6 +8,7 @@ export { documentEditorBridge } from "./services/documentEditorBridge";
 export {
   closeActiveMarkdownDocument,
   createNewMarkdownDocument,
+  retainEditorMarkdown,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
 } from "./services/documentWorkflows";

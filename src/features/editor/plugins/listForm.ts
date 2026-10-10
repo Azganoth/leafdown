@@ -58,8 +58,11 @@ const readListItemIndent = (item: MarkdownNode, source: string) => {
     return undefined;
   }
 
-  const lineStart =
-    Math.max(source.lastIndexOf("\n", start - 1), source.lastIndexOf("\r", start - 1)) + 1;
+  let lineStart = start;
+
+  while (lineStart > 0 && source[lineStart - 1] !== "\n" && source[lineStart - 1] !== "\r") {
+    lineStart -= 1;
+  }
 
   return source.slice(lineStart, start);
 };

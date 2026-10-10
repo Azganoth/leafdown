@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ import {
 import { dispatchClick, dispatchMouseEvent, type TestMouseEventOptions } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
+import { dispatchEditorMouseClick } from "@/test/utils/prosemirror";
 import { waitFor, within } from "@/test/utils/react";
 import {
   countTauriApiCalls,
@@ -26,20 +27,34 @@ const mountEditor = setupMilkdownEditorMount({
 const mountLinkEditor = (
   initialMarkdown: string,
   documentPath: string | null = "C:/Notes/readme.md",
-) => mountEditor(initialMarkdown, createMarkdownReferenceContext({ documentPath }));
+  onOpenMarkdownPath?: (path: string) => boolean,
+) =>
+  mountEditor(initialMarkdown, {
+    ...createMarkdownReferenceContext({ documentPath }),
+    onOpenMarkdownPath,
+  });
 
 const dispatchLinkGesture = (
   mounted: MountedMilkdownEditor,
   link: HTMLElement,
   modifiers: TestMouseEventOptions,
 ) => {
-  vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({ pos: 3, inside: 0 });
-  for (const type of ["mousedown", "mouseup"]) {
-    dispatchMouseEvent(link, type, { ...modifiers, clientX: 10, clientY: 10 });
-  }
+  const position = mounted.view.posAtDOM(link, 0) + 1;
+  vi.spyOn(mounted.view, "posAtCoords").mockReturnValue({
+    pos: position,
+    inside: mounted.view.state.doc.resolve(position).before(),
+  });
+
+  const click = dispatchEditorMouseClick(mounted.view, link, position, {
+    ...modifiers,
+    clientX: 10,
+    clientY: 10,
+  });
+
   expect(link.isConnected).toBe(true);
   expect(mounted.view.state.selection).toBeInstanceOf(TextSelection);
-  return dispatchClick(link, { ...modifiers, clientX: 10, clientY: 10 });
+  expect(click).not.toBeNull();
+  return click!;
 };
 
 describe("Markdown links", () => {
@@ -105,6 +120,71 @@ describe("Markdown links", () => {
       });
       expect(mounted.getMarkdown()).toBe("[Docs](https://example.com/docs)\n");
     });
+  });
+
+  it.each([
+    ["a mixed-format label", "[Read **the** docs](https://example.com/docs)\n", "the"],
+    ["a reference link", "[Docs][docs]\n\n[docs]: https://example.com/docs\n", "Docs"],
+    ["a list item", "- Item with [Docs](https://example.com/docs)\n", "Docs"],
+    ["a blockquote", "> Quote with [Docs](https://example.com/docs)\n", "Docs"],
+    [
+      "a table cell",
+      "| Docs link                        |\n| -------------------------------- |\n| [Docs](https://example.com/docs) |\n",
+      "Docs",
+    ],
+  ])("activates %s on Mod+click without projecting or selecting it", async (_, markdown, text) => {
+    await withWindowsUserAgent(async () => {
+      mockTauriApiCommand("resolveMarkdownLinkTarget", () => ({
+        kind: "externalWeb",
+        url: "https://example.com/docs",
+      }));
+      const mounted = await mountLinkEditor(markdown);
+      const pressed = within(mounted.view.dom).getByText(text);
+      const link = pressed.closest("a")!;
+
+      dispatchLinkGesture(mounted, pressed, { ctrl: true });
+
+      await waitFor(() => {
+        expect(openUrl).toHaveBeenCalledWith("https://example.com/docs");
+      });
+      expect(link.isConnected).toBe(true);
+      expect(mounted.view.state.selection).not.toBeInstanceOf(NodeSelection);
+      expect(mounted.view.dom.querySelector(".ProseMirror-selectednode")).toBeNull();
+      expect(mounted.getMarkdown()).toBe(markdown);
+    });
+  });
+
+  it("opens a local Markdown target on Mod+click through the session", async () => {
+    await withWindowsUserAgent(async () => {
+      mockTauriApiCommand("resolveMarkdownLinkTarget", () => ({
+        kind: "localMarkdown",
+        path: "C:/Notes/guide.md",
+      }));
+      const onOpenMarkdownPath = vi.fn(() => true);
+      const mounted = await mountLinkEditor(
+        "See [Guide](guide.md) here.",
+        "C:/Notes/readme.md",
+        onOpenMarkdownPath,
+      );
+      const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
+
+      dispatchLinkGesture(mounted, link, { ctrl: true });
+
+      await waitFor(() => {
+        expect(onOpenMarkdownPath).toHaveBeenCalledWith("C:/Notes/guide.md");
+      });
+      expect(openUrl).not.toHaveBeenCalled();
+      expect(mounted.getMarkdown()).toBe("See [Guide](guide.md) here.\n");
+    });
+  });
+
+  it("leaves plain mousedown on a link to the native caret", async () => {
+    const mounted = await mountLinkEditor("[Guide](guide.md)");
+    const link = within(mounted.view.dom).getByRole("link", { name: "Guide" });
+
+    const event = dispatchMouseEvent(link, "mousedown", { button: 0 });
+
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("uses Meta-click as the primary modifier on macOS", async () => {

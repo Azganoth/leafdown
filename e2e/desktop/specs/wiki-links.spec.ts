@@ -3,16 +3,9 @@ import { readFile } from "node:fs/promises";
 import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { findTreeItem, openRecentPath } from "../support/ui.js";
+import { ctrlClickElement, findTreeItem, openRecentPath } from "../support/ui.js";
 
 const link = (source: string) => $(`[data-type="wiki-link"][data-source="${source}"]`);
-
-const activate = (element: WebdriverIO.Element) =>
-  element.execute((target) => {
-    target.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, button: 0, cancelable: true, ctrlKey: true }),
-    );
-  });
 
 const caretIsInHeading = () =>
   browser.execute(() =>
@@ -30,10 +23,10 @@ describe("desktop wiki links", () => {
     await expect(link("[[target|Target alias]]")).toHaveAttribute("data-wiki-status", "resolved");
     await expect(link("[[missing|Missing]]")).toHaveAttribute("data-wiki-status", "unresolved");
 
-    await activate(await link("[[missing|Missing]]").getElement());
+    await ctrlClickElement(await link("[[missing|Missing]]").getElement());
     await expect($("aria/Link target not found.")).toBeDisplayed();
 
-    await activate(await link("[[#Local heading|Jump local]]").getElement());
+    await ctrlClickElement(await link("[[#Local heading|Jump local]]").getElement());
     await browser.waitUntil(caretIsInHeading, {
       timeoutMsg: "The same-document wiki link did not select its heading.",
     });
@@ -50,7 +43,7 @@ describe("desktop wiki links", () => {
       },
     );
 
-    await activate(await link("[[target#Target heading|Target section]]").getElement());
+    await ctrlClickElement(await link("[[target#Target heading|Target section]]").getElement());
     await expect($('[contenteditable="true"]')).toHaveText(
       expect.stringContaining("Target heading"),
     );
@@ -59,7 +52,7 @@ describe("desktop wiki links", () => {
     });
 
     await (await findTreeItem("index.md")).click();
-    await activate(await link("[[../outside.md|Outside]]").getElement());
+    await ctrlClickElement(await link("[[../outside.md|Outside]]").getElement());
     await expect($("aria/Open outside folder?")).toBeDisplayed();
     await $("aria/Open file").click();
     await expect($('[contenteditable="true"]')).toHaveText(

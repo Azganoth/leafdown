@@ -6,7 +6,13 @@ import { Key } from "webdriverio";
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { dismissToasts, openRecentPath } from "../support/ui.js";
+import {
+  ctrlClickAt,
+  dismissToasts,
+  findMenuItem,
+  openMenu,
+  openRecentPath,
+} from "../support/ui.js";
 
 const SURFACE_SELECTOR =
   "[data-testid='document-surface-scroll-area'] [data-slot='scroll-area-viewport']";
@@ -98,12 +104,11 @@ const moveToHandle = async (handle: ReturnType<typeof $>) => {
     .perform();
 };
 
-// The embedded driver omits modifiers from pointer actions. Use its rendered hit target with
-// an explicit modifier through the complete mouse sequence.
-const ctrlClickAt = (point: { x: number; y: number }) =>
+// Use the rendered hit target through the complete mouse sequence.
+const clickAt = (point: { x: number; y: number }) =>
   browser.execute(({ x, y }) => {
     const target = document.elementFromPoint(x, y);
-    if (!target) throw new Error("Modifier-click target was not found.");
+    if (!target) throw new Error("Click target was not found.");
     for (const type of ["mousedown", "mouseup", "click"]) {
       target.dispatchEvent(
         new MouseEvent(type, {
@@ -111,13 +116,52 @@ const ctrlClickAt = (point: { x: number; y: number }) =>
           cancelable: true,
           button: 0,
           buttons: type === "mousedown" ? 1 : 0,
-          ctrlKey: true,
           clientX: x,
           clientY: y,
         }),
       );
     }
   }, point);
+
+const setSidebarVisible = async (visible: boolean) => {
+  await openMenu("View");
+  const item = await findMenuItem((text) => text.startsWith("Toggle sidebar"));
+  const changed = (await item.getAttribute("aria-checked")) !== String(visible);
+  if (changed) {
+    await item.click();
+  } else {
+    await browser.keys(Key.Escape);
+  }
+  await expect($('[data-slot="menubar-content"]')).not.toExist();
+  return changed;
+};
+
+// Insertion slot points under the open menubar menu and below it, where only its backdrop lies.
+const getGutterPointsAroundMenu = () =>
+  browser.execute(() => {
+    const menu = document.querySelector('[data-slot="menubar-content"]')?.getBoundingClientRect();
+    if (!menu) return null;
+    const points = Array.from(
+      document.querySelectorAll(
+        ".leafdown-block-gutter:not([hidden]) .leafdown-block-gutter__insertion-slot",
+      ),
+      (slot) => {
+        const rect = slot.getBoundingClientRect();
+        return {
+          x: Math.round(rect.left + rect.width / 2),
+          y: Math.round(rect.top + Math.min(rect.height / 2, 10)),
+        };
+      },
+    ).filter(({ y }) => y > 0 && y < window.innerHeight);
+    return {
+      covered:
+        points.find(
+          ({ x, y }) =>
+            x > menu.left + 4 && x < menu.right - 4 && y > menu.top + 4 && y < menu.bottom - 4,
+        ) ?? null,
+      outside: points.find(({ y }) => y > menu.bottom + 8) ?? null,
+    };
+  });
 
 const dispatchEditorKey = (key: string, init: KeyboardEventInit = {}) =>
   browser.execute(
@@ -241,6 +285,11 @@ describe("desktop block selection", () => {
     await atom.scrollIntoView();
     await ctrlClickAt(await getHandlePoint(atom));
     await expect(atom).toHaveElementClass("ProseMirror-selectednode");
+
+    const localLink = $('.ProseMirror a[href="block-selection.md"]');
+    await localLink.scrollIntoView();
+    await ctrlClickAt(await getHandlePoint(localLink));
+    await expect($(".ProseMirror h1")).toHaveText("Block selection fixture");
   });
 
   it("renders a definition list with a selectable gutter", async () => {
@@ -410,6 +459,66 @@ describe("desktop block selection", () => {
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
     );
+  });
+
+  it("leaves the gutter under an open menu to the menu and restores it after dismissal", async () => {
+    const { blocks } = await getDesktopE2ERunContext();
+    await openRecentPath(blocks.path);
+    await expect($(".ProseMirror")).toBeDisplayed();
+    await dismissToasts();
+    const button = $("[data-leafdown-block-insert]");
+    const indicator = $(".leafdown-block-insertion-indicator");
+    const textBefore = await browser.execute(
+      () => document.querySelector(".ProseMirror")?.textContent,
+    );
+    const sidebarHidden = await setSidebarVisible(false);
+
+    try {
+      await openMenu("File");
+      await expect($('[data-slot="menubar-content"]')).toBeDisplayed();
+      const points = await getGutterPointsAroundMenu();
+      if (!points?.covered || !points.outside) {
+        throw new Error(`The File menu does not straddle the gutter: ${JSON.stringify(points)}`);
+      }
+
+      await browser
+        .action("pointer")
+        .move({ origin: "viewport", x: points.covered.x, y: points.covered.y })
+        .perform();
+      await expect(button).not.toBeDisplayed();
+      await expect(indicator).not.toBeDisplayed();
+
+      await browser
+        .action("pointer")
+        .move({ origin: "viewport", x: points.outside.x, y: points.outside.y })
+        .perform();
+      await expect(button).not.toBeDisplayed();
+      await clickAt(points.outside);
+      if (await $('[data-slot="menubar-content"]').isExisting()) {
+        await browser.keys(Key.Escape);
+      }
+      await expect($('[data-slot="menubar-content"]')).not.toExist();
+      await expect($("[data-testid='editor-block-insertion-menu']")).not.toExist();
+      expect(await $$(".leafdown-selected-block").length).toBe(0);
+
+      await browser
+        .action("pointer")
+        .move({ origin: "viewport", x: points.outside.x + 1, y: points.outside.y })
+        .perform();
+      await expect(button).toBeDisplayed();
+      await button.click();
+      await expect($("[data-testid='editor-block-insertion-menu']")).toBeDisplayed();
+      await browser.keys(Key.Escape);
+      await expect($("[data-testid='editor-block-insertion-menu']")).not.toExist();
+      expect(await browser.execute(() => document.querySelector(".ProseMirror")?.textContent)).toBe(
+        textBefore,
+      );
+    } finally {
+      if (await $('[data-slot="menubar-content"]').isExisting()) {
+        await browser.keys(Key.Escape);
+      }
+      if (sidebarHidden) await setSidebarVisible(true);
+    }
   });
 
   it("renders and operates hierarchical gutters in the assembled app", async () => {

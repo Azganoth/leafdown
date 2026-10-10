@@ -8,6 +8,11 @@ import { isPrimaryModifierEvent } from "@/lib/input";
 import type { Disposable } from "@/lib/lifecycle";
 
 import { canInsertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
+import {
+  EDITOR_OVERLAY_ATTRIBUTE,
+  getEditorSurfaceElementAt,
+  isEditorSurfaceElement,
+} from "../utils/editorSurface";
 import { getRenderedLinkAtTarget } from "../utils/renderedLinks";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
 import {
@@ -204,6 +209,7 @@ class BlockSelectionView {
     const doc = view.dom.ownerDocument;
     this.overlay = doc.createElement("div");
     this.overlay.className = "leafdown-block-gutter-layer";
+    this.overlay.setAttribute(EDITOR_OVERLAY_ATTRIBUTE, "");
 
     this.insertionIndicator = doc.createElement("div");
     this.insertionIndicator.className = "leafdown-block-insertion-indicator";
@@ -239,7 +245,8 @@ class BlockSelectionView {
     this.insertionButton.addEventListener("mousedown", this.preventInsertionMouseDown);
     this.insertionButton.addEventListener("click", this.openInsertionMenu);
     doc.addEventListener("mousemove", this.handleDragMove);
-    doc.addEventListener("mousemove", this.handleInsertionMouseMove);
+    doc.addEventListener("mousemove", this.handleInsertionPointer);
+    doc.addEventListener("mouseover", this.handleInsertionPointer);
     doc.addEventListener("mouseup", this.handleDocumentMouseUp);
     doc.addEventListener("mouseleave", this.cancelPendingDrag);
     doc.addEventListener("mouseleave", this.handleInsertionLeave);
@@ -286,7 +293,8 @@ class BlockSelectionView {
     this.insertionButton.removeEventListener("mousedown", this.preventInsertionMouseDown);
     this.insertionButton.removeEventListener("click", this.openInsertionMenu);
     this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleDragMove);
-    this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleInsertionMouseMove);
+    this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleInsertionPointer);
+    this.view.dom.ownerDocument.removeEventListener("mouseover", this.handleInsertionPointer);
     this.view.dom.ownerDocument.removeEventListener("mouseup", this.handleDocumentMouseUp);
     this.view.dom.ownerDocument.removeEventListener("mouseleave", this.cancelPendingDrag);
     this.view.dom.ownerDocument.removeEventListener("mouseleave", this.handleInsertionLeave);
@@ -562,19 +570,18 @@ class BlockSelectionView {
     this.insertionIndicator.style.width = `${String(indicatorRect.width)}px`;
   }
 
-  // A nested heading's fold marker reaches into its container's insertion slot, and the marker,
-  // standing nearer the pointer, keeps the press.
-  private isOverHeadingFoldMarker(event: MouseEvent) {
-    const element = this.view.dom.ownerDocument
-      .elementsFromPoint?.(event.clientX, event.clientY)
-      .find((candidate) => !this.overlay.contains(candidate));
-    return isHeadingFoldMarkerAt(element, event.clientX);
-  }
-
-  private readonly handleInsertionMouseMove = (event: MouseEvent) => {
+  private readonly handleInsertionPointer = (event: MouseEvent) => {
     if (this.insertionMenuOpen || this.pressedHandle) return;
-    if (!this.isInSurface(event.clientX, event.clientY) || this.isOverHeadingFoldMarker(event))
+    if (!this.isInSurface(event.clientX, event.clientY)) return this.clearInsertionTarget();
+    const element = getEditorSurfaceElementAt(this.view, event.clientX, event.clientY);
+    // A nested heading's fold marker reaches into its container's insertion slot, and the marker,
+    // standing nearer the pointer, keeps the press.
+    if (
+      !isEditorSurfaceElement(this.view, element) ||
+      isHeadingFoldMarkerAt(element, event.clientX)
+    ) {
       return this.clearInsertionTarget();
+    }
     const candidates = [...this.geometry.entries()].flatMap(
       ([pos, { gutter: rect, block: nodeRect, interactiveLeft, interactiveRight }]) => {
         if (

@@ -2,10 +2,10 @@
 
 import { redo, undo } from "@milkdown/kit/prose/history";
 import { AllSelection, TextSelection } from "@milkdown/kit/prose/state";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
-import { dispatchMouseDown, dispatchMouseEvent } from "@/test/utils/events";
+import { dispatchMouseDown, dispatchMouseEvent, stubElementsFromPoint } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorTextPosition,
@@ -174,6 +174,33 @@ describe("heading folding", () => {
     dispatchMouseEvent(document.body, "mousemove", { clientX: 150, clientY: 200 });
     await vi.waitFor(() => expect(marked()).toBe(false));
     expect(mounted.getMarkdown()).toBe("## Install\n\nStep one\n\n## Use\n");
+  });
+
+  it("keeps the marker hidden while a menu covers the heading's row", async () => {
+    const mounted = await mountEditor("## Install\n\nStep one\n\n## Use");
+    const heading = mounted.view.dom.querySelector("h2")!;
+    vi.spyOn(heading, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ x: 200, y: 100, width: 400, height: 40 }),
+    );
+    vi.spyOn(mounted.view.dom, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ x: 0, y: 0, width: 800, height: 600 }),
+    );
+    const marked = () => heading.hasAttribute("data-leafdown-marker-hover");
+    const handle = document.querySelector("[data-leafdown-block-handle]")!;
+    const menu = document.createElement("div");
+    document.body.append(menu);
+    onTestFinished(() => menu.remove());
+    let beneath: Element = menu;
+    stubElementsFromPoint(() => [handle, beneath, document.body]);
+
+    dispatchMouseEvent(menu, "mousemove", { clientX: 20, clientY: 120 });
+    await nextFrame();
+    expect(marked()).toBe(false);
+
+    beneath = mounted.view.dom;
+    menu.remove();
+    dispatchMouseEvent(handle, "mouseover", { clientX: 20, clientY: 120 });
+    await vi.waitFor(() => expect(marked()).toBe(true));
   });
 
   it("leaves a press on the heading's text to the editor", async () => {

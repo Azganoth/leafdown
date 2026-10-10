@@ -39,6 +39,21 @@ export const createLeafdownFootnoteNavigationPlugin = () =>
         key: leafdownFootnoteNavigationPluginKey,
         props: {
           handleDOMEvents: {
+            // The native caret would enter the reference on mousedown and project its source
+            // before click.
+            mousedown: (view, event) => {
+              if (
+                event.button !== 0 ||
+                !isPrimaryModifierEvent(event) ||
+                getFootnoteReferenceLabelAtTarget(view.dom, event.target) === null
+              ) {
+                return false;
+              }
+
+              event.preventDefault();
+
+              return true;
+            },
             click: (view, event) => {
               if (event.button !== 0 || !isPrimaryModifierEvent(event)) {
                 return false;

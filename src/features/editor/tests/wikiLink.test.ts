@@ -6,9 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 import { runEditorCommand } from "@/features/editor";
 import { TEXT_HTML_MIME_TYPE, TEXT_PLAIN_MIME_TYPE } from "@/lib/mime";
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
-import { createClipboardData, dispatchClick, dispatchClipboardEvent } from "@/test/utils/events";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { createClipboardData, dispatchClipboardEvent } from "@/test/utils/events";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
+  dispatchEditorMouseClick,
   getEditorNodePosition,
   setSelectionAtDocumentEnd,
   setTextSelection,
@@ -19,9 +20,17 @@ import { countTauriApiCalls, mockTauriApi, mockTauriApiCommand } from "@/test/ut
 
 import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 import { findWikiHeadingFromState, getWikiHeadingsFromState } from "../utils/wikiHeadings";
-import { parseWikiLink } from "../utils/wikiLinkMarkdown";
+import { parseWikiLink, WIKI_LINK_NODE_NAME } from "../utils/wikiLinkMarkdown";
 
 const mountEditor = setupMilkdownEditorMount({ rootClassName: EDITOR_TEST_ROOT_CLASS_NAME });
+
+const ctrlClickWikiLink = (mounted: MountedMilkdownEditor) =>
+  dispatchEditorMouseClick(
+    mounted.view,
+    mounted.view.dom.querySelector('[data-type="wiki-link"]')!,
+    getEditorNodePosition(mounted, WIKI_LINK_NODE_NAME),
+    { ctrl: true },
+  );
 
 describe("wiki links", () => {
   it.each([
@@ -157,7 +166,7 @@ describe("wiki links", () => {
   it("navigates a same-document fragment to the first matching heading", async () => {
     const mounted = await mountEditor("# Intro\n\n# Intro\n\n[[#Intro]]");
     const first = findWikiHeadingFromState(mounted.view.state, "Intro");
-    dispatchClick(mounted.view.dom.querySelector('[data-type="wiki-link"]')!, { ctrl: true });
+    ctrlClickWikiLink(mounted);
     await waitFor(() => expect(mounted.view.state.selection.from).toBe(first?.position));
   });
 
@@ -177,7 +186,7 @@ describe("wiki links", () => {
       ).toBe("resolved"),
     );
     expect(onReadMarkdownPath).not.toHaveBeenCalled();
-    dispatchClick(mounted.view.dom.querySelector('[data-type="wiki-link"]')!, { ctrl: true });
+    ctrlClickWikiLink(mounted);
     await waitFor(() => expect(mounted.view.state.selection.from).toBe(1));
   });
 
@@ -226,7 +235,7 @@ describe("wiki links", () => {
         mounted.view.dom.querySelector('[data-type="wiki-link"]')?.getAttribute("data-wiki-status"),
       ).toBe("resolved");
     });
-    dispatchClick(mounted.view.dom.querySelector('[data-type="wiki-link"]')!, { ctrl: true });
+    ctrlClickWikiLink(mounted);
     await waitFor(() =>
       expect(onOpenMarkdownPath).toHaveBeenCalledWith("C:/Notes/target.md", "Intro"),
     );

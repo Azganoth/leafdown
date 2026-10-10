@@ -62,3 +62,67 @@ export const selectFileMenuItem = async (label: string) => {
   await openMenu("File");
   await (await findMenuItem((text) => text.startsWith(label))).click();
 };
+
+interface ModifierClickWindow extends Window {
+  leafdownModifierClickTarget?: Element;
+}
+
+// The embedded driver omits modifiers from pointer actions, and its synthetic mousedown has no
+// default action. Dispatch the rendered hit target's mouse sequence with Ctrl, and move the caret
+// where a real press would unless mousedown is cancelled. The editor reads that selection before
+// mouseup, and, as in Chromium, no click follows once the pressed element has left the document.
+export const ctrlClickAt = async (point: { x: number; y: number }) => {
+  await browser.execute(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    if (!target) throw new Error("Modifier-click target was not found.");
+    const pressed = target.dispatchEvent(
+      new MouseEvent("mousedown", {
+        bubbles: true,
+        cancelable: true,
+        button: 0,
+        buttons: 1,
+        ctrlKey: true,
+        clientX: x,
+        clientY: y,
+      }),
+    );
+    if (pressed) {
+      const caret = document.caretPositionFromPoint(x, y);
+      target.closest<HTMLElement>('[contenteditable="true"]')?.focus({ preventScroll: true });
+      if (caret) window.getSelection()?.collapse(caret.offsetNode, caret.offset);
+    }
+    (window as ModifierClickWindow).leafdownModifierClickTarget = target;
+  }, point);
+  await browser.pause(100);
+  await browser.execute(({ x, y }) => {
+    const pressed = (window as ModifierClickWindow).leafdownModifierClickTarget;
+    const released = document.elementFromPoint(x, y) ?? document.body;
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      buttons: 0,
+      ctrlKey: true,
+      clientX: x,
+      clientY: y,
+    };
+    released.dispatchEvent(new MouseEvent("mouseup", init));
+    if (!pressed?.isConnected) return;
+    let common: Element | null = pressed;
+    while (common && !common.contains(released)) common = common.parentElement;
+    common?.dispatchEvent(new MouseEvent("click", init));
+  }, point);
+};
+
+export const ctrlClickElement = async (element: WebdriverIO.Element) => {
+  await element.scrollIntoView();
+  const point = await element.execute((node) => {
+    const rect = node.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+    };
+  });
+
+  await ctrlClickAt(point);
+};

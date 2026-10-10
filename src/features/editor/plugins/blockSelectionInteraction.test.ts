@@ -2,7 +2,7 @@
 
 import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import { CellSelection } from "@milkdown/kit/prose/tables";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { createLocalization, localizer, PSEUDO_LOCALE } from "@/lib/i18n";
 import {
@@ -11,8 +11,9 @@ import {
   dispatchMouseDown,
   dispatchMouseUp,
   dispatchKeyDown,
+  stubElementsFromPoint,
 } from "@/test/utils/events";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { withWindowsUserAgent } from "@/test/utils/platform";
 import { selectTableCellRange, setTextSelection } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
@@ -56,6 +57,30 @@ const createRect = (left: number, top: number, height = 28, width = 200): DOMRec
   y: top,
   toJSON: () => ({}),
 });
+
+const layOutParagraphGutters = async (mounted: MountedMilkdownEditor) => {
+  const paragraphs = getSelectableBlockTargets(mounted.view.state.doc).filter(
+    ({ node }) => node.type.name === "paragraph",
+  );
+  paragraphs.forEach(({ pos }, index) => {
+    const node = mounted.view.nodeDOM(pos);
+    const gutter = getHandle(pos).parentElement;
+    if (!(node instanceof Element) || !gutter) throw new Error("Expected paragraph gutter.");
+    const top = index === 0 ? 40 : 88;
+    vi.spyOn(node, "getBoundingClientRect").mockReturnValue(createRect(100, top));
+    vi.spyOn(gutter, "getBoundingClientRect").mockReturnValue(createRect(50, top, 28, 52));
+    vi.spyOn(gutter.firstElementChild!, "getBoundingClientRect").mockReturnValue(
+      createRect(50, top, 28, 12),
+    );
+  });
+  dispatchDOMEvent(window, "resize");
+  await settleAnimationFrame();
+  return {
+    button: document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!,
+    indicator: document.querySelector<HTMLElement>(".leafdown-block-insertion-indicator")!,
+    paragraphs,
+  };
+};
 
 describe("block selection interaction", () => {
   it.each([
@@ -106,24 +131,7 @@ describe("block selection interaction", () => {
   it("keeps one indicator position between adjacent sibling blocks", async () => {
     const onBlockInsertionRequested = vi.fn();
     const mounted = await mountEditor("First\n\nSecond\n", { onBlockInsertionRequested });
-    const paragraphs = getSelectableBlockTargets(mounted.view.state.doc).filter(
-      ({ node }) => node.type.name === "paragraph",
-    );
-    paragraphs.forEach(({ pos }, index) => {
-      const node = mounted.view.nodeDOM(pos);
-      const gutter = getHandle(pos).parentElement;
-      if (!(node instanceof Element) || !gutter) throw new Error("Expected paragraph gutter.");
-      const top = index === 0 ? 40 : 88;
-      vi.spyOn(node, "getBoundingClientRect").mockReturnValue(createRect(100, top));
-      vi.spyOn(gutter, "getBoundingClientRect").mockReturnValue(createRect(50, top, 28, 52));
-      vi.spyOn(gutter.firstElementChild!, "getBoundingClientRect").mockReturnValue(
-        createRect(50, top, 28, 12),
-      );
-    });
-    dispatchDOMEvent(window, "resize");
-    await settleAnimationFrame();
-    const button = document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!;
-    const indicator = document.querySelector<HTMLElement>(".leafdown-block-insertion-indicator")!;
+    const { button, indicator, paragraphs } = await layOutParagraphGutters(mounted);
 
     dispatchMouseEvent(document, "mousemove", { clientX: 76, clientY: 60 });
     expect(button.style.top).toBe("60px");
@@ -138,6 +146,40 @@ describe("block selection interaction", () => {
     dispatchMouseEvent(button, "click");
     expect(onBlockInsertionRequested).toHaveBeenCalledWith(
       expect.objectContaining({ boundary: paragraphs[0].pos + paragraphs[0].node.nodeSize }),
+    );
+  });
+
+  it("leaves the insertion control to a menu covering its gutter until the menu is gone", async () => {
+    const onBlockInsertionRequested = vi.fn();
+    const mounted = await mountEditor("First\n\nSecond\n", { onBlockInsertionRequested });
+    const { button, indicator, paragraphs } = await layOutParagraphGutters(mounted);
+    const menu = document.createElement("div");
+    document.body.append(menu);
+    onTestFinished(() => menu.remove());
+    let beneath: Element = mounted.view.dom.parentElement!;
+    stubElementsFromPoint(() => [button, beneath, document.body]);
+
+    dispatchMouseEvent(mounted.view.dom, "mousemove", { clientX: 76, clientY: 60 });
+    expect(button).not.toHaveAttribute("hidden");
+
+    beneath = menu;
+    dispatchMouseEvent(button, "mouseover", { clientX: 76, clientY: 60 });
+    expect(button).toHaveAttribute("hidden");
+    expect(indicator).toHaveAttribute("hidden");
+
+    dispatchMouseEvent(menu, "mousemove", { clientX: 76, clientY: 94 });
+    expect(button).toHaveAttribute("hidden");
+    expect(indicator).toHaveAttribute("hidden");
+
+    beneath = mounted.view.dom;
+    menu.remove();
+    dispatchMouseEvent(mounted.view.dom, "mousemove", { clientX: 76, clientY: 94 });
+    expect(button).not.toHaveAttribute("hidden");
+    expect(button.style.top).toBe("94px");
+    dispatchMouseEvent(button, "click");
+    expect(onBlockInsertionRequested).toHaveBeenCalledOnce();
+    expect(onBlockInsertionRequested).toHaveBeenCalledWith(
+      expect.objectContaining({ boundary: paragraphs[1].pos }),
     );
   });
 

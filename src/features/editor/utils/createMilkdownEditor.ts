@@ -47,7 +47,6 @@ import {
 } from "@milkdown/kit/preset/gfm";
 import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
-import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 
 import {
   getEditorCommandState,
@@ -85,6 +84,7 @@ import {
 } from "../plugins/codeBlockLanguage";
 import { createLeafdownCodeBlockViewPlugin } from "../plugins/codeBlockView";
 import { createLeafdownCodeFormPlugin } from "../plugins/codeForm";
+import { createLeafdownCodeHighlightPlugin } from "../plugins/codeHighlight";
 import { createLeafdownCodeLineNumbersPlugin } from "../plugins/codeLineNumbers";
 import { createLeafdownCodeSpanInputRule } from "../plugins/codeSpanInputRule";
 import { createLeafdownCommandKeymapPlugin } from "../plugins/commandKeymap";
@@ -399,7 +399,7 @@ export const createMilkdownEditor = async ({
     .use(history)
     .use(createLeafdownClipboardPlugin())
     .use(clipboard)
-    .use(highlight)
+    .use(createLeafdownCodeHighlightPlugin(parser))
     .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
     .use(markdownReferenceContextCtx)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
@@ -578,7 +578,6 @@ export const createMilkdownEditor = async ({
       );
       ctx.set(defaultValueCtx, initialMarkdown);
       ctx.set(markdownReferenceContextCtx.key, getMarkdownReferenceContext);
-      ctx.set(highlightPluginConfig.key, { parser });
       ctx.update(historyKeymap.key, (keymap) => ({
         ...keymap,
         Redo: { ...keymap.Redo, shortcuts: [] },

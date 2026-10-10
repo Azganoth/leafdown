@@ -5,7 +5,12 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import type { TableCellCoordinates } from "@/features/editor";
 
-import { createKeyboardEvent, type TestKeyboardEventOptions } from "./events";
+import {
+  createKeyboardEvent,
+  dispatchMouseEvent,
+  type TestKeyboardEventOptions,
+  type TestMouseEventOptions,
+} from "./events";
 import type { MountedMilkdownEditor } from "./milkdown";
 
 export const getEditorTextContent = (mounted: MountedMilkdownEditor) =>
@@ -224,6 +229,29 @@ export const setTextSelection = (view: EditorView, anchor: number, head = anchor
     TextSelection.create(view.state.doc, anchor, head),
   );
   view.dispatch(transaction);
+};
+
+// A synthetic mousedown has no default action, but a real one moves the native caret to the
+// pressed position, and the editor reads that selection before mouseup. Like Chromium, no click
+// follows when the pressed element left the document in between.
+export const dispatchEditorMouseClick = (
+  view: EditorView,
+  target: Element,
+  caretPosition: number,
+  init: TestMouseEventOptions = {},
+) => {
+  const mouseInit = { button: 0, ...init };
+  const mouseDown = dispatchMouseEvent(target, "mousedown", mouseInit);
+
+  if (!mouseDown.defaultPrevented) {
+    setTextSelection(view, caretPosition);
+  }
+
+  const pressedTargetRemains = target.isConnected;
+
+  dispatchMouseEvent(pressedTargetRemains ? target : view.dom, "mouseup", mouseInit);
+
+  return pressedTargetRemains ? dispatchMouseEvent(target, "click", mouseInit) : null;
 };
 
 export const setSelectionAtDocumentEnd = (view: EditorView) => {

@@ -6,4 +6,6 @@ Ordinary paragraph text.
 
 [Missing guide](missing-modifier-click.md)
 
+[Local guide](modifier-click-target.md)
+
 ---

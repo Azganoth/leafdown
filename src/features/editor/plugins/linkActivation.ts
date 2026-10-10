@@ -54,6 +54,21 @@ export const createLeafdownLinkActivationPlugin = (
         key: leafdownLinkActivationPluginKey,
         props: {
           handleDOMEvents: {
+            // The native caret would enter the link on mousedown, and its source projection would
+            // replace the rendered target before click.
+            mousedown: (view, event) => {
+              if (
+                event.button !== 0 ||
+                !isPrimaryModifierEvent(event) ||
+                !getRenderedLinkAtTarget(view.dom, event.target)
+              ) {
+                return false;
+              }
+
+              event.preventDefault();
+
+              return true;
+            },
             click: (view, event) => {
               const link = getRenderedLinkAtTarget(view.dom, event.target);
 

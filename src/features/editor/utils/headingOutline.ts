@@ -43,7 +43,6 @@ export const EMPTY_HEADING_OUTLINE: HeadingOutlineState = {
 // The current heading is the last one to have reached this distance below the top of the view.
 // It clears the editor's top padding, so a document opening on a heading marks that heading.
 const ACTIVE_LINE_OFFSET = 80;
-const NAVIGATION_OFFSET = 16;
 
 // Holds the heading chosen from the outline while the view stays where navigation left it, since
 // a heading in the last screen of a document cannot scroll up to the active line.
@@ -190,6 +189,14 @@ export const headingOutlinesEqual = (left: HeadingOutlineState, right: HeadingOu
     );
   });
 
+const beginsDocument = (doc: ProseMirrorNode, position: number) => {
+  const $position = doc.resolve(position);
+  for (let depth = 0; depth <= $position.depth; depth += 1) {
+    if ($position.index(depth) !== 0) return false;
+  }
+  return true;
+};
+
 export const jumpToOutlineHeading = (view: EditorView, position: number) => {
   const before = getOutlineHeadings(view.state.doc);
   const index = before.findIndex((heading) => heading.position === position);
@@ -205,10 +212,11 @@ export const jumpToOutlineHeading = (view: EditorView, position: number) => {
   const element = view.nodeDOM(heading.position);
   if (element instanceof Element) {
     if (viewport) {
-      viewport.scrollTop +=
-        element.getBoundingClientRect().top -
-        viewport.getBoundingClientRect().top -
-        NAVIGATION_OFFSET;
+      // The heading comes to rest where the document's first line rests at the start of the
+      // scroll, so it keeps the editor's top padding at every width and clears an open search panel.
+      viewport.scrollTop = beginsDocument(view.state.doc, heading.position)
+        ? 0
+        : element.getBoundingClientRect().top - view.dom.getBoundingClientRect().top;
     } else {
       element.scrollIntoView({ block: "start" });
     }

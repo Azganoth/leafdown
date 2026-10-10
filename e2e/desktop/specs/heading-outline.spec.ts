@@ -90,10 +90,11 @@ const getPlacement = () =>
     const viewport = document.querySelector(
       '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
+    const editor = document.querySelector(".ProseMirror");
     const heading = document
       .getSelection()
       ?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6");
-    if (!outline || !surface || !viewport || !heading)
+    if (!outline || !surface || !viewport || !editor || !heading)
       throw new Error("Outline geometry is missing.");
     const outlineRect = outline.getBoundingClientRect();
     const surfaceRect = surface.getBoundingClientRect();
@@ -107,10 +108,32 @@ const getPlacement = () =>
         outlineRect.top >= surfaceRect.top &&
         outlineRect.bottom <= surfaceRect.bottom,
       headingVisible: headingTop >= 0 && headingRect.bottom <= viewportRect.bottom,
-      headingNearTop: headingTop >= 0 && headingTop <= 48,
+      headingTop,
+      // Where the document's first line rests below the top of the view before any scrolling.
+      documentTop: editor.getBoundingClientRect().top - viewportRect.top + viewport.scrollTop,
       scrollTop: viewport.scrollTop,
     };
   }, OUTLINE);
+// Synthesized keys are untrusted and never activate a button, so a focused row is chosen with a
+// click; component tests cover Enter.
+const chooseRow = async (position: string | null, text: string) => {
+  await browser.execute((value) => {
+    document.querySelector<HTMLElement>(`[data-outline-position="${value}"]`)?.focus();
+  }, position);
+  await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Focus did not open the outline." });
+  await browser.execute((value) => {
+    document.querySelector<HTMLElement>(`[data-outline-position="${value}"]`)!.click();
+  }, position);
+  await browser.waitUntil(async () => (await selectedHeading()) === text, {
+    timeoutMsg: `Choosing a row did not move the caret to the heading "${text}".`,
+  });
+};
+const expectRestingClearance = async () => {
+  const placement = await getPlacement();
+  expect(placement.scrollTop).toBeGreaterThan(0);
+  expect(placement.documentTop).toBeGreaterThanOrEqual(32);
+  expect(Math.abs(placement.headingTop - placement.documentTop)).toBeLessThanOrEqual(1);
+};
 
 describe("desktop heading outline", () => {
   beforeEach(async () => {
@@ -273,24 +296,28 @@ describe("desktop heading outline", () => {
       timeoutMsg: "The outline did not close after the pointer left it.",
     });
     const quotedPosition = await rows[1].getAttribute("data-outline-position");
-    await browser.execute((position) => {
-      document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)?.focus();
-    }, quotedPosition);
-    await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Focus did not open the outline." });
-    // Synthesized keys are untrusted and never activate a button, so the focused row is chosen
-    // with a click; component tests cover Enter.
-    await browser.execute((position) => {
-      document.querySelector<HTMLElement>(`[data-outline-position="${position}"]`)!.click();
-    }, quotedPosition);
-    await browser.waitUntil(async () => (await selectedHeading()) === "Quoted", {
-      timeoutMsg: "Choosing the focused row did not move the caret to the quoted heading.",
-    });
+    await chooseRow(quotedPosition, "Quoted");
     await expect($(".ProseMirror h3")).toHaveAttribute("data-leafdown-marker", "H3");
     await browser.waitUntil(
       async () => (await rows[1].getAttribute("aria-current")) === "location",
       { timeoutMsg: "The quoted heading did not become current." },
     );
-    expect((await getPlacement()).headingNearTop).toBe(true);
+    await expectRestingClearance();
+
+    await chooseRow(await rows[2].getAttribute("data-outline-position"), "Nested");
+    await expect($(".ProseMirror li h2")).toHaveAttribute("data-leafdown-marker", "H2");
+    await expectRestingClearance();
+
+    // The opening heading returns the view to the start rather than scrolling past the padding.
+    await chooseRow(await rows[0].getAttribute("data-outline-position"), "Same");
+    const opening = await getPlacement();
+    expect(opening.scrollTop).toBe(0);
+    expect(Math.abs(opening.headingTop - opening.documentTop)).toBeLessThanOrEqual(1);
+
+    await browser.setWindowSize(1200, 600);
+    await chooseRow(quotedPosition, "Quoted");
+    await expectRestingClearance();
+    await browser.setWindowSize(640, 600);
 
     await hoverRow(await rows[0].getAttribute("data-outline-position"));
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not reopen the outline." });

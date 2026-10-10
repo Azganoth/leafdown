@@ -31,6 +31,7 @@ export interface AppCommandContext {
   activeDocument: ActiveDocumentState | null;
   editor: EditorCommandState;
   folderContext: FolderContextState | null;
+  folderContextLoading: boolean;
   recentItems: AppCommandRecentItemsContext;
   settings: AppCommandSettingsContext;
   ui: AppCommandUIContext;

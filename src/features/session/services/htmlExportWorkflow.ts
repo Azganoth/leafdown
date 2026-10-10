@@ -14,7 +14,7 @@ import { SequentialTaskQueue } from "@/lib/async";
 import { t } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 
-import { useSessionStore } from "../stores/session";
+import { getSessionFolderPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 
 export type HtmlExportOutcome =
@@ -46,7 +46,7 @@ const getExportDefaultPath = async (activeDocument: ActiveDocumentState) => {
   const folderPath =
     activeDocument.status === "saved"
       ? getPathParts(activeDocument.path).parent
-      : (useSessionStore.getState().folderContext?.path ?? (await documentDir()));
+      : (getSessionFolderPath(useSessionStore.getState()) ?? (await documentDir()));
 
   return join(folderPath, fileName);
 };
@@ -84,7 +84,7 @@ const exportActiveMarkdownDocumentAsHtmlNow = async (): Promise<HtmlExportOutcom
   const documentPath = activeDocument.status === "saved" ? activeDocument.path : null;
   const { html, warnings } = await renderHtmlExport(snapshot, {
     documentPath,
-    folderContextPath: session.folderContext?.path ?? null,
+    folderContextPath: getSessionFolderPath(session),
     outputPath: path,
     title: getDocumentTitle(activeDocument),
   });

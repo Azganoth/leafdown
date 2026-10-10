@@ -561,3 +561,124 @@ describe("open session workflows", () => {
     });
   });
 });
+
+describe("folder context after opening a file", () => {
+  it("shows the document before its folder finishes scanning", async () => {
+    const folderScan = Promise.withResolvers<FolderContextState>();
+    mockTauriApi({
+      openMarkdownFile: () => openedOtherMarkdownFile,
+      scanMarkdownFolder: () => folderScan.promise,
+    });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
+
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      folderContextLoad: { path: TEST_NOTES_FOLDER_PATH },
+      activeDocument: { status: "saved", path: OTHER_MARKDOWN_PATH },
+    });
+    expect(useRecentItemsStore.getState()).toMatchObject({
+      recentFiles: [{ path: OTHER_MARKDOWN_PATH }],
+      recentFolders: [],
+    });
+
+    folderScan.resolve(emptyNotesFolderContext);
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: { path: TEST_NOTES_FOLDER_PATH },
+        folderContextLoad: null,
+        activeDocument: { status: "saved", path: OTHER_MARKDOWN_PATH },
+      });
+    });
+    expect(useRecentItemsStore.getState().recentFolders).toMatchObject([
+      { path: TEST_NOTES_FOLDER_PATH },
+    ]);
+  });
+
+  it("keeps the loading folder when another file opens before the scan finishes", async () => {
+    const folderScan = Promise.withResolvers<FolderContextState>();
+    mockTauriApi({
+      openMarkdownFile: (args) =>
+        args.path === OTHER_MARKDOWN_PATH
+          ? openedOtherMarkdownFile
+          : createOpenedMarkdownDocument({
+              path: LATEST_MARKDOWN_PATH,
+              parentFolderPath: LATEST_FOLDER_PATH,
+            }),
+      scanMarkdownFolder: () => folderScan.promise,
+    });
+
+    await openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
+    await expect(openMarkdownFileAtPath(LATEST_MARKDOWN_PATH)).resolves.toBe(true);
+
+    expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
+
+    folderScan.resolve(emptyNotesFolderContext);
+
+    await vi.waitFor(() => {
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: { path: TEST_NOTES_FOLDER_PATH },
+        activeDocument: { status: "saved", path: LATEST_MARKDOWN_PATH },
+      });
+    });
+  });
+
+  it("discards a folder scan that an opened folder replaced", async () => {
+    const folderScan = Promise.withResolvers<FolderContextState>();
+    mockTauriApi({
+      openMarkdownFile: () => openedOtherMarkdownFile,
+      scanMarkdownFolder: () => folderScan.promise,
+      openMarkdownFolder: () => ({
+        folder: createEmptyFolderContext({ path: LATEST_FOLDER_PATH }),
+        indexDocument: null,
+        indexError: null,
+      }),
+    });
+
+    await openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
+    await expect(openFolderContextAtPath(LATEST_FOLDER_PATH)).resolves.toBe(true);
+
+    folderScan.resolve(emptyNotesFolderContext);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: LATEST_FOLDER_PATH },
+      folderContextLoad: null,
+      activeDocument: null,
+    });
+    expect(useRecentItemsStore.getState().recentFolders).toMatchObject([
+      { path: LATEST_FOLDER_PATH },
+    ]);
+  });
+
+  it("keeps the document open and reports a folder that cannot be scanned", async () => {
+    mockTauriApi({
+      openMarkdownFile: () => openedOtherMarkdownFile,
+      scanMarkdownFolder: () =>
+        Promise.reject({
+          kind: "permissionDenied",
+          path: TEST_NOTES_FOLDER_PATH,
+          message: "Access is denied.",
+        }),
+    });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
+
+    await vi.waitFor(() => {
+      expect(toastManager.add).toHaveBeenCalledWith({
+        description: "Access is denied.",
+        title: "Permission denied accessing folder.",
+        type: "error",
+      });
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: null,
+      folderContextLoad: null,
+      activeDocument: { status: "saved", path: OTHER_MARKDOWN_PATH },
+    });
+    expect(useRecentItemsStore.getState().recentFolders).toEqual([]);
+  });
+});

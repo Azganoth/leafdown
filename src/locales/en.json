@@ -480,6 +480,7 @@
   "articleNavigator.emptyWithWarnings": "No supported Markdown files found in scanned entries.",
   "articleNavigator.noMatches": "No matching articles.",
   "articleNavigator.noVisibleEntries": "No visible folder entries.",
+  "articleNavigator.loading": "Loading folder…",
   "articleNavigator.filter.label": "Filter articles",
   "articleNavigator.filter.placeholder": "Filter…",
   "articleNavigator.filter.clear": "Clear article filter",

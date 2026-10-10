@@ -29,7 +29,7 @@ import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
 import { isSameOrParentPath } from "@/lib/path";
 
-import { useSessionStore } from "../stores/session";
+import { getSessionFolderPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { getSessionFolderScanOptions } from "./folderContextWorkflows";
 import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
@@ -156,12 +156,14 @@ const saveActiveMarkdownDocumentToNewPath = async (
     );
   }
 
-  const existingFolderContext = useSessionStore.getState().folderContext;
-  const nextFolderContext = await getFolderContextAfterSaveAs(
-    result.path,
-    result.parentFolderPath,
-    existingFolderContext,
-  );
+  const { folderContext: existingFolderContext, folderContextLoad } = useSessionStore.getState();
+  const nextFolderContext = folderContextLoad
+    ? null
+    : await getFolderContextAfterSaveAs(
+        result.path,
+        result.parentFolderPath,
+        existingFolderContext,
+      );
 
   if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
     return false;
@@ -434,7 +436,7 @@ const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
   }
 
   const fileName = `${t("session.untitledFileName")}${useSettingsStore.getState().defaultNewDocumentExtension}`;
-  const folderPath = useSessionStore.getState().folderContext?.path ?? (await documentDir());
+  const folderPath = getSessionFolderPath(useSessionStore.getState()) ?? (await documentDir());
 
   return join(folderPath, fileName);
 };

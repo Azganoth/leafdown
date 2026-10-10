@@ -18,6 +18,7 @@ import type { ArticleTreeNode } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import {
   documentEditorBridge,
+  getSessionFolderPath,
   notifyOpenMarkdownFileError,
   openMarkdownFileAtPath,
   useSessionStore,
@@ -56,7 +57,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const outlineDepth = useSettingsStore((state) => state.outlineDepth);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
   const folderContext = useSessionStore((state) => state.folderContext);
-  const folderContextPath = folderContext?.path ?? null;
+  const folderContextPath = useSessionStore(getSessionFolderPath);
   const wikiCompletionPaths = useMemo(
     () => (folderContext ? articlePaths(folderContext.tree.children) : []),
     [folderContext],

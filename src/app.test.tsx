@@ -409,6 +409,57 @@ describe("App", () => {
     );
   });
 
+  it("opens the launch document once delayed startup finishes, before its folder scan does", async () => {
+    const launchFolderPath = "C:/Users/Ana Lúcia/Notas de reunião";
+    const launchDocumentPath = `${launchFolderPath}/日本語 notes.md`;
+    const settingsStart = Promise.withResolvers<void>();
+    const folderScan = Promise.withResolvers<ReturnType<typeof createEmptyFolderContext>>();
+    const startSettingsStore = vi
+      .spyOn(settingsStoreTauriHandler, "start")
+      .mockReturnValue(settingsStart.promise);
+    setDefaultSettings({ sidebarVisible: true });
+    mockTauriApi({
+      takeLaunchDocumentPath: () => launchDocumentPath,
+      openMarkdownFile: () =>
+        createOpenedMarkdownDocument({
+          path: launchDocumentPath,
+          parentFolderPath: launchFolderPath,
+        }),
+      scanMarkdownFolder: () => folderScan.promise,
+      watchMarkdownDocument: () => undefined,
+      unwatchMarkdownDocument: () => undefined,
+      inspectMarkdownFile: () => ({ kind: "unchanged" }),
+      watchMarkdownFolder: () => undefined,
+      unwatchMarkdownFolder: () => undefined,
+    });
+
+    try {
+      render(<App />);
+
+      await waitFor(() => expect(startSettingsStore).toHaveBeenCalled());
+      expect(countTauriApiCalls("takeLaunchDocumentPath")).toBe(0);
+
+      settingsStart.resolve();
+
+      await waitFor(() => {
+        expect(useSessionStore.getState().activeDocument).toMatchObject({
+          path: launchDocumentPath,
+        });
+      });
+      expect(useSessionStore.getState().folderContext).toBeNull();
+      expect(await screen.findByText("Loading folder…")).toBeInTheDocument();
+
+      folderScan.resolve(createEmptyFolderContext({ path: launchFolderPath }));
+
+      await waitFor(() => {
+        expect(useSessionStore.getState().folderContext).toMatchObject({ path: launchFolderPath });
+      });
+      expect(screen.queryByText("Loading folder…")).not.toBeInTheDocument();
+    } finally {
+      startSettingsStore.mockRestore();
+    }
+  });
+
   it("opens the launch document with default settings when preferences fail to load", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const startSettingsStore = vi

@@ -72,6 +72,7 @@ export const useAppCommands = () => {
 
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
+  const folderContextLoading = useSessionStore((state) => state.folderContextLoad !== null);
   const alwaysOnTop = useSettingsStore((state) => state.alwaysOnTop);
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
@@ -92,6 +93,7 @@ export const useAppCommands = () => {
     activeDocument,
     editor,
     folderContext,
+    folderContextLoading,
     recentItems: {
       recentFiles,
       recentFolders,

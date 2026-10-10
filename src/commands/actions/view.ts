@@ -150,7 +150,7 @@ export const expandAllFolders = (context: AppCommandContext) => {
 };
 
 export const getToggleSidebarState = (context: AppCommandContext) =>
-  context.folderContext
+  context.folderContext || context.folderContextLoading
     ? checked(context.settings.sidebarVisible)
     : disabled("No folder context is open.");
 

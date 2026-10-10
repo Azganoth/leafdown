@@ -43,8 +43,10 @@ export {
   reopenMarkdownFileWithChosenEncoding,
 } from "./services/openSession";
 export {
+  getSessionFolderPath,
   getSessionMode,
   useSessionStore,
+  type FolderContextLoad,
   type SessionMode,
   type SessionState,
   type SessionStore,

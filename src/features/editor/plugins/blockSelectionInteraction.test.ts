@@ -276,21 +276,42 @@ describe("block selection interaction", () => {
           .mockReturnValue(createRect(100, blockTops[index], blockHeight));
       });
       const getGutter = (index: number) => getHandle(targets[index].pos).parentElement!;
+      const queryGutter = (index: number) =>
+        document.querySelector<HTMLElement>(
+          `.leafdown-block-gutter[data-leafdown-block-pos="${String(targets[index].pos)}"]`,
+        );
       dispatchDOMEvent(window, "resize");
       await settleAnimationFrame();
-      return { mounted, targets, nodeRects, getGutter, layer };
+      return { mounted, targets, nodeRects, getGutter, queryGutter, layer };
     };
 
     it("clips the control layer and fits each gutter to its block's visible part", async () => {
-      const { getGutter, layer } = await mountScrolled();
+      const { getGutter, queryGutter, layer } = await mountScrolled();
 
       expect(layer).toHaveStyle({ clipPath: "inset(100px 624px 468px 0px)" });
-      expect(getGutter(0)).toHaveAttribute("hidden");
+      expect(queryGutter(0)).toBeNull();
       expect(getGutter(1).style).toMatchObject({ top: "100px", height: "20px" });
       expect(getGutter(1).style.getPropertyValue("--leafdown-block-first-line")).toBe("20px");
       expect(getGutter(2).style).toMatchObject({ top: "150px", height: "60px" });
       expect(getGutter(3).style).toMatchObject({ top: "280px", height: "20px" });
-      expect(getGutter(4)).toHaveAttribute("hidden");
+      expect(queryGutter(4)).toBeNull();
+    });
+
+    it("adds a gutter as its block scrolls into view and drops it once the block leaves", async () => {
+      const { nodeRects, getGutter, queryGutter } = await mountScrolled();
+      const handle = getHandle(Number(getGutter(2).dataset.leafdownBlockPos));
+
+      nodeRects.forEach((rect, index) =>
+        rect.mockReturnValue(createRect(100, blockTops[index] + 120, blockHeight)),
+      );
+      dispatchDOMEvent(document, "scroll");
+      await settleAnimationFrame();
+
+      expect(queryGutter(0)?.style).toMatchObject({ top: "120px", height: "60px" });
+      expect(getGutter(2).style).toMatchObject({ top: "270px", height: "30px" });
+      expect(getHandle(Number(getGutter(2).dataset.leafdownBlockPos))).toBe(handle);
+      expect(queryGutter(3)).toBeNull();
+      expect(queryGutter(4)).toBeNull();
     });
 
     it("tracks insertion only while the pointer is inside the view", async () => {
@@ -355,6 +376,72 @@ describe("block selection interaction", () => {
       expect(
         document.querySelector<HTMLButtonElement>("[data-leafdown-block-insert]")!.style.top,
       ).toBe("290px");
+    });
+
+    it("keeps the gutter of a container reaching into view from above", async () => {
+      const mounted = await mountEditor("- Parent\n  - First\n  - Second\n\nAfter\n");
+      mounted.root.style.overflowY = "auto";
+      vi.spyOn(mounted.root, "getBoundingClientRect").mockReturnValue(createRect(0, 100, 200, 400));
+      const targets = getSelectableBlockTargets(mounted.view.state.doc);
+      const rects = [
+        createRect(100, 40, 120),
+        createRect(124, 70, 28),
+        createRect(124, 130, 28),
+        createRect(100, 200),
+      ];
+      targets.forEach(({ pos }, index) => {
+        vi.spyOn(mounted.view.nodeDOM(pos) as Element, "getBoundingClientRect").mockReturnValue(
+          rects[index],
+        );
+      });
+      dispatchDOMEvent(window, "resize");
+      await settleAnimationFrame();
+
+      expect(getHandles().map((handle) => Number(handle.dataset.leafdownBlockPos))).toEqual([
+        targets[0].pos,
+        targets[2].pos,
+        targets[3].pos,
+      ]);
+      expect(getHandle(targets[0].pos).parentElement?.style).toMatchObject({
+        top: "100px",
+        height: "60px",
+      });
+    });
+
+    it("measures a bounded set of blocks on each edit of a long document", async () => {
+      const markdown = Array.from({ length: 400 }, (_, index) => `Paragraph ${String(index)}`);
+      const mounted = await mountEditor(`${markdown.join("\n\n")}\n`);
+      mounted.root.style.overflowY = "auto";
+      vi.spyOn(mounted.root, "getBoundingClientRect").mockReturnValue(createRect(0, 100, 200, 400));
+      const targets = getSelectableBlockTargets(mounted.view.state.doc);
+      const reads = targets.map(({ pos }, index) => {
+        const node = mounted.view.nodeDOM(pos) as Element;
+        // A folded section has no layout.
+        if (index >= 150 && index < 250) {
+          vi.spyOn(node, "getClientRects").mockReturnValue([] as unknown as DOMRectList);
+        }
+        return vi
+          .spyOn(node, "getBoundingClientRect")
+          .mockReturnValue(createRect(100, index * 40 - 12_000, 40));
+      });
+      const visible = targets.slice(302, 308).map(({ pos }) => pos);
+      dispatchDOMEvent(window, "resize");
+      await settleAnimationFrame();
+
+      expect(getHandles().map((handle) => Number(handle.dataset.leafdownBlockPos))).toEqual(
+        visible,
+      );
+
+      reads.forEach((read) => read.mockClear());
+      mounted.view.dispatch(mounted.view.state.tr.insertText("Edited ", targets[0].pos + 1));
+
+      expect(getHandles().map((handle) => Number(handle.dataset.leafdownBlockPos))).toEqual(
+        visible.map((pos) => pos + "Edited ".length),
+      );
+      expect(reads.reduce((total, read) => total + read.mock.calls.length, 0)).toBeLessThan(30);
+      expect(
+        mounted.view.dom.querySelectorAll("[class*='leafdown-selec'], [data-leafdown-block-pos]"),
+      ).toHaveLength(0);
     });
   });
 

@@ -406,6 +406,7 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 - Block handles are pointer controls with no per-block tab stop. Selection changes are announced while the editor retains focus; keyboard entry and navigation consume the same selection model in their own focused interaction layer.
 - One insertion button follows the pointer within the local gutter. Horizontal position chooses an eligible depth; vertical position chooses a valid sibling boundary. The insertion indicator is presentation only, and the menu commits one block at that boundary. Handle dragging suppresses the popup and moves the selected range among valid siblings through the same boundary rules as keyboard and popup movement; it does not reparent blocks across depths.
 - The context popup has one selection-aware anchor and filters inline-only actions for structural selection instead of introducing a second handle menu.
+- Gutters exist only for blocks in the document view, and only selected blocks carry a decoration, so the layout reads and DOM writes the gutters make on an edit, scroll, or selection change do not grow with the document. Block positions are not written into the document's DOM; finding a block's gutter starts from the gutter, which carries the position. Measured in [issue #670](https://github.com/Azganoth/leafdown/issues/670).
 
 ### Fold heading sections as editor view state
 

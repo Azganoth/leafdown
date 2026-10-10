@@ -76,9 +76,21 @@ const collectSelectableBlocks = (
   });
 };
 
-export const getSelectableBlockTargets = (doc: ProseMirrorNode) => {
-  const targets: SelectableBlockTarget[] = [];
-  collectSelectableBlocks(doc, 0, targets, null);
+const selectableBlockTargets = new WeakMap<ProseMirrorNode, readonly SelectableBlockTarget[]>();
+
+// Documents are immutable, so one traversal serves every reader of the same state.
+export const getSelectableBlockTargets = (
+  doc: ProseMirrorNode,
+): readonly SelectableBlockTarget[] => {
+  let targets = selectableBlockTargets.get(doc);
+
+  if (!targets) {
+    const collected: SelectableBlockTarget[] = [];
+    collectSelectableBlocks(doc, 0, collected, null);
+    targets = collected;
+    selectableBlockTargets.set(doc, targets);
+  }
+
   return targets;
 };
 

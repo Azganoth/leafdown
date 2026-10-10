@@ -11,7 +11,10 @@ describe("desktop separator presentation", () => {
     await expect(separator).toBeDisplayed();
 
     const geometry = (await separator.execute((node) => {
-      const pos = node.getAttribute("data-leafdown-block-pos");
+      // ProseMirror keeps the rendered node's view description, and with it its position.
+      const pos = String(
+        (node as HTMLElement & { pmViewDesc?: { posBefore: number } }).pmViewDesc?.posBefore,
+      );
       const handle = document.querySelector<HTMLElement>(
         `[data-leafdown-block-handle][data-leafdown-block-pos="${pos}"]`,
       );

@@ -5,6 +5,11 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { Decoration, DecorationSet } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import {
+  createCodeBlockDecorations,
+  updateCodeBlockDecorations,
+} from "../utils/codeBlockDecorations";
+
 interface CodeLineNumbersPluginState {
   enabled: boolean;
   decorations: DecorationSet;
@@ -21,11 +26,8 @@ const MINIMUM_GUTTER_DIGITS = 2;
 // the browser's caret motion lands on, so a line start would swallow one arrow press. The block
 // draws the first number, and each line ending draws the number of the line it opens, which
 // reaches an empty last line that holds no character of its own.
-const addCodeBlockDecorations = (
-  node: ProseMirrorNode,
-  position: number,
-  decorations: Decoration[],
-) => {
+const numberCodeBlock = (node: ProseMirrorNode, position: number) => {
+  const decorations: Decoration[] = [];
   const contentStart = position + 1;
   // A code block holds unmarked text only, so its string offsets are document offsets.
   const text = node.textContent;
@@ -47,25 +49,13 @@ const addCodeBlockDecorations = (
       style: `--leafdown-code-line-number-digits: ${Math.max(MINIMUM_GUTTER_DIGITS, String(lineNumber).length)}`,
     }),
   );
-};
 
-const createLineNumberDecorations = (doc: ProseMirrorNode) => {
-  const decorations: Decoration[] = [];
-
-  doc.descendants((node, position) => {
-    if (node.type.name === "code_block") {
-      addCodeBlockDecorations(node, position, decorations);
-    }
-
-    return !node.isTextblock;
-  });
-
-  return DecorationSet.create(doc, decorations);
+  return decorations;
 };
 
 const createPluginState = (enabled: boolean, doc: ProseMirrorNode) => ({
   enabled,
-  decorations: enabled ? createLineNumberDecorations(doc) : DecorationSet.empty,
+  decorations: enabled ? createCodeBlockDecorations(doc, numberCodeBlock) : DecorationSet.empty,
 });
 
 const applyPluginState = (
@@ -75,11 +65,18 @@ const applyPluginState = (
   const requested = transaction.getMeta(leafdownCodeLineNumbersPluginKey) as boolean | undefined;
   const enabled = requested ?? pluginState.enabled;
 
-  if (enabled === pluginState.enabled && !(enabled && transaction.docChanged)) {
+  if (enabled !== pluginState.enabled) {
+    return createPluginState(enabled, transaction.doc);
+  }
+
+  if (!enabled || !transaction.docChanged) {
     return pluginState;
   }
 
-  return createPluginState(enabled, transaction.doc);
+  return {
+    enabled,
+    decorations: updateCodeBlockDecorations(transaction, pluginState.decorations, numberCodeBlock),
+  };
 };
 
 export const areCodeLineNumbersEnabled = (state: EditorState) =>
@@ -97,17 +94,17 @@ export const setCodeLineNumbersEnabled = (view: EditorView, enabled: boolean) =>
   );
 };
 
+export const createCodeLineNumbersPlugin = (isEnabled: () => boolean) =>
+  new Plugin<CodeLineNumbersPluginState>({
+    key: leafdownCodeLineNumbersPluginKey,
+    state: {
+      init: (_config, state) => createPluginState(isEnabled(), state.doc),
+      apply: applyPluginState,
+    },
+    props: {
+      decorations: (state) => leafdownCodeLineNumbersPluginKey.getState(state)?.decorations,
+    },
+  });
+
 export const createLeafdownCodeLineNumbersPlugin = (isEnabled: () => boolean) =>
-  $prose(
-    () =>
-      new Plugin<CodeLineNumbersPluginState>({
-        key: leafdownCodeLineNumbersPluginKey,
-        state: {
-          init: (_config, state) => createPluginState(isEnabled(), state.doc),
-          apply: applyPluginState,
-        },
-        props: {
-          decorations: (state) => leafdownCodeLineNumbersPluginKey.getState(state)?.decorations,
-        },
-      }),
-  );
+  $prose(() => createCodeLineNumbersPlugin(isEnabled));

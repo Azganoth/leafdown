@@ -36,13 +36,22 @@ interface GutterGeometry {
   tabIndex: number;
 }
 
+// ProseMirror keeps each rendered node's view description on its element, which is how a spec
+// finds the block a handle at a position belongs to.
+interface RenderedNode extends HTMLElement {
+  pmViewDesc?: { dom: Node; node?: unknown; posBefore: number };
+}
+
 const handleGeometry = () =>
   browser.execute(() =>
     Array.from(document.querySelectorAll<HTMLButtonElement>("[data-leafdown-block-handle]")).map(
       (handle) => {
         const pos = handle.dataset.leafdownBlockPos ?? "";
-        const block = document.querySelector<HTMLElement>(
-          `.ProseMirror [data-leafdown-block-pos="${CSS.escape(pos)}"]`,
+        const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+          (element) =>
+            element.pmViewDesc?.dom === element &&
+            element.pmViewDesc.node !== undefined &&
+            element.pmViewDesc.posBefore === Number(pos),
         );
 
         if (!block) throw new Error(`Rendered block ${pos} was not found.`);
@@ -74,12 +83,86 @@ const handleGeometry = () =>
     ),
   ) as Promise<GutterGeometry[]>;
 
-const getGeometryForText = async (text: string) => {
-  const geometry = (await handleGeometry()).find(({ blockText }) => blockText === text);
+const findGeometryForText = async (text: string) =>
+  (await handleGeometry()).find(({ blockText }) => blockText === text);
 
-  if (!geometry) throw new Error(`Block handle was not found for: ${text}`);
-  return geometry;
+// Only blocks in the document view have gutters, so a block below it is scrolled into view first.
+const getGeometryForText = async (text: string) => {
+  let geometry = await findGeometryForText(text);
+
+  if (!geometry) {
+    await browser.execute((blockText) => {
+      Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *"))
+        .find(
+          (element) =>
+            element.pmViewDesc?.dom === element && element.textContent?.trim() === blockText,
+        )
+        ?.scrollIntoView({ block: "center" });
+    }, text);
+    await browser.waitUntil(
+      async () => (geometry = await findGeometryForText(text)) !== undefined,
+      {
+        timeoutMsg: `Block handle was not found for: ${text}`,
+      },
+    );
+  }
+
+  return geometry!;
 };
+
+const moveToBlock = async (pos: string) => {
+  const point = await browser.execute((blockPos) => {
+    const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+      (element) =>
+        element.pmViewDesc?.dom === element &&
+        element.pmViewDesc.node !== undefined &&
+        element.pmViewDesc.posBefore === Number(blockPos),
+    );
+    if (!block) throw new Error(`Rendered block ${blockPos} was not found.`);
+    const rect = block.getBoundingClientRect();
+    return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+  }, pos);
+
+  await browser
+    .action("pointer")
+    .move({ duration: 0, origin: "viewport", x: point.x, y: point.y })
+    .perform();
+};
+
+// Measured on the items themselves, since items below the view have no gutter.
+const listItemGap = (before: string, after: string) =>
+  browser.execute(
+    (beforeText, afterText) => {
+      const items = Array.from(document.querySelectorAll(".ProseMirror li"));
+      const first = items.find((item) => item.textContent?.trim() === beforeText);
+      const second = items.find((item) => item.textContent?.trim() === afterText);
+      if (!first || !second) {
+        throw new Error(`List items were not found: ${beforeText}, ${afterText}`);
+      }
+      return second.getBoundingClientRect().top - first.getBoundingClientRect().bottom;
+    },
+    before,
+    after,
+  );
+
+const listItemsInView = () =>
+  browser.execute((surfaceSelector) => {
+    const surface = document.querySelector(surfaceSelector)?.getBoundingClientRect();
+    if (!surface) throw new Error("Document view was not found.");
+    return Array.from(document.querySelectorAll(".ProseMirror li")).filter((item) => {
+      const rect = item.getBoundingClientRect();
+      return rect.bottom > surface.top && rect.top < surface.bottom;
+    }).length;
+  }, SURFACE_SELECTOR);
+
+// Every list item in the document, in order, whether or not it is in view.
+const listItemTexts = () =>
+  browser.execute(() =>
+    Array.from(
+      document.querySelectorAll(".ProseMirror li"),
+      (item) => item.textContent?.trim() ?? "",
+    ),
+  );
 
 const getHandleSelectorForText = async (text: string) => {
   const geometry = await getGeometryForText(text);
@@ -407,8 +490,11 @@ describe("desktop block selection", () => {
       .perform();
     await expect(button).toBeDisplayed();
     const rtlPlacement = await browser.execute((pos) => {
-      const block = document.querySelector<HTMLElement>(
-        `.ProseMirror [data-leafdown-block-pos="${pos}"]`,
+      const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+        (element) =>
+          element.pmViewDesc?.dom === element &&
+          element.pmViewDesc.node !== undefined &&
+          element.pmViewDesc.posBefore === Number(pos),
       );
       const gutter = document.querySelector<HTMLElement>(
         `.leafdown-block-gutter[data-leafdown-block-pos="${pos}"]`,
@@ -434,21 +520,20 @@ describe("desktop block selection", () => {
       ),
     );
     await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
-    expect((await handleGeometry()).filter(({ blockTag }) => blockTag === "LI")).toHaveLength(7);
+    expect(await listItemTexts()).toHaveLength(7);
+    expect((await handleGeometry()).filter(({ blockTag }) => blockTag === "LI")).toHaveLength(
+      await listItemsInView(),
+    );
 
     await browser.action("pointer").move({ origin: "viewport", x: point.x, y: point.y }).perform();
     await button.click();
     await $("[data-testid='editor-block-insertion-menu'] [role='menuitem']").click();
-    await browser.waitUntil(
-      async () => (await handleGeometry()).filter(({ blockTag }) => blockTag === "LI").length === 8,
-    );
+    await browser.waitUntil(async () => (await listItemTexts()).length === 8);
     expect(
       await browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
     ).toBe(true);
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
-    await browser.waitUntil(
-      async () => (await handleGeometry()).filter(({ blockTag }) => blockTag === "LI").length === 7,
-    );
+    await browser.waitUntil(async () => (await listItemTexts()).length === 7);
     expect(await dispatchEditorKey("i", { ctrlKey: true, altKey: true })).toBe(true);
     await expect($("[data-testid='editor-block-insertion-menu']")).toBeDisplayed();
     expect(await browser.execute(() => document.activeElement?.getAttribute("role"))).toBe(
@@ -534,19 +619,13 @@ describe("desktop block selection", () => {
 
     const wideGeometry = await handleGeometry();
     expect(wideGeometry.length).toBeGreaterThanOrEqual(9);
-    const itemGap = (before: string, after: string) => {
-      const first = wideGeometry.find(({ blockText }) => blockText === before);
-      const second = wideGeometry.find(({ blockText }) => blockText === after);
-      if (!first || !second) throw new Error(`List items were not found: ${before}, ${after}`);
-      return second.blockTop - first.blockTop - first.blockHeight;
-    };
     for (const [before, after] of [
       ["Nested first", "Nested second"],
       ["Hyphen item", "Second hyphen item"],
       ["Second hyphen item", "Plus item starts another list"],
       ["Plus item starts another list", "Asterisk item starts another list"],
     ]) {
-      expect(Math.abs(itemGap(before, after) - 8)).toBeLessThan(0.5);
+      expect(Math.abs((await listItemGap(before, after)) - 8)).toBeLessThan(0.5);
     }
     const paragraphToListGap = await browser.execute(() => {
       const paragraph = Array.from(document.querySelectorAll<HTMLElement>(".ProseMirror > p")).find(
@@ -583,7 +662,7 @@ describe("desktop block selection", () => {
     );
 
     const multilineGeometry = await getGeometryForText("Root paragraph with projected source.");
-    await $(`.ProseMirror [data-leafdown-block-pos="${multilineGeometry.pos}"]`).moveTo();
+    await moveToBlock(multilineGeometry.pos);
     await browser.waitUntil(async () => {
       const geometry = await handleGeometry();
       return geometry.find(({ pos }) => pos === multilineGeometry.pos)?.handleOpacity === "1";
@@ -601,7 +680,7 @@ describe("desktop block selection", () => {
     ).toBeLessThan(0.5);
 
     const firstGeometry = await getGeometryForText("Nested first");
-    await $(`.ProseMirror [data-leafdown-block-pos="${firstGeometry.pos}"]`).moveTo();
+    await moveToBlock(firstGeometry.pos);
     await browser.waitUntil(async () => {
       const geometry = await handleGeometry();
       return geometry.find(({ pos }) => pos === firstGeometry.pos)?.handleOpacity === "1";
@@ -719,31 +798,23 @@ describe("desktop block selection", () => {
     await expect($("aria/Move block up")).toHaveAttribute("data-disabled");
     await expect($("aria/Move block down")).not.toHaveAttribute("data-disabled");
     await $("aria/Move block down").click();
-    const movedTexts = (await handleGeometry())
-      .filter(({ blockTag }) => blockTag === "LI")
-      .map(({ blockText }) => blockText);
+    const movedTexts = await listItemTexts();
     expect(movedTexts.join(" | ")).toContain("Nested second | Nested first");
     await browser.waitUntil(() =>
       browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
     );
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await browser.waitUntil(async () => {
-      const texts = (await handleGeometry())
-        .filter(({ blockTag }) => blockTag === "LI")
-        .map(({ blockText }) => blockText);
+      const texts = await listItemTexts();
       return texts.indexOf("Nested first") < texts.indexOf("Nested second");
     });
 
     await browser.keys([Key.Alt, Key.ArrowDown, Key.NULL]);
-    const keyboardMovedTexts = (await handleGeometry())
-      .filter(({ blockTag }) => blockTag === "LI")
-      .map(({ blockText }) => blockText);
+    const keyboardMovedTexts = await listItemTexts();
     expect(keyboardMovedTexts.join(" | ")).toContain("Nested second | Nested first");
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await browser.waitUntil(async () => {
-      const texts = (await handleGeometry())
-        .filter(({ blockTag }) => blockTag === "LI")
-        .map(({ blockText }) => blockText);
+      const texts = await listItemTexts();
       return texts.indexOf("Nested first") < texts.indexOf("Nested second");
     });
 
@@ -764,16 +835,12 @@ describe("desktop block selection", () => {
       })
       .up({ button: 0 })
       .perform();
-    const textsAfterDrag = (await handleGeometry())
-      .filter(({ blockTag }) => blockTag === "LI")
-      .map(({ blockText }) => blockText);
+    const textsAfterDrag = await listItemTexts();
     expect(textsAfterDrag.join(" | ")).toContain("Nested second | Nested first");
 
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await browser.waitUntil(async () => {
-      const texts = (await handleGeometry())
-        .filter(({ blockTag }) => blockTag === "LI")
-        .map(({ blockText }) => blockText);
+      const texts = await listItemTexts();
       return texts.indexOf("Nested first") < texts.indexOf("Nested second");
     });
 
@@ -814,9 +881,7 @@ describe("desktop block selection", () => {
         document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
       ),
     );
-    const pastedItems = (await handleGeometry())
-      .filter(({ blockTag }) => blockTag === "LI")
-      .map(({ blockText }) => blockText);
+    const pastedItems = await listItemTexts();
     expect(pastedItems.join(" | ")).toContain("Parent itemNested firstNested second");
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-pasted.png"));
 
@@ -872,8 +937,11 @@ describe("desktop block selection", () => {
       await browser.execute(
         (blockPos, side, surfaceSelector) => {
           const viewport = document.querySelector<HTMLElement>(surfaceSelector);
-          const block = document.querySelector(
-            `.ProseMirror [data-leafdown-block-pos="${blockPos}"]`,
+          const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+            (element) =>
+              element.pmViewDesc?.dom === element &&
+              element.pmViewDesc.node !== undefined &&
+              element.pmViewDesc.posBefore === Number(blockPos),
           );
           if (!viewport || !block) throw new Error("Document view or block was not found.");
           const surface = viewport.getBoundingClientRect();
@@ -891,8 +959,13 @@ describe("desktop block selection", () => {
           browser.execute(
             (blockPos, side, surfaceSelector) => {
               const viewport = document.querySelector<HTMLElement>(surfaceSelector);
-              const block = document.querySelector(
-                `.ProseMirror [data-leafdown-block-pos="${blockPos}"]`,
+              const block = Array.from(
+                document.querySelectorAll<RenderedNode>(".ProseMirror *"),
+              ).find(
+                (element) =>
+                  element.pmViewDesc?.dom === element &&
+                  element.pmViewDesc.node !== undefined &&
+                  element.pmViewDesc.posBefore === Number(blockPos),
               );
               const gutter = document.querySelector<HTMLElement>(
                 `.leafdown-block-gutter[data-leafdown-block-pos="${blockPos}"]`,

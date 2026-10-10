@@ -100,38 +100,37 @@ const labelBlockHandle = (handle: HTMLButtonElement, node: ProseMirrorNode) => {
   handle.title = label;
 };
 
-const getSelectionDecorations = (state: EditorState) => {
-  const selectedTargets =
-    state.selection instanceof BlockSelection ? getSelectedBlockTargets(state.selection) : [];
-  const selectedPositions = new Set(selectedTargets.map(({ pos }) => pos));
-  const selectableTargets = getSelectableBlockTargets(state.doc);
-  const selectablePositions = new Set(selectableTargets.map(({ pos }) => pos));
-  const decorations: Decoration[] = [];
+const getSelectionDecorations = (state: EditorState) =>
+  state.selection instanceof BlockSelection
+    ? DecorationSet.create(
+        state.doc,
+        getSelectedBlockTargets(state.selection).map(({ node, pos }) =>
+          Decoration.node(pos, pos + node.nodeSize, { class: "leafdown-selected-block" }),
+        ),
+      )
+    : DecorationSet.empty;
 
-  for (const { node, pos } of selectableTargets) {
-    const selected = selectedPositions.has(pos);
-    decorations.push(
-      Decoration.node(pos, pos + node.nodeSize, {
-        class: selected
-          ? "leafdown-selectable-block leafdown-selected-block"
-          : "leafdown-selectable-block",
-        "data-leafdown-block-pos": String(pos),
-      }),
-    );
+const selectableBlockIndexes = new WeakMap<ProseMirrorNode, Map<number, number>>();
+
+const getSelectableBlockIndexes = (doc: ProseMirrorNode) => {
+  let indexes = selectableBlockIndexes.get(doc);
+
+  if (!indexes) {
+    indexes = new Map(getSelectableBlockTargets(doc).map(({ pos }, index) => [pos, index]));
+    selectableBlockIndexes.set(doc, indexes);
   }
 
-  for (const { node, pos } of selectedTargets) {
-    if (!selectablePositions.has(pos)) {
-      decorations.push(
-        Decoration.node(pos, pos + node.nodeSize, {
-          class: "leafdown-selected-block",
-        }),
-      );
-    }
-  }
-
-  return DecorationSet.create(state.doc, decorations);
+  return indexes;
 };
+
+interface VisibleBlock {
+  pos: number;
+  node: ProseMirrorNode;
+  element: Element;
+  rect: DOMRect;
+  lineHeight: number;
+  rtl: boolean;
+}
 
 const getOverlayOwner = (view: EditorView) =>
   view.root.nodeType === Node.DOCUMENT_NODE ? (view.root as Document).body : view.root;
@@ -180,8 +179,11 @@ class BlockSelectionView {
   private readonly insertionIndicator: HTMLDivElement;
   private readonly status: HTMLDivElement;
   private readonly localizationChange: Disposable;
+  // Gutters, targets, and blocks cover only the blocks in view.
   private gutters = new Map<number, HTMLDivElement>();
   private targets = new Map<number, ProseMirrorNode>();
+  private blocks = new Map<Element, number>();
+  private selectedPositions = new Set<number>();
   private geometry = new Map<
     number,
     { gutter: DOMRect; block: DOMRect; interactiveLeft: number; interactiveRight: number }
@@ -336,38 +338,19 @@ class BlockSelectionView {
   };
 
   private rebuild() {
-    this.overlay.replaceChildren(this.insertionIndicator, this.insertionButton);
     this.gutters = new Map();
     this.targets = new Map();
-
-    for (const { node, pos } of getSelectableBlockTargets(this.view.state.doc)) {
-      const gutter = createGutter(this.view.dom.ownerDocument, node, pos);
-
-      if (pos === this.hoveredPos) {
-        gutter.setAttribute("data-hovered", "");
-      }
-
-      this.gutters.set(pos, gutter);
-      this.targets.set(pos, node);
-      this.overlay.append(gutter);
-    }
-
-    if (this.hoveredPos !== null && !this.gutters.has(this.hoveredPos)) {
-      this.hoveredPos = null;
-    }
-
-    this.observeBlocks();
     this.position();
   }
 
   // The editor's minimum height hides layout changes inside a document shorter than it, such as
-  // a font or text size change, so the blocks themselves are watched as well.
+  // a font or text size change, so the blocks in view are watched as well.
   private observeBlocks() {
     if (!this.resizeObserver) {
       return;
     }
 
-    const blocks = new Set(this.view.dom.children);
+    const blocks = new Set(this.blocks.keys());
 
     for (const block of this.observedBlocks) {
       if (!blocks.has(block)) this.resizeObserver.unobserve(block);
@@ -382,7 +365,7 @@ class BlockSelectionView {
 
   // The layer spans the window, so it is clipped to the scrolled view that holds the document,
   // which hides and disarms any part of a control past that view's edges.
-  private clipToSurface() {
+  private measureSurface() {
     const scroller = findScrollingAncestor(this.view.dom);
 
     if (this.resizeObserver && scroller !== this.observedSurface) {
@@ -394,8 +377,7 @@ class BlockSelectionView {
     this.surface = scroller?.getBoundingClientRect() ?? null;
 
     if (!this.surface) {
-      this.overlay.style.removeProperty("clip-path");
-      return;
+      return null;
     }
 
     const layer = this.overlay.getBoundingClientRect();
@@ -405,7 +387,90 @@ class BlockSelectionView {
       layer.bottom - this.surface.bottom,
       this.surface.left - layer.left,
     ];
-    this.overlay.style.clipPath = `inset(${insets.map((inset) => `${String(Math.max(inset, 0))}px`).join(" ")})`;
+    return `inset(${insets.map((inset) => `${String(Math.max(inset, 0))}px`).join(" ")})`;
+  }
+
+  // Blocks start in document order, so the first block starting in view is found by bisection,
+  // and the only blocks above it that reach into view are its predecessor and that block's
+  // ancestors. Folded blocks have no layout and are passed over.
+  private measureVisibleBlocks(): VisibleBlock[] {
+    const { doc } = this.view.state;
+    const targets = getSelectableBlockTargets(doc);
+    const top = this.surface?.top ?? 0;
+    const bottom =
+      this.surface?.bottom ?? this.view.dom.ownerDocument.defaultView?.innerHeight ?? Infinity;
+    const measured = new Map<number, { element: Element; rect: DOMRect } | null>();
+    const measure = (index: number) => {
+      let measurement = measured.get(index);
+
+      if (measurement === undefined) {
+        const element = this.view.nodeDOM(targets[index].pos);
+        measurement =
+          element instanceof Element && element.getClientRects().length > 0
+            ? { element, rect: element.getBoundingClientRect() }
+            : null;
+        measured.set(index, measurement);
+      }
+
+      return measurement;
+    };
+    const reachesIntoView = ({ rect }: { rect: DOMRect }) =>
+      rect.top < bottom && rect.top + Math.max(rect.height, 1) > top;
+
+    let low = 0;
+    let high = targets.length;
+
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      let rendered = middle;
+      while (rendered < high && !measure(rendered)) rendered += 1;
+      const measurement = rendered < high ? measure(rendered) : null;
+
+      if (!measurement || measurement.rect.top >= top) {
+        high = middle;
+      } else {
+        low = rendered + 1;
+      }
+    }
+
+    const indexes: number[] = [];
+    let above = low - 1;
+    while (above >= 0 && !measure(above)) above -= 1;
+
+    if (above >= 0) {
+      const indexByPos = getSelectableBlockIndexes(doc);
+      const $above = doc.resolve(targets[above].pos);
+
+      for (let depth = 1; depth <= $above.depth; depth += 1) {
+        const index = indexByPos.get($above.before(depth));
+        if (index !== undefined) indexes.push(index);
+      }
+
+      indexes.push(above);
+    }
+
+    for (let index = low; index < targets.length; index += 1) {
+      const measurement = measure(index);
+      if (!measurement) continue;
+      if (measurement.rect.top >= bottom) break;
+      indexes.push(index);
+    }
+
+    const ownerWindow = this.view.dom.ownerDocument.defaultView;
+
+    return indexes.flatMap((index) => {
+      const measurement = measure(index);
+      if (!measurement || !reachesIntoView(measurement)) return [];
+      const computed = ownerWindow?.getComputedStyle(measurement.element);
+      return [
+        {
+          ...targets[index],
+          ...measurement,
+          lineHeight: Number.parseFloat(computed?.lineHeight ?? ""),
+          rtl: computed?.direction === "rtl",
+        },
+      ];
+    });
   }
 
   private isInSurface(x: number, y: number) {
@@ -430,53 +495,73 @@ class BlockSelectionView {
     });
   };
 
+  // Every layout read comes before every write, so a pass forces one layout of the document
+  // however many blocks it holds, and a second of the control layer alone.
   private position() {
     const previousBlock = this.insertionTarget
       ? this.geometry.get(this.insertionTarget.pos)?.block
       : null;
     this.geometry.clear();
-    this.clipToSurface();
+    const clipPath = this.measureSurface();
+    const visible = this.measureVisibleBlocks();
+
+    if (clipPath) {
+      this.overlay.style.clipPath = clipPath;
+    } else {
+      this.overlay.style.removeProperty("clip-path");
+    }
+
+    const gutters = new Map<number, HTMLDivElement>();
     const visibleBlocks = new Map<number, DOMRect>();
-    for (const [pos, gutter] of this.gutters) {
-      const node = this.view.nodeDOM(pos);
+    this.blocks = new Map();
 
-      if (!(node instanceof Element) || node.getClientRects().length === 0) {
-        gutter.hidden = true;
-        continue;
-      }
-
-      const rect = node.getBoundingClientRect();
+    for (const { pos, node, element, rect, lineHeight, rtl } of visible) {
+      const reused = this.targets.get(pos) === node ? this.gutters.get(pos) : undefined;
+      const gutter = reused ?? createGutter(this.view.dom.ownerDocument, node, pos);
       const top = Math.max(rect.top, this.surface?.top ?? -Infinity);
       const bottom = Math.min(
         rect.top + Math.max(rect.height, 1),
         this.surface?.bottom ?? Infinity,
-      );
-
-      if (bottom <= top) {
-        gutter.hidden = true;
-        continue;
-      }
-
-      const lineHeight = Number.parseFloat(
-        this.view.dom.ownerDocument.defaultView?.getComputedStyle(node).lineHeight ?? "",
       );
       const gutterHeight = bottom - top;
       const firstLineHeight = Number.isFinite(lineHeight)
         ? Math.min(gutterHeight, lineHeight)
         : Math.min(gutterHeight, 28);
 
-      gutter.hidden = false;
-      const direction = this.view.dom.ownerDocument.defaultView?.getComputedStyle(node).direction;
-      gutter.toggleAttribute("data-rtl", direction === "rtl");
-      gutter.style.left = `${String(direction === "rtl" ? rect.right : rect.left)}px`;
+      gutter.toggleAttribute("data-hovered", pos === this.hoveredPos);
+      gutter.toggleAttribute("data-selected", this.selectedPositions.has(pos));
+      gutter.toggleAttribute("data-rtl", rtl);
+      gutter.style.left = `${String(rtl ? rect.right : rect.left)}px`;
       gutter.style.top = `${String(top)}px`;
       gutter.style.height = `${String(gutterHeight)}px`;
       gutter.style.setProperty(
         "--leafdown-block-first-line",
         `${String(Math.max(firstLineHeight, 1))}px`,
       );
+      gutters.set(pos, gutter);
       visibleBlocks.set(pos, rect);
+      this.blocks.set(element, pos);
     }
+
+    const ordered = [this.insertionIndicator, this.insertionButton, ...gutters.values()];
+    const { children } = this.overlay;
+
+    if (
+      ordered.length !== children.length ||
+      ordered.some((element, index) => children[index] !== element)
+    ) {
+      this.overlay.replaceChildren(...ordered);
+    }
+
+    this.gutters = gutters;
+    this.targets = new Map(visible.map(({ pos, node }) => [pos, node]));
+
+    if (this.hoveredPos !== null && !this.gutters.has(this.hoveredPos)) {
+      this.hoveredPos = null;
+    }
+
+    this.observeBlocks();
+
     for (const [pos, rect] of visibleBlocks) {
       const gutter = this.gutters.get(pos)!;
       const gutterRect = gutter.getBoundingClientRect();
@@ -497,7 +582,10 @@ class BlockSelectionView {
           : gutterRect.right,
       });
     }
-    if (this.insertionTarget && !this.gutters.has(this.insertionTarget.pos)) {
+    if (
+      this.insertionTarget &&
+      !getSelectableBlockIndexes(this.view.state.doc).has(this.insertionTarget.pos)
+    ) {
       this.clearInsertionTarget();
     } else if (this.insertionMenuOpen && this.insertionTarget) {
       const { pos, boundary, y } = this.insertionTarget;
@@ -716,14 +804,22 @@ class BlockSelectionView {
     }
   }
 
-  private readonly handleEditorMouseMove = (event: MouseEvent) => {
-    const block =
-      event.target instanceof Element
-        ? event.target.closest<HTMLElement>("[data-leafdown-block-pos]")
-        : null;
-    const pos = block ? Number(block.dataset.leafdownBlockPos) : Number.NaN;
+  // The innermost block in view that holds the target.
+  private getBlockAt(target: EventTarget | null) {
+    for (
+      let element = target instanceof Element ? target : null;
+      element && element !== this.view.dom;
+      element = element.parentElement
+    ) {
+      const pos = this.blocks.get(element);
+      if (pos !== undefined) return { element, pos };
+    }
 
-    this.setHoveredPosition(Number.isSafeInteger(pos) ? pos : null);
+    return null;
+  }
+
+  private readonly handleEditorMouseMove = (event: MouseEvent) => {
+    this.setHoveredPosition(this.getBlockAt(event.target)?.pos ?? null);
   };
 
   private readonly handleEditorMouseLeave = () => {
@@ -752,13 +848,17 @@ class BlockSelectionView {
   };
 
   private updateSelectionPresentation() {
-    for (const gutter of this.gutters.values()) {
-      gutter.removeAttribute("data-selected");
+    const { selection } = this.view.state;
+    const structural = isStructuralBlockSelection(this.view.state);
+    const targets =
+      structural && selection instanceof BlockSelection ? getSelectedBlockTargets(selection) : [];
+    this.selectedPositions = new Set(targets.map(({ pos }) => pos));
+
+    for (const [pos, gutter] of this.gutters) {
+      gutter.toggleAttribute("data-selected", this.selectedPositions.has(pos));
     }
 
-    const { selection } = this.view.state;
-
-    if (!isStructuralBlockSelection(this.view.state)) {
+    if (!structural) {
       this.status.textContent = "";
       return;
     }
@@ -766,12 +866,6 @@ class BlockSelectionView {
     if (!(selection instanceof BlockSelection)) {
       this.status.textContent = t("editor.blockSelection.documentSelected");
       return;
-    }
-
-    const targets = getSelectedBlockTargets(selection);
-
-    for (const { pos } of targets) {
-      this.gutters.get(pos)?.setAttribute("data-selected", "");
     }
 
     this.status.textContent =
@@ -833,18 +927,12 @@ class BlockSelectionView {
   };
 
   private getDropBoundary(event: MouseEvent) {
-    const block =
-      event.target instanceof Element
-        ? event.target.closest<HTMLElement>("[data-leafdown-block-pos]")
-        : null;
-    const pos = block ? Number(block.dataset.leafdownBlockPos) : Number.NaN;
-    if (!Number.isSafeInteger(pos)) return null;
+    const block = this.getBlockAt(event.target);
+    const node = block && this.targets.get(block.pos);
+    if (!block || !node) return null;
 
-    const target = getSelectableBlockTargets(this.view.state.doc).find((item) => item.pos === pos);
-    if (!target) return null;
-
-    const { top, height } = block!.getBoundingClientRect();
-    return event.clientY >= top + height / 2 ? pos + target.node.nodeSize : pos;
+    const { top, height } = block.element.getBoundingClientRect();
+    return event.clientY >= top + height / 2 ? block.pos + node.nodeSize : block.pos;
   }
 
   private readonly handleDragMove = (event: MouseEvent) => {

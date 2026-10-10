@@ -6,7 +6,13 @@ import { Key } from "webdriverio";
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { dismissToasts, findMenuItem, openMenu, openRecentPath } from "../support/ui.js";
+import {
+  ctrlClickAt,
+  dismissToasts,
+  findMenuItem,
+  openMenu,
+  openRecentPath,
+} from "../support/ui.js";
 
 interface GutterGeometry {
   barHeight: number;
@@ -95,32 +101,24 @@ const moveToHandle = async (handle: ReturnType<typeof $>) => {
     .perform();
 };
 
-// The embedded driver omits modifiers from pointer actions. Use its rendered hit target through
-// the complete mouse sequence.
-const clickAt = (point: { x: number; y: number }, ctrlKey = false) =>
-  browser.execute(
-    ({ x, y }, ctrl) => {
-      const target = document.elementFromPoint(x, y);
-      if (!target) throw new Error("Click target was not found.");
-      for (const type of ["mousedown", "mouseup", "click"]) {
-        target.dispatchEvent(
-          new MouseEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            button: 0,
-            buttons: type === "mousedown" ? 1 : 0,
-            ctrlKey: ctrl,
-            clientX: x,
-            clientY: y,
-          }),
-        );
-      }
-    },
-    point,
-    ctrlKey,
-  );
-
-const ctrlClickAt = (point: { x: number; y: number }) => clickAt(point, true);
+// Use the rendered hit target through the complete mouse sequence.
+const clickAt = (point: { x: number; y: number }) =>
+  browser.execute(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    if (!target) throw new Error("Click target was not found.");
+    for (const type of ["mousedown", "mouseup", "click"]) {
+      target.dispatchEvent(
+        new MouseEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+          buttons: type === "mousedown" ? 1 : 0,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    }
+  }, point);
 
 const setSidebarVisible = async (visible: boolean) => {
   await openMenu("View");
@@ -284,6 +282,11 @@ describe("desktop block selection", () => {
     await atom.scrollIntoView();
     await ctrlClickAt(await getHandlePoint(atom));
     await expect(atom).toHaveElementClass("ProseMirror-selectednode");
+
+    const localLink = $('.ProseMirror a[href="block-selection.md"]');
+    await localLink.scrollIntoView();
+    await ctrlClickAt(await getHandlePoint(localLink));
+    await expect($(".ProseMirror h1")).toHaveText("Block selection fixture");
   });
 
   it("renders a definition list with a selectable gutter", async () => {

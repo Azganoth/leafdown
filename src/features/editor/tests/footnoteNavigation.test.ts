@@ -6,7 +6,11 @@ import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchClick } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import { withWindowsUserAgent } from "@/test/utils/platform";
-import { getEditorNodePosition, setTextSelection } from "@/test/utils/prosemirror";
+import {
+  dispatchEditorMouseClick,
+  getEditorNodePosition,
+  setTextSelection,
+} from "@/test/utils/prosemirror";
 
 import { EDITOR_COMMANDS } from "../commands";
 import { findFootnoteDefinitions } from "../utils/footnoteDefinitions";
@@ -32,14 +36,19 @@ const getReferenceElement = (dom: Element, label = "note") => {
   return reference!;
 };
 
+const ctrlClickReference = (mounted: MountedMilkdownEditor, reference: Element) =>
+  dispatchEditorMouseClick(mounted.view, reference, mounted.view.posAtDOM(reference, 0), {
+    ctrl: true,
+  });
+
 describe("footnote definition navigation", () => {
   it("moves the selection into the definition on a modifier click", async () => {
     const mounted = await mountEditor(DOCUMENT);
 
     await withWindowsUserAgent(() => {
-      const event = dispatchClick(getReferenceElement(mounted.view.dom), { ctrl: true });
+      const event = ctrlClickReference(mounted, getReferenceElement(mounted.view.dom));
 
-      expect(event.defaultPrevented).toBe(true);
+      expect(event?.defaultPrevented).toBe(true);
     });
 
     const { $from } = mounted.view.state.selection;
@@ -71,7 +80,7 @@ describe("footnote definition navigation", () => {
     const reached: number[] = [];
 
     for (const reference of references) {
-      await withWindowsUserAgent(() => dispatchClick(reference, { ctrl: true }));
+      await withWindowsUserAgent(() => ctrlClickReference(mounted, reference));
       reached.push(mounted.view.state.selection.from);
     }
 
@@ -88,9 +97,10 @@ describe("footnote definition navigation", () => {
 
     for (const label of [String.raw`a\*b`, "a*b"]) {
       await withWindowsUserAgent(() =>
-        dispatchClick(getReferenceElement(mounted.view.dom, label.replace("\\", "\\\\")), {
-          ctrl: true,
-        }),
+        ctrlClickReference(
+          mounted,
+          getReferenceElement(mounted.view.dom, label.replace("\\", "\\\\")),
+        ),
       );
       reached.push(mounted.view.state.selection.$from.parent.textContent);
     }
@@ -106,9 +116,9 @@ describe("footnote definition navigation", () => {
     const selectionBefore = mounted.view.state.selection.from;
 
     await withWindowsUserAgent(() => {
-      const event = dispatchClick(getReferenceElement(mounted.view.dom), { ctrl: true });
+      const event = ctrlClickReference(mounted, getReferenceElement(mounted.view.dom));
 
-      expect(event.defaultPrevented).toBe(true);
+      expect(event?.defaultPrevented).toBe(true);
     });
 
     expect(mounted.view.state.selection.from).toBe(selectionBefore);
@@ -119,7 +129,7 @@ describe("footnote definition navigation", () => {
     const mounted = await mountEditor(DOCUMENT, { onContentChanged });
 
     await withWindowsUserAgent(() =>
-      dispatchClick(getReferenceElement(mounted.view.dom), { ctrl: true }),
+      ctrlClickReference(mounted, getReferenceElement(mounted.view.dom)),
     );
 
     expect(mounted.getMarkdown()).toBe(`${DOCUMENT}\n`);

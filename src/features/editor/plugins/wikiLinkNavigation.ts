@@ -97,6 +97,18 @@ export const createLeafdownWikiLinkNavigationPlugin = (getContext: () => Markdow
       key: leafdownWikiLinkNavigationPluginKey,
       props: {
         handleDOMEvents: {
+          // Selecting the link on mousedown would replace it with its source before click.
+          mousedown: (view, event) => {
+            if (
+              event.button !== 0 ||
+              !isPrimaryModifierEvent(event) ||
+              !getWikiLinkElement(view.dom, event.target)
+            ) {
+              return false;
+            }
+            event.preventDefault();
+            return true;
+          },
           click: (view, event) => {
             const element = getWikiLinkElement(view.dom, event.target);
             const link = element ? parseWikiLink(element.dataset.source ?? "") : null;

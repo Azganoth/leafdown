@@ -32,9 +32,9 @@ pub(crate) struct FolderWatcherState {
 pub(crate) struct MarkdownFolderChangedEvent {
     pub(crate) folder_path: String,
     pub(crate) paths: Vec<String>,
-    // Vanished paths whose event does not say file or directory and whose name is not Markdown.
-    // Only the article navigator knows whether one was a directory it shows.
-    pub(crate) possible_directory_paths: Vec<String>,
+    // Vanished paths that could have been a directory or a file Leafdown cannot open. Only the
+    // article navigator knows whether one was an entry it shows.
+    pub(crate) possible_entry_paths: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -136,7 +136,7 @@ fn create_folder_watcher(
                 let payload = MarkdownFolderChangedEvent {
                     folder_path: folder_path_for_payload.clone(),
                     paths: event_paths.paths,
-                    possible_directory_paths: event_paths.possible_directory_paths,
+                    possible_entry_paths: event_paths.possible_entry_paths,
                 };
 
                 if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
@@ -226,7 +226,7 @@ fn relevant_event_paths(
         let paths = match event_path_relevance(path, folder_path, ignored_directories, &event.kind)
         {
             EventPathRelevance::Relevant => &mut event_paths.paths,
-            EventPathRelevance::PossibleDirectory => &mut event_paths.possible_directory_paths,
+            EventPathRelevance::PossibleEntry => &mut event_paths.possible_entry_paths,
             EventPathRelevance::Irrelevant => continue,
         };
         let serialized_path = path_to_string(path);
@@ -245,36 +245,37 @@ fn event_path_relevance(
     ignored_directories: &[String],
     event_kind: &EventKind,
 ) -> EventPathRelevance {
-    if path_contains_ignored_directory(path, folder_path, ignored_directories) {
+    if path_contains_ignored_directory(path, folder_path, ignored_directories)
+        || is_staging_path(path)
+    {
         return EventPathRelevance::Irrelevant;
     }
 
     if let Ok(metadata) = fs::metadata(path) {
-        if metadata.is_dir() {
-            return EventPathRelevance::relevant_if(!is_directory_metadata_change(event_kind));
+        if metadata.is_file() && is_supported_markdown_path(path) {
+            return EventPathRelevance::Relevant;
         }
 
         return EventPathRelevance::relevant_if(
-            metadata.is_file() && is_supported_markdown_path(path),
+            (metadata.is_dir() || metadata.is_file()) && !is_modification_in_place(event_kind),
         );
     }
 
     match event_path_kind(event_kind) {
         EventPathKind::Directory => EventPathRelevance::Relevant,
-        EventPathKind::File => EventPathRelevance::relevant_if(is_supported_markdown_path(path)),
-        EventPathKind::Unknown
-            if is_supported_markdown_path(path) || path.extension().is_none() =>
-        {
+        EventPathKind::File | EventPathKind::Unknown if is_supported_markdown_path(path) => {
             EventPathRelevance::Relevant
         }
-        EventPathKind::Unknown if is_staging_path(path) => EventPathRelevance::Irrelevant,
-        EventPathKind::Unknown => EventPathRelevance::PossibleDirectory,
+        EventPathKind::Unknown if path.extension().is_none() => EventPathRelevance::Relevant,
+        EventPathKind::File | EventPathKind::Unknown => EventPathRelevance::PossibleEntry,
     }
 }
 
 // Windows reports a directory as modified whenever a child is created, written, or deleted;
-// the child's own event already carries any change the navigator shows.
-fn is_directory_metadata_change(event_kind: &EventKind) -> bool {
+// the child's own event already carries any change the navigator shows. A file Leafdown cannot
+// open shows only its name, so writing to it would rescan the folder for nothing more than its
+// place in modified-date order, which the next refresh settles.
+fn is_modification_in_place(event_kind: &EventKind) -> bool {
     match event_kind {
         EventKind::Modify(ModifyKind::Name(_)) => false,
         EventKind::Modify(_) => true,
@@ -330,7 +331,7 @@ enum EventPathKind {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum EventPathRelevance {
     Relevant,
-    PossibleDirectory,
+    PossibleEntry,
     Irrelevant,
 }
 
@@ -347,12 +348,12 @@ impl EventPathRelevance {
 #[derive(Debug, Default, PartialEq, Eq)]
 struct RelevantEventPaths {
     paths: Vec<String>,
-    possible_directory_paths: Vec<String>,
+    possible_entry_paths: Vec<String>,
 }
 
 impl RelevantEventPaths {
     fn is_empty(&self) -> bool {
-        self.paths.is_empty() && self.possible_directory_paths.is_empty()
+        self.paths.is_empty() && self.possible_entry_paths.is_empty()
     }
 }
 
@@ -404,17 +405,51 @@ mod tests {
     }
 
     #[test]
-    fn ignores_non_markdown_file_creation() {
-        let root = TestDirectory::new("watch-non-markdown-create");
+    fn treats_unsupported_file_creation_and_renames_as_relevant() {
+        let root = TestDirectory::new("watch-unsupported-create");
         let path = root.write_file("notes.txt");
 
+        for kind in [
+            EventKind::Create(CreateKind::File),
+            EventKind::Create(CreateKind::Any),
+            EventKind::Modify(ModifyKind::Name(RenameMode::To)),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert_eq!(paths, relevant(vec![path.to_string_lossy()]), "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn ignores_writes_to_unsupported_files() {
+        let root = TestDirectory::new("watch-unsupported-modify");
+        let path = root.write_file("cover.png");
+
+        for kind in [
+            EventKind::Modify(ModifyKind::Any),
+            EventKind::Modify(ModifyKind::Data(DataChange::Any)),
+            EventKind::Modify(ModifyKind::Metadata(MetadataKind::WriteTime)),
+        ] {
+            let paths =
+                relevant_event_paths(&event(kind, path.as_path()), root.path.as_path(), &[]);
+
+            assert!(paths.is_empty(), "{kind:?} should not be relevant");
+        }
+    }
+
+    #[test]
+    fn treats_writes_to_markdown_files_as_relevant() {
+        let root = TestDirectory::new("watch-markdown-modify");
+        let path = root.write_file("notes.md");
+
         let paths = relevant_event_paths(
-            &event(EventKind::Create(CreateKind::File), path.as_path()),
+            &event(EventKind::Modify(ModifyKind::Any), path.as_path()),
             root.path.as_path(),
             &[],
         );
 
-        assert!(paths.is_empty());
+        assert_eq!(paths, relevant(vec![path.to_string_lossy()]));
     }
 
     #[test]
@@ -447,6 +482,7 @@ mod tests {
         for kind in [
             EventKind::Modify(ModifyKind::Any),
             EventKind::Remove(RemoveKind::Any),
+            EventKind::Remove(RemoveKind::File),
             EventKind::Create(CreateKind::Any),
         ] {
             let paths =
@@ -529,7 +565,7 @@ mod tests {
 
     // Windows reports a directory moved out of the watched folder only as `Remove(Any)`.
     #[test]
-    fn reports_vanished_paths_of_unknown_kind_with_extensions_as_possible_directories() {
+    fn reports_vanished_paths_of_unknown_kind_with_extensions_as_possible_entries() {
         let root = TestDirectory::new("watch-dotted-directory-move-out");
         let path = root.path("notes.d");
 
@@ -542,18 +578,15 @@ mod tests {
 
             assert_eq!(
                 paths,
-                RelevantEventPaths {
-                    paths: Vec::new(),
-                    possible_directory_paths: vec![path.to_string_lossy().into_owned()],
-                },
+                possible_entries(vec![path.to_string_lossy()]),
                 "{kind:?}"
             );
         }
     }
 
     #[test]
-    fn ignores_deleted_non_markdown_files_without_metadata() {
-        let root = TestDirectory::new("watch-non-markdown-delete");
+    fn reports_deleted_unsupported_files_as_possible_entries() {
+        let root = TestDirectory::new("watch-unsupported-delete");
         let path = root.path("notes.txt");
 
         let paths = relevant_event_paths(
@@ -562,7 +595,7 @@ mod tests {
             &[],
         );
 
-        assert!(paths.is_empty());
+        assert_eq!(paths, possible_entries(vec![path.to_string_lossy()]));
     }
 
     // Windows emits this only since notify 9.0.0-rc.5; before it, deleting the watched
@@ -696,7 +729,14 @@ mod tests {
     fn relevant(paths: Vec<impl Into<String>>) -> RelevantEventPaths {
         RelevantEventPaths {
             paths: paths.into_iter().map(Into::into).collect(),
-            possible_directory_paths: Vec::new(),
+            possible_entry_paths: Vec::new(),
+        }
+    }
+
+    fn possible_entries(paths: Vec<impl Into<String>>) -> RelevantEventPaths {
+        RelevantEventPaths {
+            paths: Vec::new(),
+            possible_entry_paths: paths.into_iter().map(Into::into).collect(),
         }
     }
 }

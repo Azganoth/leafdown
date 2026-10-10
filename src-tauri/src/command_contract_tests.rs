@@ -814,6 +814,35 @@ fn json_string<'a>(value: &'a Value, key: &str) -> &'a str {
         .expect("JSON field should be a string")
 }
 
+#[test]
+fn folder_scans_mark_articles_and_unsupported_files_by_kind() {
+    let root = TestDirectory::new("command-contract-node-kinds");
+    root.write_file("docs/article.md");
+    root.write_file("docs/cover.png");
+
+    let scan_value = serialized(
+        tauri::async_runtime::block_on(folder::scan_markdown_folder(
+            path_string(root.path.as_path()),
+            Some(Vec::new()),
+            None,
+        ))
+        .expect("command should scan the folder"),
+    );
+    let docs = &scan_value["tree"]["children"][0];
+    let child_kinds: Vec<(&str, &str)> = docs["children"]
+        .as_array()
+        .expect("directory children should serialize as an array")
+        .iter()
+        .map(|child| (json_string(child, "name"), json_string(child, "kind")))
+        .collect();
+
+    assert_eq!(json_string(docs, "kind"), "directory");
+    assert_eq!(
+        child_kinds,
+        vec![("article.md", "file"), ("cover.png", "unsupportedFile")]
+    );
+}
+
 fn assert_tree_contains_path(tree: &Value, expected_path: &str) {
     assert!(
         tree_contains_path(tree, expected_path),

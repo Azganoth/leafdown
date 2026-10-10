@@ -145,14 +145,15 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
   const outlinePath = path.join(fixtureRoot, "heading-outline.md");
-  const imagesPath = path.join(fixtureRoot, "rendered-images.md");
+  const imagesFolderPath = path.join(fixtureRoot, "rendered-images");
+  const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
   const mathCorpusPath = path.join(fixtureRoot, "math-corpus.md");
   const mermaidPath = path.join(fixtureRoot, "rendered-mermaid.md");
-  const leafImagePath = path.join(fixtureRoot, "leaf.svg");
-  const tinyImagePath = path.join(fixtureRoot, "tiny-transparent.svg");
+  const leafImagePath = path.join(imagesFolderPath, "leaf.svg");
+  const tinyImagePath = path.join(imagesFolderPath, "tiny-transparent.svg");
   const folderPath = path.join(fixtureRoot, "folder-context");
   const actionsFolderPath = path.join(fixtureRoot, "folder-actions");
   const searchFolderPath = path.join(fixtureRoot, "folder-search");
@@ -304,6 +305,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
 
     await settleTasks(`Failed to create directories for ${label}.`, [
       mkdir(folderPath, { recursive: true }),
+      mkdir(imagesFolderPath, { recursive: true }),
       mkdir(path.dirname(documentWatcherPath), { recursive: true }),
       mkdir(path.join(actionsFolderPath, "notes"), { recursive: true }),
       mkdir(path.join(searchFolderPath, "notes"), { recursive: true }),

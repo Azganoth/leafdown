@@ -5,7 +5,9 @@ use super::{
     ScanDepth, ScanMarkdownFolderError, ScanMarkdownFolderWarning, scan_folder_metadata_error,
     scan_folder_metadata_warning, scan_folder_read_error, scan_folder_read_warning,
 };
-use crate::{document::is_supported_markdown_path, path_utils::path_to_string};
+use crate::{
+    document::is_supported_markdown_path, file_utils::is_staging_path, path_utils::path_to_string,
+};
 
 pub(super) fn scan_folder(
     path: &Path,
@@ -168,15 +170,20 @@ fn scan_directory_entries(
             continue;
         }
 
-        if file_type.is_file() && is_supported_markdown_path(&entry_path) {
+        if file_type.is_file() && !is_staging_path(&entry_path) {
+            let is_markdown_file = is_supported_markdown_path(&entry_path);
+            let name = file_name_to_string(&entry_path);
+            let path = path_to_string(&entry_path);
+
             children.push((
-                MarkdownFolderTreeNode::File {
-                    name: file_name_to_string(&entry_path),
-                    path: path_to_string(&entry_path),
+                if is_markdown_file {
+                    MarkdownFolderTreeNode::File { name, path }
+                } else {
+                    MarkdownFolderTreeNode::UnsupportedFile { name, path }
                 },
                 modified_at_sort_key(sort_order, || entry.metadata()),
             ));
-            has_markdown_files = true;
+            has_markdown_files |= is_markdown_file;
         }
     }
 
@@ -244,21 +251,23 @@ fn sort_tree_nodes(nodes: &mut [(MarkdownFolderTreeNode, u128)], sort_order: Fil
 fn sort_name(node: &MarkdownFolderTreeNode) -> String {
     match node {
         MarkdownFolderTreeNode::Directory { name, .. }
-        | MarkdownFolderTreeNode::File { name, .. } => name.to_lowercase(),
+        | MarkdownFolderTreeNode::File { name, .. }
+        | MarkdownFolderTreeNode::UnsupportedFile { name, .. } => name.to_lowercase(),
     }
 }
 
 fn node_kind_order(node: &MarkdownFolderTreeNode) -> u8 {
     match node {
         MarkdownFolderTreeNode::Directory { .. } => 0,
-        MarkdownFolderTreeNode::File { .. } => 1,
+        MarkdownFolderTreeNode::File { .. } | MarkdownFolderTreeNode::UnsupportedFile { .. } => 1,
     }
 }
 
 fn node_extension(node: &MarkdownFolderTreeNode) -> String {
     match node {
         MarkdownFolderTreeNode::Directory { .. } => String::new(),
-        MarkdownFolderTreeNode::File { path, .. } => Path::new(path)
+        MarkdownFolderTreeNode::File { path, .. }
+        | MarkdownFolderTreeNode::UnsupportedFile { path, .. } => Path::new(path)
             .extension()
             .and_then(|extension| extension.to_str())
             .unwrap_or_default()

@@ -315,6 +315,7 @@ The article navigator's context menu opens on right-click, or with `Shift+F10` o
 
 - **Markdown file row:** Open; New file, New folder; Rename, Delete; Open file location, Copy path, Copy relative path.
 - **Directory row:** New file, New folder; Rename, Delete; Open folder location, Copy path, Copy relative path.
+- **Unsupported file row:** New file, New folder; Open file location, Copy path, Copy relative path.
 - **Empty navigator space (folder context root):** New file, New folder; Open folder location, Copy path, Copy relative path.
 
 ## Command State

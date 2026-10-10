@@ -4,8 +4,12 @@ import { createArticleTree } from "@/test/factories/folderContext";
 
 import {
   buildArticleNavigatorRows,
+  filterArticleTreeByArticleName,
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
+  getArticleFileCount,
+  getArticlePaths,
+  getArticleTreeEntryPaths,
 } from "./articleNavigatorRows";
 
 const articleTree = createArticleTree({
@@ -151,5 +155,69 @@ describe("article navigator rows", () => {
       getArticleAncestorDirectoryPaths(articleTree, "c:\\notes\\drafts\\archive\\old.md"),
     ).toEqual(["C:/Notes/drafts", "C:/Notes/drafts/archive"]);
     expect(getArticleAncestorDirectoryPaths(articleTree, "C:/Notes/missing.md")).toBeNull();
+  });
+
+  describe("with unsupported files", () => {
+    const mixedTree = createArticleTree({
+      children: [
+        {
+          kind: "directory",
+          name: "assets",
+          path: "C:/Notes/assets",
+          children: [
+            { kind: "unsupportedFile", name: "cover.png", path: "C:/Notes/assets/cover.png" },
+          ],
+        },
+        { kind: "directory", name: "empty", path: "C:/Notes/empty", children: [] },
+        { kind: "file", name: "guide.md", path: "C:/Notes/guide.md" },
+        { kind: "unsupportedFile", name: "guide.pdf", path: "C:/Notes/guide.pdf" },
+      ],
+    });
+
+    it("builds unsupported file rows and tells unsupported-only directories from empty ones", () => {
+      const rows = buildArticleNavigatorRows({
+        activeArticlePath: "C:/Notes/guide.pdf",
+        expandedDirectoryPaths: ["C:/Notes/assets"],
+        tree: mixedTree,
+      });
+
+      expect(rows.map(({ kind, name }) => [kind, name])).toEqual([
+        ["directory", "assets"],
+        ["unsupportedFile", "cover.png"],
+        ["directory", "empty"],
+        ["file", "guide.md"],
+        ["unsupportedFile", "guide.pdf"],
+      ]);
+      expect(rows[0]).toMatchObject({ hasChildren: true });
+      expect(rows[2]).toMatchObject({ hasChildren: false });
+      expect(rows[4]).toEqual({
+        kind: "unsupportedFile",
+        depth: 0,
+        name: "guide.pdf",
+        parentIndex: null,
+        path: "C:/Notes/guide.pdf",
+        posInSet: 4,
+        setSize: 4,
+      });
+    });
+
+    it("counts, lists, and filters only articles", () => {
+      expect(getArticleFileCount(mixedTree)).toBe(1);
+      expect(getArticlePaths(mixedTree)).toEqual(["C:/Notes/guide.md"]);
+      expect(filterArticleTreeByArticleName(mixedTree, "guide").children).toEqual([
+        { kind: "file", name: "guide.md", path: "C:/Notes/guide.md" },
+      ]);
+      expect(filterArticleTreeByArticleName(mixedTree, "cover").children).toEqual([]);
+    });
+
+    it("collects every shown entry path in tree order", () => {
+      expect(getArticleTreeEntryPaths(mixedTree)).toEqual([
+        "C:/Notes/assets",
+        "C:/Notes/assets/cover.png",
+        "C:/Notes/empty",
+        "C:/Notes/guide.md",
+        "C:/Notes/guide.pdf",
+      ]);
+    });
   });
 });

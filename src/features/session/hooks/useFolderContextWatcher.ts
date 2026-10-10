@@ -11,7 +11,7 @@ import {
   FOLDER_CONTEXT_WATCH_ERROR_EVENT,
   type FolderContextChangedEventPayload,
   type FolderContextWatchErrorEventPayload,
-  getArticleDirectoryPaths,
+  getArticleTreeEntryPaths,
   getScanFolderContextErrorMessage,
   getWatchFolderContextErrorMessage,
   isScanFolderContextError,
@@ -194,24 +194,24 @@ class FolderContextWatchSession {
     }
   }
 
-  private affectsShownTree({ paths, possibleDirectoryPaths }: FolderContextChangedEventPayload) {
+  private affectsShownTree({ paths, possibleEntryPaths }: FolderContextChangedEventPayload) {
     if (paths.length > 0) {
       return true;
     }
 
-    if (possibleDirectoryPaths.length === 0) {
+    if (possibleEntryPaths.length === 0) {
       return false;
     }
 
-    // A refresh already scanning may commit a directory the current tree does not show yet.
+    // A refresh already scanning may commit an entry the current tree does not show yet.
     if (this.refreshRunner.isRunning) {
       return true;
     }
 
     const tree = useSessionStore.getState().folderContext?.tree;
-    const shownDirectoryPaths = new PathSet(tree ? getArticleDirectoryPaths(tree) : []);
+    const shownEntryPaths = new PathSet(tree ? getArticleTreeEntryPaths(tree) : []);
 
-    return possibleDirectoryPaths.some((path) => shownDirectoryPaths.has(path));
+    return possibleEntryPaths.some((path) => shownEntryPaths.has(path));
   }
 
   private requestRefresh() {

@@ -15,9 +15,9 @@ pub(super) fn find_root_index_path<'a>(
                 {
                     Some(path.as_str())
                 }
-                MarkdownFolderTreeNode::Directory { .. } | MarkdownFolderTreeNode::File { .. } => {
-                    None
-                }
+                MarkdownFolderTreeNode::Directory { .. }
+                | MarkdownFolderTreeNode::File { .. }
+                | MarkdownFolderTreeNode::UnsupportedFile { .. } => None,
             });
 
             if index_path.is_some() {

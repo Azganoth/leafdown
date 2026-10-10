@@ -165,6 +165,37 @@ describe("folder search workflows", () => {
     ]);
   });
 
+  it("leaves the unsupported files the navigator shows out of the search", async () => {
+    const unsupportedPath = `${FOLDER}/leaf.txt`;
+    const folder = createFolder();
+    disk.set(unsupportedPath, "A leaf in plain text.\n");
+    setDefaultSession({
+      folderContext: {
+        ...folder,
+        tree: {
+          ...folder.tree,
+          children: [
+            ...folder.tree.children,
+            { kind: "unsupportedFile", name: "leaf.txt", path: unsupportedPath },
+          ],
+        },
+      },
+    });
+
+    await search("leaf");
+
+    const requestedPaths = vi
+      .mocked(invoke)
+      .mock.calls.filter(([command]) => command === "read_folder_search_files")
+      .flatMap(([, args]) => (args as { files: { path: string }[] }).files.map(({ path }) => path));
+
+    expect(summarize()).toEqual([
+      [ALPHA, 1],
+      [BETA, 2],
+    ]);
+    expect(requestedPaths).not.toContain(unsupportedPath);
+  });
+
   it("searches the active document's unsaved text rather than its file", async () => {
     const { bridge, editor } = createEditor("unsaved leaf\nleaf again");
 

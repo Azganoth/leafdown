@@ -9,6 +9,7 @@ import {
 import { isOpenMarkdownFileError, type OpenMarkdownFileError } from "@/features/document";
 import { CancellationToken, isCancellationError, raceWithCancellation } from "@/lib/cancellation";
 
+import { getArticleFileCount } from "../utils/articleNavigatorRows";
 import {
   isOpenFolderContextError,
   isScanFolderContextError,
@@ -229,17 +230,11 @@ const writeFolderOperationTimingDiagnostic = (
 };
 
 const getFolderScanDiagnosticContext = (folder: ScanMarkdownFolderResult) => ({
-  articleCount: countArticleTreeFiles(folder.tree),
+  articleCount: getArticleFileCount(folder.tree),
   isEmpty: folder.isEmpty,
   path: folder.path,
   warningCount: folder.warnings.length,
 });
-
-const countArticleTreeFiles = (tree: ArticleTree): number =>
-  tree.children.reduce(
-    (count, node) => count + (node.kind === "file" ? 1 : countArticleTreeFiles(node)),
-    0,
-  );
 
 const countScanWarningKinds = (warnings: ScanMarkdownFolderWarning[]) =>
   warnings.reduce<Record<string, number>>((counts, warning) => {

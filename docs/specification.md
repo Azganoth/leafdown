@@ -479,12 +479,12 @@ Workflows execute upon successful completion of dirty-state checks. If a dirty c
 
 - Opening a file may be initiated from Open, recent files, article navigator selection, or the operating system, as described in [Open From The Operating System](#open-from-the-operating-system).
 - Read the selected Markdown file.
-- If no folder context is active, set the current folder context to the file's parent folder and scan that folder for supported Markdown files, skipping ignored directories.
-- If a folder context is already active, keep it unchanged.
-- Open the selected file in the document surface.
+- Open the selected file in the document surface without waiting for a folder scan.
+- If no folder context is active or loading, set the current folder context to the file's parent folder and scan that folder for supported Markdown files, skipping ignored directories. Until the scan finishes, the article navigator shows placeholder rows under the folder's name and commands that need the article tree stay unavailable. A folder that cannot be scanned shows its scan error and leaves the document open without a folder context.
+- If a folder context is already active or loading, keep it unchanged. Opening a folder replaces a loading folder context, and the superseded scan's result is discarded.
 - When another document replaces the active document, start its viewport at the top. Explicit heading or search navigation instead reveals its target. Reloading the same document after an external change retains its caret-restoration behavior.
 - Select the opened file in the article navigator only when it exists in the current article navigator.
-- Add the file to recents when `Record recent files and folders` is enabled. Add the file's parent folder to recent folders only when the file open bootstraps a folder context.
+- Add the file to recents when `Record recent files and folders` is enabled. Add the file's parent folder to recent folders only when the file open bootstraps a folder context and its scan succeeds.
 
 ### Open Folder
 

@@ -4,6 +4,7 @@ export {
   type ArticleNavigatorEntryActions,
   type ArticleNavigatorEntryKind,
 } from "./components/article-navigator";
+export { ArticleNavigatorSkeleton } from "./components/article-navigator-skeleton";
 export {
   openFolderContext,
   scanFolderContext,

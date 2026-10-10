@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DiagnosticsDialog } from "@/features/diagnostics";
 import { formatDocumentEncoding } from "@/features/document";
 import { DocumentTypographyPreview } from "@/features/editor";
-import { ArticleNavigator } from "@/features/folder-context";
+import { ArticleNavigator, ArticleNavigatorSkeleton } from "@/features/folder-context";
 import { FolderSearchPanel, useFolderSearchStore } from "@/features/folder-search";
 import { HelpDialog } from "@/features/help";
 import { PreferencesDialog, useSettingsStore } from "@/features/preferences";
@@ -83,6 +83,7 @@ export function Shell() {
   const sessionMode = useSessionStore(getSessionMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
   const folderContext = useSessionStore((state) => state.folderContext);
+  const folderContextLoadPath = useSessionStore((state) => state.folderContextLoad?.path ?? null);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const folderSearchOpen = useFolderSearchStore((state) => state.open);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
@@ -166,7 +167,7 @@ export function Shell() {
             className={cn("flex min-h-0 flex-1 px-3 pt-1", statusBarShown ? "pb-0" : "pb-3")}
           >
             <ResizablePanelGroup className="min-h-0 flex-1" orientation="horizontal">
-              {folderContext && sidebarVisible && (
+              {(folderContext || folderContextLoadPath) && sidebarVisible && (
                 <>
                   <ResizablePanel
                     defaultSize={256}
@@ -182,7 +183,11 @@ export function Shell() {
                       data-testid="article-navigator-host"
                       className="flex size-full min-h-0 min-w-0"
                     >
-                      {folderSearchOpen ? (
+                      {!folderContext ? (
+                        folderContextLoadPath && (
+                          <ArticleNavigatorSkeleton folderPath={folderContextLoadPath} />
+                        )
+                      ) : folderSearchOpen ? (
                         <FolderSearchPanel
                           folderName={folderContext.tree.name}
                           folderPath={folderContext.path}

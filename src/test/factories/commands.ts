@@ -40,6 +40,7 @@ export const createAppCommandContext = (
     activeDocument: null,
     editor: createEditorCommandState(),
     folderContext: null,
+    folderContextLoading: false,
     recentItems: { recentFiles: [], recentFolders: [], ...recentItems },
     settings: { ...createAppCommandSettingsContext(), ...settings },
     ui: {

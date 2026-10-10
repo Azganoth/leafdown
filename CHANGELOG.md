@@ -12,6 +12,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Show a file opened from File Explorer, File > Open, recent files, or a drop as soon as it is read instead of after its whole folder has been scanned. A file in a large folder such as Documents could leave the window on the welcome screen for several seconds, looking as if the file had not opened. The article navigator shows placeholder rows until the folder is ready, and a folder that cannot be scanned reports its error without closing the document.
 - Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
 - Prevent `Ctrl+click` in ordinary editor text (`Cmd+click` on macOS) from creating a separate outlined node selection. Gutter and keyboard block selection, atomic-node and table-cell selection, and modifier-click link activation retain their gestures.
 - Keep the editor's gutter from reacting through an open menu. Pointing at a menu that covers the gutter no longer shows the insertion button, its insertion line, or a heading's marker beneath it, and clicking the gutter to close an open menu no longer also opens block insertion or selects a block. The gutter responds again once the menu closes.

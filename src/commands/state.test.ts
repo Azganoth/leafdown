@@ -107,6 +107,12 @@ describe("command state", () => {
       enabled: true,
     });
     expect(
+      getCommandState("view.toggleSidebar", { ...context, folderContextLoading: true }),
+    ).toMatchObject({ enabled: true });
+    expect(
+      getCommandState("edit.findInFolder", { ...context, folderContextLoading: true }),
+    ).toMatchObject({ enabled: false });
+    expect(
       getCommandState("view.toggleStatusBar", { ...context, activeDocument: null }),
     ).toMatchObject({
       checked: false,

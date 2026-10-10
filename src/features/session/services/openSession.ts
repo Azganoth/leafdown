@@ -11,6 +11,7 @@ import {
   type SavedDocumentState,
 } from "@/features/document";
 import {
+  getScanFolderContextErrorMessage,
   openFolderContext,
   scanFolderContext,
   selectFolderContextPath,
@@ -26,7 +27,7 @@ import { t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toast";
 
-import { useSessionStore } from "../stores/session";
+import { type FolderContextLoad, useSessionStore } from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
 import { takeLaunchDocumentPath } from "./launchDocumentApi";
 import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
@@ -54,38 +55,46 @@ export const openMarkdownFileAtPath = (
     const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
     const { parentFolderPath, ...documentFields } = openedDocument;
     const savedDocument = toSavedDocument(documentFields);
-    const existingFolderContext = useSessionStore.getState().folderContext;
-
-    if (existingFolderContext) {
-      if (!activeDocumentMatchesSnapshot(initialDocumentKey)) {
-        return false;
-      }
-
-      useSessionStore
-        .getState()
-        .setActiveDocument(savedDocument, { reload: replacesActiveDocumentText(savedDocument) });
-      recordRecentFile(documentFields.path);
-
-      return true;
-    }
-
-    const folderContext = await scanFolderContext(
-      parentFolderPath,
-      getSessionFolderScanOptions(),
-      cancellationToken,
-    );
 
     if (!activeDocumentMatchesSnapshot(initialDocumentKey)) {
       return false;
     }
 
-    useSessionStore.getState().setActiveDocumentSession(folderContext, savedDocument, {
-      reload: replacesActiveDocumentText(savedDocument),
-    });
-    recordRecentFileSession(documentFields.path, folderContext.path);
+    const session = useSessionStore.getState();
+    const reload = replacesActiveDocumentText(savedDocument);
+
+    if (session.folderContext || session.folderContextLoad) {
+      session.setActiveDocument(savedDocument, { reload });
+      recordRecentFile(documentFields.path);
+
+      return true;
+    }
+
+    const folderContextLoad = session.setActiveDocumentWithFolderContextLoad(
+      parentFolderPath,
+      savedDocument,
+      { reload },
+    );
+    recordRecentFile(documentFields.path);
+    void loadFolderContext(folderContextLoad);
 
     return true;
   });
+
+/** The document is already open, so a slow or failed scan of its folder only delays or loses the navigator. */
+const loadFolderContext = async ({ id, path }: FolderContextLoad) => {
+  try {
+    const folderContext = await scanFolderContext(path, getSessionFolderScanOptions());
+
+    if (useSessionStore.getState().finishFolderContextLoad(id, folderContext)) {
+      recordRecentFolderSession(folderContext.path);
+    }
+  } catch (error) {
+    if (useSessionStore.getState().abandonFolderContextLoad(id)) {
+      notifyError(getScanFolderContextErrorMessage(error));
+    }
+  }
+};
 
 /** The editor keeps its state across a same-path update, so a reopen must say when the text changed. */
 const replacesActiveDocumentText = (openedDocument: SavedDocumentState) => {
@@ -233,15 +242,6 @@ const runLatestOpenTransition = async (
 
     throw error;
   }
-};
-
-const recordRecentFileSession = (filePath: string, folderPath: string) => {
-  if (!useSettingsStore.getState().recordRecentItems) {
-    return;
-  }
-
-  recordRecentFile(filePath);
-  recordRecentFolder(folderPath);
 };
 
 const recordRecentFolderSession = (folderPath: string) => {

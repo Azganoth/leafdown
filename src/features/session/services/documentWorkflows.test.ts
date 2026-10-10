@@ -380,6 +380,30 @@ describe("document workflows", () => {
       });
     });
 
+    it("keeps a loading folder context when Save As writes before its scan finishes", async () => {
+      setDefaultSession({
+        folderContextLoad: { id: 1, path: "C:/Notes" },
+        activeDocument: createUntitledDocument(),
+      });
+      vi.mocked(save).mockResolvedValue(OUTSIDE_DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () =>
+          createSavedMarkdownDocumentResult({
+            path: OUTSIDE_DRAFT_MD_PATH,
+            parentFolderPath: OUTSIDE_FOLDER_PATH,
+          }),
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
+      expect(useSessionStore.getState()).toMatchObject({
+        folderContext: null,
+        folderContextLoad: { id: 1, path: "C:/Notes" },
+        activeDocument: { status: "saved", path: OUTSIDE_DRAFT_MD_PATH },
+      });
+    });
+
     it("bootstraps the folder context when Save As writes without an active context", async () => {
       const outsideFolderContext = createFolderContext({
         path: OUTSIDE_FOLDER_PATH,

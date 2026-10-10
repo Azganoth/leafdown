@@ -321,7 +321,6 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "modifier-click.md"),
         modifierClickPath,
       ),
-      writeFile(path.join(fixtureRoot, "modifier-click-target.md"), "# Modifier click target\n"),
       writeFile(definitionListPath, "Definition term\n~ Definition body\n"),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "callouts.md"),

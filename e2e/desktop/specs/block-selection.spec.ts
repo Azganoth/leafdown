@@ -283,10 +283,10 @@ describe("desktop block selection", () => {
     await ctrlClickAt(await getHandlePoint(atom));
     await expect(atom).toHaveElementClass("ProseMirror-selectednode");
 
-    const localLink = $('.ProseMirror a[href="modifier-click-target.md"]');
+    const localLink = $('.ProseMirror a[href="block-selection.md"]');
     await localLink.scrollIntoView();
     await ctrlClickAt(await getHandlePoint(localLink));
-    await expect($(".ProseMirror h1")).toHaveText("Modifier click target");
+    await expect($(".ProseMirror h1")).toHaveText("Block selection fixture");
   });
 
   it("renders a definition list with a selectable gutter", async () => {

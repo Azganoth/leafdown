@@ -51,24 +51,22 @@ export const useActiveDocumentWatcher = () => {
   }, [documentPath]);
 };
 
-const createDocumentWatcherScope = () => {
+const createDocumentWatcherScopeId = () => {
   nextDocumentWatcherScopeGeneration += 1;
 
-  return {
-    generation: nextDocumentWatcherScopeGeneration,
-    id: `document-watch:${nextDocumentWatcherScopeGeneration}`,
-  };
+  return `document-watch:${nextDocumentWatcherScopeGeneration}`;
 };
 
 class ActiveDocumentWatchSession {
   private readonly appWindow = getCurrentWindow();
-  private readonly nativeWatchScope = createDocumentWatcherScope();
+  private readonly nativeWatchScopeId = createDocumentWatcherScopeId();
   private readonly checkRunner = new DebouncedTaskRunner(
     checkActiveDocumentFile,
     DOCUMENT_WATCH_CHECK_DELAY_MS,
   );
   private readonly changedListener = new MutableDisposable<() => void>();
   private isDisposed = false;
+  private isNativeWatchRequested = false;
   private isNativeWatcherStarted = false;
 
   constructor(private readonly documentPath: string) {}
@@ -94,12 +92,14 @@ class ActiveDocumentWatchSession {
     this.checkRunner.dispose();
     this.changedListener.dispose();
 
+    // The backend keeps a stop that arrives before its start until that start arrives.
+    if (!this.isNativeWatchRequested) {
+      return;
+    }
+
     const wasNativeWatcherStarted = this.isNativeWatcherStarted;
 
-    void unwatchMarkdownDocument({
-      scopeId: this.nativeWatchScope.id,
-      scopeGeneration: this.nativeWatchScope.generation,
-    })
+    void unwatchMarkdownDocument({ scopeId: this.nativeWatchScopeId })
       .then(() => {
         if (wasNativeWatcherStarted) {
           this.writeLifecycleDiagnostic("stopped");
@@ -140,11 +140,8 @@ class ActiveDocumentWatchSession {
       return;
     }
 
-    await watchMarkdownDocument({
-      path: this.documentPath,
-      scopeId: this.nativeWatchScope.id,
-      scopeGeneration: this.nativeWatchScope.generation,
-    });
+    this.isNativeWatchRequested = true;
+    await watchMarkdownDocument({ path: this.documentPath, scopeId: this.nativeWatchScopeId });
 
     if (!this.isDisposed) {
       this.isNativeWatcherStarted = true;
@@ -197,8 +194,7 @@ class ActiveDocumentWatchSession {
   private getDiagnosticContext() {
     return {
       documentPath: this.documentPath,
-      scopeGeneration: this.nativeWatchScope.generation,
-      scopeId: this.nativeWatchScope.id,
+      scopeId: this.nativeWatchScopeId,
     };
   }
 }

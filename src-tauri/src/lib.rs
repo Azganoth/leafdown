@@ -98,14 +98,16 @@ pub fn run() {
                 )
             );
 
-            window::register_close_decline_listener(app.handle());
-
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                window::handle_close_requested(window, api);
+        .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { api, .. } => window::handle_close_requested(window, api),
+            WindowEvent::Destroyed => {
+                window::forget_close_request(window);
+                document::stop_window_document_watchers(window);
+                folder::stop_window_folder_watcher(window);
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             document::open_markdown_file,
@@ -134,7 +136,8 @@ pub fn run() {
             folder::create_markdown_article,
             folder::create_article_directory,
             folder::rename_folder_entry,
-            folder::trash_folder_entry
+            folder::trash_folder_entry,
+            window::decline_window_close
         ])
         .run(context)
         .unwrap_or_else(|error| {

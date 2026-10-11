@@ -1,7 +1,6 @@
 use std::{
     fs, io,
     path::{Component, Path, PathBuf},
-    sync::Mutex,
 };
 
 use notify::{
@@ -9,14 +8,14 @@ use notify::{
     event::{CreateKind, ModifyKind, RemoveKind},
 };
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 
 use super::{ScanDepth, defaults, scan};
 use crate::{
     document::is_supported_markdown_path,
     file_utils::is_staging_path,
     path_utils::{IoErrorClass, classify_io_error, path_to_string},
-    watch_scope::{ScopedWatcher, WatcherScopeManager, with_watcher_scope_manager},
+    watch_scope::{ScopedWatcher, WatcherScopeManager, WindowWatchers},
 };
 
 pub(crate) const FOLDER_CHANGED_EVENT: &str = "leafdown://folder-changed";
@@ -24,7 +23,7 @@ pub(crate) const FOLDER_WATCH_ERROR_EVENT: &str = "leafdown://folder-watch-error
 
 #[derive(Default)]
 pub(crate) struct FolderWatcherState {
-    manager: Mutex<WatcherScopeManager>,
+    windows: WindowWatchers<WatcherScopeManager>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -62,13 +61,14 @@ pub(crate) struct MarkdownFolderWatchErrorEvent {
 
 pub(super) fn watch_markdown_folder(
     app: AppHandle,
-    state: State<'_, FolderWatcherState>,
+    window_label: &str,
+    state: &FolderWatcherState,
     path: String,
     ignored_directories: Option<Vec<String>>,
     scope_id: String,
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    if !with_watcher_manager(&state, |manager| {
+    if !with_window_manager(state, window_label, |manager| {
         manager.begin_start(scope_id.as_str(), scope_generation)
     })? {
         return Ok(());
@@ -76,32 +76,48 @@ pub(super) fn watch_markdown_folder(
 
     let path = PathBuf::from(path);
     let watcher = create_folder_watcher(
-        &app,
+        app,
+        window_label,
         path.as_path(),
         ignored_directories.unwrap_or_else(defaults::ignored_directories),
         scope_id,
         scope_generation,
     )?;
 
-    with_watcher_manager(&state, |manager| manager.finish_start(watcher))?;
+    with_window_manager(state, window_label, |manager| manager.finish_start(watcher))?;
 
     Ok(())
 }
 
 pub(super) fn unwatch_markdown_folder(
-    state: State<'_, FolderWatcherState>,
+    window_label: &str,
+    state: &FolderWatcherState,
     scope_id: String,
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    with_watcher_manager(&state, |manager| {
+    with_window_manager(state, window_label, |manager| {
         manager.stop_scope(scope_id.as_str(), scope_generation);
     })?;
 
     Ok(())
 }
 
+pub(crate) fn stop_window_folder_watcher<R: Runtime>(window: &Window<R>) {
+    if let Err(error) = window
+        .state::<FolderWatcherState>()
+        .windows
+        .stop_window(window.label())
+    {
+        log::error!(
+            "failed to stop the folder watcher for window {}: {error}",
+            window.label()
+        );
+    }
+}
+
 fn create_folder_watcher(
-    app: &AppHandle,
+    app: AppHandle,
+    window_label: &str,
     path: &Path,
     ignored_directories: Vec<String>,
     scope_id: String,
@@ -119,7 +135,7 @@ fn create_folder_watcher(
     let folder_path = path.to_path_buf();
     let folder_path_for_events = folder_path.clone();
     let folder_path_for_payload = path_to_string(folder_path.as_path());
-    let app = app.clone();
+    let window_label = window_label.to_owned();
     let mut watcher =
         notify::recommended_watcher(move |result: notify::Result<Event>| match result {
             Ok(event) => {
@@ -139,7 +155,9 @@ fn create_folder_watcher(
                     possible_entry_paths: event_paths.possible_entry_paths,
                 };
 
-                if let Err(error) = app.emit(FOLDER_CHANGED_EVENT, payload) {
+                if let Err(error) =
+                    app.emit_to(window_label.as_str(), FOLDER_CHANGED_EVENT, payload)
+                {
                     log::error!("failed to emit folder-changed event: {error}");
                 }
             }
@@ -159,7 +177,9 @@ fn create_folder_watcher(
                     },
                 };
 
-                if let Err(error) = app.emit(FOLDER_WATCH_ERROR_EVENT, payload) {
+                if let Err(error) =
+                    app.emit_to(window_label.as_str(), FOLDER_WATCH_ERROR_EVENT, payload)
+                {
                     log::error!("failed to emit folder-watch-error event: {error}");
                 }
             }
@@ -192,11 +212,14 @@ fn watch_folder_metadata_error(error: io::Error, path: &Path) -> WatchMarkdownFo
     }
 }
 
-fn with_watcher_manager<T>(
+fn with_window_manager<T>(
     state: &FolderWatcherState,
+    window_label: &str,
     operation: impl FnOnce(&mut WatcherScopeManager) -> T,
 ) -> Result<T, WatchMarkdownFolderError> {
-    with_watcher_scope_manager(&state.manager, operation)
+    state
+        .windows
+        .with_window(window_label, operation)
         .map_err(|message| WatchMarkdownFolderError::WatcherStateFailed { message })
 }
 

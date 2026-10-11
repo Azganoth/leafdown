@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
+  "description": "Capability for every Leafdown window",
+  "windows": ["*"],
   "permissions": [
     "core:default",
     "core:app:allow-set-app-theme",

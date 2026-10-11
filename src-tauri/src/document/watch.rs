@@ -1,28 +1,27 @@
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
-    sync::Mutex,
 };
 
 use notify::{
-    Event, EventKind, RecursiveMode, Watcher,
+    Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
     event::{AccessKind, AccessMode},
 };
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 
 use super::is_supported_markdown_path;
 use crate::{
     file_utils::resolve_symlinked_target,
     path_utils::path_to_string,
-    watch_scope::{ScopedWatcher, WatcherScopeManager, with_watcher_scope_manager},
+    watch_scope::{WatcherScopeSet, WindowWatchers},
 };
 
 pub(crate) const DOCUMENT_CHANGED_EVENT: &str = "leafdown://document-changed";
 
 #[derive(Default)]
 pub(crate) struct DocumentWatcherState {
-    manager: Mutex<WatcherScopeManager>,
+    windows: WindowWatchers<WatcherScopeSet>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -52,13 +51,18 @@ struct DocumentWatchTargets {
     file_names: Vec<String>,
 }
 
+// The scope begins before the path is checked, so a refused start is still cleared by its stop.
 pub(super) fn watch_markdown_document(
     app: AppHandle,
-    state: State<'_, DocumentWatcherState>,
+    window_label: &str,
+    state: &DocumentWatcherState,
     path: String,
-    scope_id: String,
-    scope_generation: u64,
+    scope_id: &str,
 ) -> Result<(), WatchMarkdownDocumentError> {
+    if !with_window_scopes(state, window_label, |scopes| scopes.begin_start(scope_id))? {
+        return Ok(());
+    }
+
     let path = PathBuf::from(path);
     let serialized_path = path_to_string(path.as_path());
 
@@ -74,40 +78,45 @@ pub(super) fn watch_markdown_document(
         }
     })?;
 
-    if !with_watcher_manager(&state, |manager| {
-        manager.begin_start(scope_id.as_str(), scope_generation)
-    })? {
-        return Ok(());
-    }
+    let watcher = create_document_watcher(app, window_label, serialized_path, targets)?;
 
-    let watcher =
-        create_document_watcher(&app, serialized_path, targets, scope_id, scope_generation)?;
-
-    with_watcher_manager(&state, |manager| manager.finish_start(watcher))?;
-
-    Ok(())
-}
-
-pub(super) fn unwatch_markdown_document(
-    state: State<'_, DocumentWatcherState>,
-    scope_id: String,
-    scope_generation: u64,
-) -> Result<(), WatchMarkdownDocumentError> {
-    with_watcher_manager(&state, |manager| {
-        manager.stop_scope(scope_id.as_str(), scope_generation);
+    with_window_scopes(state, window_label, |scopes| {
+        scopes.finish_start(scope_id, watcher);
     })?;
 
     Ok(())
 }
 
+pub(super) fn unwatch_markdown_document(
+    window_label: &str,
+    state: &DocumentWatcherState,
+    scope_id: &str,
+) -> Result<(), WatchMarkdownDocumentError> {
+    with_window_scopes(state, window_label, |scopes| scopes.stop_scope(scope_id))?;
+
+    Ok(())
+}
+
+pub(crate) fn stop_window_document_watchers<R: Runtime>(window: &Window<R>) {
+    if let Err(error) = window
+        .state::<DocumentWatcherState>()
+        .windows
+        .stop_window(window.label())
+    {
+        log::error!(
+            "failed to stop document watchers for window {}: {error}",
+            window.label()
+        );
+    }
+}
+
 fn create_document_watcher(
-    app: &AppHandle,
+    app: AppHandle,
+    window_label: &str,
     document_path: String,
     targets: DocumentWatchTargets,
-    scope_id: String,
-    scope_generation: u64,
-) -> Result<ScopedWatcher, WatchMarkdownDocumentError> {
-    let app = app.clone();
+) -> Result<RecommendedWatcher, WatchMarkdownDocumentError> {
+    let window_label = window_label.to_owned();
     let directories = targets.directories.clone();
     let payload_path = document_path.clone();
     let mut watcher = notify::recommended_watcher(move |result: notify::Result<Event>| {
@@ -123,7 +132,7 @@ fn create_document_watcher(
             path: payload_path.clone(),
         };
 
-        if let Err(error) = app.emit(DOCUMENT_CHANGED_EVENT, payload) {
+        if let Err(error) = app.emit_to(window_label.as_str(), DOCUMENT_CHANGED_EVENT, payload) {
             log::error!("failed to emit document-changed event: {error}");
         }
     })
@@ -141,14 +150,17 @@ fn create_document_watcher(
             })?;
     }
 
-    Ok(ScopedWatcher::new(scope_id, scope_generation, watcher))
+    Ok(watcher)
 }
 
-fn with_watcher_manager<T>(
+fn with_window_scopes<T>(
     state: &DocumentWatcherState,
-    operation: impl FnOnce(&mut WatcherScopeManager) -> T,
+    window_label: &str,
+    operation: impl FnOnce(&mut WatcherScopeSet) -> T,
 ) -> Result<T, WatchMarkdownDocumentError> {
-    with_watcher_scope_manager(&state.manager, operation)
+    state
+        .windows
+        .with_window(window_label, operation)
         .map_err(|message| WatchMarkdownDocumentError::WatcherStateFailed { message })
 }
 

@@ -17,9 +17,11 @@ import {
 import { initializeReleaseNotes } from "@/features/release-notes";
 import {
   confirmDiscardActiveDocumentChanges,
+  declineWindowClose,
   DroppedPathOverlay,
   openLaunchDocument,
   useDroppedPathListener,
+  WINDOW_CLOSE_REQUESTED_EVENT,
 } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { localizer } from "@/lib/i18n";
@@ -43,9 +45,6 @@ const updateTheme = async (theme: SettingsState["theme"]) => {
     theme === "system" ? (await getCurrentWindow().theme()) === "dark" : theme === "dark",
   );
 };
-
-const WINDOW_CLOSE_REQUESTED_EVENT = "leafdown://window-close-requested";
-const WINDOW_CLOSE_DECLINED_EVENT = "leafdown://window-close-declined";
 
 export function App() {
   const droppedPathIndicator = useDroppedPathListener();
@@ -99,12 +98,10 @@ export function App() {
   useTauriEvent<void>(
     WINDOW_CLOSE_REQUESTED_EVENT,
     async () => {
-      const appWindow = getCurrentWindow();
-
       // The backend closes on the next request while one is pending, so only a deliberate
       // decision answers it: a handler that keeps failing must stay silent to stay closable.
       if (!(await confirmDiscardActiveDocumentChanges())) {
-        await appWindow.emit(WINDOW_CLOSE_DECLINED_EVENT);
+        await declineWindowClose();
         return;
       }
 
@@ -113,7 +110,7 @@ export function App() {
         operation: "window",
         phase: "closing",
       });
-      await appWindow.destroy();
+      await getCurrentWindow().destroy();
     },
     "windowCloseRequested",
   );

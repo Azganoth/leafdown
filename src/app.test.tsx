@@ -279,11 +279,12 @@ describe("App", () => {
       });
     });
     await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());
-    expect(appWindow.emit).not.toHaveBeenCalledWith("leafdown://window-close-declined");
+    expect(countTauriApiCalls("declineWindowClose")).toBe(0);
   });
 
   it("keeps the native window open when dirty document close is cancelled", async () => {
     const appWindow = getCurrentWindow();
+    mockTauriApi({ takeLaunchDocumentPath: () => null, declineWindowClose: () => undefined });
     setDefaultSession({
       activeDocument: createUntitledDocument({ isDirty: true }),
     });
@@ -307,7 +308,7 @@ describe("App", () => {
     await closeRequest;
     expect(appWindow.destroy).not.toHaveBeenCalled();
     await waitFor(() => {
-      expect(appWindow.emit).toHaveBeenCalledWith("leafdown://window-close-declined");
+      expect(countTauriApiCalls("declineWindowClose")).toBe(1);
     });
   });
 
@@ -342,7 +343,7 @@ describe("App", () => {
           expect.any(Error),
         );
       });
-      expect(appWindow.emit).not.toHaveBeenCalled();
+      expect(countTauriApiCalls("declineWindowClose")).toBe(0);
       expect(appWindow.destroy).not.toHaveBeenCalled();
     } finally {
       failedConfirmation.mockRestore();

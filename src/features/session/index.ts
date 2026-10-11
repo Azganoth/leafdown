@@ -4,6 +4,7 @@ export { useFolderContextWatcher } from "./hooks/useFolderContextWatcher";
 export { useFolderSearchSession } from "./hooks/useFolderSearchSession";
 export { useDroppedPathListener, type DroppedPathIndicator } from "./hooks/useDroppedPathListener";
 export { confirmDiscardActiveDocumentChanges } from "./services/unsavedChanges";
+export { declineWindowClose, WINDOW_CLOSE_REQUESTED_EVENT } from "./services/windowCloseApi";
 export { documentEditorBridge } from "./services/documentEditorBridge";
 export {
   closeActiveMarkdownDocument,

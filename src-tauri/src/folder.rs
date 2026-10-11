@@ -4,7 +4,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, State, Window};
 
 use crate::{
     document::{OpenMarkdownFileError, OpenMarkdownFileResult, read_markdown_file},
@@ -22,7 +22,7 @@ mod watch;
 pub(crate) use entries::{FolderEntryError, FolderEntryResult};
 pub(crate) use replace::{FolderReplacementFile, FolderReplacementOutcome};
 pub(crate) use search::{FolderSearchFileOutcome, FolderSearchFileRequest};
-pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError};
+pub(crate) use watch::{FolderWatcherState, WatchMarkdownFolderError, stop_window_folder_watcher};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -254,6 +254,7 @@ async fn run_folder_replacement(
 #[tauri::command]
 pub(crate) fn watch_markdown_folder(
     app: AppHandle,
+    window: Window,
     state: State<'_, FolderWatcherState>,
     path: String,
     ignored_directories: Option<Vec<String>>,
@@ -262,7 +263,8 @@ pub(crate) fn watch_markdown_folder(
 ) -> Result<(), WatchMarkdownFolderError> {
     watch::watch_markdown_folder(
         app,
-        state,
+        window.label(),
+        &state,
         path,
         ignored_directories,
         scope_id,
@@ -272,11 +274,12 @@ pub(crate) fn watch_markdown_folder(
 
 #[tauri::command]
 pub(crate) fn unwatch_markdown_folder(
+    window: Window,
     state: State<'_, FolderWatcherState>,
     scope_id: String,
     scope_generation: u64,
 ) -> Result<(), WatchMarkdownFolderError> {
-    watch::unwatch_markdown_folder(state, scope_id, scope_generation)
+    watch::unwatch_markdown_folder(window.label(), &state, scope_id, scope_generation)
 }
 
 #[tauri::command]

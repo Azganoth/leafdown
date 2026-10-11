@@ -115,21 +115,15 @@ describe("markdownDocumentApi", () => {
   it("invokes the document watch commands with their scope", async () => {
     vi.mocked(invoke).mockResolvedValue(undefined);
 
-    await watchMarkdownDocument({
-      path: "C:/Notes/index.md",
-      scopeId: "document-watch:1",
-      scopeGeneration: 1,
-    });
-    await unwatchMarkdownDocument({ scopeId: "document-watch:1", scopeGeneration: 1 });
+    await watchMarkdownDocument({ path: "C:/Notes/index.md", scopeId: "document-watch:1" });
+    await unwatchMarkdownDocument({ scopeId: "document-watch:1" });
 
     expect(invoke).toHaveBeenCalledWith(WATCH_MARKDOWN_DOCUMENT_COMMAND, {
       path: "C:/Notes/index.md",
       scopeId: "document-watch:1",
-      scopeGeneration: 1,
     });
     expect(invoke).toHaveBeenCalledWith(UNWATCH_MARKDOWN_DOCUMENT_COMMAND, {
       scopeId: "document-watch:1",
-      scopeGeneration: 1,
     });
   });
 });

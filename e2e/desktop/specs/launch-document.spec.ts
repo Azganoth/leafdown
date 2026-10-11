@@ -8,7 +8,7 @@ describe("desktop launch document", () => {
   it("opens the document named on the command line through the open workflow", async () => {
     const { launchDocument } = await getDesktopE2ERunContext();
 
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(editor).toHaveText(expect.stringContaining(launchDocument.marker));
 
     await expect(await findTreeItem(path.basename(launchDocument.path))).toHaveAttribute(

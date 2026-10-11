@@ -65,16 +65,94 @@ describe("document editor bridge", () => {
     listenerDisposable.dispose();
   });
 
-  it("navigates outline headings only in the current document", () => {
+  it("keeps each open document's editor while another document's editor arrives", () => {
     const navigateToOutlineHeading = vi.fn(() => true);
     documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ navigateToOutlineHeading }));
 
     expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(true);
     expect(documentEditorBridge.navigateToOutlineHeading("doc:other", 0)).toBe(false);
-    documentEditorBridge.set("doc:second", createMilkdownEditorBridge());
+    documentEditorBridge.set(
+      "doc:second",
+      createMilkdownEditorBridge({ getMarkdown: () => "# Second" }),
+    );
+
+    expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(true);
+    expect(documentEditorBridge.getMarkdown("doc:second")).toBe("# Second");
+    expect(navigateToOutlineHeading).toHaveBeenCalledTimes(2);
+
+    documentEditorBridge.set("doc:first", null);
 
     expect(documentEditorBridge.navigateToOutlineHeading("doc:first", 0)).toBe(false);
-    expect(navigateToOutlineHeading).toHaveBeenCalledTimes(1);
+  });
+
+  it("navigates to a requested heading once its document is shown", () => {
+    const navigateToHeading = vi.fn();
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ navigateToHeading }));
+    documentEditorBridge.show("doc:other");
+
+    documentEditorBridge.requestHeading("doc:first", "Setup");
+
+    expect(navigateToHeading).not.toHaveBeenCalled();
+
+    documentEditorBridge.show("doc:first");
+
+    expect(navigateToHeading).toHaveBeenCalledExactlyOnceWith("Setup");
+  });
+
+  it("drops a requested heading when another document is shown first", () => {
+    const navigateToHeading = vi.fn();
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ navigateToHeading }));
+
+    documentEditorBridge.requestHeading("doc:first", "Setup");
+    documentEditorBridge.show("doc:other");
+    documentEditorBridge.show("doc:first");
+
+    expect(navigateToHeading).not.toHaveBeenCalled();
+  });
+
+  it("chooses a search match once its document's editor is ready and shown", async () => {
+    const chooseSearchMatch = vi.fn(async () => 2);
+    const query = { caseSensitive: false, text: "leaf", wholeWord: false };
+    const target = {
+      ordinal: 2,
+      context: { before: "", match: "leaf", after: "", clippedBefore: false, clippedAfter: false },
+    };
+
+    const choosing = documentEditorBridge.chooseSearchMatch("doc:first", query, target);
+
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ chooseSearchMatch }));
+    expect(chooseSearchMatch).not.toHaveBeenCalled();
+
+    documentEditorBridge.show("doc:first");
+
+    await expect(choosing).resolves.toBe(2);
+    expect(chooseSearchMatch).toHaveBeenCalledWith(query, target);
+  });
+
+  it("resolves a pending search match to null when another document is shown", async () => {
+    const query = { caseSensitive: false, text: "leaf", wholeWord: false };
+
+    const choosing = documentEditorBridge.chooseSearchMatch("doc:first", query, {
+      ordinal: 0,
+      context: { before: "", match: "leaf", after: "", clippedBefore: false, clippedAfter: false },
+    });
+    documentEditorBridge.show("doc:other");
+
+    await expect(choosing).resolves.toBeNull();
+  });
+
+  it("focuses an editor once its document is shown", () => {
+    const focus = vi.fn();
+    documentEditorBridge.set("doc:first", createMilkdownEditorBridge({ focus }));
+    documentEditorBridge.show("doc:other");
+
+    documentEditorBridge.focusWhenShown("doc:first");
+
+    expect(focus).not.toHaveBeenCalled();
+
+    documentEditorBridge.show("doc:first");
+
+    expect(focus).toHaveBeenCalledOnce();
   });
 
   it("returns inactive command state for stale document keys", () => {

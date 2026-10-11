@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Open several documents in one window as tabs. Opening a file, a recent file, an article in the navigator, a link, a search result, or a drop adds a tab after the one you are on, or switches to the tab already holding that file, so opening no longer replaces your document or asks about its unsaved changes. Each tab keeps its own unsaved edits, undo history, place in the document, and search. Switch with a click, `Ctrl+Tab` and `Ctrl+Shift+Tab`, `Ctrl+PageDown` and `Ctrl+PageUp`, or `Ctrl+1` to `Ctrl+9`; close one with `Ctrl+W`, its close button, or a middle click. Closing the window or the folder asks once about every tab with unsaved changes, Find in folder and Replace in folder include the unsaved text of every open tab, and the window's title in the taskbar names the active document.
 - Give Markdown files associated with Leafdown a dedicated folded-page icon with the green leaf and Markdown symbol, separate from the application icon. Both Windows installers include it without changing your default app.
 - List a folder's other files, such as images and PDFs, in the article navigator, so a folder holding only those no longer looks empty. They are dimmed, hovering one says that Leafdown can only open Markdown files, and choosing one does nothing; its context menu can still reveal it in File Explorer or copy its path. The article count, the filter, Find in folder, and wiki link suggestions still cover Markdown files only.
 

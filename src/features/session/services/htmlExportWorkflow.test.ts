@@ -12,7 +12,7 @@ import {
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
-import { setDefaultSession } from "@/test/utils/appStores";
+import { replaceActiveDocument, setDefaultSession } from "@/test/utils/appStores";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
 import { documentEditorBridge } from "./documentEditorBridge";
@@ -82,7 +82,7 @@ describe("HTML export workflow", () => {
     expect(sessionAfter.activeDocument).toBe(sessionBefore.activeDocument);
     expect(sessionAfter.activeDocument?.isDirty).toBe(true);
     expect(sessionAfter.folderContext).toBe(sessionBefore.folderContext);
-    expect(sessionAfter.activeDocumentGeneration).toBe(sessionBefore.activeDocumentGeneration);
+    expect(sessionAfter.tabs).toBe(sessionBefore.tabs);
   });
 
   it.each(["Guide.mdown", "Guide.MKD"])(
@@ -134,7 +134,7 @@ describe("HTML export workflow", () => {
   it("writes nothing when the document changed while the picker was open", async () => {
     setExportableDocument();
     vi.mocked(save).mockImplementation(async () => {
-      useSessionStore.getState().setActiveDocument(createUntitledDocument());
+      replaceActiveDocument(createUntitledDocument());
       return "C:/Notes/readme.html";
     });
 

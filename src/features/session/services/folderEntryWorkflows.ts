@@ -18,14 +18,14 @@ import { documentEditorBridge } from "./documentEditorBridge";
 import { runAfterPendingSaves } from "./documentWorkflows";
 import { refreshFolderContext } from "./folderContextWorkflows";
 import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSession";
-import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
+import { confirmDiscardTabChanges } from "./unsavedChanges";
 
 export type FolderEntryKind = "directory" | "file";
 
 export const createArticleInFolder = async (parentPath: string, name: string) => {
   const folderPath = getFolderContextPath();
 
-  if (!folderPath || !(await confirmDiscardActiveDocumentChanges())) {
+  if (!folderPath) {
     return null;
   }
 
@@ -39,7 +39,7 @@ export const createArticleInFolder = async (parentPath: string, name: string) =>
   await refreshAfterFolderEntryChange();
 
   try {
-    await openMarkdownFileAtPath(path, { discardConfirmed: true });
+    await openMarkdownFileAtPath(path);
   } catch (error) {
     notifyOpenMarkdownFileError(error);
   }
@@ -72,7 +72,7 @@ export const renameFolderEntry = (path: string, name: string) =>
     const nextPath = await renameFolderContextEntry({ folderPath, name, path });
 
     if (nextPath !== path) {
-      moveActiveDocument(path, nextPath);
+      moveOpenDocuments(path, nextPath);
       useRecentItemsStore.getState().moveRecentPaths(path, nextPath);
       useArticleNavigatorStore.getState().moveDirectoryPaths(path, nextPath);
       await refreshAfterFolderEntryChange();
@@ -103,20 +103,14 @@ export const deleteFolderEntry = async (path: string, kind: FolderEntryKind) => 
     cancelLabel: t("session.deleteEntry.cancel"),
   });
 
-  if (!confirmed) {
-    return false;
-  }
-
-  if (activeDocumentIsInside(path) && !(await confirmDiscardActiveDocumentChanges())) {
+  if (!confirmed || !(await confirmDiscardTabChanges(getTabIdsInside(path)))) {
     return false;
   }
 
   return runAfterPendingSaves(async () => {
     await trashFolderContextEntry({ folderPath, path });
 
-    if (activeDocumentIsInside(path)) {
-      useSessionStore.getState().setActiveDocument(null);
-    }
+    useSessionStore.getState().closeTabs(getTabIdsInside(path));
 
     await refreshAfterFolderEntryChange();
 
@@ -136,30 +130,32 @@ const refreshAfterFolderEntryChange = async () => {
 
 const getFolderContextPath = () => useSessionStore.getState().folderContext?.path ?? null;
 
-const activeDocumentIsInside = (path: string) => {
-  const { activeDocument } = useSessionStore.getState();
+const getTabIdsInside = (path: string) =>
+  useSessionStore
+    .getState()
+    .tabs.filter(
+      ({ document }) => document.status === "saved" && isSameOrParentPath(path, document.path),
+    )
+    .map((tab) => tab.id);
 
-  return activeDocument?.status === "saved" && isSameOrParentPath(path, activeDocument.path);
-};
-
-// The editor is keyed by the document path, so the moved document remounts from the Markdown the
+// The editor is keyed by the document path, so a moved document remounts from the Markdown its
 // editor holds now rather than from content that may predate the latest edit.
-const moveActiveDocument = (fromPath: string, toPath: string) => {
-  const { activeDocument, setActiveDocument } = useSessionStore.getState();
+const moveOpenDocuments = (fromPath: string, toPath: string) => {
+  const session = useSessionStore.getState();
 
-  if (activeDocument?.status !== "saved") {
-    return;
+  for (const { document, id } of session.tabs) {
+    if (document.status !== "saved") {
+      continue;
+    }
+
+    const nextPath = rebasePath(document.path, fromPath, toPath);
+
+    if (nextPath !== null) {
+      session.replaceTabDocument(id, {
+        ...document,
+        content: documentEditorBridge.getMarkdown(document.path) ?? document.content,
+        path: nextPath,
+      });
+    }
   }
-
-  const nextPath = rebasePath(activeDocument.path, fromPath, toPath);
-
-  if (nextPath === null) {
-    return;
-  }
-
-  setActiveDocument({
-    ...activeDocument,
-    content: documentEditorBridge.getMarkdown(activeDocument.path) ?? activeDocument.content,
-    path: nextPath,
-  });
 };

@@ -9,7 +9,7 @@ describe("desktop Help pages", () => {
   it("reads bundled pages in a narrow window and restores focus", async () => {
     const { document: fixtureDocument } = await getDesktopE2ERunContext();
     await openRecentPath(fixtureDocument.path);
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await editor.click();
     await browser.keys([Key.Ctrl, Key.End, Key.NULL]);
     await editor.addValue(" Help draft");
@@ -98,7 +98,9 @@ describe("desktop Help pages", () => {
     await expect(await getSaveMenuItem()).not.toHaveAttribute("data-disabled");
     await browser.keys("Escape");
     const selectionAfterHelp = await browser.execute(() => {
-      document.querySelector<HTMLElement>('[contenteditable="true"]')?.focus();
+      document
+        .querySelector<HTMLElement>('[data-testid=active-document-host] [contenteditable="true"]')
+        ?.focus();
       return {
         offset: document.getSelection()?.anchorOffset,
         text: document.getSelection()?.anchorNode?.textContent,

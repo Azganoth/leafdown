@@ -35,7 +35,7 @@ const pressKey = (key: string, init: KeyboardEventInit = {}) =>
   );
 
 const focusEditorAtStart = async () => {
-  await $(".ProseMirror p").click();
+  await $("[data-testid=active-document-host] .ProseMirror p").click();
   await pressKey("Home", { ctrlKey: true });
 };
 
@@ -44,7 +44,10 @@ const isFocused = (selector: string) =>
 
 const firstParagraphTop = () =>
   browser.execute(
-    () => document.querySelector(".ProseMirror p")?.getBoundingClientRect().top ?? Number.NaN,
+    () =>
+      document
+        .querySelector("[data-testid=active-document-host] .ProseMirror p")
+        ?.getBoundingClientRect().top ?? Number.NaN,
   );
 
 const getSelectionText = () => browser.execute(() => document.getSelection()?.toString() ?? "");
@@ -62,9 +65,9 @@ const getOccurrenceTexts = () =>
 const selectWordInParagraph = (paragraphStart: string, word: string) =>
   browser.execute(
     (start, target) => {
-      const paragraph = Array.from(document.querySelectorAll(".ProseMirror p")).find((element) =>
-        element.textContent?.startsWith(start),
-      );
+      const paragraph = Array.from(
+        document.querySelectorAll("[data-testid=active-document-host] .ProseMirror p"),
+      ).find((element) => element.textContent?.startsWith(start));
 
       if (!paragraph) {
         return false;
@@ -102,7 +105,7 @@ const getCurrentMatchPlacement = () =>
   browser.execute(() => {
     const current = document.querySelector(".leafdown-search-match--current");
     const viewport = document.querySelector(
-      '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
+      '[data-testid=active-document-host] [data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
     const searchPanel = document.querySelector('[data-testid="editor-search-panel"]');
 
@@ -141,7 +144,7 @@ describe("desktop find and replace", () => {
     const { search } = await getDesktopE2ERunContext();
 
     await openRecentPath(search.path);
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await dismissToasts();
     await focusEditorAtStart();
 
@@ -182,7 +185,7 @@ describe("desktop find and replace", () => {
 
     await pressKey("Escape");
     await expect(panel()).not.toExist();
-    expect(await isFocused(".ProseMirror")).toBe(true);
+    expect(await isFocused("[data-testid=active-document-host] .ProseMirror")).toBe(true);
     expect(await getSelectionText()).toBe("lantern");
     expect(await getSelectedParagraphText()).toContain("**lantern**");
     await expect(documentState()).not.toExist();
@@ -265,7 +268,7 @@ describe("desktop find and replace", () => {
     expect(
       await browser.execute(
         () =>
-          Array.from(document.querySelectorAll(".ProseMirror p"))
+          Array.from(document.querySelectorAll("[data-testid=active-document-host] .ProseMirror p"))
             .find((element) => element.textContent?.startsWith("The first"))
             ?.querySelectorAll(".leafdown-selection-occurrence").length,
       ),
@@ -300,20 +303,29 @@ describe("desktop find and replace", () => {
     await replacementField().setValue("beacon");
     await pressKey("Enter");
     await expect(results()).toHaveText("1 of 4");
-    await expect($(".ProseMirror h1")).toHaveText("beacon notes");
+    await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveText(
+      "beacon notes",
+    );
     await expect(documentState()).toHaveText("Unsaved");
 
     await $('[data-testid="editor-search-panel"] button[aria-label="Replace all"]').click();
     await expect(results()).toHaveText("No results");
-    expect((await $(".ProseMirror").getText()).toLowerCase()).not.toContain("lantern");
-    await expect($(".ProseMirror a")).toHaveText("beacon guide");
+    expect(
+      (await $("[data-testid=active-document-host] .ProseMirror").getText()).toLowerCase(),
+    ).not.toContain("lantern");
+    await expect($("[data-testid=active-document-host] .ProseMirror a")).toHaveText("beacon guide");
 
     await pressKey("Escape");
     await pressKey("z", { ctrlKey: true });
     await browser.waitUntil(
-      async () => (await $(".ProseMirror").getText()).includes("last lantern stands"),
+      async () =>
+        (await $("[data-testid=active-document-host] .ProseMirror").getText()).includes(
+          "last lantern stands",
+        ),
       { timeoutMsg: "Undo did not restore every replaced match in one step." },
     );
-    await expect($(".ProseMirror h1")).toHaveText("beacon notes");
+    await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveText(
+      "beacon notes",
+    );
   });
 });

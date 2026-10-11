@@ -20,13 +20,17 @@ import {
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
-import { setDefaultRecentItems, setDefaultSession } from "@/test/utils/appStores";
+import {
+  replaceActiveDocument,
+  setDefaultRecentItems,
+  setDefaultSession,
+} from "@/test/utils/appStores";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
-import { useSessionStore } from "../stores/session";
+import { getActiveTab, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { saveActiveMarkdownDocument } from "./documentWorkflows";
-import { checkActiveDocumentFile } from "./externalChanges";
+import { checkDocumentFile } from "./externalChanges";
 import { renameFolderEntry } from "./folderEntryWorkflows";
 
 vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
@@ -68,6 +72,16 @@ const missingWarning = {
   type: "warning",
 };
 
+const getActiveTabVersion = () => {
+  const tab = getActiveTab(useSessionStore.getState());
+
+  if (!tab) {
+    throw new Error("Expected an active tab.");
+  }
+
+  return { generation: tab.generation, loadId: tab.loadId, viewState: tab.viewState };
+};
+
 describe("external document changes", () => {
   beforeEach(() => {
     vi.mocked(requestConfirmation).mockReset().mockResolvedValue(false);
@@ -78,7 +92,7 @@ describe("external document changes", () => {
     setDefaultSession({ activeDocument: createUntitledDocument() });
     mockTauriApi({});
 
-    await checkActiveDocumentFile();
+    await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
     expect(countTauriApiCalls("inspectMarkdownFile")).toBe(0);
   });
@@ -89,7 +103,7 @@ describe("external document changes", () => {
     mockTauriApi({ inspectMarkdownFile: () => ({ kind: "unchanged" }) });
     const sessionBeforeCheck = useSessionStore.getState();
 
-    await checkActiveDocumentFile();
+    await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
     expect(getLastTauriApiArgs("inspectMarkdownFile")).toEqual({
       path: TEST_MARKDOWN_FILE_PATH,
@@ -124,15 +138,17 @@ describe("external document changes", () => {
             fingerprint: CHANGED_FINGERPRINT,
           }),
       });
-      const { activeDocumentGeneration, activeDocumentLoadId } = useSessionStore.getState();
+      const before = getActiveTabVersion();
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
+      expect(getActiveTabVersion()).toMatchObject({
+        loadId: before.loadId + 1,
+        viewState: { anchor: 4, head: 6, focused: true },
+      });
+      expect(getActiveTabVersion().generation).not.toBe(before.generation);
       expect(useSessionStore.getState()).toMatchObject({
         folderContext,
-        activeDocumentGeneration: activeDocumentGeneration + 1,
-        activeDocumentLoadId: activeDocumentLoadId + 1,
-        activeDocumentViewState: { anchor: 4, head: 6, focused: true },
         activeDocument: {
           status: "saved",
           path: TEST_MARKDOWN_FILE_PATH,
@@ -163,12 +179,32 @@ describe("external document changes", () => {
         openMarkdownFile: () => createReloadedDocument(),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(getLastTauriApiArgs("openMarkdownFile")).toEqual({
         path: TEST_MARKDOWN_FILE_PATH,
         encoding: "windows-1252",
       });
+    });
+
+    it("reloads a document in an inactive tab without switching to it", async () => {
+      const otherDocument = createSavedDocument({ path: `${TEST_NOTES_FOLDER_PATH}/other.md` });
+      setDefaultSession({
+        documents: [createSavedDocument({ content: "# Before\n" }), otherDocument],
+        activeIndex: 1,
+      });
+      mockTauriApi({
+        inspectMarkdownFile: () => contentChanged(),
+        openMarkdownFile: () => createReloadedDocument(),
+      });
+
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+
+      expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+        { path: TEST_MARKDOWN_FILE_PATH, content: "# After\n", isDirty: false },
+        otherDocument,
+      ]);
+      expect(useSessionStore.getState().activeDocument).toEqual(otherDocument);
     });
 
     it("accepts a touched file's metadata without reloading or warning", async () => {
@@ -177,15 +213,14 @@ describe("external document changes", () => {
       mockTauriApi({
         inspectMarkdownFile: () => ({ kind: "metadataChanged", metadata: CHANGED_METADATA }),
       });
-      const { activeDocumentGeneration, activeDocumentLoadId } = useSessionStore.getState();
+      const before = getActiveTabVersion();
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState()).toMatchObject({
         activeDocument: { ...activeDocument, metadata: CHANGED_METADATA },
-        activeDocumentGeneration,
-        activeDocumentLoadId,
       });
+      expect(getActiveTabVersion()).toEqual(before);
       expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
       expect(toastManager.add).not.toHaveBeenCalled();
     });
@@ -199,8 +234,8 @@ describe("external document changes", () => {
         openMarkdownFile: () => Promise.reject(invalidEncoding),
       });
 
-      await checkActiveDocumentFile();
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toEqual({
         ...activeDocument,
@@ -222,10 +257,10 @@ describe("external document changes", () => {
       const activeDocument = createSavedDocument({ content: "# Local edit\n", isDirty: true });
       setDefaultSession({ activeDocument });
       mockTauriApi({ inspectMarkdownFile: () => contentChanged() });
-      const { activeDocumentGeneration, activeDocumentLoadId } = useSessionStore.getState();
+      const before = getActiveTabVersion();
 
-      await checkActiveDocumentFile();
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState()).toMatchObject({
         activeDocument: {
@@ -236,15 +271,14 @@ describe("external document changes", () => {
             fingerprint: CHANGED_FINGERPRINT,
           },
         },
-        activeDocumentGeneration,
-        activeDocumentLoadId,
       });
+      expect(getActiveTabVersion()).toEqual(before);
       expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
       expect(toastManager.add).toHaveBeenCalledExactlyOnceWith(modifiedWarning);
 
       mockTauriApi({ inspectMarkdownFile: () => contentChanged({ metadata: LATER_METADATA }) });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         metadata: activeDocument.metadata,
@@ -256,7 +290,7 @@ describe("external document changes", () => {
         inspectMarkdownFile: () => contentChanged({ fingerprint: OTHER_FINGERPRINT }),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         content: "# Local edit\n",
@@ -278,7 +312,7 @@ describe("external document changes", () => {
           }),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
       await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
 
       expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({
@@ -305,7 +339,7 @@ describe("external document changes", () => {
         inspectMarkdownFile: () => ({ kind: "metadataChanged", metadata: LATER_METADATA }),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         metadata: LATER_METADATA,
@@ -323,8 +357,8 @@ describe("external document changes", () => {
         setDefaultSession({ activeDocument });
         mockTauriApi({ inspectMarkdownFile: () => ({ kind: "missing" }) });
 
-        await checkActiveDocumentFile();
-        await checkActiveDocumentFile();
+        await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+        await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
         expect(useSessionStore.getState().activeDocument).toEqual({
           ...activeDocument,
@@ -340,7 +374,7 @@ describe("external document changes", () => {
       });
       mockTauriApi({ inspectMarkdownFile: () => ({ kind: "unchanged" }) });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({ externalChange: null });
       expect(toastManager.add).not.toHaveBeenCalled();
@@ -355,7 +389,7 @@ describe("external document changes", () => {
         openMarkdownFile: () => createReloadedDocument("# Recreated\n"),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         content: "# Recreated\n",
@@ -372,7 +406,7 @@ describe("external document changes", () => {
           Promise.reject({ kind: "missingFile", path: TEST_MARKDOWN_FILE_PATH }),
       });
 
-      await checkActiveDocumentFile();
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toEqual({
         ...activeDocument,
@@ -392,7 +426,7 @@ describe("external document changes", () => {
       });
 
       const saving = saveActiveMarkdownDocument();
-      const checking = checkActiveDocumentFile();
+      const checking = checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
       expect(countTauriApiCalls("inspectMarkdownFile")).toBe(0);
@@ -413,7 +447,7 @@ describe("external document changes", () => {
       expect(toastManager.add).not.toHaveBeenCalled();
     });
 
-    it("waits for a pending rename and checks the document at its new path", async () => {
+    it("waits for a pending rename, after which the document is checked at its new path", async () => {
       const renamedPath = `${TEST_NOTES_FOLDER_PATH}/intro.md`;
       setDefaultSession({ activeDocument: createSavedDocument(), folderContext });
       const rename = Promise.withResolvers<{ path: string }>();
@@ -424,13 +458,18 @@ describe("external document changes", () => {
       });
 
       const renaming = renameFolderEntry(TEST_MARKDOWN_FILE_PATH, "intro");
-      const checking = checkActiveDocumentFile();
+      const checking = checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       await vi.waitFor(() => expect(countTauriApiCalls("renameFolderEntry")).toBe(1));
       expect(countTauriApiCalls("inspectMarkdownFile")).toBe(0);
 
       rename.resolve({ path: renamedPath });
       await Promise.all([renaming, checking]);
+
+      // The document left the path the check was queued for; its new path is watched and checked.
+      expect(countTauriApiCalls("inspectMarkdownFile")).toBe(0);
+
+      await checkDocumentFile(renamedPath);
 
       expect(getLastTauriApiArgs("inspectMarkdownFile")).toMatchObject({ path: renamedPath });
       expect(useSessionStore.getState().activeDocument).toMatchObject({
@@ -448,9 +487,9 @@ describe("external document changes", () => {
       mockTauriApi({ inspectMarkdownFile: () => inspection.promise });
       const otherDocument = createSavedDocument({ path: OTHER_MARKDOWN_PATH });
 
-      const checking = checkActiveDocumentFile();
+      const checking = checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
       await vi.waitFor(() => expect(countTauriApiCalls("inspectMarkdownFile")).toBe(1));
-      useSessionStore.getState().setActiveDocument(otherDocument);
+      replaceActiveDocument(otherDocument);
       inspection.resolve({ kind: "missing" });
       await checking;
 
@@ -466,16 +505,16 @@ describe("external document changes", () => {
         inspectMarkdownFile: () => contentChanged(),
         openMarkdownFile: () => reload.promise,
       });
-      const { activeDocumentLoadId } = useSessionStore.getState();
+      const { loadId } = getActiveTabVersion();
 
-      const checking = checkActiveDocumentFile();
+      const checking = checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
       await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
-      useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+      useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
       reload.resolve(createReloadedDocument());
       await checking;
 
+      expect(getActiveTabVersion().loadId).toBe(loadId);
       expect(useSessionStore.getState()).toMatchObject({
-        activeDocumentLoadId,
         activeDocument: {
           content: "# Before\n",
           isDirty: true,
@@ -494,7 +533,7 @@ describe("external document changes", () => {
       setDefaultSession({ activeDocument: createSavedDocument() });
       mockTauriApi({});
 
-      await checkActiveDocumentFile(CancellationToken.Cancelled);
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH, CancellationToken.Cancelled);
 
       expect(countTauriApiCalls("inspectMarkdownFile")).toBe(0);
     });

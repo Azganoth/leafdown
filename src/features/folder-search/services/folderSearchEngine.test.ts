@@ -7,12 +7,13 @@ import {
   type MarkdownSearchTextParser,
   type TextSearchQuery,
 } from "@/features/editor";
+import { isSamePath } from "@/lib/path";
 
 import type { FolderSearchFileOutcome, ReadFolderSearchFilesArgs } from "./folderSearchApi";
 import {
   FOLDER_SEARCH_MATCH_LIMIT,
   FolderSearchEngine,
-  type FolderSearchActiveDocument,
+  type FolderSearchOpenDocument,
   type FolderSearchResults,
 } from "./folderSearchEngine";
 
@@ -173,7 +174,7 @@ const createDisk = (files: Record<string, string>) => {
 
 const createEngine = (
   disk: ReturnType<typeof createDisk>,
-  activeDocument: () => FolderSearchActiveDocument | null = () => null,
+  activeDocument: () => FolderSearchOpenDocument | null = () => null,
 ) => {
   const parser = createParser();
   const published: (FolderSearchResults | null)[] = [];
@@ -181,6 +182,11 @@ const createEngine = (
     {
       createParser: async () => parser,
       getActiveDocument: activeDocument,
+      getOpenDocument: (path) => {
+        const open = activeDocument();
+
+        return open && isSamePath(open.path, path) ? open : null;
+      },
       readFiles: disk.readFiles,
     },
     (results) => published.push(results),
@@ -405,7 +411,7 @@ describe("folder search engine", () => {
 
   it("never lets an older read replace a newer one", async () => {
     const disk = createDisk({ "a.md": "leaf" });
-    let active: FolderSearchActiveDocument | null = null;
+    let active: FolderSearchOpenDocument | null = null;
     const { engine, search, settled } = createEngine(disk, () => active);
 
     await search("leaf");

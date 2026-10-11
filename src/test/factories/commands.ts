@@ -38,6 +38,10 @@ export const createAppCommandContext = (
 
   return {
     activeDocument: null,
+    tabs: {
+      count: overrides.activeDocument ? 1 : 0,
+      activeIndex: overrides.activeDocument ? 0 : -1,
+    },
     editor: createEditorCommandState(),
     folderContext: null,
     folderContextLoading: false,

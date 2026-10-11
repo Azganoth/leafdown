@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
@@ -30,14 +31,22 @@ import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 import { Shell } from "./shell";
 
 vi.mock("@/components/screens/document-screen", () => ({
-  DocumentScreen: ({ activeDocument }: { activeDocument: { content: string } }) => (
-    <section data-testid="active-document-host">{activeDocument.content}</section>
+  DocumentScreen: ({
+    active,
+    tab,
+  }: {
+    active: boolean;
+    tab: { document: { content: string } };
+  }) => (
+    <section data-testid={active ? "active-document-host" : "inactive-document-host"}>
+      {tab.document.content}
+    </section>
   ),
 }));
 
 vi.mock("@/features/session", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/session")>()),
-  useActiveDocumentWatcher: vi.fn(),
+  useDocumentWatchers: vi.fn(),
   useFolderContextWatcher: vi.fn(),
 }));
 
@@ -393,6 +402,28 @@ describe("Shell", () => {
 
     expect(screen.getByTestId("document-workspace-host").nextElementSibling).toBe(statusBar);
     expect(screen.getByTestId("document-workspace-host")).toHaveClass("pb-0");
+  });
+
+  it("titles the window after the active document", async () => {
+    setDefaultSession({
+      documents: [createSavedDocument(), createSavedDocument({ path: SPEC_MARKDOWN_PATH })],
+    });
+
+    render(<Shell />);
+
+    await waitFor(() =>
+      expect(getCurrentWindow().setTitle).toHaveBeenLastCalledWith("readme.md - Leafdown"),
+    );
+
+    act(() => useSessionStore.getState().activateTab(useSessionStore.getState().tabs[1].id));
+
+    await waitFor(() =>
+      expect(getCurrentWindow().setTitle).toHaveBeenLastCalledWith("spec.md - Leafdown"),
+    );
+
+    act(() => useSessionStore.getState().reset());
+
+    await waitFor(() => expect(getCurrentWindow().setTitle).toHaveBeenLastCalledWith("Leafdown"));
   });
 
   it("has no status bar without an open document", () => {

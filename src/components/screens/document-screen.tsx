@@ -1,12 +1,8 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  getActiveDocumentKey,
-  openMarkdownDocument,
-  type ActiveDocumentState,
-} from "@/features/document";
+import { getActiveDocumentKey, openMarkdownDocument } from "@/features/document";
 import {
   EMPTY_HEADING_OUTLINE,
   HeadingOutline,
@@ -14,7 +10,6 @@ import {
   type HeadingOutlineState,
   type MilkdownEditorBridge,
 } from "@/features/editor";
-import { getArticlePaths } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
 import {
   documentEditorBridge,
@@ -23,12 +18,15 @@ import {
   openMarkdownFileAtPath,
   retainEditorMarkdown,
   useSessionStore,
+  type DocumentTab,
 } from "@/features/session";
 import { useLocalization } from "@/lib/i18n";
 import { getPathIdentityKey } from "@/lib/path";
 
 interface DocumentScreenProps {
-  activeDocument: ActiveDocumentState;
+  tab: DocumentTab;
+  active: boolean;
+  wikiCompletionPaths: string[];
 }
 
 const handleOpenMarkdownPath = async (path: string, heading?: string) => {
@@ -42,7 +40,7 @@ const handleOpenMarkdownPath = async (path: string, heading?: string) => {
   }
 };
 
-export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
+export function DocumentScreen({ active, tab, wikiCompletionPaths }: DocumentScreenProps) {
   const { t } = useLocalization();
   const autoPairBracketsAndQuotes = useSettingsStore((state) => state.autoPairBracketsAndQuotes);
   const displayCodeBlockLineNumbers = useSettingsStore(
@@ -54,18 +52,11 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
   const lineSpacing = useSettingsStore((state) => state.lineSpacing);
   const outlineDepth = useSettingsStore((state) => state.outlineDepth);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
-  const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextPath = useSessionStore(getSessionFolderPath);
-  const wikiCompletionPaths = useMemo(
-    () => (folderContext ? getArticlePaths(folderContext.tree) : []),
-    [folderContext],
-  );
-  const markActiveDocumentDirty = useSessionStore((state) => state.markActiveDocumentDirty);
-  const loadId = useSessionStore((state) => state.activeDocumentLoadId);
-  const initialViewState = useSessionStore((state) => state.activeDocumentViewState);
-  const documentKey = getActiveDocumentKey(activeDocument);
-  const viewportKey =
-    activeDocument.status === "saved" ? getPathIdentityKey(activeDocument.path) : activeDocument.id;
+  const markDocumentDirty = useSessionStore((state) => state.markDocumentDirty);
+  const { document, loadId, viewState } = tab;
+  const documentKey = getActiveDocumentKey(document);
+  const viewportKey = document.status === "saved" ? getPathIdentityKey(document.path) : document.id;
   const editorKey = `${documentKey}:${loadId}`;
   const [publishedOutline, setPublishedOutline] = useState<{
     editorKey: string;
@@ -81,10 +72,17 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
     },
     [documentKey],
   );
+
+  useLayoutEffect(() => {
+    if (active) {
+      documentEditorBridge.show(documentKey);
+    }
+  }, [active, documentKey]);
+
   return (
     <section
       aria-label={t("documentScreen.label")}
-      data-testid="active-document-host"
+      data-testid={active ? "active-document-host" : "inactive-document-host"}
       className="flex size-full"
     >
       <Card className="min-h-0 min-w-0 flex-1 gap-0 py-0">
@@ -97,9 +95,9 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
             <MilkdownEditor
               key={editorKey}
               ref={setEditorBridgeRef}
-              initialMarkdown={activeDocument.content}
-              initialViewState={initialViewState}
-              documentPath={activeDocument.status === "saved" ? activeDocument.path : null}
+              initialMarkdown={document.content}
+              initialViewState={viewState}
+              documentPath={document.status === "saved" ? document.path : null}
               folderContextPath={folderContextPath}
               onOpenMarkdownPath={handleOpenMarkdownPath}
               onReadMarkdownPath={async (path) => (await openMarkdownDocument(path)).content}
@@ -111,7 +109,7 @@ export function DocumentScreen({ activeDocument }: DocumentScreenProps) {
               textSize={textSize}
               lineSpacing={lineSpacing}
               onContentChanged={() => {
-                markActiveDocumentDirty(documentKey);
+                markDocumentDirty(documentKey);
                 documentEditorBridge.fireContentChanged(documentKey);
               }}
               onCommandStateChanged={documentEditorBridge.fireCommandStateChanged}

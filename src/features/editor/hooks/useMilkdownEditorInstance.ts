@@ -108,6 +108,8 @@ export interface MilkdownEditorBridge {
   getCommandState?: () => EditorCommandState;
   getDocumentStatus?: () => EditorDocumentStatus;
   getViewState?: () => EditorViewState | null;
+  /** Focuses the editor where its selection is, without scrolling. */
+  focus?: () => void;
   insertLink?: (label: string, target: string) => boolean;
   navigateToHeading?: (heading: string) => void;
   navigateToOutlineHeading?: (position: number) => boolean;
@@ -314,6 +316,11 @@ export const useMilkdownEditorInstance = ({
         return new Promise((resolve) => {
           pendingSearchMatchRef.current = { query, target, resolve };
         });
+      },
+      focus: () => {
+        if (editorRef.current?.ctx) {
+          editorRef.current.ctx.get(editorViewCtx).focus();
+        }
       },
       focusChosenSearchMatch: () => {
         if (editorRef.current?.ctx) {

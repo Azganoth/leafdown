@@ -7,6 +7,7 @@ import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import {
+  closeAllDocuments,
   ctrlClickAt,
   dismissToasts,
   findMenuItem,
@@ -15,7 +16,7 @@ import {
 } from "../support/ui.js";
 
 const SURFACE_SELECTOR =
-  "[data-testid='document-surface-scroll-area'] [data-slot='scroll-area-viewport']";
+  "[data-testid=active-document-host] [data-testid='document-surface-scroll-area'] [data-slot='scroll-area-viewport']";
 
 interface GutterGeometry {
   barHeight: number;
@@ -47,7 +48,11 @@ const handleGeometry = () =>
     Array.from(document.querySelectorAll<HTMLButtonElement>("[data-leafdown-block-handle]")).map(
       (handle) => {
         const pos = handle.dataset.leafdownBlockPos ?? "";
-        const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+        const block = Array.from(
+          document.querySelectorAll<RenderedNode>(
+            "[data-testid=active-document-host] .ProseMirror *",
+          ),
+        ).find(
           (element) =>
             element.pmViewDesc?.dom === element &&
             element.pmViewDesc.node !== undefined &&
@@ -92,7 +97,11 @@ const getGeometryForText = async (text: string) => {
 
   if (!geometry) {
     await browser.execute((blockText) => {
-      Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *"))
+      Array.from(
+        document.querySelectorAll<RenderedNode>(
+          "[data-testid=active-document-host] .ProseMirror *",
+        ),
+      )
         .find(
           (element) =>
             element.pmViewDesc?.dom === element && element.textContent?.trim() === blockText,
@@ -112,7 +121,9 @@ const getGeometryForText = async (text: string) => {
 
 const moveToBlock = async (pos: string) => {
   const point = await browser.execute((blockPos) => {
-    const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+    const block = Array.from(
+      document.querySelectorAll<RenderedNode>("[data-testid=active-document-host] .ProseMirror *"),
+    ).find(
       (element) =>
         element.pmViewDesc?.dom === element &&
         element.pmViewDesc.node !== undefined &&
@@ -133,7 +144,9 @@ const moveToBlock = async (pos: string) => {
 const listItemGap = (before: string, after: string) =>
   browser.execute(
     (beforeText, afterText) => {
-      const items = Array.from(document.querySelectorAll(".ProseMirror li"));
+      const items = Array.from(
+        document.querySelectorAll("[data-testid=active-document-host] .ProseMirror li"),
+      );
       const first = items.find((item) => item.textContent?.trim() === beforeText);
       const second = items.find((item) => item.textContent?.trim() === afterText);
       if (!first || !second) {
@@ -149,7 +162,9 @@ const listItemsInView = () =>
   browser.execute((surfaceSelector) => {
     const surface = document.querySelector(surfaceSelector)?.getBoundingClientRect();
     if (!surface) throw new Error("Document view was not found.");
-    return Array.from(document.querySelectorAll(".ProseMirror li")).filter((item) => {
+    return Array.from(
+      document.querySelectorAll("[data-testid=active-document-host] .ProseMirror li"),
+    ).filter((item) => {
       const rect = item.getBoundingClientRect();
       return rect.bottom > surface.top && rect.top < surface.bottom;
     }).length;
@@ -159,7 +174,7 @@ const listItemsInView = () =>
 const listItemTexts = () =>
   browser.execute(() =>
     Array.from(
-      document.querySelectorAll(".ProseMirror li"),
+      document.querySelectorAll("[data-testid=active-document-host] .ProseMirror li"),
       (item) => item.textContent?.trim() ?? "",
     ),
   );
@@ -249,7 +264,9 @@ const getGutterPointsAroundMenu = () =>
 const dispatchEditorKey = (key: string, init: KeyboardEventInit = {}) =>
   browser.execute(
     (eventKey, eventInit) => {
-      const editor = document.querySelector<HTMLElement>(".ProseMirror");
+      const editor = document.querySelector<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror",
+      );
 
       if (!editor) throw new Error("Editor was not found.");
 
@@ -270,7 +287,7 @@ const cutSelectedBlocks = () =>
   browser.execute(() => {
     const clipboardData = new DataTransfer();
     const event = new ClipboardEvent("cut", { bubbles: true, cancelable: true, clipboardData });
-    document.querySelector(".ProseMirror")?.dispatchEvent(event);
+    document.querySelector("[data-testid=active-document-host] .ProseMirror")?.dispatchEvent(event);
     return {
       text: clipboardData.getData("text/plain"),
       html: clipboardData.getData("text/html"),
@@ -307,10 +324,13 @@ describe("desktop block selection", () => {
   it("keeps Ctrl-click text as a caret and activates rendered links", async () => {
     const { modifierClick } = await getDesktopE2ERunContext();
     await openRecentPath(modifierClick.path);
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await dismissToasts();
 
-    for (const selector of [".ProseMirror h1", ".ProseMirror > p"]) {
+    for (const selector of [
+      "[data-testid=active-document-host] .ProseMirror h1",
+      "[data-testid=active-document-host] .ProseMirror > p",
+    ]) {
       const target = $(selector);
       await target.scrollIntoView();
       const point = (await target.execute((node) => {
@@ -326,7 +346,9 @@ describe("desktop block selection", () => {
         };
       })) as { x: number; y: number };
       await ctrlClickAt(point);
-      await expect($$(".ProseMirror-selectednode")).toBeElementsArrayOfSize(0);
+      await expect(
+        $$("[data-testid=active-document-host] .ProseMirror-selectednode"),
+      ).toBeElementsArrayOfSize(0);
       await expect($$(".leafdown-selected-block")).toBeElementsArrayOfSize(0);
       const caret = (await target.execute((node) => {
         const selection = window.getSelection();
@@ -346,7 +368,7 @@ describe("desktop block selection", () => {
       ["External guide", "https://example.com/leafdown-modifier-click"],
       ["Missing guide", "missing-modifier-click.md"],
     ]) {
-      const link = $(`.ProseMirror a[href="${href}"]`);
+      const link = $(`[data-testid=active-document-host] .ProseMirror a[href="${href}"]`);
       await link.scrollIntoView();
       await ctrlClickAt(await getHandlePoint(link));
       if (label === "External guide") {
@@ -361,27 +383,36 @@ describe("desktop block selection", () => {
         await dismissToasts();
       }
       await expect(link).toBeDisplayed();
-      await expect($$(".ProseMirror-selectednode")).toBeElementsArrayOfSize(0);
+      await expect(
+        $$("[data-testid=active-document-host] .ProseMirror-selectednode"),
+      ).toBeElementsArrayOfSize(0);
     }
 
-    const atom = $(".ProseMirror hr");
+    const atom = $("[data-testid=active-document-host] .ProseMirror hr");
     await atom.scrollIntoView();
     await ctrlClickAt(await getHandlePoint(atom));
     await expect(atom).toHaveElementClass("ProseMirror-selectednode");
 
-    const localLink = $('.ProseMirror a[href="block-selection.md"]');
+    const localLink = $(
+      '[data-testid=active-document-host] .ProseMirror a[href="block-selection.md"]',
+    );
     await localLink.scrollIntoView();
     await ctrlClickAt(await getHandlePoint(localLink));
-    await expect($(".ProseMirror h1")).toHaveText("Block selection fixture");
+    await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveText(
+      "Block selection fixture",
+    );
   });
 
   it("renders a definition list with a selectable gutter", async () => {
     const { definitionList } = await getDesktopE2ERunContext();
+    await closeAllDocuments();
     await openRecentPath(definitionList.path);
     await expect($('[data-slot="toast"]')).toBeDisplayed();
     await dismissToasts();
 
-    const list = $(".ProseMirror dl[data-type='definition-list']");
+    const list = $(
+      "[data-testid=active-document-host] .ProseMirror dl[data-type='definition-list']",
+    );
     await expect(list).toBeDisplayed();
     await expect(list.$("dt")).toHaveText("Definition term");
     await expect(list.$("dd")).toHaveText("Definition body");
@@ -407,8 +438,9 @@ describe("desktop block selection", () => {
   it("inserts a nested sibling from the moving gutter control and cancels without editing", async () => {
     const { blocks } = await getDesktopE2ERunContext();
     const originalWindowSize = await browser.getWindowSize();
+    await closeAllDocuments();
     await openRecentPath(blocks.path);
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await expect($('[data-slot="toast"]')).toBeDisplayed();
     await dismissToasts();
     const target = await getGeometryForText("Nested first");
@@ -465,7 +497,9 @@ describe("desktop block selection", () => {
 
     await browser.setWindowSize(640, 720);
     await browser.execute(() => {
-      const editor = document.querySelector<HTMLElement>(".ProseMirror");
+      const editor = document.querySelector<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror",
+      );
       if (!editor) throw new Error("Editor was not found.");
       editor.dir = "rtl";
       window.dispatchEvent(new Event("resize"));
@@ -490,7 +524,11 @@ describe("desktop block selection", () => {
       .perform();
     await expect(button).toBeDisplayed();
     const rtlPlacement = await browser.execute((pos) => {
-      const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+      const block = Array.from(
+        document.querySelectorAll<RenderedNode>(
+          "[data-testid=active-document-host] .ProseMirror *",
+        ),
+      ).find(
         (element) =>
           element.pmViewDesc?.dom === element &&
           element.pmViewDesc.node !== undefined &&
@@ -507,7 +545,9 @@ describe("desktop block selection", () => {
     }, target.pos);
     expect(rtlPlacement.gutterLeft).toBeGreaterThanOrEqual(rtlPlacement.blockRight - 0.5);
     await browser.execute(() => {
-      document.querySelector<HTMLElement>(".ProseMirror")?.removeAttribute("dir");
+      document
+        .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")
+        ?.removeAttribute("dir");
       window.dispatchEvent(new Event("resize"));
     });
     await browser.waitUntil(() =>
@@ -548,13 +588,14 @@ describe("desktop block selection", () => {
 
   it("leaves the gutter under an open menu to the menu and restores it after dismissal", async () => {
     const { blocks } = await getDesktopE2ERunContext();
+    await closeAllDocuments();
     await openRecentPath(blocks.path);
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await dismissToasts();
     const button = $("[data-leafdown-block-insert]");
     const indicator = $(".leafdown-block-insertion-indicator");
     const textBefore = await browser.execute(
-      () => document.querySelector(".ProseMirror")?.textContent,
+      () => document.querySelector("[data-testid=active-document-host] .ProseMirror")?.textContent,
     );
     const sidebarHidden = await setSidebarVisible(false);
 
@@ -595,9 +636,12 @@ describe("desktop block selection", () => {
       await expect($("[data-testid='editor-block-insertion-menu']")).toBeDisplayed();
       await browser.keys(Key.Escape);
       await expect($("[data-testid='editor-block-insertion-menu']")).not.toExist();
-      expect(await browser.execute(() => document.querySelector(".ProseMirror")?.textContent)).toBe(
-        textBefore,
-      );
+      expect(
+        await browser.execute(
+          () =>
+            document.querySelector("[data-testid=active-document-host] .ProseMirror")?.textContent,
+        ),
+      ).toBe(textBefore);
     } finally {
       if (await $('[data-slot="menubar-content"]').isExisting()) {
         await browser.keys(Key.Escape);
@@ -608,10 +652,9 @@ describe("desktop block selection", () => {
 
   it("renders and operates hierarchical gutters in the assembled app", async () => {
     const { blocks } = await getDesktopE2ERunContext();
+    await closeAllDocuments();
     await openRecentPath(blocks.path);
-    await expect($("aria/Unsaved changes")).toBeDisplayed();
-    await $("aria/Discard changes").click();
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await expect($('[data-slot="toast"]')).toBeDisplayed();
     await dismissToasts();
 
@@ -628,9 +671,11 @@ describe("desktop block selection", () => {
       expect(Math.abs((await listItemGap(before, after)) - 8)).toBeLessThan(0.5);
     }
     const paragraphToListGap = await browser.execute(() => {
-      const paragraph = Array.from(document.querySelectorAll<HTMLElement>(".ProseMirror > p")).find(
-        (node) => node.textContent?.startsWith("Root paragraph with"),
-      );
+      const paragraph = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[data-testid=active-document-host] .ProseMirror > p",
+        ),
+      ).find((node) => node.textContent?.startsWith("Root paragraph with"));
       const list = paragraph?.nextElementSibling;
       if (!paragraph || !list || list.tagName !== "UL") {
         throw new Error("Root paragraph and adjacent list were not found.");
@@ -855,17 +900,26 @@ describe("desktop block selection", () => {
     expect(cutPayload.html).toContain("Nested first");
     await browser.waitUntil(async () =>
       browser.execute(
-        () => !document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+        () =>
+          !document
+            .querySelector("[data-testid=active-document-host] .ProseMirror")
+            ?.textContent?.includes("Nested first"),
       ),
     );
-    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Parent item"));
-    await expect($(".ProseMirror")).not.toHaveText(expect.stringContaining("Nested second"));
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+      expect.stringContaining("Parent item"),
+    );
+    await expect($("[data-testid=active-document-host] .ProseMirror")).not.toHaveText(
+      expect.stringContaining("Nested second"),
+    );
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-cut.png"));
 
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await browser.waitUntil(async () =>
       browser.execute(() =>
-        document.querySelector(".ProseMirror")?.textContent?.includes("Nested second"),
+        document
+          .querySelector("[data-testid=active-document-host] .ProseMirror")
+          ?.textContent?.includes("Nested second"),
       ),
     );
     await expect($$(".leafdown-selected-block")).toBeElementsArrayOfSize(2);
@@ -874,11 +928,15 @@ describe("desktop block selection", () => {
       clipboardData.setData("text/plain", text);
       clipboardData.setData("text/html", html);
       const event = new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData });
-      document.querySelector(".ProseMirror")?.dispatchEvent(event);
+      document
+        .querySelector("[data-testid=active-document-host] .ProseMirror")
+        ?.dispatchEvent(event);
     }, cutPayload);
     await browser.waitUntil(async () =>
       browser.execute(() =>
-        document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+        document
+          .querySelector("[data-testid=active-document-host] .ProseMirror")
+          ?.textContent?.includes("Nested first"),
       ),
     );
     const pastedItems = await listItemTexts();
@@ -890,13 +948,20 @@ describe("desktop block selection", () => {
     expect(await dispatchEditorKey("Delete")).toBe(true);
     await browser.waitUntil(async () =>
       browser.execute(
-        () => !document.querySelector(".ProseMirror")?.textContent?.includes("Nested first"),
+        () =>
+          !document
+            .querySelector("[data-testid=active-document-host] .ProseMirror")
+            ?.textContent?.includes("Nested first"),
       ),
     );
-    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Nested second"));
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+      expect.stringContaining("Nested second"),
+    );
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "block-selection-deleted.png"));
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
-    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Nested first"));
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+      expect.stringContaining("Nested first"),
+    );
 
     const crossParentStart = $(await getHandleSelectorForText("Second hyphen item"));
     const crossParentEnd = $(await getHandleSelectorForText("Plus item starts another list"));
@@ -908,16 +973,20 @@ describe("desktop block selection", () => {
     expect(crossParentPayload.text).toContain("Plus item starts another list");
     expect(crossParentPayload.text).not.toContain("Hyphen item\n");
     expect(crossParentPayload.text).not.toContain("Asterisk item starts another list");
-    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Hyphen item"));
-    await expect($(".ProseMirror")).toHaveText(
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+      expect.stringContaining("Hyphen item"),
+    );
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
       expect.stringContaining("Asterisk item starts another list"),
     );
-    await expect($(".ProseMirror")).not.toHaveText(expect.stringContaining("Second hyphen item"));
-    await expect($(".ProseMirror")).not.toHaveText(
+    await expect($("[data-testid=active-document-host] .ProseMirror")).not.toHaveText(
+      expect.stringContaining("Second hyphen item"),
+    );
+    await expect($("[data-testid=active-document-host] .ProseMirror")).not.toHaveText(
       expect.stringContaining("Plus item starts another list"),
     );
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
-    await expect($(".ProseMirror")).toHaveText(
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
       expect.stringContaining("Plus item starts another list"),
     );
   });
@@ -927,7 +996,9 @@ describe("desktop block selection", () => {
     await browser.setWindowSize(640, 400);
     await browser.keys(Key.Escape);
     await expect($("[data-testid='editor-context-popup']")).not.toExist();
-    await expect($(".ProseMirror")).toHaveText(expect.stringContaining("Quote second"));
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+      expect.stringContaining("Quote second"),
+    );
 
     for (const [text, edge] of [
       ["Parent itemNested firstNested second", "top"],
@@ -937,7 +1008,11 @@ describe("desktop block selection", () => {
       await browser.execute(
         (blockPos, side, surfaceSelector) => {
           const viewport = document.querySelector<HTMLElement>(surfaceSelector);
-          const block = Array.from(document.querySelectorAll<RenderedNode>(".ProseMirror *")).find(
+          const block = Array.from(
+            document.querySelectorAll<RenderedNode>(
+              "[data-testid=active-document-host] .ProseMirror *",
+            ),
+          ).find(
             (element) =>
               element.pmViewDesc?.dom === element &&
               element.pmViewDesc.node !== undefined &&
@@ -960,7 +1035,9 @@ describe("desktop block selection", () => {
             (blockPos, side, surfaceSelector) => {
               const viewport = document.querySelector<HTMLElement>(surfaceSelector);
               const block = Array.from(
-                document.querySelectorAll<RenderedNode>(".ProseMirror *"),
+                document.querySelectorAll<RenderedNode>(
+                  "[data-testid=active-document-host] .ProseMirror *",
+                ),
               ).find(
                 (element) =>
                   element.pmViewDesc?.dom === element &&

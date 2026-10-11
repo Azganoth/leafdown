@@ -32,7 +32,7 @@ Application composition lives under `src/components/` in `layout/` and `screens/
 
 The `release-notes` feature owns the changelog bundled into the frontend, current-version selection, and persisted launch and seen-version history. It renders notes with the `help` feature's bundled-page Markdown renderer, so both Help surfaces share one link policy, and it does not access document or session state.
 
-The `session` feature owns the relationship between the active document and folder context, plus workflows spanning multiple features. Dependencies flow left to right:
+The `session` feature owns the window's open documents and their relationship to the folder context, plus workflows spanning multiple features. Dependencies flow left to right:
 
 `application components -> commands -> session -> domain features -> shared UI/lib`
 
@@ -40,7 +40,7 @@ Arrows define direction, not required intermediate dependencies: a layer may imp
 
 Global scope does not make code shared. Domain-owned global behavior stays in its feature; only domain-agnostic reuse belongs in shared UI or `lib`.
 
-Session and editor workflows request yes/no decisions through the shared confirmation service in `src/lib/`. The app shell renders its queued request using the shared dialog UI. Each feature keeps its own prompt wording and verifies the relevant document or link state after the decision; session tracks document activation separately from its path so a reopened file cannot satisfy an older confirmation.
+Session and editor workflows request yes/no decisions through the shared confirmation service in `src/lib/`. The app shell renders its queued request using the shared dialog UI. Each feature keeps its own prompt wording and verifies the relevant document or link state after the decision; session versions each tab's document separately from its path, so a document saved, reloaded, or reopened at the same path cannot satisfy an older confirmation.
 
 ## Domain Vocabulary
 
@@ -48,7 +48,8 @@ Session and editor workflows request yes/no decisions through the shared confirm
 - **Article:** a supported Markdown file.
 - **Article navigator:** the presentation of a folder context's articles, directories, and unsupported files.
 - **Unsupported file:** a regular file in a folder context that is not an article. The article navigator lists it but never opens it.
-- **Session:** the active document, when one exists, plus an optional folder context.
+- **Session:** the window's open documents, each in a tab with one of them active, plus an optional folder context.
+- **Tab:** one open document in a window, with the editor that holds it and that editor's state.
 - **Source projection:** a temporary editable source representation of a supported Markdown object while the editor retains its canonical document model.
 - **Workspace:** not an application domain term; Leafdown creates neither a workspace model nor workspace metadata.
 
@@ -57,7 +58,7 @@ Session and editor workflows request yes/no decisions through the shared confirm
 The runtime tracks three primary state values:
 
 - **Current folder context:** The directory used for article navigation and folder workflows.
-- **Active document:** The saved or untitled Markdown document currently loaded in the editor. The session keeps the Markdown it was opened or last saved with; the editor holds the current text, which workflows such as Save and rename read through the editor bridge instead of a copy refreshed on each edit.
+- **Open documents:** The saved or untitled Markdown documents open in the window's tabs, in tab order, one of them the active document. A saved file is open in at most one tab. The session keeps each document's Markdown as it was opened or last saved; its editor holds the current text, which workflows such as Save, rename, and folder search read through the editor bridge instead of a copy refreshed on each edit. Every tab keeps its editor mounted, hidden while inactive, so its `Undo` history, caret, scroll position, and search surface outlast switching away. The editor bridge holds every mounted editor by document key; requests that scroll or focus, such as following a heading link or choosing a search match, wait until their document's editor is the one shown.
 - **Active document metadata:** File metadata and a content fingerprint utilized for dirty-state and external modification checks.
 
 ## Editor Architecture
@@ -147,9 +148,9 @@ The Rust backend manages:
 - Reading a folder context's articles for a search in bounded batches through the document loader, answering `unchanged` instead of the text for a file whose metadata matches the version already read, and refusing paths outside the folder context or naming symbolic links.
 - Writing a folder replacement in bounded batches: checking each planned file against the metadata and fingerprint it was planned from, reading the whole file rather than trusting its metadata, and encoding its text strictly, first for every file without writing and again for each file just before its atomic write. A file that changed is left as it is, a failure is reported per file, and the same folder and symbolic-link refusals apply.
 - Creating Markdown files and folders, renaming entries, and moving entries to the system Recycle Bin or Trash inside the current folder context. Each operation resolves its target's parent through the filesystem and refuses one outside the folder context, so the root itself is never renamed or trashed. It refuses names the platform cannot hold, never replaces an existing entry, and never falls back to permanent deletion.
-- Filesystem watching to monitor directory changes: the folder context for the article tree, where an unsupported file matters only when it appears, vanishes, or is renamed, and the active document's directory, non-recursively, for events naming that file. A symlinked document is watched under its own name and its target's.
+- Filesystem watching to monitor directory changes: the folder context for the article tree, where an unsupported file matters only when it appears, vanishes, or is renamed, and each open saved document's directory, non-recursively, for events naming that file. A symlinked document is watched under its own name and its target's.
 - Keeping each window's watches apart: a window holds at most one folder watch, which a newer scope replaces, and any number of document watches, each started and stopped on its own. Change and watch-error events go only to the window that owns the watch, one window's scopes never stop or replace another's, and destroying a window stops its watches.
-- Inspecting the active document's file against its recorded metadata and fingerprint, reading the file's bytes only when the metadata differs.
+- Inspecting an open document's file against its recorded metadata and fingerprint, reading the file's bytes only when the metadata differs.
 - Intercepting window close requests to prompt for unsaved changes before exit. A request goes only to the window it names, each window has at most one pending, and a window closes on its next request when its frontend leaves one unanswered. The frontend declines through a command, so the backend learns the window from the caller.
 - Blocking webview navigation to remote origins, and granting asset-protocol access only to resolved image paths.
 - Mapping permission and IO errors.
@@ -163,9 +164,9 @@ The React frontend manages:
 - User interface rendering and application commands.
 - App-rendered confirmation dialogs for document and local-link decisions.
 - Milkdown integration and custom editor elements.
-- Application state (folder context, active document, settings).
+- Application state (folder context, open documents and the active one, settings).
 - Updating the article navigator in response to backend file events.
-- Reconciling the active document with its file after a document watcher event.
+- Reconciling an open document with its file after a document watcher event.
 - Path normalization and local image loading via Tauri's custom asset protocol.
 - Presenting a fetched remote image through a `blob:` object URL owned by its image node view, which revokes it when the target changes or the view is destroyed and discards results that arrive after either.
 - Marker visibility rules, thematic styling, and error presentation.
@@ -188,19 +189,20 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 
 ## Data Contracts
 
-- Session owns the active document, folder context, and document metadata used for dirty-state and external-modification checks.
+- Session owns the open documents in tab order, the active tab, the folder context, and the document metadata used for dirty-state and external-modification checks. Each tab carries a version that changes whenever its document is replaced, which workflows check before applying a result or a decision.
 - Opening and saving return a fingerprint of the file's bytes beside its metadata, which together name the version of the file the document holds. The fingerprint is a 64-bit hash compared only for equality within one run of the application and never persisted. The document also records an external change: a newer version observed on disk, or a missing file.
 - An opened document carries its encoding, as an encoding name and a byte order mark flag, beside its line ending. Session holds it as document state and sends it back with each save. Opening takes an optional chosen encoding name, which the backend ignores when the file has a byte order mark. Session also keeps the encoding the file holds, so the document can be converted back to it, and remounts the editor when a reopen of the same path replaces its text. The frontend labels it but never decodes or encodes text.
 - Preferences own persisted settings and session history.
 - Release notes own a separate persisted record of the last launched version and versions whose notes were shown. The current dialog and version are runtime state.
 - The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
 - Folder scans return a nested tree of directory, article (`file`), and `unsupportedFile` nodes, with `isEmpty` set when it holds no article. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator. Only article nodes reach opening, the article count and filter, folder search and replace, and wiki-link completion.
+- The frontend matches documents, tabs, and articles by path, so commands keep the spelling a folder was opened with rather than canonicalizing it: folder scans spell entries from the folder path they were given, and link resolution spells a target inside the folder context from that folder's path, taking the on-disk spelling only below it. A folder reached through a short name, a junction, or a symbolic link therefore yields the same path from the article navigator and from a link.
 
 ## Data Flow
 
 ### Open Workflow
 
-Backend reads target document -> Session updates active document -> Session bootstraps folder context only when none exists.
+Session activates the tab already holding the file, or backend reads target document -> Session opens it in a tab after the active one -> Session bootstraps folder context only when none exists.
 
 ### Launch Workflow
 
@@ -212,9 +214,9 @@ Tauri reports native paths -> Backend classifies one dropped path -> Session rea
 
 ### Folder Entry Workflow
 
-The article navigator names a target row and hands the action to the application layer; it holds no filesystem or session behavior of its own. Session confirms a deletion, and asks about unsaved changes before creating a file or deleting an entry that holds the active document -> Backend validates and changes the filesystem -> Session moves the active document path, recent items, and expanded folders under a renamed path, or closes a trashed active document -> Session rescans the folder context -> The watcher's later refresh produces the same tree.
+The article navigator names a target row and hands the action to the application layer; it holds no filesystem or session behavior of its own. Session confirms a deletion, and asks once about the unsaved changes of open documents inside an entry it deletes -> Backend validates and changes the filesystem -> Session opens a created file in a new tab, moves every open document, recent item, and expanded folder under a renamed path, or closes the tabs of trashed documents -> Session rescans the folder context -> The watcher's later refresh produces the same tree.
 
-Renames and deletions queue behind a pending save, so a save in flight cannot recreate a file at its old path. The editor is keyed by document path, so a renamed active document remounts from the Markdown the editor held, keeping its unsaved changes and its metadata snapshot for the next freshness check.
+Renames and deletions queue behind a pending save, so a save in flight cannot recreate a file at its old path. The editor is keyed by document path, so a renamed open document remounts from the Markdown its editor held, keeping its unsaved changes and its metadata snapshot for the next freshness check.
 
 ### Save Workflow
 
@@ -222,7 +224,7 @@ Serialize editor state to Markdown -> Verify metadata freshness via backend -> E
 
 ### Save As Workflow
 
-Write document to new path -> Update active document path -> Bootstrap folder context when none exists, refresh the current folder context when the saved file is inside it, or leave the pinned folder context unchanged when the saved file is outside it.
+Refuse a path open in another tab -> Write document to new path -> Update the tab's document path -> Bootstrap folder context when none exists, refresh the current folder context when the saved file is inside it, or leave the pinned folder context unchanged when the saved file is outside it.
 
 ### HTML Export Workflow
 
@@ -230,17 +232,17 @@ Pick the output path -> Read a settled snapshot of the editor state, applying th
 
 ### Folder Search Workflow
 
-Session hands the folder-search engine the folder's articles in navigator order, with the open saved document read from the editor -> Backend reads the next bounded batch of files, the next batch requested while one is searched -> The engine parses each changed file to searchable text on the main thread, giving way to the interface between files, and keeps that text, within a budget, until the folder closes or changes -> Results publish as they are found -> A changed query, a closed view or folder, or `Cancel` retires the run, and a folder refresh or an edit to the open document searches again with the results in place; each file keeps the results of the newest read of it.
+Session hands the folder-search engine the folder's articles in navigator order, with every open saved document read from its editor -> Backend reads the next bounded batch of files, the next batch requested while one is searched -> The engine parses each changed file to searchable text on the main thread, giving way to the interface between files, and keeps that text, within a budget, until the folder closes or changes -> Results publish as they are found -> A changed query, a closed view or folder, or `Cancel` retires the run, and a folder refresh, an edit to an open document, or a tab closing searches again with the results in place; each file keeps the results of the newest read of it.
 
 Opening a result inspects its file against the version searched -> Session opens it through the Open workflow, with its unsaved-changes prompt -> The editor chooses the match once ready -> A file gone or a match no longer there is marked and searched again.
 
-While the replace field shows, the same run plans a replacement: there is no result limit, a file whose kept text holds a match is read again for its text, encoding, and line ending, and each result carries the text to write and the version it was planned from, or the editor's settled Markdown for the open document. Applying a complete plan asks about the open document's unsaved changes when the plan includes it, and a save or discard there plans again instead of writing -> Backend preflights every planned file -> Session writes the files in the plan's order, batching consecutive files for the backend and replacing the open document in its editor before saving it through the save queue with no prompt -> Each outcome is recorded, and the folder is planned again around the report. The folder watcher sees the writes as any atomic save, and the open document's save records the version it wrote, so neither is taken for an outside change.
+While the replace field shows, the same run plans a replacement: there is no result limit, a file whose kept text holds a match is read again for its text, encoding, and line ending, and each result carries the text to write and the version it was planned from, or the editor's settled Markdown for an open document. Applying a complete plan asks in turn about each open document with unsaved changes the plan includes, and a save or discard there plans again instead of writing -> Backend preflights every planned file -> Session writes the files in the plan's order, batching consecutive files for the backend and replacing each open document in its editor before saving it through the save queue with no prompt -> Each outcome is recorded, and the folder is planned again around the report. The folder watcher sees the writes as any atomic save, and an open document's save records the version it wrote, so neither is taken for an outside change.
 
 ### External Change Workflow
 
-Backend reports an event naming the active document to the window watching it -> Session debounces events into one check -> The check queues behind pending saves and renames, which replace the file and the document's version together -> Backend compares the file's metadata, then its fingerprint, with the document's version -> Session accepts a touch's metadata, reloads a clean document through the open path, records a newer version for a dirty document, or records a missing file -> A result for a document that was replaced, renamed, or closed in the meantime is discarded.
+Backend reports an event naming an open document to the window watching it -> Session debounces each document's events into one check -> The check queues behind pending saves and renames, which replace the file and the document's version together -> Backend compares the file's metadata, then its fingerprint, with the document's version -> Session accepts a touch's metadata, reloads a clean document in its tab through the open path, records a newer version for a dirty document, or records a missing file -> A result for a document that was replaced, renamed, or closed in the meantime is discarded.
 
-The document watch starts whenever the active saved document's path changes and checks the file once it is in place, since the file can change between being read and being watched. A reload remounts the editor, as a reopen does, and carries the caret and focus into the new editor.
+A document watch starts for each saved document a tab opens or moves to, and stops when that path leaves every tab; it checks the file once it is in place, since the file can change between being read and being watched. A reload remounts the editor, as a reopen does, and carries the caret and focus into the new editor.
 
 ## Packaging
 
@@ -273,7 +275,7 @@ Neither writes an extension's default value or its `UserChoice`. The MSI's value
 
 Automated tests cover Markdown round trips; editor commands and projection; file, folder, watcher, and persistence workflows; path, encoding, size, symlink, and permission boundaries; local resource resolution; safe raw HTML; safe math rendering; and context popup behavior. Rendered HTML parsing, block layout, and native interactions also need the desktop WebView.
 
-The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, opening a document named on the command line, folder watching, external changes to the active document, find and replace from the keyboard and the Edit menu, folder search from the keyboard and the Edit menu with its unsaved-changes prompt, replacing across the folder through the open document's editor, math rendering, its preview, and source editing under the app's CSP, Mermaid image rendering and its opaque child network boundary, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
+The Windows desktop E2E suite runs separately from `pnpm check`, locally and in CI. It uses a debug binary and isolated application state, WebDriver port, fixture tree, and artifacts for each worker. Workers start a fresh application process per scenario, except the ordered persistence restart group. The runner validates `--scenario` and `--workers <1-4>`; its default is one worker. `pnpm test:e2e:desktop:run` uses an already built binary, so rebuild when binary inputs change. The suite covers document lifecycle, opening a document named on the command line, folder watching, external changes to an open document, several documents open as tabs with unsaved edits closed through the window's unsaved-documents dialog, find and replace from the keyboard and the Edit menu, folder search from the keyboard and the Edit menu over an unsaved document in another tab, replacing across the folder through the open document's editor, math rendering, its preview, and source editing under the app's CSP, Mermaid image rendering and its opaque child network boundary, article navigator file actions through the native filesystem and Recycle Bin, backend errors, persisted settings, frame controls, diagnostics, window-close handling, and remote image request gating.
 
 Acceptance assertions use state that outlives the action, such as saved files, editor contents, menu state, or diagnostic records. The E2E build holds toasts open when the notification itself is the outcome. Direct bridge calls corroborate diagnostics; filesystem and process access provide setup and native-boundary evidence. WebDriver dependencies and permissions stay in the E2E build, as does the allowance that lets the remote image fetch trust one runner-named host on loopback with a test certificate authority. The E2E build also replaces the opener plugin with one that records URL, path, and reveal requests as diagnostic records instead of handing them to the system shell, so the capability still gates each command but opener scopes and link-click interception are not exercised.
 

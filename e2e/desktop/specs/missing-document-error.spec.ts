@@ -23,6 +23,6 @@ describe("desktop backend error propagation", () => {
         record.path === missingDocumentPath,
     );
 
-    await expect($('[contenteditable="true"]')).not.toExist();
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).not.toExist();
   });
 });

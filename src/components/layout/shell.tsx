@@ -1,14 +1,15 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
-import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, useAppCommands } from "@/commands";
+import { ARTICLE_NAVIGATOR_ENTRY_ACTIONS, getCommandLabelId, useAppCommands } from "@/commands";
 import { AboutDialog } from "@/components/layout/about-dialog";
 import { CommandMenubar } from "@/components/layout/command-menubar";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { ConfirmationDialog } from "@/components/layout/confirmation-dialog";
+import { DocumentTabs } from "@/components/layout/document-tabs";
 import { KeyboardShortcutsDialog } from "@/components/layout/keyboard-shortcuts-dialog";
 import { UnexpectedErrorBoundary } from "@/components/layout/unexpected-error-boundary";
-import { DocumentScreen } from "@/components/screens/document-screen";
 import { EmptyFolderScreen } from "@/components/screens/empty-folder-screen";
 import { FolderOnlyScreen } from "@/components/screens/folder-only-screen";
 import { WelcomeScreen } from "@/components/screens/welcome-screen";
@@ -27,13 +28,14 @@ import {
   applyFolderReplacement,
   cancelFolderSearch,
   closeFolderSearch,
+  getDocumentName,
   getSessionMode,
   notifyOpenMarkdownFileError,
   openFolderSearchMatch,
   openMarkdownFileAtPath,
   searchFolderFurther,
   submitFolderSearch,
-  useActiveDocumentWatcher,
+  useDocumentWatchers,
   useFolderContextWatcher,
   useFolderSearchSession,
   useSessionStore,
@@ -52,6 +54,8 @@ const DeveloperTools = import.meta.env.DEV
       return { default: module.DeveloperTools };
     })
   : null;
+
+const DEFAULT_WINDOW_TITLE = "Leafdown";
 
 const handleOpenArticle = (path: string) => {
   void openMarkdownFileAtPath(path).catch((error) => {
@@ -73,7 +77,7 @@ const handleApplyFolderReplacement = () => {
 
 export function Shell() {
   useFolderContextWatcher();
-  useActiveDocumentWatcher();
+  useDocumentWatchers();
   useFolderSearchSession();
 
   const localization = useLocalization();
@@ -91,6 +95,15 @@ export function Shell() {
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
   const sidebarShown = sidebarAvailable && sidebarVisible;
   const statusBarShown = activeDocument !== null && statusBarVisible;
+  const windowTitle = activeDocument
+    ? t("shell.windowTitle", { name: getDocumentName(activeDocument, t) })
+    : DEFAULT_WINDOW_TITLE;
+
+  useEffect(() => {
+    void getCurrentWindow()
+      .setTitle(windowTitle)
+      .catch((error) => handleUnexpectedError(error, "setWindowTitle"));
+  }, [windowTitle]);
 
   return (
     <>
@@ -223,7 +236,12 @@ export function Shell() {
                   {sessionMode === "folder-only" && folderContext && !folderContext.isEmpty && (
                     <FolderOnlyScreen />
                   )}
-                  {activeDocument && <DocumentScreen activeDocument={activeDocument} />}
+                  {activeDocument && (
+                    <DocumentTabs
+                      newDocumentLabel={t(getCommandLabelId("file.new"))}
+                      onNewDocument={() => commands.executeCommand("file.new")}
+                    />
+                  )}
                 </main>
               </ResizablePanel>
             </ResizablePanelGroup>

@@ -17,7 +17,7 @@ describe("desktop folder context watcher", () => {
     const initialArticle = await findTreeItem(folder.initialFileName);
     await expect(initialArticle).toBeDisplayed();
     await expect(initialArticle).toHaveAttribute("aria-selected", "true");
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining(folder.initialMarker),
     );
 
@@ -35,7 +35,7 @@ describe("desktop folder context watcher", () => {
     await expect(addedArticle).toBeDisplayed();
     await addedArticle.click();
     await expect(addedArticle).toHaveAttribute("aria-selected", "true");
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining(folder.addedMarker),
     );
   });
@@ -100,7 +100,7 @@ describe("desktop folder context watcher", () => {
 
     await expect(unsupportedRow).toBeFocused();
     await expect(unsupportedRow).toHaveAttribute("aria-selected", "false");
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining(folder.addedMarker),
     );
     expect(await $$('[data-slot="toast"][data-type="error"]').length).toBe(0);

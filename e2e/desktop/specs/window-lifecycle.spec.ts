@@ -53,7 +53,7 @@ describe("desktop window lifecycle", () => {
     }
 
     await $("aria/New document").click();
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(editor).toBeDisplayed();
     await editor.click();
     await editor.addValue(" Unsaved before exit");

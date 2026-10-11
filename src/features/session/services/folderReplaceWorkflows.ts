@@ -21,15 +21,12 @@ import {
 import { requestDecision } from "@/lib/confirmation";
 import { handleUnexpectedError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
-import { getPathParts, getRelativePath, isSamePath, PathMap } from "@/lib/path";
+import { getPathParts, getRelativePath, PathMap, PathSet } from "@/lib/path";
 import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";
 
-import { useSessionStore } from "../stores/session";
+import { findTabByPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
-import {
-  saveActiveMarkdownDocument,
-  saveActiveMarkdownDocumentWithoutPrompts,
-} from "./documentWorkflows";
+import { saveDocumentTab, saveDocumentWithoutPrompts } from "./documentWorkflows";
 import { refreshFolderSearch } from "./folderSearchWorkflows";
 import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSession";
 
@@ -51,8 +48,8 @@ const isEditorFile = (file: PlannedFile): file is PlannedFile<"editor"> =>
 
 /**
  * Writes the replacement the folder search planned, file by file in the order it lists them. The
- * open document's unsaved changes are first saved or discarded, which plans again rather than
- * writing, so an Apply only ever writes what the preview showed.
+ * unsaved changes of the open documents it includes are first saved or discarded, which plans
+ * again rather than writing, so an Apply only ever writes what the preview showed.
  */
 export const applyFolderReplacement = async () => {
   const { apply, caseSensitive, query, replaceOpen, replacement, results, wholeWord } =
@@ -72,7 +69,7 @@ export const applyFolderReplacement = async () => {
 
   const planned = sortByRelativePath(results.folderPath, results.files.filter(isPlanned));
 
-  if (!(await settleActiveDocumentChanges(planned))) {
+  if (!(await settleOpenDocumentChanges(planned))) {
     return false;
   }
 
@@ -99,45 +96,58 @@ const sortByRelativePath = (folderPath: string, files: PlannedFile[]) =>
     .toSorted((left, right) => (left.key < right.key ? -1 : left.key > right.key ? 1 : 0))
     .map(({ file }) => file);
 
-const settleActiveDocumentChanges = async (planned: readonly PlannedFile[]) => {
-  const { activeDocument } = useSessionStore.getState();
+const settleOpenDocumentChanges = async (planned: readonly PlannedFile[]) => {
+  const plannedPaths = new PathSet(planned.map((file) => file.path));
+  const unsaved = useSessionStore
+    .getState()
+    .tabs.flatMap(({ document }) =>
+      document.status === "saved" && document.isDirty && plannedPaths.has(document.path)
+        ? [document.path]
+        : [],
+    );
 
-  if (
-    activeDocument?.status !== "saved" ||
-    !activeDocument.isDirty ||
-    !planned.some((file) => isSamePath(file.path, activeDocument.path))
-  ) {
+  if (unsaved.length === 0) {
     return true;
   }
 
-  const decision = await requestDecision({
-    title: t("session.folderReplace.unsavedChanges.title"),
-    message: t("session.folderReplace.unsavedChanges.message", {
-      name: getPathParts(activeDocument.path).name,
-    }),
-    confirmLabel: t("session.folderReplace.unsavedChanges.save"),
-    alternateLabel: t("session.folderReplace.unsavedChanges.discard"),
-    cancelLabel: t("session.folderReplace.unsavedChanges.cancel"),
-  });
+  let settled = false;
 
-  if (decision === "cancel") {
-    return false;
-  }
+  for (const path of unsaved) {
+    const decision = await requestDecision({
+      title: t("session.folderReplace.unsavedChanges.title"),
+      message: t("session.folderReplace.unsavedChanges.message", {
+        name: getPathParts(path).name,
+      }),
+      confirmLabel: t("session.folderReplace.unsavedChanges.save"),
+      alternateLabel: t("session.folderReplace.unsavedChanges.discard"),
+      cancelLabel: t("session.folderReplace.unsavedChanges.cancel"),
+    });
 
-  const latest = useSessionStore.getState().activeDocument;
+    if (decision === "cancel") {
+      break;
+    }
 
-  if (latest?.status === "saved" && isSamePath(latest.path, activeDocument.path)) {
+    const latest = findTabByPath(useSessionStore.getState(), path);
+
+    if (latest?.document.status !== "saved") {
+      continue;
+    }
+
+    settled = true;
+
     if (decision === "confirm") {
       try {
-        await saveActiveMarkdownDocument();
+        await saveDocumentTab(latest.id);
       } catch (error) {
         notifyError(getSaveMarkdownFileErrorMessage(error));
       }
     } else {
       try {
-        await openMarkdownFileAtPath(latest.path, {
+        await openMarkdownFileAtPath(path, {
+          activate: false,
           discardConfirmed: true,
-          encoding: latest.fileEncoding.name,
+          encoding: latest.document.fileEncoding.name,
+          reload: true,
         });
       } catch (error) {
         notifyOpenMarkdownFileError(error);
@@ -145,7 +155,9 @@ const settleActiveDocumentChanges = async (planned: readonly PlannedFile[]) => {
     }
   }
 
-  refreshFolderSearch();
+  if (settled) {
+    refreshFolderSearch();
+  }
 
   return false;
 };
@@ -215,7 +227,7 @@ const commit = async (
       if (stopped) {
         recordNotAttempted([file], report);
       } else {
-        await commitActiveDocument(file, results, report);
+        await commitOpenDocument(file, results, report);
       }
 
       completed += 1;
@@ -230,7 +242,7 @@ const commit = async (
     const checked = preflight.get(file.path);
 
     // A file opened since the plan is the editor's to write, and its plan read the file instead.
-    if (isActiveDocumentPath(file.path)) {
+    if (isOpenDocumentPath(file.path)) {
       report.stale.push({ path: file.path, reason: "changedInEditor", unsavedInEditor: false });
     } else if (checked?.kind !== "ready") {
       recordOutcome(file, checked, report);
@@ -348,27 +360,24 @@ const recordNotAttempted = (files: readonly PlannedFile[], report: FolderReplace
   );
 };
 
-const isActiveDocumentPath = (path: string) => {
-  const { activeDocument } = useSessionStore.getState();
-
-  return activeDocument?.status === "saved" && isSamePath(activeDocument.path, path);
-};
+const isOpenDocumentPath = (path: string) =>
+  findTabByPath(useSessionStore.getState(), path) !== null;
 
 /**
- * The open document takes the replacement in its editor, as one step to undo, and is then saved.
- * A document that changed since the plan, in the editor or on disk, is left as it is.
+ * An open document takes the replacement in its editor, as one step to undo, and is then saved. A
+ * document that changed since the plan, in the editor or on disk, is left as it is.
  */
-const commitActiveDocument = async (
+const commitOpenDocument = async (
   file: PlannedFile<"editor">,
   results: FolderSearchResults,
   report: FolderReplaceReport,
 ) => {
   const stale = (reason: "changedInEditor" | "changedOnDisk" | "missing") =>
     report.stale.push({ path: file.path, reason, unsavedInEditor: false });
-  const session = useSessionStore.getState();
-  const document = session.activeDocument;
+  const tab = findTabByPath(useSessionStore.getState(), file.path);
+  const document = tab?.document;
 
-  if (document?.status !== "saved" || !isSamePath(document.path, file.path) || document.isDirty) {
+  if (!tab || document?.status !== "saved" || document.isDirty) {
     stale("changedInEditor");
     return;
   }
@@ -407,19 +416,16 @@ const commitActiveDocument = async (
   }
 
   const latest = useSessionStore.getState();
-  const latestDocument = latest.activeDocument;
+  const latestTab = findTabByPath(latest, file.path);
 
-  if (
-    latest.activeDocumentGeneration !== session.activeDocumentGeneration ||
-    latestDocument !== document
-  ) {
+  if (latestTab?.generation !== tab.generation || latestTab.document !== document) {
     stale("changedInEditor");
     return;
   }
 
   // A touch leaves the bytes the plan read, so Save is told the file's metadata as it now stands.
   if (fileState.kind === "metadataChanged") {
-    latest.setActiveDocumentFileState(document.path, {
+    latest.setDocumentFileState(document.path, {
       metadata: fileState.metadata,
       externalChange: null,
     });
@@ -441,7 +447,7 @@ const commitActiveDocument = async (
   let saved;
 
   try {
-    saved = await saveActiveMarkdownDocumentWithoutPrompts(documentKey);
+    saved = await saveDocumentWithoutPrompts(documentKey);
   } catch (error) {
     handleUnexpectedError(error, "saveFolderReplacementDocument");
     report.failed.push({ path: file.path, reason: "interrupted", unsavedInEditor: true });
@@ -456,11 +462,11 @@ const commitActiveDocument = async (
       report.failed.push({ path: file.path, reason: "interrupted", unsavedInEditor: false });
       return;
     case "failed":
-      recordActiveDocumentSaveFailure(file.path, saved.error, report);
+      recordOpenDocumentSaveFailure(file.path, saved.error, report);
   }
 };
 
-const recordActiveDocumentSaveFailure = (
+const recordOpenDocumentSaveFailure = (
   path: string,
   error: SaveMarkdownFileError,
   report: FolderReplaceReport,

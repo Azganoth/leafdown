@@ -8,7 +8,15 @@ import {
 import { createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 
-import { getSessionMode, useSessionStore } from "./session";
+import { findTab, getActiveTab, getSessionMode, useSessionStore } from "./session";
+
+const OTHER_PATH = "C:/Notes/other.md";
+const THIRD_PATH = "C:/Notes/third.md";
+
+const getPaths = () =>
+  useSessionStore
+    .getState()
+    .tabs.map(({ document }) => (document.status === "saved" ? document.path : document.id));
 
 describe("session store", () => {
   beforeEach(() => useSessionStore.getState().reset());
@@ -29,93 +37,162 @@ describe("session store", () => {
     ).toBe("document");
   });
 
-  it("sets folder-only sessions by clearing the active document", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+  it("opens each document in a new tab after the active one and activates it", () => {
+    const { openTab } = useSessionStore.getState();
+    const first = openTab(createSavedDocument());
+    openTab(createSavedDocument({ path: OTHER_PATH }));
 
-    useSessionStore.getState().setFolderOnlySession(createFolderContext());
+    useSessionStore.getState().activateTab(first.id);
+    const third = openTab(createSavedDocument({ path: THIRD_PATH }));
+
+    expect(getPaths()).toEqual([TEST_MARKDOWN_FILE_PATH, THIRD_PATH, OTHER_PATH]);
+    expect(useSessionStore.getState()).toMatchObject({
+      activeTabId: third.id,
+      activeDocument: { path: THIRD_PATH },
+    });
+  });
+
+  it("replaces the folder context together with a tab it opens", () => {
+    const folderContext = createFolderContext();
+
+    useSessionStore.getState().openTab(createSavedDocument(), { folderContext });
 
     expect(useSessionStore.getState()).toMatchObject({
-      activeDocument: null,
+      activeDocument: { path: TEST_MARKDOWN_FILE_PATH },
       folderContext: { path: TEST_NOTES_FOLDER_PATH },
     });
   });
 
-  it("sets active document sessions atomically", () => {
-    const activeDocument = createSavedDocument();
-    const folderContext = createFolderContext();
+  it("closes tabs, activating the next tab to the right, or else to the left", () => {
+    const { openTab } = useSessionStore.getState();
+    const first = openTab(createSavedDocument());
+    const second = openTab(createSavedDocument({ path: OTHER_PATH }));
+    const third = openTab(createSavedDocument({ path: THIRD_PATH }));
 
-    useSessionStore.getState().setActiveDocumentSession(folderContext, activeDocument);
+    useSessionStore.getState().activateTab(second.id);
+    useSessionStore.getState().closeTabs([second.id]);
+
+    expect(useSessionStore.getState().activeTabId).toBe(third.id);
+
+    useSessionStore.getState().closeTabs([third.id]);
+
+    expect(useSessionStore.getState().activeTabId).toBe(first.id);
+
+    useSessionStore.getState().closeTabs([first.id]);
 
     expect(useSessionStore.getState()).toMatchObject({
-      activeDocument,
-      folderContext,
+      tabs: [],
+      activeTabId: null,
+      activeDocument: null,
     });
   });
 
-  it("tracks document replacement separately from edits to the current document", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
-    const generation = useSessionStore.getState().activeDocumentGeneration;
+  it("keeps the active tab when another tab closes", () => {
+    const { openTab } = useSessionStore.getState();
+    const first = openTab(createSavedDocument());
+    const second = openTab(createSavedDocument({ path: OTHER_PATH }));
 
-    useSessionStore.getState().setActiveDocumentContent(TEST_MARKDOWN_FILE_PATH, "Edited");
-    expect(useSessionStore.getState().activeDocumentGeneration).toBe(generation);
+    useSessionStore.getState().closeTabs([first.id]);
 
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
-    expect(useSessionStore.getState().activeDocumentGeneration).toBe(generation + 1);
+    expect(useSessionStore.getState().activeTabId).toBe(second.id);
   });
 
-  it("updates saved active document content only for matching document keys", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "# Original" }));
+  it("ignores activating a tab that is not open", () => {
+    const tab = useSessionStore.getState().openTab(createSavedDocument());
+    const state = useSessionStore.getState();
 
-    useSessionStore.getState().setActiveDocumentContent("C:/Other/readme.md", "# Stale");
+    useSessionStore.getState().activateTab("tab:missing");
+
+    expect(useSessionStore.getState()).toBe(state);
+    expect(useSessionStore.getState().activeTabId).toBe(tab.id);
+  });
+
+  it("tracks document replacement separately from edits to the current document", () => {
+    const tab = useSessionStore.getState().openTab(createSavedDocument());
+
+    useSessionStore.getState().setDocumentContent(TEST_MARKDOWN_FILE_PATH, "Edited");
+    expect(findTab(useSessionStore.getState(), tab.id)?.generation).toBe(tab.generation);
+
+    useSessionStore.getState().replaceTabDocument(tab.id, createSavedDocument());
+    expect(findTab(useSessionStore.getState(), tab.id)?.generation).not.toBe(tab.generation);
+  });
+
+  it("does not replace a document when another tab is activated", () => {
+    const tab = useSessionStore.getState().openTab(createSavedDocument());
+    useSessionStore.getState().openTab(createSavedDocument({ path: OTHER_PATH }));
+
+    useSessionStore.getState().activateTab(tab.id);
+
+    expect(getActiveTab(useSessionStore.getState())).toMatchObject({
+      generation: tab.generation,
+      document: tab.document,
+    });
+  });
+
+  it("updates saved document content only for matching document keys", () => {
+    useSessionStore.getState().openTab(createSavedDocument({ content: "# Original" }));
+
+    useSessionStore.getState().setDocumentContent("C:/Other/readme.md", "# Stale");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       content: "# Original",
     });
 
-    useSessionStore.getState().setActiveDocumentContent(TEST_MARKDOWN_FILE_PATH, "# Updated");
+    useSessionStore.getState().setDocumentContent(TEST_MARKDOWN_FILE_PATH, "# Updated");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       content: "# Updated",
     });
   });
 
-  it("matches saved active document keys by path identity", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "# Original" }));
+  it("updates the document of an inactive tab without changing the active one", () => {
+    useSessionStore.getState().openTab(createSavedDocument());
+    useSessionStore.getState().openTab(createSavedDocument({ path: OTHER_PATH }));
+    const activeDocument = useSessionStore.getState().activeDocument;
 
-    useSessionStore.getState().setActiveDocumentContent("c:\\notes\\readme.md", "# Updated");
+    useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+
+    expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
+    expect(useSessionStore.getState().tabs[0].document.isDirty).toBe(true);
+  });
+
+  it("matches saved document keys by path identity", () => {
+    useSessionStore.getState().openTab(createSavedDocument({ content: "# Original" }));
+
+    useSessionStore.getState().setDocumentContent("c:\\notes\\readme.md", "# Updated");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       content: "# Updated",
     });
   });
 
-  it("updates untitled active document content only for matching document ids", () => {
-    useSessionStore.getState().setActiveDocument(createUntitledDocument());
+  it("updates untitled document content only for matching document ids", () => {
+    useSessionStore.getState().openTab(createUntitledDocument());
 
-    useSessionStore.getState().setActiveDocumentContent("untitled:stale", "Stale");
+    useSessionStore.getState().setDocumentContent("untitled:stale", "Stale");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       content: "Draft",
     });
 
-    useSessionStore.getState().setActiveDocumentContent(TEST_UNTITLED_DOCUMENT_ID, "Updated");
+    useSessionStore.getState().setDocumentContent(TEST_UNTITLED_DOCUMENT_ID, "Updated");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       content: "Updated",
     });
   });
 
-  it("updates line endings only for the matching active document", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+  it("updates line endings only for the matching document", () => {
+    useSessionStore.getState().openTab(createSavedDocument());
 
-    useSessionStore.getState().setActiveDocumentLineEnding("C:/Other/readme.md", "crlf");
+    useSessionStore.getState().setDocumentLineEnding("C:/Other/readme.md", "crlf");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       isDirty: false,
       lineEnding: "lf",
     });
 
-    useSessionStore.getState().setActiveDocumentLineEnding(TEST_MARKDOWN_FILE_PATH, "crlf");
+    useSessionStore.getState().setDocumentLineEnding(TEST_MARKDOWN_FILE_PATH, "crlf");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       isDirty: true,
@@ -123,18 +200,18 @@ describe("session store", () => {
     });
   });
 
-  it("marks the active document dirty when its encoding changes, keeping the file's encoding", () => {
+  it("marks a document dirty when its encoding changes, keeping the file's encoding", () => {
     const windows1252 = { name: "windows-1252", bom: false } as const;
-    useSessionStore.getState().setActiveDocument(createSavedDocument({ encoding: windows1252 }));
+    useSessionStore.getState().openTab(createSavedDocument({ encoding: windows1252 }));
     const activeDocument = useSessionStore.getState().activeDocument;
 
-    useSessionStore.getState().setActiveDocumentEncoding(TEST_MARKDOWN_FILE_PATH, windows1252);
+    useSessionStore.getState().setDocumentEncoding(TEST_MARKDOWN_FILE_PATH, windows1252);
 
     expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
 
     useSessionStore
       .getState()
-      .setActiveDocumentEncoding(TEST_MARKDOWN_FILE_PATH, { name: "UTF-8", bom: true });
+      .setDocumentEncoding(TEST_MARKDOWN_FILE_PATH, { name: "UTF-8", bom: true });
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       isDirty: true,
@@ -144,65 +221,66 @@ describe("session store", () => {
   });
 
   it("changes the editor load only for a reload", () => {
-    const { activeDocumentLoadId } = useSessionStore.getState();
+    const tab = useSessionStore.getState().openTab(createSavedDocument());
 
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+    useSessionStore.getState().replaceTabDocument(tab.id, createSavedDocument());
 
-    expect(useSessionStore.getState().activeDocumentLoadId).toBe(activeDocumentLoadId);
+    expect(findTab(useSessionStore.getState(), tab.id)?.loadId).toBe(tab.loadId);
 
-    useSessionStore.getState().setActiveDocument(createSavedDocument(), { reload: true });
+    useSessionStore.getState().replaceTabDocument(tab.id, createSavedDocument(), { reload: true });
 
-    expect(useSessionStore.getState().activeDocumentLoadId).toBe(activeDocumentLoadId + 1);
+    expect(findTab(useSessionStore.getState(), tab.id)?.loadId).toBe(tab.loadId + 1);
   });
 
   it("keeps a view state only for the reload that carries it", () => {
     const viewState = { anchor: 3, head: 5, focused: true };
+    const tab = useSessionStore.getState().openTab(createSavedDocument());
+    const getViewState = () => findTab(useSessionStore.getState(), tab.id)?.viewState;
 
-    useSessionStore.getState().setActiveDocument(createSavedDocument(), { viewState });
+    useSessionStore.getState().replaceTabDocument(tab.id, createSavedDocument(), { viewState });
 
-    expect(useSessionStore.getState().activeDocumentViewState).toBeNull();
+    expect(getViewState()).toBeNull();
 
     useSessionStore
       .getState()
-      .setActiveDocument(createSavedDocument(), { reload: true, viewState });
+      .replaceTabDocument(tab.id, createSavedDocument(), { reload: true, viewState });
 
-    expect(useSessionStore.getState().activeDocumentViewState).toBe(viewState);
+    expect(getViewState()).toBe(viewState);
 
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+    useSessionStore.getState().replaceTabDocument(tab.id, createSavedDocument());
 
-    expect(useSessionStore.getState().activeDocumentViewState).toBeNull();
+    expect(getViewState()).toBeNull();
   });
 
   it("records the file's state without replacing the document", () => {
     const activeDocument = createSavedDocument({ isDirty: true });
-    useSessionStore.getState().setActiveDocument(activeDocument);
-    const { activeDocumentGeneration, activeDocumentLoadId } = useSessionStore.getState();
+    const tab = useSessionStore.getState().openTab(activeDocument);
     const metadata = { sizeBytes: 12, modifiedAtUnixMs: 1_800_000_000_000 };
 
-    useSessionStore.getState().setActiveDocumentFileState("C:/Other/readme.md", {
+    useSessionStore.getState().setDocumentFileState("C:/Other/readme.md", {
       metadata,
       externalChange: { kind: "missing" },
     });
 
     expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
 
-    useSessionStore.getState().setActiveDocumentFileState(TEST_MARKDOWN_FILE_PATH, {
+    useSessionStore.getState().setDocumentFileState(TEST_MARKDOWN_FILE_PATH, {
       metadata,
       externalChange: { kind: "missing" },
     });
 
-    expect(useSessionStore.getState()).toMatchObject({
-      activeDocument: { ...activeDocument, metadata, externalChange: { kind: "missing" } },
-      activeDocumentGeneration,
-      activeDocumentLoadId,
+    expect(getActiveTab(useSessionStore.getState())).toMatchObject({
+      document: { ...activeDocument, metadata, externalChange: { kind: "missing" } },
+      generation: tab.generation,
+      loadId: tab.loadId,
     });
   });
 
   it("does not record a file state for an untitled document", () => {
     const untitledDocument = createUntitledDocument();
-    useSessionStore.getState().setActiveDocument(untitledDocument);
+    useSessionStore.getState().openTab(untitledDocument);
 
-    useSessionStore.getState().setActiveDocumentFileState(TEST_UNTITLED_DOCUMENT_ID, {
+    useSessionStore.getState().setDocumentFileState(TEST_UNTITLED_DOCUMENT_ID, {
       metadata: { sizeBytes: 1, modifiedAtUnixMs: 1 },
       externalChange: null,
     });
@@ -210,50 +288,74 @@ describe("session store", () => {
     expect(useSessionStore.getState().activeDocument).toBe(untitledDocument);
   });
 
-  it("keeps active documents clean when setting the current line ending", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+  it("keeps documents clean when setting the current line ending", () => {
+    useSessionStore.getState().openTab(createSavedDocument());
     const activeDocument = useSessionStore.getState().activeDocument;
 
-    useSessionStore.getState().setActiveDocumentLineEnding(TEST_MARKDOWN_FILE_PATH, "lf");
+    useSessionStore.getState().setDocumentLineEnding(TEST_MARKDOWN_FILE_PATH, "lf");
 
     expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
   });
 
-  it("marks active documents dirty only for matching document keys", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument());
+  it("marks documents dirty only for matching document keys", () => {
+    useSessionStore.getState().openTab(createSavedDocument());
 
-    useSessionStore.getState().markActiveDocumentDirty("C:/Other/readme.md");
+    useSessionStore.getState().markDocumentDirty("C:/Other/readme.md");
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       isDirty: false,
     });
 
-    useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+    useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
 
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       isDirty: true,
     });
   });
 
-  it("does not rewrite already-dirty active documents", () => {
-    useSessionStore.getState().setActiveDocument(createSavedDocument({ isDirty: true }));
+  it("does not rewrite already-dirty documents", () => {
+    useSessionStore.getState().openTab(createSavedDocument({ isDirty: true }));
     const activeDocument = useSessionStore.getState().activeDocument;
 
-    useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+    useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
 
     expect(useSessionStore.getState().activeDocument).toBe(activeDocument);
+  });
+
+  it("applies a folder scan only while its load is still the current one", () => {
+    const { folderContextLoad } = useSessionStore
+      .getState()
+      .openTabWithFolderContextLoad(TEST_NOTES_FOLDER_PATH, createSavedDocument());
+
+    expect(useSessionStore.getState().folderContextLoad).toBe(folderContextLoad);
+    expect(
+      useSessionStore
+        .getState()
+        .finishFolderContextLoad(folderContextLoad.id + 1, createFolderContext()),
+    ).toBe(false);
+    expect(
+      useSessionStore
+        .getState()
+        .finishFolderContextLoad(folderContextLoad.id, createFolderContext()),
+    ).toBe(true);
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: TEST_NOTES_FOLDER_PATH },
+      folderContextLoad: null,
+    });
   });
 
   it("resets to the welcome session", () => {
     useSessionStore
       .getState()
-      .setActiveDocumentSession(createFolderContext(), createSavedDocument());
+      .openTab(createSavedDocument(), { folderContext: createFolderContext() });
 
     useSessionStore.getState().reset();
 
     expect(useSessionStore.getState()).toMatchObject({
       activeDocument: null,
+      activeTabId: null,
       folderContext: null,
+      tabs: [],
     });
   });
 });

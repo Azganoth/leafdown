@@ -1,6 +1,5 @@
 import {
   ENCODING_CHOICES,
-  getActiveDocumentKey,
   getOpenMarkdownFileErrorMessage,
   isEncodingOpenError,
   matchesActiveDocumentKey,
@@ -8,7 +7,6 @@ import {
   selectMarkdownFilePath,
   toSavedDocument,
   type TextEncodingName,
-  type SavedDocumentState,
 } from "@/features/document";
 import {
   getScanFolderContextErrorMessage,
@@ -27,59 +25,136 @@ import { t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
 import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toast";
 
-import { type FolderContextLoad, useSessionStore } from "../stores/session";
+import {
+  findTab,
+  findTabByPath,
+  useSessionStore,
+  type DocumentTab,
+  type FolderContextLoad,
+} from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
 import { takeLaunchDocumentPath } from "./launchDocumentApi";
-import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
+import { confirmDiscardTabChanges } from "./unsavedChanges";
 
 const openTransitionRunner = new RestartableTaskRunner();
 
 interface OpenMarkdownFileOptions {
+  /** Reads the file again into the tab already holding it, instead of only activating that tab. */
+  reload?: boolean;
+  /** Leaves the active tab as it is when reloading a document open in another tab. */
+  activate?: boolean;
+  /** Skips asking about the open tab's unsaved changes, which the caller has already settled. */
   discardConfirmed?: boolean;
   encoding?: TextEncodingName;
 }
 
+/**
+ * Opens a file in a new tab after the active one, or activates the tab already holding it, so
+ * opening never replaces another document.
+ */
 export const openMarkdownFileAtPath = (
   path: string,
-  { discardConfirmed = false, encoding }: OpenMarkdownFileOptions = {},
+  {
+    activate = true,
+    discardConfirmed = false,
+    encoding,
+    reload = false,
+  }: OpenMarkdownFileOptions = {},
 ) =>
   runLatestOpenTransition(async (cancellationToken) => {
-    if (
-      !discardConfirmed &&
-      !(await runWithCancellation(cancellationToken, confirmDiscardActiveDocumentChanges))
-    ) {
-      return false;
+    const openTab = findTabByPath(useSessionStore.getState(), path);
+
+    if (openTab && !reload) {
+      useSessionStore.getState().activateTab(openTab.id);
+      recordRecentFile(openTab.document.status === "saved" ? openTab.document.path : path);
+
+      return true;
     }
 
-    const initialDocumentKey = getActiveDocumentKeySnapshot();
+    if (openTab) {
+      return reloadTab(openTab, { activate, discardConfirmed, encoding }, cancellationToken);
+    }
+
     const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
     const { parentFolderPath, ...documentFields } = openedDocument;
-    const savedDocument = toSavedDocument(documentFields);
-
-    if (!activeDocumentMatchesSnapshot(initialDocumentKey)) {
-      return false;
-    }
-
     const session = useSessionStore.getState();
-    const reload = replacesActiveDocumentText(savedDocument);
+    const tabOpenedMeanwhile = findTabByPath(session, documentFields.path);
 
-    if (session.folderContext || session.folderContextLoad) {
-      session.setActiveDocument(savedDocument, { reload });
+    if (tabOpenedMeanwhile) {
+      session.activateTab(tabOpenedMeanwhile.id);
       recordRecentFile(documentFields.path);
 
       return true;
     }
 
-    const folderContextLoad = session.setActiveDocumentWithFolderContextLoad(
+    const savedDocument = toSavedDocument(documentFields);
+
+    if (session.folderContext || session.folderContextLoad) {
+      session.openTab(savedDocument);
+      recordRecentFile(documentFields.path);
+
+      return true;
+    }
+
+    const { folderContextLoad } = session.openTabWithFolderContextLoad(
       parentFolderPath,
       savedDocument,
-      { reload },
     );
     recordRecentFile(documentFields.path);
     void loadFolderContext(folderContextLoad);
 
     return true;
   });
+
+/**
+ * The editor keeps its state across a same-path update, so a reload must say when the text
+ * changed. The tab's text predates any edits, so an edited document is replaced: its edits were
+ * already discarded to reload it.
+ */
+const reloadTab = async (
+  tab: DocumentTab,
+  {
+    activate,
+    discardConfirmed,
+    encoding,
+  }: Pick<OpenMarkdownFileOptions, "activate" | "discardConfirmed" | "encoding">,
+  cancellationToken: CancellationToken,
+) => {
+  if (
+    !discardConfirmed &&
+    !(await runWithCancellation(cancellationToken, () => confirmDiscardTabChanges([tab.id])))
+  ) {
+    return false;
+  }
+
+  const path = tab.document.status === "saved" ? tab.document.path : null;
+
+  if (!path) {
+    return false;
+  }
+
+  const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
+  const { parentFolderPath: _parentFolderPath, ...documentFields } = openedDocument;
+  const savedDocument = toSavedDocument(documentFields);
+  const session = useSessionStore.getState();
+  const latestTab = findTab(session, tab.id);
+
+  if (!latestTab || !matchesActiveDocumentKey(latestTab.document, path)) {
+    return false;
+  }
+
+  session.replaceTabDocument(tab.id, savedDocument, {
+    reload: latestTab.document.isDirty || latestTab.document.content !== savedDocument.content,
+  });
+
+  if (activate) {
+    session.activateTab(tab.id);
+  }
+
+  recordRecentFile(documentFields.path);
+
+  return true;
+};
 
 /** The document is already open, so a slow or failed scan of its folder only delays or loses the navigator. */
 const loadFolderContext = async ({ id, path }: FolderContextLoad) => {
@@ -94,21 +169,6 @@ const loadFolderContext = async ({ id, path }: FolderContextLoad) => {
       notifyError(getScanFolderContextErrorMessage(error));
     }
   }
-};
-
-/**
- * The editor keeps its state across a same-path update, so a reopen must say when the text changed.
- * The session's text predates any edits, so an edited document is replaced: its edits were already
- * discarded to reopen it.
- */
-const replacesActiveDocumentText = (openedDocument: SavedDocumentState) => {
-  const { activeDocument } = useSessionStore.getState();
-
-  return (
-    activeDocument !== null &&
-    matchesActiveDocumentKey(activeDocument, openedDocument.path) &&
-    (activeDocument.isDirty || activeDocument.content !== openedDocument.content)
-  );
 };
 
 export const notifyOpenMarkdownFileError = (
@@ -134,7 +194,7 @@ export const reopenMarkdownFileWithChosenEncoding = async (
   encoding: TextEncodingName,
 ) => {
   try {
-    const opened = await openMarkdownFileAtPath(path, { encoding });
+    const opened = await openMarkdownFileAtPath(path, { encoding, reload: true });
 
     if (opened) {
       notifySuccess(t("session.documentOpened"));
@@ -173,29 +233,24 @@ export const pickAndOpenMarkdownFile = async () => {
   return openMarkdownFileAtPath(selectedPath);
 };
 
+/** Replaces the folder context and keeps the open tabs, opening the folder's index file as a tab. */
 export const openFolderContextAtPath = (path: string) =>
   runLatestOpenTransition(async (cancellationToken) => {
-    if (!(await runWithCancellation(cancellationToken, confirmDiscardActiveDocumentChanges))) {
-      return false;
-    }
-
-    const initialDocumentKey = getActiveDocumentKeySnapshot();
     const { folderContext, indexDocument, indexError } = await openFolderContext(
       path,
       getSessionFolderOpenOptions(),
       cancellationToken,
     );
+    const session = useSessionStore.getState();
+    const indexTab = indexDocument && findTabByPath(session, indexDocument.path);
 
-    if (!activeDocumentMatchesSnapshot(initialDocumentKey)) {
-      return false;
-    }
-
-    if (indexDocument) {
-      useSessionStore
-        .getState()
-        .setActiveDocumentSession(folderContext, toSavedDocument(indexDocument));
+    if (indexTab) {
+      session.setFolderContext(folderContext);
+      session.activateTab(indexTab.id);
+    } else if (indexDocument) {
+      session.openTab(toSavedDocument(indexDocument), { folderContext });
     } else {
-      useSessionStore.getState().setFolderOnlySession(folderContext);
+      session.setFolderContext(folderContext);
     }
 
     recordRecentFolderSession(folderContext.path);
@@ -212,26 +267,6 @@ export const pickAndOpenFolderContext = async () => {
   }
 
   return openFolderContextAtPath(selectedPath);
-};
-
-const getActiveDocumentKeySnapshot = () => {
-  const { activeDocument } = useSessionStore.getState();
-
-  if (!activeDocument) {
-    return null;
-  }
-
-  return getActiveDocumentKey(activeDocument);
-};
-
-const activeDocumentMatchesSnapshot = (documentKey: string | null) => {
-  const { activeDocument } = useSessionStore.getState();
-
-  if (!activeDocument || !documentKey) {
-    return documentKey === activeDocument;
-  }
-
-  return matchesActiveDocumentKey(activeDocument, documentKey);
 };
 
 const runLatestOpenTransition = async (

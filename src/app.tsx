@@ -16,7 +16,7 @@ import {
 } from "@/features/preferences";
 import { initializeReleaseNotes } from "@/features/release-notes";
 import {
-  confirmDiscardActiveDocumentChanges,
+  confirmDiscardAllDocumentChanges,
   declineWindowClose,
   DroppedPathOverlay,
   openLaunchDocument,
@@ -100,7 +100,7 @@ export function App() {
     async () => {
       // The backend closes on the next request while one is pending, so only a deliberate
       // decision answers it: a handler that keeps failing must stay silent to stay closable.
-      if (!(await confirmDiscardActiveDocumentChanges())) {
+      if (!(await confirmDiscardAllDocumentChanges())) {
         await declineWindowClose();
         return;
       }

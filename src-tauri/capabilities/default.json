@@ -29,6 +29,7 @@
     "core:window:allow-start-dragging",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-fullscreen",
+    "core:window:allow-set-title",
     "core:window:allow-toggle-maximize",
     "core:webview:allow-set-webview-zoom",
     "frame:default",

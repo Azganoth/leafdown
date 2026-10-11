@@ -180,7 +180,9 @@ describe("desktop rendered images", () => {
     const getRows = () =>
       missingPlaceholder.execute((node) => {
         const paragraph = node.closest("p")!;
-        const editorTop = node.closest(".ProseMirror")!.getBoundingClientRect().top;
+        const editorTop = node
+          .closest("[data-testid=active-document-host] .ProseMirror")!
+          .getBoundingClientRect().top;
         const next = paragraph.nextElementSibling!.querySelector(".leafdown-image-view")!;
         const { height, top } = paragraph.getBoundingClientRect();
 

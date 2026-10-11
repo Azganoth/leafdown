@@ -178,13 +178,19 @@ describe("desktop Mermaid diagrams", () => {
     await expect(first.$("code")).toBeDisplayed();
     await expect(image).toBeDisplayed();
     expect(
-      await browser.execute(() => document.activeElement?.closest(".ProseMirror") !== null),
+      await browser.execute(
+        () =>
+          document.activeElement?.closest("[data-testid=active-document-host] .ProseMirror") !==
+          null,
+      ),
     ).toBe(true);
 
     await browser.execute(() => {
-      const heading = document.querySelector<HTMLElement>(".ProseMirror h1")!;
+      const heading = document.querySelector<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror h1",
+      )!;
       const text = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT).nextNode()!;
-      heading.closest<HTMLElement>(".ProseMirror")!.focus();
+      heading.closest<HTMLElement>("[data-testid=active-document-host] .ProseMirror")!.focus();
       window.getSelection()!.collapse(text, text.textContent!.length);
       document.dispatchEvent(new Event("selectionchange"));
     });
@@ -206,7 +212,7 @@ describe("desktop Mermaid diagrams", () => {
     );
     expect(await failed.$("[role='alert']").getComputedRole()).toBe("alert");
 
-    await $(".ProseMirror p").click();
+    await $("[data-testid=active-document-host] .ProseMirror p").click();
     await browser.execute(() =>
       document.querySelectorAll("pre[data-mermaid-mode]")[2]?.scrollIntoView(),
     );

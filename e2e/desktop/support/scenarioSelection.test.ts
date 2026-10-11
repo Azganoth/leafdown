@@ -13,6 +13,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["frontmatter"],
       ["diagnostics"],
       ["document-lifecycle"],
+      ["document-tabs"],
       ["document-watcher"],
       ["find-and-replace"],
       ["keyboard-shortcuts"],

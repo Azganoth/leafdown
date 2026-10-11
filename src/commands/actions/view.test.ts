@@ -4,20 +4,27 @@ import { describe, expect, it, vi } from "vitest";
 
 import { useArticleNavigatorStore } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
+import { useSessionStore } from "@/features/session";
 import { toastManager } from "@/lib/toast";
 import { createAppCommandContext } from "@/test/factories/commands";
+import { createSavedDocument } from "@/test/factories/document";
 import { createFolderContextWithNestedReadme } from "@/test/factories/folderContext";
 import { TEST_NESTED_DIRECTORY_PATH } from "@/test/fixtures/paths";
-import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
+import { setDefaultSession, setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
 
 import { useCommandUIStore } from "../stores/commandUi";
 import {
   collapseAllFolders,
   expandAllFolders,
+  getShowTabAtState,
+  getSwitchTabState,
   resetZoom,
   setDarkTheme,
   setLightTheme,
   setSystemTheme,
+  showNextTab,
+  showPreviousTab,
+  showTabAt,
   sortByType,
   toggleAlwaysOnTop,
   toggleFullscreen,
@@ -204,5 +211,49 @@ describe("view actions", () => {
     sortByType();
 
     expect(useSettingsStore.getState().articleSortOrder).toBe("name");
+  });
+
+  describe("tabs", () => {
+    const getActivePath = () => {
+      const document = useSessionStore.getState().activeDocument;
+
+      return document?.status === "saved" ? document.path : null;
+    };
+
+    it("moves through the tabs in strip order, wrapping at either end", () => {
+      setDefaultSession({
+        documents: [
+          createSavedDocument({ path: "C:/Notes/a.md" }),
+          createSavedDocument({ path: "C:/Notes/b.md" }),
+          createSavedDocument({ path: "C:/Notes/c.md" }),
+        ],
+        activeIndex: 2,
+      });
+
+      showNextTab();
+      expect(getActivePath()).toBe("C:/Notes/a.md");
+
+      showPreviousTab();
+      showPreviousTab();
+      expect(getActivePath()).toBe("C:/Notes/b.md");
+
+      showTabAt(-1)();
+      expect(getActivePath()).toBe("C:/Notes/c.md");
+
+      showTabAt(0)();
+      expect(getActivePath()).toBe("C:/Notes/a.md");
+    });
+
+    it("offers switching only while another tab is open, and each position only once filled", () => {
+      const oneTab = createAppCommandContext({ tabs: { count: 1, activeIndex: 0 } });
+      const twoTabs = createAppCommandContext({ tabs: { count: 2, activeIndex: 0 } });
+
+      expect(getSwitchTabState(oneTab).enabled).toBe(false);
+      expect(getSwitchTabState(twoTabs).enabled).toBe(true);
+      expect(getShowTabAtState(1)(oneTab).enabled).toBe(false);
+      expect(getShowTabAtState(1)(twoTabs).enabled).toBe(true);
+      expect(getShowTabAtState(-1)(oneTab).enabled).toBe(true);
+      expect(getShowTabAtState(-1)(createAppCommandContext()).enabled).toBe(false);
+    });
   });
 });

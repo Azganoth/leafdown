@@ -5,7 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { findMenuItem, findTreeItem, openRecentPath } from "../support/ui.js";
+import { countDocumentTabs, findMenuItem, findTreeItem, openRecentPath } from "../support/ui.js";
 
 const execFileAsync = promisify(execFile);
 const WATCHER_SETTLE_MS = 1_000;
@@ -135,7 +135,7 @@ describe("desktop article navigator actions", () => {
     const roadmapPath = path.join(folder, "roadmap.md");
 
     await openRecentPath(folder);
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining("Actions fixture marker."),
     );
 
@@ -205,7 +205,13 @@ describe("desktop article navigator actions", () => {
     await $("aria/Move to Recycle Bin").click();
 
     await waitForPath(roadmapPath, false);
-    await expect($('[contenteditable="true"]')).not.toExist();
+    // The trashed file's tab closes, leaving the folder's index file open in its own tab.
+    await browser.waitUntil(async () => (await countDocumentTabs()) === 1, {
+      timeoutMsg: "Trashing the open file did not close its tab.",
+    });
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
+      expect.stringContaining("Actions fixture marker."),
+    );
 
     await browser.pause(WATCHER_SETTLE_MS);
     expect(await treeItemNames()).toEqual(["notes", "archive", "idea.md", "readme.md"]);

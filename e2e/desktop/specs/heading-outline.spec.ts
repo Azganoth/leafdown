@@ -2,9 +2,9 @@ import { $, $$, browser, expect } from "@wdio/globals";
 import { readFile, writeFile } from "node:fs/promises";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { openRecentPath, selectFileMenuItem } from "../support/ui.js";
+import { closeAllDocuments, openRecentPath, selectFileMenuItem } from "../support/ui.js";
 
-const OUTLINE = '[data-testid="heading-outline"]';
+const OUTLINE = '[data-testid=active-document-host] [data-testid="heading-outline"]';
 const outlineRows = () => $$(`${OUTLINE} button[data-outline-position]`);
 const isOutlineOpen = () =>
   browser.execute(
@@ -19,7 +19,7 @@ const selectedHeading = () =>
   );
 const markerState = () =>
   browser.execute(() => {
-    const editor = document.querySelector(".ProseMirror");
+    const editor = document.querySelector("[data-testid=active-document-host] .ProseMirror");
     const heading = editor?.querySelector("h1");
     const selection = document.getSelection();
     return {
@@ -40,7 +40,9 @@ const markerState = () =>
     };
   });
 const focusOpeningHeading = () =>
-  browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
+  browser.execute(() =>
+    document.querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")?.focus(),
+  );
 const blurEditor = () =>
   browser.execute(() =>
     document.querySelector<HTMLElement>('[data-slot="menubar-trigger"]')!.focus(),
@@ -50,7 +52,9 @@ const waitForHeadingText = (text: string) =>
   browser.waitUntil(
     () =>
       browser.execute(
-        (value) => document.querySelector(".ProseMirror h1")?.textContent === value,
+        (value) =>
+          document.querySelector("[data-testid=active-document-host] .ProseMirror h1")
+            ?.textContent === value,
         text,
       ),
     { timeoutMsg: `The editor did not show the heading "${text}".` },
@@ -79,7 +83,7 @@ const leaveOutline = () =>
         bubbles: true,
         composed: true,
         pointerType: "mouse",
-        relatedTarget: document.querySelector(".ProseMirror"),
+        relatedTarget: document.querySelector("[data-testid=active-document-host] .ProseMirror"),
       }),
     );
   }, OUTLINE);
@@ -88,9 +92,9 @@ const getPlacement = () =>
     const outline = document.querySelector(`${selector} nav`);
     const surface = document.querySelector('[data-testid="document-surface-host"]');
     const viewport = document.querySelector(
-      '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
+      '[data-testid=active-document-host] [data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
-    const editor = document.querySelector(".ProseMirror");
+    const editor = document.querySelector("[data-testid=active-document-host] .ProseMirror");
     const heading = document
       .getSelection()
       ?.anchorNode?.parentElement?.closest("h1,h2,h3,h4,h5,h6");
@@ -150,7 +154,7 @@ describe("desktop heading outline", () => {
     const original = await readFile(outline.path, "utf8");
     try {
       await openRecentPath(outline.path);
-      await expect($(".ProseMirror h1")).toHaveText("Same");
+      await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveText("Same");
       await expect($('[data-slot="menubar-content"]')).not.toExist();
       await movePointerAway();
       await browser.waitUntil(async () => !(await markerState()).hover);
@@ -176,19 +180,25 @@ describe("desktop heading outline", () => {
       await focusOpeningHeading();
       await writeFile(outline.path, original.replace("# Same", "# Focused reload"));
       await browser.waitUntil(
-        async () => (await $(".ProseMirror h1").getText()) === "Focused reload",
+        async () =>
+          (await $("[data-testid=active-document-host] .ProseMirror h1").getText()) ===
+          "Focused reload",
       );
       expect(await markerState()).toMatchObject({ focused: true, marker: "H1", anchorOffset: 0 });
 
       await blurEditor();
       await writeFile(outline.path, original.replace("# Same", "# Unfocused reload"));
       await browser.waitUntil(
-        async () => (await $(".ProseMirror h1").getText()) === "Unfocused reload",
+        async () =>
+          (await $("[data-testid=active-document-host] .ProseMirror h1").getText()) ===
+          "Unfocused reload",
       );
       expect(await markerState()).toMatchObject({ focused: false, marker: null, content: "none" });
 
       await browser.execute(() => {
-        const heading = document.querySelector(".ProseMirror h1")!;
+        const heading = document.querySelector(
+          "[data-testid=active-document-host] .ProseMirror h1",
+        )!;
         const rect = heading.getBoundingClientRect();
         heading.dispatchEvent(
           new MouseEvent("mousemove", {
@@ -202,7 +212,9 @@ describe("desktop heading outline", () => {
       expect(await markerState()).toMatchObject({ focused: false, marker: null, content: '"H1"' });
 
       await browser.execute(() => {
-        const heading = document.querySelector(".ProseMirror h1")!;
+        const heading = document.querySelector(
+          "[data-testid=active-document-host] .ProseMirror h1",
+        )!;
         const rect = heading.getBoundingClientRect();
         heading.dispatchEvent(
           new MouseEvent("mousedown", {
@@ -214,7 +226,10 @@ describe("desktop heading outline", () => {
           }),
         );
       });
-      await expect($(".ProseMirror h1")).toHaveAttribute("data-leafdown-fold", "folded");
+      await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveAttribute(
+        "data-leafdown-fold",
+        "folded",
+      );
       await blurEditor();
       await movePointerAway();
       await browser.waitUntil(async () => !(await markerState()).hover);
@@ -226,7 +241,10 @@ describe("desktop heading outline", () => {
             new MouseEvent("mousedown", { bubbles: true, cancelable: true, button: 0 }),
           ),
       );
-      await expect($(".ProseMirror h1")).toHaveAttribute("data-leafdown-fold", "open");
+      await expect($("[data-testid=active-document-host] .ProseMirror h1")).toHaveAttribute(
+        "data-leafdown-fold",
+        "open",
+      );
 
       await expect($('[data-testid="status-bar-document-state"]')).not.toExist();
     } finally {
@@ -240,8 +258,9 @@ describe("desktop heading outline", () => {
     const original = await readFile(outline.path, "utf8");
     await browser.keys("Escape");
     await expect($('[data-slot="menubar-content"]')).not.toExist();
+    await closeAllDocuments();
     await selectFileMenuItem("New");
-    await expect($(".ProseMirror")).toBeDisplayed();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
     await expect($(OUTLINE)).not.toExist();
 
     await openRecentPath(outline.path);
@@ -249,9 +268,11 @@ describe("desktop heading outline", () => {
       () =>
         browser.execute(
           () =>
-            document.querySelector(".ProseMirror")?.textContent?.includes("Paragraph 20") ?? false,
+            document
+              .querySelector("[data-testid=active-document-host] .ProseMirror")
+              ?.textContent?.includes("Paragraph 20") ?? false,
         ),
-      { timeout: 15_000, timeoutMsg: "The saved document did not replace the untitled editor." },
+      { timeout: 15_000, timeoutMsg: "The saved document did not open in a tab of its own." },
     );
     await browser.setWindowSize(640, 600);
 
@@ -297,7 +318,10 @@ describe("desktop heading outline", () => {
     });
     const quotedPosition = await rows[1].getAttribute("data-outline-position");
     await chooseRow(quotedPosition, "Quoted");
-    await expect($(".ProseMirror h3")).toHaveAttribute("data-leafdown-marker", "H3");
+    await expect($("[data-testid=active-document-host] .ProseMirror h3")).toHaveAttribute(
+      "data-leafdown-marker",
+      "H3",
+    );
     await browser.waitUntil(
       async () => (await rows[1].getAttribute("aria-current")) === "location",
       { timeoutMsg: "The quoted heading did not become current." },
@@ -305,7 +329,10 @@ describe("desktop heading outline", () => {
     await expectRestingClearance();
 
     await chooseRow(await rows[2].getAttribute("data-outline-position"), "Nested");
-    await expect($(".ProseMirror li h2")).toHaveAttribute("data-leafdown-marker", "H2");
+    await expect($("[data-testid=active-document-host] .ProseMirror li h2")).toHaveAttribute(
+      "data-leafdown-marker",
+      "H2",
+    );
     await expectRestingClearance();
 
     // The opening heading returns the view to the start rather than scrolling past the padding.

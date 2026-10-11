@@ -530,10 +530,7 @@ fn image_and_link_command_results_keep_frontend_shape_contracts() {
     let link_result = serialized(link_result);
 
     assert_eq!(json_string(&link_result, "kind"), "localMarkdown");
-    assert_eq!(
-        json_string(&link_result, "path"),
-        canonical_path_string(link_path.as_path())
-    );
+    assert_eq!(Path::new(json_string(&link_result, "path")), link_path);
 }
 
 #[test]
@@ -541,9 +538,9 @@ fn resolved_link_paths_match_folder_scan_paths() {
     let root = TestDirectory::new("command-contract-path-identity");
     let document_path = root.markdown_document_path();
     root.write_file("docs/linked.md");
-    // The frontend supplies a folder path the OS picker produced, so start from the real path
-    // rather than whatever form `TEMP` happens to carry on the host.
-    let root_path_string = canonical_path_string(root.path.as_path());
+    // A folder path reaches the frontend in whatever form it was opened by, which need not be the
+    // canonical one, so start from `TEMP` as the host spells it.
+    let root_path_string = path_string(root.path.as_path());
 
     let scan_result = tauri::async_runtime::block_on(folder::scan_markdown_folder(
         root_path_string.clone(),

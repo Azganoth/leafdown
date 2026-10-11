@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use serde::Serialize;
 
@@ -8,7 +11,7 @@ use crate::{
     },
     path_utils::{
         ExistingPathResolution, MarkdownReferencePathResolution, has_uri_scheme,
-        is_network_or_device_target, parse_file_url_path, resolve_existing_path,
+        is_network_or_device_target, parse_file_url_path, path_to_string, resolve_existing_path,
         resolve_markdown_reference_path,
     },
 };
@@ -245,12 +248,19 @@ fn resolve_local_link_target(
         }
     };
 
-    resolve_existing_link_target(resolved_path.as_path())
+    let folder_path = folder_context_path.or_else(|| document_path.and_then(Path::parent));
+
+    resolve_existing_link_target(resolved_path.as_path(), folder_path)
 }
 
-fn resolve_existing_link_target(resolved_path: &Path) -> ResolveMarkdownLinkTargetResult {
+fn resolve_existing_link_target(
+    resolved_path: &Path,
+    folder_path: Option<&Path>,
+) -> ResolveMarkdownLinkTargetResult {
     match resolve_existing_path(resolved_path) {
         ExistingPathResolution::Found { is_file, path } => {
+            let path = spell_from_folder(path, folder_path);
+
             if is_file && is_supported_markdown_path(resolved_path) {
                 ResolveMarkdownLinkTargetResult::LocalMarkdown { path }
             } else {
@@ -269,6 +279,25 @@ fn resolve_existing_link_target(resolved_path: &Path) -> ResolveMarkdownLinkTarg
         ExistingPathResolution::MetadataFailed { path, message } => {
             ResolveMarkdownLinkTargetResult::MetadataFailed { path, message }
         }
+    }
+}
+
+/// Spells a target inside the folder from the folder's own path, as folder scans spell their
+/// entries, so a link reaches the path the article navigator and open documents hold even when the
+/// folder path is a short name or passes through a junction or symbolic link. Below the folder the
+/// path keeps its canonical, on-disk spelling.
+fn spell_from_folder(canonical_path: String, folder_path: Option<&Path>) -> String {
+    let Some(folder_path) = folder_path else {
+        return canonical_path;
+    };
+    let Ok(canonical_folder) = fs::canonicalize(folder_path) else {
+        return canonical_path;
+    };
+
+    match Path::new(&canonical_path).strip_prefix(dunce::simplified(&canonical_folder)) {
+        Ok(relative) if relative.as_os_str().is_empty() => path_to_string(folder_path),
+        Ok(relative) => path_to_string(&folder_path.join(relative)),
+        Err(_) => canonical_path,
     }
 }
 
@@ -331,13 +360,15 @@ fn strip_file_url_reference_parts(target: &str) -> &str {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use super::{
         OpenMarkdownLinkTargetError, ResolveMarkdownLinkTargetResult, resolve_link_target,
         resolve_openable_local_file, resolve_wiki_target,
     };
-    use crate::test_utils::{TestDirectory, canonical_path_string, pathdiff};
+    use crate::test_utils::{
+        TestDirectory, canonical_path_string, create_directory_symlink, pathdiff,
+    };
 
     #[cfg(windows)]
     const NETWORK_TARGETS: [&str; 6] = [
@@ -348,6 +379,14 @@ mod tests {
         r"\\.\pipe\notes.md",
         r"\\host.example.com\share\payload.exe",
     ];
+
+    /// A target inside the test folder, spelled from the folder's path with native separators.
+    fn folder_path_string(path: &Path) -> String {
+        path.components()
+            .collect::<PathBuf>()
+            .to_string_lossy()
+            .into_owned()
+    }
 
     fn local_markdown_path(result: ResolveMarkdownLinkTargetResult) -> String {
         match result {
@@ -401,7 +440,34 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            canonical_path_string(target_path.as_path())
+            folder_path_string(target_path.as_path())
+        );
+    }
+
+    #[test]
+    fn spells_targets_from_a_folder_reached_through_a_symbolic_link() {
+        let target = TestDirectory::new("linked-folder-target");
+        let root = TestDirectory::new("linked-folder");
+        let folder_path = root.path("notes");
+
+        if create_directory_symlink(&target.path, &folder_path).is_err() {
+            return;
+        }
+
+        target.write_file("readme.md");
+        target.write_file("guides/start.md");
+        let document_path = folder_path.join("readme.md");
+
+        let result = resolve_link_target(
+            Some(document_path.as_path()),
+            Some(folder_path.as_path()),
+            "guides/start.md",
+            false,
+        );
+
+        assert_eq!(
+            local_markdown_path(result),
+            folder_path_string(folder_path.join("guides/start.md").as_path())
         );
     }
 
@@ -420,7 +486,7 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            canonical_path_string(target_path.as_path())
+            folder_path_string(target_path.as_path())
         );
     }
 
@@ -449,7 +515,7 @@ mod tests {
             assert_eq!(
                 result,
                 ResolveMarkdownLinkTargetResult::LocalMarkdown {
-                    path: canonical_path_string(target_path.as_path())
+                    path: folder_path_string(target_path.as_path())
                 },
                 "{file_name}"
             );
@@ -465,7 +531,7 @@ mod tests {
 
         assert_eq!(
             local_file_path(text_result),
-            canonical_path_string(text_path.as_path())
+            folder_path_string(text_path.as_path())
         );
     }
 
@@ -491,11 +557,11 @@ mod tests {
 
         assert_eq!(
             local_file_path(file_result),
-            canonical_path_string(pdf_path.as_path())
+            folder_path_string(pdf_path.as_path())
         );
         assert_eq!(
             local_file_path(directory_result),
-            canonical_path_string(directory_path.as_path())
+            folder_path_string(directory_path.as_path())
         );
     }
 
@@ -619,7 +685,7 @@ mod tests {
             false,
         );
 
-        assert_eq!(result, Ok(canonical_path_string(pdf_path.as_path())));
+        assert_eq!(result, Ok(folder_path_string(pdf_path.as_path())));
     }
 
     #[test]
@@ -635,7 +701,7 @@ mod tests {
                 false
             ),
             ResolveMarkdownLinkTargetResult::LocalMarkdown {
-                path: canonical_path_string(markdown.as_path())
+                path: folder_path_string(markdown.as_path())
             }
         );
         let md = root.write_file("docs/guides/setup.md");
@@ -647,7 +713,7 @@ mod tests {
                 false
             ),
             ResolveMarkdownLinkTargetResult::LocalMarkdown {
-                path: canonical_path_string(md.as_path())
+                path: folder_path_string(md.as_path())
             }
         );
         assert_eq!(
@@ -658,7 +724,7 @@ mod tests {
                 false
             ),
             ResolveMarkdownLinkTargetResult::LocalMarkdown {
-                path: canonical_path_string(markdown.as_path())
+                path: folder_path_string(markdown.as_path())
             }
         );
         let uppercase = root.write_file("docs/guides/uppercase.MD");
@@ -670,7 +736,7 @@ mod tests {
                 false
             ),
             ResolveMarkdownLinkTargetResult::LocalMarkdown {
-                path: canonical_path_string(uppercase.as_path())
+                path: folder_path_string(uppercase.as_path())
             }
         );
     }
@@ -688,7 +754,7 @@ mod tests {
             )
         };
         let local_markdown = |path: &Path| ResolveMarkdownLinkTargetResult::LocalMarkdown {
-            path: canonical_path_string(path),
+            path: folder_path_string(path),
         };
 
         let mkd = root.write_file("docs/notes/plan.mkd");
@@ -796,7 +862,7 @@ mod tests {
 
         assert_eq!(
             local_markdown_path(result),
-            canonical_path_string(target_path.as_path())
+            folder_path_string(target_path.as_path())
         );
     }
 }

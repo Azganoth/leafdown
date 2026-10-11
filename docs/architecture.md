@@ -196,6 +196,7 @@ The frontend owns all translated text. The backend returns typed error `kind`s a
 - Release notes own a separate persisted record of the last launched version and versions whose notes were shown. The current dialog and version are runtime state.
 - The `language` setting holds `system` or a BCP 47 tag. A tag Leafdown does not ship resolves as `system` without being rewritten.
 - Folder scans return a nested tree of directory, article (`file`), and `unsupportedFile` nodes, with `isEmpty` set when it holds no article. The Rust scan owns canonical child ordering; the frontend supplies the selected sort order and preserves returned order when rendering the article navigator. Only article nodes reach opening, the article count and filter, folder search and replace, and wiki-link completion.
+- The frontend matches documents, tabs, and articles by path, so commands keep the spelling a folder was opened with rather than canonicalizing it: folder scans spell entries from the folder path they were given, and link resolution spells a target inside the folder context from that folder's path, taking the on-disk spelling only below it. A folder reached through a short name, a junction, or a symbolic link therefore yields the same path from the article navigator and from a link.
 
 ## Data Flow
 

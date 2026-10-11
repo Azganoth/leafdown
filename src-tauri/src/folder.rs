@@ -478,7 +478,7 @@ mod tests {
     use crate::{
         document::OpenMarkdownFileError,
         file_utils::staging_path,
-        test_utils::{TestDirectory, create_file_symlink},
+        test_utils::{TestDirectory, create_directory_symlink, create_file_symlink},
     };
 
     #[test]
@@ -1087,15 +1087,5 @@ mod tests {
             } => child_name == name,
             MarkdownFolderTreeNode::File { .. } => false,
         })
-    }
-
-    #[cfg(unix)]
-    fn create_directory_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
-        std::os::unix::fs::symlink(target, symlink_path)
-    }
-
-    #[cfg(windows)]
-    fn create_directory_symlink(target: &Path, symlink_path: &Path) -> std::io::Result<()> {
-        std::os::windows::fs::symlink_dir(target, symlink_path)
     }
 }

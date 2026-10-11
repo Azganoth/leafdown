@@ -273,6 +273,11 @@ describe("desktop folder search", () => {
       await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
     }
 
+    // The previous case closed a tab from the File menu, which took focus out of the panel.
+    await findInFolder();
+    await browser.waitUntil(() => isFocused('input[aria-label="Search in folder"]'), {
+      timeoutMsg: "The query field did not take focus.",
+    });
     await pressKey("Escape");
     await expect(panel()).not.toExist();
   });

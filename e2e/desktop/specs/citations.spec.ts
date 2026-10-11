@@ -51,7 +51,7 @@ const placeCaretBeside = (index: number, side: "before" | "after") =>
       const range = document.createRange();
       range.setStart(neighbour, edge === "before" ? neighbour.textContent!.length : 0);
       range.collapse(true);
-      node.closest<HTMLElement>(".ProseMirror")!.focus();
+      node.closest<HTMLElement>("[data-testid=active-document-host] .ProseMirror")!.focus();
       const selection = window.getSelection()!;
       selection.removeAllRanges();
       selection.addRange(range);
@@ -63,7 +63,9 @@ const placeCaretBeside = (index: number, side: "before" | "after") =>
 
 const leaveProjection = () =>
   browser.execute(() => {
-    const paragraph = document.querySelectorAll(".ProseMirror > p")[1];
+    const paragraph = document.querySelectorAll(
+      "[data-testid=active-document-host] .ProseMirror > p",
+    )[1];
     const range = document.createRange();
     range.selectNodeContents(paragraph);
     range.collapse(false);
@@ -107,7 +109,9 @@ describe("desktop citations", () => {
         whiteSpace: "pre-wrap",
       },
     ]);
-    expect(await $(".ProseMirror").getText()).toContain("Literal [@doe2026] stays text.");
+    expect(await $("[data-testid=active-document-host] .ProseMirror").getText()).toContain(
+      "Literal [@doe2026] stays text.",
+    );
   });
 
   it("enters a group from either side and from a press, and restores it untouched", async () => {
@@ -134,7 +138,7 @@ describe("desktop citations", () => {
 
     await pressCitation(0);
     await waitForProjection(GROUP);
-    await $(".ProseMirror").addValue("z");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue("z");
     await waitForProjection("[zsee @doe2026, pp. 4-6]");
     await save();
     const edited = original.replace(GROUP, "[zsee @doe2026, pp. 4-6]");

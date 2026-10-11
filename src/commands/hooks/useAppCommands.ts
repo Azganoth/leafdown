@@ -71,6 +71,10 @@ export const useAppCommands = () => {
   const setFullscreen = useCommandUIStore((state) => state.setFullscreen);
 
   const activeDocument = useSessionStore((state) => state.activeDocument);
+  const tabCount = useSessionStore((state) => state.tabs.length);
+  const activeTabIndex = useSessionStore((state) =>
+    state.tabs.findIndex((tab) => tab.id === state.activeTabId),
+  );
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextLoading = useSessionStore((state) => state.folderContextLoad !== null);
   const alwaysOnTop = useSettingsStore((state) => state.alwaysOnTop);
@@ -91,6 +95,7 @@ export const useAppCommands = () => {
 
   const context: AppCommandContext = {
     activeDocument,
+    tabs: { count: tabCount, activeIndex: activeTabIndex },
     editor,
     folderContext,
     folderContextLoading,

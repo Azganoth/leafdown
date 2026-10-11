@@ -7,7 +7,7 @@ describe("desktop separator presentation", () => {
   it("fills a paragraph-height row and uses the block selection wash", async () => {
     const { separator: fixture } = await getDesktopE2ERunContext();
     await openRecentPath(fixture.path);
-    const separator = $(".ProseMirror hr");
+    const separator = $("[data-testid=active-document-host] .ProseMirror hr");
     await expect(separator).toBeDisplayed();
 
     const geometry = (await separator.execute((node) => {

@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:https";
 import type { AddressInfo } from "node:net";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { openRecentPath } from "../support/ui.js";
+import { closeAllDocuments, openRecentPath } from "../support/ui.js";
 
 const PLACEHOLDER_SELECTOR = ".leafdown-image-placeholder";
 const LOADABLE_PLACEHOLDER_SELECTOR = `${PLACEHOLDER_SELECTOR}[data-image-resolution="remoteBlocked"]:has(button)`;
@@ -58,8 +58,10 @@ const findPlaceholder = async (text: string) => {
 const reopenRemoteImages = async () => {
   const { images, remoteImages } = await getDesktopE2ERunContext();
 
+  await closeAllDocuments();
   await openRecentPath(images.path);
   await expect($('img[alt="Visible SVG"]')).toBeDisplayed();
+  await closeAllDocuments();
   await openRecentPath(remoteImages.path);
   await waitForRemotePlaceholders();
 };
@@ -164,7 +166,9 @@ describe("desktop remote images", () => {
     const connectionsBeforePaste = connections;
 
     await $("p=Paste target.").execute(async (paragraph) => {
-      const editor = paragraph.closest<HTMLElement>(".ProseMirror");
+      const editor = paragraph.closest<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror",
+      );
       const range = document.createRange();
 
       editor?.focus();
@@ -194,7 +198,7 @@ describe("desktop remote images", () => {
         }
 
         document
-          .querySelector(".ProseMirror")
+          .querySelector("[data-testid=active-document-host] .ProseMirror")
           ?.dispatchEvent(
             new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData }),
           );

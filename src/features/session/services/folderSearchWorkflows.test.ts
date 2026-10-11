@@ -243,6 +243,7 @@ describe("folder search workflows", () => {
       expect(useSessionStore.getState().activeDocument).toMatchObject({ path: BETA }),
     );
     documentEditorBridge.set(BETA, bridge);
+    documentEditorBridge.show(BETA);
     await opening;
 
     expect(editor.chosen).toEqual([
@@ -254,21 +255,97 @@ describe("folder search workflows", () => {
     expect(useFolderSearchStore.getState().chosenMatch).toEqual({ path: BETA, ordinal: 1 });
   });
 
-  it("leaves the editor and the results as they were when switching is declined", async () => {
+  it("opens a match's file in a new tab without asking about unsaved changes", async () => {
     setDefaultSession({
       folderContext: createFolder(),
       activeDocument: createSavedDocument({ path: ALPHA, content: "unsaved", isDirty: true }),
     });
 
-    const results = await search("leaf");
+    await search("leaf");
+    void openFolderSearchMatch({ path: BETA, ordinal: 0 });
 
-    vi.mocked(requestConfirmation).mockResolvedValueOnce(false);
-    await openFolderSearchMatch({ path: BETA, ordinal: 0 });
+    await vi.waitFor(() =>
+      expect(useSessionStore.getState().activeDocument).toMatchObject({ path: BETA }),
+    );
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      { path: ALPHA, isDirty: true },
+      { path: BETA },
+    ]);
+  });
 
-    expect(requestConfirmation).toHaveBeenCalledTimes(1);
+  it("switches to the tab holding a match's file and chooses the match there", async () => {
+    const { bridge, editor } = createEditor("An alpha leaf.");
+
+    editor.choose(0);
+    setDefaultSession({
+      folderContext: createFolder(),
+      documents: [
+        createSavedDocument({ path: ALPHA, content: "An alpha leaf.\n" }),
+        createSavedDocument({ path: BETA }),
+      ],
+      activeIndex: 1,
+    });
+    documentEditorBridge.set(ALPHA, bridge);
+    documentEditorBridge.show(BETA);
+
+    await search("leaf");
+    const opening = openFolderSearchMatch({ path: ALPHA, ordinal: 0 });
+
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: ALPHA });
+    documentEditorBridge.show(ALPHA);
+    await opening;
+
     expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
-    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: ALPHA, isDirty: true });
-    expect(useFolderSearchStore.getState().results).toBe(results);
+    expect(editor.chosen).toHaveLength(1);
+    expect(useFolderSearchStore.getState().chosenMatch).toEqual({ path: ALPHA, ordinal: 0 });
+  });
+
+  it("searches an inactive tab's unsaved text rather than its file", async () => {
+    const { bridge } = createEditor("unsaved leaf\nleaf again\nleaf");
+
+    setDefaultSession({
+      folderContext: createFolder(),
+      documents: [
+        createSavedDocument({ path: ALPHA, content: "unsaved", isDirty: true }),
+        createSavedDocument({ path: BETA }),
+      ],
+      activeIndex: 1,
+    });
+    documentEditorBridge.set(ALPHA, bridge);
+
+    await search("leaf");
+
+    expect(summarize()).toEqual([
+      [ALPHA, 3],
+      [BETA, 2],
+    ]);
+  });
+
+  it("reads a document's file again once its tab closes", async () => {
+    const { bridge } = createEditor("unsaved leaf\nleaf again\nleaf");
+
+    setDefaultSession({
+      folderContext: createFolder(),
+      documents: [
+        createSavedDocument({ path: ALPHA, content: "unsaved", isDirty: true }),
+        createSavedDocument({ path: BETA }),
+      ],
+      activeIndex: 1,
+    });
+    documentEditorBridge.set(ALPHA, bridge);
+
+    await search("leaf");
+
+    useSessionStore.getState().closeTabs([useSessionStore.getState().tabs[0].id]);
+    documentEditorBridge.set(ALPHA, null);
+
+    await vi.waitFor(() =>
+      expect(summarize()).toEqual([
+        [ALPHA, 1],
+        [BETA, 2],
+      ]),
+    );
   });
 
   it("marks a match whose file is gone without asking about unsaved changes", async () => {
@@ -301,6 +378,7 @@ describe("folder search workflows", () => {
       expect(useSessionStore.getState().activeDocument).toMatchObject({ path: BETA }),
     );
     documentEditorBridge.set(BETA, bridge);
+    documentEditorBridge.show(BETA);
     await opening;
 
     expect(useFolderSearchStore.getState().chosenMatch).toBeNull();
@@ -323,6 +401,7 @@ describe("folder search workflows", () => {
       }),
     });
     documentEditorBridge.set(ALPHA, bridge);
+    documentEditorBridge.show(ALPHA);
 
     await search("leaf");
     await openFolderSearchMatch({ path: ALPHA, ordinal: 0 });

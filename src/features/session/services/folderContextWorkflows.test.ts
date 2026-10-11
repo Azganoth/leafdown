@@ -54,6 +54,29 @@ describe("folder context workflows", () => {
     });
   });
 
+  it("closes every tab with the folder after one dialog naming the unsaved ones", async () => {
+    vi.mocked(requestConfirmation).mockResolvedValue(true);
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ isDirty: true }),
+        createSavedDocument({ path: "C:/Notes/clean.md" }),
+        createSavedDocument({ path: "C:/Elsewhere/outside.md", isDirty: true }),
+      ],
+      folderContext: notesFolderContext,
+    });
+
+    await expect(closeFolderContext()).resolves.toBe(true);
+
+    expect(requestConfirmation).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ detail: "readme.md\noutside.md", confirmLabel: "Discard all" }),
+    );
+    expect(useSessionStore.getState()).toMatchObject({
+      tabs: [],
+      activeDocument: null,
+      folderContext: null,
+    });
+  });
+
   it("does not close anything without an active folder context", async () => {
     setDefaultSession({ activeDocument: createSavedDocument() });
 

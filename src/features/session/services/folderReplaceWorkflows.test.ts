@@ -17,7 +17,11 @@ import type {
 import { useFolderSearchStore } from "@/features/folder-search/stores/folderSearch";
 import { requestDecision, type Decision } from "@/lib/confirmation";
 import type { Disposable } from "@/lib/lifecycle";
-import { createOpenedMarkdownDocument, createSavedDocument } from "@/test/factories/document";
+import {
+  createOpenedMarkdownDocument,
+  createSavedDocument,
+  createUntitledDocument,
+} from "@/test/factories/document";
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { createArticleTree, createFolderContext } from "@/test/factories/folderContext";
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
@@ -133,7 +137,7 @@ const getReport = () => {
 };
 
 // The editor's text is its document as a save would write it, a paragraph per line.
-const createActiveEditor = (markdown: string) => {
+const createActiveEditor = (markdown: string, path = ALPHA) => {
   const editor = { markdown, applied: [] as string[] };
   const planFor = (query: TextSearchQuery, replacement: string): DocumentReplacementPlan => {
     const text = editor.markdown.trimEnd().split("\n").join("\u0000");
@@ -170,7 +174,7 @@ const createActiveEditor = (markdown: string) => {
 
       editor.applied.push(replacement);
       editor.markdown = next.replaced ?? editor.markdown;
-      useSessionStore.getState().markActiveDocumentDirty(ALPHA);
+      useSessionStore.getState().markDocumentDirty(path);
 
       return next.matches.length;
     },
@@ -453,6 +457,93 @@ describe("applying a folder replacement", () => {
       expect(results?.files).toEqual([]);
     });
     expect(useFolderSearchStore.getState().apply.status).toBe("done");
+  });
+
+  describe("with several open documents affected", () => {
+    const openDocument = (path: string, markdown: string, isDirty: boolean) => {
+      const { bridge, editor } = createActiveEditor(markdown, path);
+
+      documentEditorBridge.set(path, bridge);
+
+      return {
+        editor,
+        document: createSavedDocument({
+          path,
+          content: markdown,
+          isDirty,
+          metadata: metadataOf(path),
+          fingerprint: disk.get(path) ?? "",
+        }),
+      };
+    };
+
+    it("asks about each unsaved document the plan includes, then plans again", async () => {
+      const alpha = openDocument(ALPHA, "Unsaved alpha leaf\n", true);
+      const beta = openDocument(BETA, "Unsaved beta leaf\n", true);
+      setDefaultSession({
+        folderContext: createFolder(),
+        documents: [alpha.document, beta.document],
+        activeIndex: 1,
+      });
+      vi.mocked(requestDecision)
+        .mockResolvedValueOnce("confirm")
+        .mockResolvedValueOnce("alternate");
+
+      await plan("leaf", "tree");
+      await applyFolderReplacement();
+
+      expect(vi.mocked(requestDecision).mock.calls.map(([{ message }]) => message)).toEqual([
+        "alpha.md has unsaved changes the replacement would include. Save or discard them first, then review the updated preview before replacing.",
+        "beta.md has unsaved changes the replacement would include. Save or discard them first, then review the updated preview before replacing.",
+      ]);
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({ path: ALPHA });
+      expect(getLastTauriApiArgs("openMarkdownFile")).toMatchObject({ path: BETA });
+      expect(countTauriApiCalls("writeFolderReplacementFiles")).toBe(0);
+      expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+        { path: ALPHA, isDirty: false },
+        { path: BETA, isDirty: false, content: "Beta leaf and another leaf.\n" },
+      ]);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({ path: BETA });
+    });
+
+    it("stops asking once one is cancelled, saving those already settled", async () => {
+      const alpha = openDocument(ALPHA, "Unsaved alpha leaf\n", true);
+      const beta = openDocument(BETA, "Unsaved beta leaf\n", true);
+      setDefaultSession({
+        folderContext: createFolder(),
+        documents: [alpha.document, beta.document],
+      });
+      vi.mocked(requestDecision).mockResolvedValueOnce("confirm").mockResolvedValueOnce("cancel");
+
+      await plan("leaf", "tree");
+      await applyFolderReplacement();
+
+      expect(requestDecision).toHaveBeenCalledTimes(2);
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
+      expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+      expect(countTauriApiCalls("writeFolderReplacementFiles")).toBe(0);
+      expect(useSessionStore.getState().tabs[1].document).toMatchObject({ isDirty: true });
+    });
+
+    it("replaces a clean document in an inactive tab through its editor", async () => {
+      const alpha = openDocument(ALPHA, "An alpha leaf.\n", false);
+      setDefaultSession({
+        folderContext: createFolder(),
+        documents: [alpha.document, createUntitledDocument()],
+        activeIndex: 1,
+      });
+
+      await plan("leaf", "tree");
+      await applyFolderReplacement();
+
+      expect(alpha.editor.applied).toEqual(["tree"]);
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({
+        path: ALPHA,
+        content: "An alpha tree.\n",
+      });
+      expect(writeOrder).toEqual([BETA]);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({ status: "untitled" });
+    });
   });
 
   describe("with the open document affected", () => {

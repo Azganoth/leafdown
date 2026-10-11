@@ -3,14 +3,15 @@ import { useSettingsStore } from "@/features/preferences";
 import { isSamePath } from "@/lib/path";
 
 import { useSessionStore } from "../stores/session";
-import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
+import { confirmDiscardAllDocumentChanges } from "./unsavedChanges";
 
+/** Closes the folder context together with every tab, returning the window to the welcome screen. */
 export const closeFolderContext = async () => {
   if (!useSessionStore.getState().folderContext) {
     return false;
   }
 
-  if (!(await confirmDiscardActiveDocumentChanges())) {
+  if (!(await confirmDiscardAllDocumentChanges())) {
     return false;
   }
 

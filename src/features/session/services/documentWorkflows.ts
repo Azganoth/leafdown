@@ -8,7 +8,6 @@ import {
   getActiveDocumentKey,
   isSaveMarkdownFileError,
   isUnrepresentableCharactersError,
-  matchesActiveDocumentKey,
   NEW_DOCUMENT_ENCODING,
   saveMarkdownDocument,
   selectMarkdownSavePath,
@@ -28,11 +27,26 @@ import { SequentialTaskQueue } from "@/lib/async";
 import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
 import { isSameOrParentPath } from "@/lib/path";
+import { notifyError } from "@/lib/toast";
 
-import { getSessionFolderPath, useSessionStore } from "../stores/session";
+import {
+  findCurrentTab,
+  findTab,
+  findTabByDocumentKey,
+  findTabByPath,
+  getActiveTab,
+  getSessionFolderPath,
+  useSessionStore,
+  type DocumentTab,
+} from "../stores/session";
+import {
+  getDocumentName,
+  getNextUntitledNumber,
+  toUntitledDocumentId,
+} from "../utils/documentNames";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { getSessionFolderScanOptions } from "./folderContextWorkflows";
-import { confirmDiscardActiveDocumentChanges } from "./unsavedChanges";
+import { confirmDiscardTabChanges } from "./unsavedChanges";
 
 interface SerializedDocumentForSave {
   content: string;
@@ -40,23 +54,30 @@ interface SerializedDocumentForSave {
   encoding: DocumentEncoding;
 }
 
-const saveTaskQueue = new SequentialTaskQueue();
-let nextUntitledId = 1;
+/** A tab together with the version of its document a workflow started from. */
+interface TabVersion {
+  tabId: string;
+  generation: number;
+}
 
-export const resetDocumentWorkflowIdsForTests = () => {
-  nextUntitledId = 1;
-};
+const saveTaskQueue = new SequentialTaskQueue();
+
+const toTabVersion = ({ generation, id }: DocumentTab): TabVersion => ({
+  tabId: id,
+  generation,
+});
+
+const getCurrentDocument = ({ generation, tabId }: TabVersion) =>
+  findCurrentTab(useSessionStore.getState(), tabId, generation)?.document ?? null;
 
 export const createNewMarkdownDocument = async () => {
-  if (!(await confirmDiscardActiveDocumentChanges())) {
-    return false;
-  }
-
   const { defaultNewDocumentLineEnding } = useSettingsStore.getState();
+  const { tabs } = useSessionStore.getState();
+  const number = getNextUntitledNumber(tabs.map((tab) => tab.document));
 
-  useSessionStore.getState().setActiveDocument(
+  useSessionStore.getState().openTab(
     toUntitledDocument({
-      id: `untitled:${nextUntitledId++}`,
+      id: toUntitledDocumentId(number),
       content: "",
       lineEnding: defaultNewDocumentLineEnding,
       encoding: NEW_DOCUMENT_ENCODING,
@@ -66,54 +87,85 @@ export const createNewMarkdownDocument = async () => {
   return true;
 };
 
-export const closeActiveMarkdownDocument = async () => {
-  if (!useSessionStore.getState().activeDocument) {
+export const closeDocumentTab = async (tabId: string) => {
+  if (!findTab(useSessionStore.getState(), tabId)) {
     return false;
   }
 
-  if (!(await confirmDiscardActiveDocumentChanges())) {
+  if (!(await confirmDiscardTabChanges([tabId]))) {
     return false;
   }
 
-  useSessionStore.getState().setActiveDocument(null);
+  const wasActive = useSessionStore.getState().activeTabId === tabId;
+
+  useSessionStore.getState().closeTabs([tabId]);
+
+  const nextActiveTab = getActiveTab(useSessionStore.getState());
+
+  if (wasActive && nextActiveTab) {
+    documentEditorBridge.focusWhenShown(getActiveDocumentKey(nextActiveTab.document));
+  }
 
   return true;
 };
 
-export const runAfterPendingSaves = <T>(task: () => Promise<T>) => saveTaskQueue.run(task);
+export const closeActiveMarkdownDocument = async () => {
+  const { activeTabId } = useSessionStore.getState();
 
-export const saveActiveMarkdownDocument = () => saveTaskQueue.run(saveActiveMarkdownDocumentNow);
-
-export const saveActiveMarkdownDocumentAs = () =>
-  saveTaskQueue.run(saveActiveMarkdownDocumentAsNow);
-
-const saveActiveMarkdownDocumentNow = async () => {
-  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
-
-  if (!activeDocument) {
-    return false;
-  }
-
-  if (activeDocument.status === "untitled") {
-    return saveActiveMarkdownDocumentAsNow();
-  }
-
-  return saveExistingMarkdownDocument(
-    activeDocument,
-    serializeActiveDocumentForSave(activeDocument),
-    activeDocumentGeneration,
-  );
+  return activeTabId ? closeDocumentTab(activeTabId) : false;
 };
 
-const saveActiveMarkdownDocumentAsNow = async () => {
-  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
+export const runAfterPendingSaves = <T>(task: () => Promise<T>) => saveTaskQueue.run(task);
 
-  if (!activeDocument) {
+export const saveDocumentTab = (tabId: string) =>
+  saveTaskQueue.run(async () => {
+    const tab = findTab(useSessionStore.getState(), tabId);
+
+    return tab ? saveDocumentNow(toTabVersion(tab)) : false;
+  });
+
+// The tab is taken when the command is given, since another tab may be active by the time a
+// queued save runs.
+export const saveActiveMarkdownDocument = () => {
+  const activeTabId = useSessionStore.getState().activeTabId;
+
+  return activeTabId ? saveDocumentTab(activeTabId) : Promise.resolve(false);
+};
+
+export const saveActiveMarkdownDocumentAs = () => {
+  const activeTabId = useSessionStore.getState().activeTabId;
+
+  return activeTabId
+    ? saveTaskQueue.run(async () => {
+        const tab = findTab(useSessionStore.getState(), activeTabId);
+
+        return tab ? saveDocumentAsNow(toTabVersion(tab)) : false;
+      })
+    : Promise.resolve(false);
+};
+
+const saveDocumentNow = async (version: TabVersion) => {
+  const document = getCurrentDocument(version);
+
+  if (!document) {
     return false;
   }
 
-  const documentKey = getActiveDocumentKey(activeDocument);
-  const defaultPath = await getSaveAsDefaultPath(activeDocument);
+  if (document.status === "untitled") {
+    return saveDocumentAsNow(version);
+  }
+
+  return saveExistingMarkdownDocument(document, serializeDocumentForSave(document), version);
+};
+
+const saveDocumentAsNow = async (version: TabVersion) => {
+  const document = getCurrentDocument(version);
+
+  if (!document) {
+    return false;
+  }
+
+  const defaultPath = await getSaveAsDefaultPath(document);
   const selectedPath = await selectMarkdownSavePath(defaultPath);
 
   if (!selectedPath) {
@@ -122,22 +174,31 @@ const saveActiveMarkdownDocumentAsNow = async () => {
 
   const { defaultNewDocumentExtension } = useSettingsStore.getState();
   const path = await ensureMarkdownExtension(selectedPath, defaultNewDocumentExtension);
+  const otherTab = findTabByPath(useSessionStore.getState(), path);
 
-  return saveActiveMarkdownDocumentToNewPath(documentKey, activeDocumentGeneration, path);
+  // Two tabs holding one file would each save over the other's changes.
+  if (otherTab && otherTab.id !== version.tabId) {
+    notifyError({
+      title: t("session.saveAsOpenInTab.title"),
+      description: t("session.saveAsOpenInTab.description", {
+        name: getDocumentName(otherTab.document, t),
+      }),
+    });
+
+    return false;
+  }
+
+  return saveDocumentToNewPath(version, path);
 };
 
-const saveActiveMarkdownDocumentToNewPath = async (
-  documentKey: string,
-  activeDocumentGeneration: number,
-  path: string,
-): Promise<boolean> => {
-  const latestDocument = getActiveDocumentByKey(documentKey, activeDocumentGeneration);
+const saveDocumentToNewPath = async (version: TabVersion, path: string): Promise<boolean> => {
+  const latestDocument = getCurrentDocument(version);
 
   if (!latestDocument) {
     return false;
   }
 
-  const serializedDocument = serializeActiveDocumentForSave(latestDocument);
+  const serializedDocument = serializeDocumentForSave(latestDocument);
   let result;
 
   try {
@@ -151,8 +212,8 @@ const saveActiveMarkdownDocumentToNewPath = async (
       throw error;
     }
 
-    return handleUnrepresentableCharacters(error, documentKey, activeDocumentGeneration, () =>
-      saveActiveMarkdownDocumentToNewPath(documentKey, activeDocumentGeneration, path),
+    return handleUnrepresentableCharacters(error, version, () =>
+      saveDocumentToNewPath(version, path),
     );
   }
 
@@ -165,7 +226,7 @@ const saveActiveMarkdownDocumentToNewPath = async (
         existingFolderContext,
       );
 
-  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+  if (!getCurrentDocument(version)) {
     return false;
   }
 
@@ -178,27 +239,27 @@ const saveActiveMarkdownDocumentToNewPath = async (
     fingerprint: result.fingerprint,
   });
 
-  if (nextFolderContext) {
-    useSessionStore.getState().setActiveDocumentSession(nextFolderContext, savedDocument);
-  } else {
-    useSessionStore.getState().setActiveDocument(savedDocument);
-  }
+  useSessionStore
+    .getState()
+    .replaceTabDocument(
+      version.tabId,
+      savedDocument,
+      nextFolderContext ? { folderContext: nextFolderContext } : {},
+    );
 
   return true;
 };
 
-const serializeActiveDocumentForSave = (
-  activeDocument: ActiveDocumentState,
-): SerializedDocumentForSave => {
+const serializeDocumentForSave = (document: ActiveDocumentState): SerializedDocumentForSave => {
   const { defaultNewDocumentLineEnding, insertFinalNewline } = useSettingsStore.getState();
-  const lineEnding = activeDocument.lineEnding ?? defaultNewDocumentLineEnding;
-  const documentKey = getActiveDocumentKey(activeDocument);
-  const markdown = documentEditorBridge.getMarkdown(documentKey) ?? activeDocument.content;
+  const lineEnding = document.lineEnding ?? defaultNewDocumentLineEnding;
+  const documentKey = getActiveDocumentKey(document);
+  const markdown = documentEditorBridge.getMarkdown(documentKey) ?? document.content;
 
   return {
     content: formatMarkdownForSave(markdown, lineEnding, insertFinalNewline),
     lineEnding,
-    encoding: activeDocument.encoding,
+    encoding: document.encoding,
   };
 };
 
@@ -208,41 +269,42 @@ const serializeActiveDocumentForSave = (
  * Save, or the next editor, does not fall back to the text from before the edits.
  */
 export const retainEditorMarkdown = (documentKey: string) => {
-  const { activeDocument, setActiveDocumentContent } = useSessionStore.getState();
+  const session = useSessionStore.getState();
 
-  if (!activeDocument?.isDirty || !matchesActiveDocumentKey(activeDocument, documentKey)) {
+  if (!findTabByDocumentKey(session, documentKey)?.document.isDirty) {
     return;
   }
 
   const markdown = documentEditorBridge.getMarkdown(documentKey);
 
   if (markdown !== null) {
-    setActiveDocumentContent(documentKey, markdown);
+    session.setDocumentContent(documentKey, markdown);
   }
 };
 
 const saveExistingMarkdownDocument = async (
-  activeDocument: SavedDocumentState,
+  document: SavedDocumentState,
   serializedDocument: SerializedDocumentForSave,
-  activeDocumentGeneration: number,
+  version: TabVersion,
   overwrite = false,
 ): Promise<boolean> => {
   try {
     const result = await saveMarkdownDocument(
-      activeDocument.path,
+      document.path,
       serializedDocument.content,
       serializedDocument.encoding,
       {
-        expectedMetadata: activeDocument.metadata,
+        expectedMetadata: document.metadata,
         overwrite,
       },
     );
 
-    if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
+    if (!getCurrentDocument(version)) {
       return false;
     }
 
-    useSessionStore.getState().setActiveDocument(
+    useSessionStore.getState().replaceTabDocument(
+      version.tabId,
       toSavedDocument({
         path: result.path,
         content: serializedDocument.content,
@@ -256,26 +318,24 @@ const saveExistingMarkdownDocument = async (
     return true;
   } catch (error) {
     if (isMissingFileSaveError(error)) {
-      if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
+      if (!getCurrentDocument(version)) {
         return false;
       }
 
-      return handleMissingSavedFile(getActiveDocumentKey(activeDocument), activeDocumentGeneration);
+      return handleMissingSavedFile(version);
     }
 
     if (isExternalModificationSaveError(error)) {
-      if (!getActiveDocumentByKey(getActiveDocumentKey(activeDocument), activeDocumentGeneration)) {
+      if (!getCurrentDocument(version)) {
         return false;
       }
 
-      return handleExternalModification(activeDocument, activeDocumentGeneration);
+      return handleExternalModification(version);
     }
 
     if (isUnrepresentableCharactersError(error)) {
-      const documentKey = getActiveDocumentKey(activeDocument);
-
-      return handleUnrepresentableCharacters(error, documentKey, activeDocumentGeneration, () => {
-        const latestDocument = getActiveDocumentByKey(documentKey, activeDocumentGeneration);
+      return handleUnrepresentableCharacters(error, version, () => {
+        const latestDocument = getCurrentDocument(version);
 
         if (latestDocument?.status !== "saved") {
           return Promise.resolve(false);
@@ -283,8 +343,8 @@ const saveExistingMarkdownDocument = async (
 
         return saveExistingMarkdownDocument(
           latestDocument,
-          serializeActiveDocumentForSave(latestDocument),
-          activeDocumentGeneration,
+          serializeDocumentForSave(latestDocument),
+          version,
           overwrite,
         );
       });
@@ -300,29 +360,27 @@ export type UnpromptedSaveResult =
   | { kind: "failed"; error: SaveMarkdownFileError };
 
 /**
- * Saves the active saved document as Save does, but reports a missing file, a newer version on
- * disk, or text its encoding cannot hold instead of asking about it.
+ * Saves an open saved document as Save does, but reports a missing file, a newer version on disk,
+ * or text its encoding cannot hold instead of asking about it.
  */
-export const saveActiveMarkdownDocumentWithoutPrompts = (documentKey: string) =>
+export const saveDocumentWithoutPrompts = (documentKey: string) =>
   saveTaskQueue.run(async (): Promise<UnpromptedSaveResult> => {
-    const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
+    const tab = findTabByDocumentKey(useSessionStore.getState(), documentKey);
 
-    if (
-      activeDocument?.status !== "saved" ||
-      !matchesActiveDocumentKey(activeDocument, documentKey)
-    ) {
+    if (tab?.document.status !== "saved") {
       return { kind: "closed" };
     }
 
-    const serializedDocument = serializeActiveDocumentForSave(activeDocument);
+    const { document } = tab;
+    const serializedDocument = serializeDocumentForSave(document);
     let result;
 
     try {
       result = await saveMarkdownDocument(
-        activeDocument.path,
+        document.path,
         serializedDocument.content,
         serializedDocument.encoding,
-        { expectedMetadata: activeDocument.metadata },
+        { expectedMetadata: document.metadata },
       );
     } catch (error) {
       if (isSaveMarkdownFileError(error)) {
@@ -332,8 +390,9 @@ export const saveActiveMarkdownDocumentWithoutPrompts = (documentKey: string) =>
       throw error;
     }
 
-    if (getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
-      useSessionStore.getState().setActiveDocument(
+    if (getCurrentDocument(toTabVersion(tab))) {
+      useSessionStore.getState().replaceTabDocument(
+        tab.id,
         toSavedDocument({
           path: result.path,
           content: serializedDocument.content,
@@ -350,11 +409,10 @@ export const saveActiveMarkdownDocumentWithoutPrompts = (documentKey: string) =>
 
 const handleUnrepresentableCharacters = async (
   error: UnrepresentableCharactersError,
-  documentKey: string,
-  activeDocumentGeneration: number,
+  version: TabVersion,
   saveAgain: () => Promise<boolean>,
 ) => {
-  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+  if (!getCurrentDocument(version)) {
     return false;
   }
 
@@ -367,17 +425,18 @@ const handleUnrepresentableCharacters = async (
     confirmLabel: t("session.unrepresentableCharacters.confirm"),
     cancelLabel: t("session.unrepresentableCharacters.cancel"),
   });
+  const document = shouldConvert ? getCurrentDocument(version) : null;
 
-  if (!shouldConvert || !getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+  if (!document) {
     return false;
   }
 
-  useSessionStore.getState().setActiveDocumentEncoding(documentKey, UTF8_ENCODING);
+  useSessionStore.getState().setDocumentEncoding(getActiveDocumentKey(document), UTF8_ENCODING);
 
   return saveAgain();
 };
 
-const handleMissingSavedFile = async (documentKey: string, activeDocumentGeneration: number) => {
+const handleMissingSavedFile = async (version: TabVersion) => {
   const shouldSaveAs = await requestConfirmation({
     title: t("session.missingSavedFile.title"),
     message: t("session.missingSavedFile.message"),
@@ -385,21 +444,14 @@ const handleMissingSavedFile = async (documentKey: string, activeDocumentGenerat
     cancelLabel: t("session.missingSavedFile.cancel"),
   });
 
-  if (!getActiveDocumentByKey(documentKey, activeDocumentGeneration)) {
+  if (!shouldSaveAs || !getCurrentDocument(version)) {
     return false;
   }
 
-  if (!shouldSaveAs) {
-    return false;
-  }
-
-  return saveActiveMarkdownDocumentAsNow();
+  return saveDocumentAsNow(version);
 };
 
-const handleExternalModification = async (
-  activeDocument: SavedDocumentState,
-  activeDocumentGeneration: number,
-) => {
+const handleExternalModification = async (version: TabVersion) => {
   const shouldOverwrite = await requestConfirmation({
     title: t("session.externalModification.title"),
     message: t("session.externalModification.message"),
@@ -411,19 +463,16 @@ const handleExternalModification = async (
     return false;
   }
 
-  const latestDocument = getActiveDocumentByKey(activeDocument.path, activeDocumentGeneration);
+  const latestDocument = getCurrentDocument(version);
 
-  if (
-    latestDocument?.status !== "saved" ||
-    !matchesActiveDocumentKey(latestDocument, activeDocument.path)
-  ) {
+  if (latestDocument?.status !== "saved") {
     return false;
   }
 
   return saveExistingMarkdownDocument(
     latestDocument,
-    serializeActiveDocumentForSave(latestDocument),
-    activeDocumentGeneration,
+    serializeDocumentForSave(latestDocument),
+    version,
     true,
   );
 };
@@ -434,24 +483,9 @@ const isMissingFileSaveError = (error: unknown) =>
 const isExternalModificationSaveError = (error: unknown) =>
   isSaveMarkdownFileError(error) && error.kind === "externalModification";
 
-const getActiveDocumentByKey = (documentKey: string, activeDocumentGeneration: number) => {
-  const session = useSessionStore.getState();
-  const activeDocument = session.activeDocument;
-
-  if (
-    !activeDocument ||
-    session.activeDocumentGeneration !== activeDocumentGeneration ||
-    !matchesActiveDocumentKey(activeDocument, documentKey)
-  ) {
-    return null;
-  }
-
-  return activeDocument;
-};
-
-const getSaveAsDefaultPath = async (activeDocument: ActiveDocumentState) => {
-  if (activeDocument.status === "saved") {
-    return activeDocument.path;
+const getSaveAsDefaultPath = async (document: ActiveDocumentState) => {
+  if (document.status === "saved") {
+    return document.path;
   }
 
   const fileName = `${t("session.untitledFileName")}${useSettingsStore.getState().defaultNewDocumentExtension}`;

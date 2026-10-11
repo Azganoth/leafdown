@@ -11,7 +11,7 @@ import { toastManager } from "@/lib/toast";
 import { createSavedDocument, createUntitledDocument } from "@/test/factories/document";
 import { createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
-import { setDefaultSession } from "@/test/utils/appStores";
+import { closeActiveTab, replaceActiveDocument, setDefaultSession } from "@/test/utils/appStores";
 import { findDiagnosticPayload } from "@/test/utils/diagnostics";
 import { act, renderHook } from "@/test/utils/react";
 import { getWindowListenHandler } from "@/test/utils/tauri";
@@ -21,8 +21,8 @@ import { useSessionStore } from "../stores/session";
 import {
   DOCUMENT_WATCH_CHECK_DELAY_MS,
   resetDocumentWatcherScopeGenerationForTests,
-  useActiveDocumentWatcher,
-} from "./useActiveDocumentWatcher";
+  useDocumentWatchers,
+} from "./useDocumentWatchers";
 
 const OUTSIDE_MARKDOWN_PATH = "C:/Elsewhere/outside.md";
 const RENAMED_MARKDOWN_PATH = "C:/Notes/intro.md";
@@ -48,7 +48,7 @@ const settle = async (delayMs = DOCUMENT_WATCH_CHECK_DELAY_MS) => {
   });
 };
 
-describe("useActiveDocumentWatcher", () => {
+describe("useDocumentWatchers", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetDocumentWatcherScopeGenerationForTests();
@@ -60,10 +60,9 @@ describe("useActiveDocumentWatcher", () => {
   });
 
   it("does not watch without a saved document", async () => {
-    const { rerender } = renderHook(() => useActiveDocumentWatcher());
+    setDefaultSession({ activeDocument: createUntitledDocument() });
 
-    act(() => useSessionStore.getState().setActiveDocument(createUntitledDocument()));
-    rerender();
+    renderHook(() => useDocumentWatchers());
     await settle();
 
     expect(getCurrentWindow().listen).not.toHaveBeenCalled();
@@ -78,7 +77,7 @@ describe("useActiveDocumentWatcher", () => {
   ])("watches a saved document %s and checks it once watching", async (_, path, folderContext) => {
     setDefaultSession({ activeDocument: createSavedDocument({ path }), folderContext });
 
-    renderHook(() => useActiveDocumentWatcher());
+    renderHook(() => useDocumentWatchers());
     await settle();
 
     expect(getCurrentWindow().listen).toHaveBeenCalledWith(
@@ -102,7 +101,7 @@ describe("useActiveDocumentWatcher", () => {
 
   it("checks the document once for a burst of change events", async () => {
     setDefaultSession({ activeDocument: createSavedDocument() });
-    renderHook(() => useActiveDocumentWatcher());
+    renderHook(() => useDocumentWatchers());
     await settle();
 
     emitDocumentChanged(TEST_MARKDOWN_FILE_PATH);
@@ -119,7 +118,7 @@ describe("useActiveDocumentWatcher", () => {
 
   it("ignores change events for another document", async () => {
     setDefaultSession({ activeDocument: createSavedDocument() });
-    renderHook(() => useActiveDocumentWatcher());
+    renderHook(() => useDocumentWatchers());
     await settle();
 
     emitDocumentChanged(OUTSIDE_MARKDOWN_PATH);
@@ -132,14 +131,10 @@ describe("useActiveDocumentWatcher", () => {
     const unlisten = vi.fn();
     vi.mocked(getCurrentWindow().listen).mockResolvedValue(unlisten);
     setDefaultSession({ activeDocument: createSavedDocument() });
-    const { rerender } = renderHook(() => useActiveDocumentWatcher());
+    const { rerender } = renderHook(() => useDocumentWatchers());
     await settle();
 
-    act(() =>
-      useSessionStore
-        .getState()
-        .setActiveDocument(createSavedDocument({ path: RENAMED_MARKDOWN_PATH })),
-    );
+    act(() => replaceActiveDocument(createSavedDocument({ path: RENAMED_MARKDOWN_PATH })));
     rerender();
     await settle();
 
@@ -152,7 +147,7 @@ describe("useActiveDocumentWatcher", () => {
       scopeId: "document-watch:2",
     });
 
-    act(() => useSessionStore.getState().setActiveDocument(null));
+    act(() => closeActiveTab());
     rerender();
     await settle();
 
@@ -162,13 +157,49 @@ describe("useActiveDocumentWatcher", () => {
     });
   });
 
+  it("watches each open saved document and stops only the one whose tab closes", async () => {
+    setDefaultSession({
+      documents: [
+        createSavedDocument(),
+        createUntitledDocument(),
+        createSavedDocument({ path: OUTSIDE_MARKDOWN_PATH }),
+      ],
+    });
+    renderHook(() => useDocumentWatchers());
+    await settle();
+
+    expect(countTauriApiCalls("watchMarkdownDocument")).toBe(2);
+    expect(countTauriApiCalls("inspectMarkdownFile")).toBe(2);
+
+    emitDocumentChanged(OUTSIDE_MARKDOWN_PATH);
+    await settle();
+
+    expect(getLastTauriApiArgs("inspectMarkdownFile")).toMatchObject({
+      path: OUTSIDE_MARKDOWN_PATH,
+    });
+
+    act(() => useSessionStore.getState().closeTabs([useSessionStore.getState().tabs[2].id]));
+    await settle();
+
+    expect(countTauriApiCalls("unwatchMarkdownDocument")).toBe(1);
+    expect(getLastTauriApiArgs("unwatchMarkdownDocument")).toEqual({
+      scopeId: "document-watch:2",
+    });
+
+    act(() => useSessionStore.getState().activateTab(useSessionStore.getState().tabs[1].id));
+    await settle();
+
+    expect(countTauriApiCalls("watchMarkdownDocument")).toBe(2);
+    expect(countTauriApiCalls("unwatchMarkdownDocument")).toBe(1);
+  });
+
   it("does not stop a watch it closed before asking to start", async () => {
     const listener = Promise.withResolvers<() => void>();
     vi.mocked(getCurrentWindow().listen).mockReturnValue(listener.promise);
     setDefaultSession({ activeDocument: createSavedDocument() });
-    const { rerender } = renderHook(() => useActiveDocumentWatcher());
+    const { rerender } = renderHook(() => useDocumentWatchers());
 
-    act(() => useSessionStore.getState().setActiveDocument(null));
+    act(() => closeActiveTab());
     rerender();
     listener.resolve(vi.fn<() => void>());
     await settle();
@@ -183,7 +214,7 @@ describe("useActiveDocumentWatcher", () => {
       watchMarkdownDocument: () =>
         Promise.reject({ kind: "watcherStateFailed", message: "poisoned" }),
     });
-    const { unmount } = renderHook(() => useActiveDocumentWatcher());
+    const { unmount } = renderHook(() => useDocumentWatchers());
     await settle();
 
     unmount();
@@ -195,11 +226,11 @@ describe("useActiveDocumentWatcher", () => {
 
   it("drops a pending check when the document closes", async () => {
     setDefaultSession({ activeDocument: createSavedDocument() });
-    const { rerender } = renderHook(() => useActiveDocumentWatcher());
+    const { rerender } = renderHook(() => useDocumentWatchers());
     await settle();
 
     emitDocumentChanged(TEST_MARKDOWN_FILE_PATH);
-    act(() => useSessionStore.getState().setActiveDocument(null));
+    act(() => closeActiveTab());
     rerender();
     await settle();
 
@@ -218,7 +249,7 @@ describe("useActiveDocumentWatcher", () => {
       inspectMarkdownFile: () => ({ kind: "missing" }),
     });
 
-    renderHook(() => useActiveDocumentWatcher());
+    renderHook(() => useDocumentWatchers());
     await settle();
 
     expect(

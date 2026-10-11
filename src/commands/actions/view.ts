@@ -8,7 +8,7 @@ import {
   type ArticleSortOrder,
 } from "@/features/folder-context";
 import { setAlwaysOnTop, useSettingsStore } from "@/features/preferences";
-import { changeArticleSortOrder } from "@/features/session";
+import { activateAdjacentTab, activateTabAt, changeArticleSortOrder } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 import { notifyError } from "@/lib/toast";
@@ -194,3 +194,24 @@ export const getCollapseAllFoldersState = (context: AppCommandContext) =>
 
 export const getExpandAllFoldersState = (context: AppCommandContext) =>
   context.folderContext ? enabled() : disabled("No folder context is open.");
+
+export const showNextTab = () => {
+  activateAdjacentTab(1);
+};
+
+export const showPreviousTab = () => {
+  activateAdjacentTab(-1);
+};
+
+/** Shows the tab at a position in the strip, or the last tab for a negative position. */
+export const showTabAt = (index: number) => () => {
+  activateTabAt(index);
+};
+
+export const getSwitchTabState = (context: AppCommandContext) =>
+  context.tabs.count > 1 ? enabled() : disabled("No other document is open.");
+
+export const getShowTabAtState = (index: number) => (context: AppCommandContext) =>
+  (index < 0 ? context.tabs.count > 0 : context.tabs.count > index)
+    ? enabled()
+    : disabled("No document is open at that position.");

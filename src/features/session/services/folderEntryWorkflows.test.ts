@@ -53,25 +53,9 @@ describe("folder entry workflows", () => {
     documentEditorBridge.clear();
   });
 
-  it("leaves no new file behind when discarding the active document is declined", async () => {
-    setDefaultSession({
-      activeDocument: createSavedDocument({ isDirty: true }),
-      folderContext,
-    });
-
-    await expect(createArticleInFolder(TEST_NOTES_FOLDER_PATH, "plan")).resolves.toBeNull();
-
-    expect(requestConfirmation).toHaveBeenCalledOnce();
-    expect(countTauriApiCalls("createMarkdownArticle")).toBe(0);
-    expect(useSessionStore.getState().activeDocument).toMatchObject({ isDirty: true });
-  });
-
-  it("creates an article with the default extension and opens it after one discard prompt", async () => {
-    vi.mocked(requestConfirmation).mockResolvedValue(true);
-    setDefaultSession({
-      activeDocument: createSavedDocument({ isDirty: true }),
-      folderContext,
-    });
+  it("creates an article with the default extension and opens it in a new tab", async () => {
+    const activeDocument = createSavedDocument({ isDirty: true });
+    setDefaultSession({ activeDocument, folderContext });
     mockFolderEntryCommands({
       createMarkdownArticle: () => ({ path: CREATED_ARTICLE_PATH }),
       openMarkdownFile: () =>
@@ -82,7 +66,7 @@ describe("folder entry workflows", () => {
       CREATED_ARTICLE_PATH,
     );
 
-    expect(requestConfirmation).toHaveBeenCalledOnce();
+    expect(requestConfirmation).not.toHaveBeenCalled();
     expect(getLastTauriApiArgs("createMarkdownArticle")).toEqual({
       defaultExtension: ".markdown",
       folderPath: TEST_NOTES_FOLDER_PATH,
@@ -90,8 +74,11 @@ describe("folder entry workflows", () => {
       parentPath: TEST_NOTES_FOLDER_PATH,
     });
     expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toEqual([
+      activeDocument,
+      expect.objectContaining({ isDirty: false, path: CREATED_ARTICLE_PATH }),
+    ]);
     expect(useSessionStore.getState().activeDocument).toMatchObject({
-      isDirty: false,
       path: CREATED_ARTICLE_PATH,
     });
   });
@@ -155,6 +142,32 @@ describe("folder entry workflows", () => {
     ]);
   });
 
+  it("moves every open document inside a renamed directory, keeping their unsaved text", async () => {
+    const nestedPath = `${TEST_NESTED_DIRECTORY_PATH}/notes.md`;
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ path: TEST_NESTED_MARKDOWN_FILE_PATH, isDirty: true }),
+        createSavedDocument(),
+        createSavedDocument({ path: nestedPath }),
+      ],
+      activeIndex: 1,
+      folderContext,
+    });
+    attachEditorMarkdown(TEST_NESTED_MARKDOWN_FILE_PATH, "# Unsaved");
+    mockFolderEntryCommands({ renameFolderEntry: () => ({ path: RENAMED_DIRECTORY_PATH }) });
+
+    await renameFolderEntry(TEST_NESTED_DIRECTORY_PATH, "guides");
+
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      { path: `${RENAMED_DIRECTORY_PATH}/readme.md`, content: "# Unsaved", isDirty: true },
+      { path: TEST_MARKDOWN_FILE_PATH },
+      { path: `${RENAMED_DIRECTORY_PATH}/notes.md` },
+    ]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      path: TEST_MARKDOWN_FILE_PATH,
+    });
+  });
+
   it("leaves the session unchanged when a rename is refused", async () => {
     const activeDocument = createSavedDocument();
     setDefaultSession({ activeDocument, folderContext });
@@ -206,6 +219,35 @@ describe("folder entry workflows", () => {
     });
     expect(useSessionStore.getState().activeDocument).toBeNull();
     expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
+  });
+
+  it("asks once about the unsaved tabs a deleted directory holds and closes all its tabs", async () => {
+    const nestedPath = `${TEST_NESTED_DIRECTORY_PATH}/notes.md`;
+    vi.mocked(requestConfirmation).mockResolvedValue(true);
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ path: TEST_NESTED_MARKDOWN_FILE_PATH, isDirty: true }),
+        createSavedDocument(),
+        createSavedDocument({ path: nestedPath, isDirty: true }),
+        createSavedDocument({ path: `${TEST_NESTED_DIRECTORY_PATH}/clean.md` }),
+      ],
+      activeIndex: 2,
+      folderContext,
+    });
+    mockFolderEntryCommands({ trashFolderEntry: () => undefined });
+
+    await expect(deleteFolderEntry(TEST_NESTED_DIRECTORY_PATH, "directory")).resolves.toBe(true);
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(2);
+    expect(requestConfirmation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ detail: "readme.md\nnotes.md", confirmLabel: "Discard all" }),
+    );
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      { path: TEST_MARKDOWN_FILE_PATH },
+    ]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      path: TEST_MARKDOWN_FILE_PATH,
+    });
   });
 
   it("keeps an unrelated active document open after trashing another file", async () => {

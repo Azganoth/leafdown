@@ -19,7 +19,12 @@ import {
 import { RELEASE_NOTES_STATE_VERSION, useReleaseNotesStore } from "@/features/release-notes";
 // Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
 // beforeEach in ../setup/common.ts loads this module for every test file.
-import { useSessionStore, type SessionState } from "@/features/session/stores/session";
+import {
+  useSessionStore,
+  type DocumentReplaceOptions,
+  type DocumentTab,
+  type SessionState,
+} from "@/features/session/stores/session";
 
 export const setDefaultSettings = (settings: Partial<SettingsPersistedState> = {}) => {
   useSettingsStore.setState({
@@ -47,31 +52,63 @@ type TestUntitledDocumentState = Omit<UntitledDocumentState, "isDirty"> &
   Partial<Pick<UntitledDocumentState, "isDirty">>;
 type TestActiveDocumentState = TestSavedDocumentState | TestUntitledDocumentState;
 
-interface TestSessionState extends Omit<SessionState, "activeDocument"> {
+interface TestSessionState extends Pick<SessionState, "folderContext" | "folderContextLoad"> {
+  /** Opens one tab holding this document. */
   activeDocument: TestActiveDocumentState | null;
+  /** Opens a tab for each document instead, in this order. */
+  documents: TestActiveDocumentState[];
+  /** The position of the active tab among `documents`. */
+  activeIndex: number;
 }
 
 const toTestActiveDocumentState = (
-  activeDocument: TestActiveDocumentState | null | undefined,
-): ActiveDocumentState | null =>
-  activeDocument
-    ? {
-        isDirty: false,
-        ...activeDocument,
-      }
-    : null;
+  activeDocument: TestActiveDocumentState,
+): ActiveDocumentState => ({
+  isDirty: false,
+  ...activeDocument,
+});
 
 export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {
-  const { activeDocument, ...sessionRest } = session;
+  const { activeDocument, activeIndex = 0, documents, ...sessionRest } = session;
+  const tabs: DocumentTab[] = (documents ?? (activeDocument ? [activeDocument] : [])).map(
+    (document, index) => ({
+      id: `test-tab:${index + 1}`,
+      document: toTestActiveDocumentState(document),
+      generation: 0,
+      loadId: 0,
+      viewState: null,
+    }),
+  );
+  const activeTab = tabs[activeIndex] ?? null;
 
   useSessionStore.setState({
     folderContext: null,
     folderContextLoad: null,
-    activeDocument: toTestActiveDocumentState(activeDocument),
-    activeDocumentGeneration: 0,
-    activeDocumentLoadId: 0,
+    tabs,
+    activeTabId: activeTab?.id ?? null,
+    activeDocument: activeTab?.document ?? null,
     ...sessionRest,
   });
+};
+
+/** Replaces the active tab's document, as a save, a reload, or a rename does. */
+export const replaceActiveDocument = (
+  document: TestActiveDocumentState,
+  options?: DocumentReplaceOptions,
+) => {
+  const { activeTabId, replaceTabDocument } = useSessionStore.getState();
+
+  if (activeTabId) {
+    replaceTabDocument(activeTabId, toTestActiveDocumentState(document), options);
+  }
+};
+
+export const closeActiveTab = () => {
+  const { activeTabId, closeTabs } = useSessionStore.getState();
+
+  if (activeTabId) {
+    closeTabs([activeTabId]);
+  }
 };
 
 export const setDefaultUI = (ui: Partial<CommandUIState> = {}) => {

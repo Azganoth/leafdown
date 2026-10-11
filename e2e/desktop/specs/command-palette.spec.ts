@@ -26,7 +26,12 @@ const readSelection = () => browser.execute(() => document.getSelection()?.toStr
 
 const waitForEditorFocus = (afterCommand: string) =>
   browser.waitUntil(
-    () => browser.execute(() => document.activeElement?.matches(".ProseMirror") ?? false),
+    () =>
+      browser.execute(
+        () =>
+          document.activeElement?.matches("[data-testid=active-document-host] .ProseMirror") ??
+          false,
+      ),
     { timeoutMsg: `Editor focus was not kept after ${afterCommand}.` },
   );
 
@@ -34,13 +39,17 @@ describe("desktop command palette", () => {
   it("preserves editor state, exposes unavailable commands, and transfers focus to a chosen dialog", async () => {
     const { search } = await getDesktopE2ERunContext();
     await openRecentPath(search.path);
-    await expect($(".ProseMirror")).toBeDisplayed();
-    await $(".ProseMirror p").click();
-    await browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
-    await expect($(".ProseMirror")).toBeFocused();
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
+    await $("[data-testid=active-document-host] .ProseMirror p").click();
+    await browser.execute(() =>
+      document
+        .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")
+        ?.focus(),
+    );
+    await expect($("[data-testid=active-document-host] .ProseMirror")).toBeFocused();
 
     const before = await browser.execute(() => ({
-      content: document.querySelector(".ProseMirror")?.innerHTML,
+      content: document.querySelector("[data-testid=active-document-host] .ProseMirror")?.innerHTML,
       selection: document.getSelection()?.anchorOffset,
     }));
 
@@ -59,13 +68,18 @@ describe("desktop command palette", () => {
     await pressKey("Escape");
     await expect(query()).not.toExist();
     await browser.waitUntil(
-      () => browser.execute(() => document.activeElement?.matches(".ProseMirror") ?? false),
+      () =>
+        browser.execute(
+          () =>
+            document.activeElement?.matches("[data-testid=active-document-host] .ProseMirror") ??
+            false,
+        ),
       {
         timeoutMsg: `Editor focus was not restored after dismissing the palette: ${await browser.execute(() => document.activeElement?.outerHTML.slice(0, 200))}`,
       },
     );
     const after = await browser.execute(() => ({
-      content: document.querySelector(".ProseMirror")?.innerHTML,
+      content: document.querySelector("[data-testid=active-document-host] .ProseMirror")?.innerHTML,
       selection: document.getSelection()?.anchorOffset,
     }));
     expect(after).toEqual(before);
@@ -90,8 +104,12 @@ describe("desktop command palette", () => {
     const originalSize = await browser.getWindowSize();
     try {
       await browser.setWindowSize(640, 600);
-      await $(".ProseMirror p").click();
-      await browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
+      await $("[data-testid=active-document-host] .ProseMirror p").click();
+      await browser.execute(() =>
+        document
+          .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")
+          ?.focus(),
+      );
       expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
       await expect(query()).toBeFocused();
       const resultsViewport = $('[data-slot="dialog-content"] [data-slot="scroll-area-viewport"]');
@@ -169,7 +187,11 @@ describe("desktop command palette", () => {
   });
 
   it("dispatches an editor command through the palette", async () => {
-    await browser.execute(() => document.querySelector<HTMLElement>(".ProseMirror")?.focus());
+    await browser.execute(() =>
+      document
+        .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")
+        ?.focus(),
+    );
     expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
     await expect(query()).toBeFocused();
     await query().setValue("select all");
@@ -184,12 +206,14 @@ describe("desktop command palette", () => {
     const sentence = "The first lantern hangs by the door.";
     const placeCaretInSentence = () =>
       browser.execute((text) => {
-        const paragraph = [...document.querySelectorAll(".ProseMirror p")].find(
-          (element) => element.textContent === text,
-        );
+        const paragraph = [
+          ...document.querySelectorAll("[data-testid=active-document-host] .ProseMirror p"),
+        ].find((element) => element.textContent === text);
         const node = paragraph?.firstChild;
         if (!node) throw new Error("Sentence paragraph was not found.");
-        document.querySelector<HTMLElement>(".ProseMirror")?.focus();
+        document
+          .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")
+          ?.focus();
         document.getSelection()?.collapse(node, "The fir".length);
       }, sentence);
 
@@ -214,7 +238,9 @@ describe("desktop command palette", () => {
       () =>
         browser.execute(
           (text) =>
-            ![...document.querySelectorAll(".ProseMirror p")].some((p) => p.textContent === text),
+            ![
+              ...document.querySelectorAll("[data-testid=active-document-host] .ProseMirror p"),
+            ].some((p) => p.textContent === text),
           sentence,
         ),
       { timeoutMsg: "Delete sentence left the sentence in place." },
@@ -226,7 +252,9 @@ describe("desktop command palette", () => {
       () =>
         browser.execute(
           (text) =>
-            [...document.querySelectorAll(".ProseMirror p")].some((p) => p.textContent === text),
+            [
+              ...document.querySelectorAll("[data-testid=active-document-host] .ProseMirror p"),
+            ].some((p) => p.textContent === text),
           sentence,
         ),
       { timeoutMsg: "Undo did not restore the deleted sentence." },

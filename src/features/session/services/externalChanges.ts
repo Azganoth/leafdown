@@ -2,7 +2,6 @@ import {
   inspectMarkdownDocument,
   isInspectMarkdownFileError,
   isOpenMarkdownFileError,
-  matchesActiveDocumentKey,
   openMarkdownDocument,
   toSavedDocument,
   type ExternalFileChange,
@@ -15,32 +14,45 @@ import { t } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 import { notifySuccess, notifyWarning } from "@/lib/toast";
 
-import { useSessionStore } from "../stores/session";
+import { findCurrentTab, findTabByPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { runAfterPendingSaves } from "./documentWorkflows";
 import { notifyOpenMarkdownFileError } from "./openSession";
 
 type ExternalVersion = Extract<ExternalFileChange, { kind: "modified" }>;
 
+interface CheckedDocument {
+  tabId: string;
+  generation: number;
+  document: SavedDocumentState;
+}
+
 /**
- * Saves, Save as, and renames replace the file and the document's baseline in one queued task, so
- * a check waiting behind them never compares a file Leafdown just wrote with the baseline before it.
+ * Compares the file of an open document with the version the document holds. Saves, Save as, and
+ * renames replace the file and the document's baseline in one queued task, so a check waiting
+ * behind them never compares a file Leafdown just wrote with the baseline before it.
  */
-export const checkActiveDocumentFile = (
+export const checkDocumentFile = (
+  path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
-) => runAfterPendingSaves(() => checkActiveDocumentFileNow(cancellationToken));
+) => runAfterPendingSaves(() => checkDocumentFileNow(path, cancellationToken));
 
-const checkActiveDocumentFileNow = async (cancellationToken: CancellationToken) => {
-  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
+const checkDocumentFileNow = async (path: string, cancellationToken: CancellationToken) => {
+  const tab = findTabByPath(useSessionStore.getState(), path);
 
-  if (cancellationToken.isCancellationRequested || activeDocument?.status !== "saved") {
+  if (cancellationToken.isCancellationRequested || tab?.document.status !== "saved") {
     return;
   }
 
+  const checked: CheckedDocument = {
+    tabId: tab.id,
+    generation: tab.generation,
+    document: tab.document,
+  };
   let fileState: MarkdownFileState;
 
   try {
-    fileState = await inspectMarkdownDocument(activeDocument, cancellationToken);
+    fileState = await inspectMarkdownDocument(checked.document, cancellationToken);
   } catch (error) {
     // A failed inspection is logged where it happens; the next filesystem event checks again, and
     // Save still verifies the file before writing.
@@ -51,7 +63,7 @@ const checkActiveDocumentFileNow = async (cancellationToken: CancellationToken) 
     throw error;
   }
 
-  const document = getUnchangedBaseline(activeDocument, activeDocumentGeneration);
+  const document = getUnchangedBaseline(checked);
 
   if (!document) {
     return;
@@ -84,17 +96,17 @@ const checkActiveDocumentFileNow = async (cancellationToken: CancellationToken) 
         return;
       }
 
-      await reloadCleanDocument(document, activeDocumentGeneration, version, cancellationToken);
+      await reloadCleanDocument(checked, version, cancellationToken);
     }
   }
 };
 
 const reloadCleanDocument = async (
-  document: SavedDocumentState,
-  activeDocumentGeneration: number,
+  checked: CheckedDocument,
   version: ExternalVersion,
   cancellationToken: CancellationToken,
 ) => {
+  const { document } = checked;
   let reloaded;
 
   try {
@@ -104,7 +116,7 @@ const reloadCleanDocument = async (
       document.fileEncoding.name,
     );
   } catch (error) {
-    const latestDocument = getUnchangedBaseline(document, activeDocumentGeneration);
+    const latestDocument = getUnchangedBaseline(checked);
 
     if (isCancellationError(error) || !latestDocument) {
       return;
@@ -120,7 +132,7 @@ const reloadCleanDocument = async (
     return;
   }
 
-  const latestDocument = getUnchangedBaseline(document, activeDocumentGeneration);
+  const latestDocument = getUnchangedBaseline(checked);
 
   if (!latestDocument) {
     return;
@@ -140,7 +152,8 @@ const reloadCleanDocument = async (
     return;
   }
 
-  useSessionStore.getState().setActiveDocument(
+  useSessionStore.getState().replaceTabDocument(
+    checked.tabId,
     toSavedDocument({
       path: latestDocument.path,
       content: reloaded.content,
@@ -159,22 +172,19 @@ const reloadCleanDocument = async (
   });
 };
 
-/** Returns the active document only while it is still the version the check compared against. */
-const getUnchangedBaseline = (document: SavedDocumentState, activeDocumentGeneration: number) => {
-  const session = useSessionStore.getState();
-  const { activeDocument } = session;
+/** Returns the tab's document only while it is still the version the check compared against. */
+const getUnchangedBaseline = ({ document, generation, tabId }: CheckedDocument) => {
+  const latestDocument = findCurrentTab(useSessionStore.getState(), tabId, generation)?.document;
 
   if (
-    session.activeDocumentGeneration !== activeDocumentGeneration ||
-    activeDocument?.status !== "saved" ||
-    !matchesActiveDocumentKey(activeDocument, document.path) ||
-    activeDocument.metadata !== document.metadata ||
-    activeDocument.fingerprint !== document.fingerprint
+    latestDocument?.status !== "saved" ||
+    latestDocument.metadata !== document.metadata ||
+    latestDocument.fingerprint !== document.fingerprint
   ) {
     return null;
   }
 
-  return activeDocument;
+  return latestDocument;
 };
 
 const isObservedVersion = (document: SavedDocumentState, version: ExternalVersion) =>
@@ -186,9 +196,7 @@ const setFileState = (
   metadata: FileMetadataSnapshot,
   externalChange: ExternalFileChange | null,
 ) => {
-  useSessionStore
-    .getState()
-    .setActiveDocumentFileState(document.path, { metadata, externalChange });
+  useSessionStore.getState().setDocumentFileState(document.path, { metadata, externalChange });
 };
 
 const recordExternalVersion = (document: SavedDocumentState, version: ExternalVersion) => {

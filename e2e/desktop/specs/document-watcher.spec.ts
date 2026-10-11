@@ -8,7 +8,7 @@ import { dismissToasts, getSaveMenuItem, openRecentPath } from "../support/ui.js
 
 const WATCHER_SETTLE_MS = 1_000;
 
-const editor = () => $('[contenteditable="true"]');
+const editor = () => $('[data-testid=active-document-host] [contenteditable="true"]');
 
 // A reload remounts the editor, and an element matched before it stays detached, so each poll
 // queries the editor again.

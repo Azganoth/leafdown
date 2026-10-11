@@ -240,6 +240,8 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Command palette...** (`Mod+Shift+P`)
 - **Toggle sidebar** (`Mod+Shift+E`)
 - **Toggle status bar**
+- **Next tab** (`Mod+Tab` / `Mod+PageDown`)
+- **Previous tab** (`Mod+Shift+Tab` / `Mod+PageUp`)
 - **Outline** (Deferred)
 - **Zoom in** (`Mod+=`)
 - **Zoom out** (`Mod+-`)
@@ -258,6 +260,8 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
   - **Type**
 - **Collapse all folders**
 - **Expand all folders**
+
+`Go to tab 1` through `Go to tab 8` (`Mod+1` through `Mod+8`) and `Go to last tab` (`Mod+9`) are not in a menu; they are run from their shortcuts or the command palette.
 
 #### Help Menu
 
@@ -332,6 +336,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
   - Exception: `Insert final newline on save` remains enabled because it controls a global save setting rather than active editor content.
 - `Export`, `Print`, and `Outline` are disabled when no document is open.
 - `Save` is disabled when no document is open, or when the document is clean and already saved.
+- `Next tab` and `Previous tab` require a second open document; they move in tab order and wrap at either end. `Go to tab 1` through `Go to tab 8` require a tab at that position, and `Go to last tab` requires an open document.
 
 #### Selection And Editor State
 

@@ -6,7 +6,7 @@ import { Key } from "webdriverio";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { findMenuItem, openMenu, openRecentPath, selectFileMenuItem } from "../support/ui.js";
 
-const block = () => $(".leafdown-frontmatter");
+const block = () => $("[data-testid=active-document-host] .leafdown-frontmatter");
 
 describe("desktop frontmatter", () => {
   it("edits and validates metadata, inserts one block, and keeps all formats across documents", async () => {
@@ -15,8 +15,10 @@ describe("desktop frontmatter", () => {
 
     await expect(block()).toHaveAttribute("data-format", "yaml");
     await expect(block()).toHaveAttribute("data-validation", "valid");
-    await expect($(".leafdown-frontmatter-delimiter")).toHaveText("---");
-    await expect($(".leafdown-frontmatter code")).toHaveText(
+    await expect(
+      $("[data-testid=active-document-host] .leafdown-frontmatter-delimiter"),
+    ).toHaveText("---");
+    await expect($("[data-testid=active-document-host] .leafdown-frontmatter code")).toHaveText(
       expect.stringContaining("title: Garden report"),
     );
 
@@ -47,8 +49,12 @@ describe("desktop frontmatter", () => {
     await browser.setWindowSize(originalWindowSize.width, originalWindowSize.height);
 
     await browser.execute(() => {
-      document.querySelector<HTMLElement>(".ProseMirror")!.focus();
-      const code = document.querySelector(".leafdown-frontmatter code")!;
+      document
+        .querySelector<HTMLElement>("[data-testid=active-document-host] .ProseMirror")!
+        .focus();
+      const code = document.querySelector(
+        "[data-testid=active-document-host] .leafdown-frontmatter code",
+      )!;
       const range = document.createRange();
       range.selectNodeContents(code);
       range.collapse(false);
@@ -57,10 +63,14 @@ describe("desktop frontmatter", () => {
       selection.addRange(range);
     });
     await browser.keys(Key.Enter);
-    await $(".leafdown-frontmatter code").addValue("broken: [");
-    await expect($(".leafdown-frontmatter code")).toHaveText(expect.stringContaining("broken: ["));
+    await $("[data-testid=active-document-host] .leafdown-frontmatter code").addValue("broken: [");
+    await expect($("[data-testid=active-document-host] .leafdown-frontmatter code")).toHaveText(
+      expect.stringContaining("broken: ["),
+    );
     await expect(block()).toHaveAttribute("data-validation", "invalid");
-    await expect($(".leafdown-frontmatter-status")).toBeDisplayed();
+    await expect(
+      $("[data-testid=active-document-host] .leafdown-frontmatter-status"),
+    ).toBeDisplayed();
     await browser.keys([Key.Ctrl, "s", Key.NULL]);
     await browser.waitUntil(async () =>
       (await readFile(frontmatter.yamlPath, "utf8")).includes("broken: ["),
@@ -68,14 +78,20 @@ describe("desktop frontmatter", () => {
 
     await openRecentPath(frontmatter.tomlPath);
     await expect(block()).toHaveAttribute("data-format", "toml");
-    await expect($(".leafdown-frontmatter code")).toHaveText(expect.stringContaining("tags ="));
+    await expect($("[data-testid=active-document-host] .leafdown-frontmatter code")).toHaveText(
+      expect.stringContaining("tags ="),
+    );
     await openRecentPath(frontmatter.jsonPath);
     await expect(block()).toHaveAttribute("data-format", "json");
-    await expect($(".leafdown-frontmatter code")).toHaveText(expect.stringContaining('"title"'));
+    await expect($("[data-testid=active-document-host] .leafdown-frontmatter code")).toHaveText(
+      expect.stringContaining('"title"'),
+    );
 
     await openRecentPath(frontmatter.yamlPath);
     await expect(block()).toHaveAttribute("data-validation", "invalid");
-    await expect($(".leafdown-frontmatter code")).toHaveText(expect.stringContaining("broken: ["));
+    await expect($("[data-testid=active-document-host] .leafdown-frontmatter code")).toHaveText(
+      expect.stringContaining("broken: ["),
+    );
 
     await selectFileMenuItem("New");
     await openMenu("Insert");
@@ -84,7 +100,9 @@ describe("desktop frontmatter", () => {
     await expect(block()).toHaveAttribute("data-format", "json");
     expect(
       await browser.execute(() => {
-        const code = document.querySelector(".leafdown-frontmatter code")!;
+        const code = document.querySelector(
+          "[data-testid=active-document-host] .leafdown-frontmatter code",
+        )!;
         return code.contains(window.getSelection()?.anchorNode ?? null);
       }),
     ).toBe(true);
@@ -92,17 +110,19 @@ describe("desktop frontmatter", () => {
     await (await findMenuItem((text) => text.startsWith("Undo"))).click();
     await expect(block()).not.toExist();
 
-    await $(".ProseMirror").addValue("+++\ntitle = 'Typed'\n+++");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue(
+      "+++\ntitle = 'Typed'\n+++",
+    );
     await expect(block()).toHaveAttribute("data-format", "toml");
 
     await selectFileMenuItem("New");
-    await $("aria/Discard changes").click();
-    await $(".ProseMirror").addValue("---\ntitle: Typed\n---");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue("---\ntitle: Typed\n---");
     await expect(block()).toHaveAttribute("data-format", "yaml");
 
     await selectFileMenuItem("New");
-    await $("aria/Discard changes").click();
-    await $(".ProseMirror").addValue(';;;\n{"title":"Typed"}\n;;;');
+    await $("[data-testid=active-document-host] .ProseMirror").addValue(
+      ';;;\n{"title":"Typed"}\n;;;',
+    );
     await expect(block()).toHaveAttribute("data-format", "json");
   });
 });

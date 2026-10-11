@@ -38,6 +38,7 @@ const currentWindowMock = {
   onThemeChanged: vi.fn(async () => vi.fn()),
   setAlwaysOnTop: vi.fn(async () => undefined),
   setFullscreen: vi.fn(async () => undefined),
+  setTitle: vi.fn(async () => undefined),
   show: vi.fn(async () => undefined),
   theme: vi.fn(async () => "light"),
 };

@@ -98,7 +98,9 @@ describe("desktop raw HTML", () => {
     await expect(liveSection()).toHaveText("Multiline safe HTML.");
     expect(await $$('[data-html-rendered="false"]').length).toBe(4);
     await expect(
-      $('.ProseMirror img[src], .ProseMirror svg, .ProseMirror [style*="fixed"]'),
+      $(
+        '[data-testid=active-document-host] .ProseMirror img[src], [data-testid=active-document-host] .ProseMirror svg, [data-testid=active-document-host] .ProseMirror [style*="fixed"]',
+      ),
     ).not.toExist();
     const geometry = (await liveSection().execute((node) => {
       const block = node.getBoundingClientRect();
@@ -123,7 +125,7 @@ describe("desktop raw HTML", () => {
     for (const key of ["height", "left", "nextTop", "top", "width"] as const) {
       expect(Math.abs(unsupportedAfter[key] - unsupportedBefore[key])).toBeLessThanOrEqual(0.5);
     }
-    await $(".ProseMirror > p:last-child").execute((node) => {
+    await $("[data-testid=active-document-host] .ProseMirror > p:last-child").execute((node) => {
       const range = document.createRange();
       range.selectNodeContents(node);
       range.collapse(false);
@@ -142,8 +144,8 @@ describe("desktop raw HTML", () => {
       })),
     ).toEqual({ collapsed: true, text: "" });
     expect(await getSelectionOffset(source())).toBe(sectionClickOffset);
-    await expect($(".ProseMirror input")).not.toExist();
-    await $(".ProseMirror > p:last-child").execute((node) => {
+    await expect($("[data-testid=active-document-host] .ProseMirror input")).not.toExist();
+    await $("[data-testid=active-document-host] .ProseMirror > p:last-child").execute((node) => {
       const range = document.createRange();
       range.selectNodeContents(node);
       range.collapse(false);

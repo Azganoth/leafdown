@@ -1,7 +1,7 @@
 import {
   getActiveDocumentKey,
   inspectMarkdownDocument,
-  matchesActiveDocumentKey,
+  type SavedDocumentState,
 } from "@/features/document";
 import {
   getArticlePaths,
@@ -12,7 +12,7 @@ import {
   FolderSearchEngine,
   FolderSearchTextCache,
   useFolderSearchStore,
-  type FolderSearchActiveDocument,
+  type FolderSearchOpenDocument,
   type FolderSearchMatchKey,
   type FolderSearchState,
 } from "@/features/folder-search";
@@ -22,33 +22,47 @@ import { DisposableStore, toDisposable, type Disposable } from "@/lib/lifecycle"
 import { getPathParts, isSamePath, PathSet } from "@/lib/path";
 import { notifyWarning } from "@/lib/toast";
 
-import { useSessionStore, type SessionState } from "../stores/session";
+import {
+  findTabByDocumentKey,
+  findTabByPath,
+  useSessionStore,
+  type SessionState,
+} from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSession";
 
 // Typing waits this long for the query to settle before the folder is read for it.
 const QUERY_DELAY_MS = 200;
-// Reading the open document's text costs as much as the document is long, so an edit waits this
+// Reading an open document's text costs as much as the document is long, so an edit waits this
 // long for typing to settle before the document is searched again.
 const EDIT_DELAY_MS = 200;
 
-const getActiveDocument = (): FolderSearchActiveDocument | null => {
-  const { activeDocument } = useSessionStore.getState();
-
-  if (activeDocument?.status !== "saved") {
-    return null;
-  }
-
-  const documentKey = getActiveDocumentKey(activeDocument);
+const toOpenDocument = (document: SavedDocumentState): FolderSearchOpenDocument => {
+  const documentKey = getActiveDocumentKey(document);
 
   return {
-    path: activeDocument.path,
+    path: document.path,
     readMatches: (query, options) =>
       documentEditorBridge.readSearchMatches(documentKey, query, options),
     planReplacement: (query, replacement) =>
       documentEditorBridge.planSearchReplacement(documentKey, query, replacement),
   };
 };
+
+const getActiveDocument = () => {
+  const { activeDocument } = useSessionStore.getState();
+
+  return activeDocument?.status === "saved" ? toOpenDocument(activeDocument) : null;
+};
+
+const getOpenDocument = (path: string) => {
+  const document = findTabByPath(useSessionStore.getState(), path)?.document;
+
+  return document?.status === "saved" ? toOpenDocument(document) : null;
+};
+
+const getSavedDocuments = (state: Pick<SessionState, "tabs">) =>
+  state.tabs.flatMap(({ document }) => (document.status === "saved" ? [document] : []));
 
 const hasQueryChanged = (state: FolderSearchState, previous: FolderSearchState) =>
   state.query !== previous.query ||
@@ -83,6 +97,7 @@ class FolderSearchSession implements Disposable {
   private articlePaths: string[] = [];
   private queryTimeout: ReturnType<typeof globalThis.setTimeout> | undefined;
   private editTimeout: ReturnType<typeof globalThis.setTimeout> | undefined;
+  private readonly editedDocumentKeys = new Set<string>();
   private readonly subscriptions = new DisposableStore();
 
   constructor() {
@@ -175,23 +190,19 @@ class FolderSearchSession implements Disposable {
       this.search(false);
     }
 
-    const active = state.activeDocument;
-    const previousActive = previous.activeDocument;
-    const activeKey = active && getActiveDocumentKey(active);
-    const previousKey = previousActive && getActiveDocumentKey(previousActive);
-
-    // The document the editor let go of is read from its file again; what the editor held, such
-    // as discarded changes, is no longer what the folder holds.
-    if (activeKey !== previousKey) {
-      if (previousActive?.status === "saved") {
-        this.engine.refreshFile(previousActive.path);
-      }
-
+    if (state.tabs === previous.tabs) {
       return;
     }
 
-    if (active?.status === "saved" && active.content !== previousActive?.content) {
-      this.engine.refreshFile(active.path);
+    // A document an editor let go of is read from its file again; what the editor held, such as
+    // discarded changes, is no longer what the folder holds. One whose text was replaced, by a
+    // save or a reload, is read again as it now stands.
+    for (const document of getSavedDocuments(previous)) {
+      const current = findTabByPath(state, document.path)?.document;
+
+      if (current?.status !== "saved" || current.content !== document.content) {
+        this.engine.refreshFile(document.path);
+      }
     }
   }
 
@@ -200,15 +211,20 @@ class FolderSearchSession implements Disposable {
       return;
     }
 
+    this.editedDocumentKeys.add(documentKey);
     globalThis.clearTimeout(this.editTimeout);
     this.editTimeout = globalThis.setTimeout(() => {
-      const { activeDocument } = useSessionStore.getState();
+      const session = useSessionStore.getState();
+      const editedKeys = [...this.editedDocumentKeys];
 
-      if (
-        activeDocument?.status === "saved" &&
-        matchesActiveDocumentKey(activeDocument, documentKey)
-      ) {
-        this.engine?.refreshFile(activeDocument.path);
+      this.editedDocumentKeys.clear();
+
+      for (const key of editedKeys) {
+        const document = findTabByDocumentKey(session, key)?.document;
+
+        if (document?.status === "saved") {
+          this.engine?.refreshFile(document.path);
+        }
       }
     }, EDIT_DELAY_MS);
   }
@@ -225,7 +241,7 @@ class FolderSearchSession implements Disposable {
     }
 
     this.engine ??= new FolderSearchEngine(
-      { getActiveDocument, textCache: this.textCache },
+      { getActiveDocument, getOpenDocument, textCache: this.textCache },
       (results) => useFolderSearchStore.getState().setResults(results),
     );
     this.engine.start({
@@ -241,15 +257,17 @@ class FolderSearchSession implements Disposable {
   // leaves the folder, since what is searched is the editor's text rather than the file.
   private readArticlePaths(folderContext: FolderContextState) {
     const paths = getArticlePaths(folderContext.tree);
-    const { activeDocument } = useSessionStore.getState();
+    const folderPaths = new PathSet(paths);
 
-    if (activeDocument?.status === "saved" && activeDocument.isDirty) {
-      const previousIndex = this.articlePaths.findIndex((path) =>
-        isSamePath(path, activeDocument.path),
-      );
+    for (const document of getSavedDocuments(useSessionStore.getState())) {
+      if (!document.isDirty || folderPaths.has(document.path)) {
+        continue;
+      }
 
-      if (previousIndex !== -1 && !new PathSet(paths).has(activeDocument.path)) {
-        paths.splice(Math.min(previousIndex, paths.length), 0, activeDocument.path);
+      const previousIndex = this.articlePaths.findIndex((path) => isSamePath(path, document.path));
+
+      if (previousIndex !== -1) {
+        paths.splice(Math.min(previousIndex, paths.length), 0, document.path);
       }
     }
 
@@ -261,6 +279,7 @@ class FolderSearchSession implements Disposable {
   private stop() {
     globalThis.clearTimeout(this.queryTimeout);
     globalThis.clearTimeout(this.editTimeout);
+    this.editedDocumentKeys.clear();
     this.engine?.dispose();
     this.engine = null;
     this.articlePaths = [];
@@ -347,10 +366,11 @@ export const openFolderSearchMatch = async (match: FolderSearchMatchKey) => {
 
   const isCurrent = () => useFolderSearchStore.getState().results?.id === results.id;
   const target = { ordinal: match.ordinal, context: found.context };
-  const { activeDocument } = useSessionStore.getState();
-  const isActive = activeDocument?.status === "saved" && isSamePath(activeDocument.path, file.path);
+  const openTab = findTabByPath(useSessionStore.getState(), file.path);
 
-  if (!isActive) {
+  if (openTab) {
+    useSessionStore.getState().activateTab(openTab.id);
+  } else {
     if (file.version.source === "disk") {
       const state = await inspectMarkdownDocument({
         path: file.path,

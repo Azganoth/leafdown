@@ -4,7 +4,6 @@ import {
   ensureHtmlExtension,
   getActiveDocumentKey,
   MARKDOWN_FILE_EXTENSIONS,
-  matchesActiveDocumentKey,
   selectHtmlExportPath,
   writeHtmlDocument,
   type ActiveDocumentState,
@@ -14,7 +13,12 @@ import { SequentialTaskQueue } from "@/lib/async";
 import { t } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 
-import { getSessionFolderPath, useSessionStore } from "../stores/session";
+import {
+  findCurrentTab,
+  getActiveTab,
+  getSessionFolderPath,
+  useSessionStore,
+} from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 
 export type HtmlExportOutcome =
@@ -55,22 +59,18 @@ export const exportActiveMarkdownDocumentAsHtml = () =>
   exportTaskQueue.run(exportActiveMarkdownDocumentAsHtmlNow);
 
 const exportActiveMarkdownDocumentAsHtmlNow = async (): Promise<HtmlExportOutcome> => {
-  const { activeDocument, activeDocumentGeneration } = useSessionStore.getState();
+  const activeTab = getActiveTab(useSessionStore.getState());
 
-  if (!activeDocument) {
+  if (!activeTab) {
     return { status: "cancelled" };
   }
 
+  const activeDocument = activeTab.document;
   const documentKey = getActiveDocumentKey(activeDocument);
   const selectedPath = await selectHtmlExportPath(await getExportDefaultPath(activeDocument));
   const session = useSessionStore.getState();
 
-  if (
-    !selectedPath ||
-    !session.activeDocument ||
-    session.activeDocumentGeneration !== activeDocumentGeneration ||
-    !matchesActiveDocumentKey(session.activeDocument, documentKey)
-  ) {
+  if (!selectedPath || !findCurrentTab(session, activeTab.id, activeTab.generation)) {
     return { status: "cancelled" };
   }
 

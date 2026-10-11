@@ -27,8 +27,14 @@ export type AppCommandSettingsContext = Pick<
 >;
 export type AppCommandUIContext = Pick<CommandUIState, "fullscreen" | "pendingSortOrder" | "zoom">;
 
+export interface AppCommandTabsContext {
+  count: number;
+  activeIndex: number;
+}
+
 export interface AppCommandContext {
   activeDocument: ActiveDocumentState | null;
+  tabs: AppCommandTabsContext;
   editor: EditorCommandState;
   folderContext: FolderContextState | null;
   folderContextLoading: boolean;

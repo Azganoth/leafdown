@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { openRecentPath, selectFileMenuItem } from "../support/ui.js";
+import { closeAllDocuments, openRecentPath, selectFileMenuItem } from "../support/ui.js";
 
 const math = (value: string) =>
   $(`[data-type="math"][data-value="${value.replaceAll("\\", "\\\\")}"]`);
@@ -69,7 +69,7 @@ describe("desktop rendered math", () => {
 
     await pressMath(math("$E = mc^2$"));
     await waitForProjection("$E = mc^2$");
-    await $(".ProseMirror").addValue("z");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue("z");
     await waitForProjection("$zE = mc^2$");
     await browser.keys([Key.Ctrl, "s", Key.NULL]);
     const edited = original.replace("$E = mc^2$", "$zE = mc^2$");
@@ -103,6 +103,7 @@ describe("desktop rendered math", () => {
         violations.push(`${event.violatedDirective} ${event.blockedURI}`);
       });
     });
+    await closeAllDocuments();
     await openRecentPath(fixture.path);
 
     const inline = math("$x^2$");
@@ -218,7 +219,7 @@ describe("desktop rendered math", () => {
     expect(
       await browser.execute(() => document.activeElement?.classList.contains("ProseMirror")),
     ).toBe(true);
-    await $(".ProseMirror").addValue("z");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue("z");
     expect((await readProjection()).text).toBe("$zx^2$");
     expect(await preview().execute((node) => node.querySelector("annotation")?.textContent)).toBe(
       "zx^2",
@@ -258,7 +259,7 @@ describe("desktop rendered math", () => {
       );
     await expect(fenced).toHaveAttribute("class", /\bleafdown-code-block--active\b/u);
     expect(await fenced.$("code").execute((node) => getComputedStyle(node).display)).toBe("block");
-    await $(".ProseMirror").addValue("z");
+    await $("[data-testid=active-document-host] .ProseMirror").addValue("z");
     expect(await fenced.$("code").getText()).toBe("zx^2 + y^2");
     expect(await fenced.execute((node) => node.querySelector("annotation")?.textContent)).toBe(
       "zx^2 + y^2",
@@ -303,7 +304,7 @@ describe("desktop rendered math", () => {
       const range = document.createRange();
       range.setStart(before, before.textContent!.length);
       range.collapse(true);
-      node.closest<HTMLElement>(".ProseMirror")!.focus();
+      node.closest<HTMLElement>("[data-testid=active-document-host] .ProseMirror")!.focus();
       const selection = window.getSelection()!;
       selection.removeAllRanges();
       selection.addRange(range);

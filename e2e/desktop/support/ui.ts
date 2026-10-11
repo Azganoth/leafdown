@@ -43,6 +43,39 @@ export const openRecentPath = async (path: string) => {
   await (await findMenuItem((text) => text === path)).click();
 };
 
+const DOCUMENT_TAB_SELECTOR = '[data-testid="document-tab"]';
+
+export const countDocumentTabs = async () => $$(DOCUMENT_TAB_SELECTOR).length;
+
+/**
+ * Closes every open document, discarding unsaved changes, so a scenario that moves to another
+ * fixture has only that fixture's editor in the window.
+ */
+export const closeAllDocuments = async () => {
+  for (let count = await countDocumentTabs(); count > 0; count = await countDocumentTabs()) {
+    await selectFileMenuItem("Close document");
+    await browser.waitUntil(
+      async () =>
+        (await countDocumentTabs()) < count || (await $("aria/Discard changes").isExisting()),
+      { timeoutMsg: "Close document neither closed the tab nor asked about its changes." },
+    );
+
+    if (await $("aria/Discard changes").isExisting()) {
+      await $("aria/Discard changes").click();
+      await browser.waitUntil(async () => (await countDocumentTabs()) < count, {
+        timeoutMsg: "Discarding did not close the tab.",
+      });
+    }
+  }
+};
+
+export const findDocumentTab = (name: string) =>
+  findByText(
+    DOCUMENT_TAB_SELECTOR,
+    (text) => text === name,
+    `Document tab ${name} did not appear.`,
+  );
+
 export const dismissToasts = async () => {
   for (const close of await $$('[data-slot="toast-close"]').getElements()) {
     await close.click();

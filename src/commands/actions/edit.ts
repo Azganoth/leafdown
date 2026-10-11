@@ -26,9 +26,7 @@ const setActiveDocumentEncoding = (
     return;
   }
 
-  useSessionStore
-    .getState()
-    .setActiveDocumentEncoding(getActiveDocumentKey(activeDocument), encoding);
+  useSessionStore.getState().setDocumentEncoding(getActiveDocumentKey(activeDocument), encoding);
 };
 
 const getConvertibleFileEncoding = (activeDocument: ActiveDocumentState | null) =>
@@ -109,7 +107,7 @@ const setActiveDocumentLineEnding = (
   }
 
   const activeDocumentKey = getActiveDocumentKey(activeDocument);
-  useSessionStore.getState().setActiveDocumentLineEnding(activeDocumentKey, lineEnding);
+  useSessionStore.getState().setDocumentLineEnding(activeDocumentKey, lineEnding);
 };
 
 export const setCrlfLineEnding = (context: AppCommandContext) => {

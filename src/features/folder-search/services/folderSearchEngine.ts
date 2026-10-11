@@ -103,8 +103,8 @@ export interface FolderSearchResults {
   skipped: FolderSearchSkippedFile[];
 }
 
-/** The document the editor holds, searched as it stands rather than as its file does. */
-export interface FolderSearchActiveDocument {
+/** A document an editor holds, searched as it stands rather than as its file does. */
+export interface FolderSearchOpenDocument {
   path: string;
   readMatches: (
     query: TextSearchQuery,
@@ -114,7 +114,9 @@ export interface FolderSearchActiveDocument {
 }
 
 export interface FolderSearchHost {
-  getActiveDocument: () => FolderSearchActiveDocument | null;
+  /** The document on screen, whose source projection a new search settles before reading it. */
+  getActiveDocument: () => FolderSearchOpenDocument | null;
+  getOpenDocument: (path: string) => FolderSearchOpenDocument | null;
   /** Text read by earlier searches, which the host keeps, and clears, for as long as it holds. */
   textCache?: FolderSearchTextCache;
   readFiles?: (args: ReadFolderSearchFilesArgs) => Promise<FolderSearchFileOutcome[]>;
@@ -346,7 +348,7 @@ export class FolderSearchEngine implements Disposable {
 
     // Read from the editor at once, so a caller that refreshes and then marks a match knows the
     // results it marks are the ones shown.
-    if (this.writeActiveDocument(search, path, capacity)) {
+    if (this.writeOpenDocument(search, path, capacity)) {
       this.settleIfIdle(search);
       this.publishNow();
       return;
@@ -423,7 +425,7 @@ export class FolderSearchEngine implements Disposable {
 
       const capacity = search.matchLimit - keptMatchCount;
 
-      if (!this.writeActiveDocument(search, path, capacity)) {
+      if (!this.writeOpenDocument(search, path, capacity)) {
         this.applyOutcome(search, path, outcome, parser, capacity);
       }
 
@@ -512,18 +514,18 @@ export class FolderSearchEngine implements Disposable {
     return cached.metadata;
   }
 
-  private writeActiveDocument(search: ActiveSearch, path: string, capacity = Infinity) {
-    const active = this.host.getActiveDocument();
+  private writeOpenDocument(search: ActiveSearch, path: string, capacity = Infinity) {
+    const open = this.host.getOpenDocument(path);
 
-    if (!active || !isSamePath(active.path, path)) {
+    if (!open) {
       return false;
     }
 
     if (search.replacement) {
-      return this.writeActiveDocumentReplacement(search, active, path);
+      return this.writeOpenDocumentReplacement(search, open, path);
     }
 
-    const found = active.readMatches(search.query, { finalizeProjection: false });
+    const found = open.readMatches(search.query, { finalizeProjection: false });
 
     if (!found) {
       return false;
@@ -545,12 +547,12 @@ export class FolderSearchEngine implements Disposable {
     return true;
   }
 
-  private writeActiveDocumentReplacement(
+  private writeOpenDocumentReplacement(
     search: ActiveSearch,
-    active: FolderSearchActiveDocument,
+    open: FolderSearchOpenDocument,
     path: string,
   ) {
-    const plan = active.planReplacement(search.query, search.replacement?.text ?? "");
+    const plan = open.planReplacement(search.query, search.replacement?.text ?? "");
 
     if (!plan) {
       return false;

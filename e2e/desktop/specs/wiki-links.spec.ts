@@ -5,7 +5,8 @@ import { Key } from "webdriverio";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { ctrlClickElement, findTreeItem, openRecentPath } from "../support/ui.js";
 
-const link = (source: string) => $(`[data-type="wiki-link"][data-source="${source}"]`);
+const link = (source: string) =>
+  $(`[data-testid=active-document-host] [data-type="wiki-link"][data-source="${source}"]`);
 
 const caretIsInHeading = () =>
   browser.execute(() =>
@@ -18,7 +19,7 @@ describe("desktop wiki links", () => {
     await openRecentPath(wikiLinks.folderPath);
     await (await findTreeItem("index.md")).click();
 
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(editor).toBeDisplayed();
     await expect(link("[[target|Target alias]]")).toHaveAttribute("data-wiki-status", "resolved");
     await expect(link("[[missing|Missing]]")).toHaveAttribute("data-wiki-status", "unresolved");
@@ -44,7 +45,7 @@ describe("desktop wiki links", () => {
     );
 
     await ctrlClickElement(await link("[[target#Target heading|Target section]]").getElement());
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining("Target heading"),
     );
     await browser.waitUntil(caretIsInHeading, {
@@ -55,7 +56,7 @@ describe("desktop wiki links", () => {
     await ctrlClickElement(await link("[[../outside.md|Outside]]").getElement());
     await expect($("aria/Open outside folder?")).toBeDisplayed();
     await $("aria/Open file").click();
-    await expect($('[contenteditable="true"]')).toHaveText(
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
       expect.stringContaining("Outside heading"),
     );
     await expect(await findTreeItem("index.md")).toBeDisplayed();

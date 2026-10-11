@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ENCODING_CHOICES, type OpenedMarkdownDocument } from "@/features/document";
 import type { FolderContextState } from "@/features/folder-context";
 import { useRecentItemsStore } from "@/features/preferences";
-import { useSessionStore } from "@/features/session";
+import { getActiveTab, useSessionStore } from "@/features/session";
 import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
 import { toastManager } from "@/lib/toast";
@@ -38,7 +38,6 @@ const OTHER_MARKDOWN_PATH = "C:/Notes/other.md";
 const OTHER_FOLDER_PATH = "C:/Other";
 const LATEST_MARKDOWN_PATH = "C:/Notes/latest.md";
 const LATEST_FOLDER_PATH = "C:/Latest";
-const NEXT_UNTITLED_DOCUMENT_ID = "untitled:next";
 
 const emptyNotesFolderContext = createEmptyFolderContext();
 
@@ -51,12 +50,6 @@ const openedLatestMarkdownFile = createOpenedMarkdownDocument({
   path: LATEST_MARKDOWN_PATH,
   content: "# Latest",
 });
-
-const createNextUntitledDocument = () =>
-  createUntitledDocument({
-    id: NEXT_UNTITLED_DOCUMENT_ID,
-    content: "Next",
-  });
 
 interface OpenFolderContextCommandResult {
   folder: FolderContextState;
@@ -87,8 +80,8 @@ describe("reopen with a chosen encoding", () => {
       path: TEST_MARKDOWN_FILE_PATH,
       encoding: "windows-1252",
     });
+    expect(getActiveTab(useSessionStore.getState())?.loadId).toBe(1);
     expect(useSessionStore.getState()).toMatchObject({
-      activeDocumentLoadId: 1,
       activeDocument: {
         content: "# Café",
         isDirty: false,
@@ -133,8 +126,8 @@ describe("reopen with a chosen encoding", () => {
       reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
     ).resolves.toBe(true);
 
+    expect(getActiveTab(useSessionStore.getState())?.loadId).toBe(0);
     expect(useSessionStore.getState()).toMatchObject({
-      activeDocumentLoadId: 0,
       activeDocument: { encoding: { name: "windows-1252", bom: false } },
     });
   });
@@ -157,8 +150,8 @@ describe("reopen with a chosen encoding", () => {
       reopenMarkdownFileWithChosenEncoding(TEST_MARKDOWN_FILE_PATH, "windows-1252"),
     ).resolves.toBe(true);
 
+    expect(getActiveTab(useSessionStore.getState())?.loadId).toBe(1);
     expect(useSessionStore.getState()).toMatchObject({
-      activeDocumentLoadId: 1,
       activeDocument: { content: "# Plain", isDirty: false },
     });
   });
@@ -374,45 +367,62 @@ describe("open session workflows", () => {
     });
   });
 
-  it("cancels open-file transitions before reading a new target", async () => {
+  it("opens a file in a new tab without asking about the active document's unsaved changes", async () => {
+    const activeDocument = createSavedDocument({ content: "# Local", isDirty: true });
+    setDefaultSession({ activeDocument });
+    mockTauriApi({ openMarkdownFile: () => openedOtherMarkdownFile });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
+
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      activeDocument,
+      { path: OTHER_MARKDOWN_PATH, content: "# Other" },
+    ]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: OTHER_MARKDOWN_PATH });
+  });
+
+  it("adds the new tab after the active one", async () => {
     setDefaultSession({
-      activeDocument: createSavedDocument({
-        content: "# Local",
-        isDirty: true,
-      }),
+      documents: [createSavedDocument(), createSavedDocument({ path: LATEST_MARKDOWN_PATH })],
     });
+    mockTauriApi({ openMarkdownFile: () => openedOtherMarkdownFile });
 
-    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(false);
+    await openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
 
-    expect(invoke).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      { path: TEST_MARKDOWN_FILE_PATH },
+      { path: OTHER_MARKDOWN_PATH },
+      { path: LATEST_MARKDOWN_PATH },
+    ]);
+  });
+
+  it("activates the tab already holding a file instead of reading it again", async () => {
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ isDirty: true }),
+        createSavedDocument({ path: OTHER_MARKDOWN_PATH }),
+      ],
+      activeIndex: 1,
+    });
+    mockTauriApi({});
+
+    await expect(openMarkdownFileAtPath("c:\\notes\\README.md")).resolves.toBe(true);
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs).toHaveLength(2);
     expect(useSessionStore.getState().activeDocument).toMatchObject({
-      status: "saved",
       path: TEST_MARKDOWN_FILE_PATH,
-      content: "# Local",
       isDirty: true,
     });
+    expect(useRecentItemsStore.getState().recentFiles).toMatchObject([
+      { path: TEST_MARKDOWN_FILE_PATH },
+    ]);
   });
 
-  it("cancels open-folder transitions before scanning a new folder", async () => {
-    setDefaultSession({
-      activeDocument: createUntitledDocument({ isDirty: true }),
-    });
-
-    await expect(openFolderContextAtPath(OTHER_FOLDER_PATH)).resolves.toBe(false);
-
-    expect(invoke).not.toHaveBeenCalled();
-    expect(useSessionStore.getState().activeDocument).toMatchObject(
-      createUntitledDocument({ isDirty: true }),
-    );
-  });
-
-  it("does not apply opened file results after the active document changes", async () => {
+  it("activates a tab that opened the same file while it was being read", async () => {
     const openFileDeferred = Promise.withResolvers<OpenedMarkdownDocument>();
-    setDefaultSession({
-      activeDocument: createSavedDocument({
-        content: "# Readme",
-      }),
-    });
     mockTauriApi({
       openMarkdownFile: () => openFileDeferred.promise,
       scanMarkdownFolder: () => emptyNotesFolderContext,
@@ -420,19 +430,17 @@ describe("open session workflows", () => {
 
     const openPromise = openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
 
-    await vi.waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith(tauriApiCommand("openMarkdownFile"), expect.any(Object));
-    });
+    await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
 
-    useSessionStore.getState().setActiveDocument(createNextUntitledDocument());
+    const openedMeanwhile = useSessionStore
+      .getState()
+      .openTab(createSavedDocument({ path: OTHER_MARKDOWN_PATH, content: "# Meanwhile" }));
+    useSessionStore.getState().openTab(createSavedDocument({ path: LATEST_MARKDOWN_PATH }));
     openFileDeferred.resolve(openedOtherMarkdownFile);
 
-    await expect(openPromise).resolves.toBe(false);
-    expect(useSessionStore.getState().activeDocument).toMatchObject({
-      status: "untitled",
-      id: NEXT_UNTITLED_DOCUMENT_ID,
-      content: "Next",
-    });
+    await expect(openPromise).resolves.toBe(true);
+    expect(useSessionStore.getState().tabs).toHaveLength(2);
+    expect(useSessionStore.getState().activeTabId).toBe(openedMeanwhile.id);
   });
 
   it("does not apply superseded opened file results", async () => {
@@ -486,40 +494,59 @@ describe("open session workflows", () => {
     });
   });
 
-  it("does not apply opened folder results after the active document changes", async () => {
-    const openedOtherFolder: OpenFolderContextCommandResult = {
+  it("opens a folder while keeping the open tabs, without asking about unsaved changes", async () => {
+    const activeDocument = createUntitledDocument({ isDirty: true });
+    setDefaultSession({ activeDocument });
+    mockTauriApiCommand("openMarkdownFolder", () => ({
       folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
       indexDocument: null,
       indexError: null,
-    };
-    const openFolderDeferred = Promise.withResolvers<OpenFolderContextCommandResult>();
-    setDefaultSession({
-      activeDocument: createSavedDocument({
-        content: "# Readme",
-      }),
+    }));
+
+    await expect(openFolderContextAtPath(OTHER_FOLDER_PATH)).resolves.toBe(true);
+
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: OTHER_FOLDER_PATH },
+      activeDocument,
     });
-    mockTauriApi({
-      openMarkdownFolder: () => openFolderDeferred.promise,
-    });
+  });
 
-    const openPromise = openFolderContextAtPath(OTHER_FOLDER_PATH);
+  it("opens the folder's index file in a new tab after the active one", async () => {
+    setDefaultSession({ activeDocument: createUntitledDocument() });
+    mockTauriApiCommand("openMarkdownFolder", () => ({
+      folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
+      indexDocument: createOpenedMarkdownDocument({ path: `${OTHER_FOLDER_PATH}/index.md` }),
+      indexError: null,
+    }));
 
-    await vi.waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith(
-        tauriApiCommand("openMarkdownFolder"),
-        expect.any(Object),
-      );
-    });
+    await openFolderContextAtPath(OTHER_FOLDER_PATH);
 
-    useSessionStore.getState().setActiveDocument(createNextUntitledDocument());
-    openFolderDeferred.resolve(openedOtherFolder);
-
-    await expect(openPromise).resolves.toBe(false);
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+      { status: "untitled" },
+      { path: `${OTHER_FOLDER_PATH}/index.md` },
+    ]);
     expect(useSessionStore.getState().activeDocument).toMatchObject({
-      status: "untitled",
-      id: NEXT_UNTITLED_DOCUMENT_ID,
-      content: "Next",
+      path: `${OTHER_FOLDER_PATH}/index.md`,
     });
+  });
+
+  it("activates the index file's tab when the file is already open", async () => {
+    const indexDocument = createSavedDocument({
+      path: `${OTHER_FOLDER_PATH}/index.md`,
+      isDirty: true,
+    });
+    setDefaultSession({ documents: [indexDocument, createUntitledDocument()], activeIndex: 1 });
+    mockTauriApiCommand("openMarkdownFolder", () => ({
+      folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
+      indexDocument: createOpenedMarkdownDocument({ path: `${OTHER_FOLDER_PATH}/index.md` }),
+      indexError: null,
+    }));
+
+    await openFolderContextAtPath(OTHER_FOLDER_PATH);
+
+    expect(useSessionStore.getState().tabs).toHaveLength(2);
+    expect(useSessionStore.getState().activeDocument).toEqual(indexDocument);
   });
 
   it("does not apply superseded opened folder results", async () => {
@@ -581,7 +608,7 @@ describe("open session workflows", () => {
     await expect(latestOpenPromise).resolves.toBe(true);
     expect(useSessionStore.getState()).toMatchObject({
       folderContext: { path: LATEST_FOLDER_PATH },
-      activeDocument: null,
+      activeDocument: { status: "saved", path: TEST_MARKDOWN_FILE_PATH },
     });
   });
 });
@@ -671,7 +698,7 @@ describe("folder context after opening a file", () => {
     expect(useSessionStore.getState()).toMatchObject({
       folderContext: { path: LATEST_FOLDER_PATH },
       folderContextLoad: null,
-      activeDocument: null,
+      activeDocument: { path: OTHER_MARKDOWN_PATH },
     });
     expect(useRecentItemsStore.getState().recentFolders).toMatchObject([
       { path: LATEST_FOLDER_PATH },

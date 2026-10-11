@@ -15,11 +15,11 @@ import {
 import { DebouncedTaskRunner } from "@/lib/async";
 import { isCancellationError } from "@/lib/cancellation";
 import { getErrorDescription, handleUnexpectedError } from "@/lib/errors";
-import { MutableDisposable } from "@/lib/lifecycle";
-import { isSamePath } from "@/lib/path";
+import { MutableDisposable, type Disposable } from "@/lib/lifecycle";
+import { isSamePath, PathMap, PathSet } from "@/lib/path";
 
-import { checkActiveDocumentFile } from "../services/externalChanges";
-import { useSessionStore } from "../stores/session";
+import { checkDocumentFile } from "../services/externalChanges";
+import { useSessionStore, type DocumentTab } from "../stores/session";
 
 export const DOCUMENT_WATCH_CHECK_DELAY_MS = 150;
 let nextDocumentWatcherScopeGeneration = 0;
@@ -31,25 +31,62 @@ export const resetDocumentWatcherScopeGenerationForTests = () => {
   nextDocumentWatcherScopeGeneration = 0;
 };
 
-/** Watches the active saved document on its own, whether or not the folder context contains it. */
-export const useActiveDocumentWatcher = () => {
-  const documentPath = useSessionStore((state) =>
-    state.activeDocument?.status === "saved" ? state.activeDocument.path : null,
-  );
-
+/** Watches each open saved document on its own, whether or not the folder context contains it. */
+export const useDocumentWatchers = () => {
   useEffect(() => {
-    if (!documentPath) {
-      return;
-    }
+    const watchers = new DocumentWatchers();
 
-    const session = new ActiveDocumentWatchSession(documentPath);
-    session.start();
+    watchers.sync(useSessionStore.getState().tabs);
+    const unsubscribe = useSessionStore.subscribe((state, previous) => {
+      if (state.tabs !== previous.tabs) {
+        watchers.sync(state.tabs);
+      }
+    });
 
     return () => {
-      session.dispose();
+      unsubscribe();
+      watchers.dispose();
     };
-  }, [documentPath]);
+  }, []);
 };
+
+class DocumentWatchers implements Disposable {
+  private readonly sessions = new PathMap<DocumentWatchSession>();
+  private readonly paths = new PathSet();
+
+  sync(tabs: readonly DocumentTab[]) {
+    const nextPaths = new PathSet(
+      tabs.flatMap(({ document }) => (document.status === "saved" ? [document.path] : [])),
+    );
+
+    for (const path of this.paths) {
+      if (!nextPaths.has(path)) {
+        this.sessions.get(path)?.dispose();
+        this.sessions.delete(path);
+        this.paths.delete(path);
+      }
+    }
+
+    for (const path of nextPaths) {
+      if (!this.paths.has(path)) {
+        const session = new DocumentWatchSession(path);
+
+        this.sessions.set(path, session);
+        this.paths.add(path);
+        session.start();
+      }
+    }
+  }
+
+  dispose() {
+    for (const path of this.paths) {
+      this.sessions.get(path)?.dispose();
+    }
+
+    this.sessions.clear();
+    this.paths.clear();
+  }
+}
 
 const createDocumentWatcherScopeId = () => {
   nextDocumentWatcherScopeGeneration += 1;
@@ -57,11 +94,11 @@ const createDocumentWatcherScopeId = () => {
   return `document-watch:${nextDocumentWatcherScopeGeneration}`;
 };
 
-class ActiveDocumentWatchSession {
+class DocumentWatchSession {
   private readonly appWindow = getCurrentWindow();
   private readonly nativeWatchScopeId = createDocumentWatcherScopeId();
   private readonly checkRunner = new DebouncedTaskRunner(
-    checkActiveDocumentFile,
+    (cancellationToken) => checkDocumentFile(this.documentPath, cancellationToken),
     DOCUMENT_WATCH_CHECK_DELAY_MS,
   );
   private readonly changedListener = new MutableDisposable<() => void>();
@@ -121,7 +158,7 @@ class ActiveDocumentWatchSession {
 
     void this.checkRunner.run().catch((error) => {
       if (!isCancellationError(error)) {
-        handleUnexpectedError(error, "checkActiveDocumentFile");
+        handleUnexpectedError(error, "checkDocumentFile");
       }
     });
   }

@@ -17,7 +17,7 @@ export {
   FolderSearchEngine,
   hasCompleteReplacementPlan,
   type FolderReplaceFilePlan,
-  type FolderSearchActiveDocument,
+  type FolderSearchOpenDocument,
   type FolderSearchFileResult,
   type FolderSearchMatch,
   type FolderSearchRequest,

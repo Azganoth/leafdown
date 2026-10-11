@@ -60,7 +60,9 @@ describe("desktop callouts", () => {
       const paragraph = document.querySelector<HTMLElement>(
         '.leafdown-callout[data-dialect="docusaurus"] .leafdown-callout-body p',
       )!;
-      const editor = document.querySelector<HTMLElement>(".ProseMirror")!;
+      const editor = document.querySelector<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror",
+      )!;
       const range = document.createRange();
       range.selectNodeContents(paragraph);
       range.collapse(false);
@@ -69,7 +71,9 @@ describe("desktop callouts", () => {
       selection.addRange(range);
       editor.focus();
     });
-    await $('[contenteditable="true"]').addValue(" Edited body.");
+    await $('[data-testid=active-document-host] [contenteditable="true"]').addValue(
+      " Edited body.",
+    );
     await expect($(`${docusaurus} .leafdown-callout-body`)).toHaveText(
       "Docusaurus body. Edited body.",
     );

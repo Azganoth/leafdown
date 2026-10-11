@@ -325,12 +325,41 @@ describe("useAppCommands shortcut routing", () => {
 
     expect(useFolderSearchStore.getState().open).toBe(false);
 
-    act(() => useSessionStore.getState().setFolderOnlySession(createFolderContext()));
+    act(() => useSessionStore.getState().setFolderContext(createFolderContext()));
 
     const event = dispatchKeyDown(window, "F", { ctrl: true, shift: true });
 
     expect(event.defaultPrevented).toBe(true);
     expect(useFolderSearchStore.getState().open).toBe(true);
+  });
+
+  it("switches tabs with Mod+Tab, Mod+PageUp, and Mod+9", () => {
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ path: "C:/Notes/a.md" }),
+        createSavedDocument({ path: "C:/Notes/b.md" }),
+        createSavedDocument({ path: "C:/Notes/c.md" }),
+      ],
+    });
+    render(<AppCommandsHarness />);
+    const press = (key: string) => {
+      let event: KeyboardEvent | undefined;
+
+      act(() => {
+        event = dispatchKeyDown(window, key, { ctrl: true });
+      });
+
+      return event!;
+    };
+
+    expect(press("Tab").defaultPrevented).toBe(true);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: "C:/Notes/b.md" });
+
+    press("PageUp");
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: "C:/Notes/a.md" });
+
+    press("9");
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: "C:/Notes/c.md" });
   });
 
   it("reports rejected application command executions", async () => {

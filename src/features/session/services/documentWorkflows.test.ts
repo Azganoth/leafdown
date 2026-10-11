@@ -6,6 +6,7 @@ import type { SavedMarkdownDocument } from "@/features/document";
 import { DEFAULT_IGNORED_DIRECTORIES } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
 import { requestConfirmation } from "@/lib/confirmation";
+import { toastManager } from "@/lib/toast";
 import {
   createSavedDocument,
   createSavedMarkdownDocumentResult,
@@ -15,7 +16,11 @@ import {
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { createArticleTree, createFolderContext } from "@/test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "@/test/fixtures/paths";
-import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
+import {
+  replaceActiveDocument,
+  setDefaultSession,
+  setDefaultSettings,
+} from "@/test/utils/appStores";
 import {
   countTauriApiCalls,
   getLastTauriApiArgs,
@@ -27,8 +32,8 @@ import {
 import { documentEditorBridge } from "./documentEditorBridge";
 import {
   closeActiveMarkdownDocument,
+  closeDocumentTab,
   createNewMarkdownDocument,
-  resetDocumentWorkflowIdsForTests,
   retainEditorMarkdown,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
@@ -59,7 +64,6 @@ describe("document workflows", () => {
   beforeEach(() => {
     vi.mocked(requestConfirmation).mockReset().mockResolvedValue(false);
     documentEditorBridge.clear();
-    resetDocumentWorkflowIdsForTests();
   });
 
   describe("new document", () => {
@@ -85,20 +89,38 @@ describe("document workflows", () => {
       expect(invoke).not.toHaveBeenCalled();
     });
 
-    it("cancels New when the dirty document transition is declined", async () => {
+    it("adds an untitled tab after the active one, keeping the unsaved document open", async () => {
       setDefaultSession({
-        activeDocument: createUntitledDocument({ isDirty: true }),
+        documents: [
+          createUntitledDocument({ isDirty: true }),
+          createSavedDocument({ path: OUTSIDE_DRAFT_MD_PATH }),
+        ],
       });
 
-      await expect(createNewMarkdownDocument()).resolves.toBe(false);
+      await expect(createNewMarkdownDocument()).resolves.toBe(true);
 
-      expect(requestConfirmation).toHaveBeenCalledOnce();
-      expect(useSessionStore.getState().activeDocument).toMatchObject({
-        status: "untitled",
-        id: TEST_UNTITLED_DOCUMENT_ID,
-        content: "Draft",
-        isDirty: true,
+      expect(requestConfirmation).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+        { id: TEST_UNTITLED_DOCUMENT_ID, content: "Draft", isDirty: true },
+        { status: "untitled", id: "untitled:2", content: "" },
+        { path: OUTSIDE_DRAFT_MD_PATH },
+      ]);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({ id: "untitled:2" });
+    });
+
+    it("numbers a new untitled document with the lowest number no open one uses", async () => {
+      setDefaultSession({
+        documents: [createUntitledDocument({ id: "untitled:2" })],
       });
+
+      await createNewMarkdownDocument();
+      await createNewMarkdownDocument();
+
+      expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+        { id: "untitled:2" },
+        { id: "untitled:1" },
+        { id: "untitled:3" },
+      ]);
     });
   });
 
@@ -162,7 +184,7 @@ describe("document workflows", () => {
         );
       });
 
-      useSessionStore.getState().setActiveDocument(createNextUntitledDocument());
+      replaceActiveDocument(createNextUntitledDocument());
       saveDeferred.resolve(createSavedMarkdownDocumentResult());
 
       await expect(savePromise).resolves.toBe(false);
@@ -170,6 +192,34 @@ describe("document workflows", () => {
         status: "untitled",
         id: NEXT_UNTITLED_DOCUMENT_ID,
       });
+    });
+
+    it("saves the document that was active when Save was chosen, after a queued save", async () => {
+      const firstSave = Promise.withResolvers<SavedMarkdownDocument>();
+      setDefaultSession({
+        documents: [
+          createSavedDocument({ isDirty: true }),
+          createSavedDocument({ path: OUTSIDE_DRAFT_MD_PATH, isDirty: true }),
+        ],
+      });
+      mockTauriApiCommand("saveMarkdownFile", (args: { path: string }) =>
+        args.path === TEST_MARKDOWN_FILE_PATH && countTauriApiCalls("saveMarkdownFile") === 1
+          ? firstSave.promise
+          : createSavedMarkdownDocumentResult({ path: args.path }),
+      );
+
+      const first = saveActiveMarkdownDocument();
+      await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
+      const second = saveActiveMarkdownDocument();
+
+      useSessionStore.getState().activateTab(useSessionStore.getState().tabs[1].id);
+      firstSave.resolve(createSavedMarkdownDocumentResult());
+
+      await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({
+        path: TEST_MARKDOWN_FILE_PATH,
+      });
+      expect(useSessionStore.getState().tabs[1].document).toMatchObject({ isDirty: true });
     });
 
     it("serializes concurrent save requests", async () => {
@@ -233,7 +283,7 @@ describe("document workflows", () => {
       );
 
       retainEditorMarkdown(TEST_MARKDOWN_FILE_PATH);
-      useSessionStore.getState().markActiveDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+      useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
       retainEditorMarkdown(OUTSIDE_DRAFT_MD_PATH);
 
       expect(getMarkdown).not.toHaveBeenCalled();
@@ -377,7 +427,7 @@ describe("document workflows", () => {
         );
       });
 
-      useSessionStore.getState().setActiveDocument(createNextUntitledDocument());
+      replaceActiveDocument(createNextUntitledDocument());
       saveDeferred.resolve(createSavedMarkdownDocumentResult());
 
       await expect(savePromise).resolves.toBe(false);
@@ -494,6 +544,39 @@ describe("document workflows", () => {
         isDirty: false,
       });
     });
+
+    it("refuses to save over a file open in another tab", async () => {
+      setDefaultSession({
+        documents: [createUntitledDocument(), createSavedDocument({ path: DRAFT_MD_PATH })],
+      });
+      vi.mocked(save).mockResolvedValue("c:\\notes\\DRAFT.md");
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(false);
+
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(0);
+      expect(toastManager.add).toHaveBeenCalledWith({
+        title: "Document is already open",
+        description:
+          "draft.md is open in another tab. Close it before saving over it, or choose another name.",
+        type: "error",
+      });
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        id: TEST_UNTITLED_DOCUMENT_ID,
+      });
+    });
+
+    it("saves a document again at its own path", async () => {
+      setDefaultSession({ activeDocument: createSavedDocument({ isDirty: true }) });
+      vi.mocked(save).mockResolvedValue(TEST_MARKDOWN_FILE_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () => createSavedMarkdownDocumentResult(),
+        scanMarkdownFolder: () => notesFolderContext,
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(1);
+    });
   });
 
   describe("close", () => {
@@ -523,6 +606,47 @@ describe("document workflows", () => {
         status: "saved",
         path: TEST_MARKDOWN_FILE_PATH,
         isDirty: true,
+      });
+    });
+
+    it("activates the next tab after closing the active one and focuses its editor", async () => {
+      const focus = vi.fn();
+      setDefaultSession({
+        documents: [createSavedDocument(), createSavedDocument({ path: OUTSIDE_DRAFT_MD_PATH })],
+      });
+      documentEditorBridge.set(OUTSIDE_DRAFT_MD_PATH, createMilkdownEditorBridge({ focus }));
+
+      await expect(closeActiveMarkdownDocument()).resolves.toBe(true);
+      documentEditorBridge.show(OUTSIDE_DRAFT_MD_PATH);
+
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        path: OUTSIDE_DRAFT_MD_PATH,
+      });
+      expect(focus).toHaveBeenCalledOnce();
+    });
+
+    it("asks about an inactive tab's unsaved changes by name and leaves the active tab", async () => {
+      setDefaultSession({
+        documents: [
+          createSavedDocument(),
+          createSavedDocument({ path: OUTSIDE_DRAFT_MD_PATH, isDirty: true }),
+        ],
+      });
+      vi.mocked(requestConfirmation).mockResolvedValue(true);
+      const [, inactiveTab] = useSessionStore.getState().tabs;
+
+      await expect(closeDocumentTab(inactiveTab.id)).resolves.toBe(true);
+
+      expect(requestConfirmation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: "draft.md has unsaved changes. Discard them and continue?",
+        }),
+      );
+      expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
+        { path: TEST_MARKDOWN_FILE_PATH },
+      ]);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        path: TEST_MARKDOWN_FILE_PATH,
       });
     });
   });
@@ -637,7 +761,7 @@ describe("document workflows", () => {
       const saving = saveActiveMarkdownDocument();
       await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
 
-      useSessionStore.getState().setActiveDocument(createUntitledDocument());
+      replaceActiveDocument(createUntitledDocument());
       result.reject(new Error("Disk unavailable"));
 
       await expect(saving).rejects.toThrow("Disk unavailable");
@@ -721,7 +845,7 @@ describe("document workflows", () => {
       const saving = saveActiveMarkdownDocument();
       await vi.waitFor(() => expect(requestConfirmation).toHaveBeenCalledOnce());
 
-      useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "Reopened" }));
+      replaceActiveDocument(createSavedDocument({ content: "Reopened" }));
       decision.resolve(true);
 
       await expect(saving).resolves.toBe(false);
@@ -803,7 +927,7 @@ describe("document workflows", () => {
       const saving = saveActiveMarkdownDocument();
       await vi.waitFor(() => expect(requestConfirmation).toHaveBeenCalledOnce());
 
-      useSessionStore.getState().setActiveDocument(createSavedDocument({ content: "Reopened" }));
+      replaceActiveDocument(createSavedDocument({ content: "Reopened" }));
       decision.resolve(true);
 
       await expect(saving).resolves.toBe(false);

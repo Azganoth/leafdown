@@ -8,7 +8,7 @@ import { findMenuItem, openRecentPath } from "../support/ui.js";
 const windows1252 = (text: string) => Buffer.from(text, "latin1");
 
 const replaceDocumentText = async (text: string) => {
-  const editor = $('[contenteditable="true"]');
+  const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
 
   await editor.click();
   await browser.keys([Key.Ctrl, "a"]);
@@ -30,7 +30,7 @@ describe("desktop legacy encoding", () => {
     await errorToast.$("button=Reopen with encoding").click();
     await (await findMenuItem((text) => text === "Western (Windows-1252, ISO-8859-1)")).click();
 
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(editor).toHaveText(expect.stringContaining("Café"));
     await expect($('[data-testid="status-bar-encoding"]')).toHaveText("Windows-1252");
 

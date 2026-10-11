@@ -5,18 +5,24 @@ import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import {
+  closeAllDocuments,
+  countDocumentTabs,
+  findDocumentTab,
   findTreeItem,
   getSaveMenuItem,
   openRecentPath,
   selectFileMenuItem,
 } from "../support/ui.js";
 
-const VIEWPORT = '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]';
+const VIEWPORT =
+  '[data-testid=active-document-host] [data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]';
 
 const viewportGeometry = () =>
   browser.execute((selector) => {
     const viewport = document.querySelector<HTMLElement>(selector)!;
-    const firstBlock = document.querySelector(".ProseMirror > :first-child")!;
+    const firstBlock = document.querySelector(
+      "[data-testid=active-document-host] .ProseMirror > :first-child",
+    )!;
     const viewportRect = viewport.getBoundingClientRect();
     const blockRect = firstBlock.getBoundingClientRect();
     return {
@@ -38,11 +44,22 @@ const scrollDocument = async () => {
 };
 
 const expectDocumentAtTop = async (marker: string) => {
-  await expect($(".ProseMirror")).toHaveText(expect.stringContaining(marker));
+  await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+    expect.stringContaining(marker),
+  );
   await browser.waitUntil(async () => (await viewportGeometry()).firstBlockVisible, {
-    timeoutMsg: "The replacement document's first block was outside its viewport.",
+    timeoutMsg: "The newly opened document's first block was outside its viewport.",
   });
   expect((await viewportGeometry()).scrollTop).toBe(0);
+};
+
+const expectDocumentScrolled = async (marker: string) => {
+  await expect($("[data-testid=active-document-host] .ProseMirror")).toHaveText(
+    expect.stringContaining(marker),
+  );
+  await browser.waitUntil(async () => (await viewportGeometry()).scrollTop === 800, {
+    timeoutMsg: "The tab did not keep the place it was scrolled to.",
+  });
 };
 
 const selectedHeadingGeometry = () =>
@@ -60,7 +77,7 @@ const selectedHeadingGeometry = () =>
   }, VIEWPORT);
 
 describe("desktop document lifecycle", () => {
-  it("starts replacement documents at the top and preserves explicit navigation and reloads", async () => {
+  it("starts newly opened documents at the top and keeps each tab where it was left", async () => {
     const { document: fixture } = await getDesktopE2ERunContext();
     const replacementPath = path.join(path.dirname(fixture.path), "viewport-replacement.md");
     const filler = Array.from(
@@ -81,27 +98,25 @@ describe("desktop document lifecycle", () => {
     await (await findTreeItem("viewport-replacement.md")).click();
     await expectDocumentAtTop("Second viewport document");
     expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
+    await scrollDocument();
 
-    await scrollDocument();
     await openRecentPath(fixture.scrollPath);
-    await expectDocumentAtTop("First viewport document");
-    await scrollDocument();
+    await expectDocumentScrolled("First viewport document");
     await (await findTreeItem("document-lifecycle.md")).click();
     await expectDocumentAtTop(fixture.initialMarker);
+    expect(await countDocumentTabs()).toBe(3);
 
-    await openRecentPath(replacementPath);
-    await expectDocumentAtTop("Second viewport document");
-    await scrollDocument();
-    await openRecentPath(fixture.path);
-    await expectDocumentAtTop(fixture.initialMarker);
-
-    await openRecentPath(replacementPath);
-    await expectDocumentAtTop("Second viewport document");
-    await $('[data-type="wiki-link"]').execute((target) => {
+    await (await findDocumentTab("viewport-replacement.md")).click();
+    await expectDocumentScrolled("Second viewport document");
+    await $("[data-testid=active-document-host] [data-type='wiki-link']").execute((target) => {
       target.dispatchEvent(
         new MouseEvent("click", { bubbles: true, button: 0, cancelable: true, ctrlKey: true }),
       );
     });
+    await expect(await findDocumentTab("document-scroll.md")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
     await browser.waitUntil(
       async () => {
         const heading = await selectedHeadingGeometry();
@@ -111,6 +126,7 @@ describe("desktop document lifecycle", () => {
     );
     expect(await selectedHeadingGeometry()).toMatchObject({ text: "Scroll target", visible: true });
     expect((await selectedHeadingGeometry())!.scrollTop).toBeGreaterThan(800);
+    expect(await countDocumentTabs()).toBe(3);
 
     await writeFile(fixture.scrollPath, `${original}\nReloaded viewport marker.\n`);
     await browser.waitUntil(
@@ -118,7 +134,7 @@ describe("desktop document lifecycle", () => {
         browser.execute(
           () =>
             document
-              .querySelector(".ProseMirror")
+              .querySelector("[data-testid=active-document-host] .ProseMirror")
               ?.textContent?.includes("Reloaded viewport marker.") ?? false,
         ),
       { timeoutMsg: "The external reload did not replace the editor's text." },
@@ -128,7 +144,7 @@ describe("desktop document lifecycle", () => {
     });
     expect(await selectedHeadingGeometry()).toMatchObject({ text: "Scroll target", visible: true });
     expect((await selectedHeadingGeometry())!.scrollTop).toBeGreaterThan(800);
-    await selectFileMenuItem("Close document");
+    await closeAllDocuments();
   });
 
   it("opens, edits, saves, and reopens a fixture through real IPC", async () => {
@@ -136,7 +152,7 @@ describe("desktop document lifecycle", () => {
 
     await openRecentPath(document.path);
 
-    const editor = $('[contenteditable="true"]');
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(editor).toBeDisplayed();
     await expect(editor).toHaveText(expect.stringContaining(document.initialMarker));
 
@@ -168,10 +184,10 @@ describe("desktop document lifecycle", () => {
     await browser.keys("Escape");
 
     await selectFileMenuItem("Close document");
-    await expect($('[contenteditable="true"]')).not.toExist();
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).not.toExist();
 
     await openRecentPath(document.path);
-    const reopenedEditor = $('[contenteditable="true"]');
+    const reopenedEditor = $('[data-testid=active-document-host] [contenteditable="true"]');
     await expect(reopenedEditor).toHaveText(expect.stringContaining(document.savedMarker));
 
     await reopenedEditor.click();

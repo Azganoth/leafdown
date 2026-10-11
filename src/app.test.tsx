@@ -17,13 +17,17 @@ import {
 } from "./features/preferences";
 import { releaseNotesStoreTauriHandler } from "./features/release-notes";
 import { useSessionStore } from "./features/session";
-import { createOpenedMarkdownDocument, createUntitledDocument } from "./test/factories/document";
+import {
+  createOpenedMarkdownDocument,
+  createSavedDocument,
+  createUntitledDocument,
+} from "./test/factories/document";
 import { createEmptyFolderContext } from "./test/factories/folderContext";
 import { TEST_MARKDOWN_FILE_PATH } from "./test/fixtures/paths";
 import { setDefaultSession, setDefaultSettings } from "./test/utils/appStores";
 import { getLastDiagnosticPayload } from "./test/utils/diagnostics";
 import { dispatchDOMEvent } from "./test/utils/events";
-import { render, renderWithUser, screen, waitFor } from "./test/utils/react";
+import { render, renderWithUser, screen, waitFor, within } from "./test/utils/react";
 import { getWindowListenHandler, getWindowThemeChangedHandler } from "./test/utils/tauri";
 import { countTauriApiCalls, mockTauriApi, tauriApiCommand } from "./test/utils/tauriApi";
 
@@ -303,13 +307,54 @@ describe("App", () => {
     );
     const closeRequest = handleCloseRequested({ payload: undefined });
     const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
-    expect(prompt).toHaveTextContent("The active document has unsaved changes.");
+    expect(prompt).toHaveTextContent("Untitled has unsaved changes.");
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     await closeRequest;
     expect(appWindow.destroy).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(countTauriApiCalls("declineWindowClose")).toBe(1);
     });
+  });
+
+  it("asks once about every unsaved tab before closing the window", async () => {
+    const appWindow = getCurrentWindow();
+    mockTauriApi({ takeLaunchDocumentPath: () => null, declineWindowClose: () => undefined });
+    setDefaultSession({
+      documents: [
+        createUntitledDocument({ isDirty: true }),
+        createSavedDocument(),
+        createSavedDocument({ path: "C:/Notes/plan.md", isDirty: true }),
+      ],
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await waitFor(() => {
+      expect(appWindow.listen).toHaveBeenCalledWith(
+        "leafdown://window-close-requested",
+        expect.any(Function),
+      );
+    });
+
+    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+      "leafdown://window-close-requested",
+    );
+    const cancelledRequest = handleCloseRequested({ payload: undefined });
+    const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
+    expect(prompt).toHaveTextContent("2 documents have unsaved changes.");
+    expect(prompt).toHaveTextContent("Untitled");
+    expect(prompt).toHaveTextContent("plan.md");
+    await user.click(within(prompt).getByRole("button", { name: "Cancel" }));
+    await cancelledRequest;
+
+    expect(appWindow.destroy).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs).toHaveLength(3);
+
+    const confirmedRequest = handleCloseRequested({ payload: undefined });
+    await user.click(await screen.findByRole("button", { name: "Discard all" }));
+    await confirmedRequest;
+
+    expect(appWindow.destroy).toHaveBeenCalledOnce();
   });
 
   it("leaves a failed close request unanswered so the backend fallback can close the window", async () => {

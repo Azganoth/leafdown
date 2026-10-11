@@ -249,6 +249,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath, documentScrollPath] },
+    { name: "document-tabs", recentFiles: [calloutsPath, citationsPath, separatorPath] },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "find-and-replace", recentFiles: [searchPath] },
     { name: "keyboard-shortcuts" },

@@ -4,7 +4,15 @@ import path from "node:path";
 
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { dismissToasts, findMenuItem, openMenu, openRecentPath } from "../support/ui.js";
+import {
+  countDocumentTabs,
+  dismissToasts,
+  findDocumentTab,
+  findMenuItem,
+  openMenu,
+  openRecentPath,
+  selectFileMenuItem,
+} from "../support/ui.js";
 
 const panel = () => $('[data-testid="folder-search-panel"]');
 const queryField = () =>
@@ -60,7 +68,7 @@ const getChosenMatch = () =>
   browser.execute(() => {
     const chosen = Array.from(document.querySelectorAll(".leafdown-search-match--chosen"));
     const viewport = document.querySelector(
-      '[data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
+      '[data-testid=active-document-host] [data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]',
     );
 
     if (chosen.length === 0 || !viewport) {
@@ -151,7 +159,7 @@ describe("desktop folder search", () => {
     await pressKey("ArrowDown");
     await pressKey("Enter");
 
-    await expect($('[contenteditable="true"]')).toBeDisplayed();
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toBeDisplayed();
 
     const far = await waitForChosenMatch("The last lantern stands at the end.");
 
@@ -165,54 +173,58 @@ describe("desktop folder search", () => {
     await pressKey("Escape");
     await expect(panel()).not.toExist();
     await expect($('[role="tree"][aria-label="Articles"]')).toBeDisplayed();
-    expect(await isFocused(".ProseMirror")).toBe(true);
+    expect(await isFocused("[data-testid=active-document-host] .ProseMirror")).toBe(true);
     expect(await browser.execute(() => document.getSelection()?.toString() ?? "")).toBe("lantern");
   });
 
-  it("keeps unsaved edits and the results when switching documents is declined", async () => {
+  it("opens a match in a new tab, keeping and searching another tab's unsaved edits", async () => {
     const { folderSearch } = await getDesktopE2ERunContext();
     const farMarkdown = await readFile(folderSearch.farPath, "utf8");
+    const farName = path.basename(folderSearch.farPath);
 
     // Where the typed text lands depends on the harness, so the editor's own text decides how many
     // matches the unsaved document holds.
-    await $('[contenteditable="true"]').addValue("Unsaved ");
+    await $('[data-testid=active-document-host] [contenteditable="true"]').addValue("Unsaved ");
     await expect(documentState()).toHaveText("Unsaved");
 
-    const editorText = await $('[contenteditable="true"]').getText();
+    const editorText = await $(
+      '[data-testid=active-document-host] [contenteditable="true"]',
+    ).getText();
     const unsavedMatches = editorText.match(/lantern/giu)?.length ?? 0;
+    const unsavedOutcome = `${unsavedMatches + 2} results in 2 files`;
 
     await findInFolder();
     await expect(panel()).toBeDisplayed();
     await expect(queryField()).toHaveValue("lantern");
-    await browser.waitUntil(
-      async () => (await status().getText()) === `${unsavedMatches + 2} results in 2 files`,
-      { timeoutMsg: "The folder search did not count the unsaved document's text." },
-    );
+    await browser.waitUntil(async () => (await status().getText()) === unsavedOutcome, {
+      timeoutMsg: "The folder search did not count the unsaved document's text.",
+    });
 
     await pressKey("ArrowDown");
     await pressKey("End");
     expect(await focusedRowLabel()).toContain("in two pieces.");
-
-    const rowCount = await resultRows().length;
-
     await pressKey("Enter");
-    await expect(unsavedPrompt()).toBeDisplayed();
-    await browser.keys("Escape");
-    await expect(unsavedPrompt()).not.toExist();
-
-    await expect(documentState()).toHaveText("Unsaved");
-    expect(await $('[contenteditable="true"]').getText()).toBe(editorText);
-    expect(await resultRows().length).toBe(rowCount);
-
-    await (await resultRows().getElements())[rowCount - 1].click();
-    await expect(unsavedPrompt()).toBeDisplayed();
-    await $("aria/Discard changes").click();
 
     const pieces = await waitForChosenMatch("in two pieces.");
 
     expect(pieces.text).toBe("lantern");
+    await expect(unsavedPrompt()).not.toExist();
     await expect(documentState()).not.toExist();
+    expect(await countDocumentTabs()).toBe(2);
+    await expect(await findDocumentTab(farName)).toHaveAttribute(
+      "aria-label",
+      `${farName}, unsaved`,
+    );
+    expect(await status().getText()).toBe(unsavedOutcome);
     expect(await readFile(folderSearch.farPath, "utf8")).toBe(farMarkdown);
+
+    await (await findDocumentTab(farName)).click();
+    await selectFileMenuItem("Close document");
+    await expect(unsavedPrompt()).toBeDisplayed();
+    await $("aria/Discard changes").click();
+    await browser.waitUntil(async () => (await countDocumentTabs()) === 1, {
+      timeoutMsg: "Discarding did not close the edited tab.",
+    });
 
     // The discarded document is read from its file again, which adds back the match the edit took.
     await browser.waitUntil(async () => (await status().getText()) === "4 results in 2 files", {
@@ -308,7 +320,9 @@ describe("desktop folder search", () => {
       farMarkdown.replaceAll("lantern", "lamp"),
     );
     await expect(documentState()).not.toExist();
-    expect(await $('[contenteditable="true"]').getText()).toContain("The lamp hangs by the door.");
+    expect(
+      await $('[data-testid=active-document-host] [contenteditable="true"]').getText(),
+    ).toContain("The lamp hangs by the door.");
     await browser.waitUntil(async () => (await status().getText()) === "Nothing to replace", {
       timeoutMsg: "The folder was not planned again after the replacement.",
     });

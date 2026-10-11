@@ -6,6 +6,7 @@ const scenarioTargets = {
   frontmatter: ["frontmatter"],
   diagnostics: ["diagnostics"],
   "document-lifecycle": ["document-lifecycle"],
+  "document-tabs": ["document-tabs"],
   "document-watcher": ["document-watcher"],
   "find-and-replace": ["find-and-replace"],
   "keyboard-shortcuts": ["keyboard-shortcuts"],

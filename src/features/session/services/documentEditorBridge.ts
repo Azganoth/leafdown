@@ -13,13 +13,8 @@ import {
   type EditorCommandId,
   type EditorCommandState,
 } from "@/features/editor/commands/contract";
-import { isSamePath } from "@/lib/path";
+import { isSameNullablePath, isSamePath, PathMap } from "@/lib/path";
 import { SignalSource } from "@/lib/signal";
-
-interface ActiveDocumentEditorBridgeEntry {
-  bridge: MilkdownEditorBridge;
-  documentKey: string;
-}
 
 interface PendingSearchMatch {
   documentKey: string;
@@ -28,8 +23,15 @@ interface PendingSearchMatch {
   resolve: (ordinal: number | null) => void;
 }
 
+/**
+ * Holds the editor of every open document by document key. Every tab keeps its editor mounted, so
+ * text can be read from any of them, while requests that scroll or focus wait until their
+ * document's editor is the one shown.
+ */
 class DocumentEditorBridgeStore {
-  private activeBridgeEntry: ActiveDocumentEditorBridgeEntry | null = null;
+  private readonly bridges = new PathMap<MilkdownEditorBridge>();
+  private shownDocumentKey: string | null = null;
+  private pendingFocus: string | null = null;
   private pendingHeading: { documentKey: string; heading: string } | null = null;
   private pendingSearchMatch: PendingSearchMatch | null = null;
   private readonly commandStateChanged = new SignalSource();
@@ -43,8 +45,7 @@ class DocumentEditorBridgeStore {
 
   set = (documentKey: string, bridge: MilkdownEditorBridge | null) => {
     if (!bridge) {
-      if (this.activeBridgeEntry?.documentKey === documentKey) {
-        this.activeBridgeEntry = null;
+      if (this.bridges.delete(documentKey)) {
         this.fireCommandStateChanged();
         this.fireDocumentStatusChanged();
       }
@@ -52,63 +53,69 @@ class DocumentEditorBridgeStore {
       return;
     }
 
-    this.activeBridgeEntry = { bridge, documentKey };
-    if (this.pendingHeading && isSamePath(this.pendingHeading.documentKey, documentKey)) {
-      bridge.navigateToHeading?.(this.pendingHeading.heading);
-      this.pendingHeading = null;
-    }
-    this.settlePendingSearchMatch(documentKey, bridge);
+    this.bridges.set(documentKey, bridge);
+    this.settlePendingRequests();
     this.fireCommandStateChanged();
     this.fireDocumentStatusChanged();
   };
 
-  getMarkdown = (documentKey: string) => {
-    if (this.activeBridgeEntry?.documentKey !== documentKey) {
-      return null;
+  /**
+   * Names the document whose editor is on screen. A request waiting for another document is
+   * dropped, since that document was not the one shown next.
+   */
+  show = (documentKey: string) => {
+    this.shownDocumentKey = documentKey;
+
+    if (this.pendingFocus !== null && !isSamePath(this.pendingFocus, documentKey)) {
+      this.pendingFocus = null;
     }
 
-    return this.activeBridgeEntry.bridge.getMarkdown();
+    if (this.pendingHeading && !isSamePath(this.pendingHeading.documentKey, documentKey)) {
+      this.pendingHeading = null;
+    }
+
+    if (this.pendingSearchMatch && !isSamePath(this.pendingSearchMatch.documentKey, documentKey)) {
+      this.pendingSearchMatch.resolve(null);
+      this.pendingSearchMatch = null;
+    }
+
+    this.settlePendingRequests();
   };
+
+  getMarkdown = (documentKey: string) => this.bridges.get(documentKey)?.getMarkdown() ?? null;
 
   getHtmlExportSnapshot = (documentKey: string) =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.getHtmlExportSnapshot?.() ?? null)
-      : null;
+    this.bridges.get(documentKey)?.getHtmlExportSnapshot?.() ?? null;
 
-  getCommandState = (documentKey: string): EditorCommandState =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.getCommandState?.() ?? READY_DISABLED_EDITOR_COMMAND_STATE)
+  getCommandState = (documentKey: string): EditorCommandState => {
+    const bridge = this.bridges.get(documentKey);
+
+    return bridge
+      ? (bridge.getCommandState?.() ?? READY_DISABLED_EDITOR_COMMAND_STATE)
       : INACTIVE_EDITOR_COMMAND_STATE;
-
-  getDocumentStatus = (documentKey: string): EditorDocumentStatus | null =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.getDocumentStatus?.() ?? null)
-      : null;
-
-  getViewState = (documentKey: string): EditorViewState | null =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.getViewState?.() ?? null)
-      : null;
-
-  navigateToOutlineHeading = (documentKey: string, position: number) =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.navigateToOutlineHeading?.(position) ?? false)
-      : false;
-
-  insertLink = (documentKey: string, label: string, target: string) => {
-    if (this.activeBridgeEntry?.documentKey !== documentKey) {
-      return false;
-    }
-
-    return this.activeBridgeEntry.bridge.insertLink?.(label, target) ?? false;
   };
 
+  getDocumentStatus = (documentKey: string): EditorDocumentStatus | null =>
+    this.bridges.get(documentKey)?.getDocumentStatus?.() ?? null;
+
+  getViewState = (documentKey: string): EditorViewState | null =>
+    this.bridges.get(documentKey)?.getViewState?.() ?? null;
+
+  /** Focuses the document's editor once it is shown, as it is after switching to its tab. */
+  focusWhenShown = (documentKey: string) => {
+    this.pendingFocus = documentKey;
+    this.settlePendingRequests();
+  };
+
+  navigateToOutlineHeading = (documentKey: string, position: number) =>
+    this.bridges.get(documentKey)?.navigateToOutlineHeading?.(position) ?? false;
+
+  insertLink = (documentKey: string, label: string, target: string) =>
+    this.bridges.get(documentKey)?.insertLink?.(label, target) ?? false;
+
   requestHeading = (documentKey: string, heading: string) => {
-    if (this.activeBridgeEntry && isSamePath(this.activeBridgeEntry.documentKey, documentKey)) {
-      this.activeBridgeEntry.bridge.navigateToHeading?.(heading);
-      return;
-    }
     this.pendingHeading = { documentKey, heading };
+    this.settlePendingRequests();
   };
 
   readSearchMatches = (
@@ -116,18 +123,14 @@ class DocumentEditorBridgeStore {
     query: TextSearchQuery,
     options: { finalizeProjection: boolean },
   ): DocumentSearchMatches | null =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.readSearchMatches?.(query, options) ?? null)
-      : null;
+    this.bridges.get(documentKey)?.readSearchMatches?.(query, options) ?? null;
 
   planSearchReplacement = (
     documentKey: string,
     query: TextSearchQuery,
     replacement: string,
   ): DocumentReplacementPlan | null =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.planSearchReplacement?.(query, replacement) ?? null)
-      : null;
+    this.bridges.get(documentKey)?.planSearchReplacement?.(query, replacement) ?? null;
 
   applySearchReplacement = (
     documentKey: string,
@@ -135,15 +138,12 @@ class DocumentEditorBridgeStore {
     replacement: string,
     baseline: string,
   ): number | null =>
-    this.activeBridgeEntry?.documentKey === documentKey
-      ? (this.activeBridgeEntry.bridge.applySearchReplacement?.(query, replacement, baseline) ??
-        null)
-      : null;
+    this.bridges.get(documentKey)?.applySearchReplacement?.(query, replacement, baseline) ?? null;
 
   /**
-   * Chooses a match in the document once its editor is ready, which may be after the document was
-   * just opened. Resolves to the match's place, or `null` when it is gone or another document took
-   * the editor first.
+   * Chooses a match in the document once its editor is ready and shown, which may be after the
+   * document was just opened. Resolves to the match's place, or `null` when it is gone or another
+   * request took its place first.
    */
   chooseSearchMatch = (
     documentKey: string,
@@ -151,39 +151,32 @@ class DocumentEditorBridgeStore {
     target: SearchMatchTarget,
   ): Promise<number | null> => {
     this.pendingSearchMatch?.resolve(null);
-    this.pendingSearchMatch = null;
-
-    if (this.activeBridgeEntry && isSamePath(this.activeBridgeEntry.documentKey, documentKey)) {
-      return (
-        this.activeBridgeEntry.bridge.chooseSearchMatch?.(query, target) ?? Promise.resolve(null)
-      );
-    }
 
     return new Promise((resolve) => {
       this.pendingSearchMatch = { documentKey, query, target, resolve };
+      this.settlePendingRequests();
     });
   };
 
   focusChosenSearchMatch = (documentKey: string) => {
-    if (this.activeBridgeEntry?.documentKey !== documentKey) {
+    const bridge = this.bridges.get(documentKey);
+
+    if (!bridge) {
       return false;
     }
 
-    this.activeBridgeEntry.bridge.focusChosenSearchMatch?.();
+    bridge.focusChosenSearchMatch?.();
 
     return true;
   };
 
-  runCommand = (documentKey: string, commandId: EditorCommandId) => {
-    if (this.activeBridgeEntry?.documentKey !== documentKey) {
-      return false;
-    }
-
-    return this.activeBridgeEntry.bridge.runCommand?.(commandId) ?? false;
-  };
+  runCommand = (documentKey: string, commandId: EditorCommandId) =>
+    this.bridges.get(documentKey)?.runCommand?.(commandId) ?? false;
 
   clear = () => {
-    this.activeBridgeEntry = null;
+    this.bridges.clear();
+    this.shownDocumentKey = null;
+    this.pendingFocus = null;
     this.pendingHeading = null;
     this.pendingSearchMatch?.resolve(null);
     this.pendingSearchMatch = null;
@@ -191,23 +184,45 @@ class DocumentEditorBridgeStore {
     this.fireDocumentStatusChanged();
   };
 
-  private settlePendingSearchMatch(documentKey: string, bridge: MilkdownEditorBridge) {
-    const pending = this.pendingSearchMatch;
+  private getShownBridge(documentKey: string) {
+    return isSameNullablePath(this.shownDocumentKey, documentKey)
+      ? this.bridges.get(documentKey)
+      : undefined;
+  }
 
-    if (!pending) {
+  private settlePendingRequests() {
+    const focusBridge = this.pendingFocus !== null && this.getShownBridge(this.pendingFocus);
+
+    if (focusBridge) {
+      this.pendingFocus = null;
+      focusBridge.focus?.();
+    }
+
+    const heading = this.pendingHeading;
+    const headingBridge = heading && this.getShownBridge(heading.documentKey);
+
+    if (heading && headingBridge) {
+      this.pendingHeading = null;
+      headingBridge.navigateToHeading?.(heading.heading);
+    }
+
+    const searchMatch = this.pendingSearchMatch;
+    const searchMatchBridge = searchMatch && this.getShownBridge(searchMatch.documentKey);
+
+    if (!searchMatch || !searchMatchBridge) {
       return;
     }
 
     this.pendingSearchMatch = null;
 
-    if (!isSamePath(pending.documentKey, documentKey) || !bridge.chooseSearchMatch) {
-      pending.resolve(null);
+    if (!searchMatchBridge.chooseSearchMatch) {
+      searchMatch.resolve(null);
       return;
     }
 
-    void bridge
-      .chooseSearchMatch(pending.query, pending.target)
-      .then(pending.resolve, () => pending.resolve(null));
+    void searchMatchBridge
+      .chooseSearchMatch(searchMatch.query, searchMatch.target)
+      .then(searchMatch.resolve, () => searchMatch.resolve(null));
   }
 
   fireCommandStateChanged = () => {

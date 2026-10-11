@@ -88,7 +88,6 @@ describe("useActiveDocumentWatcher", () => {
     expect(getLastTauriApiArgs("watchMarkdownDocument")).toEqual({
       path,
       scopeId: "document-watch:1",
-      scopeGeneration: 1,
     });
     expect(getLastTauriApiArgs("inspectMarkdownFile")).toMatchObject({ path });
     expect(
@@ -147,12 +146,10 @@ describe("useActiveDocumentWatcher", () => {
     expect(unlisten).toHaveBeenCalledOnce();
     expect(getLastTauriApiArgs("unwatchMarkdownDocument")).toEqual({
       scopeId: "document-watch:1",
-      scopeGeneration: 1,
     });
     expect(getLastTauriApiArgs("watchMarkdownDocument")).toEqual({
       path: RENAMED_MARKDOWN_PATH,
       scopeId: "document-watch:2",
-      scopeGeneration: 2,
     });
 
     act(() => useSessionStore.getState().setActiveDocument(null));
@@ -162,7 +159,37 @@ describe("useActiveDocumentWatcher", () => {
     expect(unlisten).toHaveBeenCalledTimes(2);
     expect(getLastTauriApiArgs("unwatchMarkdownDocument")).toEqual({
       scopeId: "document-watch:2",
-      scopeGeneration: 2,
+    });
+  });
+
+  it("does not stop a watch it closed before asking to start", async () => {
+    const listener = Promise.withResolvers<() => void>();
+    vi.mocked(getCurrentWindow().listen).mockReturnValue(listener.promise);
+    setDefaultSession({ activeDocument: createSavedDocument() });
+    const { rerender } = renderHook(() => useActiveDocumentWatcher());
+
+    act(() => useSessionStore.getState().setActiveDocument(null));
+    rerender();
+    listener.resolve(vi.fn<() => void>());
+    await settle();
+
+    expect(countTauriApiCalls("watchMarkdownDocument")).toBe(0);
+    expect(countTauriApiCalls("unwatchMarkdownDocument")).toBe(0);
+  });
+
+  it("stops a watch whose start failed", async () => {
+    setDefaultSession({ activeDocument: createSavedDocument() });
+    mockWatcherCommands({
+      watchMarkdownDocument: () =>
+        Promise.reject({ kind: "watcherStateFailed", message: "poisoned" }),
+    });
+    const { unmount } = renderHook(() => useActiveDocumentWatcher());
+    await settle();
+
+    unmount();
+
+    expect(getLastTauriApiArgs("unwatchMarkdownDocument")).toEqual({
+      scopeId: "document-watch:1",
     });
   });
 

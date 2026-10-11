@@ -120,12 +120,10 @@ export type InspectMarkdownFileError =
 export interface WatchMarkdownDocumentArgs {
   path: string;
   scopeId: string;
-  scopeGeneration: number;
 }
 
 export interface UnwatchMarkdownDocumentArgs {
   scopeId: string;
-  scopeGeneration: number;
 }
 
 export interface MarkdownDocumentChangedEventPayload {
@@ -159,18 +157,11 @@ export const saveMarkdownFile = ({
 export const inspectMarkdownFile = ({ fingerprint, metadata, path }: InspectMarkdownFileArgs) =>
   invoke<MarkdownFileState>(INSPECT_MARKDOWN_FILE_COMMAND, { path, metadata, fingerprint });
 
-export const watchMarkdownDocument = ({
-  path,
-  scopeGeneration,
-  scopeId,
-}: WatchMarkdownDocumentArgs) =>
-  invoke<void>(WATCH_MARKDOWN_DOCUMENT_COMMAND, { path, scopeId, scopeGeneration });
+export const watchMarkdownDocument = ({ path, scopeId }: WatchMarkdownDocumentArgs) =>
+  invoke<void>(WATCH_MARKDOWN_DOCUMENT_COMMAND, { path, scopeId });
 
-export const unwatchMarkdownDocument = ({
-  scopeGeneration,
-  scopeId,
-}: UnwatchMarkdownDocumentArgs) =>
-  invoke<void>(UNWATCH_MARKDOWN_DOCUMENT_COMMAND, { scopeId, scopeGeneration });
+export const unwatchMarkdownDocument = ({ scopeId }: UnwatchMarkdownDocumentArgs) =>
+  invoke<void>(UNWATCH_MARKDOWN_DOCUMENT_COMMAND, { scopeId });
 
 export const writeHtmlExport = ({ content, path, sourceDocumentPath }: WriteHtmlExportArgs) =>
   invoke<void>(WRITE_HTML_EXPORT_COMMAND, { path, content, sourceDocumentPath });

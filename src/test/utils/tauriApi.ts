@@ -65,6 +65,7 @@ import {
   type ReadFolderSearchFilesArgs,
 } from "@/features/folder-search/services/folderSearchApi";
 import { TAKE_LAUNCH_DOCUMENT_PATH_COMMAND } from "@/features/session/services/launchDocumentApi";
+import { DECLINE_WINDOW_CLOSE_COMMAND } from "@/features/session/services/windowCloseApi";
 
 import {
   countInvokeCalls,
@@ -98,6 +99,7 @@ interface TauriApiCommandArgs {
   preflightFolderReplacement: FolderReplacementArgs;
   writeFolderReplacementFiles: FolderReplacementArgs;
   takeLaunchDocumentPath: undefined;
+  declineWindowClose: undefined;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
 }
@@ -127,6 +129,7 @@ interface TauriApiCommandResults {
   preflightFolderReplacement: FolderReplacementOutcome[];
   writeFolderReplacementFiles: FolderReplacementOutcome[];
   takeLaunchDocumentPath: string | null;
+  declineWindowClose: void;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
@@ -166,6 +169,7 @@ const TAURI_API_COMMANDS = {
   preflightFolderReplacement: PREFLIGHT_FOLDER_REPLACEMENT_COMMAND,
   writeFolderReplacementFiles: WRITE_FOLDER_REPLACEMENT_FILES_COMMAND,
   takeLaunchDocumentPath: TAKE_LAUNCH_DOCUMENT_PATH_COMMAND,
+  declineWindowClose: DECLINE_WINDOW_CLOSE_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;

@@ -20,7 +20,9 @@ use crate::{
 
 mod watch;
 
-pub(crate) use watch::{DocumentWatcherState, WatchMarkdownDocumentError};
+pub(crate) use watch::{
+    DocumentWatcherState, WatchMarkdownDocumentError, stop_window_document_watchers,
+};
 
 include!(concat!(env!("OUT_DIR"), "/markdown_file_extensions.rs"));
 pub(crate) const MAX_MARKDOWN_FILE_SIZE_BYTES: u64 = 5 * 1024 * 1024;
@@ -252,21 +254,21 @@ pub(crate) async fn inspect_markdown_file(
 #[tauri::command]
 pub(crate) fn watch_markdown_document(
     app: tauri::AppHandle,
+    window: tauri::Window,
     state: tauri::State<'_, DocumentWatcherState>,
     path: String,
     scope_id: String,
-    scope_generation: u64,
 ) -> Result<(), WatchMarkdownDocumentError> {
-    watch::watch_markdown_document(app, state, path, scope_id, scope_generation)
+    watch::watch_markdown_document(app, window.label(), &state, path, scope_id.as_str())
 }
 
 #[tauri::command]
 pub(crate) fn unwatch_markdown_document(
+    window: tauri::Window,
     state: tauri::State<'_, DocumentWatcherState>,
     scope_id: String,
-    scope_generation: u64,
 ) -> Result<(), WatchMarkdownDocumentError> {
-    watch::unwatch_markdown_document(state, scope_id, scope_generation)
+    watch::unwatch_markdown_document(window.label(), &state, scope_id.as_str())
 }
 
 pub(crate) fn read_markdown_file(

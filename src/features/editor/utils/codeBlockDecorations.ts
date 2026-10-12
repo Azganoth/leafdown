@@ -1,12 +1,11 @@
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { Transaction } from "@milkdown/kit/prose/state";
-import { AttrStep } from "@milkdown/kit/prose/transform";
 import type { Decoration } from "@milkdown/kit/prose/view";
 import { DecorationSet } from "@milkdown/kit/prose/view";
 
-export type DecorateCodeBlock = (node: ProseMirrorNode, position: number) => Decoration[];
+import { collectChangedRanges, type ChangedRange } from "./changedRanges";
 
-type ChangedRange = [from: number, to: number];
+export type DecorateCodeBlock = (node: ProseMirrorNode, position: number) => Decoration[];
 
 const isCodeBlock = (node: ProseMirrorNode) => node.type.name === "code_block";
 
@@ -33,27 +32,6 @@ export const createCodeBlockDecorations = (doc: ProseMirrorNode, decorate: Decor
     doc,
     [...blocks].flatMap(([position, node]) => decorate(node, position)),
   );
-};
-
-// Ranges are in the transaction's final document. An attribute step maps no positions, so the
-// node it changes is added as a range of its own.
-const collectChangedRanges = (transaction: Transaction) => {
-  let ranges: ChangedRange[] = [];
-
-  transaction.mapping.maps.forEach((map, index) => {
-    ranges = ranges.map(([from, to]) => [map.map(from, -1), map.map(to, 1)]);
-    map.forEach((_oldStart, _oldEnd, newStart, newEnd) => {
-      ranges.push([newStart, newEnd]);
-    });
-
-    const step = transaction.steps[index];
-
-    if (step instanceof AttrStep) {
-      ranges.push([step.pos, step.pos + 1]);
-    }
-  });
-
-  return ranges;
 };
 
 // A node whose own opening or closing token changed may now hold blocks that were elsewhere, such

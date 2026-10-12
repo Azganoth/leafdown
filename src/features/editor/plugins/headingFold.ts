@@ -13,6 +13,7 @@ import { $prose } from "@milkdown/kit/utils";
 
 import { t } from "@/lib/i18n";
 
+import { collectChangedRanges, type ChangedRange } from "../utils/changedRanges";
 import { getEditorSurfaceElementAt, isEditorSurfaceElement } from "../utils/editorSurface";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
 import { finalizeSourceProjection } from "./sourceProjection";
@@ -134,55 +135,184 @@ const createFoldIndicator = (view: EditorView, getPos: () => number | undefined)
   return indicator;
 };
 
-const createDecorations = (doc: ProseMirrorNode, folded: readonly number[]) => {
-  const foldedSet = new Set(folded);
-  const decorations: Decoration[] = [];
+// A heading's own decorations depend on the heading, its next sibling, and whether it is folded;
+// the blocks a folded section hides depend on every sibling up to the section's end.
+const isHeadingLayer = (spec: { leafdownFold?: string }) => spec.leafdownFold === "heading";
+const isSectionLayer = (spec: { leafdownFold?: string }) => spec.leafdownFold === "section";
 
-  doc.descendants((node, position) => {
-    if (!isHeading(node)) return !node.isTextblock;
-    if (!hasSection(doc, position, node)) return false;
+const decorateHeading = (
+  doc: ProseMirrorNode,
+  position: number,
+  node: ProseMirrorNode,
+  isFolded: boolean,
+) => {
+  if (!hasSection(doc, position, node)) return [];
 
-    const isFolded = foldedSet.has(position);
-    const level = `H${String(node.attrs.level)}`;
-    decorations.push(
-      Decoration.node(position, position + node.nodeSize, {
+  const decorations = [
+    Decoration.node(
+      position,
+      position + node.nodeSize,
+      {
         "data-leafdown-fold": isFolded ? "folded" : "open",
-        "data-leafdown-fold-marker": level,
-      }),
-    );
-    if (!isFolded) return false;
-
+        "data-leafdown-fold-marker": `H${String(node.attrs.level)}`,
+      },
+      { leafdownFold: "heading" },
+    ),
+  ];
+  if (isFolded) {
     decorations.push(
       Decoration.widget(position + node.nodeSize - 1, createFoldIndicator, {
         side: 1,
         ignoreSelection: true,
         key: "leafdown-fold-indicator",
         stopEvent: () => true,
+        leafdownFold: "heading",
       }),
     );
+  }
+  return decorations;
+};
+
+const decorateFoldedSections = (doc: ProseMirrorNode, folded: readonly number[]) =>
+  folded.flatMap((position) => {
     const section = getHeadingSection(doc, position);
-    if (section) {
-      doc.nodesBetween(section.from, section.to, (child, childPosition) => {
-        if (childPosition < section.from) return true;
-        decorations.push(
-          Decoration.node(childPosition, childPosition + child.nodeSize, {
-            class: "leafdown-folded-block",
-          }),
-        );
-        return false;
-      });
-    }
+    if (!section) return [];
+    const decorations: Decoration[] = [];
+    doc.nodesBetween(section.from, section.to, (child, childPosition) => {
+      if (childPosition < section.from) return true;
+      decorations.push(
+        Decoration.node(
+          childPosition,
+          childPosition + child.nodeSize,
+          { class: "leafdown-folded-block" },
+          { leafdownFold: "section" },
+        ),
+      );
+      return false;
+    });
+    return decorations;
+  });
+
+export const createHeadingFoldDecorations = (doc: ProseMirrorNode, folded: readonly number[]) => {
+  const foldedSet = new Set(folded);
+  const decorations: Decoration[] = [];
+
+  doc.descendants((node, position) => {
+    if (!isHeading(node)) return !node.isTextblock;
+    decorations.push(...decorateHeading(doc, position, node, foldedSet.has(position)));
     return false;
   });
 
-  return DecorationSet.create(doc, decorations);
+  return DecorationSet.create(doc, [...decorations, ...decorateFoldedSections(doc, folded)]);
 };
 
-const createFoldState = (doc: ProseMirrorNode, folded: readonly number[]): HeadingFoldState => ({
-  folded,
-  decorations: createDecorations(doc, folded),
-  markerHover: null,
-});
+// Every textblock a change touches, and every node whose own opening or closing token it touches,
+// since mapping drops the decorations of blocks that move under a new parent. Each range reaches
+// one position back so the block before it, whose next sibling may have changed, is included.
+const collectTouchedBlocks = (doc: ProseMirrorNode, ranges: readonly ChangedRange[]) => {
+  const blocks = new Map<number, ProseMirrorNode>();
+
+  for (const [from, to] of ranges) {
+    doc.nodesBetween(Math.max(0, from - 1), to, (node, position) => {
+      const end = position + node.nodeSize;
+      if (node.isTextblock || (position >= from && position < to) || (end > from && end <= to)) {
+        blocks.set(position, node);
+        return false;
+      }
+      return true;
+    });
+  }
+
+  return blocks;
+};
+
+const collectHeadings = (
+  node: ProseMirrorNode,
+  position: number,
+  headings: Map<number, ProseMirrorNode>,
+) => {
+  if (isHeading(node)) {
+    headings.set(position, node);
+    return;
+  }
+  node.descendants((child, offset) => {
+    if (isHeading(child)) headings.set(position + 1 + offset, child);
+    return !child.isTextblock;
+  });
+};
+
+// A section changes with any of its blocks, the heading that ends it, or a node that holds it
+// moving under a new parent.
+const touchesFoldedSection = (
+  doc: ProseMirrorNode,
+  folded: readonly number[],
+  ranges: readonly ChangedRange[],
+  blocks: ReadonlyMap<number, ProseMirrorNode>,
+) =>
+  folded.some((position) => {
+    const section = getHeadingSection(doc, position);
+    if (!section) return false;
+    return (
+      ranges.some(([from, to]) => from <= section.to && to >= section.heading) ||
+      [...blocks].some(
+        ([block, node]) => block < section.heading && section.to <= block + node.nodeSize,
+      )
+    );
+  });
+
+const updateFoldDecorations = (
+  transaction: Transaction,
+  value: HeadingFoldState,
+  mapped: readonly number[],
+  folded: readonly number[],
+) => {
+  const { doc } = transaction;
+  const ranges = transaction.docChanged ? collectChangedRanges(transaction) : [];
+  let next = transaction.docChanged
+    ? value.decorations.map(transaction.mapping, doc)
+    : value.decorations;
+
+  const mappedSet = new Set(mapped);
+  const foldedSet = new Set(folded);
+  const toggled = [
+    ...mapped.filter((position) => !foldedSet.has(position)),
+    ...folded.filter((position) => !mappedSet.has(position)),
+  ];
+
+  const stale = new Set<Decoration>();
+  const headings = new Map<number, ProseMirrorNode>();
+  const blocks = collectTouchedBlocks(doc, ranges);
+  for (const position of toggled) {
+    const node = doc.nodeAt(position);
+    if (node) blocks.set(position, node);
+  }
+  for (const [position, node] of blocks) {
+    const end = position + node.nodeSize;
+    for (const decoration of next.find(position, end, isHeadingLayer)) {
+      if (decoration.from >= position && decoration.to <= end) stale.add(decoration);
+    }
+    collectHeadings(node, position, headings);
+  }
+
+  const added = [...headings].flatMap(([position, node]) =>
+    decorateHeading(doc, position, node, foldedSet.has(position)),
+  );
+  // A fold whose heading the change deleted maps to nothing, yet its hidden blocks keep their
+  // decorations through mapping.
+  if (
+    toggled.length > 0 ||
+    mapped.length < value.folded.length ||
+    touchesFoldedSection(doc, folded, ranges, blocks)
+  ) {
+    for (const decoration of next.find(undefined, undefined, isSectionLayer)) {
+      stale.add(decoration);
+    }
+    added.push(...decorateFoldedSections(doc, folded));
+  }
+
+  next = next.remove([...stale]);
+  return next.add(doc, added);
+};
 
 const sameFolds = (left: readonly number[], right: readonly number[]) =>
   left.length === right.length && left.every((position, index) => position === right[index]);
@@ -197,9 +327,10 @@ const applyFoldTransaction = (
   const { doc } = transaction;
   let next = value;
   if (transaction.docChanged || meta?.fold !== undefined || meta?.unfold || meta?.reveal) {
-    let folded = transaction.docChanged
+    const mapped = transaction.docChanged
       ? value.folded.flatMap((position) => mapFoldedHeading(transaction, position) ?? [])
-      : [...value.folded];
+      : value.folded;
+    let folded = [...mapped];
 
     if (meta?.fold !== undefined) folded.push(meta.fold);
     if (meta?.unfold) folded = folded.filter((position) => !meta.unfold!.includes(position));
@@ -213,7 +344,11 @@ const applyFoldTransaction = (
 
     const normalized = normalizeFolds(doc, folded);
     if (transaction.docChanged || !sameFolds(normalized, value.folded)) {
-      next = createFoldState(doc, normalized);
+      next = {
+        folded: normalized,
+        decorations: updateFoldDecorations(transaction, value, mapped, normalized),
+        markerHover: null,
+      };
     }
   }
 
@@ -402,41 +537,42 @@ const findPressedMarker = (view: EditorView, event: MouseEvent) => {
   return isHeading(view.state.doc.nodeAt(position)) ? position : null;
 };
 
-export const createLeafdownHeadingFoldPlugin = () =>
-  $prose(
-    () =>
-      new Plugin({
-        key: headingFoldPluginKey,
-        state: {
-          init: (_, state) => createFoldState(state.doc, []),
-          apply: applyFoldTransaction,
-        },
-        view: trackMarkerHover,
-        appendTransaction: (transactions, _, state) => {
-          if (
-            !transactions.some((transaction) => transaction.docChanged || transaction.selectionSet)
-          )
-            return null;
-          if (state.selection instanceof AllSelection) return null;
-          const reached = getFoldedSections(state)
-            .filter((section) => selectionReachesSection(state.selection, section))
-            .map((section) => section.heading);
-          return reached.length > 0
-            ? state.tr.setMeta(headingFoldPluginKey, { unfold: reached })
-            : null;
-        },
-        props: {
-          decorations: getFoldDecorations,
-          handleDOMEvents: {
-            mousedown: (view, event) => {
-              if (event.button !== 0) return false;
-              const heading = findPressedMarker(view, event);
-              if (heading === null) return false;
-              event.preventDefault();
-              toggleHeadingFold(view, heading);
-              return true;
-            },
-          },
-        },
+export const createHeadingFoldPlugin = () =>
+  new Plugin({
+    key: headingFoldPluginKey,
+    state: {
+      init: (_, state) => ({
+        folded: [],
+        decorations: createHeadingFoldDecorations(state.doc, []),
+        markerHover: null,
       }),
-  );
+      apply: applyFoldTransaction,
+    },
+    view: trackMarkerHover,
+    appendTransaction: (transactions, _, state) => {
+      if (!transactions.some((transaction) => transaction.docChanged || transaction.selectionSet))
+        return null;
+      if (state.selection instanceof AllSelection) return null;
+      const reached = getFoldedSections(state)
+        .filter((section) => selectionReachesSection(state.selection, section))
+        .map((section) => section.heading);
+      return reached.length > 0
+        ? state.tr.setMeta(headingFoldPluginKey, { unfold: reached })
+        : null;
+    },
+    props: {
+      decorations: getFoldDecorations,
+      handleDOMEvents: {
+        mousedown: (view, event) => {
+          if (event.button !== 0) return false;
+          const heading = findPressedMarker(view, event);
+          if (heading === null) return false;
+          event.preventDefault();
+          toggleHeadingFold(view, heading);
+          return true;
+        },
+      },
+    },
+  });
+
+export const createLeafdownHeadingFoldPlugin = () => $prose(createHeadingFoldPlugin);

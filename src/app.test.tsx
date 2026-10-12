@@ -17,6 +17,7 @@ import {
 } from "./features/preferences";
 import { releaseNotesStoreTauriHandler } from "./features/release-notes";
 import { useSessionStore } from "./features/session";
+import { LAUNCH_DOCUMENTS_EVENT } from "./features/session/services/launchDocumentApi";
 import {
   createOpenedMarkdownDocument,
   createSavedDocument,
@@ -35,7 +36,7 @@ describe("App", () => {
   beforeEach(() => {
     document.documentElement.className = "";
     delete document.documentElement.dataset.accentColor;
-    mockTauriApi({ takeLaunchDocumentPath: () => null });
+    mockTauriApi({ takeLaunchDocumentPaths: () => [] });
   });
 
   it("starts persisted stores, applies the theme, and shows the window", async () => {
@@ -320,7 +321,7 @@ describe("App", () => {
 
   it("keeps the native window open when dirty document close is cancelled", async () => {
     const appWindow = getCurrentWindow();
-    mockTauriApi({ takeLaunchDocumentPath: () => null, declineWindowClose: () => undefined });
+    mockTauriApi({ takeLaunchDocumentPaths: () => [], declineWindowClose: () => undefined });
     setDefaultSession({
       activeDocument: createUntitledDocument({ isDirty: true }),
     });
@@ -353,7 +354,7 @@ describe("App", () => {
 
   it("asks once about every unsaved tab before closing the window", async () => {
     const appWindow = getCurrentWindow();
-    mockTauriApi({ takeLaunchDocumentPath: () => null, declineWindowClose: () => undefined });
+    mockTauriApi({ takeLaunchDocumentPaths: () => [], declineWindowClose: () => undefined });
     setDefaultSession({
       documents: [
         createUntitledDocument({ isDirty: true }),
@@ -467,7 +468,7 @@ describe("App", () => {
   it("opens the launch document after showing the window", async () => {
     const appWindow = getCurrentWindow();
     mockTauriApi({
-      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      takeLaunchDocumentPaths: () => [TEST_MARKDOWN_FILE_PATH],
       openMarkdownFile: () => createOpenedMarkdownDocument(),
       scanMarkdownFolder: () => createEmptyFolderContext(),
     });
@@ -482,9 +483,9 @@ describe("App", () => {
 
     const takeCallIndex = vi
       .mocked(invoke)
-      .mock.calls.findIndex(([command]) => command === tauriApiCommand("takeLaunchDocumentPath"));
+      .mock.calls.findIndex(([command]) => command === tauriApiCommand("takeLaunchDocumentPaths"));
 
-    expect(countTauriApiCalls("takeLaunchDocumentPath")).toBe(1);
+    expect(countTauriApiCalls("takeLaunchDocumentPaths")).toBe(1);
     expect(vi.mocked(appWindow.show).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(invoke).mock.invocationCallOrder[takeCallIndex],
     );
@@ -500,7 +501,7 @@ describe("App", () => {
       .mockReturnValue(settingsStart.promise);
     setDefaultSettings({ sidebarVisible: true });
     mockTauriApi({
-      takeLaunchDocumentPath: () => launchDocumentPath,
+      takeLaunchDocumentPaths: () => [launchDocumentPath],
       openMarkdownFile: () =>
         createOpenedMarkdownDocument({
           path: launchDocumentPath,
@@ -518,7 +519,7 @@ describe("App", () => {
       render(<App />);
 
       await waitFor(() => expect(startSettingsStore).toHaveBeenCalled());
-      expect(countTauriApiCalls("takeLaunchDocumentPath")).toBe(0);
+      expect(countTauriApiCalls("takeLaunchDocumentPaths")).toBe(0);
 
       settingsStart.resolve();
 
@@ -541,13 +542,49 @@ describe("App", () => {
     }
   });
 
+  it("opens a document a later launch routes here, listening before the first take", async () => {
+    const appWindow = getCurrentWindow();
+    const routedPaths: string[][] = [[]];
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => routedPaths.shift() ?? [],
+      openMarkdownFile: () => createOpenedMarkdownDocument(),
+      scanMarkdownFolder: () => createEmptyFolderContext(),
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(countTauriApiCalls("takeLaunchDocumentPaths")).toBe(1));
+
+    const listenCallIndex = vi
+      .mocked(appWindow.listen)
+      .mock.calls.findIndex(([eventName]) => eventName === LAUNCH_DOCUMENTS_EVENT);
+    const takeCallIndex = vi
+      .mocked(invoke)
+      .mock.calls.findIndex(([command]) => command === tauriApiCommand("takeLaunchDocumentPaths"));
+
+    expect(vi.mocked(appWindow.listen).mock.invocationCallOrder[listenCallIndex]).toBeLessThan(
+      vi.mocked(invoke).mock.invocationCallOrder[takeCallIndex],
+    );
+    expect(useSessionStore.getState().activeDocument).toBeNull();
+
+    routedPaths.push([TEST_MARKDOWN_FILE_PATH]);
+    getWindowListenHandler<void>(LAUNCH_DOCUMENTS_EVENT)({ payload: undefined });
+
+    await waitFor(() => {
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        path: TEST_MARKDOWN_FILE_PATH,
+      });
+    });
+    expect(countTauriApiCalls("takeLaunchDocumentPaths")).toBe(2);
+  });
+
   it("opens the launch document with default settings when preferences fail to load", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const startSettingsStore = vi
       .spyOn(settingsStoreTauriHandler, "start")
       .mockRejectedValue(new Error("Persisted settings are unreadable."));
     mockTauriApi({
-      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      takeLaunchDocumentPaths: () => [TEST_MARKDOWN_FILE_PATH],
       openMarkdownFile: () => createOpenedMarkdownDocument(),
       scanMarkdownFolder: () => createEmptyFolderContext(),
     });

@@ -9,7 +9,7 @@ use std::{
 use serde::Serialize;
 use tauri::{
     AppHandle, CloseRequestApi, Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, State,
-    WebviewWindowBuilder, Window,
+    WebviewWindow, WebviewWindowBuilder, Window,
 };
 
 use crate::window_documents::WindowDocuments;
@@ -151,8 +151,37 @@ impl Default for WindowNumbering {
 }
 
 impl WindowNumbering {
-    fn next_label(&self) -> String {
+    pub(crate) fn next_label(&self) -> String {
         format!("window-{}", self.next.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+/// The windows in the order they were last focused, so a launch can reach the most recent one
+/// while another application has focus.
+#[derive(Debug, Default)]
+pub(crate) struct WindowFocusOrder {
+    labels: Mutex<Vec<String>>,
+}
+
+impl WindowFocusOrder {
+    fn focused(&self, window_label: &str) {
+        let mut labels = self.labels();
+
+        labels.retain(|label| label != window_label);
+        labels.push(window_label.to_owned());
+    }
+
+    fn forget(&self, window_label: &str) {
+        self.labels().retain(|label| label != window_label);
+    }
+
+    pub(crate) fn most_recent_first(&self) -> Vec<String> {
+        self.labels().iter().rev().cloned().collect()
+    }
+
+    // A list of labels cannot be left half-updated, so a poisoned lock still holds a usable list.
+    fn labels(&self) -> MutexGuard<'_, Vec<String>> {
+        self.labels.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -229,6 +258,27 @@ pub(crate) fn handle_close_requested<R: Runtime>(window: &Window<R>, api: &Close
     }
 }
 
+pub(crate) fn record_window_focus<R: Runtime>(window: &Window<R>) {
+    window.state::<WindowFocusOrder>().focused(window.label());
+}
+
+pub(crate) fn forget_window_focus<R: Runtime>(window: &Window<R>) {
+    window.state::<WindowFocusOrder>().forget(window.label());
+}
+
+/// Restores, shows, and focuses a window, asking Windows to let it take the foreground.
+pub(crate) fn bring_forward<R: Runtime>(window: &WebviewWindow<R>) {
+    for (step, result) in [
+        ("unminimize", window.unminimize()),
+        ("show", window.show()),
+        ("focus", window.set_focus()),
+    ] {
+        if let Err(error) = result {
+            log::warn!("failed to {step} window {}: {error}", window.label());
+        }
+    }
+}
+
 pub(crate) fn forget_close_request<R: Runtime>(window: &Window<R>) {
     window
         .state::<CloseRequestGuard>()
@@ -297,6 +347,17 @@ pub(crate) async fn open_new_window(
     window: Window,
     numbering: State<'_, WindowNumbering>,
 ) -> Result<(), OpenWindowError> {
+    create_window(&app, numbering.next_label(), Some(&window)).map(|_| ())
+}
+
+/// Builds a hidden window on the welcome screen, which its frontend shows once ready, offset from
+/// `reference` or centered without one. Building a window from the main thread deadlocks on
+/// Windows, so callers run this elsewhere.
+pub(crate) fn create_window<R: Runtime>(
+    app: &AppHandle<R>,
+    label: String,
+    reference: Option<&Window<R>>,
+) -> Result<WebviewWindow<R>, OpenWindowError> {
     let open_failed = |message: String| OpenWindowError::OpenFailed { message };
     let mut config = app
         .config()
@@ -307,14 +368,14 @@ pub(crate) async fn open_new_window(
         .cloned()
         .ok_or_else(|| open_failed("the main window has no configuration".to_owned()))?;
 
-    config.label = numbering.next_label();
+    config.label = label;
 
-    let created = WebviewWindowBuilder::from_config(&app, &config)
+    let created = WebviewWindowBuilder::from_config(app, &config)
         .and_then(|builder| builder.build())
         .map_err(|error| open_failed(error.to_string()))?;
 
     // The window stays hidden until its frontend shows it, so placing it after creation is unseen.
-    let placed = match cascade_bounds(&window) {
+    let placed = match reference.and_then(cascade_bounds) {
         Some((size, position)) => created
             .set_size(size)
             .and_then(|()| created.set_position(position)),
@@ -325,7 +386,7 @@ pub(crate) async fn open_new_window(
         log::warn!("failed to place window {}: {error}", created.label());
     }
 
-    Ok(())
+    Ok(created)
 }
 
 fn cascade_bounds<R: Runtime>(
@@ -369,8 +430,8 @@ fn cascade_bounds<R: Runtime>(
 #[cfg(test)]
 mod tests {
     use super::{
-        Bounds, CloseRequestDecision, CloseRequestGuard, QuitSequence, WindowNumbering,
-        cascade_position,
+        Bounds, CloseRequestDecision, CloseRequestGuard, QuitSequence, WindowFocusOrder,
+        WindowNumbering, cascade_position,
     };
 
     fn labels(values: &[&str]) -> Vec<String> {
@@ -542,6 +603,30 @@ mod tests {
 
         assert_eq!(numbering.next_label(), "window-2");
         assert_eq!(numbering.next_label(), "window-3");
+    }
+
+    #[test]
+    fn orders_windows_by_their_most_recent_focus() {
+        let focus = WindowFocusOrder::default();
+
+        focus.focused("main");
+        focus.focused("window-2");
+        focus.focused("window-3");
+        focus.focused("window-2");
+
+        assert_eq!(focus.most_recent_first(), ["window-2", "window-3", "main"]);
+    }
+
+    #[test]
+    fn forgets_a_destroyed_window_so_the_one_focused_before_it_is_most_recent() {
+        let focus = WindowFocusOrder::default();
+
+        focus.focused("main");
+        focus.focused("window-2");
+        focus.forget("window-2");
+        focus.forget("window-3");
+
+        assert_eq!(focus.most_recent_first(), ["main"]);
     }
 
     #[test]

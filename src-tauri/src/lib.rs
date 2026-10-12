@@ -38,8 +38,18 @@ pub fn run() {
     let diagnostics_runtime = diagnostics::DiagnosticsRuntime::new();
     let diagnostics_run_id = diagnostics_runtime.run_id().to_owned();
 
-    let builder =
-        tauri::Builder::default().plugin(diagnostics::build_log_plugin(diagnostics_run_id));
+    let builder = tauri::Builder::default();
+
+    // A second launch hands its arguments to the running process and exits during this plugin's
+    // setup, before any later plugin starts. Development runs stay separate from an installed
+    // Leafdown, which shares their identifier.
+    let builder = if tauri::is_dev() {
+        builder
+    } else {
+        builder.plugin(tauri_plugin_single_instance::init(launch::route_launch))
+    };
+
+    let builder = builder.plugin(diagnostics::build_log_plugin(diagnostics_run_id));
 
     #[cfg(not(feature = "desktop-e2e"))]
     let builder = builder.plugin(tauri_plugin_opener::init());
@@ -85,9 +95,10 @@ pub fn run() {
         .manage(diagnostics_runtime)
         .manage(document::DocumentWatcherState::default())
         .manage(folder::FolderWatcherState::default())
-        .manage(launch::LaunchDocument::from_process())
+        .manage(launch::LaunchDocuments::from_process())
         .manage(window::CloseRequestGuard::default())
         .manage(window::QuitSequence::default())
+        .manage(window::WindowFocusOrder::default())
         .manage(window::WindowNumbering::default())
         .manage(window_documents::WindowDocuments::default())
         .setup(|app| {
@@ -107,8 +118,11 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => window::handle_close_requested(window, api),
+            WindowEvent::Focused(true) => window::record_window_focus(window),
             WindowEvent::Destroyed => {
                 window::forget_close_request(window);
+                window::forget_window_focus(window);
+                launch::forget_window_launches(window);
                 document::stop_window_document_watchers(window);
                 folder::stop_window_folder_watcher(window);
                 window_documents::forget_window_documents(window);
@@ -128,7 +142,7 @@ pub fn run() {
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
-            launch::take_launch_document_path,
+            launch::take_launch_document_paths,
             remote_image::fetch_remote_image,
             link::resolve_markdown_link_target,
             link::resolve_wiki_link_target,

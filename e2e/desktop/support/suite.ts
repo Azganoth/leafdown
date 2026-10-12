@@ -1,3 +1,6 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 export const RUN_LABEL =
   process.env.LEAFDOWN_E2E_ARTIFACT_RUN ??
   `${new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-")}-${process.pid}`;
@@ -18,3 +21,9 @@ if (
 }
 
 export const WEBDRIVER_PORT = parsedWebDriverPort;
+
+const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
+
+export const APP_BINARY_PATH =
+  process.env.LEAFDOWN_E2E_RELEASE_BINARY ??
+  path.join(repositoryRoot, "src-tauri", "target", "desktop-e2e", "debug", "leafdown-e2e.exe");

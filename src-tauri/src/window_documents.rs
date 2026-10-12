@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, Window};
 
-use crate::path_utils::path_identity_key;
+use crate::{path_utils::path_identity_key, window};
 
 const WINDOW_DOCUMENTS_CHANGED_EVENT: &str = "leafdown://window-documents-changed";
 const ACTIVATE_DOCUMENT_EVENT: &str = "leafdown://activate-document";
@@ -107,16 +107,9 @@ impl WindowDocuments {
     /// Records a document for a window unless another window already holds it, checking and
     /// recording in one step so two windows cannot both open the same file.
     fn claim(&self, window_label: &str, path: &str) -> (Claim, Option<WindowDocumentsSnapshot>) {
-        let key = path_identity_key(path);
         let mut registry = self.registry();
 
-        if let Some((holder, document)) = registry.windows.iter().find_map(|entry| {
-            entry
-                .documents
-                .iter()
-                .find(|document| path_identity_key(document.path.as_str()) == key)
-                .map(|document| (entry.window_label.as_str(), document))
-        }) {
+        if let Some((holder, document)) = registry.holder(path) {
             if holder != window_label {
                 return (
                     Claim::HeldBy {
@@ -136,6 +129,13 @@ impl WindowDocuments {
         });
 
         (Claim::Claimed, Some(registry.publish()))
+    }
+
+    /// The window holding `path` under any spelling of it.
+    pub(crate) fn window_holding(&self, path: &str) -> Option<String> {
+        self.registry()
+            .holder(path)
+            .map(|(window_label, _)| window_label.to_owned())
     }
 
     fn forget_window(&self, window_label: &str) -> Option<WindowDocumentsSnapshot> {
@@ -166,6 +166,18 @@ impl WindowDocuments {
 }
 
 impl Registry {
+    fn holder(&self, path: &str) -> Option<(&str, &WindowDocument)> {
+        let key = path_identity_key(path);
+
+        self.windows.iter().find_map(|entry| {
+            entry
+                .documents
+                .iter()
+                .find(|document| path_identity_key(document.path.as_str()) == key)
+                .map(|document| (entry.window_label.as_str(), document))
+        })
+    }
+
     fn entry(&mut self, window_label: &str) -> &mut WindowDocumentsEntry {
         let index = match self
             .windows
@@ -228,22 +240,6 @@ fn emit_to_other_windows<R: Runtime, S: Serialize + Clone>(
     }
 }
 
-fn bring_forward<R: Runtime>(app: &AppHandle<R>, window_label: &str) {
-    let Some(window) = app.get_webview_window(window_label) else {
-        return;
-    };
-
-    for (step, result) in [
-        ("unminimize", window.unminimize()),
-        ("show", window.show()),
-        ("focus", window.set_focus()),
-    ] {
-        if let Err(error) = result {
-            log::warn!("failed to {step} window {window_label}: {error}");
-        }
-    }
-}
-
 #[tauri::command]
 pub(crate) fn set_window_documents(
     app: AppHandle,
@@ -288,7 +284,9 @@ pub(crate) fn claim_window_document(
                     log::error!("failed to ask window {window_label} to show a document: {error}");
                 }
 
-                bring_forward(&app, window_label.as_str());
+                if let Some(holder) = app.get_webview_window(window_label.as_str()) {
+                    window::bring_forward(&holder);
+                }
             }
 
             Ok(ClaimWindowDocumentResult::OpenElsewhere)
@@ -425,6 +423,25 @@ mod tests {
             registry.claim("window-2", r"C:\Notes\a.md").0,
             Claim::Claimed
         );
+    }
+
+    #[test]
+    fn finds_the_window_holding_a_document_under_any_spelling() {
+        let registry = WindowDocuments::default();
+
+        registry.set_documents("main", vec![document(r"C:\Notes\a.md", false)]);
+        registry.claim("window-2", r"C:\Notes\B.md");
+
+        assert_eq!(
+            registry.window_holding("c:/notes/A.md").as_deref(),
+            Some("main")
+        );
+        assert_eq!(
+            registry.window_holding(r"c:\notes\b.md").as_deref(),
+            Some("window-2"),
+            "a pending claim holds the document too"
+        );
+        assert_eq!(registry.window_holding(r"C:\Notes\c.md"), None);
     }
 
     #[test]

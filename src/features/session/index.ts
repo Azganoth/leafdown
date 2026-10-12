@@ -6,6 +6,7 @@ export { useDroppedPathListener, type DroppedPathIndicator } from "./hooks/useDr
 export { useWindowDocuments } from "./hooks/useWindowDocuments";
 export { confirmWindowClose } from "./services/windowClose";
 export { declineWindowClose, WINDOW_CLOSE_REQUESTED_EVENT } from "./services/windowCloseApi";
+export { listenForLaunchDocuments } from "./services/launchDocumentApi";
 export { documentEditorBridge } from "./services/documentEditorBridge";
 export {
   closeActiveMarkdownDocument,
@@ -40,7 +41,7 @@ export {
 export {
   notifyOpenMarkdownFileError,
   openFolderContextAtPath,
-  openLaunchDocument,
+  openLaunchDocuments,
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
   pickAndOpenMarkdownFile,

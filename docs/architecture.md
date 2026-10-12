@@ -140,7 +140,8 @@ The Rust backend manages:
 - Decoding a Markdown file in the encoding its byte order mark names, otherwise in the encoding the user chose or as UTF-8, and refusing a chosen encoding whose re-encoded text would not reproduce the file's bytes. Encoding saved text back strictly in the document's encoding and byte order mark form, reporting each character that encoding cannot represent instead of substituting it. Legacy encodings go through `encoding_rs`'s non-replacing encoder; UTF-8 and UTF-16 use the standard library.
 - Classifying native dropped paths as folders, supported Markdown files, or unsupported items.
 - Owning the built-in Markdown file extension registry, `src-tauri/markdown-file-extensions.json`, listed in omitted-extension resolution order. The build script validates it and generates the Rust constant, and the frontend imports the same file for native picker filters, so opening, saving, scanning, watching, drops, folder entries, index and wiki-link resolution, and pickers accept one set. The build script also writes the extension lists the Windows installers register file associations from, as described in [Packaging](#packaging). The new-document extension preference is a separate, narrower list.
-- Recording the process's first command-line argument as the launch document's absolute path, which the frontend takes once.
+- Holding, for each window, the documents launches asked it to open, each resolved to an absolute path against its launch's working directory: the process's first command-line argument for the first window, and the files later launches hand over. A window's frontend takes them once.
+- Routing a later launch, which the single-instance plugin delivers from a second process that then exits. A document goes to the window holding it, otherwise to the most recently focused window; a launch without one opens a new window. A visible receiving window is brought forward while the launch is delivered, since Windows grants the foreground for that moment, and a window still hidden comes forward when its frontend takes its documents.
 - File metadata reads and existence checks.
 - Resolving Markdown link and image targets, and handing confirmed local link targets to the system default application.
 - Reading an image for HTML export through the same resolution the editor renders with, bounded in size and checked for a PNG, JPEG, GIF, WebP, or SVG signature, and writing exported HTML atomically to an `.html` or `.htm` path that is not the source document.
@@ -175,7 +176,7 @@ The React frontend manages:
 - Presenting a fetched remote image through a `blob:` object URL owned by its image node view, which revokes it when the target changes or the view is destroyed and discards results that arrive after either.
 - Marker visibility rules, thematic styling, and error presentation.
 - Mirroring shared unexpected-error reports and feature-owned operational diagnostics into local logs as event-specific payloads, and exposing the Help diagnostics dialog.
-- Showing the window once startup initialization finishes or fails, then opening the launch document, and answering intercepted close requests by destroying the window or declining the request. A window with unsaved documents comes to the front before it asks, since `Quit` asks each window in turn.
+- Showing the window once startup initialization finishes or fails, then opening the documents launches routed to it, one at a time so a later open does not cancel an earlier one, and answering intercepted close requests by destroying the window or declining the request. A window with unsaved documents comes to the front before it asks, since `Quit` asks each window in turn.
 - Reporting the window's saved documents and their unsaved state to the backend, together with documents it has claimed but not yet opened, and following what other windows report: a document to show, a rename to follow, a deletion to check, and documents with unsaved changes that Replace in folder leaves alone.
 - Applying the shared always-on-top setting to the window whenever another window changes it.
 - Suppressing standard window-level drag-and-drop navigation and routing native file and folder drops through session workflows.
@@ -213,7 +214,11 @@ Session activates the tab already holding the file -> Otherwise session claims t
 
 ### Launch Workflow
 
-Backend records the launch document path -> Frontend starts persisted stores and shows the window -> Session takes the path once and runs the Open workflow. A window opened later starts the same way and finds no launch document.
+Backend records the first launch's document for the first window -> Frontend starts persisted stores, shows the window, and listens for routed launches -> Session takes the window's documents and runs the Open workflow for each in turn. A window opened later starts the same way and finds none.
+
+A later launch: the single-instance plugin, registered before every other plugin, finds the running process, hands it the arguments and working directory, and exits -> Backend resolves the path and adds it to the documents of the window holding that file, or else of the most recently focused window, brings that window forward, and tells it -> Session takes the documents and runs the Open workflow, which activates a tab that already holds the file. A launch without a path opens a new window instead, which comes forward once it has shown itself and taken its documents.
+
+The listener is registered before the first take, so a document routed during startup is either taken then or announced afterwards. Development runs leave the plugin out: they share the installed application's identifier, from which the plugin names the instance it looks for.
 
 ### Quit Workflow
 

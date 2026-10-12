@@ -147,6 +147,7 @@ import {
 } from "../plugins/math";
 import { createLeafdownMermaidModePlugin } from "../plugins/mermaidMode";
 import { createLeafdownPrevailingFormPlugin } from "../plugins/prevailingForm";
+import { createLeafdownReactSelectionOptOutPlugin } from "../plugins/reactSelectionOptOut";
 import {
   commitReferenceDefinitionFields,
   createLeafdownReferenceDefinitionFieldsPlugin,
@@ -438,6 +439,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTaskListCheckboxPlugin())
     .use(createLeafdownPrevailingFormPlugin())
     .use(createLeafdownTrailingParagraphPlugin())
+    .use(createLeafdownReactSelectionOptOutPlugin())
     .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {
       ctx.set(rootCtx, root);

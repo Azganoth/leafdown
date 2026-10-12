@@ -6,6 +6,8 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.3] - 2026-10-12
+
 ### Added
 
 - Open several documents in one window as tabs. Opening a file, a recent file, an article in the navigator, a link, a search result, or a drop adds a tab after the one you are on, or switches to the tab already holding that file, so opening no longer replaces your document or asks about its unsaved changes. Each tab keeps its own unsaved edits, undo history, place in the document, and search. Switch with a click, `Ctrl+Tab` and `Ctrl+Shift+Tab`, `Ctrl+PageDown` and `Ctrl+PageUp`, or `Ctrl+1` to `Ctrl+9`; close one with `Ctrl+W`, its close button, or a middle click. Closing the window or the folder asks once about every tab with unsaved changes, Find in folder and Replace in folder include the unsaved text of every open tab, and the window's title in the taskbar names the active document.
@@ -25,6 +27,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Open documents with many list items faster. Reading each item's indentation searched back toward the start of the file, so opening took longer with every item and with the file's size, adding about a second to a 1 MB document and much more to larger ones.
 - Draw the scrollbars of wide code blocks, tables, and display math in the same thin, rounded style as the rest of Leafdown instead of the system default. Help code samples, Find in folder's skipped-file lists, the code block language and wiki link suggestion lists, and menus cut short by a small window match it too.
 - Show a file opened from File Explorer, File > Open, recent files, or a drop as soon as it is read instead of after its whole folder has been scanned. A file in a large folder such as Documents could leave the window on the welcome screen for several seconds, looking as if the file had not opened. The article navigator shows placeholder rows until the folder is ready, and a folder that cannot be scanned reports its error without closing the document.
+- Start a newly opened document at the top instead of at the previous document's scroll position, while heading and search navigation still reveal their targets and external reloads restore the caret.
 - Show a heading's caret-based marker only while the editor has focus, so opening a heading-first document does not show the marker before you enter the editor. Hover markers and section folding remain available.
 - Keep block handles, the insertion button, and its insertion line inside the document view. A block scrolled partly out of view keeps its handle beside the part you can see, and no gutter control shows or takes clicks outside the document card.
 - Prevent `Ctrl+click` in ordinary editor text (`Cmd+click` on macOS) from creating a separate outlined node selection. Gutter and keyboard block selection, atomic-node and table-cell selection, and modifier-click link activation retain their gestures.
@@ -149,8 +152,6 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Show notifications at the top right of the window, just below the titlebar, instead of the bottom right. New notifications arrive from above and older ones stack beneath them, swiping up or right dismisses one, and a notification's menu, such as `Reopen with encoding`, opens downward.
 
 ### Fixed
-
-- Start a replacement document at the top instead of retaining the previous document's scroll position, while heading and search navigation still reveal their targets and external reloads restore the caret.
 
 - Keep the text after a code block's language on its opening fence, such as `title="app.js"` or `{1,3}` in ` ```js title="app.js" {1,3} `, which documentation tools read for captions and highlighted lines. Saving used to drop it and keep only the language, and copying the block within Leafdown dropped it too.
 - Keep the indentation of a raw HTML tag or a code span that continues onto indented lines, such as `<span` with `id="b">` indented on the next line. Every save added indentation to those lines, so the file changed each time it was saved, and a code span's text grew with it. Such lines now save as written, tabs included, in a paragraph, a heading, a list item, or a blockquote. The only exception is a code span line indented with a tab that a list item or blockquote takes only part of: that line is saved once with the spaces the tab covered, and its text is unchanged.

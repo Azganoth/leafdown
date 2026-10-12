@@ -3,18 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ARTIFACTS_DIR, captureFailureArtifacts } from "./support/artifacts.js";
-import { WEBDRIVER_PORT } from "./support/suite.js";
+import { APP_BINARY_PATH, WEBDRIVER_PORT } from "./support/suite.js";
 
 const repositoryRoot = fileURLToPath(new URL("../..", import.meta.url));
-const defaultAppBinaryPath = path.join(
-  repositoryRoot,
-  "src-tauri",
-  "target",
-  "desktop-e2e",
-  "debug",
-  "leafdown-e2e.exe",
-);
-const appBinaryPath = process.env.LEAFDOWN_E2E_RELEASE_BINARY ?? defaultAppBinaryPath;
+const appBinaryPath = APP_BINARY_PATH;
 const requestedSpec = process.env.LEAFDOWN_E2E_SPEC;
 
 if (!requestedSpec) {

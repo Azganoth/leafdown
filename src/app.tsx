@@ -20,7 +20,8 @@ import {
   confirmWindowClose,
   declineWindowClose,
   DroppedPathOverlay,
-  openLaunchDocument,
+  listenForLaunchDocuments,
+  openLaunchDocuments,
   useDroppedPathListener,
   WINDOW_CLOSE_REQUESTED_EVENT,
 } from "@/features/session";
@@ -95,6 +96,19 @@ export function App() {
       }
     };
 
+    const openRoutedLaunchDocuments = () =>
+      openLaunchDocuments().catch((error) => handleUnexpectedError(error, "openLaunchDocuments"));
+
+    // Listening before the first take means a launch routed here later is either taken by it or
+    // announced to the listener.
+    const followLaunchDocuments = async () => {
+      try {
+        disposables.add(await listenForLaunchDocuments(() => void openRoutedLaunchDocuments()));
+      } finally {
+        await openRoutedLaunchDocuments();
+      }
+    };
+
     void initializeApp()
       .catch((error) =>
         notifyOperationFailure(
@@ -103,8 +117,8 @@ export function App() {
           "initializeApp",
         ),
       )
-      .then(() => openLaunchDocument())
-      .catch((error) => handleUnexpectedError(error, "openLaunchDocument"));
+      .then(followLaunchDocuments)
+      .catch((error) => handleUnexpectedError(error, "followLaunchDocuments"));
 
     return () => {
       disposables.dispose();

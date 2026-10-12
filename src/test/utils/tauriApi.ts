@@ -64,7 +64,7 @@ import {
   type FolderSearchFileOutcome,
   type ReadFolderSearchFilesArgs,
 } from "@/features/folder-search/services/folderSearchApi";
-import { TAKE_LAUNCH_DOCUMENT_PATH_COMMAND } from "@/features/session/services/launchDocumentApi";
+import { TAKE_LAUNCH_DOCUMENT_PATHS_COMMAND } from "@/features/session/services/launchDocumentApi";
 import { DECLINE_WINDOW_CLOSE_COMMAND } from "@/features/session/services/windowCloseApi";
 import {
   CLAIM_WINDOW_DOCUMENT_COMMAND,
@@ -109,7 +109,7 @@ interface TauriApiCommandArgs {
   readFolderSearchFiles: ReadFolderSearchFilesArgs;
   preflightFolderReplacement: FolderReplacementArgs;
   writeFolderReplacementFiles: FolderReplacementArgs;
-  takeLaunchDocumentPath: undefined;
+  takeLaunchDocumentPaths: undefined;
   declineWindowClose: undefined;
   setWindowDocuments: SetWindowDocumentsArgs;
   claimWindowDocument: ClaimWindowDocumentArgs;
@@ -143,7 +143,7 @@ interface TauriApiCommandResults {
   readFolderSearchFiles: FolderSearchFileOutcome[];
   preflightFolderReplacement: FolderReplacementOutcome[];
   writeFolderReplacementFiles: FolderReplacementOutcome[];
-  takeLaunchDocumentPath: string | null;
+  takeLaunchDocumentPaths: string[];
   declineWindowClose: void;
   setWindowDocuments: void;
   claimWindowDocument: ClaimWindowDocumentResult;
@@ -187,7 +187,7 @@ const TAURI_API_COMMANDS = {
   readFolderSearchFiles: READ_FOLDER_SEARCH_FILES_COMMAND,
   preflightFolderReplacement: PREFLIGHT_FOLDER_REPLACEMENT_COMMAND,
   writeFolderReplacementFiles: WRITE_FOLDER_REPLACEMENT_FILES_COMMAND,
-  takeLaunchDocumentPath: TAKE_LAUNCH_DOCUMENT_PATH_COMMAND,
+  takeLaunchDocumentPaths: TAKE_LAUNCH_DOCUMENT_PATHS_COMMAND,
   declineWindowClose: DECLINE_WINDOW_CLOSE_COMMAND,
   setWindowDocuments: SET_WINDOW_DOCUMENTS_COMMAND,
   claimWindowDocument: CLAIM_WINDOW_DOCUMENT_COMMAND,

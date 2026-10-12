@@ -34,11 +34,12 @@ import {
   type FolderContextLoad,
 } from "../stores/session";
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
-import { takeLaunchDocumentPath } from "./launchDocumentApi";
+import { takeLaunchDocumentPaths } from "./launchDocumentApi";
 import { confirmDiscardTabChanges } from "./unsavedChanges";
 import { claimDocumentForWindow } from "./windowDocumentClaims";
 
 const openTransitionRunner = new RestartableTaskRunner();
+let launchDocumentsOpened: Promise<unknown> = Promise.resolve();
 
 interface OpenMarkdownFileOptions {
   /** Reads the file again into the tab already holding it, instead of only activating that tab. */
@@ -229,14 +230,28 @@ export const reopenMarkdownFileWithChosenEncoding = async (
   }
 };
 
-/** Opens the file the operating system launched Leafdown with, once persisted stores are ready. */
-export const openLaunchDocument = async () => {
-  const path = await takeLaunchDocumentPath();
+/**
+ * Opens the files launches asked this window to open, once persisted stores are ready: the file
+ * the process started with, then those later launches route here. Each waits for the one before
+ * it, since a newer open cancels one still in progress.
+ */
+export const openLaunchDocuments = () => {
+  const opened = launchDocumentsOpened.then(async () => {
+    let openedAny = false;
 
-  if (!path) {
-    return false;
-  }
+    for (const path of await takeLaunchDocumentPaths()) {
+      openedAny = (await openLaunchDocument(path)) || openedAny;
+    }
 
+    return openedAny;
+  });
+
+  launchDocumentsOpened = opened.catch(() => undefined);
+
+  return opened;
+};
+
+const openLaunchDocument = async (path: string) => {
   try {
     return await openMarkdownFileAtPath(path);
   } catch (error) {

@@ -43,4 +43,5 @@ trash = { version = "5.2.9", default-features = false, features = ["coinit_apart
 encoding_rs = "0.8.42"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2.4.5"
 tauri-plugin-window-state = "2.4.1"

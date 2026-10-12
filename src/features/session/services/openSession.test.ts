@@ -27,7 +27,7 @@ import {
 import {
   notifyOpenMarkdownFileError,
   openFolderContextAtPath,
-  openLaunchDocument,
+  openLaunchDocuments,
   openMarkdownFileAtPath,
   reopenMarkdownFileWithChosenEncoding,
 } from "./openSession";
@@ -208,12 +208,12 @@ describe("reopen with a chosen encoding", () => {
   });
 });
 
-describe("launch document", () => {
+describe("launch documents", () => {
   const LAUNCH_MARKDOWN_PATH = "C:/Users/Ana Lúcia/Notas de reunião/日本語.md";
 
   it("opens the launch document through the open workflow and records recent items", async () => {
     mockTauriApi({
-      takeLaunchDocumentPath: () => LAUNCH_MARKDOWN_PATH,
+      takeLaunchDocumentPaths: () => [LAUNCH_MARKDOWN_PATH],
       openMarkdownFile: () =>
         createOpenedMarkdownDocument({
           path: LAUNCH_MARKDOWN_PATH,
@@ -223,7 +223,7 @@ describe("launch document", () => {
         createEmptyFolderContext({ path: "C:/Users/Ana Lúcia/Notas de reunião" }),
     });
 
-    await expect(openLaunchDocument()).resolves.toBe(true);
+    await expect(openLaunchDocuments()).resolves.toBe(true);
 
     expect(getLastTauriApiArgs("openMarkdownFile")).toEqual({
       path: LAUNCH_MARKDOWN_PATH,
@@ -239,10 +239,10 @@ describe("launch document", () => {
     });
   });
 
-  it("opens nothing when the process was launched without a document", async () => {
-    mockTauriApi({ takeLaunchDocumentPath: () => null });
+  it("opens nothing when no launch asked this window to open a document", async () => {
+    mockTauriApi({ takeLaunchDocumentPaths: () => [] });
 
-    await expect(openLaunchDocument()).resolves.toBe(false);
+    await expect(openLaunchDocuments()).resolves.toBe(false);
 
     expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
     expect(useSessionStore.getState().activeDocument).toBeNull();
@@ -250,12 +250,12 @@ describe("launch document", () => {
 
   it("reports a launch document that cannot be opened like any other open failure", async () => {
     mockTauriApi({
-      takeLaunchDocumentPath: () => "C:/Notes/readings.text",
+      takeLaunchDocumentPaths: () => ["C:/Notes/readings.text"],
       openMarkdownFile: () =>
         Promise.reject({ kind: "unsupportedFileType", path: "C:/Notes/readings.text" }),
     });
 
-    await expect(openLaunchDocument()).resolves.toBe(false);
+    await expect(openLaunchDocuments()).resolves.toBe(false);
 
     expect(toastManager.add).toHaveBeenCalledWith({
       description: "Leafdown opens .md, .markdown, .mdown, and .mkd files.",
@@ -268,18 +268,109 @@ describe("launch document", () => {
 
   it("offers reopening a launch document that is not valid UTF-8", async () => {
     mockTauriApi({
-      takeLaunchDocumentPath: () => TEST_MARKDOWN_FILE_PATH,
+      takeLaunchDocumentPaths: () => [TEST_MARKDOWN_FILE_PATH],
       openMarkdownFile: () =>
         Promise.reject({ kind: "invalidEncoding", path: TEST_MARKDOWN_FILE_PATH }),
     });
 
-    await expect(openLaunchDocument()).resolves.toBe(false);
+    await expect(openLaunchDocuments()).resolves.toBe(false);
 
     expect(toastManager.add).toHaveBeenCalledWith(
       expect.objectContaining({
         data: { actionMenu: expect.objectContaining({ label: "Reopen with encoding" }) },
       }),
     );
+  });
+
+  it("opens each routed document as a new tab after the active one", async () => {
+    const existing = createSavedDocument({ path: "C:/Notes/existing.md" });
+    setDefaultSession({ folderContext: emptyNotesFolderContext, documents: [existing] });
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => [OTHER_MARKDOWN_PATH, LATEST_MARKDOWN_PATH],
+      openMarkdownFile: ({ path }) =>
+        path === OTHER_MARKDOWN_PATH ? openedOtherMarkdownFile : openedLatestMarkdownFile,
+    });
+
+    await expect(openLaunchDocuments()).resolves.toBe(true);
+
+    const { tabs } = useSessionStore.getState();
+    expect(tabs.map(({ document }) => document.status === "saved" && document.path)).toEqual([
+      "C:/Notes/existing.md",
+      OTHER_MARKDOWN_PATH,
+      LATEST_MARKDOWN_PATH,
+    ]);
+    expect(getActiveTab(useSessionStore.getState())?.document).toMatchObject({
+      path: LATEST_MARKDOWN_PATH,
+    });
+    expect(useSessionStore.getState().folderContext).toBe(emptyNotesFolderContext);
+  });
+
+  it("activates the tab already holding a routed document without reading it again", async () => {
+    const routed = createSavedDocument({ path: OTHER_MARKDOWN_PATH, isDirty: true });
+    setDefaultSession({
+      folderContext: emptyNotesFolderContext,
+      documents: [createSavedDocument(), routed],
+      activeIndex: 0,
+    });
+    mockTauriApi({ takeLaunchDocumentPaths: () => ["c:/notes/OTHER.md"] });
+
+    await expect(openLaunchDocuments()).resolves.toBe(true);
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().tabs).toHaveLength(2);
+    expect(getActiveTab(useSessionStore.getState())?.document).toMatchObject({
+      path: OTHER_MARKDOWN_PATH,
+      isDirty: true,
+    });
+  });
+
+  it("finishes opening one launch's document before taking the next, so neither cancels the other", async () => {
+    const firstRead = Promise.withResolvers<OpenedMarkdownDocument>();
+    const routedPaths = [[OTHER_MARKDOWN_PATH], [LATEST_MARKDOWN_PATH]];
+    setDefaultSession({ folderContext: emptyNotesFolderContext });
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => routedPaths.shift() ?? [],
+      openMarkdownFile: ({ path }) =>
+        path === OTHER_MARKDOWN_PATH ? firstRead.promise : openedLatestMarkdownFile,
+    });
+
+    const first = openLaunchDocuments();
+    const second = openLaunchDocuments();
+
+    await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
+    expect(countTauriApiCalls("takeLaunchDocumentPaths")).toBe(1);
+
+    firstRead.resolve(openedOtherMarkdownFile);
+
+    await expect(first).resolves.toBe(true);
+    await expect(second).resolves.toBe(true);
+    expect(
+      useSessionStore
+        .getState()
+        .tabs.map(({ document }) => document.status === "saved" && document.path),
+    ).toEqual([OTHER_MARKDOWN_PATH, LATEST_MARKDOWN_PATH]);
+  });
+
+  it("reports a routed document that cannot be opened and still opens the next one", async () => {
+    setDefaultSession({ folderContext: emptyNotesFolderContext });
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => ["C:/Notes/missing.md", OTHER_MARKDOWN_PATH],
+      openMarkdownFile: ({ path }) =>
+        path === OTHER_MARKDOWN_PATH
+          ? openedOtherMarkdownFile
+          : Promise.reject({ kind: "missingFile", path }),
+    });
+
+    await expect(openLaunchDocuments()).resolves.toBe(true);
+
+    expect(toastManager.add).toHaveBeenCalledWith({
+      description: "C:/Notes/missing.md",
+      title: "Markdown file not found.",
+      type: "error",
+    });
+    expect(getActiveTab(useSessionStore.getState())?.document).toMatchObject({
+      path: OTHER_MARKDOWN_PATH,
+    });
   });
 });
 

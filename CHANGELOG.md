@@ -31,6 +31,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Follow links again with `Ctrl+click` (`Cmd+click` on macOS). Pressing a link, wiki link, or footnote reference with the modifier no longer turns it into its Markdown source or outlines it before the click lands, so web links open in the system browser, local Markdown links open in Leafdown, and footnote references move to their definitions. A plain click still places the caret for editing.
 - Leave a heading chosen from the outline with the same space above it as the document's first line, instead of close under the top edge. Choosing the heading that opens the document scrolls back to the very top.
 - Open documents with large tables about ten times faster. Reading tables took time that grew with the square of their cell count, so a document with hundreds of kilobytes of tables could take most of a minute to open, and larger ones never finished opening.
+- Open documents with many tables a little faster. Fitting each table's columns made the window lay the document out again for every table in turn; all of a document's tables are now measured in one layout.
 
 ## [0.1.0-alpha.2] - 2026-10-05
 

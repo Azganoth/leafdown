@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { ENCODING_CHOICES, type OpenedMarkdownDocument } from "@/features/document";
 import type { FolderContextState } from "@/features/folder-context";
@@ -31,6 +31,7 @@ import {
   openMarkdownFileAtPath,
   reopenMarkdownFileWithChosenEncoding,
 } from "./openSession";
+import { WindowDocumentsSync } from "./windowDocumentClaims";
 
 vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
 
@@ -731,5 +732,90 @@ describe("folder context after opening a file", () => {
       activeDocument: { status: "saved", path: OTHER_MARKDOWN_PATH },
     });
     expect(useRecentItemsStore.getState().recentFolders).toEqual([]);
+  });
+});
+
+describe("opening a file another window holds", () => {
+  it("shows the file in the window holding it instead of reading it again", async () => {
+    const activeDocument = createUntitledDocument();
+    setDefaultSession({ activeDocument });
+    mockTauriApi({ claimWindowDocument: () => ({ kind: "openElsewhere" }) });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).resolves.toBe(true);
+
+    expect(getLastTauriApiArgs("claimWindowDocument")).toEqual({
+      path: OTHER_MARKDOWN_PATH,
+      activate: true,
+    });
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toEqual([
+      activeDocument,
+    ]);
+    expect(useRecentItemsStore.getState().recentFiles).toMatchObject([
+      { path: OTHER_MARKDOWN_PATH },
+    ]);
+  });
+
+  it("claims the file before reading it and keeps it claimed once its tab holds it", async () => {
+    const sync = new WindowDocumentsSync();
+    onTestFinished(() => sync.dispose());
+    mockTauriApi({
+      openMarkdownFile: () => openedOtherMarkdownFile,
+      scanMarkdownFolder: () => emptyNotesFolderContext,
+    });
+
+    await openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
+
+    const calls = vi.mocked(invoke).mock.calls.map(([command]) => command);
+    expect(calls.indexOf(tauriApiCommand("claimWindowDocument"))).toBeLessThan(
+      calls.indexOf(tauriApiCommand("openMarkdownFile")),
+    );
+    await vi.waitFor(() =>
+      expect(getLastTauriApiArgs("setWindowDocuments")).toEqual({
+        documents: [{ path: OTHER_MARKDOWN_PATH, unsaved: false }],
+      }),
+    );
+  });
+
+  it("gives the claim back when the file cannot be opened", async () => {
+    const sync = new WindowDocumentsSync();
+    onTestFinished(() => sync.dispose());
+    mockTauriApi({
+      openMarkdownFile: () => Promise.reject({ kind: "missingFile", path: OTHER_MARKDOWN_PATH }),
+    });
+    await vi.waitFor(() => expect(countTauriApiCalls("setWindowDocuments")).toBe(1));
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH)).rejects.toMatchObject({
+      kind: "missingFile",
+    });
+
+    await vi.waitFor(() => expect(countTauriApiCalls("setWindowDocuments")).toBe(2));
+    expect(getLastTauriApiArgs("setWindowDocuments")).toEqual({ documents: [] });
+    expect(useSessionStore.getState().tabs).toEqual([]);
+  });
+
+  it("opens a folder without the index file another window holds, leaving that window alone", async () => {
+    const activeDocument = createUntitledDocument();
+    setDefaultSession({ activeDocument });
+    mockTauriApi({
+      openMarkdownFolder: () => ({
+        folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
+        indexDocument: createOpenedMarkdownDocument({ path: `${OTHER_FOLDER_PATH}/index.md` }),
+        indexError: null,
+      }),
+      claimWindowDocument: () => ({ kind: "openElsewhere" }),
+    });
+
+    await expect(openFolderContextAtPath(OTHER_FOLDER_PATH)).resolves.toBe(true);
+
+    expect(getLastTauriApiArgs("claimWindowDocument")).toEqual({
+      path: `${OTHER_FOLDER_PATH}/index.md`,
+      activate: false,
+    });
+    expect(useSessionStore.getState()).toMatchObject({
+      folderContext: { path: OTHER_FOLDER_PATH },
+      activeDocument,
+    });
+    expect(useSessionStore.getState().tabs).toHaveLength(1);
   });
 });

@@ -195,6 +195,46 @@ pub(crate) fn normalize_path_lexically(path: &Path) -> PathBuf {
     normalized
 }
 
+/// The frontend's path identity, so the backend matches open documents as their windows do:
+/// separators become `/`, trailing separators are dropped, and Windows drive and UNC paths compare
+/// case-insensitively.
+pub(crate) fn path_identity_key(path: &str) -> String {
+    let normalized = trim_trailing_separators(path.replace('\\', "/").as_str());
+
+    if is_windows_path(normalized.as_str()) {
+        normalized.to_lowercase()
+    } else {
+        normalized
+    }
+}
+
+fn trim_trailing_separators(path: &str) -> String {
+    if !path.is_empty() && path.bytes().all(|byte| byte == b'/') {
+        return "/".to_owned();
+    }
+
+    let trimmed = path.trim_end_matches('/');
+
+    if trimmed.len() < path.len() && is_windows_drive(trimmed) {
+        return format!("{trimmed}/");
+    }
+
+    trimmed.to_owned()
+}
+
+fn is_windows_drive(path: &str) -> bool {
+    let bytes = path.as_bytes();
+
+    bytes.len() == 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn is_windows_path(path: &str) -> bool {
+    path.starts_with("//")
+        || path.get(..2).is_some_and(|drive| {
+            is_windows_drive(drive) && matches!(path.get(2..3), None | Some("/"))
+        })
+}
+
 fn canonicalize_or_normalize(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| normalize_path_lexically(path))
 }
@@ -238,9 +278,37 @@ mod tests {
     use super::{
         IoErrorClass, MarkdownReferencePathResolution, canonicalize_or_original, classify_io_error,
         has_uri_scheme, is_network_or_device_target, normalize_path_lexically, parse_file_url_path,
-        resolve_markdown_reference_path, resolves_outside_folder,
+        path_identity_key, resolve_markdown_reference_path, resolves_outside_folder,
     };
     use crate::test_utils::TestDirectory;
+
+    #[test]
+    fn keys_windows_paths_as_the_frontend_does() {
+        assert_eq!(path_identity_key(r"C:\Notes\Docs\"), "c:/notes/docs");
+        assert_eq!(path_identity_key("C:/"), "c:/");
+        assert_eq!(path_identity_key(r"C:\\"), "c:/");
+        assert_eq!(path_identity_key("C:"), "c:");
+        assert_eq!(
+            path_identity_key(r"\\Server\Share\Docs\Readme.md"),
+            "//server/share/docs/readme.md"
+        );
+        assert_eq!(
+            path_identity_key(r"C:\Notas de Reunião\Ü.md"),
+            path_identity_key("c:/notas de reunião/ü.md")
+        );
+    }
+
+    #[test]
+    fn keeps_posix_path_identity_case_sensitive() {
+        assert_eq!(path_identity_key("/Users/Ada/Notes/"), "/Users/Ada/Notes");
+        assert_eq!(path_identity_key("///"), "/");
+        assert_eq!(path_identity_key(""), "");
+        assert_ne!(
+            path_identity_key("/Users/Ada/Notes"),
+            path_identity_key("/users/ada/notes")
+        );
+        assert_eq!(path_identity_key("Cx:/Notes"), "Cx:/Notes");
+    }
 
     #[test]
     fn parses_file_url_paths_and_decodes_percent_escapes() {

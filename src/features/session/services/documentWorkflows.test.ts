@@ -353,14 +353,18 @@ describe("document workflows", () => {
         filters: [{ name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd"] }],
         defaultPath: "C:/Notes/Untitled.markdown",
       });
-      expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("saveMarkdownFile"), {
+      expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("claimWindowDocument"), {
+        path: DRAFT_MARKDOWN_PATH,
+        activate: false,
+      });
+      expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("saveMarkdownFile"), {
         path: DRAFT_MARKDOWN_PATH,
         content: "Draft",
         encoding: { name: "UTF-8", bom: false },
         expectedMetadata: null,
         overwrite: false,
       });
-      expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("scanMarkdownFolder"), {
+      expect(invoke).toHaveBeenNthCalledWith(3, tauriApiCommand("scanMarkdownFolder"), {
         path: "C:/Notes",
         ignoredDirectories: DEFAULT_IGNORED_DIRECTORIES,
         sortOrder: "name",
@@ -392,7 +396,7 @@ describe("document workflows", () => {
 
       await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
 
-      expect(invoke).toHaveBeenNthCalledWith(1, tauriApiCommand("saveMarkdownFile"), {
+      expect(invoke).toHaveBeenNthCalledWith(2, tauriApiCommand("saveMarkdownFile"), {
         path: DRAFT_MD_PATH,
         content: "# Notes\r\n",
         encoding: { name: "UTF-16BE", bom: true },
@@ -561,6 +565,30 @@ describe("document workflows", () => {
         type: "error",
       });
       expect(useSessionStore.getState().activeDocument).toMatchObject({
+        id: TEST_UNTITLED_DOCUMENT_ID,
+      });
+    });
+
+    it("refuses to save over a file open in another window without showing it there", async () => {
+      setDefaultSession({ activeDocument: createUntitledDocument() });
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      mockTauriApi({ claimWindowDocument: () => ({ kind: "openElsewhere" }) });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(false);
+
+      expect(getLastTauriApiArgs("claimWindowDocument")).toEqual({
+        path: DRAFT_MD_PATH,
+        activate: false,
+      });
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(0);
+      expect(toastManager.add).toHaveBeenCalledWith({
+        title: "Document is already open",
+        description:
+          "draft.md is open in another window. Close it there before saving over it, or choose another name.",
+        type: "error",
+      });
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        status: "untitled",
         id: TEST_UNTITLED_DOCUMENT_ID,
       });
     });

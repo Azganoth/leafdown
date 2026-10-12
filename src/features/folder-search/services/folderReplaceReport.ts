@@ -1,7 +1,11 @@
 import type { TextEncodingName } from "@/features/document";
 
 /** Why a file planned for replacement was left as it was. */
-export type FolderReplaceStaleReason = "changedOnDisk" | "missing" | "changedInEditor";
+export type FolderReplaceStaleReason =
+  | "changedOnDisk"
+  | "missing"
+  | "changedInEditor"
+  | "unsavedInAnotherWindow";
 
 export type FolderReplaceFailureReason =
   | "notArticle"

@@ -27,6 +27,7 @@ import { createArticleTree, createFolderContext } from "@/test/factories/folderC
 import { setDefaultSession, setDefaultSettings } from "@/test/utils/appStores";
 import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/utils/tauriApi";
 
+import { useOtherWindowDocumentsStore } from "../stores/otherWindowDocuments";
 import { useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { applyFolderReplacement } from "./folderReplaceWorkflows";
@@ -45,6 +46,7 @@ let disk: Map<string, string | null>;
 let modified: Map<string, number>;
 let session: Disposable | null = null;
 let writeOrder: string[];
+let beforePreflight: () => void;
 let beforeWrite: (args: FolderReplacementArgs) => void;
 let failWrite: (path: string) => FolderReplacementOutcome | null;
 let preflightFailure: Error | null;
@@ -63,6 +65,20 @@ const createFolder = (paths = [ALPHA, BETA]): FolderContextState =>
       })),
     }),
   });
+
+const setUnsavedInAnotherWindow = (paths: string[]) => {
+  const { applySnapshot, revision } = useOtherWindowDocumentsStore.getState();
+
+  applySnapshot(
+    {
+      revision: revision + 1,
+      windows: [
+        { windowLabel: "window-2", documents: paths.map((path) => ({ path, unsaved: true })) },
+      ],
+    },
+    "main",
+  );
+};
 
 const metadataOf = (path: string) => ({
   sizeBytes: disk.get(path)?.length ?? 0,
@@ -210,6 +226,7 @@ beforeEach(() => {
   ]);
   modified = new Map();
   writeOrder = [];
+  beforePreflight = () => {};
   beforeWrite = () => {};
   failWrite = () => null;
   preflightFailure = null;
@@ -221,6 +238,8 @@ beforeEach(() => {
   mockTauriApi({
     readFolderSearchFiles: ({ files }) => files.map(({ path }) => readOutcome(path)),
     preflightFolderReplacement: ({ files }) => {
+      beforePreflight();
+
       if (preflightFailure) {
         throw preflightFailure;
       }
@@ -359,6 +378,39 @@ describe("applying a folder replacement", () => {
     expect(getReport()).toMatchObject({
       written: [{ path: BETA, matchCount: 2 }],
       stale: [{ path: ALPHA, reason: "changedOnDisk", unsavedInEditor: false }],
+    });
+  });
+
+  it("plans around a file another window holds with unsaved changes, and again once they go", async () => {
+    setUnsavedInAnotherWindow([BETA]);
+
+    const results = await plan("leaf", "tree");
+
+    expect(results.files.map(({ path }) => path)).toEqual([ALPHA]);
+    expect(results.skipped).toEqual([{ path: BETA, reason: "unsavedInAnotherWindow" }]);
+
+    setUnsavedInAnotherWindow([]);
+
+    await vi.waitFor(() => {
+      const { results: replanned } = useFolderSearchStore.getState();
+
+      expect(replanned?.status).toBe("completed");
+      expect(replanned?.files.map(({ path }) => path)).toEqual([ALPHA, BETA]);
+      expect(replanned?.skipped).toEqual([]);
+    });
+  });
+
+  it("leaves a file that gains unsaved changes in another window while replacing", async () => {
+    await plan("leaf", "tree");
+    beforePreflight = () => setUnsavedInAnotherWindow([BETA]);
+
+    await applyFolderReplacement();
+
+    expect(disk.get(ALPHA)).toBe("An alpha tree.\n");
+    expect(disk.get(BETA)).toBe("Beta leaf and another leaf.\n");
+    expect(getReport()).toMatchObject({
+      written: [{ path: ALPHA, matchCount: 1 }],
+      stale: [{ path: BETA, reason: "unsavedInAnotherWindow", unsavedInEditor: false }],
     });
   });
 

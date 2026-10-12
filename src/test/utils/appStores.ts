@@ -17,6 +17,7 @@ import {
   type SettingsPersistedState,
 } from "@/features/preferences";
 import { RELEASE_NOTES_STATE_VERSION, useReleaseNotesStore } from "@/features/release-notes";
+import { useOtherWindowDocumentsStore } from "@/features/session/stores/otherWindowDocuments";
 // Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
 // beforeEach in ../setup/common.ts loads this module for every test file.
 import {
@@ -140,4 +141,5 @@ export const resetAppStores = () => {
   });
   useArticleNavigatorStore.getState().reset();
   useFolderSearchStore.getState().reset();
+  useOtherWindowDocumentsStore.setState(useOtherWindowDocumentsStore.getInitialState());
 };

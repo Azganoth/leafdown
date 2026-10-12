@@ -7,6 +7,13 @@ import { debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { expect, vi } from "vitest";
 
+import {
+  CLAIM_WINDOW_DOCUMENT_COMMAND,
+  NOTIFY_DOCUMENTS_MOVED_COMMAND,
+  NOTIFY_DOCUMENTS_REMOVED_COMMAND,
+  SET_WINDOW_DOCUMENTS_COMMAND,
+} from "@/features/session/services/windowDocumentsApi";
+
 import { getMockPathExtension, joinMockPathSegments } from "./path";
 
 export type InvokeCommandHandler = (args: unknown) => unknown;
@@ -57,9 +64,18 @@ export const getWindowDragDropHandler = () => {
   return dragDropCall?.[0] as (event: { payload: DragDropEvent }) => void;
 };
 
+// Every window takes part in the record of which window holds which document, so a test of one
+// window finds it the only window unless it replaces these.
+const ONLY_WINDOW_HANDLERS: Record<string, InvokeCommandHandler> = {
+  [SET_WINDOW_DOCUMENTS_COMMAND]: () => undefined,
+  [CLAIM_WINDOW_DOCUMENT_COMMAND]: () => ({ kind: "claimed" }),
+  [NOTIFY_DOCUMENTS_MOVED_COMMAND]: () => undefined,
+  [NOTIFY_DOCUMENTS_REMOVED_COMMAND]: () => undefined,
+};
+
 export const mockInvokeCommands = (handlers: Record<string, InvokeCommandHandler>) => {
   vi.mocked(invoke).mockImplementation(async (commandName, args) => {
-    const handler = handlers[commandName];
+    const handler = handlers[commandName] ?? ONLY_WINDOW_HANDLERS[commandName];
 
     if (!handler) {
       throw new Error(`Unexpected Tauri invoke command: ${commandName}`);
@@ -70,11 +86,8 @@ export const mockInvokeCommands = (handlers: Record<string, InvokeCommandHandler
 };
 
 export const resetTauriMocks = () => {
-  vi.mocked(invoke)
-    .mockReset()
-    .mockImplementation(async (commandName) => {
-      throw new Error(`Unexpected Tauri invoke command: ${commandName}`);
-    });
+  vi.mocked(invoke).mockReset();
+  mockInvokeCommands({});
 
   vi.mocked(convertFileSrc)
     .mockReset()
@@ -97,9 +110,11 @@ export const resetTauriMocks = () => {
   vi.mocked(appWindow.onDragDropEvent).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.onThemeChanged).mockReset().mockResolvedValue(vi.fn());
   vi.mocked(appWindow.setAlwaysOnTop).mockReset().mockResolvedValue(undefined);
+  vi.mocked(appWindow.setFocus).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.setFullscreen).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.show).mockReset().mockResolvedValue(undefined);
   vi.mocked(appWindow.theme).mockReset().mockResolvedValue("light");
+  vi.mocked(appWindow.unminimize).mockReset().mockResolvedValue(undefined);
 
   const webview = getCurrentWebview();
   vi.mocked(webview.setZoom).mockReset().mockResolvedValue(undefined);

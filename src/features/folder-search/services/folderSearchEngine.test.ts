@@ -175,6 +175,7 @@ const createDisk = (files: Record<string, string>) => {
 const createEngine = (
   disk: ReturnType<typeof createDisk>,
   activeDocument: () => FolderSearchOpenDocument | null = () => null,
+  isUnsavedElsewhere?: (path: string) => boolean,
 ) => {
   const parser = createParser();
   const published: (FolderSearchResults | null)[] = [];
@@ -187,6 +188,7 @@ const createEngine = (
 
         return open && isSamePath(open.path, path) ? open : null;
       },
+      isUnsavedElsewhere,
       readFiles: disk.readFiles,
     },
     (results) => published.push(results),
@@ -737,6 +739,27 @@ describe("folder search engine", () => {
 
       expect(results.files).toEqual([]);
       expect(results.skipped).toEqual([{ path: `${FOLDER}/a.md`, reason: "replacementRefused" }]);
+    });
+
+    it("names and leaves alone a file another window holds with unsaved changes", async () => {
+      const disk = createDisk({ "a.md": "leaf", "b.md": "leaf", "c.md": "branch" });
+      const elsewhere = new Set([`${FOLDER}/a.md`, `${FOLDER}/c.md`]);
+      const { replace, search } = createEngine(
+        disk,
+        () => null,
+        (path) => elsewhere.has(path),
+      );
+
+      const results = await replace("leaf", "tree");
+
+      expect(results.files.map(({ path }) => path)).toEqual([`${FOLDER}/b.md`]);
+      expect(results.skipped).toEqual([
+        { path: `${FOLDER}/a.md`, reason: "unsavedInAnotherWindow" },
+      ]);
+      expect((await search("leaf")).files.map(({ path }) => path)).toEqual([
+        `${FOLDER}/a.md`,
+        `${FOLDER}/b.md`,
+      ]);
     });
 
     it("leaves out a file the replacement would not change", async () => {

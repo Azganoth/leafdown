@@ -3,7 +3,8 @@ export { useDocumentWatchers } from "./hooks/useDocumentWatchers";
 export { useFolderContextWatcher } from "./hooks/useFolderContextWatcher";
 export { useFolderSearchSession } from "./hooks/useFolderSearchSession";
 export { useDroppedPathListener, type DroppedPathIndicator } from "./hooks/useDroppedPathListener";
-export { confirmDiscardAllDocumentChanges } from "./services/unsavedChanges";
+export { useWindowDocuments } from "./hooks/useWindowDocuments";
+export { confirmWindowClose } from "./services/windowClose";
 export { declineWindowClose, WINDOW_CLOSE_REQUESTED_EVENT } from "./services/windowCloseApi";
 export { documentEditorBridge } from "./services/documentEditorBridge";
 export {

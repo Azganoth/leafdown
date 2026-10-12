@@ -39,6 +39,7 @@ import {
   useFolderContextWatcher,
   useFolderSearchSession,
   useSessionStore,
+  useWindowDocuments,
 } from "@/features/session";
 import { handleUnexpectedError } from "@/lib/errors";
 import { useLocalization } from "@/lib/i18n";
@@ -78,6 +79,7 @@ const handleApplyFolderReplacement = () => {
 export function Shell() {
   useFolderContextWatcher();
   useDocumentWatchers();
+  useWindowDocuments();
   useFolderSearchSession();
 
   const localization = useLocalization();

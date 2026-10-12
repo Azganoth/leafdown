@@ -20,6 +20,7 @@ import {
   type CancellationToken,
   isCancellationError,
   runWithCancellation,
+  throwIfCancelled,
 } from "@/lib/cancellation";
 import { t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
@@ -35,6 +36,7 @@ import {
 import { getSessionFolderOpenOptions, getSessionFolderScanOptions } from "./folderContextWorkflows";
 import { takeLaunchDocumentPath } from "./launchDocumentApi";
 import { confirmDiscardTabChanges } from "./unsavedChanges";
+import { claimDocumentForWindow } from "./windowDocumentClaims";
 
 const openTransitionRunner = new RestartableTaskRunner();
 
@@ -75,36 +77,56 @@ export const openMarkdownFileAtPath = (
       return reloadTab(openTab, { activate, discardConfirmed, encoding }, cancellationToken);
     }
 
-    const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
-    const { parentFolderPath, ...documentFields } = openedDocument;
-    const session = useSessionStore.getState();
-    const tabOpenedMeanwhile = findTabByPath(session, documentFields.path);
+    const claim = await claimDocumentForWindow(path, { activate: true });
 
-    if (tabOpenedMeanwhile) {
-      session.activateTab(tabOpenedMeanwhile.id);
-      recordRecentFile(documentFields.path);
+    if (!claim) {
+      recordRecentFile(path);
 
       return true;
     }
 
-    const savedDocument = toSavedDocument(documentFields);
-
-    if (session.folderContext || session.folderContextLoad) {
-      session.openTab(savedDocument);
-      recordRecentFile(documentFields.path);
-
-      return true;
+    try {
+      return await openClaimedMarkdownFile(path, encoding, cancellationToken);
+    } finally {
+      claim.dispose();
     }
+  });
 
-    const { folderContextLoad } = session.openTabWithFolderContextLoad(
-      parentFolderPath,
-      savedDocument,
-    );
+const openClaimedMarkdownFile = async (
+  path: string,
+  encoding: TextEncodingName | undefined,
+  cancellationToken: CancellationToken,
+) => {
+  const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
+  const { parentFolderPath, ...documentFields } = openedDocument;
+  const session = useSessionStore.getState();
+  const tabOpenedMeanwhile = findTabByPath(session, documentFields.path);
+
+  if (tabOpenedMeanwhile) {
+    session.activateTab(tabOpenedMeanwhile.id);
     recordRecentFile(documentFields.path);
-    void loadFolderContext(folderContextLoad);
 
     return true;
-  });
+  }
+
+  const savedDocument = toSavedDocument(documentFields);
+
+  if (session.folderContext || session.folderContextLoad) {
+    session.openTab(savedDocument);
+    recordRecentFile(documentFields.path);
+
+    return true;
+  }
+
+  const { folderContextLoad } = session.openTabWithFolderContextLoad(
+    parentFolderPath,
+    savedDocument,
+  );
+  recordRecentFile(documentFields.path);
+  void loadFolderContext(folderContextLoad);
+
+  return true;
+};
 
 /**
  * The editor keeps its state across a same-path update, so a reload must say when the text
@@ -233,7 +255,10 @@ export const pickAndOpenMarkdownFile = async () => {
   return openMarkdownFileAtPath(selectedPath);
 };
 
-/** Replaces the folder context and keeps the open tabs, opening the folder's index file as a tab. */
+/**
+ * Replaces the folder context and keeps the open tabs, opening the folder's index file as a tab.
+ * An index file open in another window stays there, and the folder opens here without it.
+ */
 export const openFolderContextAtPath = (path: string) =>
   runLatestOpenTransition(async (cancellationToken) => {
     const { folderContext, indexDocument, indexError } = await openFolderContext(
@@ -241,16 +266,27 @@ export const openFolderContextAtPath = (path: string) =>
       getSessionFolderOpenOptions(),
       cancellationToken,
     );
-    const session = useSessionStore.getState();
-    const indexTab = indexDocument && findTabByPath(session, indexDocument.path);
+    const indexTab = indexDocument && findTabByPath(useSessionStore.getState(), indexDocument.path);
+    const indexClaim =
+      indexDocument && !indexTab
+        ? await claimDocumentForWindow(indexDocument.path, { activate: false })
+        : null;
 
-    if (indexTab) {
-      session.setFolderContext(folderContext);
-      session.activateTab(indexTab.id);
-    } else if (indexDocument) {
-      session.openTab(toSavedDocument(indexDocument), { folderContext });
-    } else {
-      session.setFolderContext(folderContext);
+    try {
+      throwIfCancelled(cancellationToken);
+
+      const session = useSessionStore.getState();
+
+      if (indexTab) {
+        session.setFolderContext(folderContext);
+        session.activateTab(indexTab.id);
+      } else if (indexDocument && indexClaim) {
+        session.openTab(toSavedDocument(indexDocument), { folderContext });
+      } else {
+        session.setFolderContext(folderContext);
+      }
+    } finally {
+      indexClaim?.dispose();
     }
 
     recordRecentFolderSession(folderContext.path);

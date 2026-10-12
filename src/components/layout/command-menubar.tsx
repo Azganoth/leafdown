@@ -111,7 +111,7 @@ export function CommandMenubar({
             {t(getCommandMenuLabelId("file"))}
           </MenubarTrigger>
           <MenubarContent>
-            <CommandItems commandIds={["file.new"]} />
+            <CommandItems commandIds={["file.new", "file.newWindow"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["file.open", "file.openFolder"]} />
             <RecentItemsSubmenu
@@ -132,6 +132,8 @@ export function CommandMenubar({
             <CommandItems
               commandIds={["file.closeDocument", "file.closeFolder", "file.closeWindow"]}
             />
+            <MenubarSeparator />
+            <CommandItems commandIds={["file.quit"]} />
           </MenubarContent>
         </MenubarMenu>
 

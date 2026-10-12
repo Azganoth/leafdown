@@ -66,6 +66,17 @@ import {
 } from "@/features/folder-search/services/folderSearchApi";
 import { TAKE_LAUNCH_DOCUMENT_PATH_COMMAND } from "@/features/session/services/launchDocumentApi";
 import { DECLINE_WINDOW_CLOSE_COMMAND } from "@/features/session/services/windowCloseApi";
+import {
+  CLAIM_WINDOW_DOCUMENT_COMMAND,
+  NOTIFY_DOCUMENTS_MOVED_COMMAND,
+  NOTIFY_DOCUMENTS_REMOVED_COMMAND,
+  SET_WINDOW_DOCUMENTS_COMMAND,
+  type ClaimWindowDocumentArgs,
+  type ClaimWindowDocumentResult,
+  type DocumentPathPayload,
+  type DocumentsMovedPayload,
+  type SetWindowDocumentsArgs,
+} from "@/features/session/services/windowDocumentsApi";
 
 import {
   countInvokeCalls,
@@ -100,6 +111,10 @@ interface TauriApiCommandArgs {
   writeFolderReplacementFiles: FolderReplacementArgs;
   takeLaunchDocumentPath: undefined;
   declineWindowClose: undefined;
+  setWindowDocuments: SetWindowDocumentsArgs;
+  claimWindowDocument: ClaimWindowDocumentArgs;
+  notifyDocumentsMoved: DocumentsMovedPayload;
+  notifyDocumentsRemoved: DocumentPathPayload;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
 }
@@ -130,6 +145,10 @@ interface TauriApiCommandResults {
   writeFolderReplacementFiles: FolderReplacementOutcome[];
   takeLaunchDocumentPath: string | null;
   declineWindowClose: void;
+  setWindowDocuments: void;
+  claimWindowDocument: ClaimWindowDocumentResult;
+  notifyDocumentsMoved: void;
+  notifyDocumentsRemoved: void;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
 }
@@ -170,6 +189,10 @@ const TAURI_API_COMMANDS = {
   writeFolderReplacementFiles: WRITE_FOLDER_REPLACEMENT_FILES_COMMAND,
   takeLaunchDocumentPath: TAKE_LAUNCH_DOCUMENT_PATH_COMMAND,
   declineWindowClose: DECLINE_WINDOW_CLOSE_COMMAND,
+  setWindowDocuments: SET_WINDOW_DOCUMENTS_COMMAND,
+  claimWindowDocument: CLAIM_WINDOW_DOCUMENT_COMMAND,
+  notifyDocumentsMoved: NOTIFY_DOCUMENTS_MOVED_COMMAND,
+  notifyDocumentsRemoved: NOTIFY_DOCUMENTS_REMOVED_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;

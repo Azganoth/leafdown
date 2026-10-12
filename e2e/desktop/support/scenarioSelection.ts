@@ -10,6 +10,7 @@ const scenarioTargets = {
   "document-watcher": ["document-watcher"],
   "find-and-replace": ["find-and-replace"],
   "keyboard-shortcuts": ["keyboard-shortcuts"],
+  "multiple-windows": ["multiple-windows"],
   "heading-outline": ["heading-outline"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],

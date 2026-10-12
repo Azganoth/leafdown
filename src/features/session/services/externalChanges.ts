@@ -21,6 +21,9 @@ import { notifyOpenMarkdownFileError } from "./openSession";
 
 type ExternalVersion = Extract<ExternalFileChange, { kind: "modified" }>;
 
+/** Who removed a file whose document stays open, which the warning names. */
+type MissingFileCause = "outsideLeafdown" | "anotherWindow";
+
 interface CheckedDocument {
   tabId: string;
   generation: number;
@@ -35,9 +38,14 @@ interface CheckedDocument {
 export const checkDocumentFile = (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
-) => runAfterPendingSaves(() => checkDocumentFileNow(path, cancellationToken));
+  missingFileCause: MissingFileCause = "outsideLeafdown",
+) => runAfterPendingSaves(() => checkDocumentFileNow(path, cancellationToken, missingFileCause));
 
-const checkDocumentFileNow = async (path: string, cancellationToken: CancellationToken) => {
+const checkDocumentFileNow = async (
+  path: string,
+  cancellationToken: CancellationToken,
+  missingFileCause: MissingFileCause,
+) => {
   const tab = findTabByPath(useSessionStore.getState(), path);
 
   if (cancellationToken.isCancellationRequested || tab?.document.status !== "saved") {
@@ -77,7 +85,7 @@ const checkDocumentFileNow = async (path: string, cancellationToken: Cancellatio
       setFileState(document, fileState.metadata, null);
       return;
     case "missing":
-      recordMissingFile(document);
+      recordMissingFile(document, missingFileCause);
       return;
     case "contentChanged": {
       const version: ExternalVersion = {
@@ -209,16 +217,22 @@ const recordExternalVersion = (document: SavedDocumentState, version: ExternalVe
   });
 };
 
-const recordMissingFile = (document: SavedDocumentState) => {
+const recordMissingFile = (
+  document: SavedDocumentState,
+  cause: MissingFileCause = "outsideLeafdown",
+) => {
   if (document.externalChange?.kind === "missing") {
     return;
   }
 
+  const name = getPathParts(document.path).name;
+
   setFileState(document, document.metadata, { kind: "missing" });
   notifyWarning({
     title: t("session.externalChange.missing.title"),
-    description: t("session.externalChange.missing.description", {
-      name: getPathParts(document.path).name,
-    }),
+    description:
+      cause === "anotherWindow"
+        ? t("session.externalChange.missing.deletedInAnotherWindow", { name })
+        : t("session.externalChange.missing.description", { name }),
   });
 };

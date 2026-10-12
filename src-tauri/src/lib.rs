@@ -26,6 +26,7 @@ mod test_utils;
 mod text_encoding;
 mod watch_scope;
 mod window;
+mod window_documents;
 
 const TITLEBAR_HEIGHT: u32 = 32;
 const TITLEBAR_BUTTON_WIDTH: u32 = 52;
@@ -67,6 +68,7 @@ pub fn run() {
             tauri_plugin_window_state::Builder::new()
                 // Startup shows the window after frontend initialization, including failure.
                 .with_state_flags(StateFlags::all() ^ StateFlags::VISIBLE)
+                .with_filter(|label| label == window::MAIN_WINDOW_LABEL)
                 .build(),
         )
         .plugin(navigation::build_navigation_guard_plugin())
@@ -85,6 +87,9 @@ pub fn run() {
         .manage(folder::FolderWatcherState::default())
         .manage(launch::LaunchDocument::from_process())
         .manage(window::CloseRequestGuard::default())
+        .manage(window::QuitSequence::default())
+        .manage(window::WindowNumbering::default())
+        .manage(window_documents::WindowDocuments::default())
         .setup(|app| {
             let package_info = app.package_info();
             let app_version = package_info.version.to_string();
@@ -106,6 +111,8 @@ pub fn run() {
                 window::forget_close_request(window);
                 document::stop_window_document_watchers(window);
                 folder::stop_window_folder_watcher(window);
+                window_documents::forget_window_documents(window);
+                window::continue_quit(window);
             }
             _ => {}
         })
@@ -137,7 +144,13 @@ pub fn run() {
             folder::create_article_directory,
             folder::rename_folder_entry,
             folder::trash_folder_entry,
-            window::decline_window_close
+            window::decline_window_close,
+            window::open_new_window,
+            window::quit_application,
+            window_documents::set_window_documents,
+            window_documents::claim_window_document,
+            window_documents::notify_documents_moved,
+            window_documents::notify_documents_removed
         ])
         .run(context)
         .unwrap_or_else(|error| {

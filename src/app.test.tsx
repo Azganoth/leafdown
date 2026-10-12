@@ -140,6 +140,37 @@ describe("App", () => {
     }
   });
 
+  it("follows always on top when another window changes the setting", async () => {
+    const appWindow = getCurrentWindow();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      render(<App />);
+
+      await waitFor(() => {
+        expect(appWindow.show).toHaveBeenCalled();
+      });
+      expect(appWindow.setAlwaysOnTop).not.toHaveBeenCalled();
+
+      useSettingsStore.getState().updateSetting("alwaysOnTop", true);
+
+      await waitFor(() => expect(appWindow.setAlwaysOnTop).toHaveBeenLastCalledWith(true));
+
+      vi.mocked(appWindow.setAlwaysOnTop).mockRejectedValueOnce(new Error("window unavailable"));
+      useSettingsStore.getState().updateSetting("alwaysOnTop", false);
+
+      await waitFor(() =>
+        expect(toastManager.add).toHaveBeenCalledWith({
+          description: "window unavailable",
+          title: "Could not apply always on top to this window.",
+          type: "error",
+        }),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("syncs explicit theme settings without reading the native window theme", async () => {
     const appWindow = getCurrentWindow();
     setDefaultSettings({ theme: "dark" });
@@ -274,6 +305,7 @@ describe("App", () => {
     await handleCloseRequested({ payload: undefined });
 
     expect(confirmation.useConfirmationStore.getState().current).toBeNull();
+    expect(appWindow.setFocus).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(getLastDiagnosticPayload("info")).toMatchObject({
         event: "operationLifecycle",
@@ -308,6 +340,9 @@ describe("App", () => {
     const closeRequest = handleCloseRequested({ payload: undefined });
     const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
     expect(prompt).toHaveTextContent("Untitled has unsaved changes.");
+    // Quit asks each window in turn, so the window asking comes forward first.
+    expect(appWindow.unminimize).toHaveBeenCalledOnce();
+    expect(appWindow.setFocus).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
     await closeRequest;
     expect(appWindow.destroy).not.toHaveBeenCalled();

@@ -22,6 +22,7 @@ const appCommand = (
 
 export const APPLICATION_COMMANDS = {
   "file.new": appCommand(file.createUntitledDocument),
+  "file.newWindow": appCommand(file.openNewWindow),
   "file.open": appCommand(file.openMarkdownFile),
   "file.openFolder": appCommand(file.openFolderContext),
   "file.clearRecentItems": appCommand(file.clearRecentItems, file.getClearRecentItemsState),
@@ -34,6 +35,7 @@ export const APPLICATION_COMMANDS = {
   "file.closeDocument": appCommand(file.closeDocument, file.getCloseDocumentState),
   "file.closeFolder": appCommand(file.closeFolderContext, file.getCloseFolderState),
   "file.closeWindow": appCommand(file.closeWindow),
+  "file.quit": appCommand(file.quit),
 
   "edit.lineEnding.crlf": appCommand(edit.setCrlfLineEnding, edit.getCrlfLineEndingState),
   "edit.lineEnding.lf": appCommand(edit.setLfLineEnding, edit.getLfLineEndingState),

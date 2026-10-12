@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toast";
 import { writeDiagnosticOperationLifecycle } from "@/features/diagnostics";
 import {
   applyPersistedAlwaysOnTop,
+  followAlwaysOnTopSetting,
   recentItemsStoreTauriHandler,
   settingsStoreTauriHandler,
   useSettingsStore,
@@ -16,7 +17,7 @@ import {
 } from "@/features/preferences";
 import { initializeReleaseNotes } from "@/features/release-notes";
 import {
-  confirmDiscardAllDocumentChanges,
+  confirmWindowClose,
   declineWindowClose,
   DroppedPathOverlay,
   openLaunchDocument,
@@ -50,6 +51,8 @@ export function App() {
   const droppedPathIndicator = useDroppedPathListener();
 
   useEffect(() => {
+    const disposables = new DisposableStore();
+
     const initializeApp = async () => {
       try {
         await Promise.all([
@@ -74,6 +77,15 @@ export function App() {
             "applyPersistedAlwaysOnTop",
           ),
         );
+        disposables.add(
+          followAlwaysOnTopSetting((error) =>
+            notifyOperationFailure(
+              localizer.current.t("app.applyAlwaysOnTopFailed"),
+              error,
+              "followAlwaysOnTopSetting",
+            ),
+          ),
+        );
         await updateTheme(useSettingsStore.getState().theme);
       } finally {
         // A hidden window has no chrome, focus, or taskbar entry, so it cannot be asked to close.
@@ -93,6 +105,10 @@ export function App() {
       )
       .then(() => openLaunchDocument())
       .catch((error) => handleUnexpectedError(error, "openLaunchDocument"));
+
+    return () => {
+      disposables.dispose();
+    };
   }, []);
 
   useTauriEvent<void>(
@@ -100,7 +116,7 @@ export function App() {
     async () => {
       // The backend closes on the next request while one is pending, so only a deliberate
       // decision answers it: a handler that keeps failing must stay silent to stay closable.
-      if (!(await confirmDiscardAllDocumentChanges())) {
+      if (!(await confirmWindowClose())) {
         await declineWindowClose();
         return;
       }

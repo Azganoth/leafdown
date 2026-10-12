@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { describe, expect, it, vi } from "vitest";
@@ -15,16 +16,21 @@ import {
   TEST_NESTED_MARKDOWN_FILE_PATH,
 } from "@/test/fixtures/paths";
 import { setDefaultRecentItems, setDefaultSettings } from "@/test/utils/appStores";
+import { mockInvokeCommands } from "@/test/utils/tauri";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
 
 import { useCommandUIStore } from "../stores/commandUi";
 import {
   clearRecentItems,
   exportDocumentAsHtml,
+  OPEN_NEW_WINDOW_COMMAND,
   openMarkdownFile,
   openLocation,
+  openNewWindow,
   openPreferences,
   openRecentMarkdownFile,
+  quit,
+  QUIT_APPLICATION_COMMAND,
   revealInSidebar,
 } from "./file";
 
@@ -199,5 +205,38 @@ describe("file actions", () => {
     useCommandUIStore.getState().setPreferencesOpen(false);
     openPreferences();
     expect(useCommandUIStore.getState().preferencesOpen).toBe(true);
+  });
+
+  it("asks the backend for a new window and reports a window that cannot open", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockInvokeCommands({ [OPEN_NEW_WINDOW_COMMAND]: () => undefined });
+
+    await openNewWindow();
+
+    expect(invoke).toHaveBeenCalledWith(OPEN_NEW_WINDOW_COMMAND);
+
+    mockInvokeCommands({
+      [OPEN_NEW_WINDOW_COMMAND]: () =>
+        Promise.reject({ kind: "openFailed", message: "out of handles" }),
+    });
+
+    try {
+      await openNewWindow();
+
+      expect(toastManager.add).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Could not open a new window.", type: "error" }),
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("quits through the backend, which closes each window in turn", async () => {
+    mockInvokeCommands({ [QUIT_APPLICATION_COMMAND]: () => undefined });
+
+    await quit();
+
+    expect(invoke).toHaveBeenCalledWith(QUIT_APPLICATION_COMMAND);
+    expect(toastManager.add).not.toHaveBeenCalled();
   });
 });

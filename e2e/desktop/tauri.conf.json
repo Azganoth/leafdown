@@ -13,7 +13,7 @@
         {
           "identifier": "desktop-e2e",
           "description": "Test-only WebdriverIO access for the Windows desktop smoke harness",
-          "windows": ["main"],
+          "windows": ["*"],
           "permissions": [
             "wdio:allow-execute",
             "wdio:allow-get-window-states",

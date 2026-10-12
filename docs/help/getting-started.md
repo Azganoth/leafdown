@@ -18,6 +18,6 @@ Click in the document and type. Leafdown shows Markdown as formatted text while 
 
 Choose **File > Save** to write changes. Saving an untitled document opens **Save as**, where you choose its filename and location. **File > Save as** also writes an existing document to a new path. A file saved outside the open folder does not replace that pinned folder context.
 
-Opening a document never closes another: each opens in its own tab. When you close a tab, the folder, or the window with unsaved changes, Leafdown asks before discarding them, and canceling keeps everything open. If another program has changed or removed the file, Leafdown warns before a save can overwrite it or offers Save as for a missing file.
+Opening a document never closes another: each opens in its own tab. When you close a tab, the folder, or the window with unsaved changes, or quit Leafdown, Leafdown asks before discarding them, and canceling keeps everything open. If another program has changed or removed the file, Leafdown warns before a save can overwrite it or offers Save as for a missing file.
 
 Continue with [File and folder workflows](file-and-folder-workflows.md) or [Settings reference](settings-reference.md).

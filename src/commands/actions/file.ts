@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
@@ -37,6 +38,9 @@ import {
 } from "../context";
 import { disabled, enabled } from "../statePrimitives";
 import { useCommandUIStore } from "../stores/commandUi";
+
+export const OPEN_NEW_WINDOW_COMMAND = "open_new_window";
+export const QUIT_APPLICATION_COMMAND = "quit_application";
 
 const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
   try {
@@ -229,6 +233,23 @@ export const closeWindow = async () => {
     await getCurrentWindow().close();
   } catch (error) {
     notifyOperationFailure(t("commands.file.closeWindowFailed"), error, "closeWindow");
+  }
+};
+
+export const openNewWindow = async () => {
+  try {
+    await invoke<void>(OPEN_NEW_WINDOW_COMMAND);
+  } catch (error) {
+    notifyOperationFailure(t("commands.file.newWindowFailed"), error, "openNewWindow");
+  }
+};
+
+/** Closes every window in turn, each asking about its own unsaved documents. */
+export const quit = async () => {
+  try {
+    await invoke<void>(QUIT_APPLICATION_COMMAND);
+  } catch (error) {
+    notifyOperationFailure(t("commands.file.quitFailed"), error, "quit");
   }
 };
 

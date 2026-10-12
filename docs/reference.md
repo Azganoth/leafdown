@@ -87,7 +87,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 #### File Menu
 
 - **New** (`Mod+N`)
-- **New window** (`Mod+Shift+N`, Deferred)
+- **New window** (`Mod+Shift+N`)
 - **Open...** (`Mod+O`)
 - **Open folder...** (`Mod+Shift+O`)
 - **Open recent**
@@ -106,7 +106,8 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Preferences...** (`Mod+,`)
 - **Close document** (`Mod+W`)
 - **Close folder**
-- **Close window** (`Alt+F4` / `Mod+Q`)
+- **Close window** (`Alt+F4`)
+- **Quit** (`Mod+Q`)
 
 #### Edit Menu
 

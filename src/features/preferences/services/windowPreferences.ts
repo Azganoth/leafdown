@@ -20,6 +20,17 @@ export const applyPersistedAlwaysOnTop = async () => {
   }
 };
 
+/**
+ * Applies the global always-on-top setting to this window whenever another window changes it, so
+ * every window follows it. Returns the function that stops following.
+ */
+export const followAlwaysOnTopSetting = (onError: (error: unknown) => void) =>
+  useSettingsStore.subscribe((state, previous) => {
+    if (state.alwaysOnTop !== previous.alwaysOnTop) {
+      getCurrentWindow().setAlwaysOnTop(state.alwaysOnTop).catch(onError);
+    }
+  });
+
 export const restoreDefaultSettings = async () => {
   if (useSettingsStore.getState().alwaysOnTop) {
     try {

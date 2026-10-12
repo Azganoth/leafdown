@@ -23,6 +23,10 @@ import { getPathParts, isSamePath, PathSet } from "@/lib/path";
 import { notifyWarning } from "@/lib/toast";
 
 import {
+  isUnsavedInOtherWindow,
+  useOtherWindowDocumentsStore,
+} from "../stores/otherWindowDocuments";
+import {
   findTabByDocumentKey,
   findTabByPath,
   useSessionStore,
@@ -111,6 +115,27 @@ class FolderSearchSession implements Disposable {
       documentEditorBridge.onDidChangeContent((documentKey) =>
         this.handleContentChange(documentKey),
       ),
+    );
+    // A replacement leaves a file alone while another window holds it with unsaved changes, so a
+    // file that gains or loses them there is planned again.
+    this.subscriptions.add(
+      useOtherWindowDocumentsStore.subscribe((state, previous) => {
+        if (!this.engine || !useFolderSearchStore.getState().replaceOpen) {
+          return;
+        }
+
+        for (const path of state.unsavedPaths) {
+          if (!previous.unsavedPaths.has(path)) {
+            this.engine.refreshFile(path);
+          }
+        }
+
+        for (const path of previous.unsavedPaths) {
+          if (!state.unsavedPaths.has(path)) {
+            this.engine.refreshFile(path);
+          }
+        }
+      }),
     );
     // A planned replacement is written as Save writes, so it follows the settings Save follows.
     this.subscriptions.add(
@@ -241,7 +266,12 @@ class FolderSearchSession implements Disposable {
     }
 
     this.engine ??= new FolderSearchEngine(
-      { getActiveDocument, getOpenDocument, textCache: this.textCache },
+      {
+        getActiveDocument,
+        getOpenDocument,
+        isUnsavedElsewhere: isUnsavedInOtherWindow,
+        textCache: this.textCache,
+      },
       (results) => useFolderSearchStore.getState().setResults(results),
     );
     this.engine.start({
@@ -395,6 +425,11 @@ export const openFolderSearchMatch = async (match: FolderSearchMatchKey) => {
     } catch (error) {
       notifyOpenMarkdownFileError(error);
       activeSession?.refreshFile(file.path);
+      return;
+    }
+
+    // Another window holding the file shows it instead, and its editor is not this window's.
+    if (!findTabByPath(useSessionStore.getState(), file.path)) {
       return;
     }
   }

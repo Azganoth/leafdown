@@ -9,6 +9,7 @@ import {
 } from "@/features/folder-context";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { requestConfirmation } from "@/lib/confirmation";
+import { handleUnexpectedError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 import { getPathParts, isSameOrParentPath, rebasePath } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
@@ -19,6 +20,7 @@ import { runAfterPendingSaves } from "./documentWorkflows";
 import { refreshFolderContext } from "./folderContextWorkflows";
 import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./openSession";
 import { confirmDiscardTabChanges } from "./unsavedChanges";
+import { notifyDocumentsMoved, notifyDocumentsRemoved } from "./windowDocumentsApi";
 
 export type FolderEntryKind = "directory" | "file";
 
@@ -75,6 +77,9 @@ export const renameFolderEntry = (path: string, name: string) =>
       moveOpenDocuments(path, nextPath);
       useRecentItemsStore.getState().moveRecentPaths(path, nextPath);
       useArticleNavigatorStore.getState().moveDirectoryPaths(path, nextPath);
+      await notifyDocumentsMoved(path, nextPath).catch((error) =>
+        handleUnexpectedError(error, "notifyDocumentsMoved"),
+      );
       await refreshAfterFolderEntryChange();
     }
 
@@ -112,6 +117,9 @@ export const deleteFolderEntry = async (path: string, kind: FolderEntryKind) => 
 
     useSessionStore.getState().closeTabs(getTabIdsInside(path));
 
+    await notifyDocumentsRemoved(path).catch((error) =>
+      handleUnexpectedError(error, "notifyDocumentsRemoved"),
+    );
     await refreshAfterFolderEntryChange();
 
     return true;
@@ -140,7 +148,7 @@ const getTabIdsInside = (path: string) =>
 
 // The editor is keyed by the document path, so a moved document remounts from the Markdown its
 // editor holds now rather than from content that may predate the latest edit.
-const moveOpenDocuments = (fromPath: string, toPath: string) => {
+export const moveOpenDocuments = (fromPath: string, toPath: string) => {
   const session = useSessionStore.getState();
 
   for (const { document, id } of session.tabs) {

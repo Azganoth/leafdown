@@ -10,6 +10,7 @@ export {
 } from "./stores/recentItems";
 export {
   applyPersistedAlwaysOnTop,
+  followAlwaysOnTopSetting,
   restoreDefaultSettings,
   setAlwaysOnTop,
 } from "./services/windowPreferences";

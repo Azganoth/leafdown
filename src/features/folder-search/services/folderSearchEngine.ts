@@ -79,7 +79,9 @@ export type FolderSearchSkipReason =
   | OpenMarkdownFileError["kind"]
   | "parseFailed"
   /** The file would not read as its matches replaced. */
-  | "replacementRefused";
+  | "replacementRefused"
+  /** Another window holds the file with unsaved changes, which writing it would overwrite. */
+  | "unsavedInAnotherWindow";
 
 export interface FolderSearchSkippedFile {
   path: string;
@@ -117,6 +119,8 @@ export interface FolderSearchHost {
   /** The document on screen, whose source projection a new search settles before reading it. */
   getActiveDocument: () => FolderSearchOpenDocument | null;
   getOpenDocument: (path: string) => FolderSearchOpenDocument | null;
+  /** Whether another window holds the file with unsaved changes, so a replacement leaves it alone. */
+  isUnsavedElsewhere?: (path: string) => boolean;
   /** Text read by earlier searches, which the host keeps, and clears, for as long as it holds. */
   textCache?: FolderSearchTextCache;
   readFiles?: (args: ReadFolderSearchFilesArgs) => Promise<FolderSearchFileOutcome[]>;
@@ -667,6 +671,11 @@ export class FolderSearchEngine implements Disposable {
     const { fingerprint, metadata } = outcome;
 
     this.texts.set(path, { metadata, fingerprint, text: plan.text });
+
+    if (file && this.host.isUnsavedElsewhere?.(path)) {
+      this.skip(search, path, "unsavedInAnotherWindow", sequence);
+      return;
+    }
 
     if (file?.kind === "refused") {
       this.skip(search, path, "replacementRefused", sequence);

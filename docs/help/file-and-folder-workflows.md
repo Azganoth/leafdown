@@ -14,13 +14,21 @@ Choose a tab to switch to it. `Mod+Tab` and `Mod+Shift+Tab`, or `Mod+PageDown` a
 
 A newly opened document starts at the top. Following a heading link or choosing a search result instead brings its target into view.
 
-On Windows, installing Leafdown adds it to File Explorer's **Open with** menu for these files and to **Settings > Apps > Default apps**, without changing which app opens them by default. Choose Leafdown there to open Markdown files from File Explorer. Files associated with Leafdown show a folded-page icon with the green leaf and Markdown symbol. Each file opened this way starts its own Leafdown window, with the file's folder as context. **File > Open** works either way.
+## Work in more than one window
+
+**File > New window** (`Mod+Shift+N`) opens another Leafdown window, to keep two documents side by side or two folders open at once. Each window has its own tabs, folder, navigator, folder search, and zoom, while settings and recent items are shared and change in every window at once. A file is open in only one window at a time: opening a file that another window already has switches to its tab there and brings that window forward.
+
+Renaming a file or folder in the navigator moves its tabs in every window, keeping their unsaved edits. Deleting one closes its tabs in the window you deleted it from; other windows keep its tabs open with their text and show the file as missing. **Replace in folder** leaves alone a file that another window has with unsaved edits, and says so.
+
+**File > Close window** (`Alt+F4`) or the window's close button asks only about that window's unsaved edits, and closing the last window quits Leafdown. **File > Quit** (`Mod+Q`) closes every window in turn. A window with unsaved edits comes to the front to ask about them, and canceling there stops quitting with that window and those not yet asked still open. The first window reopens where you left it; other windows open offset from the one you opened them from.
+
+On Windows, installing Leafdown adds it to File Explorer's **Open with** menu for these files and to **Settings > Apps > Default apps**, without changing which app opens them by default. Choose Leafdown there to open Markdown files from File Explorer. Files associated with Leafdown show a folded-page icon with the green leaf and Markdown symbol. Each file opened this way starts another instance of Leafdown in its own window, with the file's folder as context; that instance does not know which files the other one has open. **File > Open** works either way.
 
 The welcome screen and **File > Open recent** show previously opened files and folders when **Record recent files and folders** is on. You can remove one recent item or clear both lists without deleting files. See [Settings reference](settings-reference.md) for the setting.
 
 ## Work in the article navigator
 
-Choose a Markdown file row to open it. A row's context menu can create a file or folder, rename or delete an entry, reveal its location in the system file manager, or copy its absolute or folder-relative path. Empty navigator space offers actions for the folder root. New files open in a new tab. Deleting asks for confirmation and moves an entry to the system Recycle Bin or Trash; Leafdown does not permanently delete it on its own. Deleting an open file closes its tab. Renaming an open file keeps its unsaved edits and updates its recent path. Links in other files are not rewritten.
+Choose a Markdown file row to open it. A row's context menu can create a file or folder, rename or delete an entry, reveal its location in the system file manager, or copy its absolute or folder-relative path. Empty navigator space offers actions for the folder root. New files open in a new tab. Deleting asks for confirmation and moves an entry to the system Recycle Bin or Trash; Leafdown does not permanently delete it on its own. Deleting an open file closes its tab. Renaming an open file keeps its unsaved edits and updates its recent path. Both reach tabs in other windows too, as [Work in more than one window](#work-in-more-than-one-window) describes. Links in other files are not rewritten.
 
 The navigator also lists the folder's other files, such as images and PDFs, dimmed. Leafdown can only open Markdown files, so choosing one of them does nothing, and its context menu does not rename or delete it. A folder holding only such files can still be expanded, while an empty folder has no arrow.
 

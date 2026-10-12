@@ -10,7 +10,7 @@ Open **File > Preferences** to change the settings below. Changes persist across
 - **Status bar visibility:** Show or hide document status when a document is open.
 - **Article sort order:** Sort the navigator by name, modified date, or type.
 
-**View > Always on top** is another persistent window setting; it keeps Leafdown above other windows until switched off.
+**View > Always on top** is another persistent window setting; it keeps every Leafdown window above other windows until switched off.
 
 The **H1 to H6** control at the top of the document outline is also remembered across launches. It chooses how deep the outline lists headings, H1–H3 by default.
 

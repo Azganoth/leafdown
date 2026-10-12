@@ -117,6 +117,10 @@ describe("folder entry workflows", () => {
     expect(useRecentItemsStore.getState().recentFiles).toEqual([
       { openedAt: 1, path: renamedPath },
     ]);
+    expect(getLastTauriApiArgs("notifyDocumentsMoved")).toEqual({
+      fromPath: TEST_MARKDOWN_FILE_PATH,
+      toPath: renamedPath,
+    });
     expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
   });
 
@@ -177,6 +181,7 @@ describe("folder entry workflows", () => {
     await expect(renameFolderEntry(TEST_MARKDOWN_FILE_PATH, "taken")).rejects.toBe(collision);
 
     expect(useSessionStore.getState().activeDocument).toEqual(activeDocument);
+    expect(countTauriApiCalls("notifyDocumentsMoved")).toBe(0);
     expect(countTauriApiCalls("scanMarkdownFolder")).toBe(0);
   });
 
@@ -186,6 +191,7 @@ describe("folder entry workflows", () => {
     await expect(deleteFolderEntry(TEST_MARKDOWN_FILE_PATH, "file")).resolves.toBe(false);
 
     expect(countTauriApiCalls("trashFolderEntry")).toBe(0);
+    expect(countTauriApiCalls("notifyDocumentsRemoved")).toBe(0);
   });
 
   it("keeps a dirty active document when discarding it is declined", async () => {
@@ -218,6 +224,9 @@ describe("folder entry workflows", () => {
       path: TEST_NESTED_DIRECTORY_PATH,
     });
     expect(useSessionStore.getState().activeDocument).toBeNull();
+    expect(getLastTauriApiArgs("notifyDocumentsRemoved")).toEqual({
+      path: TEST_NESTED_DIRECTORY_PATH,
+    });
     expect(countTauriApiCalls("scanMarkdownFolder")).toBe(1);
   });
 

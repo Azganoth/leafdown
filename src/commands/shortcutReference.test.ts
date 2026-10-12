@@ -45,7 +45,20 @@ describe("shortcut reference", () => {
     ]);
     expect(entries.map(({ id }) => id)).not.toContain("help.about");
     expect(entries.map(({ id }) => id)).not.toContain("file.print");
-    expect(entries.map(({ id }) => id)).not.toContain("file.newWindow");
+  });
+
+  it("gives Mod+Q to Quit, leaving Close window on Alt+F4", () => {
+    const entries = getShortcutReferenceGroups().flatMap((group) => group.entries);
+
+    expect(entries.find(({ id }) => id === "file.newWindow")?.shortcuts).toEqual([
+      { key: "n", mod: true, shift: true },
+    ]);
+    expect(entries.find(({ id }) => id === "file.quit")?.shortcuts).toEqual([
+      { key: "q", mod: true },
+    ]);
+    expect(entries.find(({ id }) => id === "file.closeWindow")?.shortcuts).toEqual([
+      { key: "F4", alt: true },
+    ]);
   });
 
   it("reflects shortcut metadata changes without changing the reference", () => {

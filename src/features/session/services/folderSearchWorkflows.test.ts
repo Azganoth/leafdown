@@ -39,6 +39,7 @@ const BETA = `${FOLDER}/docs/beta.md`;
 
 let disk: Map<string, string | null>;
 let inspectedState: MarkdownFileState;
+let claimedElsewhere: boolean;
 let session: Disposable | null = null;
 
 const createFolder = (paths = [ALPHA, BETA]): FolderContextState =>
@@ -130,11 +131,13 @@ beforeEach(() => {
     [BETA, "Beta leaf and another leaf.\n"],
   ]);
   inspectedState = { kind: "unchanged" };
+  claimedElsewhere = false;
   setDefaultSettings({ sidebarVisible: false });
   setDefaultSession({ folderContext: createFolder() });
   mockTauriApi({
     readFolderSearchFiles: ({ files }) => files.map(({ path }) => readOutcome(path)),
     inspectMarkdownFile: () => inspectedState,
+    claimWindowDocument: () => ({ kind: claimedElsewhere ? "openElsewhere" : "claimed" }),
     openMarkdownFile: ({ path }) => {
       const content = disk.get(path);
 
@@ -363,6 +366,22 @@ describe("folder search workflows", () => {
     await vi.waitFor(() => expect(summarize()).toEqual([[ALPHA, 1]]));
     expect(useFolderSearchStore.getState().results?.skipped).toEqual([
       { path: BETA, reason: "missingFile" },
+    ]);
+  });
+
+  it("leaves a match in a file another window holds to that window, unmarked", async () => {
+    await search("leaf");
+    claimedElsewhere = true;
+
+    await openFolderSearchMatch({ path: BETA, ordinal: 0 });
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().tabs).toEqual([]);
+    expect(useFolderSearchStore.getState().chosenMatch).toBeNull();
+    expect(toastManager.add).not.toHaveBeenCalled();
+    expect(summarize()).toEqual([
+      [ALPHA, 1],
+      [BETA, 2],
     ]);
   });
 

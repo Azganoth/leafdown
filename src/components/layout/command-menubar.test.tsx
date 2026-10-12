@@ -109,7 +109,9 @@ describe("CommandMenubar", () => {
 
     await user.click(screen.getByRole("menuitem", { name: "File" }));
 
-    expect(menuItem(/^New/u)).toBeInTheDocument();
+    expect(menuItem(/^New(?! window)/u)).toBeInTheDocument();
+    expect(menuItem(/^New window/u)).not.toHaveAttribute("data-disabled");
+    expect(menuItem(/^Quit/u)).not.toHaveAttribute("data-disabled");
     expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Save as/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Reveal in sidebar/u)).toHaveAttribute("data-disabled");

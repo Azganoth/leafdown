@@ -29,6 +29,7 @@ export const createTauriAppMock = () => ({
 });
 
 const currentWindowMock = {
+  label: "main",
   close: vi.fn(async () => undefined),
   destroy: vi.fn(async () => undefined),
   emit: vi.fn(async () => undefined),
@@ -37,10 +38,12 @@ const currentWindowMock = {
   onDragDropEvent: vi.fn(async () => vi.fn()),
   onThemeChanged: vi.fn(async () => vi.fn()),
   setAlwaysOnTop: vi.fn(async () => undefined),
+  setFocus: vi.fn(async () => undefined),
   setFullscreen: vi.fn(async () => undefined),
   setTitle: vi.fn(async () => undefined),
   show: vi.fn(async () => undefined),
   theme: vi.fn(async () => "light"),
+  unminimize: vi.fn(async () => undefined),
 };
 
 export const createTauriWindowMock = () => ({

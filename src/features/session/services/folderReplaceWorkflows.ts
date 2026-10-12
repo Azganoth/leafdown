@@ -24,6 +24,7 @@ import { t } from "@/lib/i18n";
 import { getPathParts, getRelativePath, PathMap, PathSet } from "@/lib/path";
 import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";
 
+import { isUnsavedInOtherWindow } from "../stores/otherWindowDocuments";
 import { findTabByPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { saveDocumentTab, saveDocumentWithoutPrompts } from "./documentWorkflows";
@@ -244,6 +245,12 @@ const commit = async (
     // A file opened since the plan is the editor's to write, and its plan read the file instead.
     if (isOpenDocumentPath(file.path)) {
       report.stale.push({ path: file.path, reason: "changedInEditor", unsavedInEditor: false });
+    } else if (isUnsavedInOtherWindow(file.path)) {
+      report.stale.push({
+        path: file.path,
+        reason: "unsavedInAnotherWindow",
+        unsavedInEditor: false,
+      });
     } else if (checked?.kind !== "ready") {
       recordOutcome(file, checked, report);
     } else {

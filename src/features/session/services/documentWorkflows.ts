@@ -26,7 +26,7 @@ import { useSettingsStore } from "@/features/preferences";
 import { SequentialTaskQueue } from "@/lib/async";
 import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
-import { isSameOrParentPath } from "@/lib/path";
+import { getPathParts, isSameOrParentPath } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 import {
@@ -47,6 +47,7 @@ import {
 import { documentEditorBridge } from "./documentEditorBridge";
 import { getSessionFolderScanOptions } from "./folderContextWorkflows";
 import { confirmDiscardTabChanges } from "./unsavedChanges";
+import { claimDocumentForWindow } from "./windowDocumentClaims";
 
 interface SerializedDocumentForSave {
   content: string;
@@ -188,7 +189,24 @@ const saveDocumentAsNow = async (version: TabVersion) => {
     return false;
   }
 
-  return saveDocumentToNewPath(version, path);
+  const claim = await claimDocumentForWindow(path, { activate: false });
+
+  if (!claim) {
+    notifyError({
+      title: t("session.saveAsOpenInTab.title"),
+      description: t("session.saveAsOpenInWindow.description", {
+        name: getPathParts(path).name,
+      }),
+    });
+
+    return false;
+  }
+
+  try {
+    return await saveDocumentToNewPath(version, path);
+  } finally {
+    claim.dispose();
+  }
 };
 
 const saveDocumentToNewPath = async (version: TabVersion, path: string): Promise<boolean> => {

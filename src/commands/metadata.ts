@@ -31,6 +31,7 @@ export const getCommandMenuLabelId = (menuId: CommandMenuId) => `menu.${menuId}`
 
 export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.new": commandDef({ key: "n", mod: true }),
+  "file.newWindow": commandDef({ key: "n", mod: true, shift: true }),
   "file.open": commandDef({ key: "o", mod: true }),
   "file.openFolder": commandDef({ key: "o", mod: true, shift: true }),
   "file.clearRecentItems": commandDef(),
@@ -42,7 +43,8 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.preferences": commandDef({ key: ",", mod: true }),
   "file.closeDocument": commandDef({ key: "w", mod: true }),
   "file.closeFolder": commandDef(),
-  "file.closeWindow": commandDef({ key: "q", mod: true }, { key: "F4", alt: true }),
+  "file.closeWindow": commandDef({ key: "F4", alt: true }),
+  "file.quit": commandDef({ key: "q", mod: true }),
   "edit.undo": commandDef({ key: "z", mod: true }),
   "edit.redo": commandDef({ key: "y", mod: true }, { key: "z", mod: true, shift: true }),
   "edit.cut": commandDef({ key: "x", mod: true }),

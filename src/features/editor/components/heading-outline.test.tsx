@@ -62,13 +62,13 @@ describe("HeadingOutline", () => {
 
   it("opens on hover at the pointed heading and closes after the pointer leaves", async () => {
     // Rows sit 10px apart from the top of the surface, in document order.
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        const rows = [...document.querySelectorAll("[data-outline-position]")];
-        const index = rows.indexOf(this);
-        return DOMRect.fromRect({ x: 0, y: index < 0 ? 0 : index * 10, width: 24, height: 10 });
-      },
-    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const rows = [...document.querySelectorAll("[data-outline-position]")];
+      const index = rows.indexOf(this);
+      return DOMRect.fromRect({ x: 0, y: index < 0 ? 0 : index * 10, width: 24, height: 10 });
+    });
     const { user } = renderWithUser(<OutlineHarness />);
 
     await user.pointer({ target: getRow("Heading 2: Gear"), coords: { clientX: 0, clientY: 15 } });
@@ -137,18 +137,18 @@ describe("HeadingOutline", () => {
   it("keeps the open outline in place while the levels change", async () => {
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(600);
     // Rows sit 10px apart from 300px down the surface, in document order.
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-      function (this: HTMLElement) {
-        const rows = [...document.querySelectorAll("[data-outline-position]")];
-        const index = rows.indexOf(this);
-        return DOMRect.fromRect({
-          x: 0,
-          y: index < 0 ? 0 : 300 + index * 10,
-          width: 24,
-          height: 10,
-        });
-      },
-    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const rows = [...document.querySelectorAll("[data-outline-position]")];
+      const index = rows.indexOf(this);
+      return DOMRect.fromRect({
+        x: 0,
+        y: index < 0 ? 0 : 300 + index * 10,
+        width: 24,
+        height: 10,
+      });
+    });
     const { user } = renderWithUser(<OutlineHarness />);
     act(() => getRow("Heading 3: Water").focus());
     const levels = within(getOutline()).getByRole("group", { name: "Heading levels" });

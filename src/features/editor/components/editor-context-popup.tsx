@@ -46,6 +46,7 @@ import { useLocalization, type MessageId } from "@/lib/i18n";
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import { getEditorCommandLabelId } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
+import { isDismissedFromOutside } from "../utils/popoverDismissal";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -358,7 +359,7 @@ export function EditorContextPopup({
           return;
         }
 
-        if (details.reason === "outside-press") {
+        if (isDismissedFromOutside(details)) {
           releaseHeldFocus();
         }
 

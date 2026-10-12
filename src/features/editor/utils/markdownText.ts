@@ -546,6 +546,10 @@ const findMarkerLineStart = (slots: readonly EscapeSlot[], index: number, before
   return LINE_BREAK_PATTERN.test(preceding) ? start : -1;
 };
 
+// An empty tail is the end of the block, which ends the line as a line ending would.
+const separatesMarker = (character: string) =>
+  character === "" || MARKER_SEPARATOR_PATTERN.test(character);
+
 // `state.safe` escapes a block marker wherever one could open, which is a wider class than the
 // positions where the construct finishes. The heading and the list marker are decided by the line
 // they open; a pipe row also needs the line after it, which only the assembled document holds.
@@ -559,9 +563,6 @@ const relaxBlockMarkerEscapes = (
 ) => {
   const characterAt = (index: number) =>
     index < slots.length ? slots[index].character : after.charAt(0);
-  // An empty tail is the end of the block, which ends the line as a line ending would.
-  const separates = (character: string) =>
-    character === "" || MARKER_SEPARATOR_PATTERN.test(character);
 
   for (let index = 0; index < slots.length; index += 1) {
     const slot = slots[index];
@@ -581,7 +582,7 @@ const relaxBlockMarkerEscapes = (
         end += 1;
       }
 
-      if (end - index > HEADING_HASHES_MAX || !separates(characterAt(end))) {
+      if (end - index > HEADING_HASHES_MAX || !separatesMarker(characterAt(end))) {
         slot.escaped = false;
       }
 
@@ -617,7 +618,7 @@ const relaxBlockMarkerEscapes = (
       // paragraph above it instead, as a setext underline or as a table's delimiter row, so it is
       // held wherever the block has a line above for either to answer.
       const firstLine = lineStart === 0 && blockStart;
-      const opensList = run - index === 1 && separates(characterAt(index + 1));
+      const opensList = run - index === 1 && separatesMarker(characterAt(index + 1));
       const opensBreak =
         THEMATIC_BREAK_PATTERNS[slot.character].test(line) ||
         // A marker the container wrote stands on this line ahead of the run and counts toward the
@@ -653,7 +654,7 @@ const relaxBlockMarkerEscapes = (
       // number opens one.
       const opensList =
         index - digits <= ORDERED_DIGITS_MAX &&
-        separates(characterAt(index + 1)) &&
+        separatesMarker(characterAt(index + 1)) &&
         ((lineStart === 0 && blockStart) || Number(startNumber) === 1);
 
       if (!opensList) {
@@ -1210,7 +1211,6 @@ const deferCitationEscapes = (
   deferrable: boolean,
 ) => {
   const line = slots.map((slot) => slot.character).join("");
-  const isDefined = (label: string) => isLinkLabelDefined(documentLabels, label);
 
   slots.forEach((slot, index) => {
     if (slot.character !== "@" || slot.escaped) return;
@@ -1218,7 +1218,11 @@ const deferCitationEscapes = (
     if (deferrable) {
       slot.deferred = true;
     } else {
-      slot.escaped = opensCitationKeyAt(earlier + line + later, earlier.length + index, isDefined);
+      slot.escaped = opensCitationKeyAt(
+        earlier + line + later,
+        earlier.length + index,
+        isDocumentLabelDefined,
+      );
     }
   });
 };
@@ -1236,7 +1240,6 @@ const protectCitationNeighbors = (
   const next = parent?.children?.[index + 1];
   const first = slots[0];
   const last = slots[slots.length - 1];
-  const isDefined = (label: string) => isLinkLabelDefined(documentLabels, label);
 
   if (
     previous?.type === CITATION_MARKDOWN_TYPE &&
@@ -1244,7 +1247,7 @@ const protectCitationNeighbors = (
     (first?.character === "(" || first?.character === "[")
   ) {
     const text = previous.value + slots.map((slot) => slot.character).join("") + later;
-    if (closesLinkAfter(text, 0, previous.value.length, isDefined)) {
+    if (closesLinkAfter(text, 0, previous.value.length, isDocumentLabelDefined)) {
       first.escaped = true;
       first.deferred = false;
     }
@@ -1301,6 +1304,8 @@ let lineParents: Map<PhrasingNode, PhrasingNode> | undefined;
 // A reference resolves against the whole document, so a bracket run that matches no definition
 // here can never become a link. Footnote definitions share the space under a `^` prefix.
 let documentLabels: ReadonlySet<string> = new Set();
+
+const isDocumentLabelDefined = (label: string) => isLinkLabelDefined(documentLabels, label);
 
 const mapDocument = (root: PhrasingNode) => {
   const parents = new Map<PhrasingNode, PhrasingNode>();

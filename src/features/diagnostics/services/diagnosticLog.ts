@@ -54,13 +54,12 @@ interface UnexpectedErrorDiagnosticPayload extends DiagnosticEventPayload {
   message: string;
 }
 
-export const installUnexpectedErrorDiagnostics = () => {
-  const reporter: UnexpectedErrorReporter = (entry) => {
-    void writeDiagnosticUnexpectedError(entry);
-  };
-
-  return addUnexpectedErrorReporter(reporter);
+const reportUnexpectedError: UnexpectedErrorReporter = (entry) => {
+  void writeDiagnosticUnexpectedError(entry);
 };
+
+export const installUnexpectedErrorDiagnostics = () =>
+  addUnexpectedErrorReporter(reportUnexpectedError);
 
 export const writeDiagnosticUnexpectedError = (entry: UnexpectedErrorLogEntry) =>
   writeDiagnosticError(createUnexpectedErrorDiagnosticPayload(entry));

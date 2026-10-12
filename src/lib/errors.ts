@@ -98,22 +98,22 @@ export const notifyOperationFailure = (
   handleUnexpectedError(normalizedError, context);
 };
 
+const handleErrorEvent = (event: ErrorEvent) => {
+  event.preventDefault();
+  handleUnexpectedError(event.error ?? event.message, "window.error");
+};
+
+const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+  event.preventDefault();
+  handleUnexpectedError(event.reason, "window.unhandledrejection");
+};
+
 export const installUnexpectedErrorHandlers = (target: Window = window) => {
   const existingCleanup = installedUnexpectedErrorHandlers.get(target);
 
   if (existingCleanup) {
     return existingCleanup;
   }
-
-  const handleErrorEvent = (event: ErrorEvent) => {
-    event.preventDefault();
-    handleUnexpectedError(event.error ?? event.message, "window.error");
-  };
-
-  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-    event.preventDefault();
-    handleUnexpectedError(event.reason, "window.unhandledrejection");
-  };
 
   target.addEventListener("error", handleErrorEvent);
   target.addEventListener("unhandledrejection", handleUnhandledRejection);

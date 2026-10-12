@@ -106,20 +106,32 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       }
     };
 
+    const handleRootMouseDown = (event: Event) => {
+      if (
+        event instanceof MouseEvent &&
+        event.button === 0 &&
+        event.target instanceof Element &&
+        event.target.closest("[data-leafdown-block-handle]")
+      ) {
+        pointerSelecting = true;
+        suppressPointerRelease = false;
+      }
+    };
+
+    const handleRootDragStart = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest("[data-leafdown-block-handle]")) {
+        suppressPointerRelease = true;
+      }
+    };
+
+    const handleRootDragEnd = () => {
+      pointerSelecting = false;
+      dismissed = true;
+    };
+
     return new Plugin({
       key: leafdownContextPopupPluginKey,
       view: (editorView) => {
-        const handleRootMouseDown = (event: Event) => {
-          if (
-            event instanceof MouseEvent &&
-            event.button === 0 &&
-            event.target instanceof Element &&
-            event.target.closest("[data-leafdown-block-handle]")
-          ) {
-            pointerSelecting = true;
-            suppressPointerRelease = false;
-          }
-        };
         const handleRootMouseUp = (event: Event) => {
           if (!(event instanceof MouseEvent) || event.button !== 0 || !pointerSelecting) {
             return;
@@ -149,20 +161,6 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               options.onClose?.();
             }
           });
-        };
-
-        const handleRootDragStart = (event: Event) => {
-          if (
-            event.target instanceof Element &&
-            event.target.closest("[data-leafdown-block-handle]")
-          ) {
-            suppressPointerRelease = true;
-          }
-        };
-
-        const handleRootDragEnd = () => {
-          pointerSelecting = false;
-          dismissed = true;
         };
 
         const root = editorView.root;

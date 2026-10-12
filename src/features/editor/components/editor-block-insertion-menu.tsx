@@ -5,6 +5,7 @@ import { useLocalization, type MessageId } from "@/lib/i18n";
 
 import type { BoundaryInsertKind } from "../commands/inserting/blocks";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
+import { isDismissedFromOutside } from "../utils/popoverDismissal";
 
 const LABEL_IDS = {
   paragraph: "editor.blockInsertion.paragraph",
@@ -77,7 +78,7 @@ export function EditorBlockInsertionMenu({
       open
       onOpenChange={(open, details) => {
         if (!open) {
-          returnFocusRef.current = details.reason !== "outside-press";
+          returnFocusRef.current = !isDismissedFromOutside(details);
           onClose();
         }
       }}

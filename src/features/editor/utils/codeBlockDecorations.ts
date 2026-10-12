@@ -23,16 +23,26 @@ const collectCodeBlocks = (
   });
 };
 
-export const createCodeBlockDecorations = (doc: ProseMirrorNode, decorate: DecorateCodeBlock) => {
+export const findCodeBlocks = (doc: ProseMirrorNode) => {
   const blocks = new Map<number, ProseMirrorNode>();
 
   collectCodeBlocks(doc, 0, blocks);
 
-  return DecorationSet.create(
-    doc,
-    [...blocks].flatMap(([position, node]) => decorate(node, position)),
-  );
+  return blocks;
 };
+
+export const createCodeBlockDecorations = (doc: ProseMirrorNode, decorate: DecorateCodeBlock) =>
+  DecorationSet.create(
+    doc,
+    [...findCodeBlocks(doc)].flatMap(([position, node]) => decorate(node, position)),
+  );
+
+export const removeDecorationsWithin = (decorations: DecorationSet, from: number, to: number) =>
+  decorations.remove(
+    decorations
+      .find(from, to)
+      .filter((decoration) => decoration.from >= from && decoration.to <= to),
+  );
 
 // A node whose own opening or closing token changed may now hold blocks that were elsewhere, such
 // as blocks wrapped in a new quote. A block decoration fails validation under its new parent and
@@ -79,12 +89,7 @@ export const updateCodeBlockDecorations = (
   // Every touched textblock sheds what mapping carried into it, so a code block turned into a
   // paragraph keeps none of its decorations.
   for (const [position, node] of collectTouchedTextblocks(doc, collectChangedRanges(transaction))) {
-    const end = position + node.nodeSize;
-    const stale = next.find(position, end);
-
-    next = next.remove(
-      stale.filter((decoration) => decoration.from >= position && decoration.to <= end),
-    );
+    next = removeDecorationsWithin(next, position, position + node.nodeSize);
 
     if (isCodeBlock(node)) {
       added.push(...decorate(node, position));

@@ -1,9 +1,12 @@
+// @vitest-environment happy-dom
+
 import { Schema, type Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import { liftTarget } from "@milkdown/kit/prose/transform";
-import type { DecorationSet } from "@milkdown/kit/prose/view";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { EditorView, type DecorationSet } from "@milkdown/kit/prose/view";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { createCodeBlockDecorations } from "../utils/codeBlockDecorations";
 import { createLeafdownHighlightParser, type LeafdownHighlightParser } from "../utils/highlighting";
 import { createCodeHighlightPlugin, leafdownCodeHighlightPluginKey } from "./codeHighlight";
 
@@ -11,15 +14,16 @@ const schema = new Schema({
   nodes: {
     doc: { content: "block+" },
     text: { group: "inline" },
-    paragraph: { content: "inline*", group: "block" },
+    paragraph: { content: "inline*", group: "block", toDOM: () => ["p", 0] },
     code_block: {
       content: "text*",
       group: "block",
       code: true,
       marks: "",
       attrs: { language: { default: "" } },
+      toDOM: () => ["pre", ["code", 0]],
     },
-    blockquote: { content: "block+", group: "block" },
+    blockquote: { content: "block+", group: "block", toDOM: () => ["blockquote", 0] },
   },
 });
 
@@ -89,14 +93,19 @@ const describeDecorations = (decorations: DecorationSet | undefined) =>
     .toSorted();
 
 const rebuildDecorations = (doc: ProseMirrorNode) =>
-  leafdownCodeHighlightPluginKey.getState(
-    EditorState.create({ doc, plugins: [createCodeHighlightPlugin(shiki)] }),
+  createCodeBlockDecorations(doc, (node, position) =>
+    shiki({
+      content: node.textContent,
+      language: (node.attrs.language as string) || undefined,
+      pos: position,
+      size: node.nodeSize,
+    }),
   );
 
 const applyAndCompare = (state: EditorState, transaction: Transaction) => {
   const next = state.apply(transaction);
 
-  expect(describeDecorations(leafdownCodeHighlightPluginKey.getState(next))).toEqual(
+  expect(describeDecorations(leafdownCodeHighlightPluginKey.getState(next)?.decorations)).toEqual(
     describeDecorations(rebuildDecorations(next.doc)),
   );
 
@@ -117,9 +126,9 @@ describe("code highlighting", () => {
     expect(highlightedPositions(parser)).toEqual(
       findPositions(state.doc, (node) => node.type.name === "code_block"),
     );
-    expect(describeDecorations(leafdownCodeHighlightPluginKey.getState(state))).toContainEqual(
-      expect.stringContaining("--shiki-light"),
-    );
+    expect(
+      describeDecorations(leafdownCodeHighlightPluginKey.getState(state)?.decorations),
+    ).toContainEqual(expect.stringContaining("--shiki-light"));
   });
 
   it("highlights nothing for an edit outside code blocks", () => {
@@ -290,5 +299,120 @@ describe("code highlighting", () => {
       leafdownCodeHighlightPluginKey.getState(state),
     );
     expect(parser).not.toHaveBeenCalled();
+  });
+});
+
+const longCode = (language: string, lines: number) =>
+  code(
+    language,
+    Array.from({ length: lines }, (_, line) => `const line${line} = ${line};`).join("\n"),
+  );
+
+const createLongDoc = () =>
+  schema.nodes.doc.create(null, [
+    paragraph("Intro"),
+    longCode("ts", 120),
+    paragraph("Middle"),
+    code("rust", "fn main() {\n    let value = 2;\n}"),
+    quote(code("bash", 'echo "quoted"'), paragraph("Quoted")),
+    code("", "plain text"),
+    code("json", '{ "last": true }'),
+    code("ts", "let edited = 1;"),
+    paragraph("End"),
+  ]);
+
+const mountLongDoc = () => {
+  const parser = vi.fn<LeafdownHighlightParser>((options) => shiki(options));
+  const view = new EditorView(document.createElement("div"), {
+    state: EditorState.create({
+      doc: createLongDoc(),
+      plugins: [createCodeHighlightPlugin(parser)],
+    }),
+  });
+
+  views.push(view);
+
+  return { parser, view };
+};
+
+const views: EditorView[] = [];
+
+const pendingPositions = (state: EditorState) =>
+  leafdownCodeHighlightPluginKey.getState(state)?.pending;
+
+const expectFullyHighlighted = (state: EditorState) => {
+  expect(pendingPositions(state)).toEqual([]);
+  expect(describeDecorations(leafdownCodeHighlightPluginKey.getState(state)?.decorations)).toEqual(
+    describeDecorations(rebuildDecorations(state.doc)),
+  );
+};
+
+describe("code highlighting after the document is shown", () => {
+  afterEach(() => {
+    views.splice(0).forEach((view) => view.destroy());
+    vi.useRealTimers();
+  });
+
+  it("highlights the first lines at once and the remaining blocks once the editor is idle", () => {
+    vi.useFakeTimers();
+    const { parser, view } = mountLongDoc();
+    const blocks = findPositions(view.state.doc, (node) => node.type.name === "code_block");
+
+    expect(highlightedPositions(parser)).toEqual([blocks[0]]);
+    expect(pendingPositions(view.state)).toEqual(blocks.slice(1));
+
+    parser.mockClear();
+    vi.runAllTimers();
+
+    expect(highlightedPositions(parser)).toEqual(blocks.slice(1));
+    expectFullyHighlighted(view.state);
+  });
+
+  it("highlights blocks edited, retyped, added, moved, or removed while others are pending", () => {
+    vi.useFakeTimers();
+    const { view } = mountLongDoc();
+    const at = (index: number) => codeBlockAt(view.state.doc, index);
+
+    view.dispatch(view.state.tr.insertText("    let added = 3;\n", at(1) + 13));
+    view.dispatch(view.state.tr.setNodeAttribute(at(3), "language", "typescript"));
+    view.dispatch(view.state.tr.setNodeMarkup(at(4), undefined, { language: "rust" }));
+    view.dispatch(view.state.tr.insert(at(1), code("bash", "ls -la")));
+    view.dispatch(view.state.tr.delete(at(5), at(5) + view.state.doc.nodeAt(at(5))!.nodeSize));
+    const wrapped = view.state.doc
+      .resolve(at(1) + 1)
+      .blockRange(view.state.doc.resolve(at(2) + 1))!;
+    view.dispatch(view.state.tr.wrap(wrapped, [{ type: schema.nodes.blockquote }]));
+    view.dispatch(view.state.tr.insert(at(3), paragraph("Before")));
+    view.dispatch(view.state.tr.setBlockType(at(5) + 1, at(5) + 1, schema.nodes.paragraph));
+
+    expect(pendingPositions(view.state)!.length).toBeGreaterThan(0);
+
+    vi.runAllTimers();
+
+    expectFullyHighlighted(view.state);
+  });
+
+  it("highlights nothing more once the editor is destroyed", () => {
+    vi.useFakeTimers();
+    const { parser, view } = mountLongDoc();
+
+    parser.mockClear();
+    view.destroy();
+    vi.runAllTimers();
+
+    expect(parser).not.toHaveBeenCalled();
+  });
+
+  it("starts from the block at the top of the viewport", () => {
+    vi.useFakeTimers();
+    const { parser, view } = mountLongDoc();
+    const blocks = findPositions(view.state.doc, (node) => node.type.name === "code_block");
+
+    vi.spyOn(view.dom, "getBoundingClientRect").mockReturnValue(new DOMRect(0, -400, 800, 2000));
+    vi.spyOn(view, "posAtCoords").mockReturnValue({ pos: blocks[3] + 2, inside: -1 });
+    parser.mockClear();
+    vi.runAllTimers();
+
+    expect(highlightedPositions(parser)).toEqual([...blocks.slice(3), blocks[1], blocks[2]]);
   });
 });

@@ -257,113 +257,114 @@ const isProgressiveSelectAll = (event: KeyboardEvent) =>
   !event.shiftKey &&
   normalizeKeyboardKey(event.key) === "a";
 
-export const createLeafdownBlockSelectionKeyboardPlugin = () =>
-  $prose(() => {
-    const handleKeyDown = (view: EditorView, event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return false;
-      }
+const handleKeyDown = (view: EditorView, event: KeyboardEvent) => {
+  if (event.defaultPrevented) {
+    return false;
+  }
 
-      if (isProgressiveSelectAll(event)) {
-        if (
-          getKeyboardState(view.state).structuralAll &&
-          view.state.selection instanceof AllSelection
-        ) {
-          event.preventDefault();
-          return true;
-        }
+  if (isProgressiveSelectAll(event)) {
+    if (
+      getKeyboardState(view.state).structuralAll &&
+      view.state.selection instanceof AllSelection
+    ) {
+      event.preventDefault();
+      return true;
+    }
 
-        const handled = progressSelection(view);
+    const handled = progressSelection(view);
 
-        if (handled) {
-          event.preventDefault();
-        }
+    if (handled) {
+      event.preventDefault();
+    }
 
-        return handled;
-      }
+    return handled;
+  }
 
-      if (event.key === "Escape") {
-        if (hasActiveSourceProjection(view.state)) {
-          return false;
-        }
-
-        if (view.state.selection instanceof BlockSelection) {
-          restoreEditingSelection(view, view.state.selection);
-          event.preventDefault();
-          return true;
-        }
-
-        if (
-          getKeyboardState(view.state).structuralAll &&
-          view.state.selection instanceof AllSelection
-        ) {
-          restoreEditingSelection(view, null);
-          event.preventDefault();
-          return true;
-        }
-
-        const handled = enterFromTextSelection(view);
-
-        if (handled) {
-          event.preventDefault();
-        }
-
-        return handled;
-      }
-
-      if (event.key === "Enter" && isStructuralBlockSelection(view.state)) {
-        restoreEditingSelection(
-          view,
-          view.state.selection instanceof BlockSelection ? view.state.selection : null,
-        );
-        event.preventDefault();
-        return true;
-      }
-
-      if (
-        (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-        !event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey
-      ) {
-        const handled = moveHead(view, event.key === "ArrowUp" ? -1 : 1, event.shiftKey);
-
-        if (handled) {
-          event.preventDefault();
-        }
-
-        return handled;
-      }
-
+  if (event.key === "Escape") {
+    if (hasActiveSourceProjection(view.state)) {
       return false;
-    };
+    }
 
-    return new Plugin<BlockSelectionKeyboardState>({
-      key: leafdownBlockSelectionKeyboardPluginKey,
-      state: {
-        init: () => EMPTY_KEYBOARD_STATE,
-        apply: (transaction, value, _oldState, newState) => {
-          const meta = transaction.getMeta(leafdownBlockSelectionKeyboardPluginKey) as
-            | BlockSelectionKeyboardState
-            | undefined;
+    if (view.state.selection instanceof BlockSelection) {
+      restoreEditingSelection(view, view.state.selection);
+      event.preventDefault();
+      return true;
+    }
 
-          if (meta) {
-            return meta;
-          }
+    if (
+      getKeyboardState(view.state).structuralAll &&
+      view.state.selection instanceof AllSelection
+    ) {
+      restoreEditingSelection(view, null);
+      event.preventDefault();
+      return true;
+    }
 
-          if (transaction.selectionSet) {
-            return EMPTY_KEYBOARD_STATE;
-          }
+    const handled = enterFromTextSelection(view);
 
-          return {
-            ...value,
-            bookmark: value.bookmark?.map(transaction.mapping) ?? null,
-            structuralAll: value.structuralAll && newState.selection instanceof AllSelection,
-          };
+    if (handled) {
+      event.preventDefault();
+    }
+
+    return handled;
+  }
+
+  if (event.key === "Enter" && isStructuralBlockSelection(view.state)) {
+    restoreEditingSelection(
+      view,
+      view.state.selection instanceof BlockSelection ? view.state.selection : null,
+    );
+    event.preventDefault();
+    return true;
+  }
+
+  if (
+    (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey
+  ) {
+    const handled = moveHead(view, event.key === "ArrowUp" ? -1 : 1, event.shiftKey);
+
+    if (handled) {
+      event.preventDefault();
+    }
+
+    return handled;
+  }
+
+  return false;
+};
+
+export const createLeafdownBlockSelectionKeyboardPlugin = () =>
+  $prose(
+    () =>
+      new Plugin<BlockSelectionKeyboardState>({
+        key: leafdownBlockSelectionKeyboardPluginKey,
+        state: {
+          init: () => EMPTY_KEYBOARD_STATE,
+          apply: (transaction, value, _oldState, newState) => {
+            const meta = transaction.getMeta(leafdownBlockSelectionKeyboardPluginKey) as
+              | BlockSelectionKeyboardState
+              | undefined;
+
+            if (meta) {
+              return meta;
+            }
+
+            if (transaction.selectionSet) {
+              return EMPTY_KEYBOARD_STATE;
+            }
+
+            return {
+              ...value,
+              bookmark: value.bookmark?.map(transaction.mapping) ?? null,
+              structuralAll: value.structuralAll && newState.selection instanceof AllSelection,
+            };
+          },
         },
-      },
-      props: {
-        handleKeyDown,
-      },
-    });
-  });
+        props: {
+          handleKeyDown,
+        },
+      }),
+  );

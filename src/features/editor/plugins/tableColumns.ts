@@ -22,33 +22,40 @@ const findSelectedTablePosition = (state: EditorState) => {
 };
 
 // Measuring means letting the columns size themselves again first, which is why the widths are
-// read with the previous fit taken off rather than through it.
-const fitColumns = (table: HTMLTableElement) => {
-  table.removeAttribute(FITTED_ATTRIBUTE_NAME);
-  table.querySelector("colgroup")?.remove();
-
-  const cells = table.querySelector("tbody tr")?.children;
-
-  if (!cells?.length) {
-    return;
+// read with the previous fit taken off rather than through it. Every fit comes off before any
+// width is read, and none goes back until all are read, so the tables share one layout instead of
+// each forcing its own.
+const fitColumns = (tables: readonly HTMLTableElement[]) => {
+  for (const table of tables) {
+    table.removeAttribute(FITTED_ATTRIBUTE_NAME);
+    table.querySelector("colgroup")?.remove();
   }
 
-  const widths = [...cells].map((cell) => cell.getBoundingClientRect().width);
+  const measurements = tables.map((table) => {
+    const cells = table.querySelector("tbody tr")?.children;
 
-  // Before the first layout every column measures zero. Fitting to that would pin the table shut,
-  // so it is left to size itself until something has a width to report.
-  if (widths.some((width) => width <= 0)) {
-    return;
+    return {
+      table,
+      widths: cells ? [...cells].map((cell) => cell.getBoundingClientRect().width) : [],
+    };
+  });
+
+  for (const { table, widths } of measurements) {
+    // Before the first layout every column measures zero. Fitting to that would pin the table
+    // shut, so it is left to size itself until something has a width to report.
+    if (!widths.length || widths.some((width) => width <= 0)) {
+      continue;
+    }
+
+    const colgroup = document.createElement("colgroup");
+
+    for (const width of widths) {
+      colgroup.appendChild(document.createElement("col")).style.width = `${width}px`;
+    }
+
+    table.insertBefore(colgroup, table.firstChild);
+    table.setAttribute(FITTED_ATTRIBUTE_NAME, "");
   }
-
-  const colgroup = document.createElement("colgroup");
-
-  for (const width of widths) {
-    colgroup.appendChild(document.createElement("col")).style.width = `${width}px`;
-  }
-
-  table.insertBefore(colgroup, table.firstChild);
-  table.setAttribute(FITTED_ATTRIBUTE_NAME, "");
 };
 
 /**
@@ -78,6 +85,7 @@ export const createLeafdownTableColumnsPlugin = () =>
               ? findSelectedTablePosition(state)
               : null;
             let nextHeld: HTMLTableElement | null = null;
+            const tablesToFit: HTMLTableElement[] = [];
 
             state.doc.descendants((node, position) => {
               if (node.type !== tableType) {
@@ -105,13 +113,14 @@ export const createLeafdownTableColumnsPlugin = () =>
                 !table.hasAttribute(FITTED_ATTRIBUTE_NAME) ||
                 fittedNodes.get(table) !== node
               ) {
-                fitColumns(table);
+                tablesToFit.push(table);
                 fittedNodes.set(table, node);
               }
 
               return false;
             });
 
+            fitColumns(tablesToFit);
             heldTable = nextHeld;
           };
 

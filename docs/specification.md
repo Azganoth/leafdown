@@ -67,6 +67,8 @@ Primary user interface surfaces:
 - **Folder search view:** takes the article navigator's place in the sidebar while it is open, for finding text across the folder context, described in [Find In Folder](#find-in-folder).
 - **Modal layer:** presents secondary screens and blocking dialogs outside the main editor surface.
 
+The active article row and document tab share a neutral background, medium-weight label, and a short, rounded vertical marker in the accent color near the left edge. Hovering an inactive item shows a softer neutral background without a marker; hovering the active item retains its appearance. Keyboard focus has a separate outer ring and can rest on an inactive row or tab without changing which document is active. A tab's unsaved-changes dot remains separate at its right edge.
+
 ### Article Navigator Traversal
 
 The article navigator is a tree and takes a single tab stop. Focus enters on the open document, or on the first row when no document is open. When a folder refresh removes the focused row, focus moves to the row that inherits the tab stop.
@@ -451,7 +453,7 @@ Arrow keys move through results, and `Home` and `End` select the first and last 
 
 ### Appearance
 
-- **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the active article row. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.
+- **Accent color** selects the color used by primary controls and visual emphasis, including links, editor selections, checked task checkboxes, quote bars, list glyphs, the caret, selection rings, and the markers of the active article row and document tab. Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, and Fuchsia are available; the default is Neutral.
 - Accent color is global and persists across launches. Every available accent keeps the foreground of filled primary controls readable in light and dark appearances.
 
 ### Document Typography

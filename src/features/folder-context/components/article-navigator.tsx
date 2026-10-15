@@ -820,8 +820,7 @@ function ArticleNavigatorTreeItem({
       aria-setsize={row.setSize}
       className={cn(
         buttonVariants({ variant: "ghost" }),
-        "h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
-        "data-active:bg-accent/80 data-active:font-medium data-active:text-foreground data-active:shadow-[inset_2px_0_0_var(--primary)] data-active:hover:bg-accent",
+        "active-document-item h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
         isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
       )}
       data-active={row.kind === "file" ? row.isActive : undefined}

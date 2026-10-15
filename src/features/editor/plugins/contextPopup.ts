@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
@@ -13,9 +13,14 @@ export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup
 
 export type ContextPopupSource = "keyboard" | "pointer";
 
+export type ContextPopupSelectionKind = "block" | "caret" | "text";
+
+export type ContextPopupContainer = "code" | "table";
+
 export interface ContextPopupRequest {
   anchor: ContextPopupAnchor;
-  selectionKind: "block" | "text";
+  container: ContextPopupContainer | null;
+  selectionKind: ContextPopupSelectionKind;
   source: ContextPopupSource;
 }
 
@@ -41,6 +46,32 @@ const isEditablePopupTarget = (event: MouseEvent) =>
 const isContextMenuKey = (event: KeyboardEvent) =>
   event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
 
+const getSelectionKind = (state: EditorState): ContextPopupSelectionKind => {
+  if (isStructuralBlockSelection(state)) {
+    return "block";
+  }
+
+  return state.selection.empty ? "caret" : "text";
+};
+
+const getContainer = ({ selection }: EditorState): ContextPopupContainer | null => {
+  const { $from, to } = selection;
+
+  for (let depth = $from.sharedDepth(to); depth > 0; depth -= 1) {
+    const { spec } = $from.node(depth).type;
+
+    if (spec.code) {
+      return "code";
+    }
+
+    if (spec.tableRole === "table") {
+      return "table";
+    }
+  }
+
+  return null;
+};
+
 export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPluginOptions = {}) =>
   $prose(() => {
     // Held so that refreshing an open popup's anchor cannot downgrade it to a pointer open.
@@ -64,7 +95,8 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       dismissed = false;
       options.onRequest?.({
         anchor,
-        selectionKind: isStructuralBlockSelection(view.state) ? "block" : "text",
+        container: getContainer(view.state),
+        selectionKind: getSelectionKind(view.state),
         source,
       });
 

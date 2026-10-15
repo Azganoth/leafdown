@@ -7,6 +7,7 @@ import { createActiveEditorCommandState, createEditorCommandState } from "@/test
 import { dispatchDOMEvent } from "@/test/utils/events";
 import { act, render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
+import type { EditorCommandId } from "../commands";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
 import { EditorContextPopup } from "./editor-context-popup";
@@ -53,11 +54,13 @@ const flushPlacement = () =>
 const ANCHOR = { contextElement: document.body, getRect: () => createAnchorRect() };
 const POINTER_REQUEST: ContextPopupRequest = {
   anchor: ANCHOR,
+  container: null,
   selectionKind: "text",
   source: "pointer",
 };
 const KEYBOARD_REQUEST: ContextPopupRequest = {
   anchor: ANCHOR,
+  container: null,
   selectionKind: "text",
   source: "keyboard",
 };
@@ -104,6 +107,23 @@ const enabledPopupCommandState = createActiveEditorCommandState({
   ],
 });
 
+const withEnabledCommands = (...commandIds: EditorCommandId[]) => ({
+  ...enabledPopupCommandState,
+  enabledCommands: {
+    ...enabledPopupCommandState.enabledCommands,
+    ...Object.fromEntries(commandIds.map((commandId) => [commandId, true])),
+  },
+});
+
+const QUICK_ACTION_LABELS = ["Cut", "Copy", "Paste", "Delete"];
+const INLINE_ACTION_LABELS = ["Strong", "Emphasis", "Inline code", "Link"];
+const BLOCK_FORMATTING_LABELS = ["Blockquote", "Ordered list", "Unordered list", "Task list"];
+
+const controlLabels = () =>
+  screen
+    .getAllByRole("button")
+    .map((control) => control.getAttribute("aria-label") ?? control.textContent);
+
 describe("editor-context-popup", () => {
   it("positions against the measured selection instead of a rendered anchor element", async () => {
     const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
@@ -113,6 +133,7 @@ describe("editor-context-popup", () => {
         <EditorContextPopup
           request={{
             anchor: { contextElement: document.body, getRect },
+            container: null,
             selectionKind: "text",
             source: "pointer",
           }}
@@ -131,10 +152,49 @@ describe("editor-context-popup", () => {
     expect(document.querySelector('[data-slot="popover-anchor"]')).toBeNull();
   });
 
-  it("renders the initial five-row context UI", () => {
+  it.each<[string, Partial<ContextPopupRequest>, string[]]>([
+    [
+      "a caret",
+      { selectionKind: "caret" },
+      ["Paste", ...BLOCK_FORMATTING_LABELS, "Block type", "Insert"],
+    ],
+    [
+      "a text selection",
+      { selectionKind: "text" },
+      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS, "Block type"],
+    ],
+    [
+      "a block selection",
+      { selectionKind: "block" },
+      [
+        ...QUICK_ACTION_LABELS,
+        "Move block up",
+        "Move block down",
+        ...BLOCK_FORMATTING_LABELS,
+        "Block type",
+        "Insert",
+      ],
+    ],
+    [
+      "a caret in code",
+      { container: "code", selectionKind: "caret" },
+      ["Paste", ...BLOCK_FORMATTING_LABELS, "Block type", "Insert"],
+    ],
+    [
+      "a text selection in code",
+      { container: "code", selectionKind: "text" },
+      [...QUICK_ACTION_LABELS, "Block type"],
+    ],
+    ["a caret in a table", { container: "table", selectionKind: "caret" }, ["Paste", "Insert"]],
+    [
+      "a text selection in a table",
+      { container: "table", selectionKind: "text" },
+      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS],
+    ],
+  ])("offers %s its own actions", (_label, context, labels) => {
     render(
       <EditorContextPopup
-        request={POINTER_REQUEST}
+        request={{ ...POINTER_REQUEST, ...context }}
         commandState={enabledPopupCommandState}
         onClose={vi.fn()}
         onExecute={vi.fn()}
@@ -142,25 +202,42 @@ describe("editor-context-popup", () => {
       />,
     );
 
-    expect(screen.getByTestId("editor-context-popup")).toBeInTheDocument();
-    [
-      "Cut",
-      "Copy",
+    expect(controlLabels()).toEqual(labels);
+  });
+
+  it("places an object's actions directly under the quick actions", () => {
+    const { rerender } = render(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "block" }}
+        commandState={withEnabledCommands("format.codeBlockLanguage")}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(controlLabels().slice(0, 6)).toEqual([
+      ...QUICK_ACTION_LABELS,
+      "Code block language...",
+      "Move block up",
+    ]);
+
+    rerender(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands("edit.renameFootnote", "edit.jumpToFootnoteDefinition")}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(controlLabels().slice(0, 4)).toEqual([
       "Paste",
-      "Delete",
-      "Strong",
-      "Emphasis",
-      "Inline code",
-      "Link",
+      "Rename footnote",
+      "Jump to footnote definition",
       "Blockquote",
-      "Ordered list",
-      "Unordered list",
-      "Task list",
-    ].forEach((label) => {
-      expect(screen.getByLabelText(label)).toBeInTheDocument();
-    });
-    expect(screen.getByRole("button", { name: "Block type" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Insert" })).toBeInTheDocument();
+    ]);
   });
 
   it("leaves no indicator column beside submenu rows that already carry an icon", async () => {
@@ -209,7 +286,7 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("edit.copy");
   });
 
-  it("offers the footnote rename only where the footnote context supports it", async () => {
+  it("offers each footnote action only where the footnote context supports it", async () => {
     const onExecute = vi.fn();
     const { rerender, user } = renderWithUser(
       <EditorContextPopup
@@ -222,17 +299,12 @@ describe("editor-context-popup", () => {
     );
 
     expect(screen.queryByLabelText("Rename footnote")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Jump to footnote definition")).not.toBeInTheDocument();
 
     rerender(
       <EditorContextPopup
         request={POINTER_REQUEST}
-        commandState={{
-          ...enabledPopupCommandState,
-          enabledCommands: {
-            ...enabledPopupCommandState.enabledCommands,
-            "edit.renameFootnote": true,
-          },
-        }}
+        commandState={withEnabledCommands("edit.renameFootnote", "edit.jumpToFootnoteDefinition")}
         onClose={vi.fn()}
         onExecute={onExecute}
         onReturnFocus={vi.fn()}
@@ -240,8 +312,23 @@ describe("editor-context-popup", () => {
     );
 
     await user.click(screen.getByLabelText("Rename footnote"));
+    await user.click(screen.getByLabelText("Jump to footnote definition"));
 
-    expect(onExecute).toHaveBeenCalledWith("edit.renameFootnote");
+    expect(onExecute).toHaveBeenNthCalledWith(1, "edit.renameFootnote");
+    expect(onExecute).toHaveBeenNthCalledWith(2, "edit.jumpToFootnoteDefinition");
+
+    rerender(
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={withEnabledCommands("edit.jumpToFootnoteDefinition")}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Rename footnote")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Jump to footnote definition")).toBeEnabled();
   });
 
   it("offers the code block language only inside a fenced code block", async () => {
@@ -535,25 +622,12 @@ describe("editor-context-popup", () => {
       expect(screen.queryByRole("group")).not.toBeInTheDocument();
     });
 
-    it("hides inline-only actions for a structural block selection", () => {
+    it("keeps a context's unavailable command visible but disabled", () => {
       renderToolbar(
         { ...POINTER_REQUEST, selectionKind: "block" },
-        {
-          commandState: {
-            ...enabledPopupCommandState,
-            enabledCommands: {
-              ...enabledPopupCommandState.enabledCommands,
-              "edit.moveBlockDown": true,
-            },
-          },
-        },
+        { commandState: withEnabledCommands("edit.moveBlockDown") },
       );
 
-      expect(screen.queryByLabelText("Bold")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Italic")).not.toBeInTheDocument();
-      expect(screen.queryByLabelText("Inline code")).not.toBeInTheDocument();
-      expect(screen.getByLabelText("Copy")).toBeInTheDocument();
-      expect(screen.getByLabelText("Blockquote")).toBeInTheDocument();
       expect(screen.getByLabelText("Move block up")).toBeDisabled();
       expect(screen.getByLabelText("Move block down")).toBeEnabled();
     });
@@ -563,7 +637,7 @@ describe("editor-context-popup", () => {
 
       const controls = screen.getAllByRole("button");
 
-      expect(controls).toHaveLength(14);
+      expect(controls).toHaveLength(9);
       expect(controls.filter((control) => control.getAttribute("tabindex") === "0")).toHaveLength(
         1,
       );
@@ -616,8 +690,8 @@ describe("editor-context-popup", () => {
         expect(screen.getByLabelText("Cut")).toHaveFocus();
       });
 
-      await user.keyboard("{ArrowRight}{ArrowDown}{ArrowDown}");
-      expect(screen.getByLabelText("Ordered list")).toHaveFocus();
+      await user.keyboard("{ArrowRight}{ArrowDown}");
+      expect(screen.getByLabelText("Emphasis")).toHaveFocus();
 
       await user.keyboard("{ArrowDown}");
       expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
@@ -631,10 +705,53 @@ describe("editor-context-popup", () => {
       });
 
       await user.keyboard("{ArrowUp}");
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByLabelText("Strong")).toHaveFocus();
+    });
+
+    it("walks every row of the caret layout", async () => {
+      const { user } = renderToolbar({ ...KEYBOARD_REQUEST, selectionKind: "caret" });
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Paste")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowUp}");
       expect(screen.getByRole("button", { name: "Insert" })).toHaveFocus();
 
       await user.keyboard("{ArrowUp}");
       expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}");
+      expect(screen.getByLabelText("Paste")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+    });
+
+    it("moves through an object's row to the selection's own rows", async () => {
+      const { user } = renderToolbar(
+        { ...KEYBOARD_REQUEST, selectionKind: "block" },
+        { commandState: withEnabledCommands("format.codeBlockLanguage", "edit.moveBlockDown") },
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Cut")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowDown}");
+      expect(screen.getByLabelText("Code block language...")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Move block down")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Ordered list")).toHaveFocus();
     });
 
     it("opens a submenu with ArrowDown instead of leaving its row", async () => {
@@ -644,7 +761,7 @@ describe("editor-context-popup", () => {
         expect(screen.getByLabelText("Cut")).toHaveFocus();
       });
 
-      await user.keyboard("{ArrowUp}{ArrowUp}{ArrowDown}");
+      await user.keyboard("{ArrowUp}{ArrowDown}");
 
       await waitFor(() => {
         expect(screen.getByRole("menu")).toBeInTheDocument();
@@ -671,7 +788,7 @@ describe("editor-context-popup", () => {
       });
 
       await user.keyboard("{ArrowDown}");
-      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
     });
 
     it("leaves the toolbar to the editor on Tab", async () => {
@@ -709,7 +826,7 @@ describe("editor-context-popup", () => {
         expect(screen.getByLabelText("Cut")).toHaveFocus();
       });
 
-      await user.keyboard("{ArrowUp}{ArrowUp}{Enter}");
+      await user.keyboard("{ArrowUp}{Enter}");
       await waitFor(() => {
         expect(screen.getByRole("menuitem", { name: "Paragraph" })).toHaveFocus();
       });
@@ -759,6 +876,7 @@ describe("editor-context-popup", () => {
       const getRect = vi.fn((_mode: ContextPopupAnchorMode) => measure());
       const request: ContextPopupRequest = {
         anchor: { contextElement: document.body, getRect },
+        container: null,
         selectionKind: "text",
         source,
       };
@@ -802,6 +920,7 @@ describe("editor-context-popup", () => {
       let rect = createAnchorRect(openedAt);
       const request: ContextPopupRequest = {
         anchor: { contextElement: document.body, getRect: () => rect },
+        container: null,
         selectionKind: "text",
         source: "pointer",
       };
@@ -871,6 +990,7 @@ describe("editor-context-popup", () => {
         <EditorContextPopup
           request={{
             anchor: { contextElement: document.body, getRect: () => rect },
+            container: null,
             selectionKind: "text",
             source: "pointer",
           }}
@@ -905,6 +1025,7 @@ describe("editor-context-popup", () => {
               // follows the selection out of it.
               getRect: (mode) => createAnchorRect(mode === "pinned" ? 0 : -5000),
             },
+            container: null,
             selectionKind: "text",
             source: "keyboard",
           }}
@@ -926,6 +1047,7 @@ describe("editor-context-popup", () => {
     it("cancels selection easing before a scroll is positioned", async () => {
       const request: ContextPopupRequest = {
         anchor: ANCHOR,
+        container: null,
         selectionKind: "text",
         source: "pointer",
       };

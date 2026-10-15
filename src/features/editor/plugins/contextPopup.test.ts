@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ContextPopupRequest, ContextPopupSource } from "@/features/editor";
-import { HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
+import { BASIC_TABLE_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
 import {
   dispatchContextMenu,
   dispatchMouseDown,
@@ -15,7 +15,14 @@ import {
   setupMilkdownEditorMount,
   type MountedMilkdownEditor,
 } from "@/test/utils/milkdown";
-import { runKeyDownHandlers, setTextSelection, typeText } from "@/test/utils/prosemirror";
+import {
+  getEditorTextPosition,
+  runKeyDownHandlers,
+  selectTableCellRange,
+  setSelectionInTableCell,
+  setTextSelection,
+  typeText,
+} from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
 import { createHierarchicalBlockSelection, getSelectableBlockTargets } from "./blockSelection";
@@ -63,9 +70,13 @@ const trackPopupOpenState = () => {
   };
 };
 
-const popupRequest = (source: ContextPopupSource) => ({
+const popupRequest = (
+  source: ContextPopupSource,
+  selectionKind: ContextPopupRequest["selectionKind"] = "text",
+) => ({
   anchor: expect.objectContaining({ getRect: expect.any(Function) }),
-  selectionKind: "text",
+  container: null,
+  selectionKind,
   source,
 });
 
@@ -200,7 +211,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 8);
     dispatchContextMenu(mounted.view.dom, { clientX: 80, clientY: 42 });
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer"));
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("pointer", "caret"));
     expect(mounted.view.state.selection.empty).toBe(true);
     expect(mounted.view.state.selection.from).toBe(8);
   });
@@ -229,7 +240,7 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 8);
     runKeyDownHandlers(mounted.view, "ContextMenu");
 
-    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("keyboard"));
+    expect(onContextPopupRequested).toHaveBeenCalledWith(popupRequest("keyboard", "caret"));
   });
 
   it("leaves an unmodified F10 to the rest of the editor", async () => {
@@ -510,5 +521,105 @@ describe("context popup plugin", () => {
     setTextSelection(mounted.view, 2, 7);
 
     expect(onContextPopupRequested).toHaveBeenLastCalledWith(popupRequest("keyboard"));
+  });
+
+  describe("context", () => {
+    const FENCED_CODE_MARKDOWN = "```js\nconst value = 1;\n```\n";
+
+    const requestContext = async (
+      markdown: string,
+      select: (mounted: MountedMilkdownEditor) => void,
+    ) => {
+      const { onContextPopupRequested, lastRequest } = collectRequests();
+      const mounted = await mountEditor(markdown, { onContextPopupRequested });
+
+      mockCoordinates(mounted);
+      select(mounted);
+      runKeyDownHandlers(mounted.view, "ContextMenu");
+
+      const { container, selectionKind } = lastRequest();
+
+      return { container, selectionKind };
+    };
+
+    const selectText = (mounted: MountedMilkdownEditor, text: string, length = text.length) => {
+      const from = getEditorTextPosition(mounted, text);
+
+      setTextSelection(mounted.view, from, from + length);
+    };
+
+    it("tells a caret from a text selection", async () => {
+      expect(
+        await requestContext(HELLO_WORLD_TEXT, ({ view }) => {
+          setTextSelection(view, 3);
+        }),
+      ).toEqual({ container: null, selectionKind: "caret" });
+      expect(
+        await requestContext(HELLO_WORLD_TEXT, ({ view }) => {
+          setTextSelection(view, 1, 6);
+        }),
+      ).toEqual({ container: null, selectionKind: "text" });
+    });
+
+    it.each([
+      ["a fenced code block", FENCED_CODE_MARKDOWN],
+      ["indented code", "Before\n\n    const value = 1;\n"],
+      ["frontmatter", "---\nconst: 1\n---\n\nAfter\n"],
+    ])("reports a caret or selection in %s as code", async (_label, markdown) => {
+      expect(
+        await requestContext(markdown, (mounted) => {
+          selectText(mounted, "const", 0);
+        }),
+      ).toEqual({ container: "code", selectionKind: "caret" });
+      expect(
+        await requestContext(markdown, (mounted) => {
+          selectText(mounted, "const");
+        }),
+      ).toEqual({ container: "code", selectionKind: "text" });
+    });
+
+    it("reports a caret, text, or cell selection in a table as the table", async () => {
+      expect(
+        await requestContext(BASIC_TABLE_MARKDOWN, (mounted) => {
+          setSelectionInTableCell(mounted, 1, 0);
+        }),
+      ).toEqual({ container: "table", selectionKind: "caret" });
+      expect(
+        await requestContext(BASIC_TABLE_MARKDOWN, (mounted) => {
+          selectText(mounted, "C");
+        }),
+      ).toEqual({ container: "table", selectionKind: "text" });
+      expect(
+        await requestContext(BASIC_TABLE_MARKDOWN, (mounted) => {
+          selectTableCellRange(mounted, { col: 0, row: 0 }, { col: 1, row: 1 });
+        }),
+      ).toEqual({ container: "table", selectionKind: "text" });
+    });
+
+    it("reports no container for a selection reaching out of one", async () => {
+      expect(
+        await requestContext(`Before\n\n${FENCED_CODE_MARKDOWN}`, (mounted) => {
+          setTextSelection(
+            mounted.view,
+            getEditorTextPosition(mounted, "fore"),
+            getEditorTextPosition(mounted, "value"),
+          );
+        }),
+      ).toEqual({ container: null, selectionKind: "text" });
+    });
+
+    it("reports a structural selection of a code block as a block selection", async () => {
+      expect(
+        await requestContext(`${FENCED_CODE_MARKDOWN}\nAfter\n`, ({ view }) => {
+          const [codeBlock] = getSelectableBlockTargets(view.state.doc);
+
+          view.dispatch(
+            view.state.tr.setSelection(
+              createHierarchicalBlockSelection(view.state.doc, codeBlock.pos, codeBlock.pos),
+            ),
+          );
+        }),
+      ).toEqual({ container: null, selectionKind: "block" });
+    });
   });
 });

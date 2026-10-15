@@ -329,6 +329,7 @@ describe("milkdown-editor", () => {
       act(() => {
         options.contextPopup?.onRequest?.({
           anchor: { contextElement: document.body, getRect: () => new DOMRect(10, 10, 40, 20) },
+          container: null,
           selectionKind: "text",
           source: "pointer",
         });

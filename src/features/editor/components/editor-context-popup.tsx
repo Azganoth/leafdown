@@ -1,5 +1,6 @@
 import {
   ArrowDownIcon,
+  ArrowDownToLineIcon,
   ArrowUpIcon,
   BoldIcon,
   ChevronRightIcon,
@@ -65,6 +66,10 @@ const QUICK_ACTION_COMMANDS = [
   { commandId: "edit.delete", icon: Trash2Icon },
 ] satisfies readonly ContextButtonCommand[];
 
+const CARET_QUICK_ACTION_COMMANDS = [
+  { commandId: "edit.paste", icon: ClipboardPasteIcon },
+] satisfies readonly ContextButtonCommand[];
+
 const BLOCK_MOVEMENT_COMMANDS = [
   { commandId: "edit.moveBlockUp", icon: ArrowUpIcon },
   { commandId: "edit.moveBlockDown", icon: ArrowDownIcon },
@@ -79,6 +84,7 @@ const INLINE_ACTION_COMMANDS = [
 
 const FOOTNOTE_COMMANDS = [
   { commandId: "edit.renameFootnote", icon: PencilLineIcon },
+  { commandId: "edit.jumpToFootnoteDefinition", icon: ArrowDownToLineIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const IMAGE_COMMANDS = [
@@ -122,6 +128,82 @@ const INSERT_COMMANDS = [
   { commandId: "insert.table", icon: TableIcon },
   { commandId: "insert.horizontalRule", icon: MinusIcon },
 ] satisfies readonly ContextSubmenuCommand[];
+
+const OBJECT_COMMAND_ROWS = [
+  { id: "footnote", commands: FOOTNOTE_COMMANDS },
+  { id: "image", commands: IMAGE_COMMANDS },
+  { id: "codeBlock", commands: CODE_BLOCK_COMMANDS },
+] as const;
+
+type ContextRow =
+  | { id: string; kind: "buttons"; commands: readonly ContextButtonCommand[] }
+  | { id: string; kind: "submenu"; commands: readonly ContextSubmenuCommand[]; labelId: MessageId };
+
+const buttonRow = (id: string, commands: readonly ContextButtonCommand[]): ContextRow => ({
+  commands,
+  id,
+  kind: "buttons",
+});
+
+const BLOCK_TYPE_ROW: ContextRow = {
+  commands: BLOCK_TYPE_COMMANDS,
+  id: "blockType",
+  kind: "submenu",
+  labelId: "editor.contextPopup.blockType",
+};
+
+const INSERT_ROW: ContextRow = {
+  commands: INSERT_COMMANDS,
+  id: "insert",
+  kind: "submenu",
+  labelId: "editor.contextPopup.insert",
+};
+
+const getContextRows = (
+  { container, selectionKind }: ContextPopupRequest,
+  canExecute: (commandId: EditorCommandId) => boolean,
+): ContextRow[] => {
+  const rows = [
+    buttonRow(
+      "quickActions",
+      selectionKind === "caret" ? CARET_QUICK_ACTION_COMMANDS : QUICK_ACTION_COMMANDS,
+    ),
+  ];
+
+  // Unlike the other rows, an object's row leaves out what is unavailable, which is what keeps it
+  // out of every context its object is not in.
+  for (const { id, commands } of OBJECT_COMMAND_ROWS) {
+    const available = commands.filter(({ commandId }) => canExecute(commandId));
+
+    if (available.length > 0) {
+      rows.push(buttonRow(id, available));
+    }
+  }
+
+  if (selectionKind === "block") {
+    rows.push(buttonRow("blockMovement", BLOCK_MOVEMENT_COMMANDS));
+  }
+
+  // Code holds no marks.
+  if (selectionKind === "text" && container !== "code") {
+    rows.push(buttonRow("inlineActions", INLINE_ACTION_COMMANDS));
+  }
+
+  // A table cell holds exactly one paragraph, which no block format or type can change.
+  if (selectionKind !== "text" && container !== "table") {
+    rows.push(buttonRow("blockFormatting", BLOCK_FORMATTING_COMMANDS));
+  }
+
+  if (container !== "table") {
+    rows.push(BLOCK_TYPE_ROW);
+  }
+
+  if (selectionKind !== "text") {
+    rows.push(INSERT_ROW);
+  }
+
+  return rows;
+};
 
 const isCommandEnabled = (commandId: EditorCommandId, commandState: EditorCommandState) =>
   commandState.status === "ready" && commandState.enabledCommands[commandId];
@@ -399,72 +481,26 @@ export function EditorContextPopup({
         side="bottom"
         sideOffset={8}
       >
-        <ContextCommandRow
-          commands={QUICK_ACTION_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-          row={0}
-        />
-        {request.selectionKind === "block" && (
-          <ContextCommandRow
-            commands={BLOCK_MOVEMENT_COMMANDS}
-            onExecute={onExecute}
-            canExecute={canExecute}
-            row={1}
-          />
+        {getContextRows(request, canExecute).map((contextRow, row) =>
+          contextRow.kind === "buttons" ? (
+            <ContextCommandRow
+              commands={contextRow.commands}
+              key={contextRow.id}
+              onExecute={onExecute}
+              canExecute={canExecute}
+              row={row}
+            />
+          ) : (
+            <ContextCommandSubmenu
+              commands={contextRow.commands}
+              key={contextRow.id}
+              labelId={contextRow.labelId}
+              onExecute={onExecute}
+              canExecute={canExecute}
+              row={row}
+            />
+          ),
         )}
-        {request.selectionKind === "text" && (
-          <ContextCommandRow
-            commands={INLINE_ACTION_COMMANDS}
-            onExecute={onExecute}
-            canExecute={canExecute}
-            row={1}
-          />
-        )}
-        {canExecute("edit.renameFootnote") && (
-          <ContextCommandRow
-            commands={FOOTNOTE_COMMANDS}
-            onExecute={onExecute}
-            canExecute={canExecute}
-            row={2}
-          />
-        )}
-        {canExecute("edit.replaceImage") && (
-          <ContextCommandRow
-            commands={IMAGE_COMMANDS}
-            onExecute={onExecute}
-            canExecute={canExecute}
-            row={3}
-          />
-        )}
-        {canExecute("format.codeBlockLanguage") && (
-          <ContextCommandRow
-            commands={CODE_BLOCK_COMMANDS}
-            onExecute={onExecute}
-            canExecute={canExecute}
-            row={4}
-          />
-        )}
-        <ContextCommandRow
-          commands={BLOCK_FORMATTING_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-          row={5}
-        />
-        <ContextCommandSubmenu
-          labelId="editor.contextPopup.blockType"
-          commands={BLOCK_TYPE_COMMANDS}
-          onExecute={onExecute}
-          canExecute={canExecute}
-          row={6}
-        />
-        <ContextCommandSubmenu
-          commands={INSERT_COMMANDS}
-          labelId="editor.contextPopup.insert"
-          onExecute={onExecute}
-          canExecute={canExecute}
-          row={7}
-        />
       </PopoverContent>
     </Popover>
   );

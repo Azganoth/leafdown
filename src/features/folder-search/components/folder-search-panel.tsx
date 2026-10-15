@@ -54,6 +54,7 @@ import {
   type FolderSearchMatchRow,
   type FolderSearchRow,
 } from "../utils/folderSearchRows";
+import { NoResultsArt } from "./folder-search-art";
 
 const ROW_HEIGHT = 26;
 const SKIPPED_FILES_SHOWN = 100;
@@ -408,10 +409,19 @@ function FolderSearchStatus({
   }
 
   const { announcement, detail, text } = describeResults(localization, results);
+  const noResults = results.status === "completed" && results.matchCount === 0;
 
+  // The live region stays the same element when no results are found, so the outcome is announced.
   return (
-    <div className="flex shrink-0 items-start gap-2 px-1 text-xs leading-5 text-muted-foreground">
-      <div className="min-w-0 flex-1">
+    <div
+      className={
+        noResults
+          ? "sidebar-empty-state"
+          : "flex shrink-0 items-start gap-2 px-1 text-xs leading-5 text-muted-foreground"
+      }
+    >
+      {noResults && <NoResultsArt />}
+      <div className={noResults ? undefined : "min-w-0 flex-1"}>
         <p data-testid="folder-search-status">{text}</p>
         {detail && <p>{detail}</p>}
         {/* Progress changes the visible text continually; only the outcome is announced. */}

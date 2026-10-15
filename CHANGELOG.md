@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Changed
+
+- Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
+
 ## [0.1.0-alpha.3] - 2026-10-12
 
 ### Added

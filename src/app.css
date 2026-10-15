@@ -278,6 +278,19 @@
   --status-bar-height: 1.75rem;
 }
 
+@utility welcome-glow {
+  --welcome-glow-color: oklch(0.82 0.16 150 / 32%);
+  background-image: radial-gradient(
+    ellipse 48% 40% at 18% 30%,
+    var(--welcome-glow-color),
+    transparent 72%
+  );
+
+  @variant dark {
+    --welcome-glow-color: oklch(0.58 0.13 162 / 24%);
+  }
+}
+
 @utility active-document-item {
   @apply relative dark:aria-selected:hover:bg-accent;
 

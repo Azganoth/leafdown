@@ -156,6 +156,9 @@ describe("Shell", () => {
     expect(titlebar!).toContainElement(screen.getByRole("button", { name: "Show sidebar" }));
     expect(titlebar!.querySelector("h1")).toBeNull();
     expect(screen.getByRole("button", { name: "New document" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Leafdown" })).queryAllByRole("img"),
+    ).toHaveLength(0);
     expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recent folders" })).not.toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();

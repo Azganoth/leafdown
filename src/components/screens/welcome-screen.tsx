@@ -1,7 +1,7 @@
 import { FilePlusIcon, FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { COMMAND_DEFINITIONS, formatShortcut, type AppCommandId } from "@/commands";
+import { COMMAND_DEFINITIONS, getShortcutKeyLabels, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
@@ -18,6 +18,7 @@ import { notifyOperationFailure } from "@/lib/errors";
 import { localizer, useLocalization, type MessageId } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 const NOW_REFRESH_INTERVAL_MS = 60 * 1000;
 
@@ -104,66 +105,78 @@ export function WelcomeScreen() {
   return (
     <section
       aria-labelledby="welcome-title"
-      className="flex min-h-full items-center justify-center px-8 py-10"
+      className="@container relative isolate flex min-h-full items-center justify-center overflow-hidden px-8 py-10"
     >
-      <div className="w-full max-w-3xl">
-        <h2 id="welcome-title" className="font-heading text-4xl font-semibold">
-          Leafdown
-        </h2>
-        <p className="mt-3 max-w-lg text-base text-muted-foreground">{t("welcome.description")}</p>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 welcome-glow" />
+      <div
+        className={cn(
+          "grid w-full gap-x-16 gap-y-12",
+          hasRecentItems ? "max-w-5xl @3xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]" : "max-w-xs",
+        )}
+      >
+        <div>
+          <img src="/app-icon.svg" alt="" className="size-16" />
+          <h2
+            id="welcome-title"
+            className="mt-5 font-heading text-3xl font-semibold tracking-tight"
+          >
+            Leafdown
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("welcome.description")}</p>
 
-        <div className="mt-8 flex flex-wrap gap-3">
-          <Button type="button" onClick={handleNewDocument} size="lg">
-            <FilePlusIcon data-icon="inline-start" />
-            {t("welcome.newDocument")}
-            <CommandShortcutHint commandId="file.new" />
-          </Button>
-          <Button type="button" onClick={handleOpenFile} variant="outline" size="lg">
-            <FileTextIcon data-icon="inline-start" />
-            {t("welcome.openFile")}
-            <CommandShortcutHint commandId="file.open" />
-          </Button>
-          <Button type="button" onClick={handleOpenFolder} variant="outline" size="lg">
-            <FolderOpenIcon data-icon="inline-start" />
-            {t("welcome.openFolder")}
-            <CommandShortcutHint commandId="file.openFolder" />
-          </Button>
+          <div className="mt-8 flex flex-col gap-1">
+            <WelcomeAction
+              commandId="file.new"
+              icon={FilePlusIcon}
+              label={t("welcome.newDocument")}
+              onClick={handleNewDocument}
+              primary
+            />
+            <WelcomeAction
+              commandId="file.open"
+              icon={FileTextIcon}
+              label={t("welcome.openFile")}
+              onClick={handleOpenFile}
+            />
+            <WelcomeAction
+              commandId="file.openFolder"
+              icon={FolderOpenIcon}
+              label={t("welcome.openFolder")}
+              onClick={handleOpenFolder}
+            />
+          </div>
         </div>
 
         {hasRecentItems && (
-          <div className="mt-12">
-            <div className="grid gap-8 md:grid-cols-2">
-              <RecentItemsSection
-                kind="files"
-                titleId="recent-files-title"
-                icon={FileTextIcon}
-                items={recentFiles}
-                now={now}
-                onOpenItem={handleOpenRecentFile}
-                onRemoveItem={removeRecentFile}
-              />
-              <RecentItemsSection
-                kind="folders"
-                titleId="recent-folders-title"
-                icon={FolderOpenIcon}
-                items={recentFolders}
-                now={now}
-                onOpenItem={handleOpenRecentFolder}
-                onRemoveItem={removeRecentFolder}
-              />
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={clearRecentItems}
-                className="text-muted-foreground"
-              >
-                <XIcon data-icon="inline-start" />
-                {t("welcome.clearRecentItems")}
-              </Button>
-            </div>
+          <div className="flex min-w-0 flex-col gap-6">
+            <RecentItemsSection
+              kind="files"
+              titleId="recent-files-title"
+              icon={FileTextIcon}
+              items={recentFiles}
+              now={now}
+              onOpenItem={handleOpenRecentFile}
+              onRemoveItem={removeRecentFile}
+            />
+            <RecentItemsSection
+              kind="folders"
+              titleId="recent-folders-title"
+              icon={FolderOpenIcon}
+              items={recentFolders}
+              now={now}
+              onOpenItem={handleOpenRecentFolder}
+              onRemoveItem={removeRecentFolder}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={clearRecentItems}
+              className="-mt-2 -mr-1 self-end text-muted-foreground"
+            >
+              <XIcon data-icon="inline-start" />
+              {t("welcome.clearRecentItems")}
+            </Button>
           </div>
         )}
       </div>
@@ -192,17 +205,47 @@ function useNow() {
   return now;
 }
 
-function CommandShortcutHint({ commandId }: { commandId: AppCommandId }) {
+interface WelcomeActionProps {
+  commandId: AppCommandId;
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  primary?: boolean;
+}
+
+function WelcomeAction({ commandId, icon: Icon, label, onClick, primary }: WelcomeActionProps) {
   const shortcut = COMMAND_DEFINITIONS[commandId].shortcuts?.[0];
 
-  if (!shortcut) {
-    return null;
-  }
-
   return (
-    <span aria-hidden="true" className="ml-2 text-xs font-normal tracking-widest opacity-60">
-      {formatShortcut(shortcut)}
-    </span>
+    <Button
+      type="button"
+      variant="ghost"
+      size="lg"
+      onClick={onClick}
+      className="h-11 justify-start gap-3 px-2"
+    >
+      <span
+        className={cn(
+          "flex size-7 items-center justify-center rounded-md",
+          primary ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+        )}
+      >
+        <Icon />
+      </span>
+      {label}
+      {shortcut && (
+        <span aria-hidden="true" className="ml-auto flex gap-0.5">
+          {getShortcutKeyLabels(shortcut).map((keyLabel) => (
+            <kbd
+              key={keyLabel}
+              className="rounded border border-border bg-muted px-1.5 py-px font-sans text-[0.6875rem] leading-4 font-normal text-muted-foreground"
+            >
+              {keyLabel}
+            </kbd>
+          ))}
+        </span>
+      )}
+    </Button>
   );
 }
 
@@ -229,14 +272,14 @@ function RecentItemsSection({
   const messageIds = RECENT_ITEMS_MESSAGE_IDS[kind];
 
   return (
-    <section aria-labelledby={titleId} className="min-w-0 border-t border-border pt-3">
-      <h3 id={titleId} className="text-sm font-medium">
+    <section aria-labelledby={titleId} className="min-w-0">
+      <h3 id={titleId} className="mb-2 px-1 text-sm font-medium">
         {t(messageIds.title)}
       </h3>
       {items.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">{t(messageIds.empty)}</p>
+        <p className="px-1 text-sm text-muted-foreground">{t(messageIds.empty)}</p>
       ) : (
-        <ul className="mt-2 flex flex-col">
+        <ul className="-mx-1 flex flex-col">
           {items.map((item) => (
             <RecentItemRow
               icon={Icon}
@@ -276,28 +319,31 @@ function RecentItemRow({
   const messageIds = RECENT_ITEMS_MESSAGE_IDS[kind];
 
   return (
-    <li className="group/recent-item flex min-w-0 items-center gap-1">
+    <li className="group/recent-item relative flex min-w-0 items-center rounded-md hover:bg-muted dark:hover:bg-muted/50">
       <Button
         type="button"
         variant="ghost"
-        size="sm"
         onClick={() => onOpenItem(path)}
         title={path}
-        className="min-w-0 flex-1 justify-start gap-2 px-2"
+        className="h-auto min-w-0 flex-1 justify-start gap-3 px-2 py-1.5 hover:bg-transparent dark:hover:bg-transparent"
       >
-        <Icon />
-        <span className="min-w-0 truncate">{name}</span>
-        <span className="min-w-0 flex-1 truncate text-left text-xs font-normal text-muted-foreground">
-          {parent}
+        <Icon className="text-muted-foreground" />
+        <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+          <span className="w-full truncate">{name}</span>
+          <span className="w-full truncate text-xs font-normal text-muted-foreground">
+            {parent}
+          </span>
         </span>
-        {openedAt !== undefined && (
-          <time
-            dateTime={new Date(openedAt).toISOString()}
-            className="shrink-0 text-xs font-normal text-muted-foreground"
-          >
-            {formatRelativeTime(openedAt, now)}
-          </time>
-        )}
+        <span className="flex min-w-7 shrink-0 justify-end">
+          {openedAt !== undefined && (
+            <time
+              dateTime={new Date(openedAt).toISOString()}
+              className="text-xs font-normal text-muted-foreground group-hover/recent-item:invisible group-has-[:focus-visible]/recent-item:invisible"
+            >
+              {formatRelativeTime(openedAt, now)}
+            </time>
+          )}
+        </span>
       </Button>
       <Button
         type="button"
@@ -306,7 +352,7 @@ function RecentItemRow({
         onClick={() => onRemoveItem(path)}
         aria-label={t(messageIds.remove, { name })}
         title={t(messageIds.removeTitle)}
-        className="text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 focus-visible:opacity-100"
+        className="absolute right-1 text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 group-has-[:focus-visible]/recent-item:opacity-100 hover:bg-background/70 dark:hover:bg-background/40"
       >
         <XIcon />
       </Button>

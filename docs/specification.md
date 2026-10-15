@@ -413,7 +413,10 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - Indentation no authored spelling answers for is written in spaces, at the column the structure holding the line requires: the content column of the list item the line belongs to, and four columns past the containers for the later lines of a footnote definition and for an indented code block. An item the editor nests stands at its parent item's content column, whatever the document's other nested items were indented with.
 - A task list item keeps the marker it was authored with: `x` or `X` for a checked item, and a space or a tab for an unchecked one. A marker spells one of the two states rather than decorating both, so an item the editor checks or unchecks, by command or by a click on its checkbox, is written with the default marker from then on, `x` or a space, including when it returns to the state it was authored in. An item that stops being a task item is moved the same way, so one made a task item again is written in the default form too. A marker GFM reads as ordinary text, such as `[]`, `[y]`, or one with no whitespace after it, is not a task marker and is written back as the text it is.
 - A blank paragraph between blocks survives save and reopen.
-- Save output trims trailing blank lines and writes at most one final line ending, controlled by `Insert final newline on save`. Trailing blank paragraphs go with them.
+- The blank lines a file ends with, after its last construct, survive save and reopen. The document holds them as its end rather than as paragraphs, so they add no block, caret position, outline entry, or count. A line holding only spaces or tabs is kept as an empty line. Blank lines a construct holds as its own content stay that construct's, such as those inside a fence or a raw HTML block left open at the end of the file. A file holding only blank lines keeps them, and an empty file stays empty.
+- The blank lines stay at the end of the document while it is edited: editing any block, or adding or removing the last one, leaves them after whichever block now ends it. Select All followed by typing, deleting, cutting, or pasting removes them with the content it replaces, and `Undo` restores both in one step. While the last block would read them back as its own content, such as a fence or a raw HTML block left open, a save writes none of them, and writes them again once the document no longer ends with such a block. Opening, saving, and moving the caret never change them.
+- An empty paragraph at the end of the document is written as blank lines after the last line of content, one for the first and two for each further one, followed by any the file already ended with. Reopening the file holds them as the document's end, not as paragraphs.
+- `Insert final newline on save` decides only the line ending after the document's last line of content: On writes one, Off writes none. A document ending in blank lines is written with that line ending and each blank line's own under either setting, and an empty document stays empty.
 
 ## Commands And Settings
 
@@ -648,7 +651,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 - Save encodes strictly. If the document holds characters its encoding cannot represent, the save writes nothing and the app dialog names each such character with its code point, offering `Convert to UTF-8 and save` or `Cancel`. Converting saves the document as UTF-8 without a BOM to the same path, including a path just chosen through Save as. Numeric character references, `?`, and every other substitute are never written.
 - A save either fully replaces the file contents or leaves the previous contents in place. An interrupted or failed save never leaves a partially written document or a stray file beside it.
 - Saving a document that is a symlink writes through to the link target and leaves the link in place.
-- `Insert final newline on save` controls whether Leafdown writes a final newline when saving.
+- `Insert final newline on save` controls whether Leafdown writes a line ending after the document's last line of content. Blank lines the document ends with are written under either setting, as [Serialization And Output](#serialization-and-output) describes.
 - `Line ending` actions affect the active document's save output, not the rendered editor surface.
 - If the active saved file no longer exists when saving, Leafdown shows a missing-file error and offers `Save as` or `Cancel`.
 - Before saving, compare current file metadata with the metadata Leafdown recorded for the document when it was read or saved, or when a touch was accepted. If the file changed externally, warn before overwriting.
@@ -657,7 +660,7 @@ File operations govern how Leafdown writes to disk and resolves conflicts or err
 
 ### Loading Limits
 
-- Empty files open as empty editable documents.
+- Empty files, and files holding only blank lines, open as empty editable documents.
 - Files larger than 5 MB do not load.
 - Documents up to 200 KB are supported: they are shown within 3 seconds of opening, and each typed character appears within 100 ms without a pause after it. Larger documents up to the 5 MB limit open and can be edited, but opening and typing slow down as they grow, sooner for documents made mostly of tables or code.
 - A file that starts with a UTF-8, UTF-16 LE, or UTF-16 BE byte order mark (BOM) opens in the encoding the BOM names. Any other file opens as UTF-8 unless the user chooses another encoding. Leafdown does not guess an encoding.

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { formatMarkdownForSave } from "@/features/document";
 import { createMarkdownReferenceContext } from "@/test/factories/editor";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
@@ -30,8 +31,11 @@ const byteIdenticalFiles = [
   "gfm/tagfilter.md",
   "gfm/task-lists.md",
   "extensions/admonitions.md",
+  "isolated/end-of-file/blank-lines-only.md",
   "isolated/end-of-file/incomplete-html-comment.md",
+  "isolated/end-of-file/trailing-blank-lines.md",
   "isolated/end-of-file/unclosed-code-fence.md",
+  "isolated/end-of-file/unclosed-code-fence-blank-lines.md",
   "isolated/end-of-file/unclosed-directive.md",
   "isolated/end-of-file/unclosed-html-block.md",
 ];
@@ -53,6 +57,15 @@ const convergingFiles = [
   "gfm/strikethrough.md",
   // Cell padding, a layout computed across a column no node owns.
   "gfm/tables.md",
+  // Whitespace a parse trims at a line edge, here on the blank lines the file ends with.
+  "isolated/end-of-file/whitespace-blank-lines.md",
+];
+
+// Files ending on a blank line, which a save writes back under either final-newline setting.
+const blankLineEndingFiles = [
+  "isolated/end-of-file/blank-lines-only.md",
+  "isolated/end-of-file/trailing-blank-lines.md",
+  "isolated/end-of-file/unclosed-code-fence-blank-lines.md",
 ];
 
 const corpusFiles = [...byteIdenticalFiles, ...convergingFiles];
@@ -84,6 +97,17 @@ describe("Corpus round trip", () => {
 
     expect(second).toBe(first);
   });
+
+  it.each(blankLineEndingFiles)(
+    "saves %s back under either final-newline setting",
+    async (relativePath) => {
+      const source = readCorpusFile(relativePath);
+      const markdown = (await mountEditor(source)).getMarkdown();
+
+      expect(formatMarkdownForSave(markdown, "lf", true)).toBe(source);
+      expect(formatMarkdownForSave(markdown, "lf", false)).toBe(source);
+    },
+  );
 
   it.each(corpusFiles)("preserves the document across a save for %s", async (relativePath) => {
     const before = await mountEditor(readCorpusFile(relativePath));

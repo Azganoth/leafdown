@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Changed
+
+- Keep the blank lines a file ends with when saving, instead of trimming them, under either `Insert final newline on save` choice. They open without adding empty lines to the document and stay at its end as you edit; selecting everything and typing or deleting removes them, and Undo brings them back. Empty lines you add at the end of a document are saved too, and a file of only blank lines keeps them. The final-newline setting still decides whether the last line of text ends with a newline.
+
 ## [0.1.0-alpha.3] - 2026-10-12
 
 ### Added

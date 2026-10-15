@@ -8,6 +8,7 @@ import {
   closeAllDocuments,
   countDocumentTabs,
   findDocumentTab,
+  findMenuItem,
   findTreeItem,
   getSaveMenuItem,
   openRecentPath,
@@ -75,6 +76,48 @@ const selectedHeadingGeometry = () =>
       scrollTop: viewport.scrollTop,
     };
   }, VIEWPORT);
+
+const editorBlocks = () =>
+  browser.execute(() =>
+    Array.from(
+      document.querySelectorAll("[data-testid=active-document-host] .ProseMirror > :is(h1, p)"),
+      (block) => `${block.tagName}:${block.textContent ?? ""}`,
+    ),
+  );
+
+const waitForFile = (filePath: string, matches: (content: string) => boolean, timeoutMsg: string) =>
+  browser.waitUntil(async () => matches(await readFile(filePath, "utf8")), { timeoutMsg });
+
+const saveDocument = async () => {
+  await (await getSaveMenuItem()).click();
+};
+
+const undo = async () => {
+  await $("aria/Edit").click();
+  await (await findMenuItem((text) => text.startsWith("Undo"))).click();
+};
+
+// The driver's pointer actions dispatch no mousedown at an arbitrary point, so the press the
+// editor's empty space below its last block answers is dispatched where a real one would land.
+const pressBelowLastBlock = () =>
+  browser.execute(() => {
+    const editor = document.querySelector<HTMLElement>(
+      "[data-testid=active-document-host] .ProseMirror",
+    )!;
+    const lastBlock = editor.lastElementChild!.getBoundingClientRect();
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      clientX: Math.round(lastBlock.left + 8),
+      clientY: Math.round(lastBlock.bottom + 24),
+    };
+    const target = document.elementFromPoint(init.clientX, init.clientY);
+    if (target !== editor) throw new Error("The space below the last block is not the editor's.");
+    target.dispatchEvent(new MouseEvent("mousedown", { ...init, buttons: 1 }));
+    target.dispatchEvent(new MouseEvent("mouseup", init));
+    target.dispatchEvent(new MouseEvent("click", init));
+  });
 
 describe("desktop document lifecycle", () => {
   it("starts newly opened documents at the top and keeps each tab where it was left", async () => {
@@ -248,5 +291,68 @@ describe("desktop document lifecycle", () => {
     await $("aria/Discard changes").click();
     await expect(reopenedEditor).not.toExist();
     expect(await readFile(document.path, "utf8")).toBe(document.savedMarkdown);
+  });
+
+  it("keeps the blank lines a file ends with through edits, Undo, and reopening", async () => {
+    const { document: fixture } = await getDesktopE2ERunContext();
+    const original = "# Trailing blank lines\n\nLast paragraph.\n\n\n";
+    const blocks = ["H1:Trailing blank lines", "P:Last paragraph."];
+    await writeFile(fixture.scrollPath, original);
+
+    await openRecentPath(fixture.scrollPath);
+    const editor = $('[data-testid=active-document-host] [contenteditable="true"]');
+    await expect(editor).toHaveText(expect.stringContaining("Last paragraph."));
+    expect(await editorBlocks()).toEqual(blocks);
+
+    await editor.click();
+    // One character, so one Undo step takes the whole edit back.
+    await editor.addValue("X");
+    await expect(editor).toHaveText(expect.stringContaining("X"));
+    await saveDocument();
+    await waitForFile(
+      fixture.scrollPath,
+      (content) => content.includes("X") && /[^\n]\n\n\n$/u.test(content),
+      "The edited document was not saved with the two blank lines it ends with.",
+    );
+
+    await undo();
+    await saveDocument();
+    await waitForFile(
+      fixture.scrollPath,
+      (content) => content === original,
+      "Undo and a second save did not write the original file back.",
+    );
+
+    await pressBelowLastBlock();
+    await browser.waitUntil(async () => (await editorBlocks()).length === 3, {
+      timeoutMsg: "Pressing below the last block did not add a paragraph.",
+    });
+    await saveDocument();
+    await waitForFile(
+      fixture.scrollPath,
+      (content) => content === `${original}\n`,
+      "The added empty paragraph was not saved as one more blank line.",
+    );
+
+    await undo();
+    await browser.waitUntil(async () => (await editorBlocks()).length === 2, {
+      timeoutMsg: "Undo did not remove the added paragraph.",
+    });
+    await saveDocument();
+    await waitForFile(
+      fixture.scrollPath,
+      (content) => content === original,
+      "Undoing the added paragraph did not save the original file back.",
+    );
+
+    await selectFileMenuItem("Close document");
+    await expect(editor).not.toExist();
+    await openRecentPath(fixture.scrollPath);
+    await expect($('[data-testid=active-document-host] [contenteditable="true"]')).toHaveText(
+      expect.stringContaining("Last paragraph."),
+    );
+    expect(await editorBlocks()).toEqual(blocks);
+    expect(await readFile(fixture.scrollPath, "utf8")).toBe(original);
+    await closeAllDocuments();
   });
 });

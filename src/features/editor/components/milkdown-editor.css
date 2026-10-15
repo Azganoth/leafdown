@@ -292,9 +292,42 @@
       @apply mt-2;
     }
 
-    ul > li::before {
-      @apply text-primary;
-      content: "•";
+    /* Each nesting level draws the next mark of the set, which repeats past its end. Every list
+       counts as a level, ordered and task lists included, so a mark follows how deep its item
+       stands. An item hands its list's set on rotated by one and any list inside the item takes it
+       up, which reaches every depth without a selector per level. */
+    ul,
+    ol {
+      --leafdown-list-bullet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Ccircle cx='5' cy='5' r='5'/%3E%3C/svg%3E");
+      --leafdown-list-bullet-2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Ccircle cx='5' cy='5' r='3.75' fill='none' stroke='%23000' stroke-width='2.5'/%3E%3C/svg%3E");
+      --leafdown-list-bullet-3: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect x='0.75' y='0.75' width='8.5' height='8.5' rx='0.75'/%3E%3C/svg%3E");
+    }
+
+    li {
+      --leafdown-list-nested-bullet: var(--leafdown-list-bullet-2);
+      --leafdown-list-nested-bullet-2: var(--leafdown-list-bullet-3);
+      --leafdown-list-nested-bullet-3: var(--leafdown-list-bullet);
+    }
+
+    li :is(ul, ol) {
+      --leafdown-list-bullet: var(--leafdown-list-nested-bullet);
+      --leafdown-list-bullet-2: var(--leafdown-list-nested-bullet-2);
+      --leafdown-list-bullet-3: var(--leafdown-list-nested-bullet-3);
+    }
+
+    /* The mark is drawn rather than set as a character because the bundled document fonts carry
+       only the plain bullet, and a ring or square would fall back to a symbol font of another size
+       and weight. The box holds a blank line of the item's text trimmed at its baseline, so the mark
+       stands at the middle of the x-height, where a bullet character sits, in every font. */
+    ul > li:not([data-checked])::before {
+      @apply w-[0.5em] bg-primary;
+      --leafdown-list-bullet-size: 0.3em;
+      content: "\a0";
+      text-box: trim-end text alphabetic;
+      mask-image: var(--leafdown-list-bullet);
+      mask-position: left 50% bottom calc(0.5ex - var(--leafdown-list-bullet-size) / 2);
+      mask-repeat: no-repeat;
+      mask-size: var(--leafdown-list-bullet-size);
     }
 
     /* A number is set against its dot rather than against its first digit, so the dots hold a

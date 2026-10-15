@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="493" height="312" viewBox="0 0 493 312">
+  <rect width="493" height="312" fill="#fff"/>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="164" y2="312" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#123e36"/>
+      <stop offset="1" stop-color="#082c2b"/>
+    </linearGradient>
+  </defs>
+  <rect width="164" height="312" fill="url(#panel)"/>
+  <path d="M 0 223 C 49 241 113 203 164 180 V 312 H 0 Z" fill="#185348"/>
+  <path d="M 0 268 C 66 218 108 273 164 225 V 312 H 0 Z" fill="#24715b"/>
+  <path d="M 0 291 C 58 248 106 285 164 259 V 312 H 0 Z" fill="#3a8b69"/>
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="20" y="56" width="124" height="124" viewBox="107 103 600 600">
+  <defs>
+    <path id="leaf-outline" d="M 648 142 C 555 176 453 169 370 197 C 258 234 190 326 165 438 C 150 507 153 601 171 656 C 173 664 176 667 183 662 C 231 623 278 618 334 615 C 430 612 503 592 556 550 C 641 483 672 354 652 149 C 651 143 651 140 648 142 Z"/>
+    <path id="leaf-body" d="M 107 103 H 707 V 466 L 551 554 C 514 575 475 572 433 555 C 365 528 309 473 226 483 C 190 487 166 514 159 559 H 107 Z"/>
+    <path id="leaf-fold" d="M 648 142 C 555 176 453 169 370 197 C 258 234 190 326 165 438 C 154 485 152 538 159 585 C 154 511 184 460 246 423 C 326 382 404 362 487 314 C 552 277 603 226 650 142 Z"/>
+    <linearGradient id="underside-color" x1="442" y1="535" x2="206" y2="661" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#003d43"/>
+      <stop offset="0.65" stop-color="#00635f"/>
+      <stop offset="1" stop-color="#079c83"/>
+    </linearGradient>
+    <radialGradient id="underside-light" cx="193" cy="637" r="213" gradientTransform="translate(0 -191.1) scale(1 1.3)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22c5a3" stop-opacity="0.8"/>
+      <stop offset="1" stop-color="#22c5a3" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="body-color" x1="477" y1="225" x2="535" y2="574" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24ba5c"/>
+      <stop offset="0.45" stop-color="#0cb16c"/>
+      <stop offset="1" stop-color="#00765d"/>
+    </linearGradient>
+    <radialGradient id="body-light" cx="516" cy="383" r="192" gradientTransform="translate(0 -114.9) scale(1 1.3)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54d878" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#54d878" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fold-color" x1="478" y1="169" x2="214" y2="502" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a5f994"/>
+      <stop offset="0.38" stop-color="#7eea90"/>
+      <stop offset="0.72" stop-color="#38cc8a"/>
+      <stop offset="1" stop-color="#08ad86"/>
+    </linearGradient>
+    <radialGradient id="fold-light" cx="0" cy="0" r="236" gradientTransform="translate(351 245) rotate(-22) scale(1.15 0.78)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#d1ffb3" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#d1ffb3" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="leaf-clip"><use xlink:href="#leaf-outline"/></clipPath>
+    <clipPath id="body-clip"><use xlink:href="#leaf-body"/></clipPath>
+    <filter id="fold-shadow" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="curl-shadow" x="-30%" y="-60%" width="160%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <g clip-path="url(#leaf-clip)">
+    <g id="curled-underside">
+      <use xlink:href="#leaf-outline" fill="url(#underside-color)"/>
+      <use xlink:href="#leaf-outline" fill="url(#underside-light)"/>
+      <path d="M 159 559 C 166 514 190 487 226 483 C 309 473 365 528 433 555 C 475 572 514 575 551 554" fill="none" stroke="#002d35" stroke-width="30" stroke-opacity="0.75" filter="url(#curl-shadow)"/>
+    </g>
+    <g id="emerald-body">
+      <use xlink:href="#leaf-body" fill="url(#body-color)"/>
+      <use xlink:href="#leaf-body" fill="url(#body-light)"/>
+      <g clip-path="url(#body-clip)">
+        <path d="M 159 585 C 154 511 184 460 246 423 C 326 382 404 362 487 314 C 552 277 603 226 650 142" fill="none" stroke="#004f3c" stroke-width="43" stroke-opacity="0.72" filter="url(#fold-shadow)"/>
+      </g>
+    </g>
+    <g id="mint-fold">
+      <use xlink:href="#leaf-fold" fill="url(#fold-color)"/>
+      <use xlink:href="#leaf-fold" fill="url(#fold-light)"/>
+    </g>
+  </g>
+</svg>
+</svg>

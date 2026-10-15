@@ -24,6 +24,8 @@ export interface DocumentTab {
   loadId: number;
   /** The caret and focus the editor restores when a reload remounts it. */
   viewState: EditorViewState | null;
+  /** Held only to look at: the next preview open replaces it until an edit or a keep gesture keeps it. */
+  preview: boolean;
 }
 
 export interface SessionState {
@@ -47,6 +49,14 @@ export type SessionMode = "document" | "folder-only" | "welcome";
 export interface DocumentReplaceOptions {
   reload?: boolean;
   viewState?: EditorViewState | null;
+  /** Keeps a preview tab, as saving does. */
+  keep?: boolean;
+}
+
+export interface TabOpenOptions {
+  folderContext?: FolderContextState;
+  /** Opens the document in the window's preview tab, replacing the document there. */
+  preview?: boolean;
 }
 
 export interface DocumentFileState {
@@ -56,16 +66,19 @@ export interface DocumentFileState {
 
 export interface SessionStore extends SessionState {
   setFolderContext: (folderContext: FolderContextState | null) => void;
-  /** Adds a tab after the active one and activates it, optionally replacing the folder context. */
-  openTab: (
-    document: ActiveDocumentState,
-    options?: { folderContext?: FolderContextState },
-  ) => DocumentTab;
+  /**
+   * Adds a tab after the active one and activates it, optionally replacing the folder context. A
+   * preview takes the place of the window's preview tab instead, when it has one.
+   */
+  openTab: (document: ActiveDocumentState, options?: TabOpenOptions) => DocumentTab;
   openTabWithFolderContextLoad: (
     folderPath: string,
     document: ActiveDocumentState,
+    options?: Pick<TabOpenOptions, "preview">,
   ) => { tab: DocumentTab; folderContextLoad: FolderContextLoad };
   activateTab: (tabId: string) => void;
+  /** Turns a preview tab into an ordinary one. */
+  keepTab: (tabId: string) => void;
   /** Closes the tabs, activating the nearest remaining tab when the active one closes. */
   closeTabs: (tabIds: readonly string[]) => void;
   replaceTabDocument: (
@@ -129,11 +142,14 @@ export const findCurrentTab = (
 
 export const getTabDocumentKey = (tab: DocumentTab) => getActiveDocumentKey(tab.document);
 
+export const findPreviewTab = (state: Pick<SessionState, "tabs">) =>
+  state.tabs.find((tab) => tab.preview) ?? null;
+
 let nextTabId = 0;
 let nextGeneration = 0;
 let nextFolderContextLoadId = 0;
 
-const createTab = (document: ActiveDocumentState): DocumentTab => {
+const createTab = (document: ActiveDocumentState, preview = false): DocumentTab => {
   nextTabId += 1;
   nextGeneration += 1;
 
@@ -143,6 +159,7 @@ const createTab = (document: ActiveDocumentState): DocumentTab => {
     generation: nextGeneration,
     loadId: 0,
     viewState: null,
+    preview: preview && document.status === "saved" && !document.isDirty,
   };
 };
 
@@ -164,15 +181,31 @@ const insertAfterActive = (state: SessionState, tab: DocumentTab) => {
   return withTabs(tabs, tab.id);
 };
 
+/**
+ * Puts a new tab where the window's preview tab is, or after the active tab. The replaced preview
+ * is clean, so it goes as closing it would, with its editor state.
+ */
+const placeTab = (state: SessionState, tab: DocumentTab) => {
+  const previewIndex = tab.preview
+    ? state.tabs.findIndex((candidate) => candidate.preview && !candidate.document.isDirty)
+    : -1;
+
+  if (previewIndex === -1) {
+    return insertAfterActive(state, tab);
+  }
+
+  return withTabs(state.tabs.with(previewIndex, tab), tab.id);
+};
+
 export const useSessionStore = create<SessionStore>()((set, get) => ({
   ...INITIAL_SESSION_STATE,
 
   setFolderContext: (folderContext) => set({ folderContext, folderContextLoad: null }),
   openTab: (document, options) => {
-    const tab = createTab(document);
+    const tab = createTab(document, options?.preview);
 
     set((state) => ({
-      ...insertAfterActive(state, tab),
+      ...placeTab(state, tab),
       ...(options?.folderContext && {
         folderContext: options.folderContext,
         folderContextLoad: null,
@@ -181,14 +214,14 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
     return tab;
   },
-  openTabWithFolderContextLoad: (folderPath, document) => {
-    const tab = createTab(document);
+  openTabWithFolderContextLoad: (folderPath, document, options) => {
+    const tab = createTab(document, options?.preview);
 
     nextFolderContextLoadId += 1;
     const folderContextLoad = { id: nextFolderContextLoadId, path: folderPath };
 
     set((state) => ({
-      ...insertAfterActive(state, tab),
+      ...placeTab(state, tab),
       folderContext: null,
       folderContextLoad,
     }));
@@ -198,6 +231,15 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
   activateTab: (tabId) =>
     set((state) =>
       state.activeTabId === tabId || !findTab(state, tabId) ? state : withTabs(state.tabs, tabId),
+    ),
+  keepTab: (tabId) =>
+    set((state) =>
+      findTab(state, tabId)?.preview
+        ? withTabs(
+            state.tabs.map((tab) => (tab.id === tabId ? { ...tab, preview: false } : tab)),
+            state.activeTabId,
+          )
+        : state,
     ),
   closeTabs: (tabIds) =>
     set((state) => {
@@ -219,7 +261,11 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
 
       return withTabs(tabs, nextActive?.id ?? null);
     }),
-  replaceTabDocument: (tabId, document, { folderContext, reload = false, viewState = null } = {}) =>
+  replaceTabDocument: (
+    tabId,
+    document,
+    { folderContext, keep = false, reload = false, viewState = null } = {},
+  ) =>
     set((state) => {
       if (!findTab(state, tabId)) {
         return state;
@@ -234,6 +280,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
               generation: nextGeneration,
               loadId: tab.loadId + (reload ? 1 : 0),
               viewState: reload ? viewState : null,
+              preview: tab.preview && !keep && !document.isDirty,
             }
           : tab,
       );
@@ -327,8 +374,11 @@ const updateDocumentByKey = (
     return state;
   }
 
+  // An edit keeps a preview tab, so a document with unsaved changes is never replaced.
   return withTabs(
-    state.tabs.map((tab) => (tab === target ? { ...tab, document } : tab)),
+    state.tabs.map((tab) =>
+      tab === target ? { ...tab, document, preview: tab.preview && !document.isDirty } : tab,
+    ),
     state.activeTabId,
   );
 };

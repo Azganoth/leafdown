@@ -513,6 +513,89 @@ describe("open session workflows", () => {
     ]);
   });
 
+  it("opens a preview in the window's preview tab, replacing the document there", async () => {
+    setDefaultSession({
+      documents: [
+        createSavedDocument(),
+        createSavedDocument({ path: LATEST_MARKDOWN_PATH }),
+        createUntitledDocument(),
+      ],
+      previewIndex: 1,
+      activeIndex: 2,
+    });
+    mockTauriApi({ openMarkdownFile: () => openedOtherMarkdownFile });
+
+    await expect(openMarkdownFileAtPath(OTHER_MARKDOWN_PATH, { preview: true })).resolves.toBe(
+      true,
+    );
+
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(useSessionStore.getState().tabs).toMatchObject([
+      { document: { path: TEST_MARKDOWN_FILE_PATH }, preview: false },
+      { document: { path: OTHER_MARKDOWN_PATH }, preview: true },
+      { document: { status: "untitled" }, preview: false },
+    ]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({ path: OTHER_MARKDOWN_PATH });
+  });
+
+  it("activates an ordinary tab already holding a previewed file, leaving the preview alone", async () => {
+    setDefaultSession({
+      documents: [createSavedDocument(), createSavedDocument({ path: LATEST_MARKDOWN_PATH })],
+      previewIndex: 1,
+      activeIndex: 1,
+    });
+    mockTauriApi({});
+
+    await openMarkdownFileAtPath(TEST_MARKDOWN_FILE_PATH, { preview: true });
+
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+    expect(useSessionStore.getState().tabs).toMatchObject([
+      { document: { path: TEST_MARKDOWN_FILE_PATH }, preview: false },
+      { document: { path: LATEST_MARKDOWN_PATH }, preview: true },
+    ]);
+    expect(useSessionStore.getState().activeDocument).toMatchObject({
+      path: TEST_MARKDOWN_FILE_PATH,
+    });
+  });
+
+  it("keeps the preview tab when its file is opened again other than as a preview", async () => {
+    setDefaultSession({ documents: [createSavedDocument()], previewIndex: 0 });
+    mockTauriApi({});
+
+    await openMarkdownFileAtPath(TEST_MARKDOWN_FILE_PATH, { preview: true });
+
+    expect(getActiveTab(useSessionStore.getState())?.preview).toBe(true);
+
+    await openMarkdownFileAtPath(TEST_MARKDOWN_FILE_PATH);
+
+    expect(getActiveTab(useSessionStore.getState())?.preview).toBe(false);
+    expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+  });
+
+  it("opens a file as an ordinary tab when a preview open of it is superseded", async () => {
+    const previewOpenFile = Promise.withResolvers<OpenedMarkdownDocument>();
+    setDefaultSession({ folderContext: emptyNotesFolderContext });
+    let readCount = 0;
+    mockTauriApi({
+      openMarkdownFile: () => {
+        readCount += 1;
+
+        return readCount === 1 ? previewOpenFile.promise : openedOtherMarkdownFile;
+      },
+    });
+
+    const previewOpen = openMarkdownFileAtPath(OTHER_MARKDOWN_PATH, { preview: true });
+    await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
+    const keepOpen = openMarkdownFileAtPath(OTHER_MARKDOWN_PATH);
+    previewOpenFile.resolve(openedOtherMarkdownFile);
+
+    await expect(previewOpen).resolves.toBe(false);
+    await expect(keepOpen).resolves.toBe(true);
+    expect(useSessionStore.getState().tabs).toMatchObject([
+      { document: { path: OTHER_MARKDOWN_PATH }, preview: false },
+    ]);
+  });
+
   it("activates a tab that opened the same file while it was being read", async () => {
     const openFileDeferred = Promise.withResolvers<OpenedMarkdownDocument>();
     mockTauriApi({
@@ -604,7 +687,7 @@ describe("open session workflows", () => {
     });
   });
 
-  it("opens the folder's index file in a new tab after the active one", async () => {
+  it("opens the folder's index file as a preview after the active tab", async () => {
     setDefaultSession({ activeDocument: createUntitledDocument() });
     mockTauriApiCommand("openMarkdownFolder", () => ({
       folder: createEmptyFolderContext({ path: OTHER_FOLDER_PATH }),
@@ -614,9 +697,9 @@ describe("open session workflows", () => {
 
     await openFolderContextAtPath(OTHER_FOLDER_PATH);
 
-    expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
-      { status: "untitled" },
-      { path: `${OTHER_FOLDER_PATH}/index.md` },
+    expect(useSessionStore.getState().tabs).toMatchObject([
+      { document: { status: "untitled" }, preview: false },
+      { document: { path: `${OTHER_FOLDER_PATH}/index.md` }, preview: true },
     ]);
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       path: `${OTHER_FOLDER_PATH}/index.md`,

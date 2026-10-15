@@ -108,6 +108,8 @@ interface ArticleNavigatorProps {
   actions?: ArticleNavigatorEntryActions;
   activeArticlePath: string | null;
   folderContext: FolderContextState;
+  /** Double-clicking an article asks for it to stay open rather than be previewed. */
+  onKeepArticle?: (path: string) => void;
   onOpenArticle: (path: string) => void;
 }
 
@@ -124,6 +126,7 @@ export function ArticleNavigator({
   actions,
   activeArticlePath,
   folderContext,
+  onKeepArticle,
   onOpenArticle,
 }: ArticleNavigatorProps) {
   const { formatNumber, t } = useLocalization();
@@ -322,6 +325,7 @@ export function ArticleNavigator({
           onCancelEdit={() => finishEdit({ outcome: "cancelled" })}
           onCommitEdit={commitEdit}
           onFinishEdit={finishEdit}
+          onKeepArticle={onKeepArticle}
           onOpenArticle={handleOpenArticle}
           onToggleDirectory={toggleDirectory}
           rows={rows}
@@ -520,6 +524,7 @@ interface ArticleNavigatorRowsProps {
   onCancelEdit: () => void;
   onCommitEdit: (name: string) => Promise<ArticleNavigatorEntryActionResult>;
   onFinishEdit: (result: ArticleNavigatorEntryActionResult) => void;
+  onKeepArticle?: (path: string) => void;
   onOpenArticle: (path: string) => void;
   onToggleDirectory: (path: string) => void;
   rows: ArticleNavigatorRow[];
@@ -535,6 +540,7 @@ function ArticleNavigatorRows({
   onCancelEdit,
   onCommitEdit,
   onFinishEdit,
+  onKeepArticle,
   onOpenArticle,
   onToggleDirectory,
   rows,
@@ -747,6 +753,11 @@ function ArticleNavigatorRows({
                 ) : null
               }
               onActivate={() => activateRow(index)}
+              onKeep={
+                row.kind === "file" && onKeepArticle && index !== editRowIndex
+                  ? () => onKeepArticle(row.path)
+                  : undefined
+              }
               onFocus={() => {
                 hasRowFocusRef.current = true;
                 setFocus((currentFocus) => ({ ...currentFocus, path: row.path }));
@@ -807,6 +818,7 @@ interface ArticleNavigatorTreeItemProps {
   nameEditor: ReactNode;
   onActivate: () => void;
   onFocus: () => void;
+  onKeep?: () => void;
   registerElement: (element: HTMLLIElement | null) => void;
   row: ArticleNavigatorRow;
   virtualRow: VirtualItem;
@@ -817,6 +829,7 @@ function ArticleNavigatorTreeItem({
   nameEditor,
   onActivate,
   onFocus,
+  onKeep,
   registerElement,
   row,
   virtualRow,
@@ -850,6 +863,7 @@ function ArticleNavigatorTreeItem({
       data-active={row.kind === "file" ? row.isActive : undefined}
       data-navigator-path={row.kind === "draft" ? undefined : row.path}
       onClick={nameEditor ? undefined : onActivate}
+      onDoubleClick={nameEditor ? undefined : onKeep}
       onFocus={onFocus}
       ref={registerElement}
       role="treeitem"

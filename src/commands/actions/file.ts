@@ -261,7 +261,9 @@ export const getClearRecentItemsState = (context: AppCommandContext) =>
 export const getSaveDocumentState = (context: AppCommandContext) =>
   !context.activeDocument
     ? disabled("No document is open.")
-    : context.activeDocument.status === "saved" && !context.activeDocument.isDirty
+    : context.activeDocument.status === "saved" &&
+        !context.activeDocument.isDirty &&
+        !context.tabs.activePreview
       ? disabled("The saved document is clean.")
       : enabled();
 

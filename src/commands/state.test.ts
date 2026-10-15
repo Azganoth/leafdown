@@ -45,7 +45,7 @@ describe("command state", () => {
     ).toMatchObject({ enabled: true });
   });
 
-  it("enables Save only for dirty saved documents or untitled documents", () => {
+  it("enables Save only for dirty saved documents, untitled documents, or a preview to keep", () => {
     expect(
       getCommandState(
         "file.save",
@@ -68,6 +68,13 @@ describe("command state", () => {
       getCommandState("file.save", {
         ...createAppCommandContext(),
         activeDocument: createUntitledDocument(),
+      }),
+    ).toMatchObject({ enabled: true });
+
+    expect(
+      getCommandState("file.save", {
+        ...createAppCommandContext({ activeDocument: createSavedDocument() }),
+        tabs: { count: 1, activeIndex: 0, activePreview: true },
       }),
     ).toMatchObject({ enabled: true });
   });

@@ -30,6 +30,7 @@ export type AppCommandUIContext = Pick<CommandUIState, "fullscreen" | "pendingSo
 export interface AppCommandTabsContext {
   count: number;
   activeIndex: number;
+  activePreview: boolean;
 }
 
 export interface AppCommandContext {

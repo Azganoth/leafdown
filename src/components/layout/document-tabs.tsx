@@ -10,6 +10,7 @@ import {
   activateDocumentTab,
   closeDocumentTab,
   getDocumentName,
+  keepDocumentTab,
   useSessionStore,
   type DocumentTab,
 } from "@/features/session";
@@ -161,11 +162,14 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
         name: label.name,
         folder: label.folder ?? "none",
         unsaved: document.isDirty ? "true" : "false",
+        preview: tab.preview ? "true" : "false",
       })}
       className={cn(
         "group/tab active-item-marker flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
         "hover:bg-muted/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        tab.preview && "italic",
       )}
+      data-preview={tab.preview || undefined}
       data-testid="document-tab"
       onAuxClick={(event) => {
         if (event.button === MIDDLE_MOUSE_BUTTON) {
@@ -173,6 +177,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
           onClose();
         }
       }}
+      onDoubleClick={() => keepDocumentTab(tab.id)}
       onMouseDown={(event) => {
         // A middle press would otherwise start the webview's autoscroll.
         if (event.button === MIDDLE_MOUSE_BUTTON) {

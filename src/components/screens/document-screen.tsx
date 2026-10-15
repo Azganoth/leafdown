@@ -31,7 +31,7 @@ interface DocumentScreenProps {
 
 const handleOpenMarkdownPath = async (path: string, heading?: string) => {
   try {
-    const opened = await openMarkdownFileAtPath(path);
+    const opened = await openMarkdownFileAtPath(path, { preview: true });
     if (opened && heading) documentEditorBridge.requestHeading(path, heading);
     return opened;
   } catch (error) {

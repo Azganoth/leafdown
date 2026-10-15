@@ -82,6 +82,23 @@ describe("article-navigator", () => {
     expect(onOpenArticle).toHaveBeenCalledWith("C:/Notes/readme.md");
   });
 
+  it("asks to keep an article that is double-clicked, but not a directory", async () => {
+    const onKeepArticle = vi.fn();
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onKeepArticle={onKeepArticle}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    await user.dblClick(screen.getByRole("treeitem", { name: "readme.md" }));
+    await user.dblClick(screen.getByRole("treeitem", { name: "docs" }));
+
+    expect(onKeepArticle).toHaveBeenCalledExactlyOnceWith("C:/Notes/readme.md");
+  });
+
   it("does not reopen the active article by path identity", async () => {
     const onOpenArticle = vi.fn();
     const { user } = renderWithUser(

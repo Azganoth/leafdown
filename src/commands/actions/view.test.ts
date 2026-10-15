@@ -16,8 +16,10 @@ import { useCommandUIStore } from "../stores/commandUi";
 import {
   collapseAllFolders,
   expandAllFolders,
+  getKeepTabState,
   getShowTabAtState,
   getSwitchTabState,
+  keepTab,
   resetZoom,
   setDarkTheme,
   setLightTheme,
@@ -245,8 +247,12 @@ describe("view actions", () => {
     });
 
     it("offers switching only while another tab is open, and each position only once filled", () => {
-      const oneTab = createAppCommandContext({ tabs: { count: 1, activeIndex: 0 } });
-      const twoTabs = createAppCommandContext({ tabs: { count: 2, activeIndex: 0 } });
+      const oneTab = createAppCommandContext({
+        tabs: { count: 1, activeIndex: 0, activePreview: false },
+      });
+      const twoTabs = createAppCommandContext({
+        tabs: { count: 2, activeIndex: 0, activePreview: false },
+      });
 
       expect(getSwitchTabState(oneTab).enabled).toBe(false);
       expect(getSwitchTabState(twoTabs).enabled).toBe(true);
@@ -254,6 +260,24 @@ describe("view actions", () => {
       expect(getShowTabAtState(1)(twoTabs).enabled).toBe(true);
       expect(getShowTabAtState(-1)(oneTab).enabled).toBe(true);
       expect(getShowTabAtState(-1)(createAppCommandContext()).enabled).toBe(false);
+    });
+
+    it("keeps the active preview tab, offered only while the active tab is a preview", () => {
+      setDefaultSession({ documents: [createSavedDocument()], previewIndex: 0 });
+
+      keepTab();
+
+      expect(useSessionStore.getState().tabs[0].preview).toBe(false);
+      expect(
+        getKeepTabState(
+          createAppCommandContext({ tabs: { count: 1, activeIndex: 0, activePreview: false } }),
+        ).enabled,
+      ).toBe(false);
+      expect(
+        getKeepTabState(
+          createAppCommandContext({ tabs: { count: 1, activeIndex: 0, activePreview: true } }),
+        ).enabled,
+      ).toBe(true);
     });
   });
 });

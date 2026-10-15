@@ -146,6 +146,25 @@ describe("confirmDiscardAllDocumentChanges", () => {
     expect(requestConfirmation).not.toHaveBeenCalled();
   });
 
+  it("closes over a preview tab without asking, and asks about one kept by an edit", async () => {
+    setDefaultSession({ documents: [createSavedDocument()], previewIndex: 0 });
+
+    await expect(confirmDiscardAllDocumentChanges()).resolves.toBe(true);
+
+    expect(requestConfirmation).not.toHaveBeenCalled();
+
+    useSessionStore.getState().markDocumentDirty("C:/Notes/readme.md");
+
+    await expect(confirmDiscardAllDocumentChanges()).resolves.toBe(false);
+
+    expect(useSessionStore.getState().tabs[0].preview).toBe(false);
+    expect(requestConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "readme.md has unsaved changes. Discard them and continue?",
+      }),
+    );
+  });
+
   it("returns false when a document it asked about is replaced while the dialog is open", async () => {
     const decision = Promise.withResolvers<boolean>();
     setDefaultSession({

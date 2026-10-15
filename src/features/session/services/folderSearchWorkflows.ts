@@ -419,7 +419,7 @@ export const openFolderSearchMatch = async (match: FolderSearchMatchKey) => {
     }
 
     try {
-      if (!(await openMarkdownFileAtPath(file.path)) || !isCurrent()) {
+      if (!(await openMarkdownFileAtPath(file.path, { preview: true })) || !isCurrent()) {
         return;
       }
     } catch (error) {

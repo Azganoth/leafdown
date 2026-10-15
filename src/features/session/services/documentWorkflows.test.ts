@@ -168,6 +168,16 @@ describe("document workflows", () => {
       expect(save).not.toHaveBeenCalled();
     });
 
+    it("keeps a clean preview tab without writing it", async () => {
+      setDefaultSession({ documents: [createSavedDocument()], previewIndex: 0 });
+      mockTauriApi({});
+
+      await expect(saveActiveMarkdownDocument()).resolves.toBe(false);
+
+      expect(countTauriApiCalls("saveMarkdownFile")).toBe(0);
+      expect(useSessionStore.getState().tabs[0].preview).toBe(false);
+    });
+
     it("does not apply saved document save results after the active document changes", async () => {
       const saveDeferred = Promise.withResolvers<SavedMarkdownDocument>();
       setDefaultSession({
@@ -446,6 +456,25 @@ describe("document workflows", () => {
         content: saved.content,
         encoding: saved.encoding,
       });
+    });
+
+    it("keeps a preview tab that is saved under a new path", async () => {
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        documents: [createSavedDocument()],
+        previewIndex: 0,
+      });
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () => createSavedMarkdownDocumentResult({ path: DRAFT_MD_PATH }),
+        scanMarkdownFolder: () => updatedFolderContext,
+      });
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(useSessionStore.getState().tabs).toMatchObject([
+        { document: { path: DRAFT_MD_PATH }, preview: false },
+      ]);
     });
 
     it("does not apply Save As results after the active document changes", async () => {

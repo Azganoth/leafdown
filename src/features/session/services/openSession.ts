@@ -49,11 +49,14 @@ interface OpenMarkdownFileOptions {
   /** Skips asking about the open tab's unsaved changes, which the caller has already settled. */
   discardConfirmed?: boolean;
   encoding?: TextEncodingName;
+  /** Opens the file to look at, in the window's preview tab. */
+  preview?: boolean;
 }
 
 /**
- * Opens a file in a new tab after the active one, or activates the tab already holding it, so
- * opening never replaces another document.
+ * Opens a file in a new tab after the active one, or activates the tab already holding it. Only a
+ * preview replaces another document, and only the clean one in the window's preview tab. Any
+ * other open of the file in the preview tab keeps that tab.
  */
 export const openMarkdownFileAtPath = (
   path: string,
@@ -61,6 +64,7 @@ export const openMarkdownFileAtPath = (
     activate = true,
     discardConfirmed = false,
     encoding,
+    preview = false,
     reload = false,
   }: OpenMarkdownFileOptions = {},
 ) =>
@@ -68,7 +72,7 @@ export const openMarkdownFileAtPath = (
     const openTab = findTabByPath(useSessionStore.getState(), path);
 
     if (openTab && !reload) {
-      useSessionStore.getState().activateTab(openTab.id);
+      activateOpenTab(openTab, preview);
       recordRecentFile(openTab.document.status === "saved" ? openTab.document.path : path);
 
       return true;
@@ -87,15 +91,25 @@ export const openMarkdownFileAtPath = (
     }
 
     try {
-      return await openClaimedMarkdownFile(path, encoding, cancellationToken);
+      return await openClaimedMarkdownFile(path, { encoding, preview }, cancellationToken);
     } finally {
       claim.dispose();
     }
   });
 
+const activateOpenTab = (tab: DocumentTab, preview: boolean) => {
+  const session = useSessionStore.getState();
+
+  session.activateTab(tab.id);
+
+  if (!preview) {
+    session.keepTab(tab.id);
+  }
+};
+
 const openClaimedMarkdownFile = async (
   path: string,
-  encoding: TextEncodingName | undefined,
+  { encoding, preview }: { encoding?: TextEncodingName; preview: boolean },
   cancellationToken: CancellationToken,
 ) => {
   const openedDocument = await openMarkdownDocument(path, cancellationToken, encoding);
@@ -104,7 +118,7 @@ const openClaimedMarkdownFile = async (
   const tabOpenedMeanwhile = findTabByPath(session, documentFields.path);
 
   if (tabOpenedMeanwhile) {
-    session.activateTab(tabOpenedMeanwhile.id);
+    activateOpenTab(tabOpenedMeanwhile, preview);
     recordRecentFile(documentFields.path);
 
     return true;
@@ -113,7 +127,7 @@ const openClaimedMarkdownFile = async (
   const savedDocument = toSavedDocument(documentFields);
 
   if (session.folderContext || session.folderContextLoad) {
-    session.openTab(savedDocument);
+    session.openTab(savedDocument, { preview });
     recordRecentFile(documentFields.path);
 
     return true;
@@ -122,6 +136,7 @@ const openClaimedMarkdownFile = async (
   const { folderContextLoad } = session.openTabWithFolderContextLoad(
     parentFolderPath,
     savedDocument,
+    { preview },
   );
   recordRecentFile(documentFields.path);
   void loadFolderContext(folderContextLoad);
@@ -271,8 +286,9 @@ export const pickAndOpenMarkdownFile = async () => {
 };
 
 /**
- * Replaces the folder context and keeps the open tabs, opening the folder's index file as a tab.
- * An index file open in another window stays there, and the folder opens here without it.
+ * Replaces the folder context and keeps the open tabs, opening the folder's index file in the
+ * preview tab. An index file open in another window stays there, and the folder opens here
+ * without it.
  */
 export const openFolderContextAtPath = (path: string) =>
   runLatestOpenTransition(async (cancellationToken) => {
@@ -296,7 +312,7 @@ export const openFolderContextAtPath = (path: string) =>
         session.setFolderContext(folderContext);
         session.activateTab(indexTab.id);
       } else if (indexDocument && indexClaim) {
-        session.openTab(toSavedDocument(indexDocument), { folderContext });
+        session.openTab(toSavedDocument(indexDocument), { folderContext, preview: true });
       } else {
         session.setFolderContext(folderContext);
       }

@@ -71,6 +71,23 @@ describe("DocumentTabs", () => {
     );
   });
 
+  it("names a preview tab as one and keeps it when it is double-clicked", async () => {
+    setDefaultSession({
+      documents: [createSavedDocument(), createSavedDocument({ path: "C:/Notes/plan.md" })],
+      previewIndex: 1,
+      activeIndex: 1,
+    });
+    const { user } = renderTabs();
+
+    expect(getTabNames()).toEqual(["readme.md", "plan.md, preview"]);
+    expect(screen.getByRole("tab", { name: "plan.md, preview" })).toHaveAttribute("data-preview");
+
+    await user.dblClick(screen.getByRole("tab", { name: "plan.md, preview" }));
+
+    expect(getTabNames()).toEqual(["readme.md", "plan.md"]);
+    expect(useSessionStore.getState().tabs[1].preview).toBe(false);
+  });
+
   it("switches to a tab when it is chosen", async () => {
     setDefaultSession({
       documents: [createSavedDocument(), createSavedDocument({ path: "C:/Notes/plan.md" })],

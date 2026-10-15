@@ -41,6 +41,7 @@ export const createAppCommandContext = (
     tabs: {
       count: overrides.activeDocument ? 1 : 0,
       activeIndex: overrides.activeDocument ? 0 : -1,
+      activePreview: false,
     },
     editor: createEditorCommandState(),
     folderContext: null,

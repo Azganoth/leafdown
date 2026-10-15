@@ -244,6 +244,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Toggle status bar**
 - **Next tab** (`Mod+Tab` / `Mod+PageDown`)
 - **Previous tab** (`Mod+Shift+Tab` / `Mod+PageUp`)
+- **Keep tab** (`Mod+Shift+K`)
 - **Outline** (Deferred)
 - **Zoom in** (`Mod+=`)
 - **Zoom out** (`Mod+-`)
@@ -347,8 +348,8 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Save as`, `Close document`, and all `Edit`, `Insert`, and `Format` commands are disabled when no document is open.
   - Exception: `Insert final newline on save` remains enabled because it controls a global save setting rather than active editor content.
 - `Export`, `Print`, and `Outline` are disabled when no document is open.
-- `Save` is disabled when no document is open, or when the document is clean and already saved.
-- `Next tab` and `Previous tab` require a second open document; they move in tab order and wrap at either end. `Go to tab 1` through `Go to tab 8` require a tab at that position, and `Go to last tab` requires an open document.
+- `Save` is disabled when no document is open, or when the document is clean, already saved, and not in the preview tab.
+- `Next tab` and `Previous tab` require a second open document; they move in tab order and wrap at either end. `Go to tab 1` through `Go to tab 8` require a tab at that position, and `Go to last tab` requires an open document. `Keep tab` requires the active tab to be the preview tab.
 
 #### Selection And Editor State
 

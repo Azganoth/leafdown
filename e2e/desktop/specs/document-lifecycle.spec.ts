@@ -199,6 +199,23 @@ describe("desktop document lifecycle", () => {
     await (await findTreeItem("viewport-replacement.md")).click();
     await expectDocumentAtTop("Second viewport document");
     await expectActiveDocumentMarker("viewport-replacement.md");
+    await expect(await findDocumentTab("viewport-replacement.md")).toHaveAttribute(
+      "aria-label",
+      "viewport-replacement.md, preview",
+    );
+    // Kept, so the next article opened from the navigator does not replace it. The harness
+    // synthesizes clicks without the dblclick a real double-click raises, so it is dispatched.
+    await (await findTreeItem("viewport-replacement.md")).waitForDisplayed();
+    await browser.execute(() => {
+      const row = document.querySelector(
+        '[role="treeitem"][data-navigator-path$="viewport-replacement.md"]',
+      );
+      row?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true }));
+    });
+    await expect(await findDocumentTab("viewport-replacement.md")).toHaveAttribute(
+      "aria-label",
+      "viewport-replacement.md",
+    );
     expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
     await scrollDocument();
 

@@ -187,6 +187,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
     { key: "Tab", mod: true, shift: true },
     { key: "PageUp", mod: true },
   ),
+  "view.keepTab": commandDef({ key: "k", mod: true, shift: true }),
   "view.tab1": commandDef({ key: "1", mod: true }),
   "view.tab2": commandDef({ key: "2", mod: true }),
   "view.tab3": commandDef({ key: "3", mod: true }),

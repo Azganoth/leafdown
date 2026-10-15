@@ -107,6 +107,10 @@ import {
   createLeafdownDefinitionSpacingPlugin,
 } from "../plugins/definitionListInputRule";
 import { createLeafdownDirtyTrackerPlugin } from "../plugins/dirtyTracker";
+import {
+  createLeafdownDocumentEndPlugin,
+  createLeafdownDocumentEndRemarkPlugin,
+} from "../plugins/documentEnd";
 import { createLeafdownDocumentStatusPlugin } from "../plugins/documentStatus";
 import { createLeafdownDoubleClickSelectionPlugin } from "../plugins/doubleClickSelection";
 import {
@@ -368,6 +372,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCodeFormPlugin())
     .use(createLeafdownCalloutPlugin())
     .use(createLeafdownBlockStructurePlugin())
+    .use(createLeafdownDocumentEndRemarkPlugin())
     .use(createLeafdownMarkNestingPlugin())
     .use(createLeafdownHardBreakFormPlugin())
     .use(createLeafdownHeadingFormPlugin())
@@ -446,6 +451,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownTaskListCheckboxPlugin())
     .use(createLeafdownPrevailingFormPlugin())
     .use(createLeafdownTrailingParagraphPlugin())
+    .use(createLeafdownDocumentEndPlugin())
     .use(createLeafdownReactSelectionOptOutPlugin())
     .use(createLeafdownDirtyTrackerPlugin(() => onContentChanged?.()))
     .config((ctx) => {

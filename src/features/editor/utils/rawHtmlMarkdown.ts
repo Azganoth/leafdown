@@ -21,6 +21,23 @@ const INTERRUPTING_BLOCK_PATTERN = new RegExp(
 export const interruptsParagraphAsHtmlBlock = (value: string) =>
   INTERRUPTING_BLOCK_PATTERN.test(value);
 
+// Block start conditions one through five close on an end condition of their own rather than on a
+// blank line, so a block whose source holds none runs to the end of the document and takes in
+// every line after it.
+const SELF_CLOSING_BLOCK_CONDITIONS: readonly (readonly [RegExp, RegExp])[] = [
+  [
+    new RegExp(String.raw`^ {0,3}<(?:${htmlRawNames.join("|")})(?:[\t\n\f\r >]|$)`, "iu"),
+    new RegExp(String.raw`</(?:${htmlRawNames.join("|")})>`, "iu"),
+  ],
+  [/^ {0,3}<!--/u, /-->/u],
+  [/^ {0,3}<\?/u, /\?>/u],
+  [/^ {0,3}<![A-Za-z]/u, />/u],
+  [/^ {0,3}<!\[CDATA\[/u, /\]\]>/u],
+];
+
+export const runsToDocumentEnd = (value: string) =>
+  SELF_CLOSING_BLOCK_CONDITIONS.some(([start, end]) => start.test(value) && !end.test(value));
+
 // `containerPhrasing` rewrites a line ending before an `html` node to a space, so a break authored
 // before raw HTML reaches the file as a space and the node is gone on reopen. Raw HTML that cannot
 // interrupt a paragraph carries a private type the rewrite does not match, and keeps its break.

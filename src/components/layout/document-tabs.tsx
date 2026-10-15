@@ -163,7 +163,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
         unsaved: document.isDirty ? "true" : "false",
       })}
       className={cn(
-        "group/tab active-document-item flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
+        "group/tab active-item-marker flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
         "hover:bg-muted/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
       )}
       data-testid="document-tab"

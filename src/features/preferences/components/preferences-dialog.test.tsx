@@ -56,6 +56,26 @@ describe("preferences-dialog", () => {
     }
   });
 
+  it("marks the active section with the shared active-item marker", async () => {
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+    const general = screen.getByRole("tab", { name: "General" });
+    const editor = screen.getByRole("tab", { name: "Editor" });
+
+    expect(general).toHaveAttribute("aria-selected", "true");
+    for (const tab of [general, editor]) {
+      expect(tab).toHaveClass(
+        "group-data-[variant=line]/tabs-list:active-item-marker",
+        "group-data-[variant=line]/tabs-list:font-normal",
+      );
+    }
+    expect(document.querySelector('[data-slot="tabs-indicator"]')).not.toBeInTheDocument();
+
+    await user.click(editor);
+
+    expect(editor).toHaveAttribute("aria-selected", "true");
+    expect(general).toHaveAttribute("aria-selected", "false");
+  });
+
   it("updates persisted settings", async () => {
     setDefaultSettings({ accentColor: "neutral", sidebarVisible: true, theme: "system" });
 

@@ -6,6 +6,7 @@ import {
   FolderIcon,
   FolderOpenIcon,
   InfoIcon,
+  LeafIcon,
   SearchIcon,
   TriangleAlertIcon,
   XIcon,
@@ -77,6 +78,7 @@ import {
   isArticleNavigatorTraversalKey,
   isArticleNavigatorTypeaheadKey,
 } from "../utils/articleNavigatorTraversal";
+import { EmptyFolderArt, NoMatchesArt, NoVisibleEntriesArt } from "./article-navigator-art";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
 const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
@@ -308,7 +310,12 @@ export function ArticleNavigator({
     <>
       {activeDocumentIsDetached && <DetachedDocumentNotice />}
       {scanWarningCount > 0 && <FolderScanWarningNotice warningCount={scanWarningCount} />}
-      {folderContext.isEmpty && <EmptyFolderMessage message={emptyFolderMessage} />}
+      {folderContext.isEmpty &&
+        (hasRows ? (
+          <NavigatorNotice icon={LeafIcon}>{emptyFolderMessage}</NavigatorNotice>
+        ) : (
+          <NavigatorEmptyState art={<EmptyFolderArt />}>{emptyFolderMessage}</NavigatorEmptyState>
+        ))}
       {hasRows && (
         <ArticleNavigatorRows
           edit={isEditing ? edit : null}
@@ -321,9 +328,9 @@ export function ArticleNavigator({
         />
       )}
       {!folderContext.isEmpty && !hasRows && (
-        <p className="py-3 text-xs leading-5 text-muted-foreground">
+        <NavigatorEmptyState art={isFiltering ? <NoMatchesArt /> : <NoVisibleEntriesArt />}>
           {t(isFiltering ? "articleNavigator.noMatches" : "articleNavigator.noVisibleEntries")}
-        </p>
+        </NavigatorEmptyState>
       )}
     </>
   );
@@ -455,9 +462,15 @@ export function ArticleNavigator({
   );
 }
 
-function EmptyFolderMessage({ message }: { message: string }) {
-  return <p className="shrink-0 py-2 text-xs leading-5 text-muted-foreground">{message}</p>;
+function NavigatorEmptyState({ art, children }: { art: ReactNode; children: ReactNode }) {
+  return (
+    <div className="sidebar-empty-state">
+      {art}
+      <p>{children}</p>
+    </div>
+  );
 }
+
 function DetachedDocumentNotice() {
   const { t } = useLocalization();
 
@@ -474,19 +487,30 @@ function FolderScanWarningNotice({ warningCount }: FolderScanWarningNoticeProps)
   const { t } = useLocalization();
 
   return (
-    <NavigatorNotice icon={TriangleAlertIcon}>
+    <NavigatorNotice icon={TriangleAlertIcon} tone="warning">
       {t("articleNavigator.scanWarnings", { count: warningCount })}
     </NavigatorNotice>
   );
 }
 
-function NavigatorNotice({ children, icon: Icon }: { children: ReactNode; icon: LucideIcon }) {
+interface NavigatorNoticeProps {
+  children: ReactNode;
+  icon: LucideIcon;
+  tone?: "info" | "warning";
+}
+
+function NavigatorNotice({ children, icon: Icon, tone = "info" }: NavigatorNoticeProps) {
   return (
-    <div className="shrink-0 px-3 py-2 text-xs leading-5 text-muted-foreground">
-      <div className="flex gap-2 rounded-md border border-border bg-card/65 px-2 py-1.5">
-        <Icon className="mt-0.5 size-3.5 shrink-0" />
-        <span>{children}</span>
-      </div>
+    <div className="mx-1 flex shrink-0 gap-2 rounded-md bg-muted/60 px-2 py-1.5 text-xs leading-5 text-muted-foreground">
+      <span
+        className={cn(
+          "flex size-5 shrink-0 items-center justify-center rounded-md",
+          tone === "warning" ? "bg-foreground/10 text-foreground" : "bg-art-tint text-primary",
+        )}
+      >
+        <Icon className="size-3.5" />
+      </span>
+      <span>{children}</span>
     </div>
   );
 }

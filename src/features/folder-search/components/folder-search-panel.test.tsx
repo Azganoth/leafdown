@@ -206,6 +206,20 @@ describe("folder search panel", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Search cancelled. 3 results in 2 files");
   });
 
+  it("announces no results through the live region that reported progress", () => {
+    renderPanel(createResults({ status: "searching", searchedFileCount: 1 }));
+
+    const status = screen.getByRole("status");
+
+    act(() =>
+      useFolderSearchStore.getState().setResults(createResults({ files: [], matchCount: 0 })),
+    );
+
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveTextContent("No results");
+    expect(screen.getByTestId("folder-search-status")).toHaveTextContent("No results");
+  });
+
   it("offers to search further once the match limit stops a search", async () => {
     const { onSearchFurther, user } = renderPanel(createResults({ status: "limited" }));
 

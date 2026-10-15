@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Give the empty document surface, the article navigator's empty and no-match messages, and Find in folder's `No results` one design: a line drawing with an accent-colored detail on a soft tinted disc, scaled to the space each has. The navigator's detached-document and scan-warning notices become compact rows with a small tinted icon, and a folder that has no Markdown files but lists other files shows its message the same way, above them.
 - Mark the active article row and document tab with matching short, rounded accent markers at their left edges and a neutral background, keeping the active document distinct from hover, keyboard focus, and unsaved changes.
 - Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
 - Show Markdown files with a rounded white page carrying the folded leaf and an overlapping green Markdown badge, matching the new application mark.

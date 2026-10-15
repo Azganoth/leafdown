@@ -10,7 +10,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Mark each nesting level of an unordered list with its own marker: a filled disc, a hollow ring, then a small square, repeating deeper down. Ordered and task lists count toward the depth, and the markers look the same in every document font and text size. Saved Markdown keeps its authored `-`, `*`, or `+` markers.
 - Give the empty document surface, the article navigator's empty and no-match messages, and Find in folder's `No results` one design: a line drawing with an accent-colored detail on a soft tinted disc, scaled to the space each has. The navigator's detached-document and scan-warning notices become compact rows with a small tinted icon, and a folder that has no Markdown files but lists other files shows its message the same way, above them.
-- Mark the active article row and document tab with matching short, rounded accent markers at their left edges and a neutral background, keeping the active document distinct from hover, keyboard focus, and unsaved changes.
+- Mark the active article row and document tab with matching short, rounded accent markers at their left edges and a neutral background, keeping the active document distinct from hover, keyboard focus, and unsaved changes. The active section in Preferences takes the same marker and background in place of the bar that slid along the list's right edge.
 - Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
 - Redesign the welcome screen around the Leafdown mark, with a soft green glow behind it. New document, Open file, and Open folder form a column with their shortcuts shown as keys, and recent files and folders sit beside them, each item's folder under its name. A recent item's remove button now takes the place of its time when you point at it or move to it with the keyboard.
 - Show Markdown files with a rounded white page carrying the folded leaf and an overlapping green Markdown badge, matching the new application mark.
@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Show a check mark in checked task list boxes. The app's content security policy blocked the mark's image, so a checked box showed only a filled square.
 - Open documents with headings faster. Right after showing a document, Leafdown gave every heading an id that nothing used, which made the window restyle the whole document a second time, about half a second in a 500 KB document of tables.
 
 ## [0.1.0-alpha.3] - 2026-10-12

@@ -44,12 +44,6 @@ function TabsList({
       {...props}
     >
       {children}
-      {variant === "line" && (
-        <TabsPrimitive.Indicator
-          data-slot="tabs-indicator"
-          className="pointer-events-none absolute top-0 left-0 bg-foreground transition-[translate,width,height] duration-200 ease-out group-data-horizontal/tabs:h-0.5 group-data-horizontal/tabs:w-(--active-tab-width) group-data-horizontal/tabs:translate-x-(--active-tab-left) group-data-horizontal/tabs:translate-y-[calc(var(--active-tab-top)+var(--active-tab-height)+3px)] group-data-vertical/tabs:h-(--active-tab-height) group-data-vertical/tabs:w-0.5 group-data-vertical/tabs:translate-x-[calc(var(--active-tab-left)+var(--active-tab-width)+2px)] group-data-vertical/tabs:translate-y-(--active-tab-top) motion-reduce:transition-none"
-        />
-      )}
     </TabsPrimitive.List>
   );
 }
@@ -60,8 +54,8 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       data-slot="tabs-trigger"
       className={cn(
         "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
-        "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
+        "group-data-[variant=line]/tabs-list:active-item-marker group-data-[variant=line]/tabs-list:pl-2.5 group-data-[variant=line]/tabs-list:font-normal group-data-[variant=line]/tabs-list:hover:bg-muted/70 group-data-[variant=line]/tabs-list:has-data-[icon=inline-start]:pl-2.5",
+        "data-active:text-foreground group-data-[variant=default]/tabs-list:data-active:bg-background dark:data-active:text-foreground dark:group-data-[variant=default]/tabs-list:data-active:border-input dark:group-data-[variant=default]/tabs-list:data-active:bg-input/30",
         className,
       )}
       {...props}

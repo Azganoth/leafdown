@@ -384,13 +384,14 @@
         }
 
         /* The tick is Lucide's `check`, drawn as a mask so the glyph matches the shadcn checkbox
-           while its colour still comes from the theme. */
+           while its colour still comes from the theme. It is a public file because the CSP's
+           `img-src` admits no `data:` URLs, and Vite would inline a small imported asset as one. */
         &::after {
           @apply absolute size-[1em] bg-primary-foreground;
           content: "";
           inset-block-start: calc((1lh - 1em) / 2);
           inset-inline-start: 0;
-          mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+          mask-image: url("/task-check.svg");
           mask-position: center;
           mask-repeat: no-repeat;
           mask-size: 0.875em;

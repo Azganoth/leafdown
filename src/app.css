@@ -308,7 +308,7 @@
   }
 }
 
-@utility active-document-item {
+@utility active-item-marker {
   @apply relative dark:aria-selected:hover:bg-accent;
 
   &[aria-selected="true"],

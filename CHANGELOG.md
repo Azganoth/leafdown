@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Mark the active article row and document tab with matching short, rounded accent markers at their left edges and a neutral background, keeping the active document distinct from hover, keyboard focus, and unsaved changes.
 - Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
 - Show Markdown files with a rounded white page carrying the folded leaf and an overlapping green Markdown badge, matching the new application mark.
 - Keep the blank lines a file ends with when saving, instead of trimming them, under either `Insert final newline on save` choice. They open without adding empty lines to the document and stay at its end as you edit; selecting everything and typing or deleting removes them, and Undo brings them back. Empty lines you add at the end of a document are saved too, and a file of only blank lines keeps them. The final-newline setting still decides whether the last line of text ends with a newline.

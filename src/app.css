@@ -277,3 +277,17 @@
 :root {
   --status-bar-height: 1.75rem;
 }
+
+@utility active-document-item {
+  @apply relative dark:aria-selected:hover:bg-accent;
+
+  &[aria-selected="true"],
+  &[aria-selected="true"]:hover {
+    @apply bg-accent font-medium text-foreground;
+  }
+
+  &[aria-selected="true"]::before {
+    @apply pointer-events-none absolute top-1/2 left-[3px] h-3 w-[3px] -translate-y-1/2 rounded-full bg-primary;
+    content: "";
+  }
+}

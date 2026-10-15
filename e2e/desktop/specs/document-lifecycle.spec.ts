@@ -18,6 +18,64 @@ import {
 const VIEWPORT =
   '[data-testid=active-document-host] [data-testid="document-surface-scroll-area"] [data-slot="scroll-area-viewport"]';
 
+const expectActiveDocumentMarker = async (name: string) => {
+  await browser.waitUntil(
+    () =>
+      browser.execute(() => {
+        const row = document.querySelector('[role="treeitem"][aria-selected="true"]');
+        const tab = document.querySelector('[role="tab"][aria-selected="true"]');
+        return Boolean(
+          row &&
+          tab &&
+          getComputedStyle(row).backgroundColor === getComputedStyle(tab).backgroundColor,
+        );
+      }),
+    { timeoutMsg: "The active article row and tab did not settle on the same background." },
+  );
+
+  const appearance = await browser.execute(() => {
+    const row = document.querySelector('[role="treeitem"][aria-selected="true"]');
+    const tab = document.querySelector('[role="tab"][aria-selected="true"]');
+    if (!row || !tab) return null;
+
+    const markers = [row, tab].map((element) => {
+      const style = getComputedStyle(element, "::before");
+      return {
+        width: Number.parseFloat(style.width),
+        height: Number.parseFloat(style.height),
+        left: Number.parseFloat(style.left),
+        color: style.backgroundColor,
+        pointerEvents: style.pointerEvents,
+      };
+    });
+
+    return {
+      row: { name: row.textContent, marker: markers[0] },
+      tab: { name: tab.textContent, marker: markers[1] },
+      sameBackground:
+        getComputedStyle(row).backgroundColor === getComputedStyle(tab).backgroundColor,
+      inactiveMarkers: Array.from(
+        document.querySelectorAll(
+          '[role="treeitem"][aria-selected="false"], [role="tab"][aria-selected="false"]',
+        ),
+      ).filter((element) => getComputedStyle(element, "::before").content !== "none").length,
+    };
+  });
+
+  expect(appearance).not.toBeNull();
+  expect(appearance!.row.name).toBe(name);
+  expect(appearance!.tab.name).toBe(name);
+  expect(appearance!.sameBackground).toBe(true);
+  expect(appearance!.inactiveMarkers).toBe(0);
+  expect(appearance!.row.marker).toEqual(appearance!.tab.marker);
+  expect(appearance!.row.marker).toMatchObject({
+    width: 3,
+    height: 12,
+    left: 3,
+    pointerEvents: "none",
+  });
+};
+
 const viewportGeometry = () =>
   browser.execute((selector) => {
     const viewport = document.querySelector<HTMLElement>(selector)!;
@@ -140,6 +198,7 @@ describe("desktop document lifecycle", () => {
     await scrollDocument();
     await (await findTreeItem("viewport-replacement.md")).click();
     await expectDocumentAtTop("Second viewport document");
+    await expectActiveDocumentMarker("viewport-replacement.md");
     expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
     await scrollDocument();
 
@@ -151,6 +210,7 @@ describe("desktop document lifecycle", () => {
 
     await (await findDocumentTab("viewport-replacement.md")).click();
     await expectDocumentScrolled("Second viewport document");
+    await expectActiveDocumentMarker("viewport-replacement.md");
     await $("[data-testid=active-document-host] [data-type='wiki-link']").execute((target) => {
       target.dispatchEvent(
         new MouseEvent("click", { bubbles: true, button: 0, cancelable: true, ctrlKey: true }),

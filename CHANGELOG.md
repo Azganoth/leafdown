@@ -11,6 +11,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
 - Show Markdown files with a rounded white page carrying the folded leaf and an overlapping green Markdown badge, matching the new application mark.
 - Keep the blank lines a file ends with when saving, instead of trimming them, under either `Insert final newline on save` choice. They open without adding empty lines to the document and stay at its end as you edit; selecting everything and typing or deleting removes them, and Undo brings them back. Empty lines you add at the end of a document are saved too, and a file of only blank lines keeps them. The final-newline setting still decides whether the last line of text ends with a newline.
+- Offer the context popup's actions by where it opens instead of one fixed stack. At a caret it offers Paste, the block formatting buttons, Block type, and Insert; for selected text, Cut, Copy, Paste, Delete, the inline formatting buttons, and Block type; for selected blocks, the same actions as before. In code and frontmatter it leaves out inline formatting, and in a table it leaves out block formatting and Block type, which did nothing there. At a footnote reference it also offers Jump to footnote definition. Cut, Copy, Delete, and inline formatting at a caret, and block formatting and Insert for selected text, remain in the menu bar and command palette.
 
 ### Fixed
 

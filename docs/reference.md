@@ -304,16 +304,26 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 - Right-click outside a selection uses the editor's normal pointer handling to place the caret at the clicked location; the popup does not perform a second coordinate-based caret move.
 - `Escape`, typing, or clicking outside closes it, as does `Tab` while focus is inside it. Scrolling does not close it.
 
-#### Popup Command Groups
+#### Popup Contexts
 
-1. Quick actions: Cut, Copy, Paste, Delete.
-2. Inline formatting: Strong, Emphasis, Inline code, Link.
-3. Footnote: Rename footnote, shown only while that command is available.
-4. Image: Replace image..., shown only while that command is available.
-5. Code block: Code block language..., shown only while that command is available.
-6. Block formatting: Blockquote, Ordered list, Unordered list, Task list.
-7. Block type: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6.
-8. Insert: Paragraph, Heading 1, Heading 2, Heading 3, Heading 4, Heading 5, Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, Horizontal rule.
+The popup offers the actions of the context it opens in, one row or submenu per group, in this order. A command unavailable within its context stays visible but disabled.
+
+- **Caret:** Paste; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
+- **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
+- **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
+
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule.
+
+The construct holding the whole caret or selection narrows its context:
+
+- **Code block or frontmatter:** Leaves out Strong, Emphasis, Inline code, and Link.
+- **Table:** Leaves out Blockquote, Ordered list, Unordered list, Task list, and Block type.
+
+An object's actions follow the first row, each shown only while it is available:
+
+- **Footnote:** Rename footnote, Jump to footnote definition.
+- **Image:** Replace image...
+- **Fenced code block:** Code block language...
 
 ### Article Navigator Context Menu
 

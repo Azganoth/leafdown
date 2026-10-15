@@ -36,10 +36,15 @@
     },
     "windows": {
       "nsis": {
-        "installerHooks": "windows/installer-hooks.nsh"
+        "installerHooks": "windows/installer-hooks.nsh",
+        "headerImage": "windows/installer-artwork/nsis-header.bmp",
+        "sidebarImage": "windows/installer-artwork/nsis-sidebar.bmp",
+        "installerIcon": "icons/icon.ico"
       },
       "wix": {
         "version": "0.1.0.3",
+        "bannerPath": "windows/installer-artwork/wix-banner.bmp",
+        "dialogImagePath": "windows/installer-artwork/wix-dialog.bmp",
         "fragmentPaths": ["windows/file-associations.wxs"],
         "componentRefs": ["MarkdownFileAssociations"]
       }

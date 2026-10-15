@@ -1,4 +1,5 @@
 import type { remarkStringifyOptionsCtx } from "@milkdown/kit/core";
+import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { decodeNamedCharacterReference } from "decode-named-character-reference";
 
 import { markBlockSeparators, resolveBlockSeparators } from "./blockSeparatorMarkdown";
@@ -8,6 +9,7 @@ import {
   readCharacterReferenceText,
 } from "./characterReferenceMarkdown";
 import { CITATION_MARKDOWN_TYPE, closesLinkAfter, opensCitationKeyAt } from "./citationSyntax";
+import { writeDocumentEnd } from "./documentEndMarkdown";
 import { resolveLinePrefixes, resolveListItemPaddings } from "./linePrefixMarkdown";
 import { readEnclosingConstructs, removeLinkLabelEdges } from "./linkLabelMarkdown";
 import { scanInlineTail } from "./linkTailSyntax";
@@ -1408,11 +1410,14 @@ export const serializeMarkdownRoot: NonNullable<RemarkStringifyHandlers["root"]>
     // The lines and the separators are settled first, so an escape is decided against the lines the
     // file is actually written with rather than against blank ones a separator takes back out or a
     // prefix the file never put in front of a continuation line.
-    return resolveDeferredEscapes(
-      resolveListItemPaddings(
-        resolveBlockSeparators(resolveLinePrefixes(state.containerFlow(node, info))),
+    return writeDocumentEnd(
+      resolveDeferredEscapes(
+        resolveListItemPaddings(
+          resolveBlockSeparators(resolveLinePrefixes(state.containerFlow(node, info))),
+        ),
+        labels,
       ),
-      labels,
+      node as MarkdownNode,
     );
   } finally {
     unmarkSeparators();

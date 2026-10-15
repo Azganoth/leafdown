@@ -36,6 +36,7 @@ Global settings persist across application launches unless specified otherwise.
 - **Default line ending for new documents:** LF or CRLF. Default: system dependent.
   - Windows defaults to CRLF. macOS and Linux default to LF.
 - **Insert final newline on save:** On or Off. Default: On.
+  - Decides the line ending after the document's last line of content. Blank lines a document ends with are saved under either choice; see [Serialization And Output](./specification.md#serialization-and-output).
 - **Index file names for automatic folder open:** ordered list of file base names. Default: `readme`, `index`.
 - **Ignored directories for folder scans:** directory name list. Default: `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
   - Directory name matching is case-sensitive on Unix-like systems and case-insensitive on Windows. Matching directories and their contents are recursively skipped.

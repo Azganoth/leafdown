@@ -81,6 +81,7 @@ The runtime tracks three primary state values:
 - Routing semantic formatting and projection-aware history shortcuts through the same command IDs and availability rules as other command surfaces.
 - Owning default editor Copy and Cut payload resolution and deletion semantics across native editor events and application command surfaces.
 - Owning how a blank paragraph is represented in the file, so raw HTML stays document content instead of doubling as editor state.
+- Recording the blank lines a file ends with as an attribute of the document node rather than as paragraphs. The parse counts them from the source, the root serializer writes them, and only a transaction changes them, so history undoes their removal with the content it went with and loading or saving leaves history and dirty state alone.
 
 Leafdown's editor integration uses Milkdown Kit directly through a Leafdown-owned React wrapper. Crepe and packages that introduce Crepe transitively are excluded from the editor foundation. Milkdown plugins and components are adopted when aligned with Leafdown's user experience.
 

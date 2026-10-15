@@ -111,7 +111,7 @@ const CLOSED_MARKDOWN_TYPES = new Set([
 // The preset wraps a block-level raw HTML node in a paragraph, so the block reaches the serializer
 // as a paragraph holding one HTML node and nothing else. A paragraph holding HTML beside its own
 // text is ordinary text and ends where any paragraph does.
-const holdsRawHtmlBlock = (node: SeparatorNode) => {
+export const holdsRawHtmlBlock = (node: SeparatorNode) => {
   const [child, ...rest] = node.children ?? [];
 
   return (

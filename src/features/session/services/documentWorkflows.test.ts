@@ -410,6 +410,44 @@ describe("document workflows", () => {
       });
     });
 
+    it("writes the blank lines a document ends with as Save does", async () => {
+      setDefaultSettings({ insertFinalNewline: false });
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        activeDocument: createSavedDocument({
+          content: "# Notes\r\n\r\n\r\n",
+          lineEnding: "crlf",
+          encoding: { name: "UTF-16BE", bom: true },
+        }),
+      });
+      documentEditorBridge.set(
+        TEST_MARKDOWN_FILE_PATH,
+        createMilkdownEditorBridge({ getMarkdown: () => "# Notes\n\n\n" }),
+      );
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: (args: { path: string }) =>
+          createSavedMarkdownDocumentResult({ path: args.path }),
+        scanMarkdownFolder: () => updatedFolderContext,
+      });
+
+      await expect(saveActiveMarkdownDocument()).resolves.toBe(true);
+
+      const saved = getLastTauriApiArgs("saveMarkdownFile");
+
+      await expect(saveActiveMarkdownDocumentAs()).resolves.toBe(true);
+
+      expect(saved).toMatchObject({
+        content: "# Notes\r\n\r\n\r\n",
+        encoding: { name: "UTF-16BE", bom: true },
+      });
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({
+        path: DRAFT_MD_PATH,
+        content: saved.content,
+        encoding: saved.encoding,
+      });
+    });
+
     it("does not apply Save As results after the active document changes", async () => {
       const saveDeferred = Promise.withResolvers<SavedMarkdownDocument>();
       setDefaultSession({

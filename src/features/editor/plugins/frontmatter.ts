@@ -8,20 +8,40 @@ import remarkFrontmatter from "remark-frontmatter";
 import { parse as parseToml } from "smol-toml";
 import { parseDocument } from "yaml";
 
+import {
+  DEFAULT_TRAILING_BLANK_LINES,
+  readParsedTrailingBlankLines,
+  readTrailingBlankLines,
+  TRAILING_BLANK_LINES_ATTRIBUTE_NAME,
+} from "../utils/documentEndMarkdown";
+
 export type FrontmatterFormat = "yaml" | "toml" | "json";
 
 export const FRONTMATTER_NODE_NAME = "frontmatter";
 
+// The blank lines a file ends with belong to no block, since none follows them to give them a
+// separator, so the document carries their count itself.
 export const leafdownDocumentSchema = $nodeSchema("doc", () => ({
   content: "block+ | frontmatter block*",
+  attrs: {
+    [TRAILING_BLANK_LINES_ATTRIBUTE_NAME]: {
+      default: DEFAULT_TRAILING_BLANK_LINES,
+      validate: "number",
+    },
+  },
   parseMarkdown: {
     match: (node) => node.type === "root",
-    runner: (state, node, type) => state.injectRoot(node, type),
+    runner: (state, node, type) =>
+      state.injectRoot(node, type, {
+        [TRAILING_BLANK_LINES_ATTRIBUTE_NAME]: readParsedTrailingBlankLines(node),
+      }),
   },
   toMarkdown: {
     match: (node) => node.type.name === "doc",
     runner: (state, node) => {
-      state.openNode("root");
+      state.openNode("root", undefined, {
+        [TRAILING_BLANK_LINES_ATTRIBUTE_NAME]: readTrailingBlankLines(node.attrs),
+      });
       state.next(node.content);
     },
   },

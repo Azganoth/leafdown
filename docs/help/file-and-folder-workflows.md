@@ -60,4 +60,6 @@ Local images render when available. A remote `https:` image remains a placeholde
 
 ## Save and external changes
 
+Saving keeps the blank lines a file ends with, though the document shows no empty lines for them. They stay at the end as you edit, and selecting everything and then typing or deleting removes them with the rest of the text.
+
 **File > Save as** writes the document to a chosen path. Saving outside the current folder does not switch that folder, and a file open in another tab cannot be saved over. Leafdown watches every open file: a clean document reloads after another program changes it, while an edited document keeps its changes and warns. Saving over an externally changed file asks first. If the file has disappeared, Save offers Save as. These checks also apply to a file opened outside the pinned folder.

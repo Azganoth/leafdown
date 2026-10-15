@@ -10,6 +10,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Replace the application icon with a layered, folded green leaf across the executable, window, taskbar, shortcuts, titlebar, About dialog, and favicon.
 
+### Fixed
+
+- Open documents with headings faster. Right after showing a document, Leafdown gave every heading an id that nothing used, which made the window restyle the whole document a second time, about half a second in a 500 KB document of tables.
+
 ## [0.1.0-alpha.3] - 2026-10-12
 
 ### Added

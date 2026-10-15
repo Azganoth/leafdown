@@ -295,12 +295,13 @@
     /* Each nesting level draws the next mark of the set, which repeats past its end. Every list
        counts as a level, ordered and task lists included, so a mark follows how deep its item
        stands. An item hands its list's set on rotated by one and any list inside the item takes it
-       up, which reaches every depth without a selector per level. */
+       up, which reaches every depth without a selector per level. The shapes are public files for
+       the reason the task tick is. */
     ul,
     ol {
-      --leafdown-list-bullet: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Ccircle cx='5' cy='5' r='5'/%3E%3C/svg%3E");
-      --leafdown-list-bullet-2: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Ccircle cx='5' cy='5' r='3.75' fill='none' stroke='%23000' stroke-width='2.5'/%3E%3C/svg%3E");
-      --leafdown-list-bullet-3: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Crect x='0.75' y='0.75' width='8.5' height='8.5' rx='0.75'/%3E%3C/svg%3E");
+      --leafdown-list-bullet: url("/list-bullet-disc.svg");
+      --leafdown-list-bullet-2: url("/list-bullet-ring.svg");
+      --leafdown-list-bullet-3: url("/list-bullet-square.svg");
     }
 
     li {

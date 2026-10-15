@@ -8,7 +8,12 @@ import {
   type ArticleSortOrder,
 } from "@/features/folder-context";
 import { setAlwaysOnTop, useSettingsStore } from "@/features/preferences";
-import { activateAdjacentTab, activateTabAt, changeArticleSortOrder } from "@/features/session";
+import {
+  activateAdjacentTab,
+  activateTabAt,
+  changeArticleSortOrder,
+  keepActiveDocumentTab,
+} from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 import { notifyError } from "@/lib/toast";
@@ -207,6 +212,13 @@ export const showPreviousTab = () => {
 export const showTabAt = (index: number) => () => {
   activateTabAt(index);
 };
+
+export const keepTab = () => {
+  keepActiveDocumentTab();
+};
+
+export const getKeepTabState = (context: AppCommandContext) =>
+  context.tabs.activePreview ? enabled() : disabled("The active tab is not a preview.");
 
 export const getSwitchTabState = (context: AppCommandContext) =>
   context.tabs.count > 1 ? enabled() : disabled("No other document is open.");

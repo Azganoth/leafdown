@@ -256,7 +256,7 @@ export function CommandMenubar({
             <CommandCheckboxItem commandId="view.toggleSidebar" />
             <CommandCheckboxItem commandId="view.toggleStatusBar" />
             <MenubarSeparator />
-            <CommandItems commandIds={["view.nextTab", "view.previousTab"]} inset />
+            <CommandItems commandIds={["view.nextTab", "view.previousTab", "view.keepTab"]} inset />
             <MenubarSeparator />
             <CommandItems commandIds={["view.zoomIn", "view.zoomOut", "view.resetZoom"]} inset />
             <CommandCheckboxItem commandId="view.alwaysOnTop" />

@@ -52,6 +52,65 @@ describe("session store", () => {
     });
   });
 
+  it("opens a preview after the active tab and later previews in its place", () => {
+    const { openTab } = useSessionStore.getState();
+    const first = openTab(createSavedDocument());
+    const preview = openTab(createSavedDocument({ path: OTHER_PATH }), { preview: true });
+
+    useSessionStore.getState().activateTab(first.id);
+    const replacement = openTab(createSavedDocument({ path: THIRD_PATH }), { preview: true });
+
+    expect(getPaths()).toEqual([TEST_MARKDOWN_FILE_PATH, THIRD_PATH]);
+    expect(findTab(useSessionStore.getState(), preview.id)).toBeNull();
+    expect(replacement).toMatchObject({ preview: true });
+    expect(useSessionStore.getState().activeTabId).toBe(replacement.id);
+  });
+
+  it("opens a preview beside a kept preview rather than in its place", () => {
+    const { keepTab, openTab } = useSessionStore.getState();
+    const kept = openTab(createSavedDocument(), { preview: true });
+
+    keepTab(kept.id);
+    openTab(createSavedDocument({ path: OTHER_PATH }), { preview: true });
+
+    expect(getPaths()).toEqual([TEST_MARKDOWN_FILE_PATH, OTHER_PATH]);
+    expect(useSessionStore.getState().tabs.map((tab) => tab.preview)).toEqual([false, true]);
+  });
+
+  it("keeps a preview tab once its document is edited", () => {
+    const preview = useSessionStore.getState().openTab(createSavedDocument(), { preview: true });
+
+    useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
+    useSessionStore.getState().openTab(createSavedDocument({ path: OTHER_PATH }), {
+      preview: true,
+    });
+
+    expect(findTab(useSessionStore.getState(), preview.id)).toMatchObject({
+      preview: false,
+      document: { isDirty: true },
+    });
+    expect(getPaths()).toEqual([TEST_MARKDOWN_FILE_PATH, OTHER_PATH]);
+  });
+
+  it("keeps a preview tab only through a replacement that asks to keep it", () => {
+    const { openTab, replaceTabDocument } = useSessionStore.getState();
+    const preview = openTab(createSavedDocument(), { preview: true });
+
+    replaceTabDocument(preview.id, createSavedDocument(), { reload: true });
+
+    expect(findTab(useSessionStore.getState(), preview.id)?.preview).toBe(true);
+
+    replaceTabDocument(preview.id, createSavedDocument(), { keep: true });
+
+    expect(findTab(useSessionStore.getState(), preview.id)?.preview).toBe(false);
+  });
+
+  it("never previews an untitled document", () => {
+    const tab = useSessionStore.getState().openTab(createUntitledDocument(), { preview: true });
+
+    expect(tab.preview).toBe(false);
+  });
+
   it("replaces the folder context together with a tab it opens", () => {
     const folderContext = createFolderContext();
 

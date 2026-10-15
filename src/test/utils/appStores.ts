@@ -60,6 +60,8 @@ interface TestSessionState extends Pick<SessionState, "folderContext" | "folderC
   documents: TestActiveDocumentState[];
   /** The position of the active tab among `documents`. */
   activeIndex: number;
+  /** The position of the preview tab among `documents`, when one is a preview. */
+  previewIndex: number;
 }
 
 const toTestActiveDocumentState = (
@@ -70,7 +72,7 @@ const toTestActiveDocumentState = (
 });
 
 export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {
-  const { activeDocument, activeIndex = 0, documents, ...sessionRest } = session;
+  const { activeDocument, activeIndex = 0, documents, previewIndex, ...sessionRest } = session;
   const tabs: DocumentTab[] = (documents ?? (activeDocument ? [activeDocument] : [])).map(
     (document, index) => ({
       id: `test-tab:${index + 1}`,
@@ -78,6 +80,7 @@ export const setDefaultSession = (session: Partial<TestSessionState> = {}) => {
       generation: 0,
       loadId: 0,
       viewState: null,
+      preview: index === previewIndex,
     }),
   );
   const activeTab = tabs[activeIndex] ?? null;

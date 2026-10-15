@@ -199,6 +199,16 @@ describe("desktop document lifecycle", () => {
     await (await findTreeItem("viewport-replacement.md")).click();
     await expectDocumentAtTop("Second viewport document");
     await expectActiveDocumentMarker("viewport-replacement.md");
+    await expect(await findDocumentTab("viewport-replacement.md")).toHaveAttribute(
+      "aria-label",
+      "viewport-replacement.md, preview",
+    );
+    // Kept, so the next article opened from the navigator does not replace it.
+    await (await findTreeItem("viewport-replacement.md")).doubleClick();
+    await expect(await findDocumentTab("viewport-replacement.md")).toHaveAttribute(
+      "aria-label",
+      "viewport-replacement.md",
+    );
     expect((await viewportGeometry()).overflow).toBeGreaterThan(800);
     await scrollDocument();
 

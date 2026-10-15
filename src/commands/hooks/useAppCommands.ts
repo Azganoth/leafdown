@@ -75,6 +75,9 @@ export const useAppCommands = () => {
   const activeTabIndex = useSessionStore((state) =>
     state.tabs.findIndex((tab) => tab.id === state.activeTabId),
   );
+  const activePreview = useSessionStore(
+    (state) => state.tabs.find((tab) => tab.id === state.activeTabId)?.preview ?? false,
+  );
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextLoading = useSessionStore((state) => state.folderContextLoad !== null);
   const alwaysOnTop = useSettingsStore((state) => state.alwaysOnTop);
@@ -95,7 +98,7 @@ export const useAppCommands = () => {
 
   const context: AppCommandContext = {
     activeDocument,
-    tabs: { count: tabCount, activeIndex: activeTabIndex },
+    tabs: { count: tabCount, activeIndex: activeTabIndex, activePreview },
     editor,
     folderContext,
     folderContextLoading,

@@ -16,6 +16,25 @@ export const activateDocumentTab = (tabId: string) => {
   return true;
 };
 
+/** Turns a preview tab into an ordinary one, so the next preview opens beside it. */
+export const keepDocumentTab = (tabId: string) => {
+  const session = useSessionStore.getState();
+
+  if (!findTab(session, tabId)?.preview) {
+    return false;
+  }
+
+  session.keepTab(tabId);
+
+  return true;
+};
+
+export const keepActiveDocumentTab = () => {
+  const { activeTabId } = useSessionStore.getState();
+
+  return activeTabId ? keepDocumentTab(activeTabId) : false;
+};
+
 /** Moves through the tabs in strip order, wrapping at either end. */
 export const activateAdjacentTab = (offset: 1 | -1) => {
   const { activeTabId, tabs } = useSessionStore.getState();

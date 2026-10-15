@@ -51,6 +51,7 @@ export const APPLICATION_COMMANDS = {
 
   "view.nextTab": appCommand(view.showNextTab, view.getSwitchTabState),
   "view.previousTab": appCommand(view.showPreviousTab, view.getSwitchTabState),
+  "view.keepTab": appCommand(view.keepTab, view.getKeepTabState),
   "view.tab1": appCommand(view.showTabAt(0), view.getShowTabAtState(0)),
   "view.tab2": appCommand(view.showTabAt(1), view.getShowTabAtState(1)),
   "view.tab3": appCommand(view.showTabAt(2), view.getShowTabAtState(2)),

@@ -59,6 +59,14 @@ const DeveloperTools = import.meta.env.DEV
 const DEFAULT_WINDOW_TITLE = "Leafdown";
 
 const handleOpenArticle = (path: string) => {
+  void openMarkdownFileAtPath(path, { preview: true }).catch((error) => {
+    notifyOpenMarkdownFileError(error);
+  });
+};
+
+// An ordinary open keeps the preview tab holding the article, and replaces a preview open that is
+// still reading it.
+const handleKeepArticle = (path: string) => {
   void openMarkdownFileAtPath(path).catch((error) => {
     notifyOpenMarkdownFileError(error);
   });
@@ -218,6 +226,7 @@ export function Shell() {
                           actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
                           activeArticlePath={activeArticlePath}
                           folderContext={folderContext}
+                          onKeepArticle={handleKeepArticle}
                           onOpenArticle={handleOpenArticle}
                         />
                       )}

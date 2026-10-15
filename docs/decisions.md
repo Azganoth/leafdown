@@ -121,13 +121,13 @@
 
 ### Open documents as tabs within windows
 
-**Decision:** Leafdown holds several open documents as tabs within independent windows, all in one process. Each window has its own tabs and at most one folder context. A saved file is open in at most one tab across all windows, and opening a file adds a tab or activates the tab that holds it. A file opened from the operating system while Leafdown runs is handed to the running process.
+**Decision:** Leafdown holds several open documents as tabs within independent windows, all in one process. Each window has its own tabs and at most one folder context. A saved file is open in at most one tab across all windows, and opening a file adds a tab or activates the tab that holds it. A file opened only to look at, from the article navigator, a folder search result, or a link, takes the window's one preview tab instead, replacing the document there, until an edit or a keep gesture makes it an ordinary tab. A file opened from the operating system while Leafdown runs is handed to the running process.
 
-**Rationale:** A tab costs a few MiB where another window costs tens, so tabs carry many documents, while windows keep two documents side by side or two folders open. One process lets every window know which documents are open and keeps one copy of settings, recent items, and application data; separate processes each overwrite the others' state when they exit. A folder context per window keeps the pinned-folder rule above.
+**Rationale:** A tab costs a few MiB where another window costs tens, so tabs carry many documents, while windows keep two documents side by side or two folders open. A preview tab keeps browsing a folder from leaving a tab behind for every article looked at, while anything edited or deliberately opened stays. One process lets every window know which documents are open and keeps one copy of settings, recent items, and application data; separate processes each overwrite the others' state when they exit. A folder context per window keeps the pinned-folder rule above.
 
 **Consequences:**
 
-- Opening a document never replaces another, so opening does not ask about unsaved changes.
+- Opening a document replaces only the document in the preview tab, which never has unsaved changes, so opening does not ask about them.
 - Native watchers, their events, and close requests belong to one window, and each open saved document has its own watch.
 - Closing a window or quitting asks once per window about its unsaved documents, and closing the last window quits.
 - Settings and recent items apply live to every window.

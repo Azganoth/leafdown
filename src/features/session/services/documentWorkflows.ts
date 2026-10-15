@@ -126,11 +126,18 @@ export const saveDocumentTab = (tabId: string) =>
   });
 
 // The tab is taken when the command is given, since another tab may be active by the time a
-// queued save runs.
+// queued save runs. Saving a clean preview keeps its tab and has nothing to write.
 export const saveActiveMarkdownDocument = () => {
-  const activeTabId = useSessionStore.getState().activeTabId;
+  const session = useSessionStore.getState();
+  const activeTab = getActiveTab(session);
 
-  return activeTabId ? saveDocumentTab(activeTabId) : Promise.resolve(false);
+  if (activeTab?.preview && activeTab.document.status === "saved" && !activeTab.document.isDirty) {
+    session.keepTab(activeTab.id);
+
+    return Promise.resolve(false);
+  }
+
+  return activeTab ? saveDocumentTab(activeTab.id) : Promise.resolve(false);
 };
 
 export const saveActiveMarkdownDocumentAs = () => {
@@ -262,7 +269,7 @@ const saveDocumentToNewPath = async (version: TabVersion, path: string): Promise
     .replaceTabDocument(
       version.tabId,
       savedDocument,
-      nextFolderContext ? { folderContext: nextFolderContext } : {},
+      nextFolderContext ? { folderContext: nextFolderContext, keep: true } : { keep: true },
     );
 
   return true;
@@ -331,6 +338,7 @@ const saveExistingMarkdownDocument = async (
         metadata: result.metadata,
         fingerprint: result.fingerprint,
       }),
+      { keep: true },
     );
 
     return true;
@@ -419,6 +427,7 @@ export const saveDocumentWithoutPrompts = (documentKey: string) =>
           metadata: result.metadata,
           fingerprint: result.fingerprint,
         }),
+        { keep: true },
       );
     }
 

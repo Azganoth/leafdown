@@ -47,7 +47,13 @@ export {
   pickAndOpenMarkdownFile,
   reopenMarkdownFileWithChosenEncoding,
 } from "./services/openSession";
-export { activateAdjacentTab, activateDocumentTab, activateTabAt } from "./services/tabWorkflows";
+export {
+  activateAdjacentTab,
+  activateDocumentTab,
+  activateTabAt,
+  keepActiveDocumentTab,
+  keepDocumentTab,
+} from "./services/tabWorkflows";
 export {
   getActiveTab,
   getSessionFolderPath,

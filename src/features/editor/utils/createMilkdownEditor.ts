@@ -20,6 +20,7 @@ import {
   emphasisKeymap,
   hardbreakSchema,
   imageSchema,
+  headingAttr,
   headingKeymap,
   headingSchema,
   hrSchema,
@@ -36,6 +37,7 @@ import {
   remarkInlineLinkPlugin,
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
+  syncHeadingIdPlugin,
 } from "@milkdown/kit/preset/commonmark";
 import {
   extendListItemSchemaForTask,
@@ -302,6 +304,11 @@ const DEFAULT_OPEN_MARKDOWN_PATH: MarkdownLinkContext["onOpenMarkdownPath"] = ()
 // Marks serialize in `spec.priority` order, 50 unless declared, and inline code declares 100 to
 // stay innermost.
 const LINK_MARK_PRIORITY = 75;
+// The preset's heading ids re-create every heading after a document opens and after each edit to
+// its text, which restyles every block a heading rule can match. Nothing in Leafdown reads them:
+// export writes its own anchors, and the outline, wiki links, and folding find headings in the
+// document by position and text.
+const COMMONMARK_PLUGINS = commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin);
 const DISABLED_TEXT_ASSISTANCE_ATTRIBUTES = {
   spellcheck: "false",
   writingsuggestions: "false",
@@ -373,7 +380,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownContinuationFormPlugin())
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())
-    .use(commonmark)
+    .use(COMMONMARK_PLUGINS)
     .use(leafdownDocumentSchema)
     .use(createLeafdownTableKeyboardPlugin())
     .use(createLeafdownTableShapeGuardPlugin())
@@ -550,10 +557,12 @@ export const createMilkdownEditor = async ({
         hrSchema.key,
         (getSchema) => (schemaCtx) => withThematicBreakMarker(getSchema(schemaCtx)),
       );
-      ctx.update(
-        headingSchema.key,
-        (getSchema) => (schemaCtx) => withHeadingForm(getSchema(schemaCtx)),
-      );
+      // Without the preset's id sync, an id rendered here would keep the text the heading opened
+      // with.
+      ctx.update(headingSchema.key, (getSchema) => (schemaCtx) => ({
+        ...withHeadingForm(getSchema(schemaCtx)),
+        toDOM: (node) => [`h${node.attrs.level}`, schemaCtx.get(headingAttr.key)(node), 0],
+      }));
       ctx.update(
         codeBlockSchema.key,
         (getSchema) => (schemaCtx) => withCodeForm(getSchema(schemaCtx)),

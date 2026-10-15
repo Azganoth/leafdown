@@ -99,6 +99,31 @@ describe("createMilkdownEditor", () => {
     ]);
   });
 
+  it("opens headings without assigning them ids", async () => {
+    const mounted = await mountEditor("# Notes\n\nParagraph\n\n## Notes\n\nParagraph");
+    const headings: unknown[] = [];
+
+    mounted.view.state.doc.descendants((node) => {
+      if (node.type.name === "heading") headings.push(node.attrs.id);
+    });
+
+    expect(headings).toEqual(["", ""]);
+    for (const heading of mounted.view.dom.querySelectorAll("h1, h2")) {
+      expect(heading).not.toHaveAttribute("id");
+    }
+  });
+
+  it("keeps a heading's element while its text is edited", async () => {
+    const mounted = await mountEditor("# Notes\n\nParagraph");
+    const heading = mounted.view.dom.querySelector("h1");
+
+    mounted.view.dispatch(mounted.view.state.tr.insertText(" and more", 1 + "Notes".length));
+
+    expect(mounted.view.dom.querySelector("h1")).toBe(heading);
+    expect(heading).toHaveTextContent("Notes and more");
+    expect(heading).not.toHaveAttribute("id");
+  });
+
   describe("composeEditorViewAttributes", () => {
     const added = { spellcheck: "false" };
 

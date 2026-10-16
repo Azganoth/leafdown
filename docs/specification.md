@@ -454,10 +454,13 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 
 ### Release Notes
 
-- `Help > What's new...` opens a scrollable, read-only dialog with the `CHANGELOG.md` section matching the running application version. A release build without a usable matching section shows a clear no-notes state. A development build may use `Unreleased` when there is no usable matching section.
+- `Help > What's new...` opens a scrollable, read-only dialog on the running version's page, which names the version and its release date above that version's `CHANGELOG.md` section.
+- What's new has one page per bundled `CHANGELOG.md` section with usable notes, newest first; a section without usable notes gets no page. A development build includes `Unreleased` as the newest page and opens on it when the running version has no usable section. A release build has no `Unreleased` page; when the running version has no usable section, its page shows a clear no-notes state ahead of the earlier releases.
+- A bar below the notes moves to the next newer or older page, each step button naming the version it opens, and a version list jumps to any page. At either end of the list the step button stays focusable and does nothing. A new page starts at its top, keyboard focus stays on the control that moved it, and every page is reachable by pointer and keyboard. Each opening starts on the running version's page.
+- Browsing other pages records no version as seen and leaves automatic opening unchanged.
 - `Help > Changelog` opens the complete bundled `CHANGELOG.md` in a scrollable, read-only dialog. Headings, lists, inline formatting, code, and links are rendered as content. External web links use the system browser through Leafdown's safe opener; the dialogs require no network access.
 - After a version change, What's new opens automatically once if Leafdown has a recorded previous version, the new version has usable notes, and those notes have not been shown before. First installation never opens it automatically. Showing it automatically or manually records that version as seen across restarts; the Help command remains available for manual reopening. A version without notes is recorded as launched without showing a dialog.
-- Opening, scrolling, and closing release notes leave the active document, folder, recent items, and editor state unchanged. Escape and the Close control dismiss the dialog and return focus to the prior surface.
+- Opening, browsing, scrolling, and closing release notes leave the active document, folder, recent items, and editor state unchanged. Escape and the Close control dismiss the dialog and return focus to the prior surface.
 
 ### Update Check
 

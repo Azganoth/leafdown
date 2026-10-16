@@ -71,6 +71,31 @@ describe("DocumentTabs", () => {
     );
   });
 
+  it("sizes each tab by a copy of the label it shows", () => {
+    setDefaultSession({
+      documents: [
+        createSavedDocument({ path: "C:/Notes/guides/README.md" }),
+        createSavedDocument({ path: "C:/Notes/api/readme.md" }),
+        createSavedDocument({ path: "C:/Notes/plan.md" }),
+      ],
+    });
+
+    renderTabs();
+
+    const labels = screen
+      .getAllByRole("tab")
+      .map((tab) => tab.querySelector<HTMLElement>("[data-label]"));
+
+    expect(labels.map((label) => label?.dataset.label)).toEqual([
+      "README.md guides",
+      "readme.md api",
+      "plan.md",
+    ]);
+    expect(labels.map((label) => label?.textContent)).toEqual(
+      labels.map((label) => label?.dataset.label),
+    );
+  });
+
   it("names a preview tab as one and keeps it when it is double-clicked", async () => {
     setDefaultSession({
       documents: [createSavedDocument(), createSavedDocument({ path: "C:/Notes/plan.md" })],

@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Fixed
 
 - Show a check mark in checked task list boxes. The app's content security policy blocked the mark's image, so a checked box showed only a filled square.
+- Keep document tabs in place when you switch between them. A tab grew when it became active, since its name turns medium weight, and pushed every tab after it along; each tab now keeps the width its active name needs. The tabs also sit a little further apart, and their close marks and the new-document `+` are slightly larger, with a bigger target for the close mark.
 - Open documents with headings faster. Right after showing a document, Leafdown gave every heading an id that nothing used, which made the window restyle the whole document a second time, about half a second in a 500 KB document of tables.
 
 ## [0.1.0-alpha.3] - 2026-10-12

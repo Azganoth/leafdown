@@ -29,6 +29,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["rendered-math"],
       ["rendered-mermaid"],
       ["separator-presentation"],
+      ["code-collapse"],
       ["support-links"],
       ["missing-document-error"],
       ["legacy-encoding"],

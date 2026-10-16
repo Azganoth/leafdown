@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Collapse long code blocks so a document with a lot of code reads without scrolling past all of it. A code block of 10 or more lines opens showing its first 8, fading out above a `Show N more lines` bar that expands it, and a chevron beside its language badge collapses it again. View > Fold or unfold section (`Ctrl+.`) does the same for the code block holding the caret. Collapsing only changes the view: saving, copying, Undo, word counts, and find still include every line, and moving the caret onto a hidden line, with the arrow keys or a find match, expands the block. Blocks open collapsed again each time their document opens.
+
 ### Changed
 
 - Open articles from the navigator, Find in folder results, links, and a folder's index file in one preview tab per window, whose name is in italics, instead of adding a tab for every article you look at. The next such open replaces the preview, so browsing a folder leaves one tab behind. Editing the document, saving it, double-clicking its tab or navigator row, View > Keep tab (`Ctrl+Shift+K`), or opening it again from Open, recent files, a drop, or File Explorer keeps it as an ordinary tab, and a document with unsaved changes is never replaced. Open, recent files, drops, and File Explorer still open ordinary tabs.

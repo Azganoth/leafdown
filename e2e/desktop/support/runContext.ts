@@ -9,6 +9,7 @@ export interface DesktopE2ERunContext {
   frontmatter: { yamlPath: string; tomlPath: string; jsonPath: string };
   definitionList: { path: string };
   separator: { path: string };
+  codeCollapse: { path: string };
   html: { path: string };
   math: { path: string };
   mathCorpus: { path: string };

@@ -143,6 +143,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const frontmatterJsonPath = path.join(fixtureRoot, "frontmatter-json.md");
   const definitionListPath = path.join(fixtureRoot, "definition-lists.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
+  const codeCollapsePath = path.join(fixtureRoot, "code-collapse.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
   const outlinePath = path.join(fixtureRoot, "heading-outline.md");
   const imagesFolderPath = path.join(fixtureRoot, "rendered-images");
@@ -187,6 +188,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     definitionList: { path: definitionListPath },
     separator: { path: separatorPath },
+    codeCollapse: { path: codeCollapsePath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -265,6 +267,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-math", recentFiles: [mathPath, mathCorpusPath] },
     { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
+    { name: "code-collapse", recentFiles: [codeCollapsePath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
@@ -349,6 +352,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "separator-presentation.md"),
         separatorPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "code-collapse.md"),
+        codeCollapsePath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),

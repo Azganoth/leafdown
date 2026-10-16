@@ -22,6 +22,7 @@ const scenarioTargets = {
   "rendered-math": ["rendered-math"],
   "rendered-mermaid": ["rendered-mermaid"],
   "separator-presentation": ["separator-presentation"],
+  "code-collapse": ["code-collapse"],
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],
   "legacy-encoding": ["legacy-encoding"],

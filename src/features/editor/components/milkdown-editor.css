@@ -527,22 +527,69 @@
 
       /* The badge floats rather than anchoring to the block, because an absolute child of a
          horizontally scrolling box travels with the content it is meant to label. */
-      &[data-language] {
+      &:is([data-language], [data-leafdown-code-collapse="expanded"]) {
         @apply pt-9;
 
         .leafdown-code-language {
-          @apply float-right -mt-7 -mr-1 ml-4;
+          @apply float-right -mt-7 -mr-1 ml-1.5;
         }
       }
 
       /* A block without a language reserves no room for a badge it shows only while being worked
          in, so the badge sits over the corner instead of pushing the code down when it appears. */
       &:not([data-language]) .leafdown-code-language {
-        @apply pointer-events-none absolute top-1 right-1 opacity-0 transition-opacity motion-reduce:transition-none;
+        @apply pointer-events-none opacity-0 transition-opacity motion-reduce:transition-none;
+      }
+
+      &:not([data-language], [data-leafdown-code-collapse="expanded"]) .leafdown-code-language {
+        @apply absolute top-1 right-1;
       }
 
       &:not([data-language]):is(:hover, .leafdown-code-block--active) .leafdown-code-language {
         @apply pointer-events-auto opacity-100;
+      }
+
+      .leafdown-code-chevron {
+        @apply inline-block size-1.5 rotate-45 border-r-[1.5px] border-b-[1.5px] border-current;
+      }
+
+      .leafdown-code-collapse {
+        @apply float-right -mt-7 flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground select-none hover:bg-foreground/8 hover:text-foreground;
+
+        .leafdown-code-chevron {
+          @apply mt-0.5 -rotate-135;
+        }
+      }
+
+      /* Collapsed lines stay in the document and its text, hidden only from view. */
+      .leafdown-code-collapsed-lines {
+        @apply hidden;
+      }
+
+      &[data-leafdown-code-collapse="collapsed"] > code {
+        mask-image: linear-gradient(
+          to bottom,
+          #000 calc(100% - 2 * var(--leafdown-code-line-height)),
+          transparent
+        );
+      }
+
+      /* Sticky so the bar spans the visible block while long lines scroll beneath it. */
+      .leafdown-code-expand {
+        @apply sticky left-0 mt-1 -mb-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm py-1 font-sans text-xs text-muted-foreground select-none hover:bg-foreground/5 hover:text-foreground;
+
+        .leafdown-code-chevron {
+          @apply -mt-1;
+        }
+      }
+
+      /* Rendered math and diagrams show no code to collapse. */
+      &:is(
+          [data-math-code-rendered="true"]:not(.leafdown-code-block--active),
+          [data-mermaid-mode="diagram"]
+        )
+        :is(.leafdown-code-collapse, .leafdown-code-expand) {
+        @apply hidden;
       }
 
       code {

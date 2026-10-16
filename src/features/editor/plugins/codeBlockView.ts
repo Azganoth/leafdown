@@ -1,7 +1,7 @@
 import { codeBlockSchema } from "@milkdown/kit/preset/commonmark";
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import { TextSelection } from "@milkdown/kit/prose/state";
-import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
+import type { Decoration, EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 
 import { localizer, t } from "@/lib/i18n";
@@ -11,6 +11,13 @@ import { renderMermaid } from "../services/mermaidRenderer";
 import { onMermaidThemeChange, readMermaidTheme } from "../services/mermaidTheme";
 import { readCodeFenced } from "../utils/codeMarkdown";
 import { describeMathError, renderMathTex } from "../utils/mathRender";
+import {
+  collapseCodeBlock,
+  countCollapsedCodeLines,
+  expandCodeBlock,
+  readCodeBlockCollapse,
+  type CodeBlockCollapse,
+} from "./codeBlockCollapse";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
 import { isEditingMermaidCodeBlock, isMermaidCodeBlock } from "./mermaidMode";
 
@@ -28,13 +35,25 @@ export const mermaidSourceError = (source: string): string | null => {
 export const createLeafdownCodeBlockViewPlugin = () =>
   $view(
     codeBlockSchema.node,
-    () => (node, view, getPos) => new LeafdownCodeBlockNodeView(node, view, getPos),
+    () => (node, view, getPos, decorations) =>
+      new LeafdownCodeBlockNodeView(node, view, getPos, decorations),
   );
+
+const createChevron = () => {
+  const chevron = document.createElement("span");
+  chevron.className = "leafdown-code-chevron";
+  chevron.setAttribute("aria-hidden", "true");
+  return chevron;
+};
 
 class LeafdownCodeBlockNodeView implements NodeView {
   readonly dom = document.createElement("pre");
   readonly contentDOM = document.createElement("code");
   private readonly badge = document.createElement("button");
+  private readonly collapseButton = document.createElement("button");
+  private readonly expandButton = document.createElement("button");
+  private readonly expandLabel = document.createElement("span");
+  private collapse: CodeBlockCollapse | null;
   private readonly mathPreview = document.createElement("span");
   private readonly mermaidPanel = document.createElement("span");
   private readonly mermaidImage = document.createElement("img");
@@ -59,15 +78,32 @@ class LeafdownCodeBlockNodeView implements NodeView {
     private node: ProseMirrorNode,
     private readonly view: EditorView,
     private readonly getPos: () => number | undefined,
+    decorations: readonly Decoration[],
   ) {
+    this.collapse = readCodeBlockCollapse(decorations);
     this.badge.type = "button";
     this.badge.contentEditable = "false";
     // Reached by keyboard through `Code block language...`, so the badge costs no tab stop in text.
     this.badge.tabIndex = -1;
     this.badge.className = "leafdown-code-language";
     this.badge.dataset.leafdownCodeLanguage = "";
-    this.badge.addEventListener("mousedown", this.handleBadgeMouseDown);
+    this.badge.addEventListener("mousedown", this.handleChromeMouseDown);
     this.badge.addEventListener("click", this.handleBadgeClick);
+    // Like the badge, the collapse controls cost no tab stop; `Fold or unfold section` reaches them.
+    for (const button of [this.collapseButton, this.expandButton]) {
+      button.type = "button";
+      button.contentEditable = "false";
+      button.tabIndex = -1;
+      button.addEventListener("mousedown", this.handleChromeMouseDown);
+    }
+    this.collapseButton.className = "leafdown-code-collapse";
+    this.collapseButton.setAttribute("aria-expanded", "true");
+    this.collapseButton.append(createChevron());
+    this.collapseButton.addEventListener("click", this.handleCollapseClick);
+    this.expandButton.className = "leafdown-code-expand";
+    this.expandButton.setAttribute("aria-expanded", "false");
+    this.expandButton.append(createChevron(), this.expandLabel);
+    this.expandButton.addEventListener("click", this.handleExpandClick);
     this.mathPreview.className = "leafdown-code-math-preview";
     this.mathPreview.contentEditable = "false";
     this.mathPreview.addEventListener("mousedown", this.handlePreviewMouseDown);
@@ -88,17 +124,26 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.mermaidStatus,
       this.mermaidError,
     );
-    this.dom.append(this.badge, this.contentDOM, this.mathPreview, this.mermaidPanel);
+    // Floated right in order, so the collapse chevron stands just inside the badge.
+    this.dom.append(
+      this.badge,
+      this.collapseButton,
+      this.contentDOM,
+      this.expandButton,
+      this.mathPreview,
+      this.mermaidPanel,
+    );
     this.render();
     this.renderMath();
     this.renderMermaid();
   }
 
-  update(node: ProseMirrorNode) {
+  update(node: ProseMirrorNode, decorations: readonly Decoration[]) {
     if (node.type !== this.node.type) {
       return false;
     }
 
+    this.collapse = readCodeBlockCollapse(decorations);
     const mathChanged =
       node.textContent !== this.node.textContent ||
       node.attrs.language !== this.node.attrs.language ||
@@ -116,6 +161,8 @@ class LeafdownCodeBlockNodeView implements NodeView {
     return (
       event.target instanceof Node &&
       (this.badge.contains(event.target) ||
+        this.collapseButton.contains(event.target) ||
+        this.expandButton.contains(event.target) ||
         this.mermaidPanel.contains(event.target) ||
         (this.mathPreview.contains(event.target) &&
           !(event instanceof MouseEvent && this.isPreviewScrollbarPress(event))))
@@ -134,6 +181,8 @@ class LeafdownCodeBlockNodeView implements NodeView {
     }
     return (
       this.badge.contains(mutation.target) ||
+      this.collapseButton.contains(mutation.target) ||
+      this.expandButton.contains(mutation.target) ||
       this.mathPreview.contains(mutation.target) ||
       this.mermaidPanel.contains(mutation.target)
     );
@@ -141,8 +190,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
 
   destroy() {
     this.localizationChange.dispose();
-    this.badge.removeEventListener("mousedown", this.handleBadgeMouseDown);
+    this.badge.removeEventListener("mousedown", this.handleChromeMouseDown);
     this.badge.removeEventListener("click", this.handleBadgeClick);
+    this.collapseButton.removeEventListener("mousedown", this.handleChromeMouseDown);
+    this.collapseButton.removeEventListener("click", this.handleCollapseClick);
+    this.expandButton.removeEventListener("mousedown", this.handleChromeMouseDown);
+    this.expandButton.removeEventListener("click", this.handleExpandClick);
     this.mathPreview.removeEventListener("mousedown", this.handlePreviewMouseDown);
     this.mermaidPanel.removeEventListener("mousedown", this.handleMermaidPanelMouseDown);
     this.mermaidObserver?.disconnect();
@@ -175,6 +228,17 @@ class LeafdownCodeBlockNodeView implements NodeView {
     } else {
       this.dom.setAttribute("aria-description", describeMathError(this.mathError));
       this.mathPreview.textContent = describeMathError(this.mathError);
+    }
+
+    this.collapseButton.hidden = this.collapse !== "expanded";
+    this.expandButton.hidden = this.collapse !== "collapsed";
+    const collapseLabel = t("editor.codeBlock.collapse");
+    this.collapseButton.setAttribute("aria-label", collapseLabel);
+    this.collapseButton.title = collapseLabel;
+    if (this.collapse === "collapsed") {
+      this.expandLabel.textContent = t("editor.codeBlock.expand", {
+        count: countCollapsedCodeLines(this.node),
+      });
     }
   }
 
@@ -347,8 +411,18 @@ ${source}`;
   }
 
   // Leaves the editor's selection where it was rather than letting the press move it.
-  private readonly handleBadgeMouseDown = (event: MouseEvent) => {
+  private readonly handleChromeMouseDown = (event: MouseEvent) => {
     event.preventDefault();
+  };
+
+  private readonly handleCollapseClick = () => {
+    const position = this.getPos();
+    if (position !== undefined) collapseCodeBlock(this.view, position);
+  };
+
+  private readonly handleExpandClick = () => {
+    const position = this.getPos();
+    if (position !== undefined) expandCodeBlock(this.view, position);
   };
 
   private readonly handleBadgeClick = () => {

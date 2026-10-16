@@ -84,6 +84,7 @@ import {
   serializeCitation,
 } from "../plugins/citation";
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
+import { createLeafdownCodeBlockCollapsePlugin } from "../plugins/codeBlockCollapse";
 import {
   createLeafdownCodeBlockLanguagePlugin,
   type LeafdownCodeBlockLanguagePluginOptions,
@@ -427,6 +428,7 @@ export const createMilkdownEditor = async ({
     .use(clipboard)
     .use(createLeafdownCodeHighlightPlugin(parser))
     .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
+    .use(createLeafdownCodeBlockCollapsePlugin())
     .use(markdownReferenceContextCtx)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownTableViewPlugin())

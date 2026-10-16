@@ -3,6 +3,7 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { canMoveSelectedBlocks, moveSelectedBlocks } from "../plugins/blockSelectionOperations";
+import { canToggleCodeBlockCollapse, toggleCodeBlockCollapse } from "../plugins/codeBlockCollapse";
 import { canToggleSectionFold, toggleSectionFold } from "../plugins/headingFold";
 import { withEditorView } from "../utils/milkdown";
 import { EDITOR_COMMAND_IDS, type EditorCommandId, type EditorCommandState } from "./contract";
@@ -225,7 +226,11 @@ export const EDITOR_COMMANDS = {
     frontmatterInsertion.canInsertFrontmatter,
   ),
 
-  "view.toggleSectionFold": viewCommand(toggleSectionFold, canToggleSectionFold),
+  // A code block lies inside any section that holds it, so it is the innermost target.
+  "view.toggleSectionFold": viewCommand(
+    (view) => toggleCodeBlockCollapse(view) || toggleSectionFold(view),
+    (state) => canToggleCodeBlockCollapse(state) || canToggleSectionFold(state),
+  ),
 } satisfies Record<EditorCommandId, EditorCommand>;
 
 export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) =>

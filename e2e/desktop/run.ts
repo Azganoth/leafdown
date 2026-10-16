@@ -147,6 +147,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const outlinePath = path.join(fixtureRoot, "heading-outline.md");
   const imagesFolderPath = path.join(fixtureRoot, "rendered-images");
   const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
+  // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
+  const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
@@ -187,6 +189,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     definitionList: { path: definitionListPath },
     separator: { path: separatorPath },
+    codeCollapse: { path: codeCollapsePath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -265,6 +268,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-math", recentFiles: [mathPath, mathCorpusPath] },
     { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
+    { name: "code-collapse", recentFiles: [codeCollapsePath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
@@ -349,6 +353,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "separator-presentation.md"),
         separatorPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "code-collapse.md"),
+        codeCollapsePath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),

@@ -11,6 +11,7 @@ import { $prose } from "@milkdown/kit/utils";
 
 import type { TextRange } from "../utils/textRanges";
 import { findMatchIndexFrom, findTextMatches, type TextSearchQuery } from "../utils/textSearch";
+import { revealCollapsedCodeRange } from "./codeBlockCollapse";
 import { revealFoldedRange } from "./headingFold";
 import {
   getActiveSourceProjectionRange,
@@ -185,7 +186,10 @@ export const getCurrentSearchMatchIndex = (state: EditorState) => {
 // transactions is a reason for the caret's object to open its source.
 export const setSearchUpdate = (transaction: Transaction, update: SearchUpdate) => {
   const { current } = update.change;
-  if (update.reveal && current) revealFoldedRange(transaction, current.from, current.to);
+  if (update.reveal && current) {
+    revealFoldedRange(transaction, current.from, current.to);
+    revealCollapsedCodeRange(transaction, current.from, current.to);
+  }
   return transaction
     .setMeta(leafdownSearchPluginKey, update)
     .setMeta(SOURCE_PROJECTION_ENTRY_SUPPRESSION_META, true);

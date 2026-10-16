@@ -36,6 +36,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Minimize the window when you click anywhere on the minimize button. Clicking its right edge maximized or restored the window instead, because the area that opens the Windows 11 snap layouts kept a fixed size while the buttons narrowed with the window and grew or shrank with zoom. Each window control now responds exactly where it is drawn at every window size, display scale, and zoom level, and pointing at maximize still opens snap layouts.
 - Keep an edit made while a document is being saved as an unsaved change. A save marked the document saved when it finished, so an edit typed in the moment it took to write the file was neither written nor counted as unsaved, and closing the document could lose it without asking.
 - Show a check mark in checked task list boxes. The app's content security policy blocked the mark's image, so a checked box showed only a filled square.
 - Keep document tabs in place when you switch between them. A tab grew when it became active, since its name turns medium weight, and pushed every tab after it along; each tab now keeps the width its active name needs. The tabs also sit a little further apart, and their close marks and the new-document `+` are slightly larger, with a bigger target for the close mark.

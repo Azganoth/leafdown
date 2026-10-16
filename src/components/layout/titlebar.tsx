@@ -1,19 +1,10 @@
 import { useEffect, type ReactNode } from "react";
 
-// Injected by tauri-plugin-frame; without `withGlobalTauri` they never appear.
-const WINDOW_CONTROL_SELECTOR = "[data-tauri-frame-tb] > button";
-
-// Native Win32 caption buttons are non-client area and never in the tab
-// sequence. `-1` rather than removal keeps these labeled for screen readers.
-const removeWindowControlsFromTabSequence = () => {
-  const controls = document.querySelectorAll<HTMLElement>(WINDOW_CONTROL_SELECTOR);
-
-  controls.forEach((control) => {
-    control.tabIndex = -1;
-  });
-
-  return controls.length > 0;
-};
+import {
+  findMaximizeControl,
+  removeWindowControlsFromTabSequence,
+  trackMaximizeControl,
+} from "./windowControls";
 
 interface TitlebarProps {
   actions?: ReactNode;
@@ -24,17 +15,35 @@ export function Titlebar({ actions, children }: TitlebarProps) {
   // The plugin injects the controls from a spawned task that polls for the
   // Tauri global, so a one-shot query would race it.
   useEffect(() => {
+    let stopTrackingMaximizeControl: (() => void) | null = null;
+
+    const adoptWindowControls = () => {
+      if (!removeWindowControlsFromTabSequence()) {
+        return false;
+      }
+
+      const maximizeControl = findMaximizeControl();
+      if (maximizeControl) {
+        stopTrackingMaximizeControl = trackMaximizeControl(maximizeControl);
+      }
+
+      return true;
+    };
+
     const observer = new MutationObserver(() => {
-      if (removeWindowControlsFromTabSequence()) {
+      if (adoptWindowControls()) {
         observer.disconnect();
       }
     });
 
-    if (!removeWindowControlsFromTabSequence()) {
+    if (!adoptWindowControls()) {
       observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      stopTrackingMaximizeControl?.();
+    };
   }, []);
 
   return (

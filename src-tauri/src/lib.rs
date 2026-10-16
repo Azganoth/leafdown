@@ -30,6 +30,7 @@ mod text_encoding;
 mod update_check;
 mod watch_scope;
 mod window;
+mod window_controls;
 mod window_documents;
 
 const TITLEBAR_HEIGHT: u32 = 32;
@@ -93,6 +94,9 @@ pub fn run() {
                 .button_width(TITLEBAR_BUTTON_WIDTH)
                 .auto_titlebar(true)
                 .button_hover_bg(TITLEBAR_BUTTON_HOVER_BACKGROUND)
+                // The plugin's region keeps its configured size at every zoom level, so
+                // `window_controls` places one over the rendered maximize button instead.
+                .snap_overlay(false)
                 .build(),
         )
         .plugin(tauri_plugin_zustand::init())
@@ -126,6 +130,7 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => window::handle_close_requested(window, api),
             WindowEvent::Focused(true) => window::record_window_focus(window),
+            WindowEvent::Resized(_) => window_controls::reposition_maximize_control(window),
             WindowEvent::Destroyed => {
                 // Decided before the quit moves on, while it still counts as under way.
                 let keeps_session = kept_session::keeps_session(window);
@@ -133,6 +138,7 @@ pub fn run() {
                 kept_session::forget_window_session(window, keeps_session);
                 window::forget_close_request(window);
                 window::forget_window_focus(window);
+                window_controls::forget_maximize_control(window);
                 launch::forget_window_launches(window);
                 document::stop_window_document_watchers(window);
                 folder::stop_window_folder_watcher(window);
@@ -176,6 +182,7 @@ pub fn run() {
             window::decline_window_close,
             window::open_new_window,
             window::quit_application,
+            window_controls::set_maximize_control_bounds,
             window_documents::set_window_documents,
             window_documents::claim_window_document,
             window_documents::notify_documents_moved,

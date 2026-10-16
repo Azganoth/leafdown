@@ -4,6 +4,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { getDiagnosticsSummary, readRunDiagnostics } from "../support/diagnostics.js";
 
 const WINDOW_CONTROL_LABELS = ["Minimize window", "Maximize window", "Close window"];
+// `TITLEBAR_BUTTON_WIDTH` in src-tauri/src/lib.rs.
+const WINDOW_CONTROL_WIDTH = 52;
 
 const waitForNodeCondition = async (
   predicate: () => boolean | Promise<boolean>,
@@ -51,6 +53,15 @@ describe("desktop window lifecycle", () => {
     for (const control of controls) {
       await expect(control).toHaveAttribute("tabindex", "-1");
     }
+
+    // The native snap region is placed from these sizes, so a control that shrank with the window
+    // would leave its click and hover area out of step with the drawn button.
+    const controlWidths = await browser.execute(() =>
+      [...document.querySelectorAll("[data-tauri-frame-tb] > button")].map(
+        (control) => control.getBoundingClientRect().width,
+      ),
+    );
+    expect(controlWidths).toEqual(WINDOW_CONTROL_LABELS.map(() => WINDOW_CONTROL_WIDTH));
 
     await $("aria/New document").click();
     const editor = $('[data-testid=active-document-host] [contenteditable="true"]');

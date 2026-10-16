@@ -523,10 +523,16 @@
     pre {
       @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 pt-9 font-mono text-sm leading-(--leafdown-code-line-height) whitespace-pre text-foreground;
 
-      /* The badge floats rather than anchoring to the block, because an absolute child of a
-         horizontally scrolling box travels with the content it is meant to label. */
+      /* The header floats rather than anchoring to the block, because an absolute child of a
+         horizontally scrolling box travels with the content it is meant to label. Its pieces share
+         one float: a float pulled up by more than its own height takes no room, so separate floats
+         would overlap. */
+      .leafdown-code-header {
+        @apply float-right -mt-7 -mr-1 flex items-center;
+      }
+
       .leafdown-code-language {
-        @apply float-right -mt-7 -mr-1 ml-1.5 cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
+        @apply ml-1.5 cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
       }
 
       &:not([data-language]) .leafdown-code-language,
@@ -542,7 +548,7 @@
       }
 
       .leafdown-code-controls {
-        @apply float-right -mt-7 mr-1 flex items-center gap-0.5 select-none;
+        @apply mr-1 flex items-center gap-0.5 select-none;
       }
 
       .leafdown-code-control {
@@ -564,7 +570,7 @@
       }
 
       .leafdown-code-collapse {
-        @apply float-right -mt-7 flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground select-none hover:bg-foreground/8 hover:text-foreground;
+        @apply flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground select-none hover:bg-foreground/8 hover:text-foreground;
 
         .leafdown-code-chevron {
           @apply mt-0.5 -rotate-135;

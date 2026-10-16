@@ -97,14 +97,17 @@ describe("desktop code block collapse", () => {
         )) === "1",
       { timeoutMsg: "The toggles did not show with the caret in the block." },
     );
-    const overlap = (await block().execute((pre) => {
+    const placement = (await block().execute((pre) => {
       const code = pre.querySelector("code")!.getBoundingClientRect();
-      return [...pre.querySelectorAll(".leafdown-code-control:not([hidden])")].map(
-        (button) => button.getBoundingClientRect().bottom - code.top,
-      );
-    })) as number[];
-    expect(overlap).toHaveLength(3);
-    for (const depth of overlap) expect(depth).toBeLessThanOrEqual(0);
+      return [...pre.querySelectorAll(".leafdown-code-control:not([hidden])")].map((button) => {
+        const box = button.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return { aboveCode: box.bottom <= code.top, reachable: button.contains(hit) };
+      });
+    })) as { aboveCode: boolean; reachable: boolean }[];
+    expect(placement).toEqual(
+      Array.from({ length: 3 }, () => ({ aboveCode: true, reachable: true })),
+    );
 
     await click(await centerOf(lineNumbers));
 

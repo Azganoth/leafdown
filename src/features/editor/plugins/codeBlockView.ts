@@ -97,6 +97,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
   private readonly collapseButton = document.createElement("button");
   private readonly expandButton = document.createElement("button");
   private readonly expandLabel = document.createElement("span");
+  private readonly header = document.createElement("span");
   private readonly controls = document.createElement("span");
   private readonly expandAllButton = document.createElement("button");
   private readonly softWrapButton = document.createElement("button");
@@ -152,7 +153,6 @@ class LeafdownCodeBlockNodeView implements NodeView {
     // The controls that act on every code block cost no tab stop either; Preferences holds both
     // settings, and `Fold or unfold section` expands a block from its caret.
     this.controls.className = "leafdown-code-controls";
-    this.controls.contentEditable = "false";
     for (const [button, icon, handleClick] of [
       [this.expandAllButton, EXPAND_ALL_ICON, this.handleExpandAllClick],
       [this.softWrapButton, SOFT_WRAP_ICON, this.handleSoftWrapClick],
@@ -195,12 +195,11 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.mermaidStatus,
       this.mermaidError,
     );
-    // Floated right in order, so the collapse chevron stands just inside the badge and the controls
-    // just inside the chevron.
+    this.header.className = "leafdown-code-header";
+    this.header.contentEditable = "false";
+    this.header.append(this.controls, this.collapseButton, this.badge);
     this.dom.append(
-      this.badge,
-      this.collapseButton,
-      this.controls,
+      this.header,
       this.contentDOM,
       this.expandButton,
       this.mathPreview,
@@ -234,10 +233,8 @@ class LeafdownCodeBlockNodeView implements NodeView {
   stopEvent(event: Event) {
     return (
       event.target instanceof Node &&
-      (this.badge.contains(event.target) ||
-        this.collapseButton.contains(event.target) ||
+      (this.header.contains(event.target) ||
         this.expandButton.contains(event.target) ||
-        this.controls.contains(event.target) ||
         this.mermaidPanel.contains(event.target) ||
         (this.mathPreview.contains(event.target) &&
           !(event instanceof MouseEvent && this.isPreviewScrollbarPress(event))))
@@ -255,10 +252,8 @@ class LeafdownCodeBlockNodeView implements NodeView {
       return true;
     }
     return (
-      this.badge.contains(mutation.target) ||
-      this.collapseButton.contains(mutation.target) ||
+      this.header.contains(mutation.target) ||
       this.expandButton.contains(mutation.target) ||
-      this.controls.contains(mutation.target) ||
       this.mathPreview.contains(mutation.target) ||
       this.mermaidPanel.contains(mutation.target)
     );

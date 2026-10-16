@@ -1,6 +1,8 @@
 import {
   ArrowDownIcon,
   ArrowDownToLineIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   ArrowUpIcon,
   BoldIcon,
   ChevronRightIcon,
@@ -8,6 +10,7 @@ import {
   Code2Icon,
   CopyIcon,
   FileCodeIcon,
+  Grid2x2XIcon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
@@ -51,6 +54,14 @@ import type { EditorCommandId, EditorCommandState } from "../commands";
 import { getEditorCommandLabelId } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import { isDismissedFromOutside } from "../utils/popoverDismissal";
+import {
+  AddColumnAfterIcon,
+  AddColumnBeforeIcon,
+  AddRowAboveIcon,
+  AddRowBelowIcon,
+  DeleteColumnIcon,
+  DeleteRowIcon,
+} from "./table-command-icons";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -101,6 +112,26 @@ const CODE_BLOCK_COMMANDS = [
 const CALLOUT_COMMANDS = [
   { commandId: "format.calloutType", icon: TagIcon },
   { commandId: "format.calloutExpanded", icon: UnfoldVerticalIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const TABLE_ROW_COMMANDS = [
+  { commandId: "format.table.addRowAbove", icon: AddRowAboveIcon },
+  { commandId: "format.table.addRowBelow", icon: AddRowBelowIcon },
+  { commandId: "format.table.moveRowUp", icon: ArrowUpIcon },
+  { commandId: "format.table.moveRowDown", icon: ArrowDownIcon },
+  { commandId: "format.table.deleteRow", icon: DeleteRowIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const TABLE_COLUMN_COMMANDS = [
+  { commandId: "format.table.addColumnBefore", icon: AddColumnBeforeIcon },
+  { commandId: "format.table.addColumnAfter", icon: AddColumnAfterIcon },
+  { commandId: "format.table.moveColumnLeft", icon: ArrowLeftIcon },
+  { commandId: "format.table.moveColumnRight", icon: ArrowRightIcon },
+  { commandId: "format.table.deleteColumn", icon: DeleteColumnIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const TABLE_COMMANDS = [
+  { commandId: "format.table.delete", icon: Grid2x2XIcon },
 ] satisfies readonly ContextButtonCommand[];
 
 const BLOCK_FORMATTING_COMMANDS = [
@@ -197,6 +228,14 @@ const getContextRows = (
   // Code holds no marks.
   if (selectionKind === "text" && container !== "code") {
     rows.push(buttonRow("inlineActions", INLINE_ACTION_COMMANDS));
+  }
+
+  if (container === "table") {
+    rows.push(
+      buttonRow("tableRows", TABLE_ROW_COMMANDS),
+      buttonRow("tableColumns", TABLE_COLUMN_COMMANDS),
+      buttonRow("table", TABLE_COMMANDS),
+    );
   }
 
   // A table cell holds exactly one paragraph, which no block format or type can change.

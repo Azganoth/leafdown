@@ -4,10 +4,13 @@ import { StrictMode, useState } from "react";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { createActiveEditorCommandState, createEditorCommandState } from "@/test/factories/editor";
+import { EXTENDED_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchDOMEvent } from "@/test/utils/events";
+import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { selectTableCellRange, setSelectionInTableCell } from "@/test/utils/prosemirror";
 import { act, render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
-import type { EditorCommandId, EditorCommandState } from "../commands";
+import { getEditorCommandState, type EditorCommandId, type EditorCommandState } from "../commands";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
 import { EditorContextPopup } from "./editor-context-popup";
@@ -118,6 +121,23 @@ const withEnabledCommands = (...commandIds: EditorCommandId[]) => ({
 const QUICK_ACTION_LABELS = ["Cut", "Copy", "Paste", "Delete"];
 const INLINE_ACTION_LABELS = ["Strong", "Emphasis", "Inline code", "Link"];
 const BLOCK_FORMATTING_LABELS = ["Blockquote", "Ordered list", "Unordered list", "Task list"];
+const TABLE_ROW_LABELS = [
+  "Add row above",
+  "Add row below",
+  "Move row up",
+  "Move row down",
+  "Delete row",
+];
+const TABLE_COLUMN_LABELS = [
+  "Add column before",
+  "Add column after",
+  "Move column left",
+  "Move column right",
+  "Delete column",
+];
+const TABLE_LABELS = [...TABLE_ROW_LABELS, ...TABLE_COLUMN_LABELS, "Delete table"];
+
+const mountEditor = setupMilkdownEditorMount();
 
 const controlLabels = () =>
   screen
@@ -185,11 +205,15 @@ describe("editor-context-popup", () => {
       { container: "code", selectionKind: "text" },
       [...QUICK_ACTION_LABELS, "Block type"],
     ],
-    ["a caret in a table", { container: "table", selectionKind: "caret" }, ["Paste", "Insert"]],
     [
-      "a text selection in a table",
+      "a caret in a table",
+      { container: "table", selectionKind: "caret" },
+      ["Paste", ...TABLE_LABELS, "Insert"],
+    ],
+    [
+      "a text or cell selection in a table",
       { container: "table", selectionKind: "text" },
-      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS],
+      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS, ...TABLE_LABELS],
     ],
   ])("offers %s its own actions", (_label, context, labels) => {
     render(
@@ -238,6 +262,72 @@ describe("editor-context-popup", () => {
       "Jump to footnote definition",
       "Blockquote",
     ]);
+  });
+
+  describe("table commands", () => {
+    const renderForEditor = async (
+      selectionKind: ContextPopupRequest["selectionKind"],
+      select: (mounted: Awaited<ReturnType<typeof mountEditor>>) => void,
+    ) => {
+      const mounted = await mountEditor(EXTENDED_TABLE_MARKDOWN);
+      const onExecute = vi.fn();
+
+      select(mounted);
+      render(
+        <EditorContextPopup
+          request={{ ...POINTER_REQUEST, container: "table", selectionKind }}
+          commandState={getEditorCommandState(mounted.view)}
+          onClose={vi.fn()}
+          onExecute={onExecute}
+          onReturnFocus={vi.fn()}
+        />,
+      );
+
+      return onExecute;
+    };
+
+    const enabledTableLabels = () =>
+      TABLE_LABELS.filter((label) => !screen.getByLabelText<HTMLButtonElement>(label).disabled);
+
+    it("keeps the header row's protected row commands visible but disabled for a caret", async () => {
+      await renderForEditor("caret", (mounted) => {
+        setSelectionInTableCell(mounted, 0, 0);
+      });
+
+      expect(enabledTableLabels()).toEqual([
+        "Add row below",
+        ...TABLE_COLUMN_LABELS.filter((label) => label !== "Move column left"),
+        "Delete table",
+      ]);
+    });
+
+    it("keeps the header row's protected row commands disabled for a cell selection reaching it", async () => {
+      await renderForEditor("text", (mounted) => {
+        selectTableCellRange(mounted, { col: 0, row: 0 }, { col: 1, row: 1 });
+      });
+
+      expect(enabledTableLabels()).toEqual([
+        "Add row below",
+        "Add column before",
+        "Add column after",
+        "Delete column",
+        "Delete table",
+      ]);
+    });
+
+    it("runs the existing command for a body row", async () => {
+      const onExecute = await renderForEditor("caret", (mounted) => {
+        setSelectionInTableCell(mounted, 1, 0);
+      });
+
+      expect(enabledTableLabels()).toEqual(
+        TABLE_LABELS.filter((label) => label !== "Move row up" && label !== "Move column left"),
+      );
+
+      screen.getByLabelText("Move row down").click();
+
+      expect(onExecute).toHaveBeenCalledWith("format.table.moveRowDown");
+    });
   });
 
   it("leaves no indicator column beside submenu rows that already carry an icon", async () => {
@@ -771,6 +861,43 @@ describe("editor-context-popup", () => {
 
       await user.keyboard("{ArrowDown}");
       expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+    });
+
+    it("walks the table rows by column and clamps onto Delete table", async () => {
+      const { user } = renderToolbar(
+        { ...KEYBOARD_REQUEST, container: "table", selectionKind: "caret" },
+        {
+          commandState: withEnabledCommands(
+            "format.table.addRowAbove",
+            "format.table.moveRowDown",
+            "format.table.addColumnBefore",
+            "format.table.moveColumnRight",
+            "format.table.delete",
+          ),
+        },
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Paste")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Add row above")).toHaveFocus();
+
+      await user.keyboard("{ArrowRight}");
+      expect(screen.getByLabelText("Move row down")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Move column right")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("Delete table")).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByRole("button", { name: "Insert" })).toHaveFocus();
+
+      await user.keyboard("{ArrowUp}{ArrowUp}");
+      expect(screen.getByLabelText("Add column before")).toHaveFocus();
     });
 
     it("moves through an object's row to the selection's own rows", async () => {

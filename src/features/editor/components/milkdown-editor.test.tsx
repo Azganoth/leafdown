@@ -74,6 +74,7 @@ describe("milkdown-editor", () => {
       expect(options.initialMarkdown).toBe("# Notes");
       expect(options.isAutoPairEnabled?.()).toBe(true);
       expect(options.areCodeLineNumbersEnabled?.()).toBe(false);
+      expect(options.isCodeBlockSoftWrapEnabled?.()).toBe(false);
       expect(options.getMarkdownReferenceContext?.()).toEqual({
         documentPath: null,
         folderContextPath: null,
@@ -82,6 +83,7 @@ describe("milkdown-editor", () => {
     });
 
     it("passes live editor settings and link/image context without recreating the editor", async () => {
+      const onCodeBlockSettingChange = vi.fn();
       const editor = createMockEditor();
       milkdownEditorMocks.createMilkdownEditor.mockResolvedValue(editor.instance);
 
@@ -120,6 +122,7 @@ describe("milkdown-editor", () => {
           autoPairBracketsAndQuotes={false}
           displayCodeBlockLineNumbers
           softWrapCodeBlocks
+          onCodeBlockSettingChange={onCodeBlockSettingChange}
           documentFont="system"
           textSize={20}
           lineSpacing="relaxed"
@@ -129,6 +132,9 @@ describe("milkdown-editor", () => {
       expect(milkdownEditorMocks.createMilkdownEditor).toHaveBeenCalledTimes(1);
       expect(options.isAutoPairEnabled?.()).toBe(false);
       expect(options.areCodeLineNumbersEnabled?.()).toBe(true);
+      expect(options.isCodeBlockSoftWrapEnabled?.()).toBe(true);
+      options.onCodeBlockSettingChange?.("softWrapCodeBlocks", false);
+      expect(onCodeBlockSettingChange).toHaveBeenCalledWith("softWrapCodeBlocks", false);
       expect(options.getMarkdownReferenceContext?.()).toEqual({
         documentPath: "C:/Notes/renamed.md",
         folderContextPath: "C:/Notes",

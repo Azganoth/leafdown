@@ -12,9 +12,7 @@ import type { CodeBlockLanguageRequest } from "./codeBlockLanguage";
 const mountEditor = setupMilkdownEditorMount();
 
 const badgeOf = (mounted: MountedMilkdownEditor, index = 0) =>
-  mounted.view.dom.querySelectorAll<HTMLButtonElement>("pre > [data-leafdown-code-language]")[
-    index
-  ];
+  mounted.view.dom.querySelectorAll<HTMLButtonElement>("pre [data-leafdown-code-language]")[index];
 
 const withProse = (block: string) => `Intro\n\n${block}\n\nOutro\n`;
 
@@ -22,7 +20,7 @@ describe("code block language badge", () => {
   it("names a block's language on a badge outside the editable code", async () => {
     const mounted = await mountEditor(withProse("```js\ncode\n```"));
     const badge = badgeOf(mounted);
-    const pre = badge.parentElement!;
+    const pre = badge.closest("pre")!;
 
     expect(pre).toHaveAttribute("data-language", "js");
     expect(badge).toHaveTextContent("js");
@@ -35,7 +33,7 @@ describe("code block language badge", () => {
   it("offers a language for a block without one, marking the block the caret is in", async () => {
     const mounted = await mountEditor(withProse("```\ncode\n```"));
     const badge = badgeOf(mounted);
-    const pre = badge.parentElement!;
+    const pre = badge.closest("pre")!;
 
     expect(pre).not.toHaveAttribute("data-language");
     expect(badge).toHaveTextContent("Language");
@@ -78,7 +76,7 @@ describe("code block language badge", () => {
     expect(requests[0]).toMatchObject({ anchor: badge, language: "rust", meta: "" });
     expect(mounted.view.state.selection.eq(selection)).toBe(true);
     expect(mounted.view.state.doc).toBe(before.doc);
-    expect(badge.parentElement).toHaveClass("leafdown-code-block--active");
+    expect(badge.closest("pre")).toHaveClass("leafdown-code-block--active");
   });
 
   it("follows a language change", async () => {
@@ -93,7 +91,7 @@ describe("code block language badge", () => {
     applyCodeBlockLanguage(mounted.view, request!, "");
 
     expect(badgeOf(mounted)).toHaveTextContent("Language");
-    expect(badgeOf(mounted).parentElement).not.toHaveAttribute("data-language");
+    expect(badgeOf(mounted).closest("pre")).not.toHaveAttribute("data-language");
   });
 
   it("stays out of the saved Markdown and the copied HTML", async () => {
@@ -115,7 +113,7 @@ describe("math code blocks", () => {
     async (block) => {
       const markdown = withProse(block);
       const mounted = await mountEditor(markdown);
-      const pre = badgeOf(mounted).parentElement!;
+      const pre = badgeOf(mounted).closest("pre")!;
 
       setTextSelection(mounted.view, getEditorTextPosition(mounted, "Outro"));
 
@@ -131,7 +129,7 @@ describe("math code blocks", () => {
     "leaves %j as an ordinary code block",
     async (block) => {
       const mounted = await mountEditor(withProse(block));
-      const pre = badgeOf(mounted).parentElement!;
+      const pre = badgeOf(mounted).closest("pre")!;
 
       expect(pre).not.toHaveAttribute("data-math-code-rendered");
       expect(pre.querySelector(".leafdown-code-math-preview .katex")).toBeNull();
@@ -140,7 +138,7 @@ describe("math code blocks", () => {
 
   it("opens the code for editing and follows edits without changing its fence", async () => {
     const mounted = await mountEditor(withProse("~~~math title=demo\nx^2\n~~~"));
-    const pre = badgeOf(mounted).parentElement!;
+    const pre = badgeOf(mounted).closest("pre")!;
     const preview = pre.querySelector<HTMLElement>(".leafdown-code-math-preview")!;
 
     setTextSelection(mounted.view, getEditorTextPosition(mounted, "Outro"));
@@ -160,7 +158,7 @@ describe("math code blocks", () => {
 
   it("shows invalid TeX as code, with its error available, and recovers after editing", async () => {
     const mounted = await mountEditor(withProse("```math\n\\frac{a\n```"));
-    const pre = badgeOf(mounted).parentElement!;
+    const pre = badgeOf(mounted).closest("pre")!;
 
     setTextSelection(mounted.view, getEditorTextPosition(mounted, "Outro"));
     expect(pre).toHaveAttribute("data-math-code-rendered", "false");
@@ -180,7 +178,7 @@ describe("math code blocks", () => {
         request = next;
       },
     });
-    const pre = badgeOf(mounted).parentElement!;
+    const pre = badgeOf(mounted).closest("pre")!;
     const code = pre.querySelector("code");
 
     badgeOf(mounted).click();

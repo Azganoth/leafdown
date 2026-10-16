@@ -88,6 +88,10 @@ import {
 import { createLeafdownClipboardPlugin } from "../plugins/clipboard";
 import { createLeafdownCodeBlockCollapsePlugin } from "../plugins/codeBlockCollapse";
 import {
+  createLeafdownCodeBlockControlsPlugin,
+  type CodeBlockSetting,
+} from "../plugins/codeBlockControls";
+import {
   createLeafdownCodeBlockLanguagePlugin,
   type LeafdownCodeBlockLanguagePluginOptions,
 } from "../plugins/codeBlockLanguage";
@@ -290,6 +294,8 @@ export interface CreateMilkdownEditorOptions {
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
   areCodeLineNumbersEnabled?: () => boolean;
+  isCodeBlockSoftWrapEnabled?: () => boolean;
+  onCodeBlockSettingChange?: (setting: CodeBlockSetting, enabled: boolean) => void;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
@@ -345,6 +351,8 @@ export const createMilkdownEditor = async ({
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
   areCodeLineNumbersEnabled = () => false,
+  isCodeBlockSoftWrapEnabled = () => false,
+  onCodeBlockSettingChange,
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
@@ -431,6 +439,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCodeHighlightPlugin(parser))
     .use(createLeafdownCodeLineNumbersPlugin(areCodeLineNumbersEnabled))
     .use(createLeafdownCodeBlockCollapsePlugin())
+    .use(createLeafdownCodeBlockControlsPlugin(isCodeBlockSoftWrapEnabled))
     .use(markdownReferenceContextCtx)
     .use(createLeafdownImageViewPlugin(getMarkdownReferenceContext))
     .use(createLeafdownTableViewPlugin())
@@ -454,7 +463,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
     .use(createLeafdownCalloutTypePlugin(calloutType))
     .use(createLeafdownMermaidModePlugin())
-    .use(createLeafdownCodeBlockViewPlugin())
+    .use(createLeafdownCodeBlockViewPlugin({ onSettingChange: onCodeBlockSettingChange }))
     .use(createLeafdownCalloutViewPlugin())
     .use(createLeafdownCalloutInputPlugin())
     .use(createLeafdownSearchPlugin(search))

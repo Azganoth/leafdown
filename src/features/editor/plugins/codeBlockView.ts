@@ -12,17 +12,49 @@ import { onMermaidThemeChange, readMermaidTheme } from "../services/mermaidTheme
 import { readCodeFenced } from "../utils/codeMarkdown";
 import { describeMathError, renderMathTex } from "../utils/mathRender";
 import {
+  collapseAllCodeBlocks,
   collapseCodeBlock,
   countCollapsedCodeLines,
+  expandAllCodeBlocks,
   expandCodeBlock,
   readCodeBlockCollapse,
   type CodeBlockCollapse,
 } from "./codeBlockCollapse";
+import {
+  onCodeBlockControlsChange,
+  readCodeBlockControls,
+  type CodeBlockSetting,
+} from "./codeBlockControls";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
 import { isEditingMermaidCodeBlock, isMermaidCodeBlock } from "./mermaidMode";
 
 let nextMermaidDescriptionId = 0;
 const MERMAID_EDIT_RENDER_DELAY = 400;
+
+export interface LeafdownCodeBlockViewOptions {
+  onSettingChange?: (setting: CodeBlockSetting, enabled: boolean) => void;
+}
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const EXPAND_ALL_ICON = [
+  "M12 22v-6",
+  "M12 8V2",
+  "M4 12H2",
+  "M10 12H8",
+  "M16 12h-2",
+  "M22 12h-2",
+  "m15 19-3 3-3-3",
+  "m15 5-3-3-3 3",
+];
+const SOFT_WRAP_ICON = ["m16 16-3 3 3 3", "M3 12h14.5a1 1 0 0 1 0 7H13", "M3 19h6", "M3 5h18"];
+const LINE_NUMBERS_ICON = [
+  "M11 5h10",
+  "M11 12h10",
+  "M11 19h10",
+  "M4 4h1v5",
+  "M4 9h2",
+  "M6.5 20H3.4c0-1 2.6-1.925 2.6-3.5a1.5 1.5 0 0 0-2.6-1.02",
+];
 
 export const mermaidSourceError = (source: string): string | null => {
   if (source.length > 10_000) return t("editor.mermaid.tooLong");
@@ -32,11 +64,11 @@ export const mermaidSourceError = (source: string): string | null => {
   return null;
 };
 
-export const createLeafdownCodeBlockViewPlugin = () =>
+export const createLeafdownCodeBlockViewPlugin = (options: LeafdownCodeBlockViewOptions = {}) =>
   $view(
     codeBlockSchema.node,
     () => (node, view, getPos, decorations) =>
-      new LeafdownCodeBlockNodeView(node, view, getPos, decorations),
+      new LeafdownCodeBlockNodeView(node, view, getPos, decorations, options),
   );
 
 const createChevron = () => {
@@ -46,6 +78,18 @@ const createChevron = () => {
   return chevron;
 };
 
+const createIcon = (paths: readonly string[]) => {
+  const icon = document.createElementNS(SVG_NAMESPACE, "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  for (const data of paths) {
+    const path = document.createElementNS(SVG_NAMESPACE, "path");
+    path.setAttribute("d", data);
+    icon.append(path);
+  }
+  return icon;
+};
+
 class LeafdownCodeBlockNodeView implements NodeView {
   readonly dom = document.createElement("pre");
   readonly contentDOM = document.createElement("code");
@@ -53,6 +97,12 @@ class LeafdownCodeBlockNodeView implements NodeView {
   private readonly collapseButton = document.createElement("button");
   private readonly expandButton = document.createElement("button");
   private readonly expandLabel = document.createElement("span");
+  private readonly header = document.createElement("span");
+  private readonly controls = document.createElement("span");
+  private readonly expandAllButton = document.createElement("button");
+  private readonly softWrapButton = document.createElement("button");
+  private readonly lineNumbersButton = document.createElement("button");
+  private readonly controlsChange: () => void;
   private collapse: CodeBlockCollapse | null;
   private readonly mathPreview = document.createElement("span");
   private readonly mermaidPanel = document.createElement("span");
@@ -72,13 +122,17 @@ class LeafdownCodeBlockNodeView implements NodeView {
   private mermaidVisible = typeof IntersectionObserver === "undefined";
   private mermaidFailure: string | null = null;
   private mathError: string | null = null;
-  private readonly localizationChange = localizer.onDidChange(() => this.render());
+  private readonly localizationChange = localizer.onDidChange(() => {
+    this.render();
+    this.renderControls();
+  });
 
   constructor(
     private node: ProseMirrorNode,
     private readonly view: EditorView,
     private readonly getPos: () => number | undefined,
     decorations: readonly Decoration[],
+    private readonly options: LeafdownCodeBlockViewOptions,
   ) {
     this.collapse = readCodeBlockCollapse(decorations);
     this.badge.type = "button";
@@ -96,6 +150,23 @@ class LeafdownCodeBlockNodeView implements NodeView {
       button.tabIndex = -1;
       button.addEventListener("mousedown", this.handleChromeMouseDown);
     }
+    // The controls that act on every code block cost no tab stop either; Preferences holds both
+    // settings, and `Fold or unfold section` expands a block from its caret.
+    this.controls.className = "leafdown-code-controls";
+    for (const [button, icon, handleClick] of [
+      [this.expandAllButton, EXPAND_ALL_ICON, this.handleExpandAllClick],
+      [this.softWrapButton, SOFT_WRAP_ICON, this.handleSoftWrapClick],
+      [this.lineNumbersButton, LINE_NUMBERS_ICON, this.handleLineNumbersClick],
+    ] as const) {
+      button.type = "button";
+      button.tabIndex = -1;
+      button.className = "leafdown-code-control";
+      button.append(createIcon(icon));
+      button.addEventListener("mousedown", this.handleChromeMouseDown);
+      button.addEventListener("click", handleClick);
+      this.controls.append(button);
+    }
+    this.controlsChange = onCodeBlockControlsChange(view, () => this.renderControls());
     this.collapseButton.className = "leafdown-code-collapse";
     this.collapseButton.setAttribute("aria-expanded", "true");
     this.collapseButton.append(createChevron());
@@ -124,16 +195,18 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.mermaidStatus,
       this.mermaidError,
     );
-    // Floated right in order, so the collapse chevron stands just inside the badge.
+    this.header.className = "leafdown-code-header";
+    this.header.contentEditable = "false";
+    this.header.append(this.controls, this.collapseButton, this.badge);
     this.dom.append(
-      this.badge,
-      this.collapseButton,
+      this.header,
       this.contentDOM,
       this.expandButton,
       this.mathPreview,
       this.mermaidPanel,
     );
     this.render();
+    this.renderControls();
     this.renderMath();
     this.renderMermaid();
   }
@@ -160,8 +233,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
   stopEvent(event: Event) {
     return (
       event.target instanceof Node &&
-      (this.badge.contains(event.target) ||
-        this.collapseButton.contains(event.target) ||
+      (this.header.contains(event.target) ||
         this.expandButton.contains(event.target) ||
         this.mermaidPanel.contains(event.target) ||
         (this.mathPreview.contains(event.target) &&
@@ -180,8 +252,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
       return true;
     }
     return (
-      this.badge.contains(mutation.target) ||
-      this.collapseButton.contains(mutation.target) ||
+      this.header.contains(mutation.target) ||
       this.expandButton.contains(mutation.target) ||
       this.mathPreview.contains(mutation.target) ||
       this.mermaidPanel.contains(mutation.target)
@@ -196,6 +267,15 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.collapseButton.removeEventListener("click", this.handleCollapseClick);
     this.expandButton.removeEventListener("mousedown", this.handleChromeMouseDown);
     this.expandButton.removeEventListener("click", this.handleExpandClick);
+    this.controlsChange();
+    for (const [button, handleClick] of [
+      [this.expandAllButton, this.handleExpandAllClick],
+      [this.softWrapButton, this.handleSoftWrapClick],
+      [this.lineNumbersButton, this.handleLineNumbersClick],
+    ] as const) {
+      button.removeEventListener("mousedown", this.handleChromeMouseDown);
+      button.removeEventListener("click", handleClick);
+    }
     this.mathPreview.removeEventListener("mousedown", this.handlePreviewMouseDown);
     this.mermaidPanel.removeEventListener("mousedown", this.handleMermaidPanelMouseDown);
     this.mermaidObserver?.disconnect();
@@ -239,6 +319,20 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.expandLabel.textContent = t("editor.codeBlock.expand", {
         count: countCollapsedCodeLines(this.node),
       });
+    }
+  }
+
+  private renderControls() {
+    const { collapsible, expanded, lineNumbers, softWrap } = readCodeBlockControls(this.view.state);
+    this.expandAllButton.hidden = !collapsible;
+    for (const [button, label, pressed] of [
+      [this.expandAllButton, t("editor.codeBlock.expandAll"), expanded],
+      [this.softWrapButton, t("editor.codeBlock.softWrap"), softWrap],
+      [this.lineNumbersButton, t("editor.codeBlock.lineNumbers"), lineNumbers],
+    ] as const) {
+      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-pressed", String(pressed));
+      button.title = label;
     }
   }
 
@@ -423,6 +517,28 @@ ${source}`;
   private readonly handleExpandClick = () => {
     const position = this.getPos();
     if (position !== undefined) expandCodeBlock(this.view, position);
+  };
+
+  private readonly handleExpandAllClick = () => {
+    if (readCodeBlockControls(this.view.state).expanded) {
+      collapseAllCodeBlocks(this.view);
+    } else {
+      expandAllCodeBlocks(this.view);
+    }
+  };
+
+  private readonly handleSoftWrapClick = () => {
+    this.options.onSettingChange?.(
+      "softWrapCodeBlocks",
+      !readCodeBlockControls(this.view.state).softWrap,
+    );
+  };
+
+  private readonly handleLineNumbersClick = () => {
+    this.options.onSettingChange?.(
+      "displayCodeBlockLineNumbers",
+      !readCodeBlockControls(this.view.state).lineNumbers,
+    );
   };
 
   private readonly handleBadgeClick = () => {

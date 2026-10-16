@@ -105,6 +105,7 @@ export function DocumentScreen({ active, tab, wikiCompletionPaths }: DocumentScr
               autoPairBracketsAndQuotes={autoPairBracketsAndQuotes}
               displayCodeBlockLineNumbers={displayCodeBlockLineNumbers}
               softWrapCodeBlocks={softWrapCodeBlocks}
+              onCodeBlockSettingChange={updateSetting}
               documentFont={documentFont}
               textSize={textSize}
               lineSpacing={lineSpacing}

@@ -17,6 +17,7 @@ export {
   type MilkdownEditorProps,
 } from "./components/milkdown-editor";
 export type { CalloutTypeRequest } from "./plugins/calloutType";
+export type { CodeBlockSetting } from "./plugins/codeBlockControls";
 export type { CodeBlockLanguageRequest } from "./plugins/codeBlockLanguage";
 export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextPopup";
 export type { BlockInsertionRequest } from "./plugins/blockSelectionInteraction";

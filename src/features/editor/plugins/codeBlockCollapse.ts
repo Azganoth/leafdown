@@ -28,7 +28,7 @@ interface CodeBlockCollapseState {
 }
 
 interface CodeBlockCollapseMeta {
-  collapse?: number;
+  collapse?: readonly number[];
   expand?: readonly number[];
   reveal?: { from: number; to: number };
 }
@@ -124,14 +124,17 @@ const mapCollapsedBlock = (transaction: Transaction, position: number) => {
 const sameBlocks = (left: readonly number[], right: readonly number[]) =>
   left.length === right.length && left.every((position, index) => position === right[index]);
 
-const hiddenRangeAt = (doc: ProseMirrorNode, collapsed: readonly number[], position: number) => {
+const hidingBlockAt = (doc: ProseMirrorNode, blocks: readonly number[], position: number) => {
   const $position = doc.resolve(position);
   if (!isCodeBlock($position.parent)) return null;
   const block = $position.before();
-  if (!collapsed.includes(block)) return null;
+  if (!blocks.includes(block)) return null;
   const hidden = getHiddenRange($position.parent, block);
-  return hidden && isInsideHiddenRange(hidden, position) ? block : null;
+  return hidden && isInsideHiddenRange(hidden, position) ? { block, hidden } : null;
 };
+
+const hiddenRangeAt = (doc: ProseMirrorNode, collapsed: readonly number[], position: number) =>
+  hidingBlockAt(doc, collapsed, position)?.block ?? null;
 
 // A selection that only passes over hidden lines, such as Select all, leaves them collapsed; one
 // whose end lands on a hidden line cannot be seen there and expands its block.
@@ -163,7 +166,7 @@ const applyCollapseTransaction = (
     : value.collapsed;
   let collapsed = [...mapped];
 
-  if (meta?.collapse !== undefined) collapsed.push(meta.collapse);
+  if (meta?.collapse) collapsed.push(...meta.collapse);
   if (meta?.expand) collapsed = collapsed.filter((position) => !meta.expand!.includes(position));
   if (meta?.reveal) {
     const reached = findReachedBlocks(doc, collapsed, meta.reveal.from, meta.reveal.to);
@@ -235,29 +238,83 @@ export const expandCodeBlock = (view: EditorView, position: number) => {
   return true;
 };
 
-const selectionLeavingBlock = (state: EditorState, position: number, node: ProseMirrorNode) => {
-  const hidden = getHiddenRange(node, position);
-  if (!hidden) return null;
+const selectionLeavingBlocks = (state: EditorState, blocks: readonly number[]) => {
   const { from, to } = state.selection;
-  return isInsideHiddenRange(hidden, from) || isInsideHiddenRange(hidden, to)
-    ? TextSelection.create(state.doc, hidden.from)
-    : null;
+  const hiding = hidingBlockAt(state.doc, blocks, from) ?? hidingBlockAt(state.doc, blocks, to);
+  return hiding ? TextSelection.create(state.doc, hiding.hidden.from) : null;
 };
 
-// A collapse that would hide the caret or selection moves the caret to the end of the last line
-// the block still shows.
+// A collapse that would hide the caret or either end of the selection moves the caret to the end
+// of the last line that block still shows.
+const collapseCodeBlocks = (view: EditorView, blocks: readonly number[], scroll: boolean) => {
+  const { state } = view;
+  const transaction = state.tr.setMeta(codeBlockCollapsePluginKey, {
+    collapse: blocks,
+  } satisfies CodeBlockCollapseMeta);
+  const selection = selectionLeavingBlocks(state, blocks);
+  if (selection) {
+    transaction.setSelection(selection);
+    if (scroll) transaction.scrollIntoView();
+  }
+  view.dispatch(transaction);
+};
+
 export const collapseCodeBlock = (view: EditorView, position: number) => {
   const { state } = view;
   const node = state.doc.nodeAt(position);
   if (!node || !isCollapsibleCodeBlock(node) || getCollapsedCodeBlocks(state).includes(position)) {
     return false;
   }
-  const transaction = state.tr.setMeta(codeBlockCollapsePluginKey, {
-    collapse: position,
-  } satisfies CodeBlockCollapseMeta);
-  const selection = selectionLeavingBlock(state, position, node);
-  if (selection) transaction.setSelection(selection).scrollIntoView();
-  view.dispatch(transaction);
+  collapseCodeBlocks(view, [position], true);
+  return true;
+};
+
+// Every long block carries a node decoration naming its state, so the set lists them without
+// walking the document.
+const findCollapsibleCodeBlocks = (state: EditorState) =>
+  (
+    codeBlockCollapsePluginKey
+      .getState(state)
+      ?.decorations.find(
+        undefined,
+        undefined,
+        (spec: { leafdownCodeCollapse?: CodeBlockCollapse }) => !!spec.leafdownCodeCollapse,
+      ) ?? []
+  ).map((decoration) => decoration.from);
+
+export interface CodeBlockCollapseSummary {
+  collapsible: boolean;
+  expanded: boolean;
+}
+
+export const readCodeBlockCollapseSummary = (state: EditorState): CodeBlockCollapseSummary => {
+  const collapsed = getCollapsedCodeBlocks(state);
+  return {
+    collapsible: collapsed.length > 0 || findCollapsibleCodeBlocks(state).length > 0,
+    expanded: collapsed.length === 0,
+  };
+};
+
+export const expandAllCodeBlocks = (view: EditorView) => {
+  const collapsed = getCollapsedCodeBlocks(view.state);
+  if (collapsed.length === 0) return false;
+  view.dispatch(
+    view.state.tr.setMeta(codeBlockCollapsePluginKey, {
+      expand: collapsed,
+    } satisfies CodeBlockCollapseMeta),
+  );
+  return true;
+};
+
+// The caret a collapse moves stays where it lands rather than scrolling into view, since the
+// press came from a block that may be far from it.
+export const collapseAllCodeBlocks = (view: EditorView) => {
+  const collapsed = new Set(getCollapsedCodeBlocks(view.state));
+  const blocks = findCollapsibleCodeBlocks(view.state).filter(
+    (position) => !collapsed.has(position),
+  );
+  if (blocks.length === 0) return false;
+  collapseCodeBlocks(view, blocks, false);
   return true;
 };
 

@@ -56,6 +56,7 @@ Global settings persist across application launches unless specified otherwise.
   - A soft-wrapped line keeps one number, on its first row. The gutter stays in place while long lines scroll horizontally.
   - The numbers are presentation only. They cannot be selected, and they are left out of copied text, saved Markdown, word and character counts, and what assistive technology reads. Changing the setting updates open documents without modifying them.
 - **Soft wrap for code blocks:** On or Off. Default: Off.
+- Both code block settings can also be toggled from the controls on any code block, which change the setting itself. [Blocks](./specification.md#blocks) describes the controls.
 
 ### Output
 

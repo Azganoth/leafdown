@@ -518,35 +518,51 @@
       @apply rounded-sm border border-border/50 bg-muted/50 px-1 py-0.5 font-mono text-sm text-muted-foreground;
     }
 
+    /* Every block reserves a header row, so the controls it shows only while being worked in
+       never cover its code. */
     pre {
-      @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 font-mono text-sm leading-(--leafdown-code-line-height) whitespace-pre text-foreground;
+      @apply relative my-5 max-w-full overflow-x-auto rounded-md border border-border/50 bg-muted/50 p-4 pt-9 font-mono text-sm leading-(--leafdown-code-line-height) whitespace-pre text-foreground;
+
+      /* The header floats rather than anchoring to the block, because an absolute child of a
+         horizontally scrolling box travels with the content it is meant to label. Its pieces share
+         one float: a float pulled up by more than its own height takes no room, so separate floats
+         would overlap. */
+      .leafdown-code-header {
+        @apply float-right -mt-7 -mr-1 flex items-center;
+      }
 
       .leafdown-code-language {
-        @apply cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
+        @apply ml-1.5 cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground select-none hover:border-border hover:text-foreground;
       }
 
-      /* The badge floats rather than anchoring to the block, because an absolute child of a
-         horizontally scrolling box travels with the content it is meant to label. */
-      &:is([data-language], [data-leafdown-code-collapse="expanded"]) {
-        @apply pt-9;
-
-        .leafdown-code-language {
-          @apply float-right -mt-7 -mr-1 ml-1.5;
-        }
-      }
-
-      /* A block without a language reserves no room for a badge it shows only while being worked
-         in, so the badge sits over the corner instead of pushing the code down when it appears. */
-      &:not([data-language]) .leafdown-code-language {
+      &:not([data-language]) .leafdown-code-language,
+      .leafdown-code-controls {
         @apply pointer-events-none opacity-0 transition-opacity motion-reduce:transition-none;
       }
 
-      &:not([data-language], [data-leafdown-code-collapse="expanded"]) .leafdown-code-language {
-        @apply absolute top-1 right-1;
+      &:is(:hover, .leafdown-code-block--active) {
+        &:not([data-language]) .leafdown-code-language,
+        .leafdown-code-controls {
+          @apply pointer-events-auto opacity-100;
+        }
       }
 
-      &:not([data-language]):is(:hover, .leafdown-code-block--active) .leafdown-code-language {
-        @apply pointer-events-auto opacity-100;
+      .leafdown-code-controls {
+        @apply mr-1 flex items-center gap-0.5 select-none;
+      }
+
+      .leafdown-code-control {
+        @apply flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground hover:bg-foreground/8 hover:text-foreground;
+
+        &[aria-pressed="true"] {
+          @apply bg-foreground/8 text-foreground hover:bg-foreground/12;
+        }
+
+        svg {
+          @apply size-3.5 fill-none stroke-current stroke-2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+        }
       }
 
       .leafdown-code-chevron {
@@ -554,7 +570,7 @@
       }
 
       .leafdown-code-collapse {
-        @apply float-right -mt-7 flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground select-none hover:bg-foreground/8 hover:text-foreground;
+        @apply flex size-6 cursor-pointer items-center justify-center rounded-sm text-muted-foreground select-none hover:bg-foreground/8 hover:text-foreground;
 
         .leafdown-code-chevron {
           @apply mt-0.5 -rotate-135;
@@ -588,7 +604,7 @@
           [data-math-code-rendered="true"]:not(.leafdown-code-block--active),
           [data-mermaid-mode="diagram"]
         )
-        :is(.leafdown-code-collapse, .leafdown-code-expand) {
+        :is(.leafdown-code-collapse, .leafdown-code-expand, .leafdown-code-controls) {
         @apply hidden;
       }
 

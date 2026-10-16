@@ -81,6 +81,7 @@ export interface SettingsState {
   lineSpacing: DocumentLineSpacing;
   recordRecentItems: boolean;
   sidebarVisible: boolean;
+  showAllFiles: boolean;
   statusBarVisible: boolean;
   outlineDepth: OutlineDepth;
   alwaysOnTop: boolean;
@@ -115,6 +116,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   lineSpacing: "default",
   recordRecentItems: true,
   sidebarVisible: true,
+  showAllFiles: false,
   statusBarVisible: true,
   outlineDepth: 3,
   alwaysOnTop: false,
@@ -142,6 +144,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   lineSpacing: oneOf(DOCUMENT_LINE_SPACINGS),
   recordRecentItems: booleanValue,
   sidebarVisible: booleanValue,
+  showAllFiles: booleanValue,
   statusBarVisible: booleanValue,
   outlineDepth: oneOf(OUTLINE_DEPTHS),
   alwaysOnTop: booleanValue,

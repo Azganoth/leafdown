@@ -226,6 +226,7 @@ function GeneralPreferences() {
   const { t } = useLocalization();
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const recordRecentItems = useSettingsStore((state) => state.recordRecentItems);
+  const showAllFiles = useSettingsStore((state) => state.showAllFiles);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
@@ -256,6 +257,12 @@ function GeneralPreferences() {
         value={articleSortOrder}
         options={ARTICLE_SORT_OPTIONS.map(({ labelId, value }) => ({ label: t(labelId), value }))}
         onValueChange={(value) => updateSetting("articleSortOrder", value)}
+      />
+      <PreferenceSwitch
+        label={t("preferences.showAllFiles.label")}
+        description={t("preferences.showAllFiles.description")}
+        checked={showAllFiles}
+        onCheckedChange={(checked) => updateSetting("showAllFiles", checked)}
       />
     </FieldGroup>
   );

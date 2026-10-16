@@ -5,6 +5,7 @@ import { createArticleTree } from "@/test/factories/folderContext";
 import {
   buildArticleNavigatorRows,
   filterArticleTreeByArticleName,
+  filterArticleTreeToArticles,
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
   getArticleFileCount,
@@ -218,6 +219,99 @@ describe("article navigator rows", () => {
         "C:/Notes/guide.md",
         "C:/Notes/guide.pdf",
       ]);
+    });
+
+    it("keeps articles, directories leading to them, and directories holding no file", () => {
+      const tree = createArticleTree({
+        children: [
+          {
+            kind: "directory",
+            name: "assets",
+            path: "C:/Notes/assets",
+            children: [
+              { kind: "directory", name: "raw", path: "C:/Notes/assets/raw", children: [] },
+              { kind: "unsupportedFile", name: "cover.png", path: "C:/Notes/assets/cover.png" },
+            ],
+          },
+          {
+            kind: "directory",
+            name: "docs",
+            path: "C:/Notes/docs",
+            children: [
+              {
+                kind: "directory",
+                name: "media",
+                path: "C:/Notes/docs/media",
+                children: [
+                  { kind: "unsupportedFile", name: "a.png", path: "C:/Notes/docs/media/a.png" },
+                ],
+              },
+              {
+                kind: "directory",
+                name: "nested",
+                path: "C:/Notes/docs/nested",
+                children: [
+                  { kind: "file", name: "deep.md", path: "C:/Notes/docs/nested/deep.md" },
+                  { kind: "unsupportedFile", name: "b.txt", path: "C:/Notes/docs/nested/b.txt" },
+                ],
+              },
+              { kind: "directory", name: "todo", path: "C:/Notes/docs/todo", children: [] },
+            ],
+          },
+          {
+            kind: "directory",
+            name: "empty",
+            path: "C:/Notes/empty",
+            children: [
+              { kind: "directory", name: "inner", path: "C:/Notes/empty/inner", children: [] },
+            ],
+          },
+          { kind: "file", name: "guide.md", path: "C:/Notes/guide.md" },
+          { kind: "unsupportedFile", name: "guide.pdf", path: "C:/Notes/guide.pdf" },
+        ],
+      });
+
+      expect(getArticleTreeEntryPaths(filterArticleTreeToArticles(tree))).toEqual([
+        "C:/Notes/docs",
+        "C:/Notes/docs/nested",
+        "C:/Notes/docs/nested/deep.md",
+        "C:/Notes/docs/todo",
+        "C:/Notes/empty",
+        "C:/Notes/empty/inner",
+        "C:/Notes/guide.md",
+      ]);
+    });
+
+    it("lists nothing for a folder holding only unsupported files", () => {
+      const tree = createArticleTree({
+        children: [
+          {
+            kind: "directory",
+            name: "assets",
+            path: "C:/Notes/assets",
+            children: [
+              { kind: "unsupportedFile", name: "cover.png", path: "C:/Notes/assets/cover.png" },
+            ],
+          },
+          { kind: "unsupportedFile", name: "guide.pdf", path: "C:/Notes/guide.pdf" },
+        ],
+      });
+
+      expect(filterArticleTreeToArticles(tree).children).toEqual([]);
+    });
+
+    it("builds rows from the article listing without unsupported-only directories", () => {
+      const rows = buildArticleNavigatorRows({
+        activeArticlePath: null,
+        expandedDirectoryPaths: ["C:/Notes/assets"],
+        tree: filterArticleTreeToArticles(mixedTree),
+      });
+
+      expect(rows.map(({ kind, name }) => [kind, name])).toEqual([
+        ["directory", "empty"],
+        ["file", "guide.md"],
+      ]);
+      expect(rows[1]).toMatchObject({ posInSet: 2, setSize: 2 });
     });
   });
 });

@@ -126,6 +126,47 @@ export const getArticleTreeEntryPaths = (tree: ArticleTree) =>
 export const getArticleFileCount = (tree: ArticleTree) =>
   flattenArticleTree(tree).filter(({ node }) => node.kind === "file").length;
 
+export const filterArticleTreeToArticles = (tree: ArticleTree): ArticleTree => ({
+  ...tree,
+  children: filterArticleTreeNodesToArticles(tree.children).nodes,
+});
+
+interface ArticleTreeNodesToArticles {
+  holdsArticle: boolean;
+  holdsFile: boolean;
+  nodes: ArticleTreeNode[];
+}
+
+// A directory holding no file at any depth stays listed, so a folder just created can be found.
+const filterArticleTreeNodesToArticles = (nodes: ArticleTreeNode[]): ArticleTreeNodesToArticles => {
+  let holdsArticle = false;
+  let holdsFile = false;
+
+  const listedNodes = nodes.flatMap((node): ArticleTreeNode[] => {
+    switch (node.kind) {
+      case "file":
+        holdsArticle = true;
+        holdsFile = true;
+        return [node];
+      case "unsupportedFile":
+        holdsFile = true;
+        return [];
+      case "directory": {
+        const children = filterArticleTreeNodesToArticles(node.children);
+
+        holdsArticle ||= children.holdsArticle;
+        holdsFile ||= children.holdsFile;
+
+        return children.holdsArticle || !children.holdsFile
+          ? [{ ...node, children: children.nodes }]
+          : [];
+      }
+    }
+  });
+
+  return { holdsArticle, holdsFile, nodes: listedNodes };
+};
+
 export const filterArticleTreeByArticleName = (tree: ArticleTree, query: string): ArticleTree => {
   const normalizedQuery = query.trim().toLowerCase();
 

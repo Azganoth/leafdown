@@ -459,6 +459,16 @@ See [Reference](./reference.md) for current and Deferred settings, command surfa
 - After a version change, What's new opens automatically once if Leafdown has a recorded previous version, the new version has usable notes, and those notes have not been shown before. First installation never opens it automatically. Showing it automatically or manually records that version as seen across restarts; the Help command remains available for manual reopening. A version without notes is recorded as launched without showing a dialog.
 - Opening, scrolling, and closing release notes leave the active document, folder, recent items, and editor state unchanged. Escape and the Close control dismiss the dialog and return focus to the prior surface.
 
+### Update Check
+
+- `Help > Check for updates` is the only thing that checks. Leafdown never checks at launch, in the background, or again after a failure, and has no setting for it. It reads the public GitHub release list for Leafdown and sends no document text, paths, diagnostics, settings, or the running version; the comparison happens locally.
+- While the check runs, a toast says so, and the same toast then shows the result. Choosing the command again during a check joins it.
+- The running version chooses what is offered. A pre-release build is offered the newest release of any kind, and a stable build only newer stable releases. Versions compare by SemVer precedence, so `0.1.0-alpha.3` < `0.1.0-alpha.4` < `0.1.0`. Drafts and tags that are not versions are never offered.
+- When nothing newer is offered, the toast says Leafdown is up to date and names the running version.
+- When a newer release is offered, the toast names it and the running version and stays until dismissed. Its `View release` action opens that release's GitHub page in the system browser. Nothing is downloaded or installed.
+- With no network, a timeout, a GitHub rate limit, or a response Leafdown cannot read, the toast says the check could not complete and why. The request uses no system proxy, so a network that requires one cannot check.
+- A check never changes documents, their unsaved state, tabs, folders, or windows.
+
 ### Keyboard Shortcuts Reference
 
 - `Help > Keyboard shortcuts` and `Mod+/` open the same read-only reference. It groups implemented command shortcuts by menu and shows every registered binding, whether or not a command is currently enabled. Documented Leafdown-owned editor keys that have no command are listed with their editor interactions. Deferred, absent, and shortcut-less commands do not appear.

@@ -287,7 +287,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Report issue**
 - **Request feature**
 - **Changelog**
-- **Check for updates** (Deferred)
+- **Check for updates**: Reports whether a newer release exists and offers to open its page; see [Update check](./specification.md#update-check).
 - **Support / Donate** (Deferred)
 - **Open DevTools**
 - **Diagnostics...**
@@ -399,10 +399,9 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Toggle sidebar`, `Sort articles by`, `Show all files`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 - `Find in folder` and `Replace in folder` require a folder context, with or without an open document.
 
-#### Search And Updates
+#### Search
 
 - `Find next` and `Find previous` require a query entered for the active document. The query outlasts closing the search surface.
-- `Check for updates` requires an available update mechanism in the current build.
 
 ### Checked And Radio State
 

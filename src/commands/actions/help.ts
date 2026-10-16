@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import { showChangelog, showWhatsNew } from "@/features/release-notes";
+import { checkForNewerRelease } from "@/features/updates";
 import { notifyOperationFailure } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 
@@ -49,6 +50,7 @@ export const openSettingsReference = () => {
 
 export const openWhatsNew = showWhatsNew;
 export const openChangelog = showChangelog;
+export const checkForUpdates = checkForNewerRelease;
 
 const openFeedbackForm = async (template: "bug.yml" | "feature.yml") => {
   try {

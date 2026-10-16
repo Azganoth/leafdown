@@ -189,6 +189,7 @@
 - Configuration, recent lists, and a kept session persist locally.
 - Network access is not required for standard operations.
 - Loading a remote image is optional network use that only an explicit per-image action starts; nothing depends on it.
+- Checking for updates is optional network use that only `Help > Check for updates` starts. It reads the public release list, sends nothing about the installation, and never checks on its own.
 
 ### User-accessible debugging
 
@@ -636,6 +637,19 @@ Explicit modes made each diagram edit a two-control round trip that no other ren
 - Making Leafdown the default is the user's step in Windows.
 - The registration follows the extension registry through lists the build script generates, so a new built-in extension needs no installer edit.
 - Moving to Tauri's metadata requires its templates to stop writing the extension default.
+
+### Notify of newer releases without installing them
+
+**Decision:** `Help > Check for updates` reads the public GitHub release list through the Rust backend, compares versions locally, and offers to open a newer release's page in the system browser. Leafdown does not download or install updates, and it does not check automatically. The running version chooses the channel: a pre-release build is offered the newest release of any kind, and a stable build only newer stable releases, by SemVer precedence. Decided in [issue #729](https://github.com/Azganoth/leafdown/issues/729).
+
+**Rationale:** Only the latest release receives security fixes, so users need a way to learn one exists, and a manual check is the network use Local-first allows. Tauri's updater requires signed artifacts: every installed copy pins the public key, so a lost signing key strands existing installs and a leaked one ships code to every user, a custody burden a single maintainer takes on before any benefit. Its documented static manifest endpoint resolves only the newest stable release, and on Windows it exits the process to run the installer, skipping Leafdown's Quit sequence. GitHub's latest-release endpoint skips pre-releases as well, so the check reads the release list instead.
+
+**Consequences:**
+
+- The request reuses the remote image fetch's client: no proxy, cookies, or `Referer`, and only public addresses. A network that requires a proxy cannot check.
+- The request carries no version; its user agent names Leafdown alone. Unauthenticated requests share GitHub's limit of 60 an hour per IP address, and reaching it reports a failed check.
+- Users install an update with the installer they chose, and the installed release's What's new explains it.
+- Adopting Tauri's updater later is additive and needs a signing key, a manifest the alpha channel can reach, and an install that runs only after Quit has finished.
 
 ### Free app with optional donation support
 

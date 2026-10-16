@@ -47,6 +47,39 @@ export const notifyErrorWithActionMenu = (message: MessageData, actionMenu: Toas
   });
 };
 
+export interface ToastActionButton {
+  label: string;
+  run: () => void;
+}
+
+type PendingToastOutcome = "error" | "info" | "success";
+
+/**
+ * Shows a loading toast and returns a function that turns it into its outcome in place. An outcome
+ * that offers an action stays until dismissed or used.
+ */
+export const notifyPending = (title: string) => {
+  const toastId = toastManager.add({ title, type: "loading" });
+
+  return (type: PendingToastOutcome, message: MessageData, action?: ToastActionButton) => {
+    toastManager.update(toastId, {
+      description: message.description,
+      title: message.title,
+      type,
+      ...(action && {
+        actionProps: {
+          children: action.label,
+          onClick: () => {
+            toastManager.close(toastId);
+            action.run();
+          },
+        },
+        timeout: 0,
+      }),
+    });
+  };
+};
+
 export function notifySuccess(message: MessageData): void;
 export function notifySuccess(title: string, description?: string): void;
 export function notifySuccess(messageOrTitle: MessageData | string, description?: string) {

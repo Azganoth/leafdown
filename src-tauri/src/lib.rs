@@ -23,8 +23,11 @@ mod navigation;
 mod path_utils;
 mod remote_image;
 #[cfg(test)]
+mod test_http_server;
+#[cfg(test)]
 mod test_utils;
 mod text_encoding;
+mod update_check;
 mod watch_scope;
 mod window;
 mod window_documents;
@@ -155,6 +158,7 @@ pub fn run() {
             kept_session::restore_window_session,
             launch::take_launch_document_paths,
             remote_image::fetch_remote_image,
+            update_check::check_for_updates,
             link::resolve_markdown_link_target,
             link::resolve_wiki_link_target,
             link::open_markdown_link_target,

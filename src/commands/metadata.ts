@@ -226,6 +226,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "help.reportIssue": commandDef(),
   "help.requestFeature": commandDef(),
   "help.changelog": commandDef(),
+  "help.checkForUpdates": commandDef(),
   "help.openDevTools": commandDef(),
   "help.diagnostics": commandDef(),
   "help.about": commandDef(),

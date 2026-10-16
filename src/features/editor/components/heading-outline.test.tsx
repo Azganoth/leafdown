@@ -4,6 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import type { HeadingOutlineState, OutlineDepth } from "../utils/headingOutline";
 import { HeadingOutline } from "./heading-outline";
@@ -58,6 +59,15 @@ describe("HeadingOutline", () => {
     expect(getRow("Heading 2: Gear")).toHaveAttribute("tabindex", "-1");
     expect(getRow("Heading 2: Gear")).toHaveAttribute("data-folded");
     expect(getRow("Heading 3: Water")).not.toHaveAttribute("data-folded");
+  });
+
+  it("shows each heading's title, after the container holding it, in a tooltip", async () => {
+    const { user } = renderWithUser(<OutlineHarness />);
+    const nested = getRow("Heading 3: Bail-out points, in Callout");
+
+    expect(nested).not.toHaveAttribute("title");
+    expect(await hoverTooltip(user, nested)).toHaveTextContent("Callout › Bail-out points");
+    expect(await hoverTooltip(user, getRow("Heading 3: Water"))).toHaveTextContent(/^Water$/u);
   });
 
   it("opens on hover at the pointed heading and closes after the pointer leaves", async () => {

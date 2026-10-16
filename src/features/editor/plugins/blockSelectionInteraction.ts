@@ -9,9 +9,9 @@ import type { Disposable } from "@/lib/lifecycle";
 
 import { canInsertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import {
-  EDITOR_OVERLAY_ATTRIBUTE,
   getEditorSurfaceElementAt,
   isEditorSurfaceElement,
+  markEditorOverlay,
 } from "../utils/editorSurface";
 import { getRenderedLinkAtTarget } from "../utils/renderedLinks";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
@@ -26,6 +26,7 @@ import {
   canMoveSelectedBlocksToBoundary,
   moveSelectedBlocksToBoundary,
 } from "./blockSelectionOperations";
+import { setControlTooltip } from "./controlTooltip";
 import { isHeadingFoldMarkerAt } from "./headingFold";
 
 export const leafdownBlockSelectionPluginKey = new PluginKey("leafdownBlockSelection");
@@ -98,7 +99,7 @@ const labelBlockHandle = (handle: HTMLButtonElement, node: ProseMirrorNode) => {
   const label = t("editor.blockSelection.selectHandle", getBlockLabelValues(node));
 
   handle.setAttribute("aria-label", label);
-  handle.title = label;
+  setControlTooltip(handle, label);
 };
 
 const getSelectionDecorations = (state: EditorState) =>
@@ -212,7 +213,7 @@ class BlockSelectionView {
     const doc = view.dom.ownerDocument;
     this.overlay = doc.createElement("div");
     this.overlay.className = "leafdown-block-gutter-layer";
-    this.overlay.setAttribute(EDITOR_OVERLAY_ATTRIBUTE, "");
+    markEditorOverlay(view, this.overlay);
 
     this.insertionIndicator = doc.createElement("div");
     this.insertionIndicator.className = "leafdown-block-insertion-indicator";
@@ -320,7 +321,7 @@ class BlockSelectionView {
 
   private labelInsertionButton() {
     this.insertionButton.setAttribute("aria-label", t("editor.blockSelection.insertAtBoundary"));
-    this.insertionButton.title = t("editor.blockSelection.insert");
+    setControlTooltip(this.insertionButton, t("editor.blockSelection.insert"));
   }
 
   private readonly relabel = () => {

@@ -25,6 +25,7 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 
 interface CommandPaletteProps {
@@ -139,7 +140,6 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
                         className="h-16 snap-start gap-3 px-3"
                         disabled={!state.enabled}
                         onSelect={() => execute(id)}
-                        title={!state.enabled ? state.reason : undefined}
                         value={id}
                       >
                         <span className="min-w-0 flex-1">
@@ -148,7 +148,12 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
                             {menuPath}
                           </span>
                           {!state.enabled && state.reason && (
-                            <span className="block truncate text-xs">{state.reason}</span>
+                            <Tooltip>
+                              <TooltipTrigger render={<span className="block truncate text-xs" />}>
+                                {state.reason}
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">{state.reason}</TooltipContent>
+                            </Tooltip>
                           )}
                         </span>
                         {shortcut && <CommandShortcut>{formatShortcut(shortcut)}</CommandShortcut>}

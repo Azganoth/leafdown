@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { COMMAND_DEFINITIONS, getShortcutKeyLabels, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
 import { useRecentItemsStore, type RecentItem } from "@/features/preferences";
@@ -320,42 +321,54 @@ function RecentItemRow({
 
   return (
     <li className="group/recent-item relative flex min-w-0 items-center rounded-md hover:bg-muted dark:hover:bg-muted/50">
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => onOpenItem(path)}
-        title={path}
-        className="h-auto min-w-0 flex-1 justify-start gap-3 px-2 py-1.5 hover:bg-transparent dark:hover:bg-transparent"
-      >
-        <Icon className="text-muted-foreground" />
-        <span className="flex min-w-0 flex-1 flex-col items-start text-left">
-          <span className="w-full truncate">{name}</span>
-          <span className="w-full truncate text-xs font-normal text-muted-foreground">
-            {parent}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenItem(path)}
+              className="h-auto min-w-0 flex-1 justify-start gap-3 px-2 py-1.5 hover:bg-transparent dark:hover:bg-transparent"
+            />
+          }
+        >
+          <Icon className="text-muted-foreground" />
+          <span className="flex min-w-0 flex-1 flex-col items-start text-left">
+            <span className="w-full truncate">{name}</span>
+            <span className="w-full truncate text-xs font-normal text-muted-foreground">
+              {parent}
+            </span>
           </span>
-        </span>
-        <span className="flex min-w-7 shrink-0 justify-end">
-          {openedAt !== undefined && (
-            <time
-              dateTime={new Date(openedAt).toISOString()}
-              className="text-xs font-normal text-muted-foreground group-hover/recent-item:invisible group-has-[:focus-visible]/recent-item:invisible"
-            >
-              {formatRelativeTime(openedAt, now)}
-            </time>
-          )}
-        </span>
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => onRemoveItem(path)}
-        aria-label={t(messageIds.remove, { name })}
-        title={t(messageIds.removeTitle)}
-        className="absolute right-1 text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 group-has-[:focus-visible]/recent-item:opacity-100 hover:bg-background/70 dark:hover:bg-background/40"
-      >
-        <XIcon />
-      </Button>
+          <span className="flex min-w-7 shrink-0 justify-end">
+            {openedAt !== undefined && (
+              <time
+                dateTime={new Date(openedAt).toISOString()}
+                className="text-xs font-normal text-muted-foreground group-hover/recent-item:invisible group-has-[:focus-visible]/recent-item:invisible"
+              >
+                {formatRelativeTime(openedAt, now)}
+              </time>
+            )}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{path}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => onRemoveItem(path)}
+              aria-label={t(messageIds.remove, { name })}
+              className="absolute right-1 text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 group-has-[:focus-visible]/recent-item:opacity-100 hover:bg-background/70 dark:hover:bg-background/40"
+            />
+          }
+        >
+          <XIcon />
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{t(messageIds.removeTitle)}</TooltipContent>
+      </Tooltip>
     </li>
   );
 }

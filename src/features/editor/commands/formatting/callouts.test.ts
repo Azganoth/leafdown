@@ -255,7 +255,7 @@ describe("callout type changes", () => {
     expect(header.firstElementChild).toBe(icon);
     expect(icon).toHaveTextContent("");
     expect(icon).toHaveAccessibleName("Callout type: tip");
-    expect(icon).toHaveAttribute("title", "Callout type: tip");
+    expect(icon).not.toHaveAttribute("title");
     expect(icon.tabIndex).toBe(-1);
 
     icon.click();

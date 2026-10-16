@@ -40,7 +40,13 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  createTooltipHandle,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  type TooltipHandle,
+} from "@/components/ui/tooltip";
 import {
   VirtualList,
   VirtualListContent,
@@ -350,9 +356,12 @@ export function ArticleNavigator({
     <Card size="sm" className="min-h-0 min-w-0 flex-1">
       <CardHeader className="shrink-0">
         <CardTitle className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate" title={folderContext.path}>
-            {folderContext.tree.name || folderContext.path}
-          </span>
+          <Tooltip>
+            <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
+              {folderContext.tree.name || folderContext.path}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{folderContext.path}</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger
               render={
@@ -386,13 +395,22 @@ export function ArticleNavigator({
             </InputGroupAddon>
             {filterQuery && (
               <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  aria-label={t("articleNavigator.filter.clear")}
-                  onClick={() => setFilterQuery("")}
-                  size="icon-xs"
-                >
-                  <XIcon data-icon="inline-end" />
-                </InputGroupButton>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <InputGroupButton
+                        aria-label={t("articleNavigator.filter.clear")}
+                        onClick={() => setFilterQuery("")}
+                        size="icon-xs"
+                      />
+                    }
+                  >
+                    <XIcon data-icon="inline-end" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {t("articleNavigator.filter.clear")}
+                  </TooltipContent>
+                </Tooltip>
               </InputGroupAddon>
             )}
           </InputGroup>
@@ -553,6 +571,7 @@ function ArticleNavigatorRows({
   rows,
 }: ArticleNavigatorRowsProps) {
   const { t } = useLocalization();
+  const [rowTooltip] = useState(() => createTooltipHandle<string>());
   const virtualListRef = useRef<VirtualListHandle>(null);
   const revealPath = useArticleNavigatorStore((state) => state.revealPath);
   const revealRequestId = useArticleNavigatorStore((state) => state.revealRequestId);
@@ -726,59 +745,69 @@ function ArticleNavigatorRows({
   };
 
   return (
-    <VirtualList
-      className="min-h-0 flex-1"
-      estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
-      getItemKey={(row) => row.path}
-      items={rows}
-      pinnedIndexes={[focusedIndex, revealRowIndex, editRowIndex]}
-      virtualListRef={virtualListRef}
-    >
-      <VirtualListContent
-        aria-label={t("articleNavigator.tree.label")}
-        className="mx-1"
-        onBlur={() => {
-          hasRowFocusRef.current = false;
-        }}
-        onKeyDown={handleKeyDown}
-        role="tree"
+    <>
+      <VirtualList
+        className="min-h-0 flex-1"
+        estimateHeight={ARTICLE_NAVIGATOR_ROW_HEIGHT}
+        getItemKey={(row) => row.path}
+        items={rows}
+        pinnedIndexes={[focusedIndex, revealRowIndex, editRowIndex]}
+        virtualListRef={virtualListRef}
       >
-        <VirtualListItems<ArticleNavigatorRow>>
-          {(row, virtualRow, index) => (
-            <ArticleNavigatorTreeItem
-              key={row.path}
-              isTabStop={index === focusedIndex}
-              nameEditor={
-                index === editRowIndex && edit ? (
-                  <EntryNameEditor
-                    entryKind={edit.entryKind}
-                    initialName={edit.kind === "rename" ? edit.name : ""}
-                    onCancel={onCancelEdit}
-                    onCommit={onCommitEdit}
-                    onFinish={onFinishEdit}
-                  />
-                ) : null
-              }
-              onActivate={() => activateRow(index)}
-              onKeep={
-                row.kind === "file" && onKeepArticle && index !== editRowIndex
-                  ? () => onKeepArticle(row.path)
-                  : undefined
-              }
-              onFocus={() => {
-                hasRowFocusRef.current = true;
-                setFocus((currentFocus) => ({ ...currentFocus, path: row.path }));
-              }}
-              registerElement={(element) =>
-                registerRowElement(rowElementsRef.current, row, element)
-              }
-              row={row}
-              virtualRow={virtualRow}
-            />
-          )}
-        </VirtualListItems>
-      </VirtualListContent>
-    </VirtualList>
+        <VirtualListContent
+          aria-label={t("articleNavigator.tree.label")}
+          className="mx-1"
+          onBlur={() => {
+            hasRowFocusRef.current = false;
+          }}
+          onKeyDown={handleKeyDown}
+          role="tree"
+        >
+          <VirtualListItems<ArticleNavigatorRow>>
+            {(row, virtualRow, index) => (
+              <ArticleNavigatorTreeItem
+                key={row.path}
+                isTabStop={index === focusedIndex}
+                nameEditor={
+                  index === editRowIndex && edit ? (
+                    <EntryNameEditor
+                      entryKind={edit.entryKind}
+                      initialName={edit.kind === "rename" ? edit.name : ""}
+                      onCancel={onCancelEdit}
+                      onCommit={onCommitEdit}
+                      onFinish={onFinishEdit}
+                    />
+                  ) : null
+                }
+                onActivate={() => activateRow(index)}
+                onKeep={
+                  row.kind === "file" && onKeepArticle && index !== editRowIndex
+                    ? () => onKeepArticle(row.path)
+                    : undefined
+                }
+                onFocus={() => {
+                  hasRowFocusRef.current = true;
+                  setFocus((currentFocus) => ({ ...currentFocus, path: row.path }));
+                }}
+                registerElement={(element) =>
+                  registerRowElement(rowElementsRef.current, row, element)
+                }
+                row={row}
+                tooltip={rowTooltip}
+                virtualRow={virtualRow}
+              />
+            )}
+          </VirtualListItems>
+        </VirtualListContent>
+      </VirtualList>
+      <Tooltip handle={rowTooltip}>
+        {({ payload }) => (
+          <TooltipContent className="whitespace-pre-line" side="right">
+            {payload}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </>
   );
 }
 
@@ -828,6 +857,7 @@ interface ArticleNavigatorTreeItemProps {
   onKeep?: () => void;
   registerElement: (element: HTMLLIElement | null) => void;
   row: ArticleNavigatorRow;
+  tooltip: TooltipHandle<string>;
   virtualRow: VirtualItem;
 }
 
@@ -839,6 +869,7 @@ function ArticleNavigatorTreeItem({
   onKeep,
   registerElement,
   row,
+  tooltip,
   virtualRow,
 }: ArticleNavigatorTreeItemProps) {
   const { t } = useLocalization();
@@ -850,38 +881,44 @@ function ArticleNavigatorTreeItem({
     : undefined;
 
   return (
-    <VirtualListItem
-      aria-description={unsupportedFileDescription}
-      aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
-      aria-label={
-        row.kind === "draft"
-          ? t("articleNavigator.draftRow.label", { entryKind: row.entryKind })
-          : undefined
-      }
-      aria-level={row.depth + 1}
-      aria-posinset={row.posInSet}
-      aria-selected={row.kind === "file" && row.isActive}
-      aria-setsize={row.setSize}
-      className={cn(
-        buttonVariants({ variant: "ghost" }),
-        "active-item-marker h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
-        isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
-      )}
-      data-active={row.kind === "file" ? row.isActive : undefined}
-      data-navigator-path={row.kind === "draft" ? undefined : row.path}
-      onClick={nameEditor ? undefined : onActivate}
-      onDoubleClick={nameEditor ? undefined : onKeep}
-      onFocus={onFocus}
-      ref={registerElement}
-      role="treeitem"
-      style={{ paddingLeft: `${row.depth * 14 + (isFileRow ? 23 : 6)}px` }}
-      tabIndex={isTabStop ? 0 : -1}
-      title={
+    <TooltipTrigger
+      disabled={row.kind === "draft" || nameEditor !== null}
+      handle={tooltip}
+      payload={
         row.kind === "draft"
           ? undefined
           : [row.path, unsupportedFileDescription].filter(Boolean).join("\n")
       }
-      virtualRow={virtualRow}
+      render={
+        <VirtualListItem
+          aria-description={unsupportedFileDescription}
+          aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
+          aria-label={
+            row.kind === "draft"
+              ? t("articleNavigator.draftRow.label", { entryKind: row.entryKind })
+              : undefined
+          }
+          aria-level={row.depth + 1}
+          aria-posinset={row.posInSet}
+          aria-selected={row.kind === "file" && row.isActive}
+          aria-setsize={row.setSize}
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "active-item-marker h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
+            isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
+          )}
+          data-active={row.kind === "file" ? row.isActive : undefined}
+          data-navigator-path={row.kind === "draft" ? undefined : row.path}
+          onClick={nameEditor ? undefined : onActivate}
+          onDoubleClick={nameEditor ? undefined : onKeep}
+          onFocus={onFocus}
+          ref={registerElement}
+          role="treeitem"
+          style={{ paddingLeft: `${row.depth * 14 + (isFileRow ? 23 : 6)}px` }}
+          tabIndex={isTabStop ? 0 : -1}
+          virtualRow={virtualRow}
+        />
+      }
     >
       {row.kind === "directory" ? (
         <DirectoryRowContent nameEditor={nameEditor} row={row} />
@@ -890,7 +927,7 @@ function ArticleNavigatorTreeItem({
       ) : (
         <FileRowContent nameEditor={nameEditor} row={row} />
       )}
-    </VirtualListItem>
+    </TooltipTrigger>
   );
 }
 

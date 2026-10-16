@@ -14,9 +14,9 @@ import {
   moveTableRowsTo,
 } from "../commands/formatting/tables";
 import {
-  EDITOR_OVERLAY_ATTRIBUTE,
   getEditorSurfaceElementAt,
   isEditorSurfaceElement,
+  markEditorOverlay,
 } from "../utils/editorSurface";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
 import {
@@ -25,6 +25,7 @@ import {
   type TableAxis,
   type TableAxisRange,
 } from "../utils/tables";
+import { setControlTooltip } from "./controlTooltip";
 import { finalizeSourceProjection } from "./sourceProjection";
 
 export const leafdownTableControlsPluginKey = new PluginKey("leafdownTableControls");
@@ -187,7 +188,7 @@ class TableControlsView {
     const doc = view.dom.ownerDocument;
     this.layer = doc.createElement("div");
     this.layer.className = "leafdown-table-controls-layer";
-    this.layer.setAttribute(EDITOR_OVERLAY_ATTRIBUTE, "");
+    markEditorOverlay(view, this.layer);
 
     this.indicator = doc.createElement("div");
     this.indicator.className = "leafdown-table-indicator";
@@ -269,7 +270,7 @@ class TableControlsView {
 
     for (const [control, label] of labels) {
       control.setAttribute("aria-label", label);
-      control.title = label;
+      setControlTooltip(control, label);
     }
   };
 

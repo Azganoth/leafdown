@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { ARTIFACTS_DIR } from "../support/artifacts.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { getSaveMenuItem } from "../support/ui.js";
+import { findMenuItem, getSaveMenuItem, openMenu, openRecentPath } from "../support/ui.js";
 
 const diagrams = () => $$("pre[data-mermaid-mode]");
 const benchmarkCase = process.env.LEAFDOWN_MERMAID_BENCHMARK;
@@ -79,8 +79,11 @@ describe("desktop Mermaid diagrams", () => {
   it("renders an inert image in an opaque child, preserves source, and follows the caret", async () => {
     const { mermaid } = await getDesktopE2ERunContext();
     if (benchmarkCase) {
+      await openMenu("File");
+      await (await findMenuItem((text) => text === "Open recent")).click();
+      const recentItem = await findMenuItem((text) => text === mermaid.path);
       const started = Date.now();
-      await $(`//button[@title="${mermaid.path}"]`).click();
+      await recentItem.click();
       const count = benchmarkCase === "many" ? 40 : 1;
       await browser.waitUntil(async () => (await diagrams().length) === count, {
         timeout: 10_000,
@@ -123,7 +126,7 @@ describe("desktop Mermaid diagrams", () => {
       }
       return;
     }
-    await $(`//button[@title="${mermaid.path}"]`).click();
+    await openRecentPath(mermaid.path);
     await browser.waitUntil(async () => (await diagrams().length) === 3, {
       timeoutMsg: "Mermaid code blocks were not recognized.",
     });

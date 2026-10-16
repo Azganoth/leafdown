@@ -16,6 +16,7 @@ import { t } from "@/lib/i18n";
 import { collectChangedRanges, type ChangedRange } from "../utils/changedRanges";
 import { getEditorSurfaceElementAt, isEditorSurfaceElement } from "../utils/editorSurface";
 import { findScrollingAncestor } from "../utils/scrollingAncestor";
+import { setControlTooltip } from "./controlTooltip";
 import { finalizeSourceProjection } from "./sourceProjection";
 
 export interface HeadingSection {
@@ -122,7 +123,7 @@ const createFoldIndicator = (view: EditorView, getPos: () => number | undefined)
   indicator.contentEditable = "false";
   indicator.setAttribute("role", "button");
   indicator.setAttribute("aria-label", t("editor.headingFold.unfold"));
-  indicator.title = t("editor.headingFold.unfold");
+  setControlTooltip(indicator, t("editor.headingFold.unfold"));
   indicator.textContent = "⋯";
   indicator.addEventListener("mousedown", (event) => {
     event.preventDefault();

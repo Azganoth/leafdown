@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 
@@ -23,9 +24,12 @@ export function ArticleNavigatorSkeleton({ folderPath }: ArticleNavigatorSkeleto
     <Card aria-busy="true" size="sm" className="min-h-0 min-w-0 flex-1">
       <CardHeader className="shrink-0">
         <CardTitle className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate" title={folderPath}>
-            {folderName || folderPath}
-          </span>
+          <Tooltip>
+            <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
+              {folderName || folderPath}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{folderPath}</TooltipContent>
+          </Tooltip>
         </CardTitle>
       </CardHeader>
 

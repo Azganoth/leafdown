@@ -2,14 +2,29 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { notifyErrorWithActionMenu, notifyPending, toastManager } from "@/lib/toast";
+import { notifyError, notifyErrorWithActionMenu, notifyPending, toastManager } from "@/lib/toast";
 import { act, renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import { Toaster } from "./toast";
 
 describe("Toaster", () => {
   beforeEach(() => {
     vi.mocked(toastManager.add).mockRestore();
+  });
+
+  it("names its close button in a tooltip", async () => {
+    const { user } = renderWithUser(<Toaster timeout={0} />);
+
+    act(() => {
+      notifyError("Could not save.");
+    });
+
+    await screen.findByText("Could not save.");
+    const close = document.querySelector('[data-slot="toast-close"]');
+
+    expect(close).toHaveAttribute("aria-label", "Close toast");
+    expect(await hoverTooltip(user, close!)).toHaveTextContent("Close toast");
   });
 
   it("offers an action menu and closes the toast when an item runs", async () => {

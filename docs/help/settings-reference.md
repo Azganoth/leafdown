@@ -9,6 +9,7 @@ Open **File > Preferences** to change the settings below. Changes persist across
 - **Sidebar visibility:** Show or hide the article navigator when a folder is open.
 - **Status bar visibility:** Show or hide document status when a document is open.
 - **Article sort order:** Sort the navigator by name, modified date, or type.
+- **Show all files:** List files Leafdown cannot open, dimmed, in the navigator alongside articles. Off by default; **View > Show all files** switches it too.
 
 **View > Always on top** is another persistent window setting; it keeps every Leafdown window above other windows until switched off.
 

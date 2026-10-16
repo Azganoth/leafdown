@@ -17,6 +17,7 @@ import {
   collapseAllFolders,
   expandAllFolders,
   getKeepTabState,
+  getShowAllFilesState,
   getShowTabAtState,
   getSwitchTabState,
   keepTab,
@@ -29,6 +30,7 @@ import {
   showTabAt,
   sortByType,
   toggleAlwaysOnTop,
+  toggleShowAllFiles,
   toggleFullscreen,
   toggleSidebar,
   toggleStatusBar,
@@ -49,6 +51,32 @@ describe("view actions", () => {
     expect(useSettingsStore.getState().statusBarVisible).toBe(false);
     toggleStatusBar();
     expect(useSettingsStore.getState().statusBarVisible).toBe(true);
+  });
+
+  it("toggles whether the article navigator shows all files", () => {
+    setDefaultSettings({ showAllFiles: false });
+    toggleShowAllFiles();
+    expect(useSettingsStore.getState().showAllFiles).toBe(true);
+    toggleShowAllFiles();
+    expect(useSettingsStore.getState().showAllFiles).toBe(false);
+  });
+
+  it("checks Show all files while a folder context is open", () => {
+    const folderContext = createFolderContextWithNestedReadme();
+
+    expect(
+      getShowAllFilesState(createAppCommandContext({ settings: { showAllFiles: true } })),
+    ).toMatchObject({ enabled: false });
+    expect(
+      getShowAllFilesState(
+        createAppCommandContext({ folderContext, settings: { showAllFiles: true } }),
+      ),
+    ).toMatchObject({ enabled: true, checked: true });
+    expect(
+      getShowAllFilesState(
+        createAppCommandContext({ folderContext, settings: { showAllFiles: false } }),
+      ),
+    ).toMatchObject({ enabled: true, checked: false });
   });
 
   it("collapses all article navigator directories", () => {

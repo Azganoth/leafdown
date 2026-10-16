@@ -68,6 +68,10 @@ import { createLeafdownBlockSelectionOperationsPlugin } from "../plugins/blockSe
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import { calloutSchema, createLeafdownCalloutPlugin } from "../plugins/callout";
 import { createLeafdownCalloutInputPlugin } from "../plugins/calloutInput";
+import {
+  createLeafdownCalloutTypePlugin,
+  type LeafdownCalloutTypePluginOptions,
+} from "../plugins/calloutType";
 import { createLeafdownCalloutViewPlugin } from "../plugins/calloutView";
 import {
   createLeafdownCharacterReferencePlugin,
@@ -278,6 +282,7 @@ export interface CreateMilkdownEditorOptions {
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   linkPreview?: LeafdownLinkPreviewPluginOptions;
   codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
+  calloutType?: LeafdownCalloutTypePluginOptions;
   search?: LeafdownSearchPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
@@ -332,6 +337,7 @@ export const createMilkdownEditor = async ({
   footnotePreview,
   linkPreview,
   codeBlockLanguage,
+  calloutType,
   search,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
@@ -442,6 +448,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFrontmatterInputPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
+    .use(createLeafdownCalloutTypePlugin(calloutType))
     .use(createLeafdownMermaidModePlugin())
     .use(createLeafdownCodeBlockViewPlugin())
     .use(createLeafdownCalloutViewPlugin())

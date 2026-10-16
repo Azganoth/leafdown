@@ -21,6 +21,7 @@ export type AppCommandSettingsContext = Pick<
   | "alwaysOnTop"
   | "articleSortOrder"
   | "insertFinalNewline"
+  | "showAllFiles"
   | "sidebarVisible"
   | "statusBarVisible"
   | "theme"

@@ -38,12 +38,17 @@ import {
   setSearchMode,
 } from "../commands/editing/search";
 import {
+  applyCalloutType as applyCalloutTypeToView,
+  closeCalloutType as closeCalloutTypeInView,
+} from "../commands/formatting/callouts";
+import {
   applyCodeBlockLanguage as applyCodeBlockLanguageToView,
   closeCodeBlockLanguage as closeCodeBlockLanguageInView,
 } from "../commands/formatting/codeBlockLanguage";
 import { insertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inserting/blocks";
 import { insertLinkTarget } from "../commands/inserting/links";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
+import type { CalloutTypeRequest } from "../plugins/calloutType";
 import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
@@ -195,6 +200,8 @@ export const useMilkdownEditorInstance = ({
   const [codeBlockLanguageRequest, setCodeBlockLanguageRequest] =
     useState<CodeBlockLanguageRequest | null>(null);
   const codeBlockLanguageOpenRef = useRef(false);
+  const [calloutTypeRequest, setCalloutTypeRequest] = useState<CalloutTypeRequest | null>(null);
+  const calloutTypeOpenRef = useRef(false);
   const [searchState, setSearchState] = useState<EditorSearchState>(CLOSED_EDITOR_SEARCH_STATE);
   const [searchReplacement, setSearchReplacement] = useState("");
   const searchFocusRequestRef = useRef<EditorSearchState["focusRequest"]>(null);
@@ -430,6 +437,44 @@ export const useMilkdownEditorInstance = ({
     [codeBlockLanguageRequest],
   );
 
+  const requestCalloutType = useCallback(
+    (request: CalloutTypeRequest) => {
+      closeContextPopup();
+      calloutTypeOpenRef.current = true;
+      setCalloutTypeRequest(request);
+    },
+    [closeContextPopup],
+  );
+
+  const releaseCalloutType = useCallback(() => {
+    calloutTypeOpenRef.current = false;
+    setCalloutTypeRequest(null);
+  }, []);
+
+  const cancelCalloutType = useCallback(() => {
+    const editor = editorRef.current;
+
+    if (editor?.ctx) {
+      closeCalloutTypeInView(editor.ctx.get(editorViewCtx));
+    }
+
+    releaseCalloutType();
+  }, [releaseCalloutType]);
+
+  const applyCalloutType = useCallback(
+    (token: string) => {
+      const request = calloutTypeRequest;
+      const editor = editorRef.current;
+
+      if (!request || !editor?.ctx) {
+        return false;
+      }
+
+      return applyCalloutTypeToView(editor.ctx.get(editorViewCtx), request, token);
+    },
+    [calloutTypeRequest],
+  );
+
   // A footnote reference can sit in a link label, so the two previews replace rather than stack.
   const requestFootnotePreview = useCallback((request: FootnotePreviewRequest) => {
     setLinkPreviewRequest(null);
@@ -483,6 +528,7 @@ export const useMilkdownEditorInstance = ({
           editorRef.current === editor &&
           !contextPopupOpenRef.current &&
           !codeBlockLanguageOpenRef.current &&
+          !calloutTypeOpenRef.current &&
           document.activeElement === document.body
         ) {
           focusEditor();
@@ -533,6 +579,10 @@ export const useMilkdownEditorInstance = ({
         codeBlockLanguage: {
           onClose: releaseCodeBlockLanguage,
           onRequest: requestCodeBlockLanguage,
+        },
+        calloutType: {
+          onClose: releaseCalloutType,
+          onRequest: requestCalloutType,
         },
         search: {
           onStateChanged: (nextSearchState) => {
@@ -644,6 +694,7 @@ export const useMilkdownEditorInstance = ({
       closeFootnotePreview();
       closeLinkPreview();
       releaseCodeBlockLanguage();
+      releaseCalloutType();
       setSearchState(CLOSED_EDITOR_SEARCH_STATE);
     };
   }, [
@@ -651,7 +702,9 @@ export const useMilkdownEditorInstance = ({
     closeBlockInsertion,
     closeFootnotePreview,
     closeLinkPreview,
+    releaseCalloutType,
     releaseCodeBlockLanguage,
+    requestCalloutType,
     requestCodeBlockLanguage,
     requestContextPopup,
     requestFootnotePreview,
@@ -694,8 +747,11 @@ export const useMilkdownEditorInstance = ({
   };
 
   return {
+    applyCalloutType,
     applyCodeBlockLanguage,
     blockInsertionRequest,
+    calloutTypeRequest,
+    cancelCalloutType,
     cancelCodeBlockLanguage,
     closeBlockInsertion,
     codeBlockLanguageRequest,

@@ -328,7 +328,7 @@ The popup offers the actions of the context it opens in, one row or submenu per 
 The construct holding the whole caret or selection narrows its context:
 
 - **Code block or frontmatter:** Leaves out Strong, Emphasis, Inline code, and Link.
-- **Table:** Leaves out Blockquote, Ordered list, Unordered list, Task list, and Block type.
+- **Table:** Leaves out Blockquote, Ordered list, Unordered list, Task list, and Block type. Adds three rows before Insert, or last where Insert is left out: Add row above, Add row below, Move row up, Move row down, Delete row; Add column before, Add column after, Move column left, Move column right, Delete column; Delete table.
 
 An object's actions follow the first row, each shown only while it is available:
 

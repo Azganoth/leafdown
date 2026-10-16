@@ -90,7 +90,7 @@ export function DocumentTabs({ newDocumentLabel, onNewDocument }: DocumentTabsPr
       <div className="flex h-8 shrink-0 items-center gap-1 pb-1">
         <Tabs.List
           aria-label={t("shell.documentTabs")}
-          className="flex h-full min-w-0 [scrollbar-width:none] items-stretch gap-0.5 overflow-x-auto"
+          className="flex h-full min-w-0 [scrollbar-width:none] items-stretch gap-1 overflow-x-auto"
           data-testid="document-tab-list"
           onWheel={(event) => {
             if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
@@ -121,7 +121,7 @@ export function DocumentTabs({ newDocumentLabel, onNewDocument }: DocumentTabsPr
               />
             }
           >
-            <PlusIcon data-icon="inline-start" />
+            <PlusIcon className="size-3.5" data-icon="inline-start" />
           </TooltipTrigger>
           <TooltipContent side="bottom">{newDocumentLabel}</TooltipContent>
         </Tooltip>
@@ -187,13 +187,19 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
       title={document.status === "saved" ? document.path : undefined}
       value={tab.id}
     >
-      <span className="min-w-0 flex-1 truncate">
-        {label.name}
-        {label.folder && <span className="ml-1 text-muted-foreground">{label.folder}</span>}
+      {/* Only the hidden medium-weight copy sizes the tab, so activating it moves no tab. */}
+      <span
+        className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap after:invisible after:font-medium after:content-[attr(data-label)]"
+        data-label={label.folder ? `${label.name} ${label.folder}` : label.name}
+      >
+        <span className="absolute inset-0 truncate">
+          {label.name}
+          {label.folder && <span className="text-muted-foreground"> {label.folder}</span>}
+        </span>
       </span>
       <span
         aria-hidden
-        className="grid size-4 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
         data-testid="document-tab-close"
         data-unsaved={document.isDirty || undefined}
         onClick={(event) => {
@@ -209,7 +215,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
         )}
         <XIcon
           className={cn(
-            "size-3",
+            "size-3.5",
             document.isDirty
               ? "hidden group-hover/tab:block"
               : "invisible group-hover/tab:visible group-data-active/tab:visible",

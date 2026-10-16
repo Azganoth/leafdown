@@ -45,6 +45,14 @@ const appendToActiveEditor = async (text: string) => {
   await expect(editor).toHaveText(expect.stringContaining(text));
 };
 
+const getTabGeometry = () =>
+  browser.execute(() =>
+    [...document.querySelectorAll('[data-testid="document-tab"]')].map((tab) => {
+      const { width, x } = tab.getBoundingClientRect();
+      return { width, x };
+    }),
+  );
+
 describe("desktop document tabs", () => {
   it("keeps each tab's unsaved edits and closes the window through one unsaved-documents dialog", async () => {
     const diagnostics = await getDiagnosticsSummary();
@@ -63,10 +71,12 @@ describe("desktop document tabs", () => {
     await dismissToasts();
 
     await expect(await findDocumentTab(separatorName)).toHaveAttribute("aria-selected", "true");
+    const tabGeometry = await getTabGeometry();
     await appendToActiveEditor("Separator tab edit");
 
     await (await findDocumentTab(calloutsName)).click();
     await expect(await findDocumentTab(calloutsName)).toHaveAttribute("aria-selected", "true");
+    expect(await getTabGeometry()).toEqual(tabGeometry);
     await expect($(ACTIVE_EDITOR)).not.toHaveText(expect.stringContaining("Separator tab edit"));
     await appendToActiveEditor("Callouts tab edit");
 

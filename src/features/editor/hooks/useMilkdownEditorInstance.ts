@@ -48,6 +48,7 @@ import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
+import type { LinkPreviewRequest } from "../plugins/linkPreview";
 import {
   CLOSED_EDITOR_SEARCH_STATE,
   type EditorSearchState,
@@ -190,6 +191,7 @@ export const useMilkdownEditorInstance = ({
   const blockInsertionRequestRef = useRef<BlockInsertionRequest | null>(null);
   const [footnotePreviewRequest, setFootnotePreviewRequest] =
     useState<FootnotePreviewRequest | null>(null);
+  const [linkPreviewRequest, setLinkPreviewRequest] = useState<LinkPreviewRequest | null>(null);
   const [codeBlockLanguageRequest, setCodeBlockLanguageRequest] =
     useState<CodeBlockLanguageRequest | null>(null);
   const codeBlockLanguageOpenRef = useRef(false);
@@ -388,6 +390,7 @@ export const useMilkdownEditorInstance = ({
   );
 
   const closeFootnotePreview = useCallback(() => setFootnotePreviewRequest(null), []);
+  const closeLinkPreview = useCallback(() => setLinkPreviewRequest(null), []);
 
   const requestCodeBlockLanguage = useCallback(
     (request: CodeBlockLanguageRequest) => {
@@ -427,10 +430,16 @@ export const useMilkdownEditorInstance = ({
     [codeBlockLanguageRequest],
   );
 
-  const requestFootnotePreview = useCallback(
-    (request: FootnotePreviewRequest) => setFootnotePreviewRequest(request),
-    [],
-  );
+  // A footnote reference can sit in a link label, so the two previews replace rather than stack.
+  const requestFootnotePreview = useCallback((request: FootnotePreviewRequest) => {
+    setLinkPreviewRequest(null);
+    setFootnotePreviewRequest(request);
+  }, []);
+
+  const requestLinkPreview = useCallback((request: LinkPreviewRequest) => {
+    setFootnotePreviewRequest(null);
+    setLinkPreviewRequest(request);
+  }, []);
 
   const focusEditor = useCallback(() => {
     const editor = editorRef.current;
@@ -516,6 +525,10 @@ export const useMilkdownEditorInstance = ({
         footnotePreview: {
           onClose: closeFootnotePreview,
           onRequest: requestFootnotePreview,
+        },
+        linkPreview: {
+          onClose: closeLinkPreview,
+          onRequest: requestLinkPreview,
         },
         codeBlockLanguage: {
           onClose: releaseCodeBlockLanguage,
@@ -629,6 +642,7 @@ export const useMilkdownEditorInstance = ({
       closeContextPopup();
       closeBlockInsertion();
       closeFootnotePreview();
+      closeLinkPreview();
       releaseCodeBlockLanguage();
       setSearchState(CLOSED_EDITOR_SEARCH_STATE);
     };
@@ -636,10 +650,12 @@ export const useMilkdownEditorInstance = ({
     closeContextPopup,
     closeBlockInsertion,
     closeFootnotePreview,
+    closeLinkPreview,
     releaseCodeBlockLanguage,
     requestCodeBlockLanguage,
     requestContextPopup,
     requestFootnotePreview,
+    requestLinkPreview,
     updateCommandState,
     updateDocumentStatus,
   ]);
@@ -690,6 +706,7 @@ export const useMilkdownEditorInstance = ({
     executeBlockInsertion,
     focusEditor,
     footnotePreviewRequest,
+    linkPreviewRequest,
     rootRef,
     search,
   };

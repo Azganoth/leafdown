@@ -50,7 +50,7 @@ Drop one supported Markdown file or folder onto the app to open it. A preview sh
 
 ## Links and images
 
-Relative links and image paths start from the saved document's location. An untitled document cannot resolve them until it is saved. Local Markdown links open in Leafdown without replacing the pinned folder. A local non-Markdown link asks before opening with the system default app. Web links open in the system browser.
+Relative links and image paths start from the saved document's location. An untitled document cannot resolve them until it is saved. Local Markdown links open in Leafdown without replacing the pinned folder. Rest the pointer on one, or press `Mod+Alt+P` with the caret in it, to preview the start of the linked file, or the section its heading fragment names, without opening it. A local non-Markdown link asks before opening with the system default app. Web links open in the system browser.
 
 Local images render when available. A remote `https:` image remains a placeholder until you choose **Load image**; merely opening a document does not request it. Images outside the folder context may ask for approval before rendering. See [Markdown reference](markdown-reference.md) for link syntax.
 

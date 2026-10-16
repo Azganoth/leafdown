@@ -29,7 +29,7 @@ describe("shortcut reference", () => {
       "editor.openContextMenu",
     );
     expect(groups.find(({ id }) => id === "edit")?.entries.map(({ id }) => id)).toContain(
-      "editor.previewFootnote",
+      "editor.preview",
     );
     expect(groups.find(({ id }) => id === "edit")?.entries.map(({ id }) => id)).toContain(
       "editor.extendBlockSelection",

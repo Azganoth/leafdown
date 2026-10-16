@@ -20,8 +20,8 @@ export const EDITOR_KEYBOARD_INTERACTIONS: readonly EditorKeyboardInteraction[] 
     shortcuts: [{ key: "F10", shift: true }, { key: "ContextMenu" }],
   },
   {
-    id: "editor.previewFootnote",
-    labelId: "shortcuts.editor.previewFootnote",
+    id: "editor.preview",
+    labelId: "shortcuts.editor.preview",
     menu: "edit",
     shortcuts: [{ key: "p", mod: true, alt: true }],
   },

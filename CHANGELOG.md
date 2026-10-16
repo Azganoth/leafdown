@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Preview a linked Markdown document without opening it. Resting the pointer on a Markdown link or wiki link to another document shows its file name and the start of its text after a short pause, and `Mod+Alt+P` does the same for the link the caret is on. A link to a heading starts the preview at that heading, including headings in the same document. A missing document or heading, an unreadable file, or a relative link in a document that is not yet saved says so instead of showing an empty box. The preview reads the saved file, holds no buttons, never takes the caret, and goes away when the pointer leaves, on `Escape`, or as you keep typing. Previewing opens no tab and changes nothing; web links and other files are not previewed.
+
 ### Changed
 
 - Open articles from the navigator, Find in folder results, links, and a folder's index file in one preview tab per window, whose name is in italics, instead of adding a tab for every article you look at. The next such open replaces the preview, so browsing a folder leaves one tab behind. Editing the document, saving it, double-clicking its tab or navigator row, View > Keep tab (`Ctrl+Shift+K`), or opening it again from Open, recent files, a drop, or File Explorer keeps it as an ordinary tab, and a document with unsaved changes is never replaced. Open, recent files, drops, and File Explorer still open ordinary tabs.

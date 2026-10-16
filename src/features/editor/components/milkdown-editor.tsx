@@ -23,6 +23,7 @@ import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
 import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-picker";
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
+import { EditorLinkPreview } from "./editor-link-preview";
 import { EditorSearchPanel } from "./editor-search-panel";
 
 export type { EditorViewState, MilkdownEditorBridge } from "../hooks/useMilkdownEditorInstance";
@@ -81,6 +82,7 @@ export function MilkdownEditor({
     executeBlockInsertion,
     focusEditor,
     footnotePreviewRequest,
+    linkPreviewRequest,
     rootRef,
     search,
   } = useMilkdownEditorInstance({
@@ -132,6 +134,7 @@ export function MilkdownEditor({
         onReturnFocus={focusEditor}
       />
       <EditorFootnotePreview request={footnotePreviewRequest} />
+      <EditorLinkPreview request={linkPreviewRequest} />
     </div>
   );
 }

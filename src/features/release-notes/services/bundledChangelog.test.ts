@@ -40,7 +40,7 @@ const HIGHLIGHTED = `## [2.0.0] - 2026-10-20
 
 #### Work in tabs
 
-![](src/features/release-notes/highlights/tabs.svg)
+![](./src/features/release-notes/highlights/tabs.svg)
 
 Open several documents with \`Ctrl+T\`.
 
@@ -48,7 +48,7 @@ Each keeps its own history.
 
 #### Missing drawing
 
-![](./src/features/release-notes/highlights/missing.svg)
+![](src/features/release-notes/highlights/missing.svg)
 
 Still readable.
 

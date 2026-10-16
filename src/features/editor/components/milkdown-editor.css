@@ -1295,6 +1295,64 @@
   @apply sr-only;
 }
 
+/* Added after the block gutter layer, so a table control straddling the table's left border keeps
+   the press over the table's block handle while it shows. */
+.leafdown-table-controls-layer {
+  @apply pointer-events-none fixed inset-0 z-0;
+}
+
+.leafdown-table-grip,
+.leafdown-table-insert-button {
+  @apply pointer-events-auto absolute flex -translate-1/2 items-center justify-center border border-border bg-popover p-0 shadow-sm hover:bg-accent focus-visible:outline-hidden;
+}
+
+.leafdown-table-grip {
+  @apply cursor-grab rounded-sm text-muted-foreground hover:text-foreground active:cursor-grabbing;
+
+  &[data-axis="row"] {
+    @apply h-5 w-3.5;
+  }
+
+  &[data-axis="column"] {
+    @apply h-3.5 w-5;
+  }
+
+  svg {
+    @apply size-3.5 fill-current;
+  }
+}
+
+.leafdown-table-insert-button {
+  @apply size-5 rounded-full text-foreground;
+
+  svg {
+    @apply size-3.5 fill-none stroke-current stroke-2;
+    stroke-linecap: round;
+  }
+}
+
+.leafdown-table-grip[hidden],
+.leafdown-table-insert-button[hidden],
+.leafdown-table-indicator[hidden] {
+  display: none;
+}
+
+.leafdown-table-indicator {
+  @apply pointer-events-none absolute bg-primary/40;
+
+  &[data-axis="row"] {
+    @apply h-0.5 -translate-y-1/2;
+  }
+
+  &[data-axis="column"] {
+    @apply w-0.5 -translate-x-1/2;
+  }
+
+  &[data-drop] {
+    @apply bg-primary;
+  }
+}
+
 .leafdown-context-popup {
   @apply border border-border/70 bg-popover text-popover-foreground shadow-lg;
 }

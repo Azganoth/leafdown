@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { CellSelection, selectedRect } from "@milkdown/kit/prose/tables";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,12 +17,15 @@ import {
   selectTableCellRange,
 } from "@/test/utils/prosemirror";
 
+import { runEditorCommand } from "..";
 import {
   addColumnAfter,
   addRowAbove,
   addRowBelow,
   canAddRowAbove,
   canAddRowBelow,
+  canMoveTableColumnsTo,
+  canMoveTableRowsTo,
   canDeleteRows,
   canMoveColumns,
   canMoveRows,
@@ -29,10 +33,14 @@ import {
   deleteColumns,
   deleteRows,
   deleteTable,
+  insertTableColumnAt,
+  insertTableRowAt,
   moveColumnLeft,
   moveColumnRight,
   moveRowDown,
   moveRowUp,
+  moveTableColumnsTo,
+  moveTableRowsTo,
 } from "./tables";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -175,5 +183,83 @@ describe("editor table formatting commands", () => {
 
     expect(deleteRows(mounted.view)).toBe(true);
     expect(mounted.view.dom.querySelector("table")).not.toBeInTheDocument();
+  });
+
+  it("inserts rows and columns at inner and end boundaries of a table", async () => {
+    const mounted = await mountEditor(BASIC_TABLE_MARKDOWN);
+
+    expect(insertTableRowAt(mounted.view, 0, 0)).toBe(false);
+    expect(insertTableRowAt(mounted.view, 0, 1)).toBe(true);
+    expect(insertTableRowAt(mounted.view, 0, 3)).toBe(true);
+    expect(insertTableColumnAt(mounted.view, 0, 0)).toBe(true);
+    expect(insertTableColumnAt(mounted.view, 0, 2)).toBe(true);
+    expect(insertTableColumnAt(mounted.view, 0, 4)).toBe(true);
+    expect(insertTableColumnAt(mounted.view, 0, 6)).toBe(false);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["", "A", "", "B", ""],
+      ["", "", "", "", ""],
+      ["", "C", "", "D", ""],
+      ["", "", "", "", ""],
+    ]);
+    expect(mounted.view.dom.querySelectorAll("tr:first-child > th")).toHaveLength(5);
+  });
+
+  it("moves row and column ranges to a boundary as one undoable change", async () => {
+    const mounted = await mountEditor("| A | B |\n| - | - |\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |");
+    const original = mounted.getMarkdown();
+
+    expect(moveTableRowsTo(mounted.view, 0, { from: 1, to: 2 }, 4)).toBe(true);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B"],
+      ["3", "4"],
+      ["5", "6"],
+      ["1", "2"],
+    ]);
+    const selection = mounted.view.state.selection;
+    expect(selection).toBeInstanceOf(CellSelection);
+    expect((selection as CellSelection).isRowSelection()).toBe(true);
+    expect(selectedRect(mounted.view.state)).toMatchObject({ top: 3, bottom: 4 });
+
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(original);
+
+    expect(moveTableRowsTo(mounted.view, 0, { from: 2, to: 4 }, 1)).toBe(true);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B"],
+      ["3", "4"],
+      ["5", "6"],
+      ["1", "2"],
+    ]);
+    expect(selectedRect(mounted.view.state)).toMatchObject({ top: 1, bottom: 3 });
+
+    expect(moveTableColumnsTo(mounted.view, 0, { from: 0, to: 1 }, 2)).toBe(true);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["B", "A"],
+      ["4", "3"],
+      ["6", "5"],
+      ["2", "1"],
+    ]);
+    expect((mounted.view.state.selection as CellSelection).isColSelection()).toBe(true);
+    expect(selectedRect(mounted.view.state)).toMatchObject({ left: 1, right: 2 });
+    expect(mounted.view.dom.querySelectorAll("tr:first-child > th")).toHaveLength(2);
+  });
+
+  it("keeps the header row in place and leaves a move back to where it started undone", async () => {
+    const mounted = await mountEditor(EXTENDED_TABLE_MARKDOWN);
+    const original = mounted.getMarkdown();
+    const table = mounted.view.state.doc.child(0);
+
+    expect(canMoveTableRowsTo(table, { from: 0, to: 1 }, 3)).toBe(false);
+    expect(canMoveTableRowsTo(table, { from: 1, to: 2 }, 0)).toBe(false);
+    expect(canMoveTableRowsTo(table, { from: 1, to: 2 }, 1)).toBe(false);
+    expect(canMoveTableRowsTo(table, { from: 1, to: 2 }, 2)).toBe(false);
+    expect(canMoveTableRowsTo(table, { from: 1, to: 2 }, 3)).toBe(true);
+    expect(canMoveTableColumnsTo(table, { from: 0, to: 1 }, 0)).toBe(false);
+    expect(canMoveTableColumnsTo(table, { from: 0, to: 1 }, 1)).toBe(false);
+    expect(canMoveTableColumnsTo(table, { from: 0, to: 1 }, 2)).toBe(true);
+    expect(moveTableRowsTo(mounted.view, 0, { from: 0, to: 1 }, 3)).toBe(false);
+    expect(moveTableRowsTo(mounted.view, 0, { from: 2, to: 3 }, 0)).toBe(false);
+    expect(moveTableColumnsTo(mounted.view, 0, { from: 1, to: 2 }, 2)).toBe(false);
+    expect(mounted.getMarkdown()).toBe(original);
   });
 });

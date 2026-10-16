@@ -1,5 +1,5 @@
 import type { NodeType, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
-import type { EditorState } from "@milkdown/kit/prose/state";
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
 import {
   deleteTable as milkdownDeleteTable,
   TableMap,
@@ -13,15 +13,20 @@ import {
   finalizeSourceProjection,
   SOURCE_PROJECTION_RESTRUCTURE_META,
 } from "../../plugins/sourceProjection";
-import { getNodeType, runProseMirrorCommand, setSelectionNear } from "../../utils/milkdown";
+import { getNodeType, runProseMirrorCommand } from "../../utils/milkdown";
 import {
   getSelectedTableRect,
   getTablePosition,
+  setTableAxisSelection,
   setTableCellSelection,
+  type TableAxis,
+  type TableAxisRange,
   type TableCellCoordinates,
 } from "../../utils/tables";
 
 type TableMoveDirection = -1 | 1;
+
+type TableSelectionUpdate = (tr: Transaction, tableStart: number, table: ProseMirrorNode) => void;
 
 const cloneCellAsType = (cellType: NodeType, cell: ProseMirrorNode) =>
   cell.type === cellType ? cell : cellType.create(cell.attrs, cell.content, cell.marks);
@@ -54,24 +59,36 @@ const getCells = (row: ProseMirrorNode) =>
 
 const selectionIncludesHeaderRow = (rect: TableRect) => rect.top === 0;
 
+const getTableAt = (state: EditorState, tablePos: number) => {
+  const table = state.doc.nodeAt(tablePos);
+
+  return table?.type.spec.tableRole === "table" ? table : null;
+};
+
+const selectCell =
+  (cell: TableCellCoordinates): TableSelectionUpdate =>
+  (tr, tableStart, table) => {
+    setTableCellSelection(tr, tableStart, table, cell);
+  };
+
+const selectAxis =
+  (axis: TableAxis, { from, to }: TableAxisRange): TableSelectionUpdate =>
+  (tr, tableStart, table) => {
+    setTableAxisSelection(tr, tableStart, table, axis, from, to - 1);
+  };
+
 const dispatchTableReplacement = (
   view: EditorView,
-  rect: TableRect,
+  tablePos: number,
   table: ProseMirrorNode,
-  selectionCell?: TableCellCoordinates,
+  nextTable: ProseMirrorNode,
+  updateSelection: TableSelectionUpdate,
 ) => {
-  const tablePos = getTablePosition(rect);
-  const tableStart = tablePos + 1;
   const tr = view.state.tr
-    .replaceWith(tablePos, tablePos + rect.table.nodeSize, table)
+    .replaceWith(tablePos, tablePos + table.nodeSize, nextTable)
     .setMeta(SOURCE_PROJECTION_RESTRUCTURE_META, true);
 
-  if (selectionCell) {
-    setTableCellSelection(tr, tableStart, table, selectionCell);
-  } else {
-    setSelectionNear(tr, tableStart);
-  }
-
+  updateSelection(tr, tablePos + 1, nextTable);
   view.focus();
   view.dispatch(tr.scrollIntoView());
 };
@@ -95,31 +112,53 @@ const createBodyRow = (state: EditorState, table: ProseMirrorNode, width: number
   return rowType.create(null, cells);
 };
 
+const insertRow = (
+  view: EditorView,
+  tablePos: number,
+  table: ProseMirrorNode,
+  index: number,
+  selectionCol: number,
+) => {
+  const map = TableMap.get(table);
+
+  if (index < 1 || index > map.height) {
+    return false;
+  }
+
+  const row = createBodyRow(view.state, table, map.width);
+
+  if (!row) {
+    return false;
+  }
+
+  const rows = getRows(table);
+  rows.splice(index, 0, row);
+
+  const nextTable = createTableFromRows(view.state, table, rows);
+
+  if (!nextTable) {
+    return false;
+  }
+
+  dispatchTableReplacement(
+    view,
+    tablePos,
+    table,
+    nextTable,
+    selectCell({ row: index, col: selectionCol }),
+  );
+  return true;
+};
+
 const addRow = (view: EditorView, placement: "above" | "below") => {
   const rect = getSelectedTableRect(view.state);
   if (!rect || (placement === "above" && selectionIncludesHeaderRow(rect))) {
     return false;
   }
 
-  const row = createBodyRow(view.state, rect.table, rect.map.width);
-
-  if (!row) {
-    return false;
-  }
-
-  const rows = getRows(rect.table);
   const insertIndex = placement === "above" ? rect.top : Math.max(1, rect.bottom);
 
-  rows.splice(insertIndex, 0, row);
-
-  const nextTable = createTableFromRows(view.state, rect.table, rows);
-
-  if (!nextTable) {
-    return false;
-  }
-
-  dispatchTableReplacement(view, rect, nextTable, { row: insertIndex, col: rect.left });
-  return true;
+  return insertRow(view, getTablePosition(rect), rect.table, insertIndex, rect.left);
 };
 
 const createColumnCell = (state: EditorState, rowIndex: number, alignment: unknown) =>
@@ -129,10 +168,10 @@ const createColumnCell = (state: EditorState, rowIndex: number, alignment: unkno
 
 const mapTableRows = (
   state: EditorState,
-  rect: TableRect,
+  table: ProseMirrorNode,
   transformCells: (cells: ProseMirrorNode[], rowIndex: number) => ProseMirrorNode[] | null,
 ) =>
-  getRows(rect.table).map((row, rowIndex) => {
+  getRows(table).map((row, rowIndex) => {
     const rowType = getNodeType(state, rowIndex === 0 ? "table_header_row" : "table_row");
     const cellType = getNodeType(state, rowIndex === 0 ? "table_header" : "table_cell");
     const cells = getCells(row);
@@ -150,16 +189,19 @@ const mapTableRows = (
     return createRow(rowType, cellType, row, nextCells);
   });
 
-const addColumn = (view: EditorView, placement: "before" | "after") => {
-  const rect = getSelectedTableRect(view.state);
-
-  if (!rect) {
+const insertColumn = (
+  view: EditorView,
+  tablePos: number,
+  table: ProseMirrorNode,
+  index: number,
+  selectionRow: number,
+) => {
+  if (index < 0 || index > TableMap.get(table).width) {
     return false;
   }
 
-  const insertIndex = placement === "before" ? rect.left : rect.right;
-  const rows = mapTableRows(view.state, rect, (cells, rowIndex) => {
-    const alignmentSourceIndex = Math.min(insertIndex, Math.max(cells.length - 1, 0));
+  const rows = mapTableRows(view.state, table, (cells, rowIndex) => {
+    const alignmentSourceIndex = Math.min(index, Math.max(cells.length - 1, 0));
     const cell = createColumnCell(
       view.state,
       rowIndex,
@@ -170,7 +212,7 @@ const addColumn = (view: EditorView, placement: "before" | "after") => {
       return null;
     }
 
-    cells.splice(insertIndex, 0, cell);
+    cells.splice(index, 0, cell);
     return cells;
   });
 
@@ -178,13 +220,131 @@ const addColumn = (view: EditorView, placement: "before" | "after") => {
     return false;
   }
 
-  const nextTable = createTableFromRows(view.state, rect.table, rows);
+  const nextTable = createTableFromRows(view.state, table, rows);
 
   if (!nextTable) {
     return false;
   }
 
-  dispatchTableReplacement(view, rect, nextTable, { row: rect.top, col: insertIndex });
+  dispatchTableReplacement(
+    view,
+    tablePos,
+    table,
+    nextTable,
+    selectCell({ row: selectionRow, col: index }),
+  );
+  return true;
+};
+
+const addColumn = (view: EditorView, placement: "before" | "after") => {
+  const rect = getSelectedTableRect(view.state);
+
+  if (!rect) {
+    return false;
+  }
+
+  const insertIndex = placement === "before" ? rect.left : rect.right;
+
+  return insertColumn(view, getTablePosition(rect), rect.table, insertIndex, rect.top);
+};
+
+// Where the range starts once it has moved to the boundary, counted in the table before the move.
+const getMovedStart = ({ from, to }: TableAxisRange, boundary: number) =>
+  boundary > from ? boundary - (to - from) : boundary;
+
+const isMovableRange = ({ from, to }: TableAxisRange, first: number, end: number) =>
+  first <= from && from < to && to <= end;
+
+const isRangeBoundary = ({ from, to }: TableAxisRange, boundary: number) =>
+  boundary >= from && boundary <= to;
+
+export const canMoveTableRowsTo = (
+  table: ProseMirrorNode,
+  range: TableAxisRange,
+  boundary: number,
+) => {
+  const { height } = TableMap.get(table);
+
+  return (
+    isMovableRange(range, 1, height) &&
+    boundary >= 1 &&
+    boundary <= height &&
+    !isRangeBoundary(range, boundary)
+  );
+};
+
+export const canMoveTableColumnsTo = (
+  table: ProseMirrorNode,
+  range: TableAxisRange,
+  boundary: number,
+) => {
+  const { width } = TableMap.get(table);
+
+  return (
+    isMovableRange(range, 0, width) &&
+    boundary >= 0 &&
+    boundary <= width &&
+    !isRangeBoundary(range, boundary)
+  );
+};
+
+const moveRowsTo = (
+  view: EditorView,
+  tablePos: number,
+  table: ProseMirrorNode,
+  range: TableAxisRange,
+  boundary: number,
+  updateSelection: (start: number) => TableSelectionUpdate,
+) => {
+  if (!canMoveTableRowsTo(table, range, boundary)) {
+    return false;
+  }
+
+  const rows = getRows(table);
+  const movedRows = rows.splice(range.from, range.to - range.from);
+  const start = getMovedStart(range, boundary);
+  rows.splice(start, 0, ...movedRows);
+
+  const nextTable = createTableFromRows(view.state, table, rows);
+
+  if (!nextTable) {
+    return false;
+  }
+
+  dispatchTableReplacement(view, tablePos, table, nextTable, updateSelection(start));
+  return true;
+};
+
+const moveColumnsTo = (
+  view: EditorView,
+  tablePos: number,
+  table: ProseMirrorNode,
+  range: TableAxisRange,
+  boundary: number,
+  updateSelection: (start: number) => TableSelectionUpdate,
+) => {
+  if (!canMoveTableColumnsTo(table, range, boundary)) {
+    return false;
+  }
+
+  const start = getMovedStart(range, boundary);
+  const rows = mapTableRows(view.state, table, (cells) => {
+    const movedCells = cells.splice(range.from, range.to - range.from);
+    cells.splice(start, 0, ...movedCells);
+    return cells;
+  });
+
+  if (!areNonNullish(rows)) {
+    return false;
+  }
+
+  const nextTable = createTableFromRows(view.state, table, rows);
+
+  if (!nextTable) {
+    return false;
+  }
+
+  dispatchTableReplacement(view, tablePos, table, nextTable, updateSelection(start));
   return true;
 };
 
@@ -195,20 +355,14 @@ const moveRows = (view: EditorView, direction: TableMoveDirection) => {
     return false;
   }
 
-  const rows = getRows(rect.table);
-  const selectedRows = rows.splice(rect.top, rect.bottom - rect.top);
-  const nextTop = direction === -1 ? rect.top - 1 : rect.top + 1;
-
-  rows.splice(nextTop, 0, ...selectedRows);
-
-  const nextTable = createTableFromRows(view.state, rect.table, rows);
-
-  if (!nextTable) {
-    return false;
-  }
-
-  dispatchTableReplacement(view, rect, nextTable, { row: nextTop, col: rect.left });
-  return true;
+  return moveRowsTo(
+    view,
+    getTablePosition(rect),
+    rect.table,
+    { from: rect.top, to: rect.bottom },
+    direction === -1 ? rect.top - 1 : rect.bottom + 1,
+    (start) => selectCell({ row: start, col: rect.left }),
+  );
 };
 
 const moveColumns = (view: EditorView, direction: TableMoveDirection) => {
@@ -218,25 +372,14 @@ const moveColumns = (view: EditorView, direction: TableMoveDirection) => {
     return false;
   }
 
-  const nextLeft = direction === -1 ? rect.left - 1 : rect.left + 1;
-  const rows = mapTableRows(view.state, rect, (cells) => {
-    const selectedCells = cells.splice(rect.left, rect.right - rect.left);
-    cells.splice(nextLeft, 0, ...selectedCells);
-    return cells;
-  });
-
-  if (!areNonNullish(rows)) {
-    return false;
-  }
-
-  const nextTable = createTableFromRows(view.state, rect.table, rows);
-
-  if (!nextTable) {
-    return false;
-  }
-
-  dispatchTableReplacement(view, rect, nextTable, { row: rect.top, col: nextLeft });
-  return true;
+  return moveColumnsTo(
+    view,
+    getTablePosition(rect),
+    rect.table,
+    { from: rect.left, to: rect.right },
+    direction === -1 ? rect.left - 1 : rect.right + 1,
+    (start) => selectCell({ row: rect.top, col: start }),
+  );
 };
 
 const convertRowToBody = (state: EditorState, row: ProseMirrorNode) => {
@@ -276,10 +419,16 @@ const removeRows = (view: EditorView) => {
     return false;
   }
 
-  dispatchTableReplacement(view, rect, nextTable, {
-    row: Math.min(rect.top, TableMap.get(nextTable).height - 1),
-    col: rect.left,
-  });
+  dispatchTableReplacement(
+    view,
+    getTablePosition(rect),
+    rect.table,
+    nextTable,
+    selectCell({
+      row: Math.min(rect.top, TableMap.get(nextTable).height - 1),
+      col: rect.left,
+    }),
+  );
   return true;
 };
 
@@ -294,7 +443,7 @@ const removeColumns = (view: EditorView) => {
     return runProseMirrorCommand(view, milkdownDeleteTable);
   }
 
-  const rows = mapTableRows(view.state, rect, (cells) => {
+  const rows = mapTableRows(view.state, rect.table, (cells) => {
     const keptCells = cells.filter((_, index) => index < rect.left || index >= rect.right);
 
     if (keptCells.length === 0) {
@@ -314,10 +463,16 @@ const removeColumns = (view: EditorView) => {
     return false;
   }
 
-  dispatchTableReplacement(view, rect, nextTable, {
-    row: rect.top,
-    col: Math.min(rect.left, TableMap.get(nextTable).width - 1),
-  });
+  dispatchTableReplacement(
+    view,
+    getTablePosition(rect),
+    rect.table,
+    nextTable,
+    selectCell({
+      row: rect.top,
+      col: Math.min(rect.left, TableMap.get(nextTable).width - 1),
+    }),
+  );
   return true;
 };
 
@@ -350,6 +505,51 @@ export const moveRowDown = restructuring((view) => moveRows(view, 1));
 export const moveColumnLeft = restructuring((view) => moveColumns(view, -1));
 
 export const moveColumnRight = restructuring((view) => moveColumns(view, 1));
+
+// These take the table's position after any source projection has been finalized, since
+// finalizing can move the table.
+
+export const insertTableRowAt = (view: EditorView, tablePos: number, index: number) => {
+  const table = getTableAt(view.state, tablePos);
+
+  return table ? insertRow(view, tablePos, table, index, 0) : false;
+};
+
+export const insertTableColumnAt = (view: EditorView, tablePos: number, index: number) => {
+  const table = getTableAt(view.state, tablePos);
+
+  return table ? insertColumn(view, tablePos, table, index, 0) : false;
+};
+
+export const moveTableRowsTo = (
+  view: EditorView,
+  tablePos: number,
+  range: TableAxisRange,
+  boundary: number,
+) => {
+  const table = getTableAt(view.state, tablePos);
+
+  return table
+    ? moveRowsTo(view, tablePos, table, range, boundary, (start) =>
+        selectAxis("row", { from: start, to: start + range.to - range.from }),
+      )
+    : false;
+};
+
+export const moveTableColumnsTo = (
+  view: EditorView,
+  tablePos: number,
+  range: TableAxisRange,
+  boundary: number,
+) => {
+  const table = getTableAt(view.state, tablePos);
+
+  return table
+    ? moveColumnsTo(view, tablePos, table, range, boundary, (start) =>
+        selectAxis("column", { from: start, to: start + range.to - range.from }),
+      )
+    : false;
+};
 
 export const canUseTable = (state: EditorState) => getSelectedTableRect(state) !== null;
 

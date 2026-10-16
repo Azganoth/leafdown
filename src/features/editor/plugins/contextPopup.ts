@@ -8,6 +8,7 @@ import {
   type ContextPopupAnchor,
 } from "../utils/contextPopupAnchor";
 import { isStructuralBlockSelection } from "./blockSelectionKeyboard";
+import { TABLE_DRAGGING_ATTRIBUTE, TABLE_GRIP_SELECTOR } from "./tableControls";
 
 export const leafdownContextPopupPluginKey = new PluginKey("leafdownContextPopup");
 
@@ -143,7 +144,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
         event instanceof MouseEvent &&
         event.button === 0 &&
         event.target instanceof Element &&
-        event.target.closest("[data-leafdown-block-handle]")
+        event.target.closest(`[data-leafdown-block-handle], ${TABLE_GRIP_SELECTOR}`)
       ) {
         pointerSelecting = true;
         suppressPointerRelease = false;
@@ -169,7 +170,9 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
             return;
           }
 
-          const blockDragging = editorView.dom.hasAttribute("data-leafdown-block-dragging");
+          const controlDragging =
+            editorView.dom.hasAttribute("data-leafdown-block-dragging") ||
+            editorView.dom.hasAttribute(TABLE_DRAGGING_ATTRIBUTE);
           window.requestAnimationFrame(() => {
             pointerSelecting = false;
             const suppressPopup = suppressPointerRelease;
@@ -179,7 +182,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
               return;
             }
 
-            if (suppressPopup || blockDragging) {
+            if (suppressPopup || controlDragging) {
               dismissed = true;
               return;
             }

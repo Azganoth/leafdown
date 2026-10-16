@@ -12,7 +12,7 @@ use tauri::{
     WebviewWindow, WebviewWindowBuilder, Window,
 };
 
-use crate::window_documents::WindowDocuments;
+use crate::{kept_session, window_documents::WindowDocuments};
 
 const WINDOW_CLOSE_REQUESTED_EVENT: &str = "leafdown://window-close-requested";
 
@@ -130,6 +130,10 @@ impl QuitSequence {
         *self.progress() = None;
     }
 
+    pub(crate) fn is_active(&self) -> bool {
+        self.progress().is_some()
+    }
+
     // Each update leaves whole values behind, so a poisoned lock still holds a usable sequence.
     fn progress(&self) -> MutexGuard<'_, Option<QuitProgress>> {
         self.progress.lock().unwrap_or_else(PoisonError::into_inner)
@@ -230,6 +234,14 @@ fn cascade_position(reference: Bounds, offset: i32, work_area: Option<Bounds>) -
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowCloseRequestedPayload {
+    /// Set when the window closes while the application quits or as its last window, so its tabs
+    /// and unsaved text can be kept for the next launch instead of asked about.
+    keeps_session: bool,
+}
+
 #[tauri::command]
 pub(crate) fn decline_window_close(
     window: Window,
@@ -252,8 +264,12 @@ pub(crate) fn handle_close_requested<R: Runtime>(window: &Window<R>, api: &Close
 
     api.prevent_close();
 
+    let payload = WindowCloseRequestedPayload {
+        keeps_session: kept_session::keeps_session(window),
+    };
+
     // A failed emit leaves the request pending on purpose: the next one closes the window.
-    if let Err(error) = window.emit_to(window.label(), WINDOW_CLOSE_REQUESTED_EVENT, ()) {
+    if let Err(error) = window.emit_to(window.label(), WINDOW_CLOSE_REQUESTED_EVENT, payload) {
         log::error!("failed to emit close-requested event: {error}");
     }
 }

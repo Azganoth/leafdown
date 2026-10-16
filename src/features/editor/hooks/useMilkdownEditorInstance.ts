@@ -65,6 +65,7 @@ import {
   createMilkdownEditor,
   getMilkdownEditorHtmlExportSnapshot,
   getMilkdownEditorMarkdown,
+  getMilkdownEditorSettledMarkdown,
   type MilkdownEditorInstance,
 } from "../utils/createMilkdownEditor";
 import {
@@ -110,6 +111,8 @@ export interface EditorSearchControls {
 
 export interface MilkdownEditorBridge {
   getMarkdown: () => string | null;
+  /** The Markdown `getMarkdown` would return, read without finalizing or committing anything. */
+  getSettledMarkdown?: () => string | null;
   getHtmlExportSnapshot?: () => HtmlExportSnapshot | null;
   getCommandState?: () => EditorCommandState;
   getDocumentStatus?: () => EditorDocumentStatus;
@@ -265,6 +268,8 @@ export const useMilkdownEditorInstance = ({
     ref,
     () => ({
       getMarkdown: () => (editorRef.current ? getMilkdownEditorMarkdown(editorRef.current) : null),
+      getSettledMarkdown: () =>
+        editorRef.current?.ctx ? getMilkdownEditorSettledMarkdown(editorRef.current) : null,
       getHtmlExportSnapshot: () =>
         editorRef.current?.ctx ? getMilkdownEditorHtmlExportSnapshot(editorRef.current) : null,
       getCommandState: () => commandStateRef.current,

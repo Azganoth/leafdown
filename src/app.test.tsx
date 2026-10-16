@@ -16,7 +16,7 @@ import {
   useSettingsStore,
 } from "./features/preferences";
 import { releaseNotesStoreTauriHandler } from "./features/release-notes";
-import { useSessionStore } from "./features/session";
+import { useSessionStore, type WindowCloseRequest } from "./features/session";
 import { LAUNCH_DOCUMENTS_EVENT } from "./features/session/services/launchDocumentApi";
 import {
   createOpenedMarkdownDocument,
@@ -300,10 +300,10 @@ describe("App", () => {
       );
     });
 
-    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+    const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
       "leafdown://window-close-requested",
     );
-    await handleCloseRequested({ payload: undefined });
+    await handleCloseRequested({ payload: { keepsSession: false } });
 
     expect(confirmation.useConfirmationStore.getState().current).toBeNull();
     expect(appWindow.setFocus).not.toHaveBeenCalled();
@@ -335,10 +335,10 @@ describe("App", () => {
       );
     });
 
-    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+    const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
       "leafdown://window-close-requested",
     );
-    const closeRequest = handleCloseRequested({ payload: undefined });
+    const closeRequest = handleCloseRequested({ payload: { keepsSession: false } });
     const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
     expect(prompt).toHaveTextContent("Untitled has unsaved changes.");
     // Quit asks each window in turn, so the window asking comes forward first.
@@ -372,10 +372,10 @@ describe("App", () => {
       );
     });
 
-    const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+    const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
       "leafdown://window-close-requested",
     );
-    const cancelledRequest = handleCloseRequested({ payload: undefined });
+    const cancelledRequest = handleCloseRequested({ payload: { keepsSession: false } });
     const prompt = await screen.findByRole("dialog", { name: "Unsaved changes" });
     expect(prompt).toHaveTextContent("2 documents have unsaved changes.");
     expect(prompt).toHaveTextContent("Untitled");
@@ -386,11 +386,104 @@ describe("App", () => {
     expect(appWindow.destroy).not.toHaveBeenCalled();
     expect(useSessionStore.getState().tabs).toHaveLength(3);
 
-    const confirmedRequest = handleCloseRequested({ payload: undefined });
+    const confirmedRequest = handleCloseRequested({ payload: { keepsSession: false } });
     await user.click(await screen.findByRole("button", { name: "Discard all" }));
     await confirmedRequest;
 
     expect(appWindow.destroy).toHaveBeenCalledOnce();
+  });
+
+  it("keeps unsaved documents for the next launch instead of asking when the window closes for good", async () => {
+    const appWindow = getCurrentWindow();
+    const reports: unknown[] = [];
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => [],
+      reportWindowSession: (args) => {
+        reports.push(args);
+      },
+    });
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ content: "Draft", isDirty: true }),
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(countTauriApiCalls("reportWindowSession")).toBe(1));
+
+    const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
+      "leafdown://window-close-requested",
+    );
+    await handleCloseRequested({ payload: { keepsSession: true } });
+
+    await waitFor(() => expect(appWindow.destroy).toHaveBeenCalledOnce());
+    expect(confirmation.useConfirmationStore.getState().current).toBeNull();
+    expect(reports.at(-1)).toMatchObject({
+      session: { state: { tabs: [{ kind: "untitled", isDirty: true }] } },
+    });
+    expect(reports.flatMap((report) => (report as { snapshots: unknown[] }).snapshots)).toEqual([
+      { id: expect.any(String), text: "Draft" },
+    ]);
+  });
+
+  it("asks about unsaved documents as the window closes for good when they cannot be kept", async () => {
+    const appWindow = getCurrentWindow();
+    let failReports = false;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mockTauriApi({
+      takeLaunchDocumentPaths: () => [],
+      declineWindowClose: () => undefined,
+      reportWindowSession: () => {
+        if (failReports) {
+          throw { kind: "writeFailed", message: "Disk full." };
+        }
+      },
+    });
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true }),
+    });
+
+    try {
+      const { user } = renderWithUser(<App />);
+
+      await waitFor(() => expect(countTauriApiCalls("reportWindowSession")).toBe(1));
+      failReports = true;
+
+      const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
+        "leafdown://window-close-requested",
+      );
+      const closeRequest = handleCloseRequested({ payload: { keepsSession: true } });
+
+      await screen.findByRole("dialog", { name: "Unsaved changes" });
+      await user.click(screen.getByRole("button", { name: "Keep editing" }));
+      await closeRequest;
+
+      expect(appWindow.destroy).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("asks about unsaved documents as the window closes for good while Restore session is off", async () => {
+    mockTauriApi({ takeLaunchDocumentPaths: () => [], declineWindowClose: () => undefined });
+    setDefaultSettings({ restoreSession: false });
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true }),
+    });
+
+    const { user } = renderWithUser(<App />);
+
+    await waitFor(() => expect(countTauriApiCalls("clearKeptSession")).toBe(1));
+
+    const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
+      "leafdown://window-close-requested",
+    );
+    const closeRequest = handleCloseRequested({ payload: { keepsSession: true } });
+
+    await screen.findByRole("dialog", { name: "Unsaved changes" });
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await closeRequest;
+
+    expect(countTauriApiCalls("reportWindowSession")).toBe(0);
   });
 
   it("leaves a failed close request unanswered so the backend fallback can close the window", async () => {
@@ -413,10 +506,10 @@ describe("App", () => {
         );
       });
 
-      const handleCloseRequested = getWindowListenHandler<undefined, Promise<void>>(
+      const handleCloseRequested = getWindowListenHandler<WindowCloseRequest, Promise<void>>(
         "leafdown://window-close-requested",
       );
-      await handleCloseRequested({ payload: undefined });
+      await handleCloseRequested({ payload: { keepsSession: false } });
 
       await waitFor(() => {
         expect(consoleError).toHaveBeenCalledWith(

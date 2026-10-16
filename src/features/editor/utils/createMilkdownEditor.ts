@@ -6,6 +6,7 @@ import {
   remarkStringifyOptionsCtx,
   rootAttrsCtx,
   rootCtx,
+  serializerCtx,
 } from "@milkdown/kit/core";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history, historyKeymap } from "@milkdown/kit/plugin/history";
@@ -47,6 +48,7 @@ import {
   strikethroughKeymap,
   tableSchema,
 } from "@milkdown/kit/preset/gfm";
+import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorProps } from "@milkdown/kit/prose/view";
 import { getMarkdown } from "@milkdown/kit/utils";
 
@@ -697,9 +699,13 @@ export const getMilkdownEditorHtmlExportSnapshot = (
   editor: MilkdownEditorInstance,
 ): HtmlExportSnapshot => {
   const view = editor.ctx.get(editorViewCtx);
-  const state = settleReferenceDefinitionFields(
-    settleFootnoteDefinitionLabels(settleSourceProjection(view.state)),
-  );
 
-  return { doc: state.doc, imageGrants: readImageGrants(view) };
+  return { doc: settleEditorState(view.state).doc, imageGrants: readImageGrants(view) };
 };
+
+/** The Markdown a save would write, read without dispatching, so an edit in progress goes on. */
+export const getMilkdownEditorSettledMarkdown = (editor: MilkdownEditorInstance) =>
+  editor.ctx.get(serializerCtx)(settleEditorState(editor.ctx.get(editorViewCtx).state).doc);
+
+const settleEditorState = (state: EditorState) =>
+  settleReferenceDefinitionFields(settleFootnoteDefinitionLabels(settleSourceProjection(state)));

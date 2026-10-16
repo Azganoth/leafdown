@@ -32,6 +32,7 @@ describe("settings store", () => {
       defaultNewDocumentExtension: ".markdown",
       defaultNewDocumentLineEnding: "lf",
       insertFinalNewline: false,
+      restoreSession: false,
       indexFileNames: ["home"],
       ignoredDirectories: ["vendor"],
       whenDroppingFolder: "insertLink",
@@ -59,6 +60,7 @@ describe("settings store", () => {
       defaultNewDocumentExtension: ".md",
       defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
       insertFinalNewline: true,
+      restoreSession: true,
       indexFileNames: DEFAULT_INDEX_FILE_NAMES,
       ignoredDirectories: DEFAULT_IGNORED_DIRECTORIES,
       whenDroppingFolder: "open",
@@ -87,6 +89,7 @@ describe("settings store", () => {
     settings.updateSetting("defaultNewDocumentExtension", ".markdown");
     settings.updateSetting("defaultNewDocumentLineEnding", "lf");
     settings.updateSetting("insertFinalNewline", false);
+    settings.updateSetting("restoreSession", false);
     settings.updateSetting("indexFileNames", ["home", "index"]);
     settings.updateSetting("ignoredDirectories", [".git", "vendor"]);
     settings.updateSetting("whenDroppingFolder", "insertLink");
@@ -110,6 +113,7 @@ describe("settings store", () => {
       defaultNewDocumentExtension: ".markdown",
       defaultNewDocumentLineEnding: "lf",
       insertFinalNewline: false,
+      restoreSession: false,
       indexFileNames: ["home", "index"],
       ignoredDirectories: [".git", "vendor"],
       whenDroppingFolder: "insertLink",
@@ -147,6 +151,7 @@ describe("settings store", () => {
         defaultNewDocumentExtension: ".markdown",
         defaultNewDocumentLineEnding: "lf",
         insertFinalNewline: false,
+        restoreSession: false,
         indexFileNames: ["home"],
         ignoredDirectories: ["vendor"],
         whenDroppingFolder: "insertLink",
@@ -173,6 +178,7 @@ describe("settings store", () => {
         lineSpacing: 2,
         sidebarVisible: "yes",
         showAllFiles: "no",
+        restoreSession: "off",
         outlineDepth: 7,
         articleSortOrder: 3,
         defaultNewDocumentExtension: "md",

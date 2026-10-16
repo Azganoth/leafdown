@@ -35,6 +35,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["legacy-encoding"],
       ["launch-document"],
       ["persistence-write", "persistence-restart"],
+      ["kept-session-quit", "kept-session-restore"],
       ["release-notes-first-install", "release-notes-upgrade", "release-notes-restart"],
       ["window-lifecycle"],
       ["wiki-links"],

@@ -84,6 +84,9 @@ class DocumentEditorBridgeStore {
 
   getMarkdown = (documentKey: string) => this.bridges.get(documentKey)?.getMarkdown() ?? null;
 
+  getSettledMarkdown = (documentKey: string) =>
+    this.bridges.get(documentKey)?.getSettledMarkdown?.() ?? null;
+
   getHtmlExportSnapshot = (documentKey: string) =>
     this.bridges.get(documentKey)?.getHtmlExportSnapshot?.() ?? null;
 

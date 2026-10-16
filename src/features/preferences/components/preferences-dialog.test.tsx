@@ -22,6 +22,7 @@ const MVP_SETTINGS_BY_TAB = {
     "Default extension for new documents",
     "Default line ending for new documents",
     "Insert final newline on save",
+    "Restore session",
     "When dropping a folder",
     "When dropping a Markdown file",
     "Index file names for automatic folder open",
@@ -35,7 +36,7 @@ const MVP_SETTINGS_BY_TAB = {
   Appearance: ["Accent color", "Appearance theme", "Document font", "Text size", "Line spacing"],
 };
 
-const POST_MVP_SETTINGS = ["Auto save", "Render/editor theme", "Unordered list marker"];
+const POST_MVP_SETTINGS = ["Render/editor theme", "Unordered list marker"];
 
 describe("preferences-dialog", () => {
   it("exposes MVP settings without Post-MVP settings", async () => {

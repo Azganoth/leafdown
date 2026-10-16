@@ -20,6 +20,7 @@ The **H1 to H6** control at the top of the document outline is also remembered a
 - **Default extension for new documents:** Choose `.md` or `.markdown`.
 - **Default line ending for new documents:** Choose LF or CRLF. The default follows your operating system.
 - **Insert final newline on save:** End the last line of saved text with a newline when enabled. Blank lines at the end of a document are saved either way.
+- **Restore session:** Reopen your windows, tabs, and unsaved changes the next time Leafdown starts, so quitting does not ask about them. On by default. Turn it off to have quitting ask about unsaved changes and start with the welcome screen.
 - **When dropping a folder / Markdown file:** Open the item or insert a link into the active document. Each item type has its own choice.
 - **Index file names:** Set the ordered names Leafdown tries when opening a folder. The defaults are `readme` and `index`.
 - **Ignored directories:** Set directory names to skip during folder scans. The defaults include version-control and build directories.

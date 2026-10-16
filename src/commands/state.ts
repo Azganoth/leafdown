@@ -3,7 +3,7 @@ import { isEditorCommandId } from "@/features/editor/commands/contract";
 import { APPLICATION_COMMANDS, isApplicationCommandId } from "./application";
 import type { AppCommandContext } from "./context";
 import type { AppCommandId } from "./dispatch";
-import { disabled, enabled, type CommandState } from "./statePrimitives";
+import { checked, disabled, enabled, type CommandState } from "./statePrimitives";
 
 export const getCommandState = (
   commandId: AppCommandId,
@@ -20,7 +20,13 @@ export const getCommandState = (
       return disabled("The editor is not ready.");
     }
 
-    return editor.enabledCommands[commandId] ? enabled() : disabled();
+    if (!editor.enabledCommands[commandId]) {
+      return disabled();
+    }
+
+    const isChecked = editor.checkedCommands[commandId];
+
+    return isChecked === undefined ? enabled() : checked(isChecked);
   }
 
   if (isApplicationCommandId(commandId)) {

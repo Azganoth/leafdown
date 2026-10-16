@@ -6,7 +6,7 @@ export const CALLOUT_MARKDOWN_TYPE = "leafdownCallout";
 
 export type CalloutDialect = "github" | "mkdocs" | "docusaurus" | "vitepress";
 
-interface CalloutForm {
+export interface CalloutForm {
   dialect: CalloutDialect;
   token: string;
   title: string | null;
@@ -21,23 +21,50 @@ interface SourceLine {
   text: string;
 }
 
-const GITHUB_TYPES = new Set(["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"]);
-const MKDOCS_TYPES = new Set([
-  "note",
-  "abstract",
-  "info",
-  "tip",
-  "success",
-  "question",
-  "warning",
-  "failure",
-  "danger",
-  "bug",
-  "example",
-  "quote",
-]);
-const DOCUSAURUS_TYPES = new Set(["note", "tip", "info", "warning", "danger"]);
-const VITEPRESS_TYPES = new Set(["info", "tip", "warning", "danger", "details"]);
+export const CALLOUT_TYPES = {
+  github: ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"],
+  mkdocs: [
+    "note",
+    "abstract",
+    "info",
+    "tip",
+    "success",
+    "question",
+    "warning",
+    "failure",
+    "danger",
+    "bug",
+    "example",
+    "quote",
+  ],
+  docusaurus: ["note", "tip", "info", "warning", "danger"],
+  vitepress: ["info", "tip", "warning", "danger", "details"],
+} as const satisfies Record<CalloutDialect, readonly string[]>;
+
+const GITHUB_TYPES = new Set<string>(CALLOUT_TYPES.github);
+const MKDOCS_TYPES = new Set<string>(CALLOUT_TYPES.mkdocs);
+const DOCUSAURUS_TYPES = new Set<string>(CALLOUT_TYPES.docusaurus);
+const VITEPRESS_TYPES = new Set<string>(CALLOUT_TYPES.vitepress);
+
+const NEW_CALLOUT_MARKERS: Record<CalloutDialect, string> = {
+  github: ">",
+  mkdocs: "!!!",
+  docusaurus: ":::",
+  vitepress: ":::",
+};
+
+export const isCalloutType = (dialect: CalloutDialect, token: string) =>
+  (CALLOUT_TYPES[dialect] as readonly string[]).includes(token);
+
+/** The attributes of a callout written fresh in a dialect, with no title and no blank lines. */
+export const createCalloutForm = (dialect: CalloutDialect, token: string): CalloutForm => ({
+  dialect,
+  token,
+  title: null,
+  marker: NEW_CALLOUT_MARKERS[dialect],
+  gap: 0,
+  closingGap: 0,
+});
 
 const sourceLines = (source: string): SourceLine[] => {
   const lines: SourceLine[] = [];

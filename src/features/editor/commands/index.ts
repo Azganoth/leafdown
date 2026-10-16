@@ -14,6 +14,7 @@ import * as search from "./editing/search";
 import * as selection from "./editing/selection";
 import type { HeadingLevel } from "./formatting/blocks";
 import * as blockFormatting from "./formatting/blocks";
+import * as callouts from "./formatting/callouts";
 import * as codeBlockLanguage from "./formatting/codeBlockLanguage";
 import * as inlineFormatting from "./formatting/inline";
 import * as tables from "./formatting/tables";
@@ -29,6 +30,7 @@ type EditorCommandAvailability = (state: EditorState) => boolean;
 
 interface EditorCommand {
   canRun: EditorCommandAvailability;
+  isChecked?: (state: EditorState) => boolean;
   run: EditorCommandRunner;
 }
 
@@ -152,6 +154,11 @@ export const EDITOR_COMMANDS = {
     codeBlockLanguage.editCodeBlockLanguage,
     codeBlockLanguage.canEditCodeBlockLanguage,
   ),
+  "format.calloutType": viewCommand(callouts.changeCalloutType, callouts.canChangeCalloutType),
+  "format.calloutExpanded": {
+    ...viewCommand(callouts.toggleCalloutExpanded, callouts.canToggleCalloutExpanded),
+    isChecked: callouts.isCalloutExpanded,
+  },
   "format.clearBlock": viewCommand(
     blockFormatting.clearBlockFormat,
     blockFormatting.canClearBlockFormat,
@@ -196,6 +203,7 @@ export const EDITOR_COMMANDS = {
   "insert.unorderedList": viewCommand(blockInsertion.insertUnorderedList),
   "insert.taskList": viewCommand(blockInsertion.insertTaskList),
   "insert.blockquote": viewCommand(blockInsertion.insertBlockquote),
+  "insert.callout": viewCommand(callouts.insertCallout, callouts.canInsertCallout),
   "insert.codeBlock": viewCommand(blockInsertion.insertCodeBlock),
   "insert.table": viewCommand(blockInsertion.insertTable),
   "insert.horizontalRule": viewCommand(blockInsertion.insertHorizontalRule),
@@ -224,6 +232,13 @@ export const runEditorCommand = (editor: Editor, commandId: EditorCommandId) =>
   EDITOR_COMMANDS[commandId].run(editor);
 
 export const getEditorCommandState = (view: EditorView): EditorCommandState => ({
+  checkedCommands: Object.fromEntries(
+    EDITOR_COMMAND_IDS.flatMap((commandId) => {
+      const { isChecked } = EDITOR_COMMANDS[commandId];
+
+      return isChecked ? [[commandId, isChecked(view.state)]] : [];
+    }),
+  ),
   enabledCommands: Object.fromEntries(
     EDITOR_COMMAND_IDS.map((commandId) => [
       commandId,

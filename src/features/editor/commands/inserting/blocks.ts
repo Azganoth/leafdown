@@ -4,7 +4,9 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 
 import { areNonNullish } from "@/lib/predicates";
 
+import { canInsertCalloutAt } from "../../plugins/calloutType";
 import { getNodeType, setSelectionNear } from "../../utils/milkdown";
+import { insertCalloutAt } from "../formatting/callouts";
 
 export const IMAGE_MARKER = "![]()";
 
@@ -147,6 +149,7 @@ export type BoundaryInsertKind =
   | "heading6"
   | "image"
   | "blockquote"
+  | "callout"
   | "unorderedList"
   | "orderedList"
   | "taskList"
@@ -156,7 +159,7 @@ export type BoundaryInsertKind =
   | "listItem";
 
 const createBoundaryFragment = (state: EditorState, kind: BoundaryInsertKind) => {
-  let node: ProseMirrorNode | Fragment | null;
+  let node: ProseMirrorNode | Fragment | null = null;
   switch (kind) {
     case "paragraph":
       node = createNode(state, "paragraph");
@@ -196,6 +199,8 @@ const createBoundaryFragment = (state: EditorState, kind: BoundaryInsertKind) =>
     case "listItem":
       node = createNode(state, "list_item");
       break;
+    case "callout":
+      break;
   }
   return node ? Fragment.from(node) : null;
 };
@@ -205,6 +210,7 @@ export const canInsertBlockAtBoundary = (
   boundary: number,
   kind: BoundaryInsertKind,
 ) => {
+  if (kind === "callout") return canInsertCalloutAt(state, boundary);
   if (boundary < 0 || boundary > state.doc.content.size) return false;
   const fragment = createBoundaryFragment(state, kind);
   return fragment !== null && canInsertFragmentAt(state, boundary, fragment);
@@ -216,6 +222,8 @@ export const insertBlockAtBoundary = (
   kind: BoundaryInsertKind,
 ) => {
   if (!canInsertBlockAtBoundary(view.state, boundary, kind)) return false;
+  // A callout's type is chosen before anything is written.
+  if (kind === "callout") return insertCalloutAt(view, boundary);
   const fragment = createBoundaryFragment(view.state, kind);
   if (!fragment) return false;
   const tr = view.state.tr.insert(boundary, fragment);

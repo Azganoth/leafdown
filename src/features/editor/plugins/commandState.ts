@@ -8,7 +8,9 @@ export const leafdownCommandStatePluginKey = new PluginKey("leafdownCommandState
 const commandStatesEqual = (left: EditorCommandState, right: EditorCommandState) =>
   left.status === right.status &&
   EDITOR_COMMAND_IDS.every(
-    (commandId) => left.enabledCommands[commandId] === right.enabledCommands[commandId],
+    (commandId) =>
+      left.enabledCommands[commandId] === right.enabledCommands[commandId] &&
+      left.checkedCommands[commandId] === right.checkedCommands[commandId],
   );
 
 export const createLeafdownCommandStatePlugin = (

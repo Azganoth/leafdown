@@ -51,6 +51,8 @@ export const EDITOR_COMMAND_IDS = [
   "format.blockquote",
   "format.codeBlock",
   "format.codeBlockLanguage",
+  "format.calloutType",
+  "format.calloutExpanded",
   "format.clearBlock",
   "format.strong",
   "format.emphasis",
@@ -80,6 +82,7 @@ export const EDITOR_COMMAND_IDS = [
   "insert.unorderedList",
   "insert.taskList",
   "insert.blockquote",
+  "insert.callout",
   "insert.codeBlock",
   "insert.table",
   "insert.horizontalRule",
@@ -94,6 +97,8 @@ export const EDITOR_COMMAND_IDS = [
 export type EditorCommandId = (typeof EDITOR_COMMAND_IDS)[number];
 
 export interface EditorCommandState {
+  /** Present only for the commands that toggle a state of the selection. */
+  checkedCommands: Partial<Record<EditorCommandId, boolean>>;
   enabledCommands: Record<EditorCommandId, boolean>;
   status: "inactive" | "ready";
 }
@@ -108,11 +113,13 @@ const createEditorCommandEnabledRecord = (enabled: boolean) =>
   >;
 
 export const INACTIVE_EDITOR_COMMAND_STATE: EditorCommandState = {
+  checkedCommands: {},
   enabledCommands: createEditorCommandEnabledRecord(false),
   status: "inactive",
 };
 
 export const READY_DISABLED_EDITOR_COMMAND_STATE: EditorCommandState = {
+  checkedCommands: {},
   enabledCommands: createEditorCommandEnabledRecord(false),
   status: "ready",
 };

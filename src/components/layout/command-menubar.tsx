@@ -239,6 +239,7 @@ export function CommandMenubar({
             <CommandItems commandIds={["format.increaseHeading", "format.decreaseHeading"]} />
             <MenubarSeparator />
             <CommandItems commandIds={BLOCK_FORMAT_COMMAND_IDS} />
+            <CalloutSubmenu />
             <CommandSubmenu commandIds={TABLE_COMMAND_IDS} labelId="menu.format.table" />
             <CommandItems commandIds={["format.clearBlock"]} />
           </MenubarContent>
@@ -338,6 +339,7 @@ const INSERT_COMMAND_IDS = [
   "insert.unorderedList",
   "insert.taskList",
   "insert.blockquote",
+  "insert.callout",
   "insert.codeBlock",
   "insert.table",
   "insert.horizontalRule",
@@ -361,6 +363,11 @@ const BLOCK_FORMAT_COMMAND_IDS = [
   "format.blockquote",
   "format.codeBlock",
   "format.codeBlockLanguage",
+] satisfies readonly AppCommandId[];
+
+const CALLOUT_COMMAND_IDS = [
+  "format.calloutType",
+  "format.calloutExpanded",
 ] satisfies readonly AppCommandId[];
 
 const TABLE_COMMAND_IDS = [
@@ -514,6 +521,24 @@ function CommandSubmenu({ commandIds, inset, labelId }: CommandSubmenuProps) {
       </MenubarSubTrigger>
       <MenubarSubContent>
         <CommandItems commandIds={commandIds} />
+      </MenubarSubContent>
+    </MenubarSub>
+  );
+}
+
+// The submenu keeps its checkbox's indicator column out of the Format menu itself.
+function CalloutSubmenu() {
+  const { t } = useLocalization();
+  const { commandState } = useCommandMenu();
+
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger disabled={areAllDisabled(commandState, CALLOUT_COMMAND_IDS)}>
+        {t("menu.format.callout")}
+      </MenubarSubTrigger>
+      <MenubarSubContent>
+        <CommandItems commandIds={["format.calloutType"]} inset />
+        <CommandCheckboxItem commandId="format.calloutExpanded" />
       </MenubarSubContent>
     </MenubarSub>
   );

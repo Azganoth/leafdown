@@ -92,6 +92,26 @@ describe("editor control tooltips", () => {
     expect(requests.at(-1)).toEqual({ anchor: indicator, label: "Unfold section" });
   });
 
+  it("names the table's grips and insertion buttons in their layer over the document", async () => {
+    const { requests } = await mountWithTooltips("| A | B |\n| - | - |\n| 1 | 2 |");
+    const controls = [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        "[data-leafdown-table-grip], [data-leafdown-table-insert]",
+      ),
+    ];
+
+    expect(controls).toHaveLength(4);
+
+    for (const control of controls) {
+      expect(control).not.toHaveAttribute("title");
+      pointAt(control);
+      expect(requests.at(-1)).toEqual({
+        anchor: control,
+        label: control.getAttribute("aria-label"),
+      });
+    }
+  });
+
   it("stays closed during a press or drag and closes on a press or Escape", async () => {
     const { onClose, requests } = await mountWithTooltips("Intro paragraph");
     const handle = getHandle();

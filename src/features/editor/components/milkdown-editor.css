@@ -445,7 +445,7 @@
     }
 
     blockquote {
-      @apply my-5 border-l-2 border-primary/55 bg-card/45 py-1 pr-4 pl-4 leading-(--leafdown-line-spacing) text-muted-foreground;
+      @apply my-5 border-l-3 border-primary/60 py-0.5 pl-4 leading-(--leafdown-line-spacing) text-foreground/80;
 
       & > :first-child {
         @apply mt-0;
@@ -456,43 +456,177 @@
       }
     }
 
+    /* Every type has an icon as well as a hue, so types sharing a hue stay apart and none is told
+       from another by color alone. The icons are public files for the reason the task tick is. */
     .leafdown-callout {
-      @apply my-5 rounded-md border border-l-4 border-blue-500/45 border-l-blue-500 bg-blue-500/6 text-foreground;
+      --leafdown-callout-tone: var(--color-blue-600);
+      --leafdown-callout-icon: url("/callout-note.svg");
+
+      @apply my-5 rounded-md bg-(--leafdown-callout-tone)/6 pt-2.5 pr-3.5 pb-3 pl-3 text-foreground dark:bg-(--leafdown-callout-tone)/10;
+
+      &:is(.dark *) {
+        --leafdown-callout-tone: var(--color-blue-400);
+      }
+
+      &[data-tone="info"] {
+        --leafdown-callout-tone: var(--color-sky-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-sky-400);
+        }
+      }
+
+      &[data-tone="tip"] {
+        --leafdown-callout-tone: var(--color-teal-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-teal-400);
+        }
+      }
 
       &[data-tone="success"] {
-        @apply border-emerald-500/45 border-l-emerald-500 bg-emerald-500/6;
+        --leafdown-callout-tone: var(--color-green-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-green-400);
+        }
       }
 
       &[data-tone="warning"] {
-        @apply border-amber-500/45 border-l-amber-500 bg-amber-500/6;
+        --leafdown-callout-tone: var(--color-amber-700);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-amber-400);
+        }
       }
 
       &[data-tone="danger"] {
-        @apply border-red-500/45 border-l-red-500 bg-red-500/6;
+        --leafdown-callout-tone: var(--color-red-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-red-400);
+        }
+      }
+
+      &[data-tone="bug"] {
+        --leafdown-callout-tone: var(--color-pink-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-pink-400);
+        }
       }
 
       &[data-tone="important"] {
-        @apply border-violet-500/45 border-l-violet-500 bg-violet-500/6;
+        --leafdown-callout-tone: var(--color-violet-600);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-violet-400);
+        }
+      }
+
+      &[data-tone="neutral"] {
+        --leafdown-callout-tone: var(--color-neutral-500);
+
+        &:is(.dark *) {
+          --leafdown-callout-tone: var(--color-neutral-400);
+        }
+      }
+
+      &[data-token="abstract" i] {
+        --leafdown-callout-icon: url("/callout-abstract.svg");
+      }
+
+      &[data-token="info" i] {
+        --leafdown-callout-icon: url("/callout-info.svg");
+      }
+
+      &[data-token="tip" i] {
+        --leafdown-callout-icon: url("/callout-tip.svg");
+      }
+
+      &[data-token="success" i] {
+        --leafdown-callout-icon: url("/callout-success.svg");
+      }
+
+      &[data-token="question" i] {
+        --leafdown-callout-icon: url("/callout-question.svg");
+      }
+
+      &[data-token="warning" i] {
+        --leafdown-callout-icon: url("/callout-warning.svg");
+      }
+
+      &[data-token="caution" i] {
+        --leafdown-callout-icon: url("/callout-caution.svg");
+      }
+
+      &[data-token="danger" i] {
+        --leafdown-callout-icon: url("/callout-danger.svg");
+      }
+
+      &[data-token="failure" i] {
+        --leafdown-callout-icon: url("/callout-failure.svg");
+      }
+
+      &[data-token="bug" i] {
+        --leafdown-callout-icon: url("/callout-bug.svg");
+      }
+
+      &[data-token="important" i] {
+        --leafdown-callout-icon: url("/callout-important.svg");
+      }
+
+      &[data-token="example" i] {
+        --leafdown-callout-icon: url("/callout-example.svg");
+      }
+
+      &[data-token="quote" i] {
+        --leafdown-callout-icon: url("/callout-quote.svg");
+      }
+
+      &[data-token="details" i] {
+        --leafdown-callout-icon: url("/callout-details.svg");
       }
 
       .leafdown-callout-header {
-        @apply flex min-h-10 items-center gap-1 px-3 py-1 font-sans text-sm font-semibold;
-      }
-
-      .leafdown-callout-toggle {
-        @apply -ml-1 flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-lg outline-hidden hover:bg-foreground/8 focus-visible:ring-3 focus-visible:ring-ring/50;
-      }
-
-      .leafdown-callout-title {
-        @apply min-w-0 flex-1 rounded-sm border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold text-foreground outline-hidden placeholder:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50;
+        @apply flex items-start gap-3 font-sans text-sm leading-6 font-semibold;
       }
 
       .leafdown-callout-type {
-        @apply ml-auto shrink-0 cursor-pointer rounded-sm border border-border/60 bg-card/70 px-1.5 py-0.5 font-mono text-xs font-normal text-muted-foreground select-none hover:border-border hover:text-foreground;
+        @apply flex h-6 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-(--leafdown-callout-tone) outline-hidden select-none hover:bg-(--leafdown-callout-tone)/15;
+
+        &::before {
+          @apply size-4.5 bg-current;
+          content: "";
+          mask-image: var(--leafdown-callout-icon);
+          mask-position: center;
+          mask-repeat: no-repeat;
+          mask-size: contain;
+        }
+      }
+
+      .leafdown-callout-label {
+        @apply min-w-0 flex-1 wrap-anywhere;
+      }
+
+      .leafdown-callout-title {
+        @apply -mx-1 field-sizing-content min-w-0 flex-1 resize-none rounded-sm bg-transparent px-1 text-sm leading-6 font-semibold wrap-anywhere text-foreground outline-hidden placeholder:text-foreground hover:bg-foreground/6 focus-visible:ring-3 focus-visible:inset-ring focus-visible:ring-ring/50 focus-visible:inset-ring-ring;
+      }
+
+      .leafdown-callout-toggle {
+        @apply -mr-1.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-hidden hover:bg-foreground/8 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50;
+
+        &[aria-expanded="false"] .leafdown-callout-chevron {
+          @apply mt-0 -ml-0.5 -rotate-45;
+        }
+      }
+
+      .leafdown-callout-chevron {
+        @apply -mt-0.5 inline-block size-1.5 rotate-45 border-r-[1.5px] border-b-[1.5px] border-current transition-transform motion-reduce:transition-none;
       }
 
       .leafdown-callout-body {
-        @apply px-4 pb-2 leading-(--leafdown-line-spacing);
+        @apply mt-0.5 ml-8 leading-(--leafdown-line-spacing);
 
         & > :first-child {
           @apply mt-0;

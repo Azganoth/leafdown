@@ -240,13 +240,27 @@ describe("Callout Markdown", () => {
 
   it("edits a custom title in its authored dialect", async () => {
     const opened = await mountEditor("::: warning Existing\nContent\n:::");
-    const title = opened.view.dom.querySelector<HTMLInputElement>(".leafdown-callout-title")!;
+    const title = opened.view.dom.querySelector<HTMLTextAreaElement>(".leafdown-callout-title")!;
     title.value = "Revised";
     title.dispatchEvent(new Event("input", { bubbles: true }));
     expect(opened.getMarkdown()).toContain("::: warning Revised");
     expect((await mountEditor(opened.getMarkdown())).view.state.doc.firstChild?.attrs.title).toBe(
       "Revised",
     );
+  });
+
+  it("keeps a title on one line while its field wraps", async () => {
+    const opened = await mountEditor('!!! note "Existing"\n    Content');
+    const title = opened.view.dom.querySelector<HTMLTextAreaElement>(".leafdown-callout-title")!;
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+
+    title.dispatchEvent(enter);
+    title.value = "Pasted\nacross\r\nlines";
+    title.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(enter.defaultPrevented).toBe(true);
+    expect(title.value).toBe("Pasted across lines");
+    expect(opened.getMarkdown()).toBe('!!! note "Pasted across lines"\n    Content\n');
   });
 
   it("parses a pasted callout through the Markdown clipboard path", async () => {

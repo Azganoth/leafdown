@@ -229,7 +229,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Code block** (`Mod+Alt+C`)
 - **Code block language...**: Opens the language picker for the fenced code block in context, as clicking its language badge does.
 - **Callout**
-  - **Callout type...**: Opens the type list for the callout in context, as pressing its type badge does.
+  - **Callout type...**: Opens the type list for the callout in context, as pressing its type icon does.
   - **Callout opens expanded**: Switches the MkDocs admonition in context between `???` and `???+`.
 - **Table**
   - **Delete table**

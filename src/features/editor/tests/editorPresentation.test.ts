@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -13,6 +13,7 @@ import {
   applyCodeBlockLanguage,
   editCodeBlockLanguage,
 } from "../commands/formatting/codeBlockLanguage";
+import { CALLOUT_TYPES } from "../plugins/callout";
 import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 
 const mountStyledEditor = setupMilkdownEditorMount({
@@ -64,6 +65,73 @@ const value = 1;
     expect(editorCss).toContain("whitespace-pre-wrap");
     expect(editorCss).toContain(".tableWrapper {");
     expect(editorCss).toContain("&[data-checked] {");
+  });
+
+  it("draws quotes as an accent rail with no fill", () => {
+    const editorCss = readFileSync(editorCssPath, "utf8");
+    const quoteRule = editorCss.match(/\n {4}blockquote \{\n(?<body>[^\n]*)/su)?.groups?.body;
+
+    expect(quoteRule).toContain("border-l-3 border-primary/60");
+    expect(quoteRule).toContain("text-foreground/80");
+    expect(quoteRule).not.toMatch(/\bbg-/u);
+  });
+
+  it("gives every callout type a hue group and an icon of its own", async () => {
+    const tones = {
+      note: "note",
+      abstract: "info",
+      info: "info",
+      tip: "tip",
+      success: "success",
+      question: "success",
+      warning: "warning",
+      failure: "danger",
+      danger: "danger",
+      bug: "bug",
+      example: "important",
+      quote: "neutral",
+      important: "important",
+      caution: "danger",
+      details: "neutral",
+    };
+    const tokens = [
+      ...new Set(
+        Object.values(CALLOUT_TYPES).flatMap((types) => types.map((t) => t.toLowerCase())),
+      ),
+    ];
+    const mounted = await mountStyledEditor(
+      [
+        ...CALLOUT_TYPES.mkdocs.map((token) => `!!! ${token}\n    Body`),
+        "> [!IMPORTANT]\n> Body",
+        "> [!CAUTION]\n> Body",
+        "::: details\nBody\n:::",
+      ].join("\n\n"),
+    );
+    const rendered = Object.fromEntries(
+      [...mounted.view.dom.querySelectorAll<HTMLElement>(".leafdown-callout")].map((callout) => [
+        callout.dataset.token!.toLowerCase(),
+        callout.dataset.tone,
+      ]),
+    );
+    const editorCss = readFileSync(editorCssPath, "utf8");
+
+    expect(Object.keys(tones).toSorted()).toEqual(tokens.toSorted());
+    expect(rendered).toEqual(tones);
+    expect(editorCss).toContain('--leafdown-callout-icon: url("/callout-note.svg");');
+    for (const token of tokens.filter((candidate) => candidate !== "note")) {
+      expect(editorCss).toMatch(
+        new RegExp(
+          `&\\[data-token="${token}" i\\] \\{\\s*--leafdown-callout-icon: url\\("/callout-${token}\\.svg"\\);`,
+          "u",
+        ),
+      );
+    }
+    for (const token of tokens) {
+      expect(existsSync(resolve(process.cwd(), `public/callout-${token}.svg`))).toBe(true);
+    }
+    for (const tone of new Set(Object.values(tones).filter((group) => group !== "note"))) {
+      expect(editorCss).toContain(`&[data-tone="${tone}"] {`);
+    }
   });
 
   it("leaves the editor's scrolling blocks to the app's shared scrollbar", () => {

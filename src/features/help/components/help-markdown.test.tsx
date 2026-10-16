@@ -16,6 +16,19 @@ describe("HelpMarkdown", () => {
     expect(article).toHaveTextContent("See Markdown reference.");
   });
 
+  it("renders leading content before the page and fourth-level headings below its sections", () => {
+    render(
+      <HelpMarkdown source={"### Section\n\n#### Detail\n\nText."}>
+        <p>Lead</p>
+      </HelpMarkdown>,
+    );
+
+    const article = screen.getByRole("article");
+    expect(article.firstElementChild).toHaveTextContent("Lead");
+    expect(within(article).getByRole("heading", { level: 4, name: "Section" })).toBeInTheDocument();
+    expect(within(article).getByRole("heading", { level: 5, name: "Detail" })).toBeInTheDocument();
+  });
+
   it("shows image descriptions and leaves raw HTML and credentialed links inert", () => {
     render(
       <HelpMarkdown

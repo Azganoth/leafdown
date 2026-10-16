@@ -5,7 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
-import { getBundledChangelog, getReleaseNotesPages } from "../services/bundledChangelog";
+import {
+  getBundledChangelog,
+  getBundledReleaseNotesPages,
+  getReleaseNotesPages,
+} from "../services/bundledChangelog";
 import { useReleaseNotesStore } from "../stores/releaseNotes";
 import { ReleaseNotesDialog } from "./release-notes-dialog";
 
@@ -37,6 +41,38 @@ describe("ReleaseNotesDialog", () => {
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(useReleaseNotesStore.getState().surface).toBeNull());
+  });
+
+  it("leads a release with its highlights before all of its changes", () => {
+    vi.stubEnv("DEV", true);
+    const page = getBundledReleaseNotesPages().find((candidate) => candidate.highlights.length);
+    if (!page) {
+      throw new Error("The bundled changelog names no highlights.");
+    }
+    openWhatsNew(page.version, true);
+
+    const article = screen.getByRole("article");
+    const highlights = within(article).getByRole("list", { name: "Highlights" });
+    const cards = within(highlights).getAllByRole("listitem");
+    expect(
+      cards.map((card) => within(card).getByRole("heading", { level: 3 }).textContent),
+    ).toEqual(page.highlights.map((highlight) => highlight.title));
+    expect(cards.map((card) => card.querySelector("[aria-hidden='true'] > svg") !== null)).toEqual(
+      page.highlights.map((highlight) => highlight.illustration !== null),
+    );
+    const allChanges = within(article).getByRole("heading", { level: 3, name: "All changes" });
+    expect(highlights.compareDocumentPosition(allChanges)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(within(article).queryByRole("heading", { name: "Highlights" })).toBeNull();
+    expect(within(article).getByRole("heading", { level: 4, name: "Added" })).toBeInTheDocument();
+  });
+
+  it("shows a release without highlights as its changelog section alone", () => {
+    openWhatsNew("0.1.0-alpha.3", false);
+
+    const article = screen.getByRole("article");
+    expect(within(article).queryByRole("list", { name: "Highlights" })).toBeNull();
+    expect(within(article).queryByRole("heading", { name: "All changes" })).toBeNull();
+    expect(article.firstElementChild).toHaveTextContent("Added");
   });
 
   it("lists every bundled release with notes, newest first, without Unreleased in release builds", async () => {

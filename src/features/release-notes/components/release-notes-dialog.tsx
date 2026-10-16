@@ -29,8 +29,9 @@ import {
   type ReleaseNotesPage,
 } from "../services/bundledChangelog";
 import { useReleaseNotesStore, type ReleaseNotesSurface } from "../stores/releaseNotes";
+import { ReleaseHighlights } from "./release-highlights";
 
-type WhatsNewPage = ReleaseNotesPage | { version: string; date: null; notes: null };
+type WhatsNewPage = ReleaseNotesPage | { version: string; date: null; highlights: []; notes: null };
 
 const DIALOG_HEIGHT = "h-[min(40rem,calc(100dvh-2rem))]";
 
@@ -88,7 +89,7 @@ function WhatsNewContent({ version }: { version: string }) {
   const currentPage = getCurrentReleaseNotesPage(releasePages, version);
   const pages: WhatsNewPage[] = currentPage
     ? releasePages
-    : [{ version, date: null, notes: null }, ...releasePages];
+    : [{ version, date: null, highlights: [], notes: null }, ...releasePages];
   const [shownVersion, setShownVersion] = useState(currentPage?.version ?? version);
   const index = Math.max(
     0,
@@ -108,7 +109,7 @@ function WhatsNewContent({ version }: { version: string }) {
     <DialogContent
       className={cn(
         "flex min-h-0 flex-col gap-4 sm:max-w-2xl",
-        pages.some((candidate) => candidate.notes) && DIALOG_HEIGHT,
+        pages.some((candidate) => candidate.notes !== null) && DIALOG_HEIGHT,
       )}
     >
       <DialogHeader className="shrink-0 pr-10">
@@ -129,10 +130,21 @@ function WhatsNewContent({ version }: { version: string }) {
           )}
         </DialogDescription>
       </DialogHeader>
-      {page.notes ? (
-        <HelpMarkdown key={page.version} source={page.notes} />
-      ) : (
+      {page.notes === null ? (
         <p className="min-h-0 flex-1 text-sm text-muted-foreground">{t("releaseNotes.noNotes")}</p>
+      ) : (
+        <HelpMarkdown key={page.version} source={page.notes}>
+          {page.highlights.length > 0 && (
+            <>
+              <ReleaseHighlights highlights={page.highlights} />
+              {page.notes && (
+                <h3 className="mt-8 mb-3 border-b pb-2 text-base font-semibold tracking-tight">
+                  {t("releaseNotes.allChanges")}
+                </h3>
+              )}
+            </>
+          )}
+        </HelpMarkdown>
       )}
       {pages.length > 1 && (
         <nav

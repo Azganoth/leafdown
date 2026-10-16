@@ -30,7 +30,7 @@ Types are colocated with the module that owns the concept. A `types/` directory 
 
 Application composition lives under `src/components/` in `layout/` and `screens/`. Application commands live in `src/commands/`. Domain-agnostic UI and utilities live in `src/components/ui/` and `src/lib/`.
 
-The `release-notes` feature owns the changelog bundled into the frontend, current-version selection, and persisted launch and seen-version history. It renders notes with the `help` feature's bundled-page Markdown renderer, so both Help surfaces share one link policy, and it does not access document or session state.
+The `release-notes` feature owns the changelog bundled into the frontend, the highlight illustrations bundled with it, current-version selection, and persisted launch and seen-version history. It renders notes with the `help` feature's bundled-page Markdown renderer, so both Help surfaces share one link policy, and it does not access document or session state.
 
 The `session` feature owns the window's open documents and their relationship to the folder context, plus workflows spanning multiple features. Dependencies flow left to right:
 

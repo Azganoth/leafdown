@@ -292,6 +292,8 @@
   "releaseNotes.changelogTitle": "Changelog",
   "releaseNotes.changelogDescription": "All bundled Leafdown release notes.",
   "releaseNotes.noNotes": "No release notes are available for this version.",
+  "releaseNotes.highlights": "Highlights",
+  "releaseNotes.allChanges": "All changes",
   "releaseNotes.releaseDate": "{date, date, long}",
   "releaseNotes.unreleased": "Unreleased",
   "releaseNotes.unreleasedDescription": "Changes not yet in a Leafdown release",

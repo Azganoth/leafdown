@@ -5,6 +5,7 @@ import { $view } from "@milkdown/kit/utils";
 import { t } from "@/lib/i18n";
 
 import { calloutSchema } from "./callout";
+import { setCalloutTypeRequestMeta } from "./calloutType";
 
 const toneFor = (token: string) => {
   if (["TIP", "SUCCESS"].includes(token)) return "success";
@@ -56,6 +57,7 @@ class CalloutNodeView implements NodeView {
   private readonly toggle = document.createElement("button");
   private readonly label = document.createElement("span");
   private readonly title = document.createElement("input");
+  private readonly typeBadge = document.createElement("button");
   private expanded: boolean;
 
   constructor(
@@ -77,7 +79,14 @@ class CalloutNodeView implements NodeView {
     this.title.type = "text";
     this.title.setAttribute("aria-label", t("editor.callout.title"));
     this.title.addEventListener("input", this.handleTitleInput);
-    this.header.append(this.toggle, this.label, this.title);
+    this.typeBadge.type = "button";
+    // Reached by keyboard through `Callout type...`, so the badge costs no tab stop in text.
+    this.typeBadge.tabIndex = -1;
+    this.typeBadge.className = "leafdown-callout-type";
+    this.typeBadge.dataset.leafdownCalloutType = "";
+    this.typeBadge.addEventListener("mousedown", this.handleTypeBadgeMouseDown);
+    this.typeBadge.addEventListener("click", this.handleTypeBadgeClick);
+    this.header.append(this.toggle, this.label, this.title, this.typeBadge);
     this.dom.append(this.header, this.contentDOM);
     this.render();
   }
@@ -108,6 +117,8 @@ class CalloutNodeView implements NodeView {
     this.toggle.removeEventListener("mousedown", this.handleToggleMouseDown);
     this.toggle.removeEventListener("click", this.handleToggle);
     this.title.removeEventListener("input", this.handleTitleInput);
+    this.typeBadge.removeEventListener("mousedown", this.handleTypeBadgeMouseDown);
+    this.typeBadge.removeEventListener("click", this.handleTypeBadgeClick);
   }
 
   private render() {
@@ -139,6 +150,8 @@ class CalloutNodeView implements NodeView {
     this.title.hidden = dialect === "github";
     this.title.placeholder = title === "" ? "" : defaultTitle;
     if (this.title.value !== (title ?? "")) this.title.value = title ?? "";
+    this.typeBadge.textContent = String(token);
+    this.typeBadge.setAttribute("aria-label", t("editor.callout.type", { type: String(token) }));
     this.contentDOM.hidden = collapsible && !this.expanded;
   }
 
@@ -150,6 +163,26 @@ class CalloutNodeView implements NodeView {
 
   private readonly handleToggleMouseDown = (event: MouseEvent) => {
     event.preventDefault();
+  };
+
+  // Leaves the editor's selection where it was rather than letting the press move it.
+  private readonly handleTypeBadgeMouseDown = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
+  private readonly handleTypeBadgeClick = () => {
+    const position = this.getPos();
+
+    if (position === undefined || !this.view.editable) {
+      return;
+    }
+
+    this.view.dispatch(
+      setCalloutTypeRequestMeta(this.view.state.tr, {
+        type: "open",
+        target: { type: "change", position },
+      }),
+    );
   };
 
   private readonly handleTitleInput = () => {

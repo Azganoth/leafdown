@@ -42,6 +42,7 @@ const BOUNDARY_INSERT_KINDS: readonly BoundaryInsertKind[] = [
   "heading6",
   "image",
   "blockquote",
+  "callout",
   "unorderedList",
   "orderedList",
   "taskList",

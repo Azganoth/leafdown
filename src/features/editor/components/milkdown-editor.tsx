@@ -20,6 +20,7 @@ import type { HeadingOutlineState } from "../utils/headingOutline";
 import type { MarkdownLinkContext } from "../utils/linkActivation";
 import type { MarkdownReferenceContext } from "../utils/markdownReferences";
 import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
+import { EditorCalloutTypePicker } from "./editor-callout-type-picker";
 import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-picker";
 import { EditorContextPopup } from "./editor-context-popup";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
@@ -69,8 +70,11 @@ export function MilkdownEditor({
   lineSpacing = "default",
 }: MilkdownEditorProps) {
   const {
+    applyCalloutType,
     applyCodeBlockLanguage,
     blockInsertionRequest,
+    calloutTypeRequest,
+    cancelCalloutType,
     cancelCodeBlockLanguage,
     closeBlockInsertion,
     codeBlockLanguageRequest,
@@ -129,6 +133,12 @@ export function MilkdownEditor({
         request={codeBlockLanguageRequest}
         onApply={applyCodeBlockLanguage}
         onCancel={cancelCodeBlockLanguage}
+        onReturnFocus={focusEditor}
+      />
+      <EditorCalloutTypePicker
+        request={calloutTypeRequest}
+        onApply={applyCalloutType}
+        onCancel={cancelCalloutType}
         onReturnFocus={focusEditor}
       />
       <EditorFootnotePreview request={footnotePreviewRequest} />

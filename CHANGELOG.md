@@ -6,6 +6,12 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Insert callouts with Insert > Callout..., also in the context popup's Insert submenu, the command palette, and the insertion button between blocks. Choose a type from the list that opens, or press Escape to leave the document unchanged. The new callout uses the dialect your document's callouts already share, and a GitHub alert otherwise.
+- Change a callout's type from the badge at the end of its header, or choose Format > Callout > Callout type... instead. The list offers the types of the callout's own dialect, and its title, marker, and body stay as written.
+- Choose whether a collapsible MkDocs admonition opens expanded with Format > Callout > Callout opens expanded, which switches it between `???` and `???+` in the saved file. The disclosure arrow in its header still changes only the current view.
+
 ### Changed
 
 - Open articles from the navigator, Find in folder results, links, and a folder's index file in one preview tab per window, whose name is in italics, instead of adding a tab for every article you look at. The next such open replaces the preview, so browsing a folder leaves one tab behind. Editing the document, saving it, double-clicking its tab or navigator row, View > Keep tab (`Ctrl+Shift+K`), or opening it again from Open, recent files, a drop, or File Explorer keeps it as an ordinary tab, and a document with unsaved changes is never replaced. Open, recent files, drops, and File Explorer still open ordinary tabs.

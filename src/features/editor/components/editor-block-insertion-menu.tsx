@@ -17,6 +17,7 @@ const LABEL_IDS = {
   heading6: "editor.blockInsertion.heading6",
   image: "editor.blockInsertion.image",
   blockquote: "editor.blockInsertion.blockquote",
+  callout: "editor.blockInsertion.callout",
   unorderedList: "editor.blockInsertion.unorderedList",
   orderedList: "editor.blockInsertion.orderedList",
   taskList: "editor.blockInsertion.taskList",

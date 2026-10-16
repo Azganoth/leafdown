@@ -415,6 +415,15 @@ For editor input and clipboard ownership, see [Architecture](./architecture.md#e
 - `Delete row` and `Delete column` remove the current or selected rows or columns. If deleting them would leave no valid table, remove the table, and deleting the last body row removes the table rather than leaving its header behind.
 - `Delete table` removes the current table.
 
+### Table Controls
+
+- Hovering a table cell shows a grip on the table's left border beside the cell's row and one on its top border above the cell's column. The header row has no row grip. While the table is scrolled sideways, the row grip stays at the table's visible left edge and the column grip scrolls with its column, showing only while its column is in view.
+- Clicking a grip selects its whole row or column as a cell selection, keeps focus in the editor, and opens the context popup with the table's commands on release, as a block handle does for its block. `Shift`-click extends or reverses the selected row or column range. Clicking a grip within a selected row or column range collapses it to that row or column on release.
+- Dragging a grip moves its row or column, or the selected range it belongs to, to the row or column boundary nearest the pointer, shown by a line at that boundary. Nothing lands above the header row, and a drag that would leave the range where it started shows no line and changes nothing. The move is one undoable change, leaves the moved rows or columns selected, and does not open the popup. A selected row range that includes the header row is not dragged as a range.
+- One insertion button on the table's left border follows the pointer to the nearest row boundary below the header row, and one on its top border to the nearest column boundary in view; both include the table's ends. Hovering a button shows a faint line at its boundary, and clicking it inserts an empty row or column there, as one undoable change, with the caret in the new row's first cell or the new column's header cell.
+- The controls are overlays: appearing, moving, or hiding moves no text or table geometry, and none of them changes the document until a command runs. Over the table, the table's controls respond; in the gutter, the block handle and block insertion button keep theirs, and a table control straddling the left border keeps the pointer only while the pointer rests on it. A menu or popup covering the table keeps the pointer for itself.
+- The controls carry accessible names but add no tab stops; the context popup's table commands remain the keyboard route.
+
 ### Serialization And Output
 
 - Frontmatter keeps its authored source as the serialization authority. Opening and saving an untouched block preserves key order, quoting, whitespace, comments where supported, layout, and scalar spelling. Editing writes the source left in its body, including when validation reports an error; no parsed value is used to regenerate it.

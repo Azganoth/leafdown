@@ -195,6 +195,7 @@ import {
 } from "../plugins/sourceProjection";
 import { createLeafdownStrikethroughInputRule } from "../plugins/strikethroughInputRule";
 import { createLeafdownTableColumnsPlugin } from "../plugins/tableColumns";
+import { createLeafdownTableControlsPlugin } from "../plugins/tableControls";
 import { createLeafdownTableFormPlugin } from "../plugins/tableForm";
 import { createLeafdownTableKeyboardPlugin } from "../plugins/tableKeyboard";
 import {
@@ -476,6 +477,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownSearchPlugin(search))
     .use(createLeafdownSelectionOccurrencesPlugin())
     .use(createLeafdownBlockSelectionPlugin(blockInsertion))
+    .use(createLeafdownTableControlsPlugin())
     .use(createLeafdownBlockSelectionKeyboardPlugin())
     .use(createLeafdownBlockSelectionOperationsPlugin())
     .use(createLeafdownAutoPairPlugin(isAutoPairEnabled))

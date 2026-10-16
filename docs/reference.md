@@ -26,6 +26,9 @@ Global settings persist across application launches unless specified otherwise.
 - **Status bar visibility:** Visible or hidden. Default: Visible.
   - The setting applies while a document is open. Without one the status bar is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
+- **Show all files:** On or Off. Default: Off.
+  - Off lists articles, the directories holding them, and directories holding no file. On also lists the files Leafdown cannot open, muted, and the directories holding only them. See the article navigator in the [Interface Model](./specification.md#interface-model).
+  - Also set from View > Show all files.
 - **Always on top:** On or Off. Default: Off.
   - Set from View > Always on top. See [Always On Top](./specification.md#always-on-top).
 
@@ -265,6 +268,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
   - **Name**
   - **Modified date**
   - **Type**
+- **Show all files**
 - **Collapse all folders**
 - **Expand all folders**
 
@@ -337,7 +341,7 @@ The article navigator's context menu opens on right-click, or with `Shift+F10` o
 
 - **Markdown file row:** Open; New file, New folder; Rename, Delete; Open file location, Copy path, Copy relative path.
 - **Directory row:** New file, New folder; Rename, Delete; Open folder location, Copy path, Copy relative path.
-- **Unsupported file row:** New file, New folder; Open file location, Copy path, Copy relative path.
+- **Unsupported file row**, listed while `Show all files` is on: New file, New folder; Open file location, Copy path, Copy relative path.
 - **Empty navigator space (folder context root):** New file, New folder; Open folder location, Copy path, Copy relative path.
 
 ## Command State
@@ -390,7 +394,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Toggle sidebar`, `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
+- `Toggle sidebar`, `Sort articles by`, `Show all files`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 - `Find in folder` and `Replace in folder` require a folder context, with or without an open document.
 
 #### Search And Updates
@@ -407,6 +411,7 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 - `Insert final newline on save` reflects the global save setting. It remains available without an active document.
 - `Toggle sidebar` reflects global sidebar visibility while it is available.
 - `Toggle status bar` reflects global status bar visibility.
+- `Show all files` reflects the global show-all-files setting while it is available.
 - `Always on top` reflects the global always-on-top setting, which Leafdown records only after the window accepts the change.
 - `Full screen` reflects current window state.
 - `Callout opens expanded` reflects whether the MkDocs admonition in context is written `???+`, in the menu bar, the command palette, and the context popup.

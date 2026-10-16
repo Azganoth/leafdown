@@ -142,6 +142,11 @@ export const sortByType = () => {
   void changeSortOrder("type");
 };
 
+export const toggleShowAllFiles = () => {
+  const settings = useSettingsStore.getState();
+  settings.updateSetting("showAllFiles", !settings.showAllFiles);
+};
+
 export const collapseAllFolders = () => {
   useArticleNavigatorStore.getState().collapseAll();
 };
@@ -193,6 +198,11 @@ export const getSortByModifiedDateState = (context: AppCommandContext) =>
 
 export const getSortByTypeState = (context: AppCommandContext) =>
   getSortCommandState("type", context);
+
+export const getShowAllFilesState = (context: AppCommandContext) =>
+  context.folderContext
+    ? checked(context.settings.showAllFiles)
+    : disabled("No folder context is open.");
 
 export const getCollapseAllFoldersState = (context: AppCommandContext) =>
   context.folderContext ? enabled() : disabled("No folder context is open.");

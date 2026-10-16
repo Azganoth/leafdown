@@ -25,6 +25,7 @@ describe("settings store", () => {
       lineSpacing: "relaxed",
       recordRecentItems: false,
       sidebarVisible: false,
+      showAllFiles: true,
       outlineDepth: 6,
       alwaysOnTop: true,
       articleSortOrder: "modifiedDate",
@@ -51,6 +52,7 @@ describe("settings store", () => {
       lineSpacing: "default",
       recordRecentItems: true,
       sidebarVisible: true,
+      showAllFiles: false,
       outlineDepth: 3,
       alwaysOnTop: false,
       articleSortOrder: "name",
@@ -79,6 +81,7 @@ describe("settings store", () => {
     settings.updateSetting("lineSpacing", "compact");
     settings.updateSetting("recordRecentItems", false);
     settings.updateSetting("sidebarVisible", false);
+    settings.updateSetting("showAllFiles", true);
     settings.updateSetting("outlineDepth", 2);
     settings.updateSetting("articleSortOrder", "type");
     settings.updateSetting("defaultNewDocumentExtension", ".markdown");
@@ -101,6 +104,7 @@ describe("settings store", () => {
       lineSpacing: "compact",
       recordRecentItems: false,
       sidebarVisible: false,
+      showAllFiles: true,
       outlineDepth: 2,
       articleSortOrder: "type",
       defaultNewDocumentExtension: ".markdown",
@@ -135,6 +139,7 @@ describe("settings store", () => {
         lineSpacing: "relaxed",
         recordRecentItems: false,
         sidebarVisible: false,
+        showAllFiles: true,
         statusBarVisible: false,
         outlineDepth: 5,
         alwaysOnTop: true,
@@ -167,6 +172,7 @@ describe("settings store", () => {
         textSize: 17,
         lineSpacing: 2,
         sidebarVisible: "yes",
+        showAllFiles: "no",
         outlineDepth: 7,
         articleSortOrder: 3,
         defaultNewDocumentExtension: "md",

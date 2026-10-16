@@ -83,6 +83,7 @@ export const useAppCommands = () => {
   const alwaysOnTop = useSettingsStore((state) => state.alwaysOnTop);
   const articleSortOrder = useSettingsStore((state) => state.articleSortOrder);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
+  const showAllFiles = useSettingsStore((state) => state.showAllFiles);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const theme = useSettingsStore((state) => state.theme);
@@ -110,6 +111,7 @@ export const useAppCommands = () => {
       alwaysOnTop,
       articleSortOrder,
       insertFinalNewline,
+      showAllFiles,
       sidebarVisible,
       statusBarVisible,
       theme,

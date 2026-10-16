@@ -99,6 +99,7 @@ export function Shell() {
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextLoadPath = useSessionStore((state) => state.folderContextLoad?.path ?? null);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
+  const showAllFiles = useSettingsStore((state) => state.showAllFiles);
   const folderSearchOpen = useFolderSearchStore((state) => state.open);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
@@ -228,6 +229,7 @@ export function Shell() {
                           folderContext={folderContext}
                           onKeepArticle={handleKeepArticle}
                           onOpenArticle={handleOpenArticle}
+                          showAllFiles={showAllFiles}
                         />
                       )}
                     </aside>

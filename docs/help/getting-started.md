@@ -10,7 +10,7 @@ You can open an individual file while a folder is already open. The folder remai
 
 ## Find and edit articles
 
-The article navigator lists the files in the open folder. Choose a Markdown article to open it; other files, such as images, are dimmed because Leafdown cannot open them. Expand folders to reach nested articles, and use **View > Collapse all folders** or **Expand all folders** to change the tree at once. The sidebar toggle hides the navigator without closing its folder.
+The article navigator lists the Markdown articles in the open folder and the folders that hold them. Choose an article to open it. **View > Show all files** lists the folder's other files too, such as images, dimmed because Leafdown cannot open them. Expand folders to reach nested articles, and use **View > Collapse all folders** or **Expand all folders** to change the tree at once. The sidebar toggle hides the navigator without closing its folder.
 
 Click in the document and type. Leafdown shows Markdown as formatted text while keeping its source in the file. Formatting and insertion commands are in **Insert** and **Format**; **Edit** contains Undo, Redo, and Find and replace. See [Markdown reference](markdown-reference.md) for supported source forms.
 

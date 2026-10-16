@@ -609,7 +609,126 @@ const mixedFolderTree = createArticleTree({
 
 const mixedFolderContext = createFolderContext({ tree: mixedFolderTree });
 
-describe("article-navigator unsupported files", () => {
+const assetsOnlyFolderContext = createEmptyFolderContext({
+  tree: createArticleTree({
+    children: mixedFolderTree.children.filter(
+      (child) => child.kind !== "file" && child.name !== "empty",
+    ),
+  }),
+});
+
+const getTreeItemNames = () =>
+  screen.queryAllByRole("treeitem").map((item) => item.textContent?.trim());
+
+describe("article-navigator default listing", () => {
+  beforeEach(() => useArticleNavigatorStore.getState().reset());
+
+  it("lists articles and empty directories, leaving out other files and their folders", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(getTreeItemNames()).toEqual(["empty", "readme.md"]);
+  });
+
+  it("counts and filters articles as when every file is shown", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("1 article")).toHaveTextContent(/^1$/u);
+
+    const filter = screen.getByRole("textbox", { name: "Filter articles" });
+    await user.type(filter, "manual");
+
+    expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
+    expect(screen.getByText("No matching articles.")).toBeInTheDocument();
+
+    await user.clear(filter);
+    await user.type(filter, "read");
+
+    expect(getTreeItemNames()).toEqual(["readme.md"]);
+  });
+
+  it("shows only the empty Markdown message for a folder of other files", () => {
+    const { rerender } = render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={assetsOnlyFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("0 articles")).toBeInTheDocument();
+
+    rerender(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={assetsOnlyFolderContext}
+        onOpenArticle={vi.fn()}
+        showAllFiles
+      />,
+    );
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(getTreeItemNames()).toEqual(["assets", "manual.pdf"]);
+  });
+
+  it("keeps an empty folder listed beside the empty Markdown message", () => {
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={createEmptyFolderContext({
+          tree: createArticleTree({
+            children: mixedFolderTree.children.filter((child) => child.kind !== "file"),
+          }),
+        })}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
+    expect(getTreeItemNames()).toEqual(["empty"]);
+  });
+
+  it("hands focus to the row that inherits the tab stop when hiding other files removes it", () => {
+    const { rerender } = render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+        showAllFiles
+      />,
+    );
+
+    act(() => screen.getByRole("treeitem", { name: "manual.pdf" }).focus());
+    rerender(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={mixedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    const firstRow = screen.getByRole("treeitem", { name: "empty" });
+
+    expect(firstRow).toHaveFocus();
+    expect(firstRow.tabIndex).toBe(0);
+    expect(screen.getAllByRole("treeitem").filter((row) => row.tabIndex === 0)).toHaveLength(1);
+  });
+});
+
+describe("article-navigator with all files shown", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
 
   it("shows unsupported files as rows that say Leafdown cannot open them", () => {
@@ -618,6 +737,7 @@ describe("article-navigator unsupported files", () => {
         activeArticlePath={null}
         folderContext={mixedFolderContext}
         onOpenArticle={vi.fn()}
+        showAllFiles
       />,
     );
 
@@ -641,6 +761,7 @@ describe("article-navigator unsupported files", () => {
         activeArticlePath={null}
         folderContext={mixedFolderContext}
         onOpenArticle={onOpenArticle}
+        showAllFiles
       />,
     );
 
@@ -663,6 +784,7 @@ describe("article-navigator unsupported files", () => {
         activeArticlePath={null}
         folderContext={mixedFolderContext}
         onOpenArticle={vi.fn()}
+        showAllFiles
       />,
     );
 
@@ -683,6 +805,7 @@ describe("article-navigator unsupported files", () => {
         activeArticlePath={null}
         folderContext={mixedFolderContext}
         onOpenArticle={vi.fn()}
+        showAllFiles
       />,
     );
 
@@ -712,6 +835,7 @@ describe("article-navigator unsupported files", () => {
           }),
         })}
         onOpenArticle={vi.fn()}
+        showAllFiles
       />,
     );
 
@@ -800,6 +924,7 @@ describe("article-navigator entry actions", () => {
         activeArticlePath={null}
         folderContext={mixedFolderContext}
         onOpenArticle={vi.fn()}
+        showAllFiles
       />,
     );
     const path = `${TEST_NOTES_FOLDER_PATH}/manual.pdf`;

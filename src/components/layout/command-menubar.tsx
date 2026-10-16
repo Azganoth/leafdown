@@ -279,6 +279,7 @@ export function CommandMenubar({
               inset
               labelId="menu.view.sortArticlesBy"
             />
+            <CommandCheckboxItem commandId="view.showAllFiles" />
             <CommandItems commandIds={["view.collapseAllFolders", "view.expandAllFolders"]} inset />
           </MenubarContent>
         </MenubarMenu>

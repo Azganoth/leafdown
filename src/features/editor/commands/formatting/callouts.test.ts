@@ -137,7 +137,7 @@ describe("callout type changes", () => {
       target: { type: "change" },
       token: "warning",
     });
-    expect(request.anchor).toHaveTextContent("warning");
+    expect(request.anchor).toHaveAccessibleName("Callout type: warning");
     expect(mounted.view.state.doc).toBe(before);
     expect(canUndo(mounted.view.state)).toBe(false);
     expect(onContentChanged).not.toHaveBeenCalled();
@@ -247,19 +247,20 @@ describe("callout type changes", () => {
     expect(mounted.getMarkdown()).toBe(edited);
   });
 
-  it("opens from the type badge in the callout header", async () => {
+  it("opens from the type icon at the start of the callout header", async () => {
     const { mounted, requests } = await mountWithRequests(withProse("!!! tip\n    Body text"));
-    const badge = mounted.view.dom.querySelector<HTMLButtonElement>(
-      "[data-leafdown-callout-type]",
-    )!;
+    const header = mounted.view.dom.querySelector<HTMLElement>(".leafdown-callout-header")!;
+    const icon = mounted.view.dom.querySelector<HTMLButtonElement>("[data-leafdown-callout-type]")!;
 
-    expect(badge).toHaveTextContent("tip");
-    expect(badge).toHaveAccessibleName("Callout type: tip");
-    expect(badge.tabIndex).toBe(-1);
+    expect(header.firstElementChild).toBe(icon);
+    expect(icon).toHaveTextContent("");
+    expect(icon).toHaveAccessibleName("Callout type: tip");
+    expect(icon).toHaveAttribute("title", "Callout type: tip");
+    expect(icon.tabIndex).toBe(-1);
 
-    badge.click();
+    icon.click();
 
-    expect(requests.at(-1)).toMatchObject({ anchor: badge, target: { type: "change" } });
+    expect(requests.at(-1)).toMatchObject({ anchor: icon, target: { type: "change" } });
   });
 });
 

@@ -28,7 +28,7 @@ interface CalloutTypeState {
 type CalloutTypeMeta = { type: "open"; target: CalloutTypeTarget } | { type: "close" };
 
 export interface CalloutTypeRequest {
-  /** The callout's type badge, or for an insertion the block the callout will follow. */
+  /** The callout's type icon, or for an insertion the block the callout will follow. */
   anchor: Element;
   dialect: CalloutDialect;
   /** The document the request was opened on; an edit to it retires the request. */
@@ -43,7 +43,7 @@ export interface LeafdownCalloutTypePluginOptions {
   onRequest?: (request: CalloutTypeRequest) => void;
 }
 
-export const CALLOUT_TYPE_BADGE_SELECTOR = "[data-leafdown-callout-type]";
+export const CALLOUT_TYPE_BUTTON_SELECTOR = "[data-leafdown-callout-type]";
 const DEFAULT_CALLOUT_DIALECT: CalloutDialect = "github";
 
 export const leafdownCalloutTypePluginKey = new PluginKey<CalloutTypeState>("leafdownCalloutType");
@@ -149,7 +149,7 @@ const findAnchor = (
   if (target.type === "change") {
     const callout = nodeDOM(target.position);
 
-    return callout instanceof Element ? callout.querySelector(CALLOUT_TYPE_BADGE_SELECTOR) : null;
+    return callout instanceof Element ? callout.querySelector(CALLOUT_TYPE_BUTTON_SELECTOR) : null;
   }
 
   const $boundary = doc.resolve(target.boundary);

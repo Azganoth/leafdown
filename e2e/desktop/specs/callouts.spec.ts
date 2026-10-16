@@ -26,19 +26,29 @@ describe("desktop callouts", () => {
     const presentation = (await $(mkdocs).execute((node) => {
       const style = getComputedStyle(node);
       const body = node.querySelector<HTMLElement>(".leafdown-callout-body");
+      const icon = node.querySelector<HTMLElement>(".leafdown-callout-type");
+      const iconStyle = icon ? getComputedStyle(icon, "::before") : null;
       return {
-        borderStyle: style.borderLeftStyle,
         borderWidth: style.borderLeftWidth,
+        radius: style.borderTopLeftRadius,
         background: style.backgroundColor,
         bodyHidden: body?.hidden,
+        iconMask: iconStyle?.maskImage ?? "",
+        iconWidth: iconStyle?.width ?? "",
       };
-    })) as { borderStyle: string; borderWidth: string; background: string; bodyHidden: boolean };
-    expect(presentation).toMatchObject({
-      borderStyle: "solid",
-      borderWidth: "4px",
-      bodyHidden: true,
-    });
+    })) as {
+      borderWidth: string;
+      radius: string;
+      background: string;
+      bodyHidden: boolean;
+      iconMask: string;
+      iconWidth: string;
+    };
+    expect(presentation).toMatchObject({ borderWidth: "0px", bodyHidden: true });
+    expect(presentation.radius).not.toBe("0px");
     expect(presentation.background).not.toBe("rgba(0, 0, 0, 0)");
+    expect(presentation.iconMask).toContain("callout-warning.svg");
+    expect(presentation.iconWidth).not.toBe("0px");
 
     await $(`${mkdocs} .leafdown-callout-toggle`).click();
     await expect($(`${mkdocs} .leafdown-callout-body`)).toBeDisplayed();

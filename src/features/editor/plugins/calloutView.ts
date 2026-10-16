@@ -7,13 +7,25 @@ import { t } from "@/lib/i18n";
 import { calloutSchema } from "./callout";
 import { setCalloutTypeRequestMeta } from "./calloutType";
 
-const toneFor = (token: string) => {
-  if (["TIP", "SUCCESS"].includes(token)) return "success";
-  if (["WARNING", "QUESTION", "EXAMPLE"].includes(token)) return "warning";
-  if (["CAUTION", "DANGER", "FAILURE", "BUG"].includes(token)) return "danger";
-  if (token === "IMPORTANT") return "important";
-  return "info";
+const CALLOUT_TONES: Record<string, string> = {
+  note: "note",
+  abstract: "info",
+  info: "info",
+  tip: "tip",
+  success: "success",
+  question: "success",
+  warning: "warning",
+  caution: "danger",
+  danger: "danger",
+  failure: "danger",
+  bug: "bug",
+  important: "important",
+  example: "important",
+  quote: "neutral",
+  details: "neutral",
 };
+
+const calloutTone = (token: string) => CALLOUT_TONES[token.toLowerCase()] ?? "note";
 
 const isCollapsible = (node: ProseMirrorNode) =>
   (node.attrs.dialect === "mkdocs" && node.attrs.marker !== "!!!") ||
@@ -55,9 +67,10 @@ class CalloutNodeView implements NodeView {
   readonly contentDOM = document.createElement("div");
   private readonly header = document.createElement("div");
   private readonly toggle = document.createElement("button");
+  private readonly chevron = document.createElement("span");
   private readonly label = document.createElement("span");
-  private readonly title = document.createElement("input");
-  private readonly typeBadge = document.createElement("button");
+  private readonly title = document.createElement("textarea");
+  private readonly typeButton = document.createElement("button");
   private expanded: boolean;
 
   constructor(
@@ -75,18 +88,22 @@ class CalloutNodeView implements NodeView {
     this.toggle.className = "leafdown-callout-toggle";
     this.toggle.addEventListener("mousedown", this.handleToggleMouseDown);
     this.toggle.addEventListener("click", this.handleToggle);
+    this.chevron.className = "leafdown-callout-chevron";
+    this.toggle.append(this.chevron);
+    this.label.className = "leafdown-callout-label";
     this.title.className = "leafdown-callout-title";
-    this.title.type = "text";
+    this.title.rows = 1;
     this.title.setAttribute("aria-label", t("editor.callout.title"));
+    this.title.addEventListener("keydown", this.handleTitleKeyDown);
     this.title.addEventListener("input", this.handleTitleInput);
-    this.typeBadge.type = "button";
-    // Reached by keyboard through `Callout type...`, so the badge costs no tab stop in text.
-    this.typeBadge.tabIndex = -1;
-    this.typeBadge.className = "leafdown-callout-type";
-    this.typeBadge.dataset.leafdownCalloutType = "";
-    this.typeBadge.addEventListener("mousedown", this.handleTypeBadgeMouseDown);
-    this.typeBadge.addEventListener("click", this.handleTypeBadgeClick);
-    this.header.append(this.toggle, this.label, this.title, this.typeBadge);
+    this.typeButton.type = "button";
+    // Reached by keyboard through `Callout type...`, so the icon costs no tab stop in text.
+    this.typeButton.tabIndex = -1;
+    this.typeButton.className = "leafdown-callout-type";
+    this.typeButton.dataset.leafdownCalloutType = "";
+    this.typeButton.addEventListener("mousedown", this.handleTypeButtonMouseDown);
+    this.typeButton.addEventListener("click", this.handleTypeButtonClick);
+    this.header.append(this.typeButton, this.label, this.title, this.toggle);
     this.dom.append(this.header, this.contentDOM);
     this.render();
   }
@@ -116,9 +133,10 @@ class CalloutNodeView implements NodeView {
   destroy() {
     this.toggle.removeEventListener("mousedown", this.handleToggleMouseDown);
     this.toggle.removeEventListener("click", this.handleToggle);
+    this.title.removeEventListener("keydown", this.handleTitleKeyDown);
     this.title.removeEventListener("input", this.handleTitleInput);
-    this.typeBadge.removeEventListener("mousedown", this.handleTypeBadgeMouseDown);
-    this.typeBadge.removeEventListener("click", this.handleTypeBadgeClick);
+    this.typeButton.removeEventListener("mousedown", this.handleTypeButtonMouseDown);
+    this.typeButton.removeEventListener("click", this.handleTypeButtonClick);
   }
 
   private render() {
@@ -129,7 +147,7 @@ class CalloutNodeView implements NodeView {
       .replace(/^./u, (character) => character.toUpperCase());
     this.dom.dataset.dialect = String(dialect);
     this.dom.dataset.token = String(token);
-    this.dom.dataset.tone = toneFor(String(token).toUpperCase());
+    this.dom.dataset.tone = calloutTone(String(token));
     this.dom.dataset.marker = String(marker);
     this.dom.dataset.gap = String(this.node.attrs.gap);
     this.dom.dataset.closingGap = String(this.node.attrs.closingGap);
@@ -137,7 +155,6 @@ class CalloutNodeView implements NodeView {
     else this.dom.dataset.title = String(title);
     this.toggle.hidden = !collapsible;
     this.toggle.style.display = collapsible ? "" : "none";
-    this.toggle.textContent = this.expanded ? "▾" : "▸";
     this.toggle.setAttribute("aria-expanded", String(this.expanded));
     this.toggle.setAttribute(
       "aria-label",
@@ -150,8 +167,9 @@ class CalloutNodeView implements NodeView {
     this.title.hidden = dialect === "github";
     this.title.placeholder = title === "" ? "" : defaultTitle;
     if (this.title.value !== (title ?? "")) this.title.value = title ?? "";
-    this.typeBadge.textContent = String(token);
-    this.typeBadge.setAttribute("aria-label", t("editor.callout.type", { type: String(token) }));
+    const typeName = t("editor.callout.type", { type: String(token) });
+    this.typeButton.setAttribute("aria-label", typeName);
+    this.typeButton.title = typeName;
     this.contentDOM.hidden = collapsible && !this.expanded;
   }
 
@@ -166,11 +184,11 @@ class CalloutNodeView implements NodeView {
   };
 
   // Leaves the editor's selection where it was rather than letting the press move it.
-  private readonly handleTypeBadgeMouseDown = (event: MouseEvent) => {
+  private readonly handleTypeButtonMouseDown = (event: MouseEvent) => {
     event.preventDefault();
   };
 
-  private readonly handleTypeBadgeClick = () => {
+  private readonly handleTypeButtonClick = () => {
     const position = this.getPos();
 
     if (position === undefined || !this.view.editable) {
@@ -185,13 +203,20 @@ class CalloutNodeView implements NodeView {
     );
   };
 
+  // A title is one line of Markdown, so its field wraps a long title but never takes a line break.
+  private readonly handleTitleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Enter") event.preventDefault();
+  };
+
   private readonly handleTitleInput = () => {
     const position = this.getPos();
     if (position === undefined || !this.view.editable) return;
+    const value = this.title.value.replace(/[\r\n]+/gu, " ");
+    if (value !== this.title.value) this.title.value = value;
     this.view.dispatch(
       this.view.state.tr.setNodeMarkup(position, undefined, {
         ...this.node.attrs,
-        title: this.title.value || null,
+        title: value || null,
       }),
     );
   };

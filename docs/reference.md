@@ -294,7 +294,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Diagnostics...**
 - **About**
 
-`What's new...` shows the running version's bundled release notes, or a no-notes state when none are available. `Changelog` shows the complete bundled changelog. Both are read-only dialogs and work without a network connection.
+`What's new...` opens on the running version's bundled release notes, or a no-notes state when none are available, and pages to any earlier release's notes. `Changelog` shows the complete bundled changelog. Both are read-only dialogs and work without a network connection.
 
 `Diagnostics...` opens a dialog that shows app version, platform, log location, retention settings, and local-only privacy notes. Its copied summary includes app, platform, and current diagnostic-run metadata only. The dialog can open Leafdown's app-owned local diagnostic log directory. Local logs may include user content when captured error messages or stack traces include it.
 

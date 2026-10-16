@@ -145,6 +145,10 @@ import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
+import {
+  createLeafdownLinkPreviewPlugin,
+  type LeafdownLinkPreviewPluginOptions,
+} from "../plugins/linkPreview";
 import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
@@ -276,6 +280,7 @@ export interface CreateMilkdownEditorOptions {
   contextPopup?: LeafdownContextPopupPluginOptions;
   blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
+  linkPreview?: LeafdownLinkPreviewPluginOptions;
   codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
   calloutType?: LeafdownCalloutTypePluginOptions;
   search?: LeafdownSearchPluginOptions;
@@ -330,6 +335,7 @@ export const createMilkdownEditor = async ({
   contextPopup,
   blockInsertion,
   footnotePreview,
+  linkPreview,
   codeBlockLanguage,
   calloutType,
   search,
@@ -411,6 +417,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFootnoteDefinitionLabelPlugin())
     .use(createLeafdownFootnoteNavigationPlugin())
     .use(createLeafdownFootnotePreviewPlugin(footnotePreview))
+    .use(createLeafdownLinkPreviewPlugin(getLinkContext, linkPreview))
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownCodeSpanInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())

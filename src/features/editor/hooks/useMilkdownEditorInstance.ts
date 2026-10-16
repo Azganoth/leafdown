@@ -49,6 +49,7 @@ import { insertBlockAtBoundary, type BoundaryInsertKind } from "../commands/inse
 import { insertLinkTarget } from "../commands/inserting/links";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
 import type { CalloutTypeRequest } from "../plugins/calloutType";
+import { setCodeBlockSoftWrapEnabled, type CodeBlockSetting } from "../plugins/codeBlockControls";
 import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
@@ -155,12 +156,14 @@ interface UseMilkdownEditorInstanceOptions extends Partial<MarkdownReferenceCont
   displayCodeBlockLineNumbers?: boolean;
   initialMarkdown: string;
   initialViewState?: EditorViewState | null;
+  onCodeBlockSettingChange?: (setting: CodeBlockSetting, enabled: boolean) => void;
   onCommandStateChanged?: () => void;
   onContentChanged?: () => void;
   onDocumentStatusChanged?: () => void;
   onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
   onOpenMarkdownPath?: MarkdownLinkContext["onOpenMarkdownPath"];
   onReadMarkdownPath?: MarkdownLinkContext["onReadMarkdownPath"];
+  softWrapCodeBlocks?: boolean;
   wikiCompletionPaths?: string[];
   ref?: Ref<MilkdownEditorBridge>;
 }
@@ -174,12 +177,14 @@ export const useMilkdownEditorInstance = ({
   folderContextPath = null,
   initialMarkdown,
   initialViewState = null,
+  onCodeBlockSettingChange,
   onCommandStateChanged,
   onContentChanged,
   onDocumentStatusChanged,
   onHeadingOutlineChanged,
   onOpenMarkdownPath = DEFAULT_OPEN_MARKDOWN_PATH,
   onReadMarkdownPath,
+  softWrapCodeBlocks = false,
   wikiCompletionPaths = [],
   ref,
 }: UseMilkdownEditorInstanceOptions) => {
@@ -218,12 +223,14 @@ export const useMilkdownEditorInstance = ({
     folderContextPath,
     initialMarkdown,
     initialViewState,
+    onCodeBlockSettingChange,
     onCommandStateChanged,
     onContentChanged,
     onDocumentStatusChanged,
     onHeadingOutlineChanged,
     onOpenMarkdownPath,
     onReadMarkdownPath,
+    softWrapCodeBlocks,
     wikiCompletionPaths,
   });
   const contextPopupOpenRef = useRef(false);
@@ -240,12 +247,14 @@ export const useMilkdownEditorInstance = ({
       folderContextPath,
       initialMarkdown,
       initialViewState,
+      onCodeBlockSettingChange,
       onCommandStateChanged,
       onContentChanged,
       onDocumentStatusChanged,
       onHeadingOutlineChanged,
       onOpenMarkdownPath,
       onReadMarkdownPath,
+      softWrapCodeBlocks,
       wikiCompletionPaths,
     };
   }, [
@@ -255,12 +264,14 @@ export const useMilkdownEditorInstance = ({
     initialViewState,
     documentPath,
     folderContextPath,
+    onCodeBlockSettingChange,
     onCommandStateChanged,
     onContentChanged,
     onDocumentStatusChanged,
     onHeadingOutlineChanged,
     onOpenMarkdownPath,
     onReadMarkdownPath,
+    softWrapCodeBlocks,
     wikiCompletionPaths,
   ]);
 
@@ -611,6 +622,9 @@ export const useMilkdownEditorInstance = ({
         }),
         isAutoPairEnabled: () => liveOptionsRef.current.autoPairBracketsAndQuotes,
         areCodeLineNumbersEnabled: () => liveOptionsRef.current.displayCodeBlockLineNumbers,
+        isCodeBlockSoftWrapEnabled: () => liveOptionsRef.current.softWrapCodeBlocks,
+        onCodeBlockSettingChange: (setting, enabled) =>
+          liveOptionsRef.current.onCodeBlockSettingChange?.(setting, enabled),
         onContentChanged: () => {
           if (isActiveEditorCallback()) {
             liveOptionsRef.current.onContentChanged?.();
@@ -661,7 +675,11 @@ export const useMilkdownEditorInstance = ({
       }
 
       editorRef.current = editor;
-      syncCodeLineNumbers(editor, liveOptionsRef.current.displayCodeBlockLineNumbers);
+      syncCodeBlockSettings(
+        editor,
+        liveOptionsRef.current.displayCodeBlockLineNumbers,
+        liveOptionsRef.current.softWrapCodeBlocks,
+      );
       restoreViewState(editor, liveOptionsRef.current.initialViewState);
       if (pendingHeadingRef.current) {
         const heading = pendingHeadingRef.current;
@@ -720,9 +738,9 @@ export const useMilkdownEditorInstance = ({
 
   useEffect(() => {
     if (editorRef.current) {
-      syncCodeLineNumbers(editorRef.current, displayCodeBlockLineNumbers);
+      syncCodeBlockSettings(editorRef.current, displayCodeBlockLineNumbers, softWrapCodeBlocks);
     }
-  }, [displayCodeBlockLineNumbers]);
+  }, [displayCodeBlockLineNumbers, softWrapCodeBlocks]);
 
   const runSearch = (run: (view: EditorView) => unknown) => {
     const editor = editorRef.current;
@@ -773,17 +791,23 @@ export const useMilkdownEditorInstance = ({
   };
 };
 
-// The setting can change while the editor is still being created, after its state has read the
+// A setting can change while the editor is still being created, after its state has read the
 // value it started with, so the value in effect is applied again once the editor is ready.
-const syncCodeLineNumbers = (editor: MilkdownEditorInstance, enabled: boolean) => {
+const syncCodeBlockSettings = (
+  editor: MilkdownEditorInstance,
+  lineNumbers: boolean,
+  softWrap: boolean,
+) => {
   if (!editor.ctx) {
     return;
   }
 
   try {
-    setCodeLineNumbersEnabled(editor.ctx.get(editorViewCtx), enabled);
+    const view = editor.ctx.get(editorViewCtx);
+    setCodeLineNumbersEnabled(view, lineNumbers);
+    setCodeBlockSoftWrapEnabled(view, softWrap);
   } catch (error) {
-    handleUnexpectedError(error, "syncCodeLineNumbers");
+    handleUnexpectedError(error, "syncCodeBlockSettings");
   }
 };
 

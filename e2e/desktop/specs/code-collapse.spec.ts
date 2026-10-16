@@ -3,6 +3,8 @@ import { $, browser, expect } from "@wdio/globals";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import { openRecentPath } from "../support/ui.js";
 
+const control = (name: string) => `pre .leafdown-code-control[aria-label="${name}"]`;
+
 const block = () => $("[data-testid=active-document-host] .ProseMirror pre");
 
 const centerOf = async (selector: string) =>
@@ -81,6 +83,43 @@ describe("desktop code block collapse", () => {
     await click(await centerOf("pre .leafdown-code-expand"));
 
     await expect(block()).toHaveAttribute("data-leafdown-code-collapse", "expanded");
+    expect(await caretLine()).toBe(8);
+  });
+
+  it("shows its toggles above the code while the caret is in it, and they act on every block", async () => {
+    const expandAll = control("Expand all code blocks");
+    const lineNumbers = control("Display line numbers for code blocks");
+
+    await browser.waitUntil(
+      async () =>
+        (await $("pre .leafdown-code-controls").execute(
+          (controls) => getComputedStyle(controls).opacity,
+        )) === "1",
+      { timeoutMsg: "The toggles did not show with the caret in the block." },
+    );
+    const overlap = (await block().execute((pre) => {
+      const code = pre.querySelector("code")!.getBoundingClientRect();
+      return [...pre.querySelectorAll(".leafdown-code-control:not([hidden])")].map(
+        (button) => button.getBoundingClientRect().bottom - code.top,
+      );
+    })) as number[];
+    expect(overlap).toHaveLength(3);
+    for (const depth of overlap) expect(depth).toBeLessThanOrEqual(0);
+
+    await click(await centerOf(lineNumbers));
+
+    await expect(block()).toHaveElementClass("leafdown-code-block--numbered");
+    await expect($(lineNumbers)).toHaveAttribute("aria-pressed", "true");
+
+    await click(await centerOf(lineNumbers));
+
+    await expect(block()).not.toHaveElementClass("leafdown-code-block--numbered");
+    await expect($(expandAll)).toHaveAttribute("aria-pressed", "true");
+
+    await click(await centerOf(expandAll));
+
+    await expect(block()).toHaveAttribute("data-leafdown-code-collapse", "collapsed");
+    await expect($(expandAll)).toHaveAttribute("aria-pressed", "false");
     expect(await caretLine()).toBe(8);
   });
 });

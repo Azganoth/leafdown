@@ -11,6 +11,7 @@ import {
   type EditorViewState,
   type MilkdownEditorBridge,
 } from "../hooks/useMilkdownEditorInstance";
+import type { CodeBlockSetting } from "../plugins/codeBlockControls";
 import type {
   DocumentFont,
   DocumentLineSpacing,
@@ -41,6 +42,7 @@ export interface MilkdownEditorProps extends Partial<MarkdownReferenceContext> {
   onCommandStateChanged?: () => void;
   onDocumentStatusChanged?: () => void;
   onHeadingOutlineChanged?: (outline: HeadingOutlineState) => void;
+  onCodeBlockSettingChange?: (setting: CodeBlockSetting, enabled: boolean) => void;
   autoPairBracketsAndQuotes?: boolean;
   displayCodeBlockLineNumbers?: boolean;
   softWrapCodeBlocks?: boolean;
@@ -63,6 +65,7 @@ export function MilkdownEditor({
   onCommandStateChanged,
   onDocumentStatusChanged,
   onHeadingOutlineChanged,
+  onCodeBlockSettingChange,
   autoPairBracketsAndQuotes = true,
   displayCodeBlockLineNumbers = false,
   softWrapCodeBlocks = false,
@@ -96,12 +99,14 @@ export function MilkdownEditor({
     folderContextPath,
     initialMarkdown,
     initialViewState,
+    onCodeBlockSettingChange,
     onContentChanged,
     onCommandStateChanged,
     onDocumentStatusChanged,
     onHeadingOutlineChanged,
     onOpenMarkdownPath,
     onReadMarkdownPath,
+    softWrapCodeBlocks,
     wikiCompletionPaths,
     ref,
   });

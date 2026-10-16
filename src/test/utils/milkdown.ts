@@ -5,6 +5,7 @@ import { afterEach } from "vitest";
 import {
   type CalloutTypeRequest,
   type CodeBlockLanguageRequest,
+  type CodeBlockSetting,
   type ContextPopupRequest,
   type BlockInsertionRequest,
   createMilkdownEditor,
@@ -30,6 +31,8 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   rootClassName?: string;
   autoPairBracketsAndQuotes?: boolean;
   displayCodeBlockLineNumbers?: boolean;
+  softWrapCodeBlocks?: boolean;
+  onCodeBlockSettingChange?: (setting: CodeBlockSetting, enabled: boolean) => void;
   onContentChanged?: () => void;
   onCommandStateChanged?: (state: EditorCommandState) => void;
   onDocumentStatusChanged?: (status: EditorDocumentStatus) => void;
@@ -94,6 +97,8 @@ export const mountMilkdownEditor = async (
     }),
     isAutoPairEnabled: () => options.autoPairBracketsAndQuotes ?? true,
     areCodeLineNumbersEnabled: () => options.displayCodeBlockLineNumbers ?? false,
+    isCodeBlockSoftWrapEnabled: () => options.softWrapCodeBlocks ?? false,
+    onCodeBlockSettingChange: options.onCodeBlockSettingChange,
     onContentChanged: options.onContentChanged,
     onCommandStateChanged: options.onCommandStateChanged,
     onDocumentStatusChanged: options.onDocumentStatusChanged,

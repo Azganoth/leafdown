@@ -302,7 +302,7 @@ export function CommandMenubar({
             />
             <MenubarSeparator />
             <CommandItems commandIds={["help.reportIssue", "help.requestFeature"]} />
-            <CommandItems commandIds={["help.changelog"]} />
+            <CommandItems commandIds={["help.changelog", "help.checkForUpdates"]} />
             <MenubarSeparator />
             <CommandItems commandIds={["help.openDevTools", "help.diagnostics"]} />
             <MenubarSeparator />

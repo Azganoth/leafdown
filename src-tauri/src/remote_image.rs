@@ -7,7 +7,7 @@ use std::{
 };
 
 use reqwest::{
-    Client, Url,
+    Client, ClientBuilder, Url,
     dns::{Addrs, Name, Resolve, Resolving},
     header::{ACCEPT, HeaderMap, HeaderValue},
     redirect,
@@ -42,7 +42,7 @@ pub(crate) enum FetchRemoteImageError {
     Network,
 }
 
-struct FetchPolicy {
+pub(crate) struct FetchPolicy {
     scheme: &'static str,
     connect_timeout: Duration,
     request_timeout: Duration,
@@ -60,7 +60,7 @@ struct TrustedHost {
 }
 
 impl FetchPolicy {
-    fn for_app() -> Self {
+    pub(crate) fn for_app() -> Self {
         let policy = Self {
             scheme: SECURE_SCHEME,
             connect_timeout: CONNECT_TIMEOUT,
@@ -73,6 +73,20 @@ impl FetchPolicy {
         let policy = desktop_e2e::with_loopback_host(policy);
 
         policy
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test() -> Self {
+        Self {
+            scheme: "http",
+            connect_timeout: Duration::from_secs(5),
+            request_timeout: Duration::from_millis(500),
+            trusted_host: Some(TrustedHost {
+                name: crate::test_http_server::TEST_HOST.to_owned(),
+                address: IpAddr::V4(Ipv4Addr::LOCALHOST),
+            }),
+            root_certificate: None,
+        }
     }
 }
 
@@ -217,27 +231,33 @@ fn build_client(policy: &FetchPolicy) -> Result<Client, FetchRemoteImageError> {
 
     headers.insert(ACCEPT, HeaderValue::from_static(ACCEPTED_IMAGE_TYPES));
 
+    public_client_builder(policy)
+        .redirect(redirect_policy)
+        .user_agent(USER_AGENT)
+        .default_headers(headers)
+        .build()
+        .map_err(|error| {
+            log::warn!("remote image client could not be built: {error}");
+            FetchRemoteImageError::Network
+        })
+}
+
+/// A client that reaches only public addresses, without a proxy, cookies, or `Referer`.
+pub(crate) fn public_client_builder(policy: &FetchPolicy) -> ClientBuilder {
     // A proxy resolves names outside the filtering resolver, so none is used.
     let builder = Client::builder()
         .no_proxy()
         .referer(false)
-        .redirect(redirect_policy)
         .dns_resolver(Arc::new(PublicAddressResolver {
             trusted_host: policy.trusted_host.clone(),
         }))
         .connect_timeout(policy.connect_timeout)
-        .timeout(policy.request_timeout)
-        .user_agent(USER_AGENT)
-        .default_headers(headers);
-    let builder = match &policy.root_certificate {
+        .timeout(policy.request_timeout);
+
+    match &policy.root_certificate {
         Some(certificate) => builder.add_root_certificate(certificate.clone()),
         None => builder,
-    };
-
-    builder.build().map_err(|error| {
-        log::warn!("remote image client could not be built: {error}");
-        FetchRemoteImageError::Network
-    })
+    }
 }
 
 fn classify_request_error(error: reqwest::Error) -> FetchRemoteImageError {
@@ -271,7 +291,7 @@ fn find_policy_violation<'a>(error: &'a (dyn StdError + 'static)) -> Option<&'a 
     None
 }
 
-fn describe_error_chain(error: &(dyn StdError + 'static)) -> String {
+pub(crate) fn describe_error_chain(error: &(dyn StdError + 'static)) -> String {
     let mut description = error.to_string();
     let mut current = error.source();
 
@@ -429,186 +449,19 @@ mod desktop_e2e {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        io::{Read, Write},
-        net::{IpAddr, Ipv4Addr, TcpListener, TcpStream},
-        sync::{
-            Arc, Mutex,
-            atomic::{AtomicUsize, Ordering},
-        },
-        thread,
-        time::Duration,
-    };
-
     use reqwest::Url;
 
     use super::{
-        FetchPolicy, FetchRemoteImageError, MAX_IMAGE_BYTES, TrustedHost, USER_AGENT,
-        fetch_image_bytes, has_supported_image_signature, is_public_address, parse_target,
-        remote_image_host, validate_redirect,
+        FetchPolicy, FetchRemoteImageError, MAX_IMAGE_BYTES, USER_AGENT, fetch_image_bytes,
+        has_supported_image_signature, is_public_address, parse_target, remote_image_host,
+        validate_redirect,
     };
+    use crate::test_http_server::{Reply, TEST_HOST, TestServer, header_value};
 
-    const TEST_HOST: &str = "images.leafdown.test";
     const PNG_BYTES: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR";
 
-    type Handler = dyn Fn(&str, u16) -> Reply + Send + Sync;
-
-    enum Reply {
-        Full {
-            status: &'static str,
-            headers: Vec<(&'static str, String)>,
-            body: Vec<u8>,
-        },
-        Chunked {
-            chunk: Vec<u8>,
-            count: usize,
-        },
-        Stall,
-    }
-
-    impl Reply {
-        fn ok(content_type: &str, body: &[u8]) -> Self {
-            Self::Full {
-                status: "200 OK",
-                headers: vec![("Content-Type", content_type.to_owned())],
-                body: body.to_vec(),
-            }
-        }
-
-        fn redirect(location: String) -> Self {
-            Self::Full {
-                status: "302 Found",
-                headers: vec![("Location", location)],
-                body: Vec::new(),
-            }
-        }
-    }
-
-    struct TestServer {
-        port: u16,
-        connections: Arc<AtomicUsize>,
-        requests: Arc<Mutex<Vec<String>>>,
-    }
-
-    impl TestServer {
-        fn start(handler: impl Fn(&str, u16) -> Reply + Send + Sync + 'static) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("test server should bind");
-            let port = listener.local_addr().unwrap().port();
-            let connections = Arc::new(AtomicUsize::new(0));
-            let requests = Arc::new(Mutex::new(Vec::new()));
-            let handler: Arc<Handler> = Arc::new(handler);
-            let server = Self {
-                port,
-                connections: Arc::clone(&connections),
-                requests: Arc::clone(&requests),
-            };
-
-            thread::spawn(move || {
-                for stream in listener.incoming().flatten() {
-                    connections.fetch_add(1, Ordering::SeqCst);
-
-                    let handler = Arc::clone(&handler);
-                    let requests = Arc::clone(&requests);
-
-                    thread::spawn(move || serve(stream, port, handler.as_ref(), &requests));
-                }
-            });
-
-            server
-        }
-
-        fn url(&self, path: &str) -> String {
-            format!("http://{TEST_HOST}:{}{path}", self.port)
-        }
-
-        fn connections(&self) -> usize {
-            self.connections.load(Ordering::SeqCst)
-        }
-
-        fn requests(&self) -> Vec<String> {
-            self.requests.lock().unwrap().clone()
-        }
-    }
-
-    fn serve(mut stream: TcpStream, port: u16, handler: &Handler, requests: &Mutex<Vec<String>>) {
-        let mut request = Vec::new();
-        let mut buffer = [0; 1024];
-
-        while !request.ends_with(b"\r\n\r\n") {
-            match stream.read(&mut buffer) {
-                Ok(0) | Err(_) => return,
-                Ok(read) => request.extend_from_slice(&buffer[..read]),
-            }
-        }
-
-        let request = String::from_utf8_lossy(&request).into_owned();
-        let path = request.split_whitespace().nth(1).unwrap_or("/").to_owned();
-
-        requests.lock().unwrap().push(request);
-
-        let _ = match handler(path.as_str(), port) {
-            Reply::Full {
-                status,
-                headers,
-                body,
-            } => {
-                let mut head = format!("HTTP/1.1 {status}\r\nConnection: close\r\n");
-
-                for (name, value) in headers {
-                    head.push_str(format!("{name}: {value}\r\n").as_str());
-                }
-
-                head.push_str(format!("Content-Length: {}\r\n\r\n", body.len()).as_str());
-                stream
-                    .write_all(head.as_bytes())
-                    .and_then(|()| stream.write_all(&body))
-            }
-            Reply::Chunked { chunk, count } => {
-                let mut result = stream.write_all(
-                    b"HTTP/1.1 200 OK\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n",
-                );
-
-                for _ in 0..count {
-                    result = result
-                        .and_then(|()| {
-                            stream.write_all(format!("{:x}\r\n", chunk.len()).as_bytes())
-                        })
-                        .and_then(|()| stream.write_all(&chunk))
-                        .and_then(|()| stream.write_all(b"\r\n"));
-                }
-
-                result.and_then(|()| stream.write_all(b"0\r\n\r\n"))
-            }
-            Reply::Stall => {
-                thread::sleep(Duration::from_secs(3));
-                Ok(())
-            }
-        };
-    }
-
-    fn test_policy() -> FetchPolicy {
-        FetchPolicy {
-            scheme: "http",
-            connect_timeout: Duration::from_secs(5),
-            request_timeout: Duration::from_millis(500),
-            trusted_host: Some(TrustedHost {
-                name: TEST_HOST.to_owned(),
-                address: IpAddr::V4(Ipv4Addr::LOCALHOST),
-            }),
-            root_certificate: None,
-        }
-    }
-
     fn fetch(target: &str) -> Result<Vec<u8>, FetchRemoteImageError> {
-        tauri::async_runtime::block_on(fetch_image_bytes(target, &test_policy()))
-    }
-
-    fn header_value<'a>(request: &'a str, name: &str) -> Option<&'a str> {
-        request.lines().find_map(|line| {
-            let (header, value) = line.split_once(':')?;
-
-            header.eq_ignore_ascii_case(name).then(|| value.trim())
-        })
+        tauri::async_runtime::block_on(fetch_image_bytes(target, &FetchPolicy::for_test()))
     }
 
     #[test]

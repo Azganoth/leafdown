@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { notifyErrorWithActionMenu, toastManager } from "@/lib/toast";
+import { notifyErrorWithActionMenu, notifyPending, toastManager } from "@/lib/toast";
 import { act, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
 import { Toaster } from "./toast";
@@ -42,6 +42,36 @@ describe("Toaster", () => {
     expect(chooseLatin).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(screen.queryByText("Invalid Markdown file encoding.")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("settles a pending toast in place and closes it when its action runs", async () => {
+    const viewRelease = vi.fn();
+    const { user } = renderWithUser(<Toaster timeout={0} />);
+    let settle: ReturnType<typeof notifyPending> | undefined;
+
+    act(() => {
+      settle = notifyPending("Checking for updates…");
+    });
+
+    expect(await screen.findByText("Checking for updates…")).toBeInTheDocument();
+
+    act(() => {
+      settle?.(
+        "info",
+        { title: "Leafdown 0.1.0-alpha.4 is available.", description: "You have 0.1.0-alpha.3." },
+        { label: "View release", run: viewRelease },
+      );
+    });
+
+    expect(await screen.findByText("Leafdown 0.1.0-alpha.4 is available.")).toBeInTheDocument();
+    expect(screen.queryByText("Checking for updates…")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "View release" }));
+
+    expect(viewRelease).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(screen.queryByText("Leafdown 0.1.0-alpha.4 is available.")).not.toBeInTheDocument(),
     );
   });
 });

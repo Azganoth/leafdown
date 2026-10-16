@@ -84,6 +84,7 @@ import {
   type DocumentsMovedPayload,
   type SetWindowDocumentsArgs,
 } from "@/features/session/services/windowDocumentsApi";
+import { CHECK_FOR_UPDATES_COMMAND, type UpdateCheck } from "@/features/updates";
 
 import {
   countInvokeCalls,
@@ -127,6 +128,7 @@ interface TauriApiCommandArgs {
   notifyDocumentsRemoved: DocumentPathPayload;
   openWebviewDevtools: undefined;
   getDiagnosticsSummary: undefined;
+  checkForUpdates: undefined;
 }
 
 interface TauriApiCommandResults {
@@ -164,6 +166,7 @@ interface TauriApiCommandResults {
   notifyDocumentsRemoved: void;
   openWebviewDevtools: void;
   getDiagnosticsSummary: DiagnosticsSummary;
+  checkForUpdates: UpdateCheck;
 }
 
 type TauriApiCommandName = keyof TauriApiCommandArgs;
@@ -211,6 +214,7 @@ const TAURI_API_COMMANDS = {
   notifyDocumentsRemoved: NOTIFY_DOCUMENTS_REMOVED_COMMAND,
   openWebviewDevtools: OPEN_WEBVIEW_DEVTOOLS_COMMAND,
   getDiagnosticsSummary: GET_DIAGNOSTICS_SUMMARY_COMMAND,
+  checkForUpdates: CHECK_FOR_UPDATES_COMMAND,
 } satisfies Record<TauriApiCommandName, string>;
 
 export const mockTauriApi = (handlers: TauriApiCommandHandlers) => {

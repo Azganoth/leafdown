@@ -390,6 +390,10 @@ describe("CommandMenubar", () => {
     await user.click(screen.getByRole("menuitem", { name: "Help" }));
     await user.click(menuItem("Changelog"));
     expect(onExecute).toHaveBeenCalledWith("help.changelog");
+
+    await user.click(screen.getByRole("menuitem", { name: "Help" }));
+    await user.click(menuItem("Check for updates"));
+    expect(onExecute).toHaveBeenCalledWith("help.checkForUpdates");
   });
 
   it("routes the four Help pages in Reference order", async () => {

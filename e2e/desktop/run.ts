@@ -283,6 +283,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "code-collapse", recentFiles: [codeCollapsePath] },
+    { name: "table-controls", recentFiles: [blocksPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },

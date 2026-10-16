@@ -26,6 +26,7 @@ export const createEditorCommandState = (
   overrides: EditorCommandStateFactoryOptions = {},
 ): EditorCommandState => {
   const {
+    checkedCommands = {},
     enabledCommandIds = [],
     enabledCommands: enabledCommandOverrides,
     ...stateOverrides
@@ -35,6 +36,7 @@ export const createEditorCommandState = (
   ) as Record<EditorCommandId, boolean>;
 
   return {
+    checkedCommands,
     enabledCommands: {
       ...enabledCommands,
       ...enabledCommandOverrides,

@@ -59,6 +59,7 @@ import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import {
   buildArticleNavigatorRows,
   filterArticleTreeByArticleName,
+  filterArticleTreeToArticles,
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
   getArticleFileCount,
@@ -111,6 +112,8 @@ interface ArticleNavigatorProps {
   /** Double-clicking an article asks for it to stay open rather than be previewed. */
   onKeepArticle?: (path: string) => void;
   onOpenArticle: (path: string) => void;
+  /** Lists the files Leafdown cannot open, and the directories holding only them, as well. */
+  showAllFiles?: boolean;
 }
 
 type ArticleNavigatorMenuTarget =
@@ -128,6 +131,7 @@ export function ArticleNavigator({
   folderContext,
   onKeepArticle,
   onOpenArticle,
+  showAllFiles = false,
 }: ArticleNavigatorProps) {
   const { formatNumber, t } = useLocalization();
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
@@ -143,7 +147,10 @@ export function ArticleNavigator({
   const menuCloseFocusRef = useRef<"editor" | "target" | null>(null);
   const rowsHostRef = useRef<HTMLDivElement>(null);
   const isFiltering = filterQuery.trim().length > 0;
-  const filteredTree = filterArticleTreeByArticleName(folderContext.tree, filterQuery);
+  const listedTree = showAllFiles
+    ? folderContext.tree
+    : filterArticleTreeToArticles(folderContext.tree);
+  const filteredTree = filterArticleTreeByArticleName(listedTree, filterQuery);
   const expandedPaths = isFiltering
     ? getArticleDirectoryPaths(filteredTree)
     : expandedDirectoryPaths;

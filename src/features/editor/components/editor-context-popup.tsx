@@ -15,6 +15,7 @@ import {
   Heading5Icon,
   Heading6Icon,
   ImageIcon,
+  InfoIcon,
   ItalicIcon,
   Link2Icon,
   ListIcon,
@@ -25,8 +26,10 @@ import {
   PilcrowIcon,
   ScissorsIcon,
   TableIcon,
+  TagIcon,
   TextQuoteIcon,
   Trash2Icon,
+  UnfoldVerticalIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react";
@@ -95,6 +98,11 @@ const CODE_BLOCK_COMMANDS = [
   { commandId: "format.codeBlockLanguage", icon: FileCodeIcon },
 ] satisfies readonly ContextButtonCommand[];
 
+const CALLOUT_COMMANDS = [
+  { commandId: "format.calloutType", icon: TagIcon },
+  { commandId: "format.calloutExpanded", icon: UnfoldVerticalIcon },
+] satisfies readonly ContextButtonCommand[];
+
 const BLOCK_FORMATTING_COMMANDS = [
   { commandId: "format.blockquote", icon: TextQuoteIcon },
   { commandId: "format.orderedList", icon: ListOrderedIcon },
@@ -121,6 +129,7 @@ const INSERT_COMMANDS = [
   { commandId: "insert.heading5", icon: Heading5Icon },
   { commandId: "insert.heading6", icon: Heading6Icon },
   { commandId: "insert.blockquote", icon: TextQuoteIcon },
+  { commandId: "insert.callout", icon: InfoIcon },
   { commandId: "insert.orderedList", icon: ListOrderedIcon },
   { commandId: "insert.unorderedList", icon: ListIcon },
   { commandId: "insert.taskList", icon: ListTodoIcon },
@@ -133,6 +142,7 @@ const OBJECT_COMMAND_ROWS = [
   { id: "footnote", commands: FOOTNOTE_COMMANDS },
   { id: "image", commands: IMAGE_COMMANDS },
   { id: "codeBlock", commands: CODE_BLOCK_COMMANDS },
+  { id: "callout", commands: CALLOUT_COMMANDS },
 ] as const;
 
 type ContextRow =
@@ -309,6 +319,7 @@ export function EditorContextPopup({
     [request],
   );
   const canExecute = (commandId: EditorCommandId) => isCommandEnabled(commandId, commandState);
+  const isChecked = (commandId: EditorCommandId) => commandState.checkedCommands[commandId];
   const releaseHeldFocus = () => {
     hasHeldFocusRef.current = false;
     pinnedRectRef.current = null;
@@ -488,6 +499,7 @@ export function EditorContextPopup({
               key={contextRow.id}
               onExecute={onExecute}
               canExecute={canExecute}
+              isChecked={isChecked}
               row={row}
             />
           ) : (
@@ -510,10 +522,17 @@ interface ContextCommandRowProps {
   commands: readonly ContextButtonCommand[];
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
+  isChecked: (commandId: EditorCommandId) => boolean | undefined;
   row: number;
 }
 
-function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextCommandRowProps) {
+function ContextCommandRow({
+  commands,
+  onExecute,
+  canExecute,
+  isChecked,
+  row,
+}: ContextCommandRowProps) {
   const { t } = useLocalization();
 
   return (
@@ -531,7 +550,8 @@ function ContextCommandRow({ commands, onExecute, canExecute, row }: ContextComm
                   render={
                     <Button
                       aria-label={label}
-                      className="size-8 rounded-sm"
+                      aria-pressed={isChecked(commandId)}
+                      className="size-8 rounded-sm aria-pressed:bg-muted"
                       disabled={!enabled}
                       onClick={() => onExecute(commandId)}
                       size="icon"

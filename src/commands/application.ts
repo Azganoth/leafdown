@@ -75,6 +75,7 @@ export const APPLICATION_COMMANDS = {
   "view.sort.name": appCommand(view.sortByName, view.getSortByNameState),
   "view.sort.modifiedDate": appCommand(view.sortByModifiedDate, view.getSortByModifiedDateState),
   "view.sort.type": appCommand(view.sortByType, view.getSortByTypeState),
+  "view.showAllFiles": appCommand(view.toggleShowAllFiles, view.getShowAllFilesState),
   "view.collapseAllFolders": appCommand(view.collapseAllFolders, view.getCollapseAllFoldersState),
   "view.expandAllFolders": appCommand(view.expandAllFolders, view.getExpandAllFoldersState),
 

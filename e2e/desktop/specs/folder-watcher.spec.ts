@@ -4,9 +4,19 @@ import path from "node:path";
 
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { findTreeItem, openRecentPath } from "../support/ui.js";
+import { findMenuItem, findTreeItem, openMenu, openRecentPath } from "../support/ui.js";
 
 const WATCHER_SETTLE_MS = 1_000;
+
+const treeItemNames = () => $$('[role="treeitem"]').map((item) => item.getText());
+
+const setShowAllFiles = async (shown: boolean) => {
+  await openMenu("View");
+  const item = await findMenuItem((text) => text.startsWith("Show all files"));
+  await expect(item).toHaveAttribute("aria-checked", String(!shown));
+  await item.click();
+  await expect($('[data-slot="menubar-content"]')).not.toExist();
+};
 
 describe("desktop folder context watcher", () => {
   it("refreshes article navigation after an external filesystem change", async () => {
@@ -75,7 +85,7 @@ describe("desktop folder context watcher", () => {
     );
   });
 
-  it("lists unsupported files that never open and tells their folders from empty ones", async () => {
+  it("lists unsupported files only when all files are shown, and never opens them", async () => {
     const { folder } = await getDesktopE2ERunContext();
     const assetsPath = path.join(folder.path, "watcher-assets");
     const emptyPath = path.join(folder.path, "watcher-empty");
@@ -85,6 +95,7 @@ describe("desktop folder context watcher", () => {
     await mkdir(assetsPath);
     await writeFile(path.join(assetsPath, "cover.png"), "");
     await writeFile(unsupportedPath, "Plain text fixture.\n");
+    await setShowAllFiles(true);
 
     const unsupportedRow = await findTreeItem("watcher-notes.txt");
     await expect(unsupportedRow).toHaveAttribute(
@@ -114,6 +125,11 @@ describe("desktop folder context watcher", () => {
         ),
       { timeoutMsg: "Tree item watcher-notes.txt stayed after its file was deleted." },
     );
+
+    await setShowAllFiles(false);
+
+    await expect(await findTreeItem("watcher-empty")).toBeDisplayed();
+    expect(await treeItemNames()).not.toContain("watcher-assets");
 
     await rm(assetsPath, { recursive: true });
     await rm(emptyPath, { recursive: true });

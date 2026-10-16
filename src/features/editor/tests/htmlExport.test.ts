@@ -13,12 +13,12 @@ import { hasActiveSourceProjection } from "../plugins/sourceProjection";
 import {
   getExportFileHref,
   renderHtmlExport,
-  slugifyHeading,
   type HtmlExportOptions,
 } from "../services/htmlExport";
 import type { ResolveMarkdownLinkTargetResult } from "../services/markdownLinkApi";
 import { renderMermaid } from "../services/mermaidRenderer";
 import { getMilkdownEditorHtmlExportSnapshot } from "../utils/createMilkdownEditor";
+import { slugifyHeading } from "../utils/headingAnchors";
 import { NO_IMAGE_GRANTS, type ImageGrants } from "../utils/imageGrants";
 
 vi.mock("../services/mermaidRenderer", () => ({

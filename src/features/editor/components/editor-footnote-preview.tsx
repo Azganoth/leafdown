@@ -1,43 +1,16 @@
-import { useMemo } from "react";
-
 import { Tooltip, TooltipContent } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 
+import { useEditorPreviewAnchor } from "../hooks/useEditorPreviewAnchor";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 
 export interface EditorFootnotePreviewProps {
   request: FootnotePreviewRequest | null;
 }
 
-interface VirtualAnchor {
-  contextElement: Element | undefined;
-  getBoundingClientRect: () => DOMRect;
-}
-
-const isElementAnchor = (anchor: FootnotePreviewRequest["anchor"]): anchor is Element =>
-  anchor instanceof Element;
-
 export function EditorFootnotePreview({ request }: EditorFootnotePreviewProps) {
   const { t } = useLocalization();
-  // Held against the render rather than created during one: the positioner registers the anchor
-  // once per identity, so a fresh identity is what moves the preview onto the reference it is now
-  // describing.
-  const anchor = useMemo<Element | VirtualAnchor | undefined>(() => {
-    if (!request) {
-      return undefined;
-    }
-
-    if (isElementAnchor(request.anchor)) {
-      return request.anchor;
-    }
-
-    const measured = request.anchor;
-
-    return {
-      contextElement: measured.contextElement,
-      getBoundingClientRect: () => measured.getRect("live"),
-    };
-  }, [request]);
+  const anchor = useEditorPreviewAnchor(request);
 
   return (
     <Tooltip open={request !== null}>

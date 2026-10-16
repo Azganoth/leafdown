@@ -79,6 +79,37 @@ describe("command state", () => {
     ).toMatchObject({ enabled: true });
   });
 
+  it("carries an editor command's checked state only while the command is available", () => {
+    const stateWith = (enabled: boolean, checked: boolean) =>
+      getCommandState(
+        "format.calloutExpanded",
+        createAppCommandContext({
+          activeDocument: createSavedDocument(),
+          editor: createEditorCommandState({
+            checkedCommands: { "format.calloutExpanded": checked },
+            enabledCommandIds: enabled ? ["format.calloutExpanded"] : [],
+            status: "ready",
+          }),
+        }),
+      );
+
+    expect(stateWith(true, true)).toEqual({ enabled: true, checked: true });
+    expect(stateWith(true, false)).toEqual({ enabled: true, checked: false });
+    expect(stateWith(false, true)).toMatchObject({ enabled: false });
+    expect(
+      getCommandState(
+        "format.calloutType",
+        createAppCommandContext({
+          activeDocument: createSavedDocument(),
+          editor: createEditorCommandState({
+            enabledCommandIds: ["format.calloutType"],
+            status: "ready",
+          }),
+        }),
+      ),
+    ).toEqual({ enabled: true });
+  });
+
   it("reflects boolean and radio command state", () => {
     const context = createAppCommandContext({
       activeDocument: createSavedDocument(),

@@ -26,6 +26,9 @@ Global settings persist across application launches unless specified otherwise.
 - **Status bar visibility:** Visible or hidden. Default: Visible.
   - The setting applies while a document is open. Without one the status bar is not shown, and the setting is preserved rather than changed.
 - **Article sort order:** Name, modified date, or type. Default: Name.
+- **Show all files:** On or Off. Default: Off.
+  - Off lists articles, the directories holding them, and directories holding no file. On also lists the files Leafdown cannot open, muted, and the directories holding only them. See the article navigator in the [Interface Model](./specification.md#interface-model).
+  - Also set from View > Show all files.
 - **Always on top:** On or Off. Default: Off.
   - Set from View > Always on top. See [Always On Top](./specification.md#always-on-top).
 
@@ -148,6 +151,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Replace image...**: Picks a local image file and points the standalone image in context at it.
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
 - **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
+- **Preview footnote or linked document** (`Mod+Alt+P` in the focused editor): Previews the footnote definition or the linked Markdown document the caret is reading, without moving focus. See [Links](./specification.md#links).
 - **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the local insertion menu after the current eligible block. Its items depend on the parent schema; inside a list, it offers a sibling list item.
 - **Line ending**
   - **Windows line ending (CRLF)**
@@ -192,6 +196,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Unordered list**
 - **Task list**
 - **Blockquote**
+- **Callout...**: Opens the callout type list; choosing a type inserts an empty callout of that type after the document block holding the selection.
 - **Code block**
 - **Table**
 - **Horizontal rule**
@@ -222,6 +227,9 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Blockquote** (`Mod+Shift+B`)
 - **Code block** (`Mod+Alt+C`)
 - **Code block language...**: Opens the language picker for the fenced code block in context, as clicking its language badge does.
+- **Callout**
+  - **Callout type...**: Opens the type list for the callout in context, as pressing its type badge does.
+  - **Callout opens expanded**: Switches the MkDocs admonition in context between `???` and `???+`.
 - **Table**
   - **Delete table**
   - **Add row above**
@@ -261,6 +269,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
   - **Name**
   - **Modified date**
   - **Type**
+- **Show all files**
 - **Collapse all folders**
 - **Expand all folders**
 
@@ -313,7 +322,7 @@ The popup offers the actions of the context it opens in, one row or submenu per 
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
 - **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
 
-`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule.
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout..., Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule.
 
 The construct holding the whole caret or selection narrows its context:
 
@@ -325,6 +334,7 @@ An object's actions follow the first row, each shown only while it is available:
 - **Footnote:** Rename footnote, Jump to footnote definition.
 - **Image:** Replace image...
 - **Fenced code block:** Code block language...
+- **Callout:** Callout type..., Callout opens expanded, which shows as pressed while the admonition is written `???+`.
 
 ### Article Navigator Context Menu
 
@@ -332,7 +342,7 @@ The article navigator's context menu opens on right-click, or with `Shift+F10` o
 
 - **Markdown file row:** Open; New file, New folder; Rename, Delete; Open file location, Copy path, Copy relative path.
 - **Directory row:** New file, New folder; Rename, Delete; Open folder location, Copy path, Copy relative path.
-- **Unsupported file row:** New file, New folder; Open file location, Copy path, Copy relative path.
+- **Unsupported file row**, listed while `Show all files` is on: New file, New folder; Open file location, Copy path, Copy relative path.
 - **Empty navigator space (folder context root):** New file, New folder; Open folder location, Copy path, Copy relative path.
 
 ## Command State
@@ -368,6 +378,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.
 - `Toggle task checked` requires a task list item.
 - `Code block language...` requires the caret or selection within one fenced code block, or a structural block selection of exactly one; indented code does not offer it.
+- `Callout type...` requires the caret or selection within one callout, or a structural block selection of exactly one; it acts on the innermost callout holding the selection. `Callout opens expanded` also requires that callout to be an MkDocs admonition written with `???` or `???+`.
 - `Clear inline formatting` requires supported inline formatting in the selection or an active marked inline element.
 - `Clear block formatting` requires removable block formatting in the current or selected blocks.
 - `Increase heading level` and `Decrease heading level` require a heading that can move in the requested direction.
@@ -384,7 +395,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Close folder` requires a folder context.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
-- `Toggle sidebar`, `Sort articles by`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
+- `Toggle sidebar`, `Sort articles by`, `Show all files`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.
 - `Find in folder` and `Replace in folder` require a folder context, with or without an open document.
 
 #### Search And Updates
@@ -401,8 +412,10 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 - `Insert final newline on save` reflects the global save setting. It remains available without an active document.
 - `Toggle sidebar` reflects global sidebar visibility while it is available.
 - `Toggle status bar` reflects global status bar visibility.
+- `Show all files` reflects the global show-all-files setting while it is available.
 - `Always on top` reflects the global always-on-top setting, which Leafdown records only after the window accepts the change.
 - `Full screen` reflects current window state.
+- `Callout opens expanded` reflects whether the MkDocs admonition in context is written `???+`, in the menu bar, the command palette, and the context popup.
 
 #### Radio State
 
@@ -415,4 +428,4 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 
 #### Formatting State
 
-- Formatting commands do not expose live checked state until that behavior is intentionally designed.
+- Other formatting commands do not expose live checked state until that behavior is intentionally designed.

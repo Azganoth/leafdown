@@ -7,7 +7,7 @@ import { createActiveEditorCommandState, createEditorCommandState } from "@/test
 import { dispatchDOMEvent } from "@/test/utils/events";
 import { act, render, renderWithUser, screen, waitFor } from "@/test/utils/react";
 
-import type { EditorCommandId } from "../commands";
+import type { EditorCommandId, EditorCommandState } from "../commands";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
 import { EditorContextPopup } from "./editor-context-popup";
@@ -364,6 +364,45 @@ describe("editor-context-popup", () => {
     await user.click(screen.getByLabelText("Code block language..."));
 
     expect(onExecute).toHaveBeenCalledWith("format.codeBlockLanguage");
+  });
+
+  it("offers a callout's type and authored disclosure inside a callout, showing the disclosure as pressed", async () => {
+    const onExecute = vi.fn();
+    const renderPopup = (commandState: EditorCommandState) => (
+      <EditorContextPopup
+        request={POINTER_REQUEST}
+        commandState={commandState}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />
+    );
+    const { rerender, user } = renderWithUser(renderPopup(enabledPopupCommandState));
+
+    expect(screen.queryByLabelText("Callout type...")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Callout opens expanded")).not.toBeInTheDocument();
+
+    rerender(renderPopup(withEnabledCommands("format.calloutType")));
+
+    expect(screen.getByLabelText("Callout type...")).not.toHaveAttribute("aria-pressed");
+    expect(screen.queryByLabelText("Callout opens expanded")).not.toBeInTheDocument();
+
+    rerender(
+      renderPopup({
+        ...withEnabledCommands("format.calloutType", "format.calloutExpanded"),
+        checkedCommands: { "format.calloutExpanded": true },
+      }),
+    );
+
+    expect(screen.getByLabelText("Callout opens expanded")).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByLabelText("Callout type..."));
+
+    expect(onExecute).toHaveBeenCalledWith("format.calloutType");
+
+    await user.click(screen.getByLabelText("Callout opens expanded"));
+
+    expect(onExecute).toHaveBeenCalledWith("format.calloutExpanded");
   });
 
   it("offers image replacement only for a standalone image", async () => {

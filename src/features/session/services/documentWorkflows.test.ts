@@ -204,6 +204,30 @@ describe("document workflows", () => {
       });
     });
 
+    it("keeps an edit made while the save was writing unsaved", async () => {
+      const saveDeferred = Promise.withResolvers<SavedMarkdownDocument>();
+      let markdown = "# Saved\n";
+      setDefaultSession({ activeDocument: createSavedDocument({ isDirty: true }) });
+      documentEditorBridge.set(
+        TEST_MARKDOWN_FILE_PATH,
+        createMilkdownEditorBridge({ getMarkdown: () => markdown }),
+      );
+      mockTauriApiCommand("saveMarkdownFile", () => saveDeferred.promise);
+
+      const savePromise = saveActiveMarkdownDocument();
+
+      await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
+      markdown = "# Saved\n\nTyped meanwhile\n";
+      documentEditorBridge.fireContentChanged(TEST_MARKDOWN_FILE_PATH);
+      saveDeferred.resolve(createSavedMarkdownDocumentResult());
+
+      await expect(savePromise).resolves.toBe(true);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        status: "saved",
+        isDirty: true,
+      });
+    });
+
     it("saves the document that was active when Save was chosen, after a queued save", async () => {
       const firstSave = Promise.withResolvers<SavedMarkdownDocument>();
       setDefaultSession({
@@ -505,6 +529,41 @@ describe("document workflows", () => {
       expect(useSessionStore.getState().activeDocument).toMatchObject({
         status: "untitled",
         id: NEXT_UNTITLED_DOCUMENT_ID,
+      });
+    });
+
+    it("keeps an edit made while Save As was writing unsaved, with the editor's text", async () => {
+      const saveDeferred = Promise.withResolvers<SavedMarkdownDocument>();
+      let markdown = "Draft";
+      setDefaultSettings({ insertFinalNewline: false });
+      setDefaultSession({
+        folderContext: notesFolderContext,
+        activeDocument: createUntitledDocument({ isDirty: true }),
+      });
+      documentEditorBridge.set(
+        TEST_UNTITLED_DOCUMENT_ID,
+        createMilkdownEditorBridge({ getMarkdown: () => markdown }),
+      );
+      vi.mocked(save).mockResolvedValue(DRAFT_MD_PATH);
+      mockTauriApi({
+        saveMarkdownFile: () => saveDeferred.promise,
+        scanMarkdownFolder: () => updatedFolderContext,
+      });
+
+      const savePromise = saveActiveMarkdownDocumentAs();
+
+      await vi.waitFor(() => expect(countTauriApiCalls("saveMarkdownFile")).toBe(1));
+      markdown = "Draft\n\nTyped meanwhile";
+      documentEditorBridge.fireContentChanged(TEST_UNTITLED_DOCUMENT_ID);
+      saveDeferred.resolve(createSavedMarkdownDocumentResult({ path: DRAFT_MD_PATH }));
+
+      await expect(savePromise).resolves.toBe(true);
+      expect(getLastTauriApiArgs("saveMarkdownFile")).toMatchObject({ content: "Draft" });
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        status: "saved",
+        path: DRAFT_MD_PATH,
+        content: "Draft\n\nTyped meanwhile",
+        isDirty: true,
       });
     });
 

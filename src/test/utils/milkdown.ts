@@ -3,11 +3,13 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { afterEach } from "vitest";
 
 import {
+  type CalloutTypeRequest,
   type CodeBlockLanguageRequest,
   type ContextPopupRequest,
   type BlockInsertionRequest,
   createMilkdownEditor,
   type FootnotePreviewRequest,
+  type LinkPreviewRequest,
   type EditorCommandState,
   type EditorDocumentStatus,
   type HeadingOutlineState,
@@ -42,8 +44,13 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onFootnotePreviewClosed?: () => void;
   onFootnotePreviewRequested?: (request: FootnotePreviewRequest) => void;
   footnotePreviewDelayMs?: number;
+  onLinkPreviewClosed?: () => void;
+  onLinkPreviewRequested?: (request: LinkPreviewRequest) => void;
+  linkPreviewDelayMs?: number;
   onCodeBlockLanguageClosed?: () => void;
   onCodeBlockLanguageRequested?: (request: CodeBlockLanguageRequest) => void;
+  onCalloutTypeClosed?: () => void;
+  onCalloutTypeRequested?: (request: CalloutTypeRequest) => void;
 }
 
 export const mountMilkdownEditor = async (
@@ -68,9 +75,18 @@ export const mountMilkdownEditor = async (
       onRequest: options.onFootnotePreviewRequested,
       pointerDelayMs: options.footnotePreviewDelayMs,
     },
+    linkPreview: {
+      onClose: options.onLinkPreviewClosed,
+      onRequest: options.onLinkPreviewRequested,
+      pointerDelayMs: options.linkPreviewDelayMs,
+    },
     codeBlockLanguage: {
       onClose: options.onCodeBlockLanguageClosed,
       onRequest: options.onCodeBlockLanguageRequested,
+    },
+    calloutType: {
+      onClose: options.onCalloutTypeClosed,
+      onRequest: options.onCalloutTypeRequested,
     },
     getMarkdownReferenceContext: () => ({
       documentPath: options.documentPath ?? null,

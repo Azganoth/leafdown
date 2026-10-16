@@ -30,7 +30,7 @@ The welcome screen and **File > Open recent** show previously opened files and f
 
 Choose a Markdown file row to open it. A row's context menu can create a file or folder, rename or delete an entry, reveal its location in the system file manager, or copy its absolute or folder-relative path. Empty navigator space offers actions for the folder root. New files open in a new tab. Deleting asks for confirmation and moves an entry to the system Recycle Bin or Trash; Leafdown does not permanently delete it on its own. Deleting an open file closes its tab. Renaming an open file keeps its unsaved edits and updates its recent path. Both reach tabs in other windows too, as [Work in more than one window](#work-in-more-than-one-window) describes. Links in other files are not rewritten.
 
-The navigator also lists the folder's other files, such as images and PDFs, dimmed. Leafdown can only open Markdown files, so choosing one of them does nothing, and its context menu does not rename or delete it. A folder holding only such files can still be expanded, while an empty folder has no arrow.
+The navigator lists Markdown articles and the folders that hold them, along with empty folders so a folder you just made stays in view. Turn on **View > Show all files** to list the folder's other files too, such as images and PDFs, dimmed. Leafdown can only open Markdown files, so choosing one of them does nothing, and its context menu does not rename or delete it. With that setting on, a folder holding only such files can be expanded, while an empty folder has no arrow either way.
 
 ## Search the folder
 
@@ -50,7 +50,7 @@ Drop one supported Markdown file or folder onto the app to open it. A preview sh
 
 ## Links and images
 
-Relative links and image paths start from the saved document's location. An untitled document cannot resolve them until it is saved. Local Markdown links open in Leafdown without replacing the pinned folder. A local non-Markdown link asks before opening with the system default app. Web links open in the system browser.
+Relative links and image paths start from the saved document's location. An untitled document cannot resolve them until it is saved. Local Markdown links open in Leafdown without replacing the pinned folder. Rest the pointer on one, or press `Mod+Alt+P` with the caret in it, to preview the start of the linked file, or the section its heading fragment names, without opening it. A local non-Markdown link asks before opening with the system default app. Web links open in the system browser.
 
 Local images render when available. A remote `https:` image remains a placeholder until you choose **Load image**; merely opening a document does not request it. Images outside the folder context may ask for approval before rendering. See [Markdown reference](markdown-reference.md) for link syntax.
 

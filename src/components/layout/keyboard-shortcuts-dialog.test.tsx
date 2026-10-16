@@ -26,7 +26,7 @@ describe("KeyboardShortcutsDialog", () => {
     const contextMenu = within(edit).getByText("Open editor context menu").closest("li");
     expect(within(contextMenu!).getByText("Shift+F10")).toBeInTheDocument();
     expect(within(contextMenu!).getAllByText("Menu")).toHaveLength(2);
-    expect(within(edit).getByText("Preview footnote definition")).toBeInTheDocument();
+    expect(within(edit).getByText("Preview footnote or linked document")).toBeInTheDocument();
     expect(within(edit).getByText("Extend block selection")).toBeInTheDocument();
   });
 

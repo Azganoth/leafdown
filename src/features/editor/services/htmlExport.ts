@@ -20,6 +20,7 @@ import {
   getFootnoteDefinitionLabel,
   isFootnoteDefinitionLabel,
 } from "../utils/footnoteDefinitionLabel";
+import { decodeFragment, slugifyHeading } from "../utils/headingAnchors";
 import { loadLeafdownHighlighter } from "../utils/highlighting";
 import { normalizeHighlightLanguage } from "../utils/highlightLanguages";
 import type { ImageGrants } from "../utils/imageGrants";
@@ -172,22 +173,6 @@ const getTargetFragment = (target: string) => {
   const index = target.indexOf("#");
 
   return index < 0 ? "" : target.slice(index);
-};
-
-/** GitHub's heading anchor: lowercase letters, digits, `-` and `_`, with spaces as hyphens. */
-export const slugifyHeading = (text: string) =>
-  text
-    .trim()
-    .toLowerCase()
-    .replaceAll(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, "")
-    .replaceAll(" ", "-");
-
-const decodeFragment = (fragment: string) => {
-  try {
-    return decodeURIComponent(fragment);
-  } catch {
-    return fragment;
-  }
 };
 
 const readListSpread = (node: ProseMirrorNode) =>

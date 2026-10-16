@@ -68,6 +68,10 @@ import { createLeafdownBlockSelectionOperationsPlugin } from "../plugins/blockSe
 import { createLeafdownBlockStructurePlugin } from "../plugins/blockStructure";
 import { calloutSchema, createLeafdownCalloutPlugin } from "../plugins/callout";
 import { createLeafdownCalloutInputPlugin } from "../plugins/calloutInput";
+import {
+  createLeafdownCalloutTypePlugin,
+  type LeafdownCalloutTypePluginOptions,
+} from "../plugins/calloutType";
 import { createLeafdownCalloutViewPlugin } from "../plugins/calloutView";
 import {
   createLeafdownCharacterReferencePlugin,
@@ -142,6 +146,10 @@ import { createLeafdownHtmlViewPlugin } from "../plugins/htmlView";
 import { createLeafdownImageViewPlugin } from "../plugins/imageView";
 import { createLeafdownLinkActivationPlugin } from "../plugins/linkActivation";
 import { createLeafdownLinkPresentationPlugin } from "../plugins/linkPresentation";
+import {
+  createLeafdownLinkPreviewPlugin,
+  type LeafdownLinkPreviewPluginOptions,
+} from "../plugins/linkPreview";
 import { createLeafdownListFormPlugin } from "../plugins/listForm";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
@@ -273,7 +281,9 @@ export interface CreateMilkdownEditorOptions {
   contextPopup?: LeafdownContextPopupPluginOptions;
   blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
+  linkPreview?: LeafdownLinkPreviewPluginOptions;
   codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
+  calloutType?: LeafdownCalloutTypePluginOptions;
   search?: LeafdownSearchPluginOptions;
   getMarkdownReferenceContext?: () => MarkdownReferenceContext;
   isAutoPairEnabled?: () => boolean;
@@ -326,7 +336,9 @@ export const createMilkdownEditor = async ({
   contextPopup,
   blockInsertion,
   footnotePreview,
+  linkPreview,
   codeBlockLanguage,
+  calloutType,
   search,
   getMarkdownReferenceContext = () => EMPTY_MARKDOWN_REFERENCE_CONTEXT,
   isAutoPairEnabled = () => true,
@@ -406,6 +418,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFootnoteDefinitionLabelPlugin())
     .use(createLeafdownFootnoteNavigationPlugin())
     .use(createLeafdownFootnotePreviewPlugin(footnotePreview))
+    .use(createLeafdownLinkPreviewPlugin(getLinkContext, linkPreview))
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownCodeSpanInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())
@@ -437,6 +450,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFrontmatterInputPlugin())
     .use(createLeafdownContextPopupPlugin(contextPopup))
     .use(createLeafdownCodeBlockLanguagePlugin(codeBlockLanguage))
+    .use(createLeafdownCalloutTypePlugin(calloutType))
     .use(createLeafdownMermaidModePlugin())
     .use(createLeafdownCodeBlockViewPlugin())
     .use(createLeafdownCalloutViewPlugin())

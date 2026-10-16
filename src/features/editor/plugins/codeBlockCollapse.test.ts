@@ -144,15 +144,32 @@ describe("code block collapse", () => {
 
     expect(collapseOf(mounted)).toBe("collapsed");
 
-    runKeyDownHandlers(mounted.view, "ArrowDown");
+    expect(runKeyDownHandlers(mounted.view, "ArrowDown").handled).toBe(true);
 
     expect(collapseOf(mounted)).toBe("expanded");
+    expect(mounted.view.state.selection.from).toBe(rowPosition(mounted, 9, 2));
 
     const reopened = await mountEditor(withCode(12));
     setTextSelection(reopened.view, rowPosition(reopened, 8, "row 08".length));
-    runKeyDownHandlers(reopened.view, "ArrowRight");
+
+    expect(runKeyDownHandlers(reopened.view, "ArrowRight").handled).toBe(true);
 
     expect(collapseOf(reopened)).toBe("expanded");
+    expect(reopened.view.state.selection.from).toBe(rowPosition(reopened, 9));
+  });
+
+  it("leaves `Down` to the browser on a wrapped row above the last shown row", async () => {
+    const mounted = await mountEditor(withCode(12));
+    const lastRowEnd = rowPosition(mounted, 8, "row 08".length);
+    vi.spyOn(mounted.view, "coordsAtPos").mockImplementation((position) => {
+      const bottom = position === lastRowEnd ? 40 : 20;
+      return { left: 0, right: 0, top: bottom - 10, bottom };
+    });
+    setTextSelection(mounted.view, rowPosition(mounted, 8, 2));
+
+    expect(runKeyDownHandlers(mounted.view, "ArrowDown").handled).toBe(false);
+
+    expect(collapseOf(mounted)).toBe("collapsed");
   });
 
   it("expands for the current find match on a hidden line", async () => {

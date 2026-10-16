@@ -282,24 +282,56 @@ export const toggleCodeBlockCollapse = (view: EditorView) => {
   return toggled;
 };
 
-// The browser's caret motion skips hidden text, so an arrow press that would step onto a hidden
-// line expands the block first and the press then lands on the revealed line. Under soft wrap the
-// whole last shown line counts, since its rows are a layout matter.
-const findBlockRevealedByKey = (state: EditorState, event: KeyboardEvent) => {
+// After the browser moves the caret onto the start of a wrapped row, the editor's selection can
+// still hold the row above when the next key arrives, so the browser's own caret is read first.
+const readBrowserCaret = (view: EditorView) => {
+  const selection = view.dom.ownerDocument.getSelection();
+  if (!view.hasFocus() || !selection?.isCollapsed) return null;
+  const { focusNode, focusOffset } = selection;
+  return focusNode && view.dom.contains(focusNode) ? view.posAtDOM(focusNode, focusOffset) : null;
+};
+
+interface KeyReveal {
+  block: number;
+  target: number;
+}
+
+// The browser's caret motion skips hidden text, and after a block expands mid-press it does not
+// reliably step onto the revealed line, so an arrow press that would leave the last shown line
+// expands the block and places the caret on the next line itself, keeping its column for `Down`.
+const findKeyReveal = (view: EditorView, event: KeyboardEvent): KeyReveal | null => {
   if (event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return null;
   if (event.key !== "ArrowDown" && event.key !== "ArrowRight") return null;
+  const { state } = view;
   const { selection } = state;
   if (!(selection instanceof TextSelection) || !selection.empty) return null;
-  const { $head } = selection;
+  const $head = state.doc.resolve(readBrowserCaret(view) ?? selection.head);
   if (!isCodeBlock($head.parent)) return null;
   const block = $head.before();
   if (!getCollapsedCodeBlocks(state).includes(block)) return null;
   const hidden = getHiddenRange($head.parent, block);
   if (!hidden) return null;
-  if (event.key === "ArrowRight") return $head.pos === hidden.from ? block : null;
+  const nextLineStart = hidden.from + 1;
+  if (event.key === "ArrowRight") {
+    return $head.pos === hidden.from ? { block, target: nextLineStart } : null;
+  }
+
   const lastLineStart = state.doc.textBetween(block + 1, hidden.from).lastIndexOf("\n") + block + 2;
-  return $head.pos >= lastLineStart ? block : null;
+  if ($head.pos < lastLineStart || !isOnLastShownRow(view, $head.pos, hidden.from)) return null;
+  const nextLineEnd = state.doc.textBetween(nextLineStart, hidden.to).indexOf("\n");
+  const nextLineLength = nextLineEnd === -1 ? hidden.to - nextLineStart : nextLineEnd;
+  return {
+    block,
+    target: nextLineStart + Math.min($head.pos - lastLineStart, nextLineLength),
+  };
 };
+
+// Under soft wrap the last shown line may span rows, and only its last row leaves it downward. The
+// line's end sits against hidden text, so it is measured from its own side.
+const isOnLastShownRow = (view: EditorView, head: number, lineEnd: number) =>
+  Math.abs(
+    view.coordsAtPos(head, head === lineEnd ? -1 : 1).bottom - view.coordsAtPos(lineEnd, -1).bottom,
+  ) < 1;
 
 const isSelectionMoving = (transactions: readonly Transaction[]) =>
   transactions.some((transaction) => transaction.docChanged || transaction.selectionSet);
@@ -323,9 +355,17 @@ export const createCodeBlockCollapsePlugin = () =>
     props: {
       decorations: (state) => codeBlockCollapsePluginKey.getState(state)?.decorations,
       handleKeyDown: (view, event) => {
-        const block = findBlockRevealedByKey(view.state, event);
-        if (block !== null) expandCodeBlock(view, block);
-        return false;
+        const reveal = findKeyReveal(view, event);
+        if (!reveal) return false;
+        view.dispatch(
+          view.state.tr
+            .setMeta(codeBlockCollapsePluginKey, {
+              expand: [reveal.block],
+            } satisfies CodeBlockCollapseMeta)
+            .setSelection(TextSelection.create(view.state.doc, reveal.target))
+            .scrollIntoView(),
+        );
+        return true;
       },
     },
   });

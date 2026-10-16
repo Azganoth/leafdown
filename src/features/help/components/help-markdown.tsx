@@ -1,6 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLinkIcon } from "lucide-react";
-import { createContext, useContext, type ComponentProps, type Ref } from "react";
+import { createContext, useContext, type ComponentProps, type ReactNode, type Ref } from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +14,7 @@ interface HelpMarkdownProps {
   source: string;
   onPageLink?: (page: HelpPageId) => void;
   ref?: Ref<HTMLElement>;
+  children?: ReactNode;
 }
 
 type MarkdownProps<Tag extends keyof React.JSX.IntrinsicElements> = ComponentProps<Tag> &
@@ -71,6 +72,9 @@ const HELP_MARKDOWN_COMPONENTS = {
   h3: ({ node: _node, ...props }: MarkdownProps<"h3">) => (
     <h4 className="mt-6 mb-2 font-semibold first:mt-0" {...props} />
   ),
+  h4: ({ node: _node, ...props }: MarkdownProps<"h4">) => (
+    <h5 className="mt-5 mb-1.5 font-medium first:mt-0" {...props} />
+  ),
   p: ({ node: _node, ...props }: MarkdownProps<"p">) => <p className="my-3" {...props} />,
   ul: ({ node: _node, ...props }: MarkdownProps<"ul">) => (
     <ul className="my-3 list-disc space-y-1.5 pl-5 marker:text-muted-foreground" {...props} />
@@ -98,7 +102,15 @@ const HELP_MARKDOWN_COMPONENTS = {
   ),
 } satisfies Components;
 
-export function HelpMarkdown({ source, onPageLink, ref }: HelpMarkdownProps) {
+export function HelpMarkdownFragment({ source }: { source: string }) {
+  return (
+    <ReactMarkdown skipHtml components={HELP_MARKDOWN_COMPONENTS}>
+      {source}
+    </ReactMarkdown>
+  );
+}
+
+export function HelpMarkdown({ source, onPageLink, ref, children }: HelpMarkdownProps) {
   return (
     <ScrollArea className="min-h-0 flex-1" viewportClassName="max-h-full">
       <article
@@ -107,9 +119,8 @@ export function HelpMarkdown({ source, onPageLink, ref }: HelpMarkdownProps) {
         className="pr-4 pb-3 text-sm leading-relaxed break-words text-foreground outline-none [&>p:first-child]:mt-0 [&>p:first-child]:text-base [&>p:first-child]:text-muted-foreground"
       >
         <HelpPageLinkContext.Provider value={onPageLink ?? null}>
-          <ReactMarkdown skipHtml components={HELP_MARKDOWN_COMPONENTS}>
-            {source}
-          </ReactMarkdown>
+          {children}
+          <HelpMarkdownFragment source={source} />
         </HelpPageLinkContext.Provider>
       </article>
     </ScrollArea>

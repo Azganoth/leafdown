@@ -18,6 +18,8 @@ When a change affects product behavior, keep the owning docs and implementation 
 
 Record notable user-facing changes in [`CHANGELOG.md`](./CHANGELOG.md) under `Unreleased` until they are assigned to a release version.
 
+A release's section may name a few highlights, which What's new shows first as cards above the release's full changes. Put them in a `### Highlights` group before `### Added`, each under a `####` heading with a short title, followed by one or two sentences. A highlight summarizes a change that keeps its own entry under `Added`, `Changed`, or `Fixed`. To illustrate a highlight, add an SVG under [`src/features/release-notes/highlights/`](./src/features/release-notes/highlights/) and reference it on its own line after the heading, with a path from the repository root and empty alt text, such as `![](src/features/release-notes/highlights/restore-session.svg)`. Draw on a 240 by 144 canvas, in the line-drawing style of the empty states, and color every shape through the `--art-*`, `--primary`, `--primary-foreground`, `--card`, or `--foreground` custom properties with a light-theme fallback, such as `style="stroke:var(--art-line,#0a0a0a4d)"`. The app then draws it in the current theme and accent color, and GitHub shows it in the fallback colors.
+
 If a proposed implementation would change product direction, architecture, or release scope, reach agreement in an issue before substantial implementation. Update the owning documentation as part of the accepted change.
 
 ### AI-Assisted Contributions

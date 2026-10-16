@@ -6,6 +6,32 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Highlights
+
+#### Pick up where you left off
+
+![](src/features/release-notes/highlights/restore-session.svg)
+
+Quitting no longer asks about unsaved changes. The next launch reopens your windows, tabs, and unsaved text, which stays out of your files until you save.
+
+#### Rearrange tables with the pointer
+
+![](src/features/release-notes/highlights/table-grips.svg)
+
+Drag a row or column by its grip to move it, or press the `+` on a table's border to add one where you point.
+
+#### Preview a link before you follow it
+
+![](src/features/release-notes/highlights/link-preview.svg)
+
+Rest the pointer on a link to another document to see its name and first lines, without opening a tab.
+
+#### Browse a folder in one tab
+
+![](src/features/release-notes/highlights/preview-tab.svg)
+
+Articles you look through share one preview tab, named in italics, that the next one replaces. Edit it or double-click it to keep it.
+
 ### Added
 
 - Pick up where you left off. Quitting Leafdown, or closing its last window, no longer asks about unsaved changes: the next launch reopens your windows, their folders and tabs, and the unsaved text of every document, untitled ones included, still unsaved. Leafdown keeps that text in its own application data every few seconds as you work and never writes it to your files, which change only when you save. A file that changed or went missing in the meantime is flagged as usual, so saving asks before overwriting it. Closing a tab, a folder, or one of several windows still asks. Turn off Restore session in Preferences > Files to have quitting ask as before.
@@ -20,6 +46,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Find out whether a newer Leafdown is out with Help > Check for updates. It reads the public list of Leafdown releases on GitHub and says whether you are up to date, or names the newer version with a View release button that opens its page in your browser; nothing is downloaded or installed. A pre-release build is offered the newest release of any kind, a stable build only newer stable releases. Leafdown checks only when you choose the command and sends nothing about your documents, settings, or version. If the check cannot reach GitHub, times out, or is rate limited, it says so and changes nothing.
 - Read any earlier release's notes in What's new. It still opens on the running version, now with its release date, and a bar beneath the notes steps to the next newer or older release or jumps to any release from a version list. Looking at other releases doesn't mark them as read or change when What's new opens on its own, and Help > Changelog still shows every release in one scroll.
+- Open What's new on a release's highlights. A release can name a few of its most notable changes, and What's new shows each one first as a card with a short description and a line drawing that follows your theme and accent color, with the release's complete list of changes below under All changes. A release without highlights shows its notes as before, and Help > Changelog lists the highlights as text in their release.
 
 ### Changed
 

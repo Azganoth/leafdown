@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="144" viewBox="0 0 240 144" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="50" y="32" width="124" height="84" rx="8" transform="rotate(-7 112 74)" stroke-width="2" style="fill:var(--art-paper-back,#f5f5f5);stroke:var(--art-line,#0a0a0a4d)"/>
+  <rect x="64" y="22" width="132" height="92" rx="8" stroke-width="2" style="fill:var(--art-paper,#fff);stroke:var(--art-line,#0a0a0a4d)"/>
+  <path d="M64 40h132" stroke-width="2" style="stroke:var(--art-line,#0a0a0a4d)"/>
+  <path d="M74 31h22" stroke-width="3" style="stroke:var(--art-ink,#0a0a0a6b)"/>
+  <circle cx="102" cy="31" r="2.6" style="fill:var(--primary,#059669)"/>
+  <path d="M114 31h20" stroke-width="3" style="stroke:var(--art-soft,#0a0a0a21)"/>
+  <path d="M78 55h40" stroke-width="4" style="stroke:var(--art-ink,#0a0a0a6b)"/>
+  <path d="M78 67h74M78 77h62M78 87h70M78 97h34" stroke-width="3" style="stroke:var(--art-soft,#0a0a0a21)"/>
+  <path d="M117 92v10" stroke-width="2.5" style="stroke:var(--primary,#059669)"/>
+  <circle cx="192" cy="108" r="18" stroke-width="4" style="fill:var(--primary,#059669);stroke:var(--card,#fff)"/>
+  <path d="M184.5 108a7.5 7.5 0 1 0 2.2-5.3l-2.2 2.2M184.5 100.6v4.3h4.3" stroke-width="2.4" style="stroke:var(--primary-foreground,#fafafa)"/>
+</svg>

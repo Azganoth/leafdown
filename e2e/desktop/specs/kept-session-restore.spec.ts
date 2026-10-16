@@ -8,19 +8,19 @@ const ACTIVE_EDITOR = "[data-testid=active-document-host] .ProseMirror";
 
 describe("desktop kept session after restart", () => {
   it("reopens the tabs with their unsaved edits in a fresh process", async () => {
-    const { callouts } = await getDesktopE2ERunContext();
-    const calloutsName = path.basename(callouts.path);
+    const { citations } = await getDesktopE2ERunContext();
+    const citationsName = path.basename(citations.path);
 
     const untitledTab = await findDocumentTab("Untitled");
-    const calloutsTab = await findDocumentTab(calloutsName);
+    const citationsTab = await findDocumentTab(citationsName);
 
     expect(await countDocumentTabs()).toBe(2);
     await expect(untitledTab).toHaveAttribute("aria-selected", "true");
     await expect(untitledTab).toHaveAttribute("aria-label", "Untitled, unsaved");
     await expect($(ACTIVE_EDITOR)).toHaveText(expect.stringContaining("Untitled kept marker"));
 
-    await expect(calloutsTab).toHaveAttribute("aria-label", `${calloutsName}, unsaved`);
-    await calloutsTab.click();
+    await expect(citationsTab).toHaveAttribute("aria-label", `${citationsName}, unsaved`);
+    await citationsTab.click();
     await expect($(ACTIVE_EDITOR)).toHaveText(expect.stringContaining("Kept edit marker"));
   });
 });

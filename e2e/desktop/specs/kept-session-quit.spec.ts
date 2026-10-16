@@ -49,11 +49,11 @@ describe("desktop kept session before quitting", () => {
   it("quits without asking and leaves the edited file as it was", async () => {
     const diagnostics = await getDiagnosticsSummary();
     const processId = Number(diagnostics.runId.slice(diagnostics.runId.lastIndexOf("-") + 1));
-    const { callouts } = await getDesktopE2ERunContext();
-    const original = await readFile(callouts.path, "utf8");
+    const { citations } = await getDesktopE2ERunContext();
+    const original = await readFile(citations.path, "utf8");
 
-    await openRecentPath(callouts.path);
-    await findDocumentTab(path.basename(callouts.path));
+    await openRecentPath(citations.path);
+    await findDocumentTab(path.basename(citations.path));
     await dismissToasts();
     await appendToActiveEditor("Kept edit marker");
 
@@ -64,6 +64,6 @@ describe("desktop kept session before quitting", () => {
     await selectFileMenuItem("Quit");
 
     await waitForProcessExit(processId);
-    expect(await readFile(callouts.path, "utf8")).toBe(original);
+    expect(await readFile(citations.path, "utf8")).toBe(original);
   });
 });

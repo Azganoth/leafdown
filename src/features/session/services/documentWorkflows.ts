@@ -26,7 +26,7 @@ import { useSettingsStore } from "@/features/preferences";
 import { SequentialTaskQueue } from "@/lib/async";
 import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
-import { getPathParts, isSameOrParentPath } from "@/lib/path";
+import { getPathParts, isSameOrParentPath, isSamePath } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 import {
@@ -224,45 +224,53 @@ const saveDocumentToNewPath = async (version: TabVersion, path: string): Promise
   }
 
   const serializedDocument = serializeDocumentForSave(latestDocument);
+  const edits = watchEditsDuringSave(getActiveDocumentKey(latestDocument));
   let result;
+  let nextFolderContext;
 
   try {
-    result = await saveMarkdownDocument(
-      path,
-      serializedDocument.content,
-      serializedDocument.encoding,
-    );
-  } catch (error) {
-    if (!isUnrepresentableCharactersError(error)) {
-      throw error;
+    try {
+      result = await saveMarkdownDocument(
+        path,
+        serializedDocument.content,
+        serializedDocument.encoding,
+      );
+    } catch (error) {
+      if (!isUnrepresentableCharactersError(error)) {
+        throw error;
+      }
+
+      return handleUnrepresentableCharacters(error, version, () =>
+        saveDocumentToNewPath(version, path),
+      );
     }
 
-    return handleUnrepresentableCharacters(error, version, () =>
-      saveDocumentToNewPath(version, path),
-    );
+    const { folderContext: existingFolderContext, folderContextLoad } = useSessionStore.getState();
+    nextFolderContext = folderContextLoad
+      ? null
+      : await getFolderContextAfterSaveAs(
+          result.path,
+          result.parentFolderPath,
+          existingFolderContext,
+        );
+  } finally {
+    edits.dispose();
   }
-
-  const { folderContext: existingFolderContext, folderContextLoad } = useSessionStore.getState();
-  const nextFolderContext = folderContextLoad
-    ? null
-    : await getFolderContextAfterSaveAs(
-        result.path,
-        result.parentFolderPath,
-        existingFolderContext,
-      );
 
   if (!getCurrentDocument(version)) {
     return false;
   }
 
-  const savedDocument = toSavedDocument({
-    path: result.path,
-    content: serializedDocument.content,
-    lineEnding: serializedDocument.lineEnding,
-    encoding: serializedDocument.encoding,
-    metadata: result.metadata,
-    fingerprint: result.fingerprint,
-  });
+  const savedDocument = edits.settle(
+    toSavedDocument({
+      path: result.path,
+      content: serializedDocument.content,
+      lineEnding: serializedDocument.lineEnding,
+      encoding: serializedDocument.encoding,
+      metadata: result.metadata,
+      fingerprint: result.fingerprint,
+    }),
+  );
 
   useSessionStore
     .getState()
@@ -285,6 +293,33 @@ const serializeDocumentForSave = (document: ActiveDocumentState): SerializedDocu
     content: formatMarkdownForSave(markdown, lineEnding, insertFinalNewline),
     lineEnding,
     encoding: document.encoding,
+  };
+};
+
+/**
+ * Watches a document's editor while its text is written. An edit made meanwhile reaches a document
+ * that is already dirty, so nothing records it, and the saved document that then replaces it would
+ * take the edit for saved. Settling the saved document keeps it unsaved instead, carrying the
+ * editor's text for an editor that a new document key remounts.
+ */
+const watchEditsDuringSave = (documentKey: string) => {
+  let isEdited = false;
+  const subscription = documentEditorBridge.onDidChangeContent((editedKey) => {
+    if (isSamePath(editedKey, documentKey)) {
+      isEdited = true;
+    }
+  });
+
+  return {
+    dispose: () => subscription.dispose(),
+    settle: (saved: SavedDocumentState): SavedDocumentState =>
+      isEdited
+        ? {
+            ...saved,
+            content: documentEditorBridge.getMarkdown(documentKey) ?? saved.content,
+            isDirty: true,
+          }
+        : saved,
   };
 };
 
@@ -313,6 +348,8 @@ const saveExistingMarkdownDocument = async (
   version: TabVersion,
   overwrite = false,
 ): Promise<boolean> => {
+  const edits = watchEditsDuringSave(getActiveDocumentKey(document));
+
   try {
     const result = await saveMarkdownDocument(
       document.path,
@@ -322,7 +359,7 @@ const saveExistingMarkdownDocument = async (
         expectedMetadata: document.metadata,
         overwrite,
       },
-    );
+    ).finally(edits.dispose);
 
     if (!getCurrentDocument(version)) {
       return false;
@@ -330,14 +367,16 @@ const saveExistingMarkdownDocument = async (
 
     useSessionStore.getState().replaceTabDocument(
       version.tabId,
-      toSavedDocument({
-        path: result.path,
-        content: serializedDocument.content,
-        lineEnding: serializedDocument.lineEnding,
-        encoding: serializedDocument.encoding,
-        metadata: result.metadata,
-        fingerprint: result.fingerprint,
-      }),
+      edits.settle(
+        toSavedDocument({
+          path: result.path,
+          content: serializedDocument.content,
+          lineEnding: serializedDocument.lineEnding,
+          encoding: serializedDocument.encoding,
+          metadata: result.metadata,
+          fingerprint: result.fingerprint,
+        }),
+      ),
       { keep: true },
     );
 
@@ -399,6 +438,7 @@ export const saveDocumentWithoutPrompts = (documentKey: string) =>
 
     const { document } = tab;
     const serializedDocument = serializeDocumentForSave(document);
+    const edits = watchEditsDuringSave(documentKey);
     let result;
 
     try {
@@ -407,7 +447,7 @@ export const saveDocumentWithoutPrompts = (documentKey: string) =>
         serializedDocument.content,
         serializedDocument.encoding,
         { expectedMetadata: document.metadata },
-      );
+      ).finally(edits.dispose);
     } catch (error) {
       if (isSaveMarkdownFileError(error)) {
         return { kind: "failed", error };
@@ -419,14 +459,16 @@ export const saveDocumentWithoutPrompts = (documentKey: string) =>
     if (getCurrentDocument(toTabVersion(tab))) {
       useSessionStore.getState().replaceTabDocument(
         tab.id,
-        toSavedDocument({
-          path: result.path,
-          content: serializedDocument.content,
-          lineEnding: serializedDocument.lineEnding,
-          encoding: serializedDocument.encoding,
-          metadata: result.metadata,
-          fingerprint: result.fingerprint,
-        }),
+        edits.settle(
+          toSavedDocument({
+            path: result.path,
+            content: serializedDocument.content,
+            lineEnding: serializedDocument.lineEnding,
+            encoding: serializedDocument.encoding,
+            metadata: result.metadata,
+            fingerprint: result.fingerprint,
+          }),
+        ),
         { keep: true },
       );
     }

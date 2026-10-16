@@ -143,11 +143,12 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const frontmatterJsonPath = path.join(fixtureRoot, "frontmatter-json.md");
   const definitionListPath = path.join(fixtureRoot, "definition-lists.md");
   const separatorPath = path.join(fixtureRoot, "separator-presentation.md");
-  const codeCollapsePath = path.join(fixtureRoot, "code-collapse.md");
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
   const outlinePath = path.join(fixtureRoot, "heading-outline.md");
   const imagesFolderPath = path.join(fixtureRoot, "rendered-images");
   const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
+  // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
+  const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");

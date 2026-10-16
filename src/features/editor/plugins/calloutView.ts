@@ -6,6 +6,7 @@ import { t } from "@/lib/i18n";
 
 import { calloutSchema } from "./callout";
 import { setCalloutTypeRequestMeta } from "./calloutType";
+import { setControlTooltip } from "./controlTooltip";
 
 const CALLOUT_TONES: Record<string, string> = {
   note: "note",
@@ -156,12 +157,11 @@ class CalloutNodeView implements NodeView {
     this.toggle.hidden = !collapsible;
     this.toggle.style.display = collapsible ? "" : "none";
     this.toggle.setAttribute("aria-expanded", String(this.expanded));
-    this.toggle.setAttribute(
-      "aria-label",
-      t(this.expanded ? "editor.callout.collapse" : "editor.callout.expand", {
-        title: String(title ?? defaultTitle),
-      }),
-    );
+    const toggleLabel = t(this.expanded ? "editor.callout.collapse" : "editor.callout.expand", {
+      title: String(title ?? defaultTitle),
+    });
+    this.toggle.setAttribute("aria-label", toggleLabel);
+    setControlTooltip(this.toggle, toggleLabel);
     this.label.hidden = dialect !== "github";
     this.label.textContent = defaultTitle;
     this.title.hidden = dialect === "github";
@@ -169,7 +169,7 @@ class CalloutNodeView implements NodeView {
     if (this.title.value !== (title ?? "")) this.title.value = title ?? "";
     const typeName = t("editor.callout.type", { type: String(token) });
     this.typeButton.setAttribute("aria-label", typeName);
-    this.typeButton.title = typeName;
+    setControlTooltip(this.typeButton, typeName);
     this.contentDOM.hidden = collapsible && !this.expanded;
   }
 

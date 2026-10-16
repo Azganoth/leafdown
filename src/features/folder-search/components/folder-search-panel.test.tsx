@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import type { FolderSearchResults } from "../services/folderSearchEngine";
 import { useFolderSearchStore } from "../stores/folderSearch";
@@ -75,9 +76,10 @@ const getRows = () =>
 
 describe("folder search panel", () => {
   it("is named by its folder and focuses the query when asked", async () => {
-    renderPanel(null);
+    const { user } = renderPanel(null);
 
     expect(screen.getByRole("search", { name: "Search in Notes" })).toBeInTheDocument();
+    expect(await hoverTooltip(user, screen.getByText("Search in Notes"))).toHaveTextContent(FOLDER);
 
     act(() => useFolderSearchStore.getState().openFolderSearch());
 
@@ -101,8 +103,8 @@ describe("folder search panel", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
-  it("groups matches under their folder-relative files with counts and highlighted text", () => {
-    renderPanel();
+  it("groups matches under their folder-relative files with counts and highlighted text", async () => {
+    const { user } = renderPanel();
 
     const rows = getRows();
 
@@ -113,6 +115,8 @@ describe("folder search panel", () => {
     expect(rows[1].querySelector("mark")).toHaveTextContent("leaf");
     expect(rows[3]).toHaveAccessibleName("guide.md, 1 result");
     expect(screen.getByTestId("folder-search-status")).toHaveTextContent("3 results in 2 files");
+    expect(rows[0]).not.toHaveAttribute("title");
+    expect(await hoverTooltip(user, rows[0])).toHaveTextContent("docs\\notes.md");
   });
 
   it("steps through the results from the keyboard and activates a match", async () => {
@@ -175,6 +179,10 @@ describe("folder search panel", () => {
     expect(getRows()[1]).toHaveAttribute("aria-disabled", "true");
     expect(getRows()[4]).toHaveAttribute("aria-selected", "true");
     expect(onActivateMatch).not.toHaveBeenCalled();
+
+    await user.unhover(getRows()[1]);
+
+    expect(await hoverTooltip(user, getRows()[1])).toHaveTextContent("No longer in the file");
   });
 
   it("closes on Escape", async () => {
@@ -255,6 +263,9 @@ describe("folder search panel", () => {
     expect(screen.getByTestId("folder-search-skipped")).toHaveTextContent(
       "latin.md: not valid in its encoding",
     );
+    expect(
+      await hoverTooltip(user, screen.getByText("big.md: larger than 5 MB")),
+    ).toHaveTextContent(`${FOLDER}\\big.md`);
   });
 });
 
@@ -316,8 +327,8 @@ describe("folder search panel, replacing", () => {
     await waitFor(() => expect(getReplacement()).toHaveFocus());
   });
 
-  it("previews each change and marks a file written as Save writes it", () => {
-    renderReplacePanel();
+  it("previews each change and marks a file written as Save writes it", async () => {
+    const { user } = renderReplacePanel();
 
     const rows = getRows();
 
@@ -328,10 +339,13 @@ describe("folder search panel, replacing", () => {
     expect(rows[1]).toHaveAccessibleName("One leaf here.: “leaf” becomes “tree”");
     expect(rows[0].querySelector("[data-testid=folder-search-rewrites-other-text]")).toBeNull();
     expect(
-      within(rows[3]).getByRole("img", {
-        name: "Written as Save writes it, which also changes other lines",
-      }),
-    ).toBeInTheDocument();
+      await hoverTooltip(
+        user,
+        within(rows[3]).getByRole("img", {
+          name: "Written as Save writes it, which also changes other lines",
+        }),
+      ),
+    ).toHaveTextContent("Written as Save writes it, which also changes other lines");
     expect(screen.getByTestId("folder-search-status")).toHaveTextContent(
       "3 replacements in 2 files",
     );
@@ -428,6 +442,12 @@ describe("folder search panel, replacing", () => {
       "c.md: windows-1252 cannot hold 🍃",
     );
     expect(screen.getByTestId("folder-replace-not-attempted")).toHaveTextContent("d.md");
+    expect(
+      await hoverTooltip(user, screen.getByText("c.md: windows-1252 cannot hold 🍃")),
+    ).toHaveTextContent(/^🍃$/u);
+    expect(await hoverTooltip(user, screen.getByText("b.md: changed on disk"))).toHaveTextContent(
+      `${FOLDER}\\b.md`,
+    );
     expect(screen.getByTestId("folder-search-status")).toHaveTextContent("Nothing to replace");
 
     await user.click(screen.getByRole("button", { name: "Dismiss report" }));

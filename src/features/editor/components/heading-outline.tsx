@@ -11,6 +11,12 @@ import {
   type TransitionEvent,
 } from "react";
 
+import {
+  createTooltipHandle,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 
 import {
@@ -78,6 +84,7 @@ export function HeadingOutline({ outline, depth, onDepthChange, onNavigate }: He
   const pointerDownAtRef = useRef(Number.NEGATIVE_INFINITY);
   const [layout, setLayout] = useState<OutlinePanelLayout | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
+  const [rowTooltip] = useState(() => createTooltipHandle<string>());
   const open = layout !== null;
   const visible = getVisibleOutlineHeadings(outline.headings, depth);
   const current = getShownHeadingPosition(visible, outline.activePosition);
@@ -346,38 +353,46 @@ export function HeadingOutline({ outline, depth, onDepthChange, onNavigate }: He
             const rowLabel = t("headingOutline.rowLabel", { level: heading.level, label });
             return (
               <li key={heading.position}>
-                <button
-                  aria-current={current === heading.position ? "location" : undefined}
-                  aria-label={
-                    context
-                      ? t("headingOutline.rowWithContext", { heading: rowLabel, context })
-                      : rowLabel
+                <TooltipTrigger
+                  handle={rowTooltip}
+                  payload={context ? `${context} › ${label}` : label}
+                  render={
+                    <button
+                      aria-current={current === heading.position ? "location" : undefined}
+                      aria-label={
+                        context
+                          ? t("headingOutline.rowWithContext", { heading: rowLabel, context })
+                          : rowLabel
+                      }
+                      className="leafdown-outline-row"
+                      data-folded={heading.folded || undefined}
+                      data-level={heading.level}
+                      data-outline-position={heading.position}
+                      data-preview={preview === heading.position || undefined}
+                      onClick={(event) => activateRow(event.currentTarget)}
+                      style={
+                        {
+                          "--outline-indent": `${(heading.level - shallowestLevel) * INDENT_STEP}px`,
+                        } as CSSProperties
+                      }
+                      tabIndex={heading.position === tabStop ? 0 : -1}
+                      type="button"
+                    />
                   }
-                  className="leafdown-outline-row"
-                  data-folded={heading.folded || undefined}
-                  data-level={heading.level}
-                  data-outline-position={heading.position}
-                  data-preview={preview === heading.position || undefined}
-                  onClick={(event) => activateRow(event.currentTarget)}
-                  style={
-                    {
-                      "--outline-indent": `${(heading.level - shallowestLevel) * INDENT_STEP}px`,
-                    } as CSSProperties
-                  }
-                  tabIndex={heading.position === tabStop ? 0 : -1}
-                  title={context ? `${context} › ${label}` : label}
-                  type="button"
                 >
                   <span className="leafdown-outline-title">
                     <span>{label}</span>
                   </span>
                   <span aria-hidden="true" className="leafdown-outline-mark" />
-                </button>
+                </TooltipTrigger>
               </li>
             );
           })}
         </ol>
       </nav>
+      <Tooltip handle={rowTooltip}>
+        {({ payload }) => <TooltipContent side="left">{payload}</TooltipContent>}
+      </Tooltip>
     </div>
   );
 }

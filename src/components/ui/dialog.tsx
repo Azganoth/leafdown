@@ -3,6 +3,7 @@ import { XIcon } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -112,13 +113,22 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={<Button variant="ghost" className="absolute top-4 right-4" size="icon-sm" />}
-          >
-            <XIcon />
-            <span className="sr-only">{t("ui.dialog.close")}</span>
-          </DialogPrimitive.Close>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <DialogPrimitive.Close
+                  data-slot="dialog-close"
+                  render={
+                    <Button variant="ghost" className="absolute top-4 right-4" size="icon-sm" />
+                  }
+                />
+              }
+            >
+              <XIcon />
+              <span className="sr-only">{t("ui.dialog.close")}</span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{t("ui.dialog.close")}</TooltipContent>
+          </Tooltip>
         )}
       </DialogPrimitive.Popup>
     </DialogPortal>

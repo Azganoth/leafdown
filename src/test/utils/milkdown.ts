@@ -7,6 +7,7 @@ import {
   type CodeBlockLanguageRequest,
   type CodeBlockSetting,
   type ContextPopupRequest,
+  type ControlTooltipRequest,
   type BlockInsertionRequest,
   createMilkdownEditor,
   type FootnotePreviewRequest,
@@ -48,6 +49,8 @@ export interface MountMilkdownEditorOptions extends Partial<MarkdownReferenceCon
   onFootnotePreviewRequested?: (request: FootnotePreviewRequest) => void;
   footnotePreviewDelayMs?: number;
   onLinkPreviewClosed?: () => void;
+  onControlTooltipClosed?: () => void;
+  onControlTooltipRequested?: (request: ControlTooltipRequest) => void;
   onLinkPreviewRequested?: (request: LinkPreviewRequest) => void;
   linkPreviewDelayMs?: number;
   onCodeBlockLanguageClosed?: () => void;
@@ -86,6 +89,10 @@ export const mountMilkdownEditor = async (
     codeBlockLanguage: {
       onClose: options.onCodeBlockLanguageClosed,
       onRequest: options.onCodeBlockLanguageRequested,
+    },
+    controlTooltip: {
+      onClose: options.onControlTooltipClosed,
+      onRequest: options.onControlTooltipRequested,
     },
     calloutType: {
       onClose: options.onCalloutTypeClosed,

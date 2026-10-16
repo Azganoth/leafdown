@@ -24,6 +24,7 @@ import { EditorBlockInsertionMenu } from "./editor-block-insertion-menu";
 import { EditorCalloutTypePicker } from "./editor-callout-type-picker";
 import { EditorCodeBlockLanguagePicker } from "./editor-code-block-language-picker";
 import { EditorContextPopup } from "./editor-context-popup";
+import { EditorControlTooltip } from "./editor-control-tooltip";
 import { EditorFootnotePreview } from "./editor-footnote-preview";
 import { EditorLinkPreview } from "./editor-link-preview";
 import { EditorSearchPanel } from "./editor-search-panel";
@@ -85,6 +86,7 @@ export function MilkdownEditor({
     closeContextPopup,
     commandState,
     contextPopupRequest,
+    controlTooltipRequest,
     executeContextCommand,
     executeBlockInsertion,
     focusEditor,
@@ -150,6 +152,7 @@ export function MilkdownEditor({
       />
       <EditorFootnotePreview request={footnotePreviewRequest} />
       <EditorLinkPreview request={linkPreviewRequest} />
+      <EditorControlTooltip request={controlTooltipRequest} />
     </div>
   );
 }

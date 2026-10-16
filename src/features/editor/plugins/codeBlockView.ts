@@ -26,6 +26,7 @@ import {
   type CodeBlockSetting,
 } from "./codeBlockControls";
 import { setCodeBlockLanguageRequestMeta } from "./codeBlockLanguage";
+import { setControlTooltip } from "./controlTooltip";
 import { isEditingMermaidCodeBlock, isMermaidCodeBlock } from "./mermaidMode";
 
 let nextMermaidDescriptionId = 0;
@@ -314,7 +315,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.expandButton.hidden = this.collapse !== "collapsed";
     const collapseLabel = t("editor.codeBlock.collapse");
     this.collapseButton.setAttribute("aria-label", collapseLabel);
-    this.collapseButton.title = collapseLabel;
+    setControlTooltip(this.collapseButton, collapseLabel);
     if (this.collapse === "collapsed") {
       this.expandLabel.textContent = t("editor.codeBlock.expand", {
         count: countCollapsedCodeLines(this.node),
@@ -332,7 +333,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     ] as const) {
       button.setAttribute("aria-label", label);
       button.setAttribute("aria-pressed", String(pressed));
-      button.title = label;
+      setControlTooltip(button, label);
     }
   }
 

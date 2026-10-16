@@ -21,6 +21,7 @@ export type { CodeBlockSetting } from "./plugins/codeBlockControls";
 export type { CodeBlockLanguageRequest } from "./plugins/codeBlockLanguage";
 export type { ContextPopupRequest, ContextPopupSource } from "./plugins/contextPopup";
 export type { BlockInsertionRequest } from "./plugins/blockSelectionInteraction";
+export type { ControlTooltipRequest } from "./plugins/controlTooltip";
 export type { FootnotePreviewRequest, FootnotePreviewSource } from "./plugins/footnotePreview";
 export type { LinkPreviewRequest, LinkPreviewSource } from "./plugins/linkPreview";
 export type { ContextPopupAnchor } from "./utils/contextPopupAnchor";

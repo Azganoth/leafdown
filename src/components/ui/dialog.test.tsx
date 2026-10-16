@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import { Dialog, DialogContent, DialogTitle } from "./dialog";
 
@@ -31,6 +32,14 @@ const renderOpenDialog = () => {
 };
 
 describe("Dialog", () => {
+  it("names its close button in a tooltip", async () => {
+    const { user } = renderOpenDialog();
+
+    expect(
+      await hoverTooltip(user, screen.getByRole("button", { name: "Close" })),
+    ).toHaveTextContent("Close");
+  });
+
   it("keeps dialogs open when dragging starts from the titlebar drag region", async () => {
     const { onOpenChange, user } = renderOpenDialog();
 

@@ -36,10 +36,7 @@ export function ConfirmationDialog() {
             <DialogDescription>{request.message}</DialogDescription>
           </DialogHeader>
           {request.detail && (
-            <p
-              className="rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-line"
-              title={request.detail}
-            >
+            <p className="rounded-md bg-muted px-3 py-2 font-mono text-xs break-all whitespace-pre-line">
               {request.detail}
             </p>
           )}

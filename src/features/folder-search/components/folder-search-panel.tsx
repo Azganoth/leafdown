@@ -25,7 +25,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Toggle } from "@/components/ui/toggle";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  createTooltipHandle,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  type TooltipHandle,
+} from "@/components/ui/tooltip";
 import {
   VirtualList,
   VirtualListContent,
@@ -198,9 +204,12 @@ export function FolderSearchPanel({
     >
       <CardHeader className="shrink-0">
         <CardTitle className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate" title={folderPath}>
-            {title}
-          </span>
+          <Tooltip>
+            <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
+              {title}
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{folderPath}</TooltipContent>
+          </Tooltip>
           <PanelButton label={t("folderSearch.close")} onClick={onClose}>
             <XIcon />
           </PanelButton>
@@ -523,7 +532,7 @@ function FolderReplaceReportView({
                 detail: detail ?? "",
                 unsaved: unsavedInEditor ? "yes" : "no",
               }),
-              title: detail,
+              tooltip: detail,
             }))}
             label={t("folderSearch.report.failed", { count: report.failed.length })}
             testId="folder-replace-failed"
@@ -549,7 +558,7 @@ function ReportList({
   label,
   testId,
 }: {
-  items: { path: string; text: string; title?: string }[];
+  items: { path: string; text: string; tooltip?: string }[];
   label: string;
   testId: string;
 }) {
@@ -564,10 +573,11 @@ function ReportList({
           className="mt-1 max-h-32 overflow-y-auto pl-4 text-muted-foreground"
           data-testid={testId}
         >
-          {items.map(({ path, text, title }) => (
-            <li className="truncate" key={path} title={title ?? path}>
-              {text}
-            </li>
+          {items.map(({ path, text, tooltip }) => (
+            <Tooltip key={path}>
+              <TooltipTrigger render={<li className="truncate" />}>{text}</TooltipTrigger>
+              <TooltipContent side="right">{tooltip ?? path}</TooltipContent>
+            </Tooltip>
           ))}
         </ul>
       </CollapsibleContent>
@@ -595,12 +605,15 @@ function SkippedFiles({
       <CollapsibleContent>
         <ul className="mt-1 max-h-32 overflow-y-auto pl-4" data-testid="folder-search-skipped">
           {shown.map(({ path, reason }) => (
-            <li className="truncate" key={path} title={path}>
-              {t("folderSearch.skippedFile", {
-                path: getRelativePath(folderPath, path) ?? path,
-                reason,
-              })}
-            </li>
+            <Tooltip key={path}>
+              <TooltipTrigger render={<li className="truncate" />}>
+                {t("folderSearch.skippedFile", {
+                  path: getRelativePath(folderPath, path) ?? path,
+                  reason,
+                })}
+              </TooltipTrigger>
+              <TooltipContent side="right">{path}</TooltipContent>
+            </Tooltip>
           ))}
           {hiddenCount > 0 && <li>{t("folderSearch.skippedMore", { count: hiddenCount })}</li>}
         </ul>
@@ -628,6 +641,7 @@ function FolderSearchResultRows({ onActivateMatch, ref, results }: FolderSearchR
   const virtualListRef = useRef<VirtualListHandle>(null);
   const rowElementsRef = useRef(new Map<string, HTMLLIElement>());
   const hasRowFocusRef = useRef(false);
+  const [rowTooltip] = useState(() => createTooltipHandle<string>());
   // The index keeps the tab stop near where it was when results replace the focused row.
   const [focus, setFocus] = useState<{ index: number; key: string | null; requestId: number }>({
     index: 0,
@@ -754,11 +768,15 @@ function FolderSearchResultRows({ onActivateMatch, ref, results }: FolderSearchR
               }}
               replacement={results.replacement}
               row={row}
+              tooltip={rowTooltip}
               virtualRow={virtualRow}
             />
           )}
         </VirtualListItems>
       </VirtualListContent>
+      <Tooltip handle={rowTooltip}>
+        {({ payload }) => <TooltipContent side="right">{payload}</TooltipContent>}
+      </Tooltip>
     </VirtualList>
   );
 }
@@ -770,6 +788,7 @@ interface FolderSearchTreeItemProps {
   registerElement: (element: HTMLLIElement | null) => void;
   replacement: string | null;
   row: FolderSearchRow;
+  tooltip: TooltipHandle<string>;
   virtualRow: VirtualItem;
 }
 
@@ -780,53 +799,66 @@ function FolderSearchTreeItem({
   registerElement,
   replacement,
   row,
+  tooltip,
   virtualRow,
 }: FolderSearchTreeItemProps) {
   const { formatNumber, t } = useLocalization();
   const isFile = row.kind === "file";
+  const tooltipText = isFile
+    ? row.relativePath
+    : row.unavailable
+      ? t("folderSearch.unavailable")
+      : undefined;
 
   return (
-    <VirtualListItem
-      aria-disabled={row.kind === "match" && row.unavailable ? true : undefined}
-      aria-label={
-        isFile
-          ? t(replacement === null ? "folderSearch.fileLabel" : "folderSearch.replaceFileLabel", {
-              count: row.matchCount,
-              path: row.relativePath,
-            })
-          : replacement === null
-            ? undefined
-            : getReplacementLabel(t, row, replacement)
+    <TooltipTrigger
+      disabled={tooltipText === undefined}
+      handle={tooltip}
+      payload={tooltipText}
+      render={
+        <VirtualListItem
+          aria-disabled={row.kind === "match" && row.unavailable ? true : undefined}
+          aria-label={
+            isFile
+              ? t(
+                  replacement === null ? "folderSearch.fileLabel" : "folderSearch.replaceFileLabel",
+                  {
+                    count: row.matchCount,
+                    path: row.relativePath,
+                  },
+                )
+              : replacement === null
+                ? undefined
+                : getReplacementLabel(t, row, replacement)
+          }
+          aria-expanded={isFile ? row.expanded : undefined}
+          aria-level={isFile ? 1 : 2}
+          aria-posinset={row.posInSet}
+          aria-selected={row.kind === "match" && row.chosen}
+          aria-setsize={row.setSize}
+          className={cn(
+            buttonVariants({ variant: "ghost" }),
+            "h-[26px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
+            "aria-selected:bg-accent/80 aria-selected:text-foreground aria-selected:hover:bg-accent",
+            "aria-disabled:text-muted-foreground aria-disabled:line-through aria-disabled:opacity-70",
+          )}
+          data-testid={isFile ? "folder-search-file" : "folder-search-match"}
+          onClick={onActivate}
+          onFocus={onFocus}
+          ref={registerElement}
+          role="treeitem"
+          style={{ paddingLeft: isFile ? "6px" : "28px" }}
+          tabIndex={isTabStop ? 0 : -1}
+          virtualRow={virtualRow}
+        />
       }
-      aria-expanded={isFile ? row.expanded : undefined}
-      aria-level={isFile ? 1 : 2}
-      aria-posinset={row.posInSet}
-      aria-selected={row.kind === "match" && row.chosen}
-      aria-setsize={row.setSize}
-      className={cn(
-        buttonVariants({ variant: "ghost" }),
-        "h-[26px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
-        "aria-selected:bg-accent/80 aria-selected:text-foreground aria-selected:hover:bg-accent",
-        "aria-disabled:text-muted-foreground aria-disabled:line-through aria-disabled:opacity-70",
-      )}
-      data-testid={isFile ? "folder-search-file" : "folder-search-match"}
-      onClick={onActivate}
-      onFocus={onFocus}
-      ref={registerElement}
-      role="treeitem"
-      style={{ paddingLeft: isFile ? "6px" : "28px" }}
-      tabIndex={isTabStop ? 0 : -1}
-      title={
-        isFile ? row.relativePath : row.unavailable ? t("folderSearch.unavailable") : undefined
-      }
-      virtualRow={virtualRow}
     >
       {isFile ? (
         <FileRowContent formatCount={formatNumber} row={row} />
       ) : (
         <MatchRowContent replacement={replacement} row={row} />
       )}
-    </VirtualListItem>
+    </TooltipTrigger>
   );
 }
 
@@ -878,15 +910,21 @@ function RewritesOtherTextMarker() {
   const label = t("folderSearch.rewritesOtherText");
 
   return (
-    <span
-      aria-label={label}
-      className="flex shrink-0 text-muted-foreground"
-      data-testid="folder-search-rewrites-other-text"
-      role="img"
-      title={label}
-    >
-      <TriangleAlertIcon aria-hidden="true" className="size-3" />
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            aria-label={label}
+            className="flex shrink-0 text-muted-foreground"
+            data-testid="folder-search-rewrites-other-text"
+            role="img"
+          />
+        }
+      >
+        <TriangleAlertIcon aria-hidden="true" className="size-3" />
+      </TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

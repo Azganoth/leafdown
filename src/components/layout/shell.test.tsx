@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { useSessionStore } from "@/features/session";
+import { getPathParts } from "@/lib/path";
 import { toastManager } from "@/lib/toast";
 import { createSavedDocument } from "@/test/factories/document";
 import {
@@ -27,6 +28,7 @@ import {
 import { dispatchKeyDown } from "@/test/utils/events";
 import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import { Shell } from "./shell";
 
@@ -51,6 +53,27 @@ vi.mock("@/features/session", async (importOriginal) => ({
 }));
 
 const SPEC_MARKDOWN_PATH = `${TEST_NESTED_DIRECTORY_PATH}/spec.md`;
+
+const queryRecentItem = (path: string) => {
+  const { name, parent } = getPathParts(path);
+
+  return (
+    screen
+      .queryAllByRole("listitem")
+      .find((item) => within(item).queryByText(name) && within(item).queryByText(parent)) ?? null
+  );
+};
+
+const getRecentItem = (path: string) => {
+  const item = queryRecentItem(path);
+
+  if (!item) {
+    throw new Error(`Expected a recent item for ${path}.`);
+  }
+
+  return item;
+};
+
 const OVERSIZED_MARKDOWN_FILE_ERROR = {
   kind: "oversizedFile",
   path: "C:/Notes/large-document.md",
@@ -168,7 +191,7 @@ describe("Shell", () => {
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
   });
 
-  it("names a recent item by its own name and the folder holding it", async () => {
+  it("names a recent item by its own name and folder, with its full path on hover", async () => {
     setDefaultRecentItems({
       recentFiles: [{ path: SPEC_MARKDOWN_PATH }],
       recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }],
@@ -176,13 +199,23 @@ describe("Shell", () => {
 
     const { user } = renderWithUser(<Shell />);
 
-    const recentFile = screen.getByTitle(SPEC_MARKDOWN_PATH);
+    const recentFile = getRecentItem(SPEC_MARKDOWN_PATH);
     expect(recentFile).toHaveTextContent("spec.md");
     expect(recentFile).toHaveTextContent(TEST_NESTED_DIRECTORY_PATH);
 
-    const recentFolder = screen.getByTitle(TEST_NESTED_DIRECTORY_PATH);
+    const recentFolder = getRecentItem(TEST_NESTED_DIRECTORY_PATH);
     expect(recentFolder).toHaveTextContent("docs");
     expect(recentFolder).toHaveTextContent(TEST_NOTES_FOLDER_PATH);
+
+    expect(
+      await hoverTooltip(user, within(recentFile).getAllByRole("button")[0]),
+    ).toHaveTextContent(SPEC_MARKDOWN_PATH);
+    expect(
+      await hoverTooltip(
+        user,
+        within(recentFile).getByRole("button", { name: "Remove spec.md from recent files" }),
+      ),
+    ).toHaveTextContent("Remove from recent files");
 
     await user.click(screen.getByRole("button", { name: "Clear recent items" }));
 
@@ -199,9 +232,9 @@ describe("Shell", () => {
 
     render(<Shell />);
 
-    const openedTime = within(screen.getByTitle(SPEC_MARKDOWN_PATH)).getByText("3 days ago");
+    const openedTime = within(getRecentItem(SPEC_MARKDOWN_PATH)).getByText("3 days ago");
     expect(openedTime).toHaveAttribute("datetime", new Date(threeDaysAgo).toISOString());
-    expect(screen.getByTitle(TEST_NESTED_DIRECTORY_PATH).querySelector("time")).toBeNull();
+    expect(getRecentItem(TEST_NESTED_DIRECTORY_PATH).querySelector("time")).toBeNull();
   });
 
   describe("while the welcome screen stays open", () => {
@@ -217,7 +250,7 @@ describe("Shell", () => {
 
       render(<Shell />);
 
-      const recentFile = screen.getByTitle(SPEC_MARKDOWN_PATH);
+      const recentFile = getRecentItem(SPEC_MARKDOWN_PATH);
       expect(recentFile).toHaveTextContent("just now");
 
       act(() => {
@@ -238,7 +271,7 @@ describe("Shell", () => {
         window.dispatchEvent(new Event("focus"));
       });
 
-      expect(screen.getByTitle(SPEC_MARKDOWN_PATH)).toHaveTextContent("3 hours ago");
+      expect(getRecentItem(SPEC_MARKDOWN_PATH)).toHaveTextContent("3 hours ago");
     });
   });
 
@@ -252,16 +285,16 @@ describe("Shell", () => {
 
     await user.click(screen.getByRole("button", { name: "Remove spec.md from recent files" }));
 
-    expect(screen.queryByTitle(SPEC_MARKDOWN_PATH)).not.toBeInTheDocument();
-    expect(screen.getByTitle(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
-    expect(screen.getByTitle(TEST_NESTED_DIRECTORY_PATH)).toBeInTheDocument();
-    expect(screen.getByTitle(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
+    expect(queryRecentItem(SPEC_MARKDOWN_PATH)).not.toBeInTheDocument();
+    expect(getRecentItem(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
+    expect(getRecentItem(TEST_NESTED_DIRECTORY_PATH)).toBeInTheDocument();
+    expect(getRecentItem(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Remove docs from recent folders" }));
 
-    expect(screen.queryByTitle(TEST_NESTED_DIRECTORY_PATH)).not.toBeInTheDocument();
-    expect(screen.getByTitle(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
-    expect(screen.getByTitle(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
+    expect(queryRecentItem(TEST_NESTED_DIRECTORY_PATH)).not.toBeInTheDocument();
+    expect(getRecentItem(TEST_NOTES_FOLDER_PATH)).toBeInTheDocument();
+    expect(getRecentItem(TEST_MARKDOWN_FILE_PATH)).toBeInTheDocument();
     expect(useRecentItemsStore.getState()).toMatchObject({
       recentFiles: [{ path: TEST_MARKDOWN_FILE_PATH }],
       recentFolders: [{ path: TEST_NOTES_FOLDER_PATH }],

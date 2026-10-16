@@ -157,71 +157,86 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
   const closeLabel = t("shell.documentTabs.close", { name: label.name });
 
   return (
-    <Tabs.Tab
-      aria-label={t("shell.documentTabs.tab", {
-        name: label.name,
-        folder: label.folder ?? "none",
-        unsaved: document.isDirty ? "true" : "false",
-        preview: tab.preview ? "true" : "false",
-      })}
-      className={cn(
-        "group/tab active-item-marker flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
-        "hover:bg-muted/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        tab.preview && "italic",
-      )}
-      data-preview={tab.preview || undefined}
-      data-testid="document-tab"
-      onAuxClick={(event) => {
-        if (event.button === MIDDLE_MOUSE_BUTTON) {
-          event.preventDefault();
-          onClose();
+    <Tooltip>
+      <TooltipTrigger
+        disabled={document.status !== "saved"}
+        render={
+          <Tabs.Tab
+            aria-label={t("shell.documentTabs.tab", {
+              name: label.name,
+              folder: label.folder ?? "none",
+              unsaved: document.isDirty ? "true" : "false",
+              preview: tab.preview ? "true" : "false",
+            })}
+            className={cn(
+              "group/tab active-item-marker flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
+              "hover:bg-muted/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              tab.preview && "italic",
+            )}
+            data-preview={tab.preview || undefined}
+            data-testid="document-tab"
+            onAuxClick={(event) => {
+              if (event.button === MIDDLE_MOUSE_BUTTON) {
+                event.preventDefault();
+                onClose();
+              }
+            }}
+            onDoubleClick={() => keepDocumentTab(tab.id)}
+            onMouseDown={(event) => {
+              // A middle press would otherwise start the webview's autoscroll.
+              if (event.button === MIDDLE_MOUSE_BUTTON) {
+                event.preventDefault();
+              }
+            }}
+            value={tab.id}
+          />
         }
-      }}
-      onDoubleClick={() => keepDocumentTab(tab.id)}
-      onMouseDown={(event) => {
-        // A middle press would otherwise start the webview's autoscroll.
-        if (event.button === MIDDLE_MOUSE_BUTTON) {
-          event.preventDefault();
-        }
-      }}
-      title={document.status === "saved" ? document.path : undefined}
-      value={tab.id}
-    >
-      {/* Only the hidden medium-weight copy sizes the tab, so activating it moves no tab. */}
-      <span
-        className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap after:invisible after:font-medium after:content-[attr(data-label)]"
-        data-label={label.folder ? `${label.name} ${label.folder}` : label.name}
       >
-        <span className="absolute inset-0 truncate">
-          {label.name}
-          {label.folder && <span className="text-muted-foreground"> {label.folder}</span>}
+        {/* Only the hidden medium-weight copy sizes the tab, so activating it moves no tab. */}
+        <span
+          className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap after:invisible after:font-medium after:content-[attr(data-label)]"
+          data-label={label.folder ? `${label.name} ${label.folder}` : label.name}
+        >
+          <span className="absolute inset-0 truncate">
+            {label.name}
+            {label.folder && <span className="text-muted-foreground"> {label.folder}</span>}
+          </span>
         </span>
-      </span>
-      <span
-        aria-hidden
-        className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-        data-testid="document-tab-close"
-        data-unsaved={document.isDirty || undefined}
-        onClick={(event) => {
-          handleClosePress(event);
-          onClose();
-        }}
-        onMouseDown={handleClosePress}
-        onPointerDown={(event) => event.stopPropagation()}
-        title={closeLabel}
-      >
-        {document.isDirty && (
-          <span className="size-2 rounded-full bg-current group-hover/tab:hidden" />
-        )}
-        <XIcon
-          className={cn(
-            "size-3.5",
-            document.isDirty
-              ? "hidden group-hover/tab:block"
-              : "invisible group-hover/tab:visible group-data-active/tab:visible",
-          )}
-        />
-      </span>
-    </Tabs.Tab>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <span
+                aria-hidden
+                className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                data-testid="document-tab-close"
+                data-unsaved={document.isDirty || undefined}
+                onClick={(event) => {
+                  handleClosePress(event);
+                  onClose();
+                }}
+                onMouseDown={handleClosePress}
+                onPointerDown={(event) => event.stopPropagation()}
+              />
+            }
+          >
+            {document.isDirty && (
+              <span className="size-2 rounded-full bg-current group-hover/tab:hidden" />
+            )}
+            <XIcon
+              className={cn(
+                "size-3.5",
+                document.isDirty
+                  ? "hidden group-hover/tab:block"
+                  : "invisible group-hover/tab:visible group-data-active/tab:visible",
+              )}
+            />
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{closeLabel}</TooltipContent>
+        </Tooltip>
+      </TooltipTrigger>
+      {document.status === "saved" && (
+        <TooltipContent side="bottom">{document.path}</TooltipContent>
+      )}
+    </Tooltip>
   );
 }

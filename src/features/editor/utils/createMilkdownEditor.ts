@@ -108,6 +108,10 @@ import {
 } from "../plugins/contextPopup";
 import { createLeafdownContinuationFormPlugin } from "../plugins/continuationForm";
 import {
+  createLeafdownControlTooltipPlugin,
+  type LeafdownControlTooltipPluginOptions,
+} from "../plugins/controlTooltip";
+import {
   createLeafdownDefinitionListPlugin,
   leafdownDefinitionDescriptionSchema,
   leafdownDefinitionListSchema,
@@ -288,6 +292,7 @@ export interface CreateMilkdownEditorOptions {
   blockInsertion?: BlockInsertionOptions;
   footnotePreview?: LeafdownFootnotePreviewPluginOptions;
   linkPreview?: LeafdownLinkPreviewPluginOptions;
+  controlTooltip?: LeafdownControlTooltipPluginOptions;
   codeBlockLanguage?: LeafdownCodeBlockLanguagePluginOptions;
   calloutType?: LeafdownCalloutTypePluginOptions;
   search?: LeafdownSearchPluginOptions;
@@ -345,6 +350,7 @@ export const createMilkdownEditor = async ({
   blockInsertion,
   footnotePreview,
   linkPreview,
+  controlTooltip,
   codeBlockLanguage,
   calloutType,
   search,
@@ -429,6 +435,7 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownFootnoteNavigationPlugin())
     .use(createLeafdownFootnotePreviewPlugin(footnotePreview))
     .use(createLeafdownLinkPreviewPlugin(getLinkContext, linkPreview))
+    .use(createLeafdownControlTooltipPlugin(controlTooltip))
     .use(createLeafdownStrikethroughInputRule())
     .use(createLeafdownCodeSpanInputRule())
     .use(createLeafdownLogicalLinkSerializerPlugin())

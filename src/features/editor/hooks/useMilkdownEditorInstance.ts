@@ -53,6 +53,7 @@ import { setCodeBlockSoftWrapEnabled, type CodeBlockSetting } from "../plugins/c
 import type { CodeBlockLanguageRequest } from "../plugins/codeBlockLanguage";
 import { setCodeLineNumbersEnabled } from "../plugins/codeLineNumbers";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
+import type { ControlTooltipRequest } from "../plugins/controlTooltip";
 import type { FootnotePreviewRequest } from "../plugins/footnotePreview";
 import type { LinkPreviewRequest } from "../plugins/linkPreview";
 import {
@@ -205,6 +206,9 @@ export const useMilkdownEditorInstance = ({
   const [footnotePreviewRequest, setFootnotePreviewRequest] =
     useState<FootnotePreviewRequest | null>(null);
   const [linkPreviewRequest, setLinkPreviewRequest] = useState<LinkPreviewRequest | null>(null);
+  const [controlTooltipRequest, setControlTooltipRequest] = useState<ControlTooltipRequest | null>(
+    null,
+  );
   const [codeBlockLanguageRequest, setCodeBlockLanguageRequest] =
     useState<CodeBlockLanguageRequest | null>(null);
   const codeBlockLanguageOpenRef = useRef(false);
@@ -414,6 +418,7 @@ export const useMilkdownEditorInstance = ({
 
   const closeFootnotePreview = useCallback(() => setFootnotePreviewRequest(null), []);
   const closeLinkPreview = useCallback(() => setLinkPreviewRequest(null), []);
+  const closeControlTooltip = useCallback(() => setControlTooltipRequest(null), []);
 
   const requestCodeBlockLanguage = useCallback(
     (request: CodeBlockLanguageRequest) => {
@@ -592,6 +597,10 @@ export const useMilkdownEditorInstance = ({
           onClose: closeLinkPreview,
           onRequest: requestLinkPreview,
         },
+        controlTooltip: {
+          onClose: closeControlTooltip,
+          onRequest: setControlTooltipRequest,
+        },
         codeBlockLanguage: {
           onClose: releaseCodeBlockLanguage,
           onRequest: requestCodeBlockLanguage,
@@ -716,6 +725,7 @@ export const useMilkdownEditorInstance = ({
       closeBlockInsertion();
       closeFootnotePreview();
       closeLinkPreview();
+      closeControlTooltip();
       releaseCodeBlockLanguage();
       releaseCalloutType();
       setSearchState(CLOSED_EDITOR_SEARCH_STATE);
@@ -725,6 +735,7 @@ export const useMilkdownEditorInstance = ({
     closeBlockInsertion,
     closeFootnotePreview,
     closeLinkPreview,
+    closeControlTooltip,
     releaseCalloutType,
     releaseCodeBlockLanguage,
     requestCalloutType,
@@ -786,6 +797,7 @@ export const useMilkdownEditorInstance = ({
     focusEditor,
     footnotePreviewRequest,
     linkPreviewRequest,
+    controlTooltipRequest,
     rootRef,
     search,
   };

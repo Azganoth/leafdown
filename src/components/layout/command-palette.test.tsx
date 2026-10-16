@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCommandUIStore, type AppCommandId, type CommandState } from "@/commands";
 import { setDefaultUI } from "@/test/utils/appStores";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import { CommandPalette } from "./command-palette";
 
@@ -87,7 +88,9 @@ describe("CommandPalette", () => {
     const save = screen.getByRole("option", { name: /^Save File/u });
 
     expect(save).toHaveAttribute("aria-disabled", "true");
-    expect(within(save).getByText("No document is open.")).toBeInTheDocument();
+    expect(
+      await hoverTooltip(user, within(save).getByText("No document is open.")),
+    ).toHaveTextContent("No document is open.");
     await user.click(save);
     expect(onExecute).not.toHaveBeenCalled();
 

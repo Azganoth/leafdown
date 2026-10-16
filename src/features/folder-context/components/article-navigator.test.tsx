@@ -15,6 +15,7 @@ import {
   TEST_NOTES_FOLDER_PATH,
 } from "@/test/fixtures/paths";
 import { act, render, renderWithUser, screen, setupUser, waitFor } from "@/test/utils/react";
+import { hoverTooltip } from "@/test/utils/tooltip";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS } from "../utils/articleNavigatorTraversal";
@@ -145,6 +146,20 @@ describe("article-navigator", () => {
     expect(await screen.findByText("3 articles")).toBeInTheDocument();
   });
 
+  it("shows the folder's full path in a tooltip on its name", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={folderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+
+    expect(await hoverTooltip(user, screen.getByText("Notes"))).toHaveTextContent(
+      TEST_NOTES_FOLDER_PATH,
+    );
+  });
+
   it("reports nesting depth, sibling position, and expanded state on every row", () => {
     useArticleNavigatorStore.getState().expandDirectories([TEST_NESTED_DIRECTORY_PATH]);
 
@@ -189,7 +204,9 @@ describe("article-navigator", () => {
 
     await user.type(filter, "spec");
 
-    expect(screen.getByRole("button", { name: "Clear article filter" })).toBeInTheDocument();
+    expect(
+      await hoverTooltip(user, screen.getByRole("button", { name: "Clear article filter" })),
+    ).toHaveTextContent("Clear article filter");
     expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("treeitem", { name: "spec.md" })).toBeInTheDocument();
     expect(screen.queryByRole("treeitem", { name: "readme.md" })).not.toBeInTheDocument();
@@ -731,8 +748,8 @@ describe("article-navigator default listing", () => {
 describe("article-navigator with all files shown", () => {
   beforeEach(() => useArticleNavigatorStore.getState().reset());
 
-  it("shows unsupported files as rows that say Leafdown cannot open them", () => {
-    render(
+  it("shows unsupported files as rows that say Leafdown cannot open them", async () => {
+    const { user } = renderWithUser(
       <ArticleNavigator
         activeArticlePath={null}
         folderContext={mixedFolderContext}
@@ -744,10 +761,13 @@ describe("article-navigator with all files shown", () => {
     const row = screen.getByRole("treeitem", { name: "manual.pdf" });
 
     expect(row).toHaveAttribute("aria-description", "Leafdown can only open Markdown files.");
-    expect(row).toHaveAttribute(
-      "title",
+    expect(row).not.toHaveAttribute("title");
+    expect((await hoverTooltip(user, row)).textContent).toBe(
       `${TEST_NOTES_FOLDER_PATH}/manual.pdf\nLeafdown can only open Markdown files.`,
     );
+    expect(
+      await hoverTooltip(user, screen.getByRole("treeitem", { name: "readme.md" })),
+    ).toHaveTextContent(`${TEST_NOTES_FOLDER_PATH}/readme.md`);
     expect(row).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("treeitem", { name: "readme.md" })).not.toHaveAttribute(
       "aria-description",

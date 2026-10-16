@@ -19,7 +19,13 @@ interface Scenario {
   releaseNotesLastVersion?: string;
   recentFiles?: string[];
   recentFolders?: string[];
+  /** Settings the scenario starts with, over the defaults. */
+  settings?: Record<string, unknown>;
 }
+
+// Scenarios that close a window or quit with unsaved documents and answer the prompt run with the
+// session not kept, as it was before `Restore session`.
+const RESTORE_SESSION_OFF = { restoreSession: false };
 
 interface WorkerContext {
   appDataDirectory: string;
@@ -249,11 +255,19 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     },
     { name: "diagnostics" },
     { name: "document-lifecycle", recentFiles: [documentPath, documentScrollPath] },
-    { name: "document-tabs", recentFiles: [calloutsPath, citationsPath, separatorPath] },
+    {
+      name: "document-tabs",
+      recentFiles: [calloutsPath, citationsPath, separatorPath],
+      settings: RESTORE_SESSION_OFF,
+    },
     { name: "document-watcher", recentFiles: [documentWatcherPath] },
     { name: "find-and-replace", recentFiles: [searchPath] },
     { name: "keyboard-shortcuts" },
-    { name: "multiple-windows", recentFiles: [calloutsPath, citationsPath] },
+    {
+      name: "multiple-windows",
+      recentFiles: [calloutsPath, citationsPath],
+      settings: RESTORE_SESSION_OFF,
+    },
     { name: "heading-outline", recentFiles: [outlinePath] },
     { name: "folder-watcher", recentFolders: [folderPath] },
     { name: "folder-actions", recentFolders: [actionsFolderPath] },
@@ -271,6 +285,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "launch-document", launchArguments: [launchDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
+    { name: "kept-session-quit", recentFiles: [calloutsPath] },
+    { name: "kept-session-restore", continues: "kept-session-quit" },
     { name: "release-notes-first-install" },
     {
       name: "release-notes-upgrade",
@@ -278,7 +294,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       releaseNotesLastVersion: "0.0.0-previous",
     },
     { name: "release-notes-restart", continues: "release-notes-upgrade" },
-    { name: "window-lifecycle" },
+    { name: "window-lifecycle", settings: RESTORE_SESSION_OFF },
     { name: "wiki-links", recentFolders: [wikiFolderPath] },
   ];
 
@@ -454,19 +470,24 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
 
 const resetPersistedState = async (
   worker: WorkerContext,
-  recentFiles: string[] = [],
-  recentFolders: string[] = [],
+  { recentFiles = [], recentFolders = [], settings }: Scenario,
 ) => {
   await rm(worker.storeDirectory, { force: true, recursive: true });
+  await rm(path.join(worker.appDataDirectory, "session"), { force: true, recursive: true });
   await mkdir(worker.storeDirectory, { recursive: true });
-  const storeName = process.env.LEAFDOWN_E2E_RELEASE_BINARY
-    ? "recent-items.json"
-    : "recent-items.dev.json";
-  await writeJson(path.join(worker.storeDirectory, storeName), {
+  const storeSuffix = process.env.LEAFDOWN_E2E_RELEASE_BINARY ? ".json" : ".dev.json";
+  await writeJson(path.join(worker.storeDirectory, `recent-items${storeSuffix}`), {
     recentFiles,
     recentFolders,
     version: 1,
   });
+
+  if (settings) {
+    await writeJson(path.join(worker.storeDirectory, `settings${storeSuffix}`), {
+      ...settings,
+      version: 2,
+    });
+  }
 };
 
 const seedReleaseNotesUpgrade = async (worker: WorkerContext, lastVersion: string) => {
@@ -603,7 +624,7 @@ const runScenarioGroup = async (scenarioNames: string[], worker: WorkerContext) 
           );
         }
       } else {
-        await resetPersistedState(worker, scenario.recentFiles, scenario.recentFolders);
+        await resetPersistedState(worker, scenario);
       }
 
       if (scenario.releaseNotesLastVersion) {

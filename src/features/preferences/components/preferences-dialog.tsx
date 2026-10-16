@@ -344,6 +344,7 @@ function FilePreferences() {
   const ignoredDirectories = useSettingsStore((state) => state.ignoredDirectories);
   const indexFileNames = useSettingsStore((state) => state.indexFileNames);
   const insertFinalNewline = useSettingsStore((state) => state.insertFinalNewline);
+  const restoreSession = useSettingsStore((state) => state.restoreSession);
   const whenDroppingFolder = useSettingsStore((state) => state.whenDroppingFolder);
   const whenDroppingMarkdownFile = useSettingsStore((state) => state.whenDroppingMarkdownFile);
   const updateSetting = useSettingsStore((state) => state.updateSetting);
@@ -367,6 +368,12 @@ function FilePreferences() {
         description={t("preferences.insertFinalNewline.description")}
         checked={insertFinalNewline}
         onCheckedChange={(checked) => updateSetting("insertFinalNewline", checked)}
+      />
+      <PreferenceSwitch
+        label={t("preferences.restoreSession.label")}
+        description={t("preferences.restoreSession.description")}
+        checked={restoreSession}
+        onCheckedChange={(checked) => updateSetting("restoreSession", checked)}
       />
       <PreferenceChoice
         label={t("preferences.whenDroppingFolder.label")}

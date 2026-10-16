@@ -89,6 +89,7 @@ export interface SettingsState {
   defaultNewDocumentExtension: NewDocumentExtension;
   defaultNewDocumentLineEnding: LineEnding;
   insertFinalNewline: boolean;
+  restoreSession: boolean;
   indexFileNames: string[];
   ignoredDirectories: string[];
   whenDroppingFolder: DropBehavior;
@@ -124,6 +125,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   defaultNewDocumentExtension: ".md",
   defaultNewDocumentLineEnding: getSystemDefaultLineEnding(),
   insertFinalNewline: true,
+  restoreSession: true,
   indexFileNames: [...DEFAULT_INDEX_FILE_NAMES],
   ignoredDirectories: [...DEFAULT_IGNORED_DIRECTORIES],
   whenDroppingFolder: "open",
@@ -152,6 +154,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   defaultNewDocumentExtension: oneOf(NEW_DOCUMENT_EXTENSIONS),
   defaultNewDocumentLineEnding: oneOf(LINE_ENDINGS),
   insertFinalNewline: booleanValue,
+  restoreSession: booleanValue,
   indexFileNames: listOf(stringValue),
   ignoredDirectories: listOf(stringValue),
   whenDroppingFolder: oneOf(DROP_BEHAVIORS),

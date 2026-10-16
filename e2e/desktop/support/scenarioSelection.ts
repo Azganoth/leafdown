@@ -27,6 +27,7 @@ const scenarioTargets = {
   "legacy-encoding": ["legacy-encoding"],
   "launch-document": ["launch-document"],
   persistence: ["persistence-write", "persistence-restart"],
+  "kept-session": ["kept-session-quit", "kept-session-restore"],
   "release-notes": [
     "release-notes-first-install",
     "release-notes-upgrade",

@@ -111,3 +111,61 @@ export const salvagedRecord = <Shape extends ContractShape>(
     return touched ? repaired(salvaged as ShapeValue<Shape>) : valid(value as ShapeValue<Shape>);
   },
 });
+
+export const nullable = <T>(contract: ValueContract<T>): ValueContract<T | null> => ({
+  check: (value) => (value === null ? valid(null) : contract.check(value)),
+});
+
+/** Accepts the first contract's outcome that is not invalid. */
+export const eitherOf = <A, B>(
+  first: ValueContract<A>,
+  second: ValueContract<B>,
+): ValueContract<A | B> => ({
+  check: (value) => {
+    const checked = first.check(value);
+
+    return checked.outcome === "invalid" ? second.check(value) : checked;
+  },
+});
+
+/** Repairs a list by dropping the entries its entry contract refuses. */
+export const salvagedList = <T>(contract: ValueContract<T>): ValueContract<T[]> => ({
+  check: (value) => {
+    if (!Array.isArray(value)) {
+      return INVALID;
+    }
+
+    const items: T[] = [];
+    let touched = false;
+
+    for (const entry of value) {
+      const checked = contract.check(entry);
+
+      touched ||= checked.outcome !== "valid";
+
+      if (checked.outcome !== "invalid") {
+        items.push(checked.value);
+      }
+    }
+
+    return touched ? repaired(items) : valid(value as T[]);
+  },
+});
+
+/** The all-or-nothing record: every field must be present and pass, and unknown keys are dropped. */
+export const strictRecord = <Shape extends ContractShape>(
+  shape: Shape,
+): ValueContract<{ [Key in keyof Shape]: Contracted<Shape[Key]> }> => ({
+  check: (value) => {
+    const checked = salvagedRecord(shape).check(value);
+
+    if (
+      checked.outcome === "invalid" ||
+      !Object.keys(shape).every((key) => Object.hasOwn(checked.value, key))
+    ) {
+      return INVALID;
+    }
+
+    return checked as ValueCheck<{ [Key in keyof Shape]: Contracted<Shape[Key]> }>;
+  },
+});

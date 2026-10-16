@@ -16,6 +16,7 @@ mod folder;
 mod image;
 #[cfg(test)]
 mod installer_tests;
+mod kept_session;
 mod launch;
 mod link;
 mod navigation;
@@ -95,6 +96,7 @@ pub fn run() {
         .manage(diagnostics_runtime)
         .manage(document::DocumentWatcherState::default())
         .manage(folder::FolderWatcherState::default())
+        .manage(kept_session::KeptSession::default())
         .manage(launch::LaunchDocuments::from_process())
         .manage(window::CloseRequestGuard::default())
         .manage(window::QuitSequence::default())
@@ -114,12 +116,18 @@ pub fn run() {
                 )
             );
 
+            kept_session::load_kept_session(app.handle());
+
             Ok(())
         })
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } => window::handle_close_requested(window, api),
             WindowEvent::Focused(true) => window::record_window_focus(window),
             WindowEvent::Destroyed => {
+                // Decided before the quit moves on, while it still counts as under way.
+                let keeps_session = kept_session::keeps_session(window);
+
+                kept_session::forget_window_session(window, keeps_session);
                 window::forget_close_request(window);
                 window::forget_window_focus(window);
                 launch::forget_window_launches(window);
@@ -142,6 +150,9 @@ pub fn run() {
             debug::open_webview_devtools,
             diagnostics::get_diagnostics_summary,
             image::resolve_markdown_image_target,
+            kept_session::clear_kept_session,
+            kept_session::report_window_session,
+            kept_session::restore_window_session,
             launch::take_launch_document_paths,
             remote_image::fetch_remote_image,
             link::resolve_markdown_link_target,

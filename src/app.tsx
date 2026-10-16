@@ -20,10 +20,13 @@ import {
   confirmWindowClose,
   declineWindowClose,
   DroppedPathOverlay,
+  followKeptSession,
   listenForLaunchDocuments,
   openLaunchDocuments,
+  restoreKeptWindowSession,
   useDroppedPathListener,
   WINDOW_CLOSE_REQUESTED_EVENT,
+  type WindowCloseRequest,
 } from "@/features/session";
 import { handleUnexpectedError, notifyOperationFailure } from "@/lib/errors";
 import { localizer } from "@/lib/i18n";
@@ -109,6 +112,22 @@ export function App() {
       }
     };
 
+    // Restored tabs come before launched documents, which open after them as they would after
+    // tabs opened by hand.
+    const restoreKeptSession = async () => {
+      try {
+        await restoreKeptWindowSession();
+      } catch (error) {
+        notifyOperationFailure(
+          localizer.current.t("app.restoreSessionFailed"),
+          error,
+          "restoreKeptWindowSession",
+        );
+      } finally {
+        disposables.add(followKeptSession());
+      }
+    };
+
     void initializeApp()
       .catch((error) =>
         notifyOperationFailure(
@@ -117,6 +136,7 @@ export function App() {
           "initializeApp",
         ),
       )
+      .then(restoreKeptSession)
       .then(followLaunchDocuments)
       .catch((error) => handleUnexpectedError(error, "followLaunchDocuments"));
 
@@ -125,12 +145,12 @@ export function App() {
     };
   }, []);
 
-  useTauriEvent<void>(
+  useTauriEvent<WindowCloseRequest>(
     WINDOW_CLOSE_REQUESTED_EVENT,
-    async () => {
+    async ({ payload }) => {
       // The backend closes on the next request while one is pending, so only a deliberate
       // decision answers it: a handler that keeps failing must stay silent to stay closable.
-      if (!(await confirmWindowClose())) {
+      if (!(await confirmWindowClose(payload))) {
         await declineWindowClose();
         return;
       }

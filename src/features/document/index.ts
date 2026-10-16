@@ -46,6 +46,7 @@ export {
   formatEncodingName,
   isSameEncoding,
   isUtf8Encoding,
+  LEGACY_ENCODING_NAMES,
   NEW_DOCUMENT_ENCODING,
   UTF8_ENCODING,
   UTF8_WITH_BOM_ENCODING,

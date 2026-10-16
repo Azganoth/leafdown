@@ -131,10 +131,24 @@
 
 - Opening a document replaces only the document in the preview tab, which never has unsaved changes, so opening does not ask about them.
 - Native watchers, their events, and close requests belong to one window, and each open saved document has its own watch.
-- Closing a window or quitting asks once per window about its unsaved documents, and closing the last window quits.
+- Closing a window asks about its unsaved documents, and closing the last window quits. Quitting asks once per window only while the session is not kept, as [Keep the session and its unsaved text across restarts](#keep-the-session-and-its-unsaved-text-across-restarts) describes.
 - Settings and recent items apply live to every window.
-- Windows and tabs are not restored after a restart, and unsaved text is never written outside the document's file.
 - Moving tabs between windows and split views are outside the model.
+
+### Keep the session and its unsaved text across restarts
+
+**Decision:** While `Restore session` is on, Leafdown keeps each window's folder context and tabs, and the unsaved text of every document they hold, from one run to the next. It snapshots each document whose unsaved text changed, untitled documents included, into its application data every few seconds. Quitting takes a final snapshot instead of asking about unsaved changes, and the next launch reopens the windows with that text still unsaved. Only Save writes a document's file. The model follows the session snapshot and periodic backup of Notepad++.
+
+**Rationale:** Asking on quit treats an unsaved document as something to be disposed of, when the author usually means to return to it. Keeping it lets quitting, restarting for an update, or a crash cost at most a few seconds of typing, and it covers untitled documents, which have no file to write. Saving to the file automatically was the alternative ([issue #730](https://github.com/Azganoth/leafdown/issues/730)). It would write half-finished text into files that version control, sync, and other tools read, and it still could not keep an untitled document. Snapshots outside the file keep each file as the author last chose to write it, as [Markdown files remain the source of truth](#markdown-files-remain-the-source-of-truth) requires.
+
+**Consequences:**
+
+- A snapshot is not a save. The document stays dirty, its file is untouched, and Save still reaches the external-change, missing-file, and encoding prompts.
+- Snapshots and the session record live in Leafdown's application data, never in opened folders. A snapshot holds only unsaved text: saving or discarding a document deletes it. Snapshots are not revisions and are not kept as history.
+- Closing a tab, the folder, or a window while Leafdown keeps running still asks, since what it closes leaves the session.
+- A file that changed or went missing between runs restores its snapshot as an unsaved document with that change recorded, so Save warns before overwriting.
+- Turning `Restore session` off deletes stored snapshots and the session record, and quitting asks as before.
+- Recovery after a crash reaches back only to the last snapshot.
 
 ### Use one hybrid document surface
 
@@ -172,7 +186,7 @@
 **Consequences:**
 
 - Core workflows function offline.
-- Configuration and recent lists persist locally.
+- Configuration, recent lists, and a kept session persist locally.
 - Network access is not required for standard operations.
 - Loading a remote image is optional network use that only an explicit per-image action starts; nothing depends on it.
 

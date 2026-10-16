@@ -59,6 +59,12 @@ export interface TabOpenOptions {
   preview?: boolean;
 }
 
+export interface RestoredTab {
+  document: ActiveDocumentState;
+  preview: boolean;
+  viewState: EditorViewState | null;
+}
+
 export interface DocumentFileState {
   metadata: FileMetadataSnapshot;
   externalChange: ExternalFileChange | null;
@@ -95,6 +101,15 @@ export interface SessionStore extends SessionState {
   /** Applies a finished scan unless another folder context or load has replaced it. */
   finishFolderContextLoad: (loadId: number, folderContext: FolderContextState) => boolean;
   abandonFolderContextLoad: (loadId: number) => boolean;
+  /**
+   * Adds the tabs a kept session restores after any open ones, activating the one at
+   * `activeIndex`, and starts loading the folder they were kept with when the window has none.
+   */
+  restoreTabs: (
+    tabs: readonly RestoredTab[],
+    activeIndex: number | null,
+    folderPath: string | null,
+  ) => { tabs: DocumentTab[]; folderContextLoad: FolderContextLoad | null };
   reset: () => void;
 }
 
@@ -353,6 +368,29 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     set({ folderContextLoad: null });
 
     return true;
+  },
+  restoreTabs: (restoredTabs, activeIndex, folderPath) => {
+    const tabs = restoredTabs.map(({ document, preview, viewState }) => ({
+      ...createTab(document, preview),
+      viewState,
+    }));
+    let folderContextLoad: FolderContextLoad | null = null;
+
+    set((state) => {
+      if (folderPath && !getSessionFolderPath(state)) {
+        nextFolderContextLoadId += 1;
+        folderContextLoad = { id: nextFolderContextLoadId, path: folderPath };
+      }
+
+      const activeTab = (activeIndex === null ? undefined : tabs[activeIndex]) ?? tabs[0];
+
+      return {
+        ...withTabs([...state.tabs, ...tabs], activeTab?.id ?? state.activeTabId),
+        ...(folderContextLoad && { folderContext: null, folderContextLoad }),
+      };
+    });
+
+    return { tabs, folderContextLoad };
   },
   reset: () => set(INITIAL_SESSION_STATE),
 }));

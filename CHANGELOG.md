@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Pick up where you left off. Quitting Leafdown, or closing its last window, no longer asks about unsaved changes: the next launch reopens your windows, their folders and tabs, and the unsaved text of every document, untitled ones included, still unsaved. Leafdown keeps that text in its own application data every few seconds as you work and never writes it to your files, which change only when you save. A file that changed or went missing in the meantime is flagged as usual, so saving asks before overwriting it. Closing a tab, a folder, or one of several windows still asks. Turn off Restore session in Preferences > Files to have quitting ask as before.
 - Insert callouts with Insert > Callout..., also in the context popup's Insert submenu, the command palette, and the insertion button between blocks. Choose a type from the list that opens, or press Escape to leave the document unchanged. The new callout uses the dialect your document's callouts already share, and a GitHub alert otherwise.
 - Change a callout's type from the badge at the end of its header, or choose Format > Callout > Callout type... instead. The list offers the types of the callout's own dialect, and its title, marker, and body stay as written.
 - Choose whether a collapsible MkDocs admonition opens expanded with Format > Callout > Callout opens expanded, which switches it between `???` and `???+` in the saved file. The disclosure arrow in its header still changes only the current view.

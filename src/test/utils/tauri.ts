@@ -8,6 +8,11 @@ import { openPath, openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { expect, vi } from "vitest";
 
 import {
+  CLEAR_KEPT_SESSION_COMMAND,
+  REPORT_WINDOW_SESSION_COMMAND,
+  RESTORE_WINDOW_SESSION_COMMAND,
+} from "@/features/session/services/keptSessionApi";
+import {
   CLAIM_WINDOW_DOCUMENT_COMMAND,
   NOTIFY_DOCUMENTS_MOVED_COMMAND,
   NOTIFY_DOCUMENTS_REMOVED_COMMAND,
@@ -64,13 +69,17 @@ export const getWindowDragDropHandler = () => {
   return dragDropCall?.[0] as (event: { payload: DragDropEvent }) => void;
 };
 
-// Every window takes part in the record of which window holds which document, so a test of one
-// window finds it the only window unless it replaces these.
+// Every window takes part in the record of which window holds which document, and in the session
+// kept for the next launch, so a test of one window finds it the only window, with no session kept
+// before it, unless it replaces these.
 const ONLY_WINDOW_HANDLERS: Record<string, InvokeCommandHandler> = {
   [SET_WINDOW_DOCUMENTS_COMMAND]: () => undefined,
   [CLAIM_WINDOW_DOCUMENT_COMMAND]: () => ({ kind: "claimed" }),
   [NOTIFY_DOCUMENTS_MOVED_COMMAND]: () => undefined,
   [NOTIFY_DOCUMENTS_REMOVED_COMMAND]: () => undefined,
+  [RESTORE_WINDOW_SESSION_COMMAND]: () => null,
+  [REPORT_WINDOW_SESSION_COMMAND]: () => undefined,
+  [CLEAR_KEPT_SESSION_COMMAND]: () => undefined,
 };
 
 export const mockInvokeCommands = (handlers: Record<string, InvokeCommandHandler>) => {

@@ -1,13 +1,14 @@
 use std::{
     cmp::Ordering,
+    fmt::Write as _,
     fs,
-    hash::{DefaultHasher, Hasher},
     io::{self, Read},
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     file_utils::{ReadFileError, read_file_with_size_limit, write_file_atomically},
@@ -518,10 +519,10 @@ pub(crate) fn fingerprint_bytes(bytes: &[u8]) -> String {
     fingerprint_reader(bytes).expect("reading from a byte slice cannot fail")
 }
 
-/// `Hasher` does not promise the same hash for the same bytes written in different pieces, so every
-/// caller feeds it the same fixed-size chunks.
+/// A SHA-256 digest, so a fingerprint kept in the restored session still names the same bytes in a
+/// later run or build.
 fn fingerprint_reader(mut reader: impl Read) -> io::Result<String> {
-    let mut hasher = DefaultHasher::new();
+    let mut hasher = Sha256::new();
     let mut chunk = Vec::new();
 
     loop {
@@ -530,10 +531,16 @@ fn fingerprint_reader(mut reader: impl Read) -> io::Result<String> {
             .by_ref()
             .take(FINGERPRINT_CHUNK_SIZE)
             .read_to_end(&mut chunk)?;
-        hasher.write(chunk.as_slice());
+        hasher.update(chunk.as_slice());
 
         if (chunk.len() as u64) < FINGERPRINT_CHUNK_SIZE {
-            return Ok(format!("{:016x}", hasher.finish()));
+            return Ok(hasher.finalize().iter().fold(
+                String::with_capacity(64),
+                |mut hex, byte| {
+                    let _ = write!(hex, "{byte:02x}");
+                    hex
+                },
+            ));
         }
     }
 }
@@ -1467,6 +1474,18 @@ mod tests {
             fingerprint_bytes(b"# Other\n"),
             opened.fingerprint,
             "different bytes should not share a fingerprint"
+        );
+    }
+
+    #[test]
+    fn fingerprints_bytes_as_their_sha256_digest() {
+        assert_eq!(
+            fingerprint_bytes(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            fingerprint_bytes(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
     }
 

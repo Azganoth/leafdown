@@ -2235,7 +2235,7 @@ dependencies = [
 
 [[package]]
 name = "leafdown"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 dependencies = [
  "dunce",
  "encoding_rs",

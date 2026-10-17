@@ -2,6 +2,8 @@ import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 
+import { TOOLTIP_DELAY, TOOLTIP_INSTANT_TIMEOUT } from "@/components/ui/tooltip";
+
 import { isEditorChromeElement } from "../utils/editorSurface";
 
 export const leafdownControlTooltipPluginKey = new PluginKey("leafdownControlTooltip");
@@ -23,6 +25,12 @@ export const setControlTooltip = (control: Element, label: string) => {
   control.setAttribute(CONTROL_TOOLTIP_ATTRIBUTE, label);
 };
 
+// Shared by every editor, so passing from one editor's control to another's keeps the instant phase
+// the app's other tooltips follow.
+const instantPhase = { open: false, endsAt: 0 };
+
+const isInstantPhase = () => instantPhase.open || Date.now() < instantPhase.endsAt;
+
 const matchesFocusVisible = (element: Element) => {
   try {
     return element.matches(":focus-visible");
@@ -35,6 +43,7 @@ const matchesFocusVisible = (element: Element) => {
 // them by attribute and hands the hovered or focused control to the editor's tooltip.
 class ControlTooltipView {
   private shown: { control: Element; source: "focus" | "pointer" } | null = null;
+  private pending: { control: Element; timeout: ReturnType<typeof setTimeout> } | null = null;
 
   constructor(
     private readonly view: EditorView,
@@ -43,6 +52,7 @@ class ControlTooltipView {
     const doc = view.dom.ownerDocument;
     doc.addEventListener("mouseover", this.handleMouseOver);
     doc.addEventListener("mouseout", this.handleMouseOut);
+    doc.addEventListener("mousemove", this.handleMouseMove);
     doc.addEventListener("mousedown", this.hide, true);
     doc.addEventListener("keydown", this.handleKeyDown, true);
     doc.addEventListener("focusin", this.handleFocusIn);
@@ -62,6 +72,7 @@ class ControlTooltipView {
     const doc = this.view.dom.ownerDocument;
     doc.removeEventListener("mouseover", this.handleMouseOver);
     doc.removeEventListener("mouseout", this.handleMouseOut);
+    doc.removeEventListener("mousemove", this.handleMouseMove);
     doc.removeEventListener("mousedown", this.hide, true);
     doc.removeEventListener("keydown", this.handleKeyDown, true);
     doc.removeEventListener("focusin", this.handleFocusIn);
@@ -78,23 +89,50 @@ class ControlTooltipView {
   }
 
   private show(control: Element, source: "focus" | "pointer") {
+    this.cancelPending();
     const label = control.getAttribute(CONTROL_TOOLTIP_ATTRIBUTE);
 
-    if (!label) {
+    if (!label || !control.isConnected) {
       this.hide();
       return;
     }
 
     this.shown = { control, source };
+    instantPhase.open = true;
     this.options.onRequest?.({ anchor: control, label });
   }
 
+  // Like the app's other tooltips, the first one waits for the pointer to rest on its control.
+  private schedule(control: Element) {
+    if (isInstantPhase()) {
+      this.show(control, "pointer");
+      return;
+    }
+
+    this.cancelPending();
+    this.pending = {
+      control,
+      timeout: setTimeout(() => this.show(control, "pointer"), TOOLTIP_DELAY),
+    };
+  }
+
+  private cancelPending() {
+    if (this.pending) {
+      clearTimeout(this.pending.timeout);
+      this.pending = null;
+    }
+  }
+
   private readonly hide = () => {
+    this.cancelPending();
+
     if (!this.shown) {
       return;
     }
 
     this.shown = null;
+    instantPhase.open = false;
+    instantPhase.endsAt = Date.now() + TOOLTIP_INSTANT_TIMEOUT;
     this.options.onClose?.();
   };
 
@@ -109,16 +147,30 @@ class ControlTooltipView {
     const control = this.findControl(event.target);
 
     if (control) {
-      if (control !== this.shown?.control) this.show(control, "pointer");
-    } else if (this.shown?.source === "pointer") {
-      this.hide();
+      if (control !== this.shown?.control && control !== this.pending?.control) {
+        this.schedule(control);
+      }
+    } else {
+      this.cancelPending();
+      if (this.shown?.source === "pointer") this.hide();
+    }
+  };
+
+  private readonly handleMouseMove = (event: MouseEvent) => {
+    const control = this.pending?.control;
+
+    if (control && event.buttons === 0 && this.findControl(event.target) === control) {
+      this.schedule(control);
     }
   };
 
   private readonly handleMouseOut = (event: MouseEvent) => {
-    if (event.relatedTarget === null && this.shown?.source === "pointer") {
-      this.hide();
+    if (event.relatedTarget !== null) {
+      return;
     }
+
+    this.cancelPending();
+    if (this.shown?.source === "pointer") this.hide();
   };
 
   private readonly handleKeyDown = (event: KeyboardEvent) => {

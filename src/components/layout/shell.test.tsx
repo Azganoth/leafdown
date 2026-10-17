@@ -28,7 +28,7 @@ import {
 import { dispatchKeyDown } from "@/test/utils/events";
 import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { mockTauriApiCommand } from "@/test/utils/tauriApi";
-import { hoverTooltip } from "@/test/utils/tooltip";
+import { hoverAndQueryTooltip, hoverTooltip, setCutShort } from "@/test/utils/tooltip";
 
 import { Shell } from "./shell";
 
@@ -191,7 +191,7 @@ describe("Shell", () => {
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
   });
 
-  it("names a recent item by its own name and folder, with its full path on hover", async () => {
+  it("names a recent item by its own name and folder, with its full path once cut short", async () => {
     setDefaultRecentItems({
       recentFiles: [{ path: SPEC_MARKDOWN_PATH }],
       recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }],
@@ -207,15 +207,18 @@ describe("Shell", () => {
     expect(recentFolder).toHaveTextContent("docs");
     expect(recentFolder).toHaveTextContent(TEST_NOTES_FOLDER_PATH);
 
-    expect(
-      await hoverTooltip(user, within(recentFile).getAllByRole("button")[0]),
-    ).toHaveTextContent(SPEC_MARKDOWN_PATH);
-    expect(
-      await hoverTooltip(
-        user,
-        within(recentFile).getByRole("button", { name: "Remove spec.md from recent files" }),
-      ),
-    ).toHaveTextContent("Remove from recent files");
+    const openRecentFile = within(recentFile).getAllByRole("button")[0];
+    const removeRecentFile = within(recentFile).getByRole("button", {
+      name: "Remove spec.md from recent files",
+    });
+
+    expect(await hoverAndQueryTooltip(user, openRecentFile)).toBeNull();
+    expect(await hoverAndQueryTooltip(user, removeRecentFile)).toBeNull();
+
+    setCutShort(within(recentFile).getByText(TEST_NESTED_DIRECTORY_PATH), true);
+    await user.hover(recentFolder);
+
+    expect(await hoverTooltip(user, openRecentFile)).toHaveTextContent(SPEC_MARKDOWN_PATH);
 
     await user.click(screen.getByRole("button", { name: "Clear recent items" }));
 

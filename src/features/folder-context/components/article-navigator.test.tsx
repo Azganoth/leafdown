@@ -14,8 +14,16 @@ import {
   TEST_NESTED_DIRECTORY_PATH,
   TEST_NOTES_FOLDER_PATH,
 } from "@/test/fixtures/paths";
-import { act, render, renderWithUser, screen, setupUser, waitFor } from "@/test/utils/react";
-import { hoverTooltip } from "@/test/utils/tooltip";
+import {
+  act,
+  render,
+  renderWithUser,
+  screen,
+  setupUser,
+  waitFor,
+  within,
+} from "@/test/utils/react";
+import { hoverAndQueryTooltip, hoverTooltip, setCutShort } from "@/test/utils/tooltip";
 
 import { useArticleNavigatorStore } from "../stores/articleNavigator";
 import { ARTICLE_NAVIGATOR_TYPEAHEAD_RESET_MS } from "../utils/articleNavigatorTraversal";
@@ -128,7 +136,7 @@ describe("article-navigator", () => {
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("counts the folder articles in a badge that names them in a tooltip", async () => {
+  it("counts the folder articles in a badge named for them, without a tooltip", async () => {
     const { user } = renderWithUser(
       <ArticleNavigator
         activeArticlePath={null}
@@ -140,10 +148,7 @@ describe("article-navigator", () => {
     const badge = screen.getByLabelText("3 articles");
 
     expect(badge).toHaveTextContent(/^3$/u);
-
-    await user.hover(badge);
-
-    expect(await screen.findByText("3 articles")).toBeInTheDocument();
+    expect(await hoverAndQueryTooltip(user, badge)).toBeNull();
   });
 
   it("shows the folder's full path in a tooltip on its name", async () => {
@@ -205,8 +210,11 @@ describe("article-navigator", () => {
     await user.type(filter, "spec");
 
     expect(
-      await hoverTooltip(user, screen.getByRole("button", { name: "Clear article filter" })),
-    ).toHaveTextContent("Clear article filter");
+      await hoverAndQueryTooltip(
+        user,
+        screen.getByRole("button", { name: "Clear article filter" }),
+      ),
+    ).toBeNull();
     expect(screen.getByRole("treeitem", { name: "docs" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("treeitem", { name: "spec.md" })).toBeInTheDocument();
     expect(screen.queryByRole("treeitem", { name: "readme.md" })).not.toBeInTheDocument();
@@ -763,15 +771,37 @@ describe("article-navigator with all files shown", () => {
     expect(row).toHaveAttribute("aria-description", "Leafdown can only open Markdown files.");
     expect(row).not.toHaveAttribute("title");
     expect((await hoverTooltip(user, row)).textContent).toBe(
-      `${TEST_NOTES_FOLDER_PATH}/manual.pdf\nLeafdown can only open Markdown files.`,
+      "manual.pdf\nLeafdown can only open Markdown files.",
     );
-    expect(
-      await hoverTooltip(user, screen.getByRole("treeitem", { name: "readme.md" })),
-    ).toHaveTextContent(`${TEST_NOTES_FOLDER_PATH}/readme.md`);
     expect(row).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("treeitem", { name: "readme.md" })).not.toHaveAttribute(
       "aria-description",
     );
+  });
+
+  it("shows a row's name in a tooltip only while the row cuts it short", async () => {
+    const { user } = renderWithUser(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={nestedFolderContext}
+        onOpenArticle={vi.fn()}
+      />,
+    );
+    const row = screen.getByRole("treeitem", { name: "readme.md" });
+    const elsewhere = screen.getByRole("treeitem", { name: "docs" });
+    const name = within(row).getByText("readme.md");
+
+    expect(await hoverAndQueryTooltip(user, row)).toBeNull();
+
+    setCutShort(name, true);
+    await user.hover(elsewhere);
+
+    expect((await hoverTooltip(user, row)).textContent).toBe("readme.md");
+
+    setCutShort(name, false);
+    await user.hover(elsewhere);
+
+    expect(await hoverAndQueryTooltip(user, row)).toBeNull();
   });
 
   it("focuses an unsupported file without opening it from a click, Enter, or Space", async () => {

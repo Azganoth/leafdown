@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
-import { hoverTooltip } from "@/test/utils/tooltip";
+import { hoverAndQueryTooltip, hoverTooltip, setCutShort } from "@/test/utils/tooltip";
 
 import type { FolderSearchResults } from "../services/folderSearchEngine";
 import { useFolderSearchStore } from "../stores/folderSearch";
@@ -80,6 +80,9 @@ describe("folder search panel", () => {
 
     expect(screen.getByRole("search", { name: "Search in Notes" })).toBeInTheDocument();
     expect(await hoverTooltip(user, screen.getByText("Search in Notes"))).toHaveTextContent(FOLDER);
+    expect(
+      await hoverAndQueryTooltip(user, screen.getByRole("button", { name: "Close search" })),
+    ).toBeNull();
 
     act(() => useFolderSearchStore.getState().openFolderSearch());
 
@@ -116,6 +119,11 @@ describe("folder search panel", () => {
     expect(rows[3]).toHaveAccessibleName("guide.md, 1 result");
     expect(screen.getByTestId("folder-search-status")).toHaveTextContent("3 results in 2 files");
     expect(rows[0]).not.toHaveAttribute("title");
+    expect(await hoverAndQueryTooltip(user, rows[0])).toBeNull();
+
+    setCutShort(within(rows[0]).getByText("docs"), true);
+    await user.hover(rows[3]);
+
     expect(await hoverTooltip(user, rows[0])).toHaveTextContent("docs\\notes.md");
   });
 
@@ -263,9 +271,14 @@ describe("folder search panel", () => {
     expect(screen.getByTestId("folder-search-skipped")).toHaveTextContent(
       "latin.md: not valid in its encoding",
     );
-    expect(
-      await hoverTooltip(user, screen.getByText("big.md: larger than 5 MB")),
-    ).toHaveTextContent(`${FOLDER}\\big.md`);
+    const skipped = screen.getByText("big.md: larger than 5 MB");
+
+    expect(await hoverAndQueryTooltip(user, skipped)).toBeNull();
+
+    setCutShort(skipped, true);
+    await user.hover(screen.getByText("latin.md: not valid in its encoding"));
+
+    expect(await hoverTooltip(user, skipped)).toHaveTextContent("big.md: larger than 5 MB");
   });
 });
 
@@ -442,12 +455,16 @@ describe("folder search panel, replacing", () => {
       "c.md: windows-1252 cannot hold 🍃",
     );
     expect(screen.getByTestId("folder-replace-not-attempted")).toHaveTextContent("d.md");
-    expect(
-      await hoverTooltip(user, screen.getByText("c.md: windows-1252 cannot hold 🍃")),
-    ).toHaveTextContent(/^🍃$/u);
-    expect(await hoverTooltip(user, screen.getByText("b.md: changed on disk"))).toHaveTextContent(
-      `${FOLDER}\\b.md`,
+    const failed = screen.getByText("c.md: windows-1252 cannot hold 🍃");
+    setCutShort(failed, true);
+
+    expect(await hoverTooltip(user, failed)).toHaveTextContent(
+      /^c\.md: windows-1252 cannot hold 🍃$/u,
     );
+    expect(await hoverAndQueryTooltip(user, screen.getByText("b.md: changed on disk"))).toBeNull();
+    expect(
+      await hoverAndQueryTooltip(user, screen.getByRole("button", { name: "Dismiss report" })),
+    ).toBeNull();
     expect(screen.getByTestId("folder-search-status")).toHaveTextContent("Nothing to replace");
 
     await user.click(screen.getByRole("button", { name: "Dismiss report" }));

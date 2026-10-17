@@ -188,6 +188,7 @@ function BlockPath({ blockPath }: BlockPathProps) {
   return (
     <Tooltip>
       <TooltipTrigger
+        whenCutShort
         render={
           // Right-to-left flow puts the ellipsis before the path, keeping the innermost block
           // visible; the isolated inner run keeps the path itself reading left to right.

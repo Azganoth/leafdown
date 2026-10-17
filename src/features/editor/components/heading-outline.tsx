@@ -354,8 +354,11 @@ export function HeadingOutline({ outline, depth, onDepthChange, onNavigate }: He
             return (
               <li key={heading.position}>
                 <TooltipTrigger
+                  // The closed outline hides its titles rather than cutting them short.
+                  disabled={!open}
                   handle={rowTooltip}
                   payload={context ? `${context} › ${label}` : label}
+                  whenCutShort={!context}
                   render={
                     <button
                       aria-current={current === heading.position ? "location" : undefined}

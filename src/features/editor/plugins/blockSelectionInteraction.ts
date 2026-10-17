@@ -26,7 +26,6 @@ import {
   canMoveSelectedBlocksToBoundary,
   moveSelectedBlocksToBoundary,
 } from "./blockSelectionOperations";
-import { setControlTooltip } from "./controlTooltip";
 import { isHeadingFoldMarkerAt } from "./headingFold";
 
 export const leafdownBlockSelectionPluginKey = new PluginKey("leafdownBlockSelection");
@@ -96,10 +95,10 @@ const getBlockLabelValues = (node: ProseMirrorNode): MessageValues => {
 };
 
 const labelBlockHandle = (handle: HTMLButtonElement, node: ProseMirrorNode) => {
-  const label = t("editor.blockSelection.selectHandle", getBlockLabelValues(node));
-
-  handle.setAttribute("aria-label", label);
-  setControlTooltip(handle, label);
+  handle.setAttribute(
+    "aria-label",
+    t("editor.blockSelection.selectHandle", getBlockLabelValues(node)),
+  );
 };
 
 const getSelectionDecorations = (state: EditorState) =>
@@ -321,7 +320,6 @@ class BlockSelectionView {
 
   private labelInsertionButton() {
     this.insertionButton.setAttribute("aria-label", t("editor.blockSelection.insertAtBoundary"));
-    setControlTooltip(this.insertionButton, t("editor.blockSelection.insert"));
   }
 
   private readonly relabel = () => {

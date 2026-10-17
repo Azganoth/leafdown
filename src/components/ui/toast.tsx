@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 import {
   toastManager,
@@ -136,28 +135,20 @@ function ToastClose({
   ...props
 }: ToastPrimitive.Close.Props) {
   const { t } = useLocalization();
-  const label = t("ui.toast.close");
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <ToastPrimitive.Close
-            data-slot="toast-close"
-            aria-label={label}
-            render={render}
-            className={cn(
-              "relative shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
-              className,
-            )}
-            {...props}
-          />
-        }
-      >
-        {children ?? <XIcon aria-hidden="true" />}
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
+    <ToastPrimitive.Close
+      data-slot="toast-close"
+      aria-label={t("ui.toast.close")}
+      render={render}
+      className={cn(
+        "relative shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
+        className,
+      )}
+      {...props}
+    >
+      {children ?? <XIcon aria-hidden="true" />}
+    </ToastPrimitive.Close>
   );
 }
 

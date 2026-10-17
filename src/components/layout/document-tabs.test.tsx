@@ -6,7 +6,7 @@ import { useSessionStore } from "@/features/session";
 import { createSavedDocument, createUntitledDocument } from "@/test/factories/document";
 import { setDefaultSession } from "@/test/utils/appStores";
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
-import { hoverTooltip, queryTooltip } from "@/test/utils/tooltip";
+import { hoverAndQueryTooltip, hoverTooltip } from "@/test/utils/tooltip";
 
 import { DocumentTabs } from "./document-tabs";
 
@@ -68,7 +68,7 @@ describe("DocumentTabs", () => {
     expect(getTabNames()).toEqual(["README.md, guides", "readme.md, api", "plan.md"]);
   });
 
-  it("shows a saved tab's path and its close mark's action in tooltips", async () => {
+  it("shows a saved tab's path in a tooltip, over its close mark too, and none for the new button", async () => {
     setDefaultSession({
       documents: [
         createSavedDocument({ path: "C:/Notes/plan.md" }),
@@ -82,11 +82,14 @@ describe("DocumentTabs", () => {
     expect(await hoverTooltip(user, planTab)).toHaveTextContent("C:/Notes/plan.md");
     expect(
       await hoverTooltip(user, within(planTab).getByTestId("document-tab-close")),
-    ).toHaveTextContent("Close plan.md");
+    ).toHaveTextContent("C:/Notes/plan.md");
 
-    await user.hover(screen.getByRole("tab", { name: "Untitled 2" }));
-
-    await waitFor(() => expect(queryTooltip()).toBeNull());
+    expect(
+      await hoverAndQueryTooltip(user, screen.getByRole("tab", { name: "Untitled 2" })),
+    ).toBeNull();
+    expect(
+      await hoverAndQueryTooltip(user, screen.getByRole("button", { name: "New" })),
+    ).toBeNull();
   });
 
   it("sizes each tab by a copy of the label it shows", () => {

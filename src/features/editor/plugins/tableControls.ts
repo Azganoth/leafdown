@@ -25,7 +25,6 @@ import {
   type TableAxis,
   type TableAxisRange,
 } from "../utils/tables";
-import { setControlTooltip } from "./controlTooltip";
 import { finalizeSourceProjection } from "./sourceProjection";
 
 export const leafdownTableControlsPluginKey = new PluginKey("leafdownTableControls");
@@ -261,17 +260,10 @@ class TableControlsView {
   }
 
   private readonly label = () => {
-    const labels: [HTMLButtonElement, string][] = [
-      [this.rowGrip, t("editor.tableControls.rowGrip")],
-      [this.columnGrip, t("editor.tableControls.columnGrip")],
-      [this.rowInsert, t("editor.tableControls.insertRow")],
-      [this.columnInsert, t("editor.tableControls.insertColumn")],
-    ];
-
-    for (const [control, label] of labels) {
-      control.setAttribute("aria-label", label);
-      setControlTooltip(control, label);
-    }
+    this.rowGrip.setAttribute("aria-label", t("editor.tableControls.rowGrip"));
+    this.columnGrip.setAttribute("aria-label", t("editor.tableControls.columnGrip"));
+    this.rowInsert.setAttribute("aria-label", t("editor.tableControls.insertRow"));
+    this.columnInsert.setAttribute("aria-label", t("editor.tableControls.insertColumn"));
   };
 
   private readonly scheduleRefresh = () => {

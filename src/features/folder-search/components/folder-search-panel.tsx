@@ -210,7 +210,7 @@ export function FolderSearchPanel({
             </TooltipTrigger>
             <TooltipContent side="bottom">{folderPath}</TooltipContent>
           </Tooltip>
-          <PanelButton label={t("folderSearch.close")} onClick={onClose}>
+          <PanelButton label={t("folderSearch.close")} onClick={onClose} tooltip={false}>
             <XIcon />
           </PanelButton>
         </CardTitle>
@@ -532,7 +532,6 @@ function FolderReplaceReportView({
                 detail: detail ?? "",
                 unsaved: unsavedInEditor ? "yes" : "no",
               }),
-              tooltip: detail,
             }))}
             label={t("folderSearch.report.failed", { count: report.failed.length })}
             testId="folder-replace-failed"
@@ -546,7 +545,7 @@ function FolderReplaceReportView({
           />
         )}
       </div>
-      <PanelButton label={t("folderSearch.report.dismiss")} onClick={onDismiss}>
+      <PanelButton label={t("folderSearch.report.dismiss")} onClick={onDismiss} tooltip={false}>
         <XIcon />
       </PanelButton>
     </div>
@@ -558,7 +557,7 @@ function ReportList({
   label,
   testId,
 }: {
-  items: { path: string; text: string; tooltip?: string }[];
+  items: { path: string; text: string }[];
   label: string;
   testId: string;
 }) {
@@ -573,15 +572,23 @@ function ReportList({
           className="mt-1 max-h-32 overflow-y-auto pl-4 text-muted-foreground"
           data-testid={testId}
         >
-          {items.map(({ path, text, tooltip }) => (
-            <Tooltip key={path}>
-              <TooltipTrigger render={<li className="truncate" />}>{text}</TooltipTrigger>
-              <TooltipContent side="right">{tooltip ?? path}</TooltipContent>
-            </Tooltip>
+          {items.map(({ path, text }) => (
+            <CutShortListItem key={path} text={text} />
           ))}
         </ul>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function CutShortListItem({ text }: { text: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger whenCutShort render={<li className="truncate" />}>
+        {text}
+      </TooltipTrigger>
+      <TooltipContent side="right">{text}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -605,15 +612,13 @@ function SkippedFiles({
       <CollapsibleContent>
         <ul className="mt-1 max-h-32 overflow-y-auto pl-4" data-testid="folder-search-skipped">
           {shown.map(({ path, reason }) => (
-            <Tooltip key={path}>
-              <TooltipTrigger render={<li className="truncate" />}>
-                {t("folderSearch.skippedFile", {
-                  path: getRelativePath(folderPath, path) ?? path,
-                  reason,
-                })}
-              </TooltipTrigger>
-              <TooltipContent side="right">{path}</TooltipContent>
-            </Tooltip>
+            <CutShortListItem
+              key={path}
+              text={t("folderSearch.skippedFile", {
+                path: getRelativePath(folderPath, path) ?? path,
+                reason,
+              })}
+            />
           ))}
           {hiddenCount > 0 && <li>{t("folderSearch.skippedMore", { count: hiddenCount })}</li>}
         </ul>
@@ -815,6 +820,7 @@ function FolderSearchTreeItem({
       disabled={tooltipText === undefined}
       handle={tooltip}
       payload={tooltipText}
+      whenCutShort={isFile}
       render={
         <VirtualListItem
           aria-disabled={row.kind === "match" && row.unavailable ? true : undefined}
@@ -968,27 +974,33 @@ interface PanelControlProps {
   label: string;
 }
 
-function PanelButton({
-  children,
-  label,
-  ...props
-}: PanelControlProps & Omit<ComponentProps<typeof Button>, "children">) {
+interface PanelButtonProps
+  extends PanelControlProps, Omit<ComponentProps<typeof Button>, "children"> {
+  /** False for a glyph that already says what the button does. */
+  tooltip?: boolean;
+}
+
+function PanelButton({ children, label, tooltip = true, ...props }: PanelButtonProps) {
+  const button = (
+    <Button
+      aria-label={label}
+      className="size-6"
+      size="icon-sm"
+      type="button"
+      variant="ghost"
+      {...props}
+    >
+      {children}
+    </Button>
+  );
+
+  if (!tooltip) {
+    return button;
+  }
+
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label={label}
-            className="size-6"
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-            {...props}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
+      <TooltipTrigger render={button} />
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );

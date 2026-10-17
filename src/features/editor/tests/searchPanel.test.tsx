@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { MilkdownEditor, type MilkdownEditorBridge } from "@/features/editor";
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { hoverAndQueryTooltip, hoverTooltip } from "@/test/utils/tooltip";
 
 import { CURRENT_SEARCH_MATCH_CLASS, SEARCH_MATCH_CLASS } from "../plugins/search";
 
@@ -90,6 +91,21 @@ describe("search panel", () => {
 
     expect(getHighlights()).toHaveLength(1);
     expect(getResults()).toHaveTextContent("1 of 1");
+  });
+
+  it("names its options in tooltips, but not the arrows or close mark", async () => {
+    const { runCommand, user } = await renderEditor("Leaf\n\nZ");
+
+    await runCommand("edit.find");
+    const panel = within(getPanel());
+
+    for (const name of ["Show replace", "Match case", "Whole word"]) {
+      expect(await hoverTooltip(user, panel.getByRole("button", { name }))).toHaveTextContent(name);
+    }
+
+    for (const name of ["Previous match", "Next match", "Close"]) {
+      expect(await hoverAndQueryTooltip(user, panel.getByRole("button", { name }))).toBeNull();
+    }
   });
 
   it("reports a query without matches and leaves nothing to move to", async () => {

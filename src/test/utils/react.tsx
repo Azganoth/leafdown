@@ -20,7 +20,8 @@ afterEach(() => {
 });
 
 function Providers({ children }: { children: ReactNode }) {
-  return <TooltipProvider>{children}</TooltipProvider>;
+  // Tests point at a tooltip without waiting out the resting delay; tooltip.test.tsx covers it.
+  return <TooltipProvider delay={0}>{children}</TooltipProvider>;
 }
 
 const render = (ui: ReactElement, options?: Omit<RenderOptions, "wrapper">) =>

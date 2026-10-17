@@ -1,7 +1,27 @@
 // @vitest-environment happy-dom
 
-import { existsSync, readFileSync } from "node:fs";
+import {
+  BugIcon,
+  CircleCheckIcon,
+  CircleQuestionMarkIcon,
+  CircleXIcon,
+  ClipboardListIcon,
+  FlaskConicalIcon,
+  InfoIcon,
+  LightbulbIcon,
+  ListCollapseIcon,
+  MessageSquareWarningIcon,
+  OctagonAlertIcon,
+  PencilIcon,
+  QuoteIcon,
+  TriangleAlertIcon,
+  ZapIcon,
+  type LucideIcon,
+} from "lucide-react";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
@@ -22,6 +42,21 @@ const mountStyledEditor = setupMilkdownEditorMount({
 // A token the editor reuses can keep an emptied `style`, so a colour is what marks one highlighted.
 const HIGHLIGHTED_TOKEN_SELECTOR = ".shiki[style*='--shiki-light']";
 const editorCssPath = resolve(process.cwd(), "src/features/editor/components/milkdown-editor.css");
+const CALLOUT_TOKENS = [
+  ...new Set(Object.values(CALLOUT_TYPES).flatMap((types) => types.map((t) => t.toLowerCase()))),
+];
+
+function describeSvgShapes(markup: string) {
+  const host = document.createElement("div");
+  host.innerHTML = markup;
+  const svg = host.querySelector("svg")!;
+  return [...svg.children].map((shape) => ({
+    tag: shape.tagName.toLowerCase(),
+    attributes: Object.fromEntries(
+      [...shape.attributes].map((attribute) => [attribute.name, attribute.value]),
+    ),
+  }));
+}
 
 describe("Editor presentation", () => {
   it("renders supported editor blocks with styleable ProseMirror structure", async () => {
@@ -94,11 +129,6 @@ const value = 1;
       caution: "danger",
       details: "neutral",
     };
-    const tokens = [
-      ...new Set(
-        Object.values(CALLOUT_TYPES).flatMap((types) => types.map((t) => t.toLowerCase())),
-      ),
-    ];
     const mounted = await mountStyledEditor(
       [
         ...CALLOUT_TYPES.mkdocs.map((token) => `!!! ${token}\n    Body`),
@@ -115,10 +145,10 @@ const value = 1;
     );
     const editorCss = readFileSync(editorCssPath, "utf8");
 
-    expect(Object.keys(tones).toSorted()).toEqual(tokens.toSorted());
+    expect(Object.keys(tones).toSorted()).toEqual(CALLOUT_TOKENS.toSorted());
     expect(rendered).toEqual(tones);
     expect(editorCss).toContain('--leafdown-callout-icon: url("/callout-note.svg");');
-    for (const token of tokens.filter((candidate) => candidate !== "note")) {
+    for (const token of CALLOUT_TOKENS.filter((candidate) => candidate !== "note")) {
       expect(editorCss).toMatch(
         new RegExp(
           `&\\[data-token="${token}" i\\] \\{\\s*--leafdown-callout-icon: url\\("/callout-${token}\\.svg"\\);`,
@@ -126,11 +156,39 @@ const value = 1;
         ),
       );
     }
-    for (const token of tokens) {
-      expect(existsSync(resolve(process.cwd(), `public/callout-${token}.svg`))).toBe(true);
-    }
     for (const tone of new Set(Object.values(tones).filter((group) => group !== "note"))) {
       expect(editorCss).toContain(`&[data-tone="${tone}"] {`);
+    }
+  });
+
+  it("draws every callout type icon as its complete Lucide source icon", () => {
+    const sourceIcons: Record<string, LucideIcon> = {
+      note: PencilIcon,
+      abstract: ClipboardListIcon,
+      info: InfoIcon,
+      tip: LightbulbIcon,
+      success: CircleCheckIcon,
+      question: CircleQuestionMarkIcon,
+      warning: TriangleAlertIcon,
+      failure: CircleXIcon,
+      danger: ZapIcon,
+      bug: BugIcon,
+      example: FlaskConicalIcon,
+      quote: QuoteIcon,
+      important: MessageSquareWarningIcon,
+      caution: OctagonAlertIcon,
+      details: ListCollapseIcon,
+    };
+
+    expect(Object.keys(sourceIcons).toSorted()).toEqual(CALLOUT_TOKENS.toSorted());
+    for (const [token, SourceIcon] of Object.entries(sourceIcons)) {
+      const file = readFileSync(resolve(process.cwd(), `public/callout-${token}.svg`), "utf8");
+      const drawn = describeSvgShapes(file);
+
+      expect(drawn, token).not.toHaveLength(0);
+      expect(drawn, token).toEqual(
+        describeSvgShapes(renderToStaticMarkup(createElement(SourceIcon))),
+      );
     }
   });
 

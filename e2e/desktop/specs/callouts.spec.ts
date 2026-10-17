@@ -56,6 +56,37 @@ describe("desktop callouts", () => {
     await $(`${vitepress} .leafdown-callout-toggle`).click();
     await expect($(`${vitepress} .leafdown-callout-body`)).toHaveText("VitePress body.");
 
+    const headers = (await browser.execute(() =>
+      Array.from(document.querySelectorAll<HTMLElement>(".leafdown-callout"), (node) => {
+        const type = node
+          .querySelector<HTMLElement>(".leafdown-callout-type")!
+          .getBoundingClientRect();
+        const label = node.querySelector<HTMLElement>(".leafdown-callout-label")!;
+        const title = node.querySelector<HTMLElement>(".leafdown-callout-title")!;
+        const textStart = label.hidden
+          ? title.getBoundingClientRect().left + parseFloat(getComputedStyle(title).paddingLeft)
+          : label.getBoundingClientRect().left;
+        return {
+          dialect: node.dataset.dialect,
+          typeWidth: type.width,
+          typeHeight: type.height,
+          bodyOffset:
+            node.querySelector<HTMLElement>(".leafdown-callout-body")!.getBoundingClientRect()
+              .left - textStart,
+        };
+      }),
+    )) as { dialect: string; typeWidth: number; typeHeight: number; bodyOffset: number }[];
+    expect(headers.map(({ dialect }) => dialect)).toEqual([
+      "github",
+      "mkdocs",
+      "docusaurus",
+      "vitepress",
+    ]);
+    for (const header of headers) {
+      expect(header.typeWidth).toBe(header.typeHeight);
+      expect(Math.abs(header.bodyOffset)).toBeLessThan(0.5);
+    }
+
     const screenshotPath = path.resolve(
       "e2e",
       "desktop",

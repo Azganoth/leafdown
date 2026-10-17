@@ -593,7 +593,7 @@
       }
 
       .leafdown-callout-type {
-        @apply flex h-6 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-(--leafdown-callout-tone) outline-hidden select-none hover:bg-(--leafdown-callout-tone)/15;
+        @apply flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-(--leafdown-callout-tone) outline-hidden select-none hover:bg-(--leafdown-callout-tone)/15;
 
         &::before {
           @apply size-4.5 bg-current;
@@ -626,7 +626,7 @@
       }
 
       .leafdown-callout-body {
-        @apply mt-0.5 ml-8 leading-(--leafdown-line-spacing);
+        @apply mt-0.5 ml-9 leading-(--leafdown-line-spacing);
 
         & > :first-child {
           @apply mt-0;

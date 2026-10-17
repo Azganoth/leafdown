@@ -6,4 +6,4 @@ export const CURRENT_VERSION = (
   }
 ).version;
 
-export const CURRENT_RELEASE_HIGHLIGHT = "Open several documents in one window as tabs.";
+export const CURRENT_RELEASE_HIGHLIGHT = "Pick up where you left off.";

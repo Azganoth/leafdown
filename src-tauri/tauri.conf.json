@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Leafdown",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "identifier": "com.azganoth.leafdown",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -42,7 +42,7 @@
         "installerIcon": "icons/icon.ico"
       },
       "wix": {
-        "version": "0.1.0.3",
+        "version": "0.1.0.4",
         "bannerPath": "windows/installer-artwork/wix-banner.bmp",
         "dialogImagePath": "windows/installer-artwork/wix-dialog.bmp",
         "fragmentPaths": ["windows/file-associations.wxs"],

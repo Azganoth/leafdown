@@ -30,13 +30,11 @@ const RECENT_ITEMS_MESSAGE_IDS = {
     title: "welcome.recentFiles.title",
     empty: "welcome.recentFiles.empty",
     remove: "welcome.recentFiles.remove",
-    removeTitle: "welcome.recentFiles.removeTitle",
   },
   folders: {
     title: "welcome.recentFolders.title",
     empty: "welcome.recentFolders.empty",
     remove: "welcome.recentFolders.remove",
-    removeTitle: "welcome.recentFolders.removeTitle",
   },
 } as const satisfies Record<RecentItemsKind, Record<string, MessageId>>;
 
@@ -323,6 +321,7 @@ function RecentItemRow({
     <li className="group/recent-item relative flex min-w-0 items-center rounded-md hover:bg-muted dark:hover:bg-muted/50">
       <Tooltip>
         <TooltipTrigger
+          whenCutShort
           render={
             <Button
               type="button"
@@ -352,23 +351,16 @@ function RecentItemRow({
         </TooltipTrigger>
         <TooltipContent side="bottom">{path}</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => onRemoveItem(path)}
-              aria-label={t(messageIds.remove, { name })}
-              className="absolute right-1 text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 group-has-[:focus-visible]/recent-item:opacity-100 hover:bg-background/70 dark:hover:bg-background/40"
-            />
-          }
-        >
-          <XIcon />
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{t(messageIds.removeTitle)}</TooltipContent>
-      </Tooltip>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onRemoveItem(path)}
+        aria-label={t(messageIds.remove, { name })}
+        className="absolute right-1 text-muted-foreground opacity-0 group-hover/recent-item:opacity-100 group-has-[:focus-visible]/recent-item:opacity-100 hover:bg-background/70 dark:hover:bg-background/40"
+      >
+        <XIcon />
+      </Button>
     </li>
   );
 }

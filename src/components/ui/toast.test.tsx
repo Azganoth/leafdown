@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { notifyError, notifyErrorWithActionMenu, notifyPending, toastManager } from "@/lib/toast";
 import { act, renderWithUser, screen, waitFor } from "@/test/utils/react";
-import { hoverTooltip } from "@/test/utils/tooltip";
+import { hoverAndQueryTooltip } from "@/test/utils/tooltip";
 
 import { Toaster } from "./toast";
 
@@ -13,7 +13,7 @@ describe("Toaster", () => {
     vi.mocked(toastManager.add).mockRestore();
   });
 
-  it("names its close button in a tooltip", async () => {
+  it("names its close button without a tooltip repeating the close mark", async () => {
     const { user } = renderWithUser(<Toaster timeout={0} />);
 
     act(() => {
@@ -24,7 +24,7 @@ describe("Toaster", () => {
     const close = document.querySelector('[data-slot="toast-close"]');
 
     expect(close).toHaveAttribute("aria-label", "Close toast");
-    expect(await hoverTooltip(user, close!)).toHaveTextContent("Close toast");
+    expect(await hoverAndQueryTooltip(user, close!)).toBeNull();
   });
 
   it("offers an action menu and closes the toast when an item runs", async () => {

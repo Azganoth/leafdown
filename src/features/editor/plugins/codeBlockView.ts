@@ -313,9 +313,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
 
     this.collapseButton.hidden = this.collapse !== "expanded";
     this.expandButton.hidden = this.collapse !== "collapsed";
-    const collapseLabel = t("editor.codeBlock.collapse");
-    this.collapseButton.setAttribute("aria-label", collapseLabel);
-    setControlTooltip(this.collapseButton, collapseLabel);
+    this.collapseButton.setAttribute("aria-label", t("editor.codeBlock.collapse"));
     if (this.collapse === "collapsed") {
       this.expandLabel.textContent = t("editor.codeBlock.expand", {
         count: countCollapsedCodeLines(this.node),

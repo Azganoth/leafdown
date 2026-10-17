@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { TOOLTIP_DELAY, TOOLTIP_INSTANT_TIMEOUT } from "@/components/ui/tooltip";
 import { EDITOR_TEST_ROOT_CLASS_NAME } from "@/test/factories/editor";
 import { dispatchKeyDown, dispatchMouseDown, dispatchMouseEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
@@ -10,6 +11,8 @@ import type { ControlTooltipRequest } from "./controlTooltip";
 import { toggleHeadingFold } from "./headingFold";
 
 const mountEditor = setupMilkdownEditorMount({ rootClassName: EDITOR_TEST_ROOT_CLASS_NAME });
+
+const CODE_BLOCK = ["```js", "code", "```"].join("\n");
 
 const mountWithTooltips = async (markdown: string) => {
   const requests: ControlTooltipRequest[] = [];
@@ -22,14 +25,29 @@ const mountWithTooltips = async (markdown: string) => {
   return { mounted, onClose, requests };
 };
 
+// Fake time starts after mounting, which waits on real timers, and past any instant phase an
+// earlier test left behind.
+const useTooltipTime = () => {
+  vi.useFakeTimers();
+  vi.advanceTimersByTime(TOOLTIP_INSTANT_TIMEOUT);
+};
+
 const pointAt = (target: Element, init: MouseEventInit = {}) =>
   dispatchMouseEvent(target, "mouseover", init);
 
-const getHandle = () =>
-  document.querySelector<HTMLButtonElement>("[data-leafdown-block-handle]") ??
-  (() => {
-    throw new Error("Expected a block handle.");
-  })();
+const restOn = (target: Element) => {
+  pointAt(target);
+  vi.advanceTimersByTime(TOOLTIP_DELAY);
+};
+
+const getCodeControls = (root: ParentNode) => {
+  const [, softWrap, lineNumbers] =
+    root.querySelectorAll<HTMLButtonElement>(".leafdown-code-control");
+
+  if (!softWrap || !lineNumbers) throw new Error("Expected the code block controls.");
+
+  return { lineNumbers, softWrap };
+};
 
 const findHeadingPosition = (mounted: MountedMilkdownEditor, text: string) => {
   let position: number | null = null;
@@ -45,109 +63,173 @@ const findHeadingPosition = (mounted: MountedMilkdownEditor, text: string) => {
 };
 
 describe("editor control tooltips", () => {
-  it("names a block handle in the gutter while the pointer is on it", async () => {
-    const { mounted, onClose, requests } = await mountWithTooltips("Intro paragraph");
-    const handle = getHandle();
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-    expect(handle).not.toHaveAttribute("title");
+  it("names a code block control once the pointer rests on it, and the next one at once", async () => {
+    const { mounted, onClose, requests } = await mountWithTooltips(CODE_BLOCK);
+    const { lineNumbers, softWrap } = getCodeControls(mounted.view.dom);
+    useTooltipTime();
 
-    pointAt(handle);
+    pointAt(softWrap);
+    vi.advanceTimersByTime(TOOLTIP_DELAY - 1);
 
-    expect(requests).toEqual([{ anchor: handle, label: handle.getAttribute("aria-label") }]);
+    expect(requests).toHaveLength(0);
+
+    vi.advanceTimersByTime(1);
+
+    expect(requests).toEqual([{ anchor: softWrap, label: softWrap.getAttribute("aria-label") }]);
+
+    pointAt(lineNumbers);
+
+    expect(requests.at(-1)).toEqual({
+      anchor: lineNumbers,
+      label: lineNumbers.getAttribute("aria-label"),
+    });
 
     pointAt(mounted.view.dom);
 
     expect(onClose).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(TOOLTIP_INSTANT_TIMEOUT);
+    pointAt(softWrap);
+
+    expect(requests).toHaveLength(2);
+
+    vi.advanceTimersByTime(TOOLTIP_DELAY);
+
+    expect(requests).toHaveLength(3);
   });
 
-  it("names the code block toggles, callout controls, and the folded-section indicator", async () => {
-    const { mounted, requests } = await mountWithTooltips(
-      ["## Install", "", "Step one", "", "```js", "code", "```", "", "???+ note", "    Body"].join(
-        "\n",
-      ),
-    );
-    const controls = [
-      ...mounted.view.dom.querySelectorAll<HTMLButtonElement>(
-        ".leafdown-code-control, .leafdown-code-collapse",
-      ),
-      mounted.view.dom.querySelector<HTMLButtonElement>("[data-leafdown-callout-type]")!,
-      mounted.view.dom.querySelector<HTMLButtonElement>(".leafdown-callout-toggle")!,
-    ];
+  it("waits again while the pointer keeps moving, and not for a control it left", async () => {
+    const { mounted, requests } = await mountWithTooltips(CODE_BLOCK);
+    const { softWrap } = getCodeControls(mounted.view.dom);
+    useTooltipTime();
 
-    expect(controls.length).toBeGreaterThanOrEqual(4);
-
-    for (const control of controls) {
-      expect(control).not.toHaveAttribute("title");
-      pointAt(control);
-      expect(requests.at(-1)).toEqual({
-        anchor: control,
-        label: control.getAttribute("aria-label"),
-      });
-    }
-
-    toggleHeadingFold(mounted.view, findHeadingPosition(mounted, "Install"));
-    const indicator = mounted.view.dom.querySelector(".leafdown-fold-indicator")!;
-    pointAt(indicator);
-
-    expect(requests.at(-1)).toEqual({ anchor: indicator, label: "Unfold section" });
-  });
-
-  it("names the table's grips and insertion buttons in their layer over the document", async () => {
-    const { requests } = await mountWithTooltips("| A | B |\n| - | - |\n| 1 | 2 |");
-    const controls = [
-      ...document.querySelectorAll<HTMLButtonElement>(
-        "[data-leafdown-table-grip], [data-leafdown-table-insert]",
-      ),
-    ];
-
-    expect(controls).toHaveLength(4);
-
-    for (const control of controls) {
-      expect(control).not.toHaveAttribute("title");
-      pointAt(control);
-      expect(requests.at(-1)).toEqual({
-        anchor: control,
-        label: control.getAttribute("aria-label"),
-      });
-    }
-  });
-
-  it("stays closed during a press or drag and closes on a press or Escape", async () => {
-    const { onClose, requests } = await mountWithTooltips("Intro paragraph");
-    const handle = getHandle();
-
-    pointAt(handle, { buttons: 1 });
+    pointAt(softWrap);
+    vi.advanceTimersByTime(TOOLTIP_DELAY - 100);
+    dispatchMouseEvent(softWrap, "mousemove");
+    vi.advanceTimersByTime(TOOLTIP_DELAY - 100);
 
     expect(requests).toHaveLength(0);
 
-    pointAt(handle);
-    dispatchMouseDown(handle, { button: 0 });
+    vi.advanceTimersByTime(100);
+
+    expect(requests).toHaveLength(1);
+
+    pointAt(mounted.view.dom);
+    vi.advanceTimersByTime(TOOLTIP_INSTANT_TIMEOUT);
+    pointAt(softWrap);
+    pointAt(mounted.view.dom);
+    vi.advanceTimersByTime(TOOLTIP_DELAY);
+
+    expect(requests).toHaveLength(1);
+  });
+
+  it("names a focused control at once", async () => {
+    const { mounted, requests } = await mountWithTooltips(CODE_BLOCK);
+    const { softWrap } = getCodeControls(mounted.view.dom);
+    useTooltipTime();
+    vi.spyOn(softWrap, "matches").mockImplementation((selector) => selector === ":focus-visible");
+
+    softWrap.focus();
+
+    expect(requests).toEqual([{ anchor: softWrap, label: softWrap.getAttribute("aria-label") }]);
+  });
+
+  it("gives no tooltip to controls whose glyph or place says what they do", async () => {
+    const { mounted, requests } = await mountWithTooltips(
+      [
+        "## Install",
+        "",
+        "Step one",
+        "",
+        CODE_BLOCK,
+        "",
+        "???+ note",
+        "    Body",
+        "",
+        "| A | B |",
+        "| - | - |",
+        "| 1 | 2 |",
+      ].join("\n"),
+    );
+    toggleHeadingFold(mounted.view, findHeadingPosition(mounted, "Install"));
+    const controls = [
+      ...document.querySelectorAll<HTMLElement>(
+        [
+          "[data-leafdown-block-handle]",
+          "[data-leafdown-table-grip]",
+          "[data-leafdown-table-insert]",
+          "[data-leafdown-callout-type]",
+          ".leafdown-callout-toggle",
+          ".leafdown-code-collapse",
+          "[data-leafdown-block-insert]",
+          ".leafdown-fold-indicator",
+        ].join(", "),
+      ),
+    ];
+    useTooltipTime();
+
+    expect(controls.length).toBeGreaterThanOrEqual(9);
+
+    for (const control of controls) {
+      expect(control.getAttribute("aria-label")).toBeTruthy();
+      expect(control).not.toHaveAttribute("data-leafdown-tooltip");
+      expect(control).not.toHaveAttribute("title");
+      restOn(control);
+    }
+
+    expect(requests).toHaveLength(0);
+  });
+
+  it("stays closed during a press or drag and closes on a press or Escape", async () => {
+    const { mounted, onClose, requests } = await mountWithTooltips(CODE_BLOCK);
+    const { softWrap } = getCodeControls(mounted.view.dom);
+    useTooltipTime();
+
+    pointAt(softWrap, { buttons: 1 });
+    vi.advanceTimersByTime(TOOLTIP_DELAY);
+
+    expect(requests).toHaveLength(0);
+
+    restOn(softWrap);
+    dispatchMouseDown(softWrap, { button: 0 });
 
     expect(onClose).toHaveBeenCalledTimes(1);
 
     pointAt(document.body);
-    pointAt(handle);
+    restOn(softWrap);
     dispatchKeyDown(document.body, "Escape");
 
     expect(requests).toHaveLength(2);
     expect(onClose).toHaveBeenCalledTimes(2);
+
+    pointAt(document.body);
+    vi.advanceTimersByTime(TOOLTIP_INSTANT_TIMEOUT);
+    pointAt(softWrap);
+    dispatchMouseDown(softWrap, { button: 0 });
+    vi.advanceTimersByTime(TOOLTIP_DELAY);
+
+    expect(requests).toHaveLength(2);
   });
 
   it("answers only for its own editor's controls", async () => {
-    const first = await mountWithTooltips("First paragraph");
-    const second = await mountWithTooltips("Second paragraph");
-    const [firstHandle, secondHandle] = document.querySelectorAll<HTMLButtonElement>(
-      "[data-leafdown-block-handle]",
-    );
+    const first = await mountWithTooltips(CODE_BLOCK);
+    const second = await mountWithTooltips(CODE_BLOCK);
+    const firstControl = getCodeControls(first.mounted.view.dom).softWrap;
+    const secondControl = getCodeControls(second.mounted.view.dom).softWrap;
+    useTooltipTime();
 
-    pointAt(secondHandle);
+    restOn(secondControl);
 
     expect(first.requests).toHaveLength(0);
-    expect(second.requests.map(({ anchor }) => anchor)).toEqual([secondHandle]);
+    expect(second.requests.map(({ anchor }) => anchor)).toEqual([secondControl]);
 
-    pointAt(firstHandle);
+    pointAt(firstControl);
 
-    expect(first.requests.map(({ anchor }) => anchor)).toEqual([firstHandle]);
+    expect(first.requests.map(({ anchor }) => anchor)).toEqual([firstControl]);
     expect(second.requests).toHaveLength(1);
   });
 });

@@ -108,23 +108,16 @@ export function DocumentTabs({ newDocumentLabel, onNewDocument }: DocumentTabsPr
             />
           ))}
         </Tabs.List>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                aria-label={newDocumentLabel}
-                className="shrink-0 text-muted-foreground"
-                onClick={onNewDocument}
-                size="icon-xs"
-                type="button"
-                variant="ghost"
-              />
-            }
-          >
-            <PlusIcon className="size-3.5" data-icon="inline-start" />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{newDocumentLabel}</TooltipContent>
-        </Tooltip>
+        <Button
+          aria-label={newDocumentLabel}
+          className="shrink-0 text-muted-foreground"
+          onClick={onNewDocument}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
+          <PlusIcon className="size-3.5" data-icon="inline-start" />
+        </Button>
       </div>
       {tabs.map((tab) => (
         <Tabs.Panel
@@ -154,7 +147,6 @@ interface DocumentTabItemProps {
 function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
   const { t } = useLocalization();
   const { document } = tab;
-  const closeLabel = t("shell.documentTabs.close", { name: label.name });
 
   return (
     <Tooltip>
@@ -202,37 +194,30 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
             {label.folder && <span className="text-muted-foreground"> {label.folder}</span>}
           </span>
         </span>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <span
-                aria-hidden
-                className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-                data-testid="document-tab-close"
-                data-unsaved={document.isDirty || undefined}
-                onClick={(event) => {
-                  handleClosePress(event);
-                  onClose();
-                }}
-                onMouseDown={handleClosePress}
-                onPointerDown={(event) => event.stopPropagation()}
-              />
-            }
-          >
-            {document.isDirty && (
-              <span className="size-2 rounded-full bg-current group-hover/tab:hidden" />
+        <span
+          aria-hidden
+          className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          data-testid="document-tab-close"
+          data-unsaved={document.isDirty || undefined}
+          onClick={(event) => {
+            handleClosePress(event);
+            onClose();
+          }}
+          onMouseDown={handleClosePress}
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          {document.isDirty && (
+            <span className="size-2 rounded-full bg-current group-hover/tab:hidden" />
+          )}
+          <XIcon
+            className={cn(
+              "size-3.5",
+              document.isDirty
+                ? "hidden group-hover/tab:block"
+                : "invisible group-hover/tab:visible group-data-active/tab:visible",
             )}
-            <XIcon
-              className={cn(
-                "size-3.5",
-                document.isDirty
-                  ? "hidden group-hover/tab:block"
-                  : "invisible group-hover/tab:visible group-data-active/tab:visible",
-              )}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{closeLabel}</TooltipContent>
-        </Tooltip>
+          />
+        </span>
       </TooltipTrigger>
       {document.status === "saved" && (
         <TooltipContent side="bottom">{document.path}</TooltipContent>

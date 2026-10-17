@@ -2,27 +2,72 @@ import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 
 import { cn } from "@/lib/utils";
 
-function TooltipProvider({ delay = 0, ...props }: TooltipPrimitive.Provider.Props) {
-  return <TooltipPrimitive.Provider data-slot="tooltip-provider" delay={delay} {...props} />;
+/** How long the pointer rests on a control before the first tooltip opens. */
+const TOOLTIP_DELAY = 600;
+/** How soon after one tooltip closes another still opens at once. */
+const TOOLTIP_INSTANT_TIMEOUT = 400;
+
+function TooltipProvider({
+  delay = TOOLTIP_DELAY,
+  timeout = TOOLTIP_INSTANT_TIMEOUT,
+  ...props
+}: TooltipPrimitive.Provider.Props) {
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delay={delay}
+      timeout={timeout}
+      {...props}
+    />
+  );
 }
+
+const WHEN_CUT_SHORT_ATTRIBUTE = "data-tooltip-when-cut-short";
+
+/** Whether the element, or any element inside it, is too narrow for its content. */
+const isCutShort = (element: Element) =>
+  [element, ...element.querySelectorAll("*")].some(
+    (candidate) => candidate.scrollWidth > candidate.clientWidth,
+  );
 
 // A tooltip only names or completes what lies beneath it, so the pointer passes on to the document
 // or list under its popup rather than holding the popup open.
 function Tooltip<Payload>({
   disableHoverablePopup = true,
+  onOpenChange,
   ...props
 }: TooltipPrimitive.Root.Props<Payload>) {
   return (
     <TooltipPrimitive.Root
       data-slot="tooltip"
       disableHoverablePopup={disableHoverablePopup}
+      onOpenChange={(open, eventDetails) => {
+        const trigger = eventDetails.trigger;
+
+        if (open && trigger?.hasAttribute(WHEN_CUT_SHORT_ATTRIBUTE) && !isCutShort(trigger)) {
+          eventDetails.cancel();
+          return;
+        }
+
+        onOpenChange?.(open, eventDetails);
+      }}
       {...props}
     />
   );
 }
 
-function TooltipTrigger<Payload>({ ...props }: TooltipPrimitive.Trigger.Props<Payload>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+/** With `whenCutShort`, the tooltip opens only while the trigger's own text doesn't fit. */
+function TooltipTrigger<Payload>({
+  whenCutShort = false,
+  ...props
+}: TooltipPrimitive.Trigger.Props<Payload> & { whenCutShort?: boolean }) {
+  return (
+    <TooltipPrimitive.Trigger
+      data-slot="tooltip-trigger"
+      data-tooltip-when-cut-short={whenCutShort || undefined}
+      {...props}
+    />
+  );
 }
 
 type TooltipHandle<Payload> = TooltipPrimitive.Handle<Payload>;
@@ -70,6 +115,8 @@ function TooltipContent({
 }
 
 export {
+  TOOLTIP_DELAY,
+  TOOLTIP_INSTANT_TIMEOUT,
   createTooltipHandle,
   Tooltip,
   TooltipContent,

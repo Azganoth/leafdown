@@ -19,6 +19,7 @@ import {
 import { createMilkdownEditorBridge } from "@/test/factories/editor";
 import { setDefaultSettings, setDefaultUI } from "@/test/utils/appStores";
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
+import { hoverAndQueryTooltip, hoverTooltip, setCutShort } from "@/test/utils/tooltip";
 
 import { StatusBar } from "./status-bar";
 
@@ -101,6 +102,21 @@ describe("StatusBar", () => {
     );
     expect(screen.getByRole("button", { name: "Line ending: LF" })).toBeInTheDocument();
     expect(statusBar).not.toHaveAttribute("aria-live");
+  });
+
+  it("shows the block path in a tooltip only while it is cut short", async () => {
+    const { user } = renderStatusBar();
+    const blockPath = screen.getByTestId("status-bar-block-path");
+    const wordCount = screen.getByTestId("status-bar-word-count");
+
+    expect(await hoverAndQueryTooltip(user, blockPath)).toBeNull();
+
+    setCutShort(blockPath, true);
+    await user.hover(wordCount);
+
+    expect(await hoverTooltip(user, blockPath)).toHaveTextContent(
+      "Blockquote › Task list › Paragraph",
+    );
   });
 
   it("re-translates its labels and counts on a language switch", () => {

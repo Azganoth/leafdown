@@ -715,8 +715,7 @@ describe("block selection interaction", () => {
   });
 
   it("re-translates handles and the announcement on a language switch without touching the document", async () => {
-    const onControlTooltipRequested = vi.fn();
-    const mounted = await mountEditor("## Title\n\nSecond\n", { onControlTooltipRequested });
+    const mounted = await mountEditor("## Title\n\nSecond\n");
     const [heading, paragraph] = getSelectableBlockTargets(mounted.view.state.doc);
     const insertionButton = document.querySelector("[data-leafdown-block-insert]");
     const status = document.querySelector("[role='status']");
@@ -736,11 +735,10 @@ describe("block selection interaction", () => {
         "aria-label",
         pseudo.t("editor.blockSelection.selectHandle", { block: "heading", level: 2 }),
       );
-      dispatchMouseEvent(getHandle(paragraph.pos), "mouseover");
-      expect(onControlTooltipRequested).toHaveBeenLastCalledWith({
-        anchor: getHandle(paragraph.pos),
-        label: pseudo.t("editor.blockSelection.selectHandle", { block: "paragraph" }),
-      });
+      expect(getHandle(paragraph.pos)).toHaveAttribute(
+        "aria-label",
+        pseudo.t("editor.blockSelection.selectHandle", { block: "paragraph" }),
+      );
       expect(insertionButton).toHaveAttribute(
         "aria-label",
         pseudo.t("editor.blockSelection.insertAtBoundary"),

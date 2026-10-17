@@ -362,20 +362,9 @@ export function ArticleNavigator({
             </TooltipTrigger>
             <TooltipContent side="bottom">{folderContext.path}</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Badge
-                  aria-label={articleCountLabel}
-                  className="tabular-nums"
-                  variant="secondary"
-                />
-              }
-            >
-              {formatNumber(articleCount)}
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{articleCountLabel}</TooltipContent>
-          </Tooltip>
+          <Badge aria-label={articleCountLabel} className="tabular-nums" variant="secondary">
+            {formatNumber(articleCount)}
+          </Badge>
         </CardTitle>
       </CardHeader>
 
@@ -395,22 +384,13 @@ export function ArticleNavigator({
             </InputGroupAddon>
             {filterQuery && (
               <InputGroupAddon align="inline-end">
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <InputGroupButton
-                        aria-label={t("articleNavigator.filter.clear")}
-                        onClick={() => setFilterQuery("")}
-                        size="icon-xs"
-                      />
-                    }
-                  >
-                    <XIcon data-icon="inline-end" />
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {t("articleNavigator.filter.clear")}
-                  </TooltipContent>
-                </Tooltip>
+                <InputGroupButton
+                  aria-label={t("articleNavigator.filter.clear")}
+                  onClick={() => setFilterQuery("")}
+                  size="icon-xs"
+                >
+                  <XIcon data-icon="inline-end" />
+                </InputGroupButton>
               </InputGroupAddon>
             )}
           </InputGroup>
@@ -887,8 +867,9 @@ function ArticleNavigatorTreeItem({
       payload={
         row.kind === "draft"
           ? undefined
-          : [row.path, unsupportedFileDescription].filter(Boolean).join("\n")
+          : [row.name, unsupportedFileDescription].filter(Boolean).join("\n")
       }
+      whenCutShort={!isUnsupportedFile}
       render={
         <VirtualListItem
           aria-description={unsupportedFileDescription}

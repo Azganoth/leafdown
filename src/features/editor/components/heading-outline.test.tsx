@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { act, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
-import { hoverTooltip } from "@/test/utils/tooltip";
+import { hoverAndQueryTooltip, hoverTooltip, setCutShort } from "@/test/utils/tooltip";
 
 import type { HeadingOutlineState, OutlineDepth } from "../utils/headingOutline";
 import { HeadingOutline } from "./heading-outline";
@@ -61,13 +61,25 @@ describe("HeadingOutline", () => {
     expect(getRow("Heading 3: Water")).not.toHaveAttribute("data-folded");
   });
 
-  it("shows each heading's title, after the container holding it, in a tooltip", async () => {
+  it("shows an open row's container in a tooltip, and its title only while cut short", async () => {
     const { user } = renderWithUser(<OutlineHarness />);
     const nested = getRow("Heading 3: Bail-out points, in Callout");
+    const water = getRow("Heading 3: Water");
 
     expect(nested).not.toHaveAttribute("title");
+    expect(await hoverAndQueryTooltip(user, nested)).toBeNull();
+
+    await waitFor(() => expect(isOpen()).toBe(true));
+    await user.hover(water);
+
     expect(await hoverTooltip(user, nested)).toHaveTextContent("Callout › Bail-out points");
-    expect(await hoverTooltip(user, getRow("Heading 3: Water"))).toHaveTextContent(/^Water$/u);
+
+    expect(await hoverAndQueryTooltip(user, water)).toBeNull();
+
+    setCutShort(water.querySelector(".leafdown-outline-title")!, true);
+    await user.hover(nested);
+
+    expect(await hoverTooltip(user, water)).toHaveTextContent(/^Water$/u);
   });
 
   it("opens on hover at the pointed heading and closes after the pointer leaves", async () => {

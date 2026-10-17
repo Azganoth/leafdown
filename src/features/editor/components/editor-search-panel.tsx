@@ -219,6 +219,7 @@ function SearchPanel({ search }: EditorSearchPanelProps) {
                 disabled={!hasMatches}
                 label={t("editor.search.previous")}
                 onClick={search.findPrevious}
+                tooltip={false}
               >
                 <ArrowUpIcon />
               </SearchButton>
@@ -226,10 +227,11 @@ function SearchPanel({ search }: EditorSearchPanelProps) {
                 disabled={!hasMatches}
                 label={t("editor.search.next")}
                 onClick={search.findNext}
+                tooltip={false}
               >
                 <ArrowDownIcon />
               </SearchButton>
-              <SearchButton label={t("editor.search.close")} onClick={search.close}>
+              <SearchButton label={t("editor.search.close")} onClick={search.close} tooltip={false}>
                 <XIcon />
               </SearchButton>
             </div>
@@ -277,29 +279,35 @@ interface SearchControlProps {
   label: string;
 }
 
+interface SearchButtonProps
+  extends SearchControlProps, Omit<ComponentProps<typeof Button>, "children"> {
+  /** False for a glyph that already says what the button does. */
+  tooltip?: boolean;
+}
+
 // A control that lost its only match keeps focus rather than dropping it on the document body.
-function SearchButton({
-  children,
-  label,
-  ...props
-}: SearchControlProps & Omit<ComponentProps<typeof Button>, "children">) {
+function SearchButton({ children, label, tooltip = true, ...props }: SearchButtonProps) {
+  const button = (
+    <Button
+      aria-label={label}
+      className="size-6 aria-disabled:opacity-50"
+      focusableWhenDisabled
+      size="icon-sm"
+      type="button"
+      variant="ghost"
+      {...props}
+    >
+      {children}
+    </Button>
+  );
+
+  if (!tooltip) {
+    return button;
+  }
+
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            aria-label={label}
-            className="size-6 aria-disabled:opacity-50"
-            focusableWhenDisabled
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-            {...props}
-          />
-        }
-      >
-        {children}
-      </TooltipTrigger>
+      <TooltipTrigger render={button} />
       <TooltipContent side="bottom">{label}</TooltipContent>
     </Tooltip>
   );

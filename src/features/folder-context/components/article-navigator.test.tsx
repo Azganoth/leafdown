@@ -136,8 +136,8 @@ describe("article-navigator", () => {
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
-  it("counts the folder articles in a badge named for them, without a tooltip", async () => {
-    const { user } = renderWithUser(
+  it("titles the header with the folder's name alone", () => {
+    const { container } = render(
       <ArticleNavigator
         activeArticlePath={null}
         folderContext={nestedFolderContext}
@@ -145,10 +145,7 @@ describe("article-navigator", () => {
       />,
     );
 
-    const badge = screen.getByLabelText("3 articles");
-
-    expect(badge).toHaveTextContent(/^3$/u);
-    expect(await hoverAndQueryTooltip(user, badge)).toBeNull();
+    expect(container.querySelector('[data-slot="card-title"]')).toHaveTextContent(/^Notes$/u);
   });
 
   it("shows the folder's full path in a tooltip on its name", async () => {
@@ -660,7 +657,7 @@ describe("article-navigator default listing", () => {
     expect(getTreeItemNames()).toEqual(["empty", "readme.md"]);
   });
 
-  it("counts and filters articles as when every file is shown", async () => {
+  it("filters articles as when every file is shown", async () => {
     const { user } = renderWithUser(
       <ArticleNavigator
         activeArticlePath={null}
@@ -668,8 +665,6 @@ describe("article-navigator default listing", () => {
         onOpenArticle={vi.fn()}
       />,
     );
-
-    expect(screen.getByLabelText("1 article")).toHaveTextContent(/^1$/u);
 
     const filter = screen.getByRole("textbox", { name: "Filter articles" });
     await user.type(filter, "manual");
@@ -694,7 +689,6 @@ describe("article-navigator default listing", () => {
 
     expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
     expect(screen.queryByRole("treeitem")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("0 articles")).toBeInTheDocument();
 
     rerender(
       <ArticleNavigator
@@ -849,7 +843,7 @@ describe("article-navigator with all files shown", () => {
     expect(screen.getByRole("treeitem", { name: "cover.png" })).toHaveFocus();
   });
 
-  it("counts and filters articles only", async () => {
+  it("filters articles only", async () => {
     const { user } = renderWithUser(
       <ArticleNavigator
         activeArticlePath={null}
@@ -858,8 +852,6 @@ describe("article-navigator with all files shown", () => {
         showAllFiles
       />,
     );
-
-    expect(screen.getByLabelText("1 article")).toHaveTextContent(/^1$/u);
 
     const filter = screen.getByRole("textbox", { name: "Filter articles" });
     await user.type(filter, "manual");
@@ -891,7 +883,6 @@ describe("article-navigator with all files shown", () => {
 
     expect(screen.getByText("No supported Markdown files found.")).toBeInTheDocument();
     expect(screen.getByRole("treeitem", { name: "manual.pdf" })).toBeInTheDocument();
-    expect(screen.getByLabelText("0 articles")).toBeInTheDocument();
   });
 });
 

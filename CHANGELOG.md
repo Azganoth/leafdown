@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fade out a toast as it closes. A toast that timed out or was closed slid up at full opacity and stopped with its lower part still showing at the top of the window, cut off at the border, until it disappeared. Closing and swiped-away toasts now fade as they move away and leave nothing behind.
+
 ## [0.1.0-alpha.4] - 2026-10-17
 
 ### Highlights

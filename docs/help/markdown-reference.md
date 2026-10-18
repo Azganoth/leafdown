@@ -89,7 +89,7 @@ flowchart LR
 ```
 ````
 
-**Callouts** support GitHub alert blocks, Material for MkDocs admonitions, and Docusaurus or VitePress colon fences. Supported types and titles depend on the dialect. **Insert > Callout** adds one of the type you choose, in the dialect your document's callouts already use, or as a GitHub alert. Choose a type from **Format > Callout**, or press the icon at the start of a callout's header, to change its type, and use **Format > Callout > Callout opens expanded** to choose whether a collapsible MkDocs admonition opens expanded. For example:
+**Callouts** support GitHub alert blocks, Material for MkDocs admonitions, and Docusaurus or VitePress colon fences. Supported types and titles depend on the dialect. **Insert > Callout**, also in the context popup, lists the types of the dialect your document's callouts share, or GitHub alert types when there are none or more than one dialect. Below a separator, **GitHub alert**, **MkDocs**, **Docusaurus**, and **VitePress** submenus offer the other dialects; the dialect listed first has no submenu of its own. Choose a type to insert an empty callout in that dialect, with no title. MkDocs starts with `!!!`, and Docusaurus and VitePress use a three-colon fence. Adding a second dialect makes later insertions list GitHub alert types first. The command palette's **Callout...** keeps offering only the inferred dialect. Choose a type from **Format > Callout**, or press the icon at the start of a callout's header, to change its type within its own dialect, and use **Format > Callout > Callout opens expanded** to choose whether a collapsible MkDocs admonition opens expanded. For example:
 
 ```text
 > [!NOTE]

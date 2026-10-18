@@ -8,11 +8,11 @@ import {
   type CommandState,
   type ReopenWithEncodingControl,
 } from "@/commands";
-import type { CalloutTypeChoice } from "@/features/editor";
+import type { CalloutTypeChoice, CalloutTypeChoices } from "@/features/editor";
 import type { RecentItem } from "@/features/preferences";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
-import { renderWithUser, screen, within } from "@/test/utils/react";
+import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { CommandMenubar } from "./command-menubar";
 
@@ -535,7 +535,7 @@ describe("CommandMenubar", () => {
 
   describe("callout types", () => {
     const createCalloutTypes = () => ({
-      read: vi.fn((choice: CalloutTypeChoice) =>
+      read: vi.fn((choice: CalloutTypeChoice): CalloutTypeChoices =>
         choice === "change"
           ? {
               current: "warning",
@@ -550,6 +550,11 @@ describe("CommandMenubar", () => {
               options: [
                 { label: "Note", token: "NOTE" },
                 { label: "Tip", token: "TIP" },
+              ],
+              otherDialects: [
+                { dialect: "mkdocs", options: [{ label: "Bug", token: "bug" }] },
+                { dialect: "docusaurus", options: [{ label: "Danger", token: "danger" }] },
+                { dialect: "vitepress", options: [{ label: "Details", token: "details" }] },
               ],
             },
       ),
@@ -580,6 +585,53 @@ describe("CommandMenubar", () => {
       expect(calloutTypes.choose).toHaveBeenCalledWith("insert", "TIP");
       expect(onExecute).not.toHaveBeenCalled();
       expect(insertTrigger).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it.each([
+      ["MkDocs", "mkdocs", "Bug", "bug"],
+      ["Docusaurus", "docusaurus", "Danger", "danger"],
+      ["VitePress", "vitepress", "Details", "details"],
+      ["GitHub alert", "github", "Caution", "CAUTION"],
+    ] as const)("inserts from the %s dialect submenu", async (label, dialect, typeLabel, token) => {
+      const editor = appendEditor();
+      const calloutTypes = { ...createCalloutTypes(), choose: vi.fn(() => editor.focus()) };
+
+      if (dialect === "github") {
+        calloutTypes.read.mockReturnValue({
+          current: null,
+          options: [{ label: "Bug", token: "bug" }],
+          otherDialects: [{ dialect, options: [{ label: typeLabel, token }] }],
+        });
+      }
+
+      const { user } = renderCommandMenuBar({ calloutTypes });
+
+      await user.click(screen.getByRole("menuitem", { name: "Insert" }));
+      await user.hover(menuItem(/^Callout$/u));
+      await user.keyboard("{ArrowRight}");
+
+      const trigger = await screen.findByRole("menuitem", { name: label });
+      const menu = trigger.closest<HTMLElement>("[role='menu']")!;
+
+      expect(within(menu).getByRole("separator")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("menuitem", { name: dialect === "github" ? "MkDocs" : "GitHub alert" }),
+      ).not.toBeInTheDocument();
+      await user.keyboard(label[0]);
+      await waitFor(() => expect(trigger).toHaveFocus());
+      await user.keyboard("{ArrowRight}");
+      const item = await screen.findByRole("menuitem", { name: typeLabel });
+
+      expect(item.querySelector("svg, [data-slot='callout-type-icon']")).toBeNull();
+      await user.keyboard("{Enter}");
+      await nextFrame();
+
+      expect(calloutTypes.choose).toHaveBeenCalledWith({ type: "insert", dialect }, token);
+      expect(editor).toHaveFocus();
+      expect(screen.getByRole("menuitem", { name: "Insert" })).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
     });
 
     it("disables Insert's Callout submenu where no callout can be inserted", async () => {

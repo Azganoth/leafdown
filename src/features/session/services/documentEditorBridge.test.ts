@@ -213,9 +213,12 @@ describe("document editor bridge", () => {
     expect(readCalloutTypes).toHaveBeenCalledWith("change");
     expect(documentEditorBridge.chooseCalloutType("doc:test", "insert", "TIP")).toBe(true);
     expect(chooseCalloutType).toHaveBeenCalledWith("insert", "TIP");
+    const choice = { type: "insert", dialect: "mkdocs" } as const;
+    expect(documentEditorBridge.chooseCalloutType("doc:test", choice, "bug")).toBe(true);
+    expect(chooseCalloutType).toHaveBeenCalledWith(choice, "bug");
     expect(documentEditorBridge.readCalloutTypes("doc:other", "change")).toBeNull();
     expect(documentEditorBridge.chooseCalloutType("doc:other", "insert", "TIP")).toBe(false);
-    expect(chooseCalloutType).toHaveBeenCalledTimes(1);
+    expect(chooseCalloutType).toHaveBeenCalledTimes(2);
   });
 
   it("notifies a stable listener snapshot", () => {

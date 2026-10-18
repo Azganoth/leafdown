@@ -577,13 +577,49 @@ function InsertCalloutSubmenu() {
 }
 
 function InsertCalloutItems() {
+  const { t } = useLocalization();
   const { calloutTypes } = useCommandMenu();
+  const choices = calloutTypes.read("insert");
 
-  return calloutTypes.read("insert")?.options.map(({ label, token }) => (
-    <MenubarItem key={token} onClick={() => calloutTypes.choose("insert", token)}>
-      {label}
-    </MenubarItem>
-  ));
+  if (!choices) {
+    return null;
+  }
+
+  return (
+    <>
+      <MenubarGroup>
+        {choices.options.map(({ label, token }) => (
+          <MenubarItem key={token} onClick={() => calloutTypes.choose("insert", token)}>
+            {label}
+          </MenubarItem>
+        ))}
+      </MenubarGroup>
+      {choices.otherDialects && (
+        <>
+          <MenubarSeparator />
+          <MenubarGroup>
+            {choices.otherDialects.map(({ dialect, options }) => (
+              <MenubarSub key={dialect}>
+                <MenubarSubTrigger>{t(`editor.calloutDialect.${dialect}`)}</MenubarSubTrigger>
+                <MenubarSubContent>
+                  <MenubarGroup>
+                    {options.map(({ label, token }) => (
+                      <MenubarItem
+                        key={token}
+                        onClick={() => calloutTypes.choose({ type: "insert", dialect }, token)}
+                      >
+                        {label}
+                      </MenubarItem>
+                    ))}
+                  </MenubarGroup>
+                </MenubarSubContent>
+              </MenubarSub>
+            ))}
+          </MenubarGroup>
+        </>
+      )}
+    </>
+  );
 }
 
 // The submenu keeps its indicator columns out of the Format menu itself.

@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Show the whole name of a preview tab. Its name is slanted, and the tab cut off the part of the last letter that leaned past the end of the name.
+
 ## [0.1.0-alpha.4] - 2026-10-17
 
 ### Highlights

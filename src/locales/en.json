@@ -528,7 +528,6 @@
   "document.exportError.missingParentFolder": "Export folder not found.",
   "document.exportError.permissionDenied": "Permission denied writing the HTML file.",
   "document.exportError.writeFailed": "Could not write the HTML file.",
-  "articleNavigator.articleCount": "{count, plural, one {# article} other {# articles}}",
   "articleNavigator.empty": "No supported Markdown files found.",
   "articleNavigator.emptyWithWarnings": "No supported Markdown files found in scanned entries.",
   "articleNavigator.noMatches": "No matching articles.",

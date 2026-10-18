@@ -385,6 +385,32 @@ describe("context popup plugin", () => {
     expect(popupState.onContextPopupRequested).not.toHaveBeenCalled();
   });
 
+  it("keeps Escape's dismissal when a pointer release is still queued", async () => {
+    const popupState = trackPopupOpenState();
+    const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);
+
+    mockCoordinates(mounted);
+    setTextSelection(mounted.view, 1, 6);
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
+    setTextSelection(mounted.view, 1, 7);
+    dispatchMouseUp(mounted.view.dom, { button: 0 });
+    runKeyDownHandlers(mounted.view, "Escape");
+    popupState.onContextPopupRequested.mockClear();
+
+    await settleAnimationFrame();
+
+    expect(popupState.getContextPopupOpen()).toBe(false);
+    expect(popupState.onContextPopupRequested).not.toHaveBeenCalled();
+
+    dispatchMouseDown(mounted.view.dom, { button: 0 });
+    setTextSelection(mounted.view, 1, 8);
+    dispatchMouseUp(mounted.view.dom, { button: 0 });
+
+    await settleAnimationFrame();
+
+    expect(popupState.getContextPopupOpen()).toBe(true);
+  });
+
   it("stays dismissed after Select all until the selection collapses", async () => {
     const popupState = trackPopupOpenState();
     const mounted = await mountEditor(HELLO_WORLD_TEXT, popupState);

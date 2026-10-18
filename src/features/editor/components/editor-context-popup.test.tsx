@@ -513,6 +513,11 @@ describe("editor-context-popup", () => {
         { label: "Note", token: "NOTE" },
         { label: "Tip", token: "TIP" },
       ],
+      otherDialects: [
+        { dialect: "mkdocs", options: [{ label: "Bug", token: "bug" }] },
+        { dialect: "docusaurus", options: [{ label: "Danger", token: "danger" }] },
+        { dialect: "vitepress", options: [{ label: "Details", token: "details" }] },
+      ],
     };
 
     const renderCalloutPopup = (commandState: EditorCommandState) => {
@@ -606,13 +611,60 @@ describe("editor-context-popup", () => {
       const items = within(group).getAllByRole("menuitem");
 
       expect(readCalloutTypes).toHaveBeenCalledWith("insert");
-      expect(items.map((item) => item.textContent)).toEqual(["Note", "Tip"]);
+      expect(items.map((item) => item.textContent)).toEqual([
+        "Note",
+        "Tip",
+        "MkDocs",
+        "Docusaurus",
+        "VitePress",
+      ]);
+      expect(within(group).getByRole("separator")).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "GitHub alert" })).not.toBeInTheDocument();
       expect(iconOf(items[1])?.style.maskImage).toBe('url("/callout-tip.svg")');
 
       await user.keyboard("{ArrowDown}{Enter}");
 
       expect(onChooseCalloutType).toHaveBeenCalledWith("insert", "TIP");
     });
+
+    it.each([
+      ["MkDocs", "mkdocs", "Bug", "bug"],
+      ["Docusaurus", "docusaurus", "Danger", "danger"],
+      ["VitePress", "vitepress", "Details", "details"],
+      ["GitHub alert", "github", "Caution", "CAUTION"],
+    ] as const)(
+      "inserts from %s with the type's icon",
+      async (label, dialect, typeLabel, token) => {
+        const { onChooseCalloutType, readCalloutTypes, user } = renderCalloutPopup(
+          withEnabledCommands("insert.callout"),
+        );
+
+        if (dialect === "github") {
+          readCalloutTypes.mockReturnValue({
+            current: null,
+            options: [{ label: "Bug", token: "bug" }],
+            otherDialects: [{ dialect, options: [{ label: typeLabel, token }] }],
+          });
+        }
+
+        await user.click(screen.getByRole("button", { name: "Insert" }));
+        await user.hover(await screen.findByRole("menuitem", { name: "Callout" }));
+        await user.keyboard("{ArrowRight}");
+        const trigger = await screen.findByRole("menuitem", { name: label });
+        await user.keyboard(label[0]);
+        await waitFor(() => expect(trigger).toHaveFocus());
+        await user.keyboard("{ArrowRight}");
+
+        const group = await screen.findByRole("group", { name: label });
+        const item = within(group).getByRole("menuitem", { name: typeLabel });
+
+        expect(iconOf(item)).toHaveAttribute("aria-hidden", "true");
+        expect(iconOf(item)?.style.maskImage).toBe(`url("/callout-${token.toLowerCase()}.svg")`);
+        await user.keyboard("{Enter}");
+
+        expect(onChooseCalloutType).toHaveBeenCalledWith({ type: "insert", dialect }, token);
+      },
+    );
 
     it("disables the Insert submenu's Callout submenu where no callout can be inserted", async () => {
       const { readCalloutTypes, user } = renderCalloutPopup(enabledPopupCommandState);

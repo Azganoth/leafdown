@@ -398,6 +398,70 @@ describe("callout insertion", () => {
 });
 
 describe("callout types chosen from a submenu", () => {
+  const forms = [
+    { dialect: "github", token: "WARNING", old: "> [!NOTE]\n> Old", body: "> [!WARNING]\n> Body" },
+    {
+      dialect: "mkdocs",
+      token: "warning",
+      old: "???+ tip\n    Old",
+      body: "!!! warning\n    Body",
+    },
+    {
+      dialect: "docusaurus",
+      token: "warning",
+      old: ":::tip\nOld\n:::",
+      body: ":::warning\nBody\n:::",
+    },
+    {
+      dialect: "vitepress",
+      token: "warning",
+      old: "::: tip\nOld\n:::",
+      body: "::: warning\nBody\n:::",
+    },
+  ] as const;
+
+  describe.each(forms)("explicit $dialect insertion", ({ dialect, token, body }) => {
+    it.each([{ dialect: null, old: "" }, ...forms])(
+      "inserts beside $dialect callouts and updates the inferred types",
+      async (existing) => {
+        const source = existing.old ? withProse(existing.old) : "Intro\n\nOutro\n";
+        const { mounted, requests } = await mountWithRequests(source);
+
+        placeCaret(mounted, "Intro");
+
+        expect(chooseCalloutType(mounted.view, { type: "insert", dialect }, token)).toBe(true);
+        expect(requests).toEqual([]);
+        expect(mounted.view.state.selection.$from.node(1).attrs).toMatchObject({
+          dialect,
+          token,
+          title: null,
+        });
+        const inferred =
+          existing.dialect === null || existing.dialect === dialect ? dialect : "github";
+        const choices = readCalloutTypeChoices(mounted.view.state, "insert");
+
+        expect(choices?.options.map((option) => option.token)).toEqual(CALLOUT_TYPES[inferred]);
+        expect(choices?.otherDialects?.map((group) => group.dialect)).toEqual(
+          forms.map((form) => form.dialect).filter((value) => value !== inferred),
+        );
+        typeText(mounted.view, "Body");
+        await expectRoundTrip(mounted, source.replace("Intro\n\n", `Intro\n\n${body}\n\n`));
+      },
+    );
+
+    it("inserts an empty callout as one Undo step", async () => {
+      const source = "Intro\n\nOutro\n";
+      const mounted = await mountEditor(source);
+
+      placeCaret(mounted, "Intro");
+      expect(chooseCalloutType(mounted.view, { type: "insert", dialect }, token)).toBe(true);
+      expect(mounted.view.state.selection.$from.node(1).textContent).toBe("");
+      expect(undo(mounted.view)).toBe(true);
+      expect(mounted.getMarkdown()).toBe(source);
+      expect(canUndo(mounted.view.state)).toBe(false);
+    });
+  });
+
   it("lists a GitHub alert's types by name, marking the type it has", async () => {
     const mounted = await mountEditor(withProse("> [!WARNING]\n> Body text"));
 
@@ -490,6 +554,20 @@ describe("callout types chosen from a submenu", () => {
 
     expect(chooseCalloutType(mounted.view, "insert", "warning")).toBe(false);
     expect(mounted.view.state.doc).toBe(before);
+  });
+
+  it("validates types against an explicitly chosen insertion dialect", async () => {
+    const mounted = await mountEditor("Intro\n\nOutro\n");
+    placeCaret(mounted, "Intro");
+    const before = mounted.view.state.doc;
+    const choice = { type: "insert", dialect: "docusaurus" } as const;
+
+    expect(
+      readCalloutTypeChoices(mounted.view.state, choice)?.options.map(({ token }) => token),
+    ).toEqual(CALLOUT_TYPES.docusaurus);
+    expect(chooseCalloutType(mounted.view, choice, "details")).toBe(false);
+    expect(mounted.view.state.doc).toBe(before);
+    expect(canUndo(mounted.view.state)).toBe(false);
   });
 });
 

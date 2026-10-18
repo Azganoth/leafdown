@@ -190,7 +190,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Unordered list**
 - **Task list**
 - **Blockquote**
-- **Callout**: Lists the types of the dialect a new callout is written in. Choosing one inserts an empty callout of that type after the document block holding the selection.
+- **Callout**: Lists the types of the dialect the document's callouts share, or GitHub alert types when there are none or more than one dialect. After a separator, submenus labeled **GitHub alert**, **MkDocs**, **Docusaurus**, and **VitePress** offer the other dialects' types; the dialect listed first has no submenu of its own. Choosing a type inserts an empty callout in that dialect after the document block holding the selection, with no title, `!!!` for MkDocs, and a three-colon fence for Docusaurus and VitePress.
 - **Code block**
 - **Table**
 - **Horizontal rule**
@@ -318,7 +318,7 @@ The popup offers the actions of the context it opens in, one row or submenu per 
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
 - **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
 
-`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule. Its `Callout` is a submenu of the types `Insert > Callout` lists, each with the icon a callout of that type shows.
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule. Its `Callout` has the same structure as the menu bar's `Insert > Callout`: the inferred dialect's types, a separator, and submenus for the other dialects, each type with the icon a callout of that type shows.
 
 The construct holding the whole caret or selection narrows its context:
 

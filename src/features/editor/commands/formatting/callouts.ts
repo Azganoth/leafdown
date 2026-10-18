@@ -181,7 +181,7 @@ export const applyCalloutType = (view: EditorView, request: CalloutTypeRequest, 
 };
 
 /** Whether a type is chosen for the callout in the selection or for one to insert after it. */
-export type CalloutTypeChoice = "change" | "insert";
+export type CalloutTypeChoice = "change" | "insert" | { type: "insert"; dialect: CalloutDialect };
 
 export interface CalloutTypeOption {
   label: string;
@@ -192,7 +192,13 @@ export interface CalloutTypeChoices {
   /** The callout's type as written, or `null` for a callout still to be inserted. */
   current: string | null;
   options: readonly CalloutTypeOption[];
+  otherDialects?: readonly {
+    dialect: CalloutDialect;
+    options: readonly CalloutTypeOption[];
+  }[];
 }
+
+const CALLOUT_DIALECTS = ["github", "mkdocs", "docusaurus", "vitepress"] as const;
 
 const listCalloutTypes = (dialect: CalloutDialect): CalloutTypeOption[] =>
   CALLOUT_TYPES[dialect].map((token) => ({ label: formatCalloutTypeLabel(token), token }));
@@ -209,10 +215,21 @@ export const readCalloutTypeChoices = (
   state: EditorState,
   choice: CalloutTypeChoice,
 ): CalloutTypeChoices | null => {
-  if (choice === "insert") {
-    return findCalloutInsertionBoundary(state) === null
-      ? null
-      : { current: null, options: listCalloutTypes(findNewCalloutDialect(state.doc)) };
+  if (choice !== "change") {
+    if (findCalloutInsertionBoundary(state) === null) {
+      return null;
+    }
+
+    const dialect = choice === "insert" ? findNewCalloutDialect(state.doc) : choice.dialect;
+
+    return {
+      current: null,
+      options: listCalloutTypes(dialect),
+      otherDialects: CALLOUT_DIALECTS.filter((other) => other !== dialect).map((other) => ({
+        dialect: other,
+        options: listCalloutTypes(other),
+      })),
+    };
   }
 
   const callout = findSelectedCallout(state);
@@ -227,9 +244,9 @@ export const readCalloutTypeChoices = (
 
 /** Inserts a callout of the type, or changes the selected callout to it, with no picker between. */
 export const chooseCalloutType = (view: EditorView, choice: CalloutTypeChoice, token: string) => {
-  if (choice === "insert") {
+  if (choice !== "change") {
     const boundary = findCalloutInsertionBoundary(view.state);
-    const dialect = findNewCalloutDialect(view.state.doc);
+    const dialect = choice === "insert" ? findNewCalloutDialect(view.state.doc) : choice.dialect;
 
     return (
       boundary !== null &&

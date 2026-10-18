@@ -1,9 +1,16 @@
 import { $, browser, expect } from "@wdio/globals";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { getSaveMenuItem, openRecentPath, selectFileMenuItem } from "../support/ui.js";
+import {
+  findMenuItem,
+  getSaveMenuItem,
+  openMenu,
+  openRecentPath,
+  selectFileMenuItem,
+} from "../support/ui.js";
 
 describe("desktop callouts", () => {
   it("renders, edits, folds, saves, and reopens each supported form", async () => {
@@ -148,5 +155,77 @@ describe("desktop callouts", () => {
     await expect(
       $('.leafdown-callout[data-dialect="mkdocs"] .leafdown-callout-body'),
     ).not.toBeDisplayed();
+  });
+
+  for (const [dialect, label, type] of [
+    ["github", null, "Caution"],
+    ["docusaurus", "Docusaurus", "Danger"],
+    ["vitepress", "VitePress", "Danger"],
+    ["mkdocs", "MkDocs", "Bug"],
+  ] as const) {
+    it(`inserts a ${label ?? "GitHub alert"} callout through the Insert menu`, async () => {
+      const active = "[data-testid=active-document-host]";
+      await selectFileMenuItem("New");
+      await openMenu("Insert");
+      await (await findMenuItem((text) => text === "Callout")).click();
+
+      if (label) {
+        await (await findMenuItem((text) => text === label)).click();
+      }
+
+      await (await findMenuItem((text) => text === type)).click();
+      await expect($(`${active} .leafdown-callout`)).toHaveAttribute("data-dialect", dialect);
+      await browser.waitUntil(
+        () =>
+          browser.execute(() => {
+            const body = document.querySelector(
+              "[data-testid=active-document-host] .leafdown-callout-body",
+            )!;
+            return (
+              body.contains(window.getSelection()?.anchorNode ?? null) &&
+              document.activeElement?.classList.contains("ProseMirror")
+            );
+          }),
+        { timeoutMsg: "Choosing a callout dialect did not return focus to its body." },
+      );
+    });
+  }
+
+  it("inserts another dialect from the context popup and lists GitHub types first afterward", async () => {
+    const active = "[data-testid=active-document-host]";
+
+    await selectFileMenuItem("New");
+    await openMenu("Insert");
+    await (await findMenuItem((text) => text === "Callout")).click();
+    await (await findMenuItem((text) => text === "MkDocs")).click();
+    await (await findMenuItem((text) => text === "Bug")).click();
+
+    // The embedded driver drops Shift from F10, so raise the chord on the focused editor.
+    await $(`${active} .ProseMirror`).execute((editor) => {
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "F10",
+          shiftKey: true,
+        }),
+      );
+    });
+    const popup = $("[data-testid=editor-context-popup]");
+    await expect(popup).toBeDisplayed();
+    await popup.$("aria/Insert").click();
+    await (await findMenuItem((text) => text === "Callout")).click();
+    await (await findMenuItem((text) => text === "VitePress")).click();
+    const details = await findMenuItem((text) => text === "Details");
+    await expect(details.$("[data-slot=callout-type-icon]")).toBeDisplayed();
+    await details.click();
+
+    await expect($(`${active} .leafdown-callout[data-dialect=mkdocs]`)).toBeDisplayed();
+    await expect($(`${active} .leafdown-callout[data-dialect=vitepress]`)).toBeDisplayed();
+    await browser.keys(Key.Escape);
+    await openMenu("Insert");
+    await (await findMenuItem((text) => text === "Callout")).click();
+    await expect(await findMenuItem((text) => text === "Caution")).toBeDisplayed();
+    await browser.keys([Key.Escape, Key.Escape]);
   });
 });

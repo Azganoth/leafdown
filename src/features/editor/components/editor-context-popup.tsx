@@ -51,6 +51,7 @@ import {
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -793,16 +794,53 @@ function InsertCalloutSubmenu({
 }
 
 function InsertCalloutItems({ onChooseCalloutType, readCalloutTypes }: CalloutTypeChoiceProps) {
-  return readCalloutTypes("insert")?.options.map(({ label, token }) => (
-    <DropdownMenuItem
-      closeOnClick={false}
-      key={token}
-      onClick={() => onChooseCalloutType("insert", token)}
-    >
-      <CalloutTypeIcon token={token} />
-      {label}
-    </DropdownMenuItem>
-  ));
+  const { t } = useLocalization();
+  const choices = readCalloutTypes("insert");
+
+  if (!choices) {
+    return null;
+  }
+
+  return (
+    <>
+      {choices.options.map(({ label, token }) => (
+        <DropdownMenuItem
+          closeOnClick={false}
+          key={token}
+          onClick={() => onChooseCalloutType("insert", token)}
+        >
+          <CalloutTypeIcon token={token} />
+          {label}
+        </DropdownMenuItem>
+      ))}
+      {choices.otherDialects && (
+        <>
+          <DropdownMenuSeparator />
+          {choices.otherDialects.map(({ dialect, options }) => (
+            <DropdownMenuSub key={dialect}>
+              <DropdownMenuSubTrigger inset>
+                {t(`editor.calloutDialect.${dialect}`)}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-44">
+                <DropdownMenuGroup aria-label={t(`editor.calloutDialect.${dialect}`)}>
+                  {options.map(({ label, token }) => (
+                    <DropdownMenuItem
+                      closeOnClick={false}
+                      key={token}
+                      onClick={() => onChooseCalloutType({ type: "insert", dialect }, token)}
+                    >
+                      <CalloutTypeIcon token={token} />
+                      {label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+        </>
+      )}
+    </>
+  );
 }
 
 interface ContextCalloutTypeSubmenuProps extends CalloutTypeChoiceProps {

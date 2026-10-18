@@ -14,6 +14,7 @@ export type {
   CalloutTypeOption,
 } from "./commands/formatting/callouts";
 export { DocumentTypographyPreview } from "./components/document-typography-preview";
+export { MarkdownExamplePreview } from "./components/markdown-example-preview";
 export { HeadingOutline } from "./components/heading-outline";
 export {
   MilkdownEditor,

@@ -13,6 +13,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Rewrite the bundled help guides with numbered window illustrations, task-by-task instructions, menu paths and shortcuts, and Markdown examples pairing source with its rendered result. The guides and illustrations work offline and follow the current appearance.
 - Redesign the help pages, keyboard shortcuts, What's new, and Changelog as one family. Each opens larger, taking most of the window's height and as much width as its text needs, with its title in a header and its text at 15 px. A help page with several sections, and the Changelog, list them beside the text in a wide window to jump between. What's new alternates its highlights' drawings from side to side, starts each change with its first sentence in bold, and folds a release's fixes behind a count you can open. The Changelog lays out every release the same way, with its fixes listed, and the shortcuts sit in cards side by side.
 - Show shortcuts and key hints as raised keycaps across menus, the command palette, the welcome screen, the shortcuts reference, help, and release notes. Keycaps name the platform's keys: Ctrl on Windows and Linux, and modifier symbols on macOS, with full names for screen readers.
 - Write an inserted horizontal rule with the run the document's breaks agree on, including its length and internal spacing. Where the breaks disagree or there are none, use `***`. Typed markers keep their spelling, and a run that would be read as another construct still uses a safe fallback.

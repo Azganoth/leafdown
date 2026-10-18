@@ -1,14 +1,69 @@
 // @vitest-environment happy-dom
 
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
-import { render, screen, within } from "@/test/utils/react";
+import { render, renderWithUser, screen, within } from "@/test/utils/react";
 
 import { HelpMarkdown } from "./help-markdown";
 
 describe("HelpMarkdown", () => {
+  it("renders only bundled illustrations, with informative and decorative alternatives", () => {
+    render(
+      <HelpMarkdown
+        source={
+          "![Window legend](illustrations/window.svg)\n\n![](illustrations/tabs.svg)\n\n![Missing](illustrations/missing.svg)\n\n![Local](file:///private.svg)"
+        }
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Window legend" }).querySelector("svg")).not.toBeNull();
+    const article = screen.getByRole("article");
+    expect(article.querySelectorAll("svg")).toHaveLength(2);
+    expect(article.querySelector('[aria-hidden="true"] svg')).not.toBeNull();
+    expect(article.querySelector("img")).toBeNull();
+    expect(article).toHaveTextContent("Missing");
+    expect(article).toHaveTextContent("Local");
+  });
+
+  it("pairs explicit example fences with an inert result and keeps ordinary fences as code", () => {
+    render(
+      <HelpMarkdown
+        source={
+          "```markdown example=gfm\n- [x] Done\n```\n\n```markdown example=leafdown\n$a^2$\n```\n\n```markdown\n# Plain sample\n```\n\n```markdown example=unknown\nNo preview\n```"
+        }
+      />,
+    );
+    const article = screen.getByRole("article");
+    expect(article.querySelectorAll("figure")).toHaveLength(2);
+    expect(article.querySelectorAll("pre code")).toHaveLength(4);
+    expect(article.querySelector('[data-help-example="gfm"]')).toHaveTextContent("What you type");
+    expect(article.querySelector('[data-help-example="leafdown"]')).toHaveTextContent(
+      "Leafdown extension",
+    );
+    expect(article.querySelectorAll("[inert][aria-hidden=true]")).toHaveLength(2);
+    expect(article.querySelector("pre code")).toHaveTextContent("- [x] Done");
+  });
+
+  it("keeps navigation cards keyboard reachable and preserves ordinary lists and tips", async () => {
+    const onPageLink = vi.fn();
+    const { user } = renderWithUser(
+      <HelpMarkdown
+        onPageLink={onPageLink}
+        source={
+          "- [Read Markdown](markdown-reference.md) — Examples.\n- [Settings](settings-reference.md) — Choices.\n\n> **Tip:** Keep a copy.\n\n- Ordinary item"
+        }
+      />,
+    );
+    const link = screen.getByRole("button", { name: "Read Markdown" });
+    link.focus();
+    await user.keyboard("{Enter}");
+    expect(onPageLink).toHaveBeenCalledWith("markdown-reference");
+    expect(link.closest("ul")).toHaveClass("grid");
+    expect(screen.getByText("Ordinary item").closest("ul")).toHaveClass("list-disc");
+    expect(screen.getByText("Tip:").closest("blockquote")).toHaveTextContent("Keep a copy.");
+  });
+
   it.each([
     ["Windows", withWindowsUserAgent, "Ctrl+Shift+F", ["Ctrl", "Shift", "F"]],
     ["macOS", withMacUserAgent, "Shift+Command+F", ["⇧", "⌘", "F"]],

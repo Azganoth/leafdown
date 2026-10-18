@@ -48,6 +48,31 @@ describe("bundled Help pages", () => {
     }
   });
 
+  it("resolves every authored guide and section link outside source examples", () => {
+    for (const source of Object.values(HELP_PAGES)) {
+      const sections = getHelpPageSections(source);
+      let fence: string | undefined;
+      for (const line of source.split(/\r?\n/u)) {
+        const marker = /^(`{3,}|~{3,})/u.exec(line)?.[1];
+        if (marker) {
+          if (!fence) fence = marker;
+          else if (marker[0] === fence[0] && marker.length >= fence.length) fence = undefined;
+          continue;
+        }
+        if (fence) continue;
+        for (const match of line
+          .replace(/`[^`]*`/gu, "")
+          .matchAll(/(?<!!)\[[^\]]+\]\(([^)]+)\)/gu)) {
+          const target = getHelpLinkTarget(match[1]);
+          expect(target, match[1]).not.toBeNull();
+          expect(target?.kind !== "section" || sections.some(({ id }) => id === target.id)).toBe(
+            true,
+          );
+        }
+      }
+    }
+  });
+
   it("routes a fragment to the section heading it names", () => {
     expect(getHelpLinkTarget("#work-in-more-than-one-window")).toEqual({
       kind: "section",

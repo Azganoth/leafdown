@@ -112,24 +112,24 @@ describe("desktop Help pages", () => {
     await expect(editor).not.toHaveText(expect.stringContaining("Help draft"));
   });
 
-  it("keeps illustrations and example pairs within the page in both appearances and widths", async () => {
-    const originallyDark = await browser.execute(() =>
-      document.documentElement.classList.contains("dark"),
-    );
-    try {
-      for (const dark of [false, true]) {
-        await browser.execute(
-          (enabled) => document.documentElement.classList.toggle("dark", enabled),
-          dark,
-        );
-        for (const width of [640, 1280]) {
-          await browser.setWindowSize(width, 800);
-          for (const page of [
-            "Getting started",
-            "Markdown reference",
-            "File and folder workflows",
-            "Settings reference",
-          ]) {
+  for (const dark of [false, true]) {
+    for (const width of [640, 1280]) {
+      for (const page of [
+        "Getting started",
+        "Markdown reference",
+        "File and folder workflows",
+        "Settings reference",
+      ]) {
+        it(`keeps ${page} illustrations and examples within the page at ${width}px in ${dark ? "dark" : "light"} appearance`, async () => {
+          const originallyDark = await browser.execute(() =>
+            document.documentElement.classList.contains("dark"),
+          );
+          try {
+            await browser.execute(
+              (enabled) => document.documentElement.classList.toggle("dark", enabled),
+              dark,
+            );
+            await browser.setWindowSize(width, 800);
             await openMenu("Help");
             await $(`aria/${page}`).click();
             for await (const example of $$("article [data-help-example]")) {
@@ -161,15 +161,15 @@ describe("desktop Help pages", () => {
               return article.scrollWidth - article.clientWidth;
             });
             expect(overflow).toBeLessThanOrEqual(1);
+          } finally {
             await browser.keys("Escape");
+            await browser.execute(
+              (enabled) => document.documentElement.classList.toggle("dark", enabled),
+              originallyDark,
+            );
           }
-        }
+        });
       }
-    } finally {
-      await browser.execute(
-        (enabled) => document.documentElement.classList.toggle("dark", enabled),
-        originallyDark,
-      );
     }
-  });
+  }
 });

@@ -2920,6 +2920,114 @@ describe("Prevailing form", () => {
     return mounted.getMarkdown();
   };
 
+  it.each(["---", "___", "***", "----------", "- - -", "*\t*\t*"])(
+    "writes an inserted break with the agreed run %j",
+    async (marker) => {
+      const source = `Intro\n\n${marker}\n\nBetween\n\n${marker}\n\nParagraph\n`;
+      const mounted = await mountEditor(source);
+
+      const saved = await runCommandOnText(mounted, "Paragraph", "insert.horizontalRule");
+
+      expect(saved).toBe(`${source}\n${marker}\n\n`);
+      const reopened = await mountEditor(saved);
+      expect(reopened.getMarkdown()).toBe(saved);
+      expect(reopened.view.dom.querySelectorAll("hr")).toHaveLength(3);
+    },
+  );
+
+  it.each([
+    { name: "different characters", source: "Intro\n\n---\n\n___\n\n---\n\nParagraph\n" },
+    { name: "different lengths", source: "Intro\n\n---\n\n----\n\nParagraph\n" },
+    { name: "different spacing", source: "Intro\n\n- - -\n\n-\t-\t-\n\nParagraph\n" },
+    { name: "no breaks", source: "Paragraph\n" },
+    {
+      name: "only a setext underline and a code fence",
+      source: "Heading\n---\n\n```\n___\n```\n\nParagraph\n",
+    },
+  ])("writes the default break where there are $name", async ({ source }) => {
+    const mounted = await mountEditor(source);
+
+    expect(await runCommandOnText(mounted, "Paragraph", "insert.horizontalRule")).toBe(
+      `${source}\n***\n\n`,
+    );
+  });
+
+  it("writes the default break in an empty document", async () => {
+    const mounted = await mountEditor("");
+
+    await runEditorCommand(mounted.editor, "insert.horizontalRule");
+
+    expect(mounted.getMarkdown()).toBe("\n\n***\n\n");
+  });
+
+  it("takes a break's run from a nested container", async () => {
+    const source = "> - - -\n\nParagraph\n";
+    const mounted = await mountEditor(source);
+
+    expect(await runCommandOnText(mounted, "Paragraph", "insert.horizontalRule")).toBe(
+      `${source}\n- - -\n\n`,
+    );
+  });
+
+  it("falls back where the agreed run would underline a tight item's paragraph", async () => {
+    const mounted = await mountEditor("Intro\n\n---\n\n* Paragraph\n");
+
+    const saved = await runCommandOnText(mounted, "Paragraph", "insert.horizontalRule");
+
+    expect(mounted.view.state.doc.nodeAt(getEditorNodePosition(mounted, "hr"))?.attrs.marker).toBe(
+      "---",
+    );
+    expect(saved).toBe("Intro\n\n---\n\n* Paragraph\n  ***\n");
+    const reopened = await mountEditor(saved);
+    expect(reopened.view.dom.querySelectorAll("li hr")).toHaveLength(1);
+    expect(reopened.view.dom.querySelectorAll("h2")).toHaveLength(0);
+  });
+
+  it.each([
+    { marker: "---", source: "- ***", saved: "- ***" },
+    { marker: "***", source: "* ---", saved: "* ___" },
+  ])(
+    "falls back where an agreed $marker run would merge with its bullet",
+    async ({ marker, source, saved }) => {
+      const mounted = await mountEditor(`Intro\n\n${marker}\n\n${source}\n  Paragraph\n`);
+      const position = getEditorNodePosition(mounted, "hr");
+      const { schema, tr } = mounted.view.state;
+
+      mounted.view.dispatch(tr.replaceWith(position, position + 1, schema.nodes.hr.create()));
+
+      expect(mounted.view.state.doc.nodeAt(position)?.attrs.marker).toBe(marker);
+      expect(mounted.getMarkdown()).toBe(`Intro\n\n${marker}\n\n${saved}\n  Paragraph\n`);
+      const reopened = await mountEditor(mounted.getMarkdown());
+      expect(outlineBlocks(reopened)).toEqual(outlineBlocks(mounted));
+    },
+  );
+
+  it.each([
+    { expected: "---", typed: "---" },
+    { expected: "___", typed: "___ " },
+    { expected: "***", typed: "*** " },
+  ])("keeps a typed $expected break beside a different run", async ({ expected, typed }) => {
+    const mounted = await mountEditor("- - -\n");
+
+    await runEditorCommand(mounted.editor, "insert.paragraph");
+    typeText(mounted.view, typed);
+
+    expect(mounted.getMarkdown()).toBe(`- - -\n\n${expected}\n`);
+  });
+
+  it("keeps an inserted break's run after the document gains another form", async () => {
+    const mounted = await mountEditor("Intro\n\n---\n\nParagraph\n");
+
+    await runCommandOnText(mounted, "Paragraph", "insert.horizontalRule");
+    const { doc, tr } = mounted.view.state;
+    const position = doc.child(0).nodeSize;
+    mounted.view.dispatch(
+      tr.setNodeMarkup(position, undefined, { ...doc.nodeAt(position)?.attrs, marker: "___" }),
+    );
+
+    expect(mounted.getMarkdown()).toBe("Intro\n\n___\n\nParagraph\n\n---\n\n");
+  });
+
   it.each([
     {
       command: "format.unorderedList",

@@ -21,10 +21,16 @@ import {
   readAuthoredBulletListMarker,
   readAuthoredOrderedListMarker,
 } from "../utils/listMarkdown";
+import {
+  DEFAULT_THEMATIC_BREAK_MARKER,
+  readAuthoredThematicBreakMarker,
+  THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME,
+} from "../utils/thematicBreakMarkdown";
 
 const BULLET_LIST_NODE_NAME = "bullet_list";
 const ORDERED_LIST_NODE_NAME = "ordered_list";
 const HEADING_NODE_NAME = "heading";
+const THEMATIC_BREAK_NODE_NAME = "hr";
 
 // A setext underline spells level one or two and there is no run for the rest, so a heading past
 // them is written ATX whatever the document holds and answers for nothing on that axis.
@@ -46,6 +52,7 @@ interface NodeWithPos {
 // it. A document naming two forms is left to the default rather than having one of them chosen
 // for its author.
 interface FormVotes {
+  thematicBreakMarkers: Set<string>;
   bulletListMarkers: Set<string>;
   orderedListMarkers: Set<string>;
   headingSeparators: Set<string>;
@@ -54,6 +61,7 @@ interface FormVotes {
 }
 
 interface PrevailingForms {
+  thematicBreakMarker: string | undefined;
   bulletListMarker: string | undefined;
   orderedListMarker: string | undefined;
   headingSeparator: string | undefined;
@@ -115,6 +123,7 @@ const countHeadingVotes = (node: ProseMirrorNode, votes: FormVotes) => {
 // construct carrying no record answers for nothing and cannot count its own vote either way.
 const readDocumentForms = (doc: ProseMirrorNode): DocumentForms => {
   const votes: FormVotes = {
+    thematicBreakMarkers: new Set(),
     bulletListMarkers: new Set(),
     orderedListMarkers: new Set(),
     headingSeparators: new Set(),
@@ -125,6 +134,17 @@ const readDocumentForms = (doc: ProseMirrorNode): DocumentForms => {
 
   doc.descendants((node, pos) => {
     switch (node.type.name) {
+      case THEMATIC_BREAK_NODE_NAME: {
+        const marker = readAuthoredThematicBreakMarker(node.attrs);
+
+        if (marker === null) {
+          formless.push({ node, pos });
+        } else {
+          votes.thematicBreakMarkers.add(marker);
+        }
+
+        return false;
+      }
       case BULLET_LIST_NODE_NAME: {
         const marker = readAuthoredBulletListMarker(node.attrs);
 
@@ -168,6 +188,7 @@ const readDocumentForms = (doc: ProseMirrorNode): DocumentForms => {
   return {
     formless,
     prevailing: {
+      thematicBreakMarker: findAgreedAnswer(votes.thematicBreakMarkers),
       bulletListMarker: findAgreedAnswer(votes.bulletListMarkers),
       orderedListMarker: findAgreedAnswer(votes.orderedListMarkers),
       headingSeparator: findAgreedAnswer(votes.headingSeparators),
@@ -205,6 +226,11 @@ const createPrevailingHeadingAttrs = (node: ProseMirrorNode, prevailing: Prevail
 
 const createPrevailingFormAttrs = (node: ProseMirrorNode, prevailing: PrevailingForms) => {
   switch (node.type.name) {
+    case THEMATIC_BREAK_NODE_NAME:
+      return {
+        [THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME]:
+          prevailing.thematicBreakMarker ?? DEFAULT_THEMATIC_BREAK_MARKER,
+      };
     case BULLET_LIST_NODE_NAME:
       return {
         [LIST_MARKER_ATTRIBUTE_NAME]: prevailing.bulletListMarker ?? DEFAULT_BULLET_LIST_MARKER,

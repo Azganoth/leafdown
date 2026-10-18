@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { undo } from "@milkdown/kit/prose/history";
+import { redo, undo } from "@milkdown/kit/prose/history";
 import { describe, expect, it } from "vitest";
 
 import { TWO_PARAGRAPH_MARKDOWN } from "@/test/fixtures/editorMarkdown";
@@ -113,15 +113,29 @@ describe("editor block insertion commands", () => {
     }
   });
 
-  // A break read from a file writes the run it was authored with, so one the editor creates needs a
-  // run of its own. Three asterisks are the spelling no position reads as anything but a break.
-  it("writes an inserted horizontal rule with the default marker", async () => {
+  it("writes an inserted horizontal rule with the default marker where no breaks answer", async () => {
     const mounted = await mountEditor(TWO_PARAGRAPH_MARKDOWN);
 
     setTextSelection(mounted.view, 3);
 
     expect(insertHorizontalRule(mounted.view)).toBe(true);
     expect(mounted.getMarkdown()).toContain("\n***\n");
+  });
+
+  it("inherits a boundary-inserted break's marker in one undoable action", async () => {
+    const source = "Intro\n\n___\n\nParagraph\n";
+    const mounted = await mountEditor(source);
+    const target = getSelectableBlockTargets(mounted.view.state.doc).at(-1)!;
+
+    expect(insertBlockAtBoundary(mounted.view, target.pos, "horizontalRule")).toBe(true);
+    const saved = mounted.getMarkdown();
+    expect(saved.match(/^___$/gmu)).toHaveLength(2);
+    expect(saved).not.toContain("***");
+
+    expect(undo(mounted.view.state, mounted.view.dispatch)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(source);
+    expect(redo(mounted.view.state, mounted.view.dispatch)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(saved);
   });
 
   it("inserts after the selected block range without replacing selected content", async () => {

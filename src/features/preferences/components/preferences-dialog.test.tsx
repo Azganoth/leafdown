@@ -43,7 +43,7 @@ const MVP_SETTINGS_BY_TAB = {
   ],
 };
 
-const POST_MVP_SETTINGS = ["Render/editor theme", "Unordered list marker"];
+const POST_MVP_SETTINGS = ["Render/editor theme"];
 
 describe("preferences-dialog", () => {
   it("exposes MVP settings without Post-MVP settings", async () => {

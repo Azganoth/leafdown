@@ -50,11 +50,14 @@ const TRAILING_WHITESPACE_PATTERN = /[\t ]+$/u;
 const isThematicBreakMarker = (value: unknown): value is string =>
   typeof value === "string" && THEMATIC_BREAK_MARKER_PATTERN.test(value);
 
-export const readThematicBreakMarker = (source: object): string => {
+export const readAuthoredThematicBreakMarker = (source: object): string | null => {
   const marker = (source as Record<string, unknown>)[THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME];
 
-  return isThematicBreakMarker(marker) ? marker : DEFAULT_THEMATIC_BREAK_MARKER;
+  return isThematicBreakMarker(marker) ? marker : null;
 };
+
+export const readThematicBreakMarker = (source: object): string =>
+  readAuthoredThematicBreakMarker(source) ?? DEFAULT_THEMATIC_BREAK_MARKER;
 
 // A break holds no children, so the slice of the file it was built from is its characters and the
 // whitespace closing the line, never the indentation before it. Trimming that tail is the only
@@ -129,8 +132,8 @@ export const withThematicBreakMarker = (schema: NodeSchema): NodeSchema => {
     attrs: {
       ...schema.attrs,
       [THEMATIC_BREAK_MARKER_ATTRIBUTE_NAME]: {
-        default: DEFAULT_THEMATIC_BREAK_MARKER,
-        validate: "string",
+        default: null,
+        validate: "string|null",
       },
       [BLOCK_ADJACENT_ATTRIBUTE_NAME]: {
         default: DEFAULT_BLOCK_ADJACENT,

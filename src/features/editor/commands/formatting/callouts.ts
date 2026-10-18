@@ -2,11 +2,18 @@ import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 
-import { CALLOUT_NODE_NAME, isCalloutType } from "../../plugins/callout";
+import {
+  CALLOUT_NODE_NAME,
+  CALLOUT_TYPES,
+  formatCalloutTypeLabel,
+  isCalloutType,
+  type CalloutDialect,
+} from "../../plugins/callout";
 import {
   canInsertCalloutAt,
   createCalloutNode,
   findCalloutInsertionBoundary,
+  findNewCalloutDialect,
   findSelectedCalloutPosition,
   getCalloutTypeRequestTarget,
   setCalloutTypeRequestMeta,
@@ -110,6 +117,41 @@ const settleProjectionAround = (view: EditorView, position: number) => {
   return finalizeSourceProjection(view) ? resolveIndexPath(view.state.doc, path) : position;
 };
 
+const writeCalloutAt = (
+  view: EditorView,
+  boundary: number,
+  dialect: CalloutDialect,
+  token: string,
+) => {
+  const settledBoundary = settleProjectionAround(view, boundary);
+  const { state } = view;
+  const callout = createCalloutNode(state, dialect, token);
+
+  if (settledBoundary === null || !callout || !canInsertCalloutAt(state, settledBoundary)) {
+    return false;
+  }
+
+  const tr = state.tr.insert(settledBoundary, callout);
+
+  setSelectionNear(tr, settledBoundary + CALLOUT_BODY_OFFSET);
+  view.dispatch(tr.scrollIntoView());
+
+  return true;
+};
+
+const retypeCalloutAt = (view: EditorView, position: number, token: string) => {
+  const settledPosition = settleProjectionAround(view, position);
+  const node = settledPosition === null ? null : view.state.doc.nodeAt(settledPosition);
+
+  if (settledPosition === null || node?.type.name !== CALLOUT_NODE_NAME) {
+    return false;
+  }
+
+  view.dispatch(view.state.tr.setNodeMarkup(settledPosition, undefined, { ...node.attrs, token }));
+
+  return true;
+};
+
 export const applyCalloutType = (view: EditorView, request: CalloutTypeRequest, token: string) => {
   const { target } = request;
 
@@ -122,20 +164,7 @@ export const applyCalloutType = (view: EditorView, request: CalloutTypeRequest, 
   }
 
   if (target.type === "insert") {
-    const boundary = settleProjectionAround(view, target.boundary);
-    const { state } = view;
-    const callout = createCalloutNode(state, request.dialect, token);
-
-    if (boundary === null || !callout || !canInsertCalloutAt(state, boundary)) {
-      return false;
-    }
-
-    const tr = state.tr.insert(boundary, callout);
-
-    setSelectionNear(tr, boundary + CALLOUT_BODY_OFFSET);
-    view.dispatch(tr.scrollIntoView());
-
-    return true;
+    return writeCalloutAt(view, target.boundary, request.dialect, token);
   }
 
   const current = view.state.doc.nodeAt(target.position);
@@ -148,16 +177,74 @@ export const applyCalloutType = (view: EditorView, request: CalloutTypeRequest, 
     return closeCalloutType(view);
   }
 
-  const position = settleProjectionAround(view, target.position);
-  const node = position === null ? null : view.state.doc.nodeAt(position);
+  return retypeCalloutAt(view, target.position, token);
+};
 
-  if (position === null || node?.type.name !== CALLOUT_NODE_NAME) {
+/** Whether a type is chosen for the callout in the selection or for one to insert after it. */
+export type CalloutTypeChoice = "change" | "insert";
+
+export interface CalloutTypeOption {
+  label: string;
+  token: string;
+}
+
+export interface CalloutTypeChoices {
+  /** The callout's type as written, or `null` for a callout still to be inserted. */
+  current: string | null;
+  options: readonly CalloutTypeOption[];
+}
+
+const listCalloutTypes = (dialect: CalloutDialect): CalloutTypeOption[] =>
+  CALLOUT_TYPES[dialect].map((token) => ({ label: formatCalloutTypeLabel(token), token }));
+
+const findSelectedCallout = (state: EditorState) => {
+  const position = findSelectedCalloutPosition(state);
+  const node = position === null ? null : state.doc.nodeAt(position);
+
+  return position !== null && node?.type.name === CALLOUT_NODE_NAME ? { node, position } : null;
+};
+
+/** The types a choice offers, or `null` when there is no callout to change or nowhere to insert one. */
+export const readCalloutTypeChoices = (
+  state: EditorState,
+  choice: CalloutTypeChoice,
+): CalloutTypeChoices | null => {
+  if (choice === "insert") {
+    return findCalloutInsertionBoundary(state) === null
+      ? null
+      : { current: null, options: listCalloutTypes(findNewCalloutDialect(state.doc)) };
+  }
+
+  const callout = findSelectedCallout(state);
+
+  return callout
+    ? {
+        current: callout.node.attrs.token as string,
+        options: listCalloutTypes(callout.node.attrs.dialect as CalloutDialect),
+      }
+    : null;
+};
+
+/** Inserts a callout of the type, or changes the selected callout to it, with no picker between. */
+export const chooseCalloutType = (view: EditorView, choice: CalloutTypeChoice, token: string) => {
+  if (choice === "insert") {
+    const boundary = findCalloutInsertionBoundary(view.state);
+    const dialect = findNewCalloutDialect(view.state.doc);
+
+    return (
+      boundary !== null &&
+      isCalloutType(dialect, token) &&
+      writeCalloutAt(view, boundary, dialect, token)
+    );
+  }
+
+  const callout = findSelectedCallout(view.state);
+
+  if (!callout || !isCalloutType(callout.node.attrs.dialect as CalloutDialect, token)) {
     return false;
   }
 
-  view.dispatch(view.state.tr.setNodeMarkup(position, undefined, { ...node.attrs, token }));
-
-  return true;
+  return callout.node.attrs.token === token || retypeCalloutAt(view, callout.position, token);
 };
 
 const findCollapsibleAdmonition = (state: EditorState) => {

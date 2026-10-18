@@ -1,5 +1,5 @@
 import type { ActiveDocumentState, TextEncodingName } from "@/features/document";
-import type { EditorCommandState } from "@/features/editor";
+import type { CalloutTypeChoice, CalloutTypeChoices, EditorCommandState } from "@/features/editor";
 import {
   getArticleAncestorDirectoryPaths,
   type FolderContextState,
@@ -13,6 +13,12 @@ export interface ReopenWithEncodingControl {
   state: CommandState;
   checkedEncoding: TextEncodingName | null;
   reopen: (encoding: TextEncodingName) => void;
+}
+
+export interface CalloutTypeControl {
+  /** Read as a submenu opens: listing a new callout's types walks the document. */
+  read: (choice: CalloutTypeChoice) => CalloutTypeChoices | null;
+  choose: (choice: CalloutTypeChoice, token: string) => void;
 }
 
 export type AppCommandRecentItemsContext = Pick<RecentItemsState, "recentFiles" | "recentFolders">;

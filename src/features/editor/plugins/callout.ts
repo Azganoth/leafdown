@@ -56,6 +56,10 @@ const NEW_CALLOUT_MARKERS: Record<CalloutDialect, string> = {
 export const isCalloutType = (dialect: CalloutDialect, token: string) =>
   (CALLOUT_TYPES[dialect] as readonly string[]).includes(token);
 
+/** The type's name as a callout with no title of its own shows it. */
+export const formatCalloutTypeLabel = (token: string) =>
+  token.toLowerCase().replace(/^./u, (character) => character.toUpperCase());
+
 /** The attributes of a callout written fresh in a dialect, with no title and no blank lines. */
 export const createCalloutForm = (dialect: CalloutDialect, token: string): CalloutForm => ({
   dialect,

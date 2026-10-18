@@ -14,7 +14,7 @@ import {
   reopenWithEncoding,
 } from "../actions/edit";
 import { openRecentFolderContext, openRecentMarkdownFile } from "../actions/file";
-import type { AppCommandContext, ReopenWithEncodingControl } from "../context";
+import type { AppCommandContext, CalloutTypeControl, ReopenWithEncodingControl } from "../context";
 import { dispatchAppCommand, type AppCommandId } from "../dispatch";
 import {
   COMMAND_DEFINITIONS,
@@ -195,6 +195,17 @@ export const useAppCommands = () => {
 
   return {
     aboutOpen,
+    calloutTypes: {
+      read: (choice) =>
+        activeDocumentKey === null
+          ? null
+          : documentEditorBridge.readCalloutTypes(activeDocumentKey, choice),
+      choose: (choice, token) => {
+        if (activeDocumentKey !== null) {
+          documentEditorBridge.chooseCalloutType(activeDocumentKey, choice, token);
+        }
+      },
+    } satisfies CalloutTypeControl,
     commandPaletteOpen,
     commandState,
     diagnosticsOpen,

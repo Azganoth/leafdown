@@ -1,4 +1,6 @@
 import type {
+  CalloutTypeChoice,
+  CalloutTypeChoices,
   DocumentReplacementPlan,
   DocumentSearchMatches,
   EditorDocumentStatus,
@@ -175,6 +177,12 @@ class DocumentEditorBridgeStore {
 
   runCommand = (documentKey: string, commandId: EditorCommandId) =>
     this.bridges.get(documentKey)?.runCommand?.(commandId) ?? false;
+
+  readCalloutTypes = (documentKey: string, choice: CalloutTypeChoice): CalloutTypeChoices | null =>
+    this.bridges.get(documentKey)?.readCalloutTypes?.(choice) ?? null;
+
+  chooseCalloutType = (documentKey: string, choice: CalloutTypeChoice, token: string) =>
+    this.bridges.get(documentKey)?.chooseCalloutType?.(choice, token) ?? false;
 
   clear = () => {
     this.bridges.clear();

@@ -200,7 +200,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Unordered list**
 - **Task list**
 - **Blockquote**
-- **Callout...**: Opens the callout type list; choosing a type inserts an empty callout of that type after the document block holding the selection.
+- **Callout**: Lists the types of the dialect a new callout is written in. Choosing one inserts an empty callout of that type after the document block holding the selection.
 - **Code block**
 - **Table**
 - **Horizontal rule**
@@ -232,7 +232,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Code block** (`Mod+Alt+C`)
 - **Code block language...**: Opens the language picker for the fenced code block in context, as clicking its language badge does.
 - **Callout**
-  - **Callout type...**: Opens the type list for the callout in context, as pressing its type icon does.
+  - **The callout's types**: Lists the types of the callout in context's dialect and marks the one it has. Choosing one changes the callout to it.
   - **Callout opens expanded**: Switches the MkDocs admonition in context between `???` and `???+`.
 - **Table**
   - **Delete table**
@@ -278,6 +278,8 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 - **Expand all folders**
 
 `Go to tab 1` through `Go to tab 8` (`Mod+1` through `Mod+8`) and `Go to last tab` (`Mod+9`) are not in a menu; they are run from their shortcuts or the command palette.
+
+`Callout...` and `Callout type...` are not in a menu either. Run from the command palette, they open the searchable callout type list for a new callout or for the callout in context.
 
 #### Help Menu
 
@@ -326,7 +328,7 @@ The popup offers the actions of the context it opens in, one row or submenu per 
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
 - **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
 
-`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout..., Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule.
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule. Its `Callout` is a submenu of the types `Insert > Callout` lists, each with the icon a callout of that type shows.
 
 The construct holding the whole caret or selection narrows its context:
 
@@ -338,7 +340,9 @@ An object's actions follow the first row, each shown only while it is available:
 - **Footnote:** Rename footnote, Jump to footnote definition.
 - **Image:** Replace image...
 - **Fenced code block:** Code block language...
-- **Callout:** Callout type..., Callout opens expanded, which shows as pressed while the admonition is written `???+`.
+- **Callout:** Callout opens expanded, which shows as pressed while the admonition is written `???+`.
+
+A callout in context also adds a `Callout type` submenu before Block type. It lists the types `Format > Callout` lists, each with its icon, and marks the callout's type.
 
 ### Article Navigator Context Menu
 
@@ -382,7 +386,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Increase list indent` and `Decrease list indent` require a list item and a valid indentation change.
 - `Toggle task checked` requires a task list item.
 - `Code block language...` requires the caret or selection within one fenced code block, or a structural block selection of exactly one; indented code does not offer it.
-- `Callout type...` requires the caret or selection within one callout, or a structural block selection of exactly one; it acts on the innermost callout holding the selection. `Callout opens expanded` also requires that callout to be an MkDocs admonition written with `???` or `???+`.
+- `Callout type...`, and the submenus that change a callout's type, require the caret or selection within one callout, or a structural block selection of exactly one; they act on the innermost callout holding the selection. `Callout opens expanded` also requires that callout to be an MkDocs admonition written with `???` or `???+`.
 - `Clear inline formatting` requires supported inline formatting in the selection or an active marked inline element.
 - `Clear block formatting` requires removable block formatting in the current or selected blocks.
 - `Increase heading level` and `Decrease heading level` require a heading that can move in the requested direction.
@@ -425,6 +429,7 @@ Use checkmarks for boolean command state and radio groups for mutually exclusive
 - `Line ending` is a radio group for the active document with CRLF and LF choices.
 - `Save with encoding` is a radio group for the active document with, when it is neither form of UTF-8, the encoding the file was read in, then UTF-8 and UTF-8 with BOM.
 - `Reopen with encoding` is a radio group marking the encoding the active file was read in.
+- The types in `Format > Callout` and the context popup's `Callout type` are a radio group marking the type of the callout in context.
 - `Appearance` is a radio group for the global appearance theme: `System`, `Light`, or `Dark`.
 - `Theme` is a radio group for the global render/editor theme when implemented.
 - `Sort articles by` is a radio group for the global article sort order.

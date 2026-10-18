@@ -8,9 +8,10 @@ import { EXTENDED_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchDOMEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
 import { selectTableCellRange, setSelectionInTableCell } from "@/test/utils/prosemirror";
-import { act, render, renderWithUser, screen, waitFor } from "@/test/utils/react";
+import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { getEditorCommandState, type EditorCommandId, type EditorCommandState } from "../commands";
+import type { CalloutTypeChoice, CalloutTypeChoices } from "../commands/formatting/callouts";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import type { ContextPopupAnchorMode } from "../utils/contextPopupAnchor";
 import { EditorContextPopup } from "./editor-context-popup";
@@ -456,11 +457,11 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("format.codeBlockLanguage");
   });
 
-  it("offers a callout's type and authored disclosure inside a callout, showing the disclosure as pressed", async () => {
+  it("offers a callout's authored disclosure as a button, pressed while the callout opens expanded", async () => {
     const onExecute = vi.fn();
     const renderPopup = (commandState: EditorCommandState) => (
       <EditorContextPopup
-        request={POINTER_REQUEST}
+        request={{ ...POINTER_REQUEST, selectionKind: "caret" }}
         commandState={commandState}
         onClose={vi.fn()}
         onExecute={onExecute}
@@ -469,13 +470,18 @@ describe("editor-context-popup", () => {
     );
     const { rerender, user } = renderWithUser(renderPopup(enabledPopupCommandState));
 
-    expect(screen.queryByLabelText("Callout type...")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Callout type" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Callout opens expanded")).not.toBeInTheDocument();
 
     rerender(renderPopup(withEnabledCommands("format.calloutType")));
 
-    expect(screen.getByLabelText("Callout type...")).not.toHaveAttribute("aria-pressed");
-    expect(screen.queryByLabelText("Callout opens expanded")).not.toBeInTheDocument();
+    expect(controlLabels()).toEqual([
+      "Paste",
+      ...BLOCK_FORMATTING_LABELS,
+      "Callout type",
+      "Block type",
+      "Insert",
+    ]);
 
     rerender(
       renderPopup({
@@ -484,15 +490,141 @@ describe("editor-context-popup", () => {
       }),
     );
 
+    expect(controlLabels().slice(0, 2)).toEqual(["Paste", "Callout opens expanded"]);
     expect(screen.getByLabelText("Callout opens expanded")).toHaveAttribute("aria-pressed", "true");
-
-    await user.click(screen.getByLabelText("Callout type..."));
-
-    expect(onExecute).toHaveBeenCalledWith("format.calloutType");
 
     await user.click(screen.getByLabelText("Callout opens expanded"));
 
     expect(onExecute).toHaveBeenCalledWith("format.calloutExpanded");
+  });
+
+  describe("callout types", () => {
+    const MKDOCS_CHOICES: CalloutTypeChoices = {
+      current: "warning",
+      options: [
+        { label: "Note", token: "note" },
+        { label: "Tip", token: "tip" },
+        { label: "Warning", token: "warning" },
+      ],
+    };
+    const GITHUB_CHOICES: CalloutTypeChoices = {
+      current: null,
+      options: [
+        { label: "Note", token: "NOTE" },
+        { label: "Tip", token: "TIP" },
+      ],
+    };
+
+    const renderCalloutPopup = (commandState: EditorCommandState) => {
+      const onChooseCalloutType = vi.fn();
+      const readCalloutTypes = vi.fn((choice: CalloutTypeChoice) =>
+        choice === "change" ? MKDOCS_CHOICES : GITHUB_CHOICES,
+      );
+      const rendered = renderWithUser(
+        <EditorContextPopup
+          request={{ ...KEYBOARD_REQUEST, selectionKind: "caret" }}
+          commandState={commandState}
+          onChooseCalloutType={onChooseCalloutType}
+          onClose={vi.fn()}
+          onExecute={vi.fn()}
+          onReturnFocus={vi.fn()}
+          readCalloutTypes={readCalloutTypes}
+        />,
+      );
+
+      return { ...rendered, onChooseCalloutType, readCalloutTypes };
+    };
+
+    const iconOf = (item: HTMLElement) =>
+      item.querySelector<HTMLElement>("[data-slot='callout-type-icon']");
+
+    it("changes the callout's type from a named submenu marking its current type", async () => {
+      const { onChooseCalloutType, readCalloutTypes, user } = renderCalloutPopup(
+        withEnabledCommands("format.calloutType"),
+      );
+
+      expect(readCalloutTypes).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole("button", { name: "Callout type" }));
+
+      const group = await screen.findByRole("group", { name: "Callout type" });
+      const items = within(group).getAllByRole("menuitemradio");
+
+      expect(readCalloutTypes).toHaveBeenCalledWith("change");
+      expect(items.map((item) => item.textContent)).toEqual(["Note", "Tip", "Warning"]);
+      expect(items.map((item) => item.getAttribute("aria-checked"))).toEqual([
+        "false",
+        "false",
+        "true",
+      ]);
+      expect(iconOf(items[0])).toHaveAttribute("aria-hidden", "true");
+      expect(iconOf(items[0])?.style.maskImage).toBe('url("/callout-note.svg")');
+
+      await user.click(items[1]);
+
+      expect(onChooseCalloutType).toHaveBeenCalledWith("change", "tip");
+    });
+
+    it("reaches the type submenu from the keyboard", async () => {
+      const { onChooseCalloutType, user } = renderCalloutPopup(
+        withEnabledCommands("format.calloutType"),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Paste")).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowDown}{ArrowDown}");
+
+      expect(screen.getByRole("button", { name: "Callout type" })).toHaveFocus();
+
+      await user.keyboard("{Enter}");
+      await waitFor(() => {
+        expect(screen.getByRole("menuitemradio", { name: "Note" })).toHaveFocus();
+      });
+
+      await user.keyboard("{ArrowDown}{Enter}");
+
+      expect(onChooseCalloutType).toHaveBeenCalledWith("change", "tip");
+    });
+
+    it("inserts a callout of a chosen type from the Insert submenu's Callout submenu", async () => {
+      const { onChooseCalloutType, readCalloutTypes, user } = renderCalloutPopup(
+        withEnabledCommands("insert.callout"),
+      );
+
+      await user.click(screen.getByRole("button", { name: "Insert" }));
+
+      const trigger = await screen.findByRole("menuitem", { name: "Callout" });
+
+      expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+
+      await user.hover(trigger);
+      await user.keyboard("{ArrowRight}");
+
+      const group = await screen.findByRole("group", { name: "Callout" });
+      const items = within(group).getAllByRole("menuitem");
+
+      expect(readCalloutTypes).toHaveBeenCalledWith("insert");
+      expect(items.map((item) => item.textContent)).toEqual(["Note", "Tip"]);
+      expect(iconOf(items[1])?.style.maskImage).toBe('url("/callout-tip.svg")');
+
+      await user.keyboard("{ArrowDown}{Enter}");
+
+      expect(onChooseCalloutType).toHaveBeenCalledWith("insert", "TIP");
+    });
+
+    it("disables the Insert submenu's Callout submenu where no callout can be inserted", async () => {
+      const { readCalloutTypes, user } = renderCalloutPopup(enabledPopupCommandState);
+
+      await user.click(screen.getByRole("button", { name: "Insert" }));
+
+      expect(await screen.findByRole("menuitem", { name: "Callout" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      );
+      expect(readCalloutTypes).not.toHaveBeenCalled();
+    });
   });
 
   it("offers image replacement only for a standalone image", async () => {

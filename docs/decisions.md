@@ -84,7 +84,7 @@
 
 - A callout body uses the ordinary Markdown block model, so links, lists, code, editing history, and save/reopen use the same editor behavior as surrounding content.
 - Unrecognized forms remain ordinary Markdown; support for one dialect does not claim a similar spelling from another.
-- The typed marker starts a new callout while editing, and `Insert > Callout...` inserts one of a chosen type. There is no syntax-conversion command; a callout's type changes only within its dialect's type set, and only an MkDocs admonition's `???` or `???+` disclosure is an authored choice a command switches.
+- The typed marker starts a new callout while editing, and `Insert > Callout` inserts one of a chosen type. There is no syntax-conversion command; a callout's type changes only within its dialect's type set, and only an MkDocs admonition's `???` or `???+` disclosure is an authored choice a command switches.
 - A document that agrees on a dialect gets more of it, as lists and headings follow the form a document agrees on; one naming two dialects is left to the default rather than having one chosen for its author. The default is a GitHub alert because GitHub renders it and a renderer without callout support still shows it as a blockquote with its text intact. A new callout has no title, an MkDocs one uses `!!!`, and a colon one uses a three-colon fence. Settled in [issue #727](https://github.com/Azganoth/leafdown/issues/727).
 - The parser reads callouts only among the document's own blocks and inside a colon fence longer than theirs, so a new callout always goes between the document's own blocks, after the one holding the selection.
 

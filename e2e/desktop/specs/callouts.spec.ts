@@ -157,15 +157,14 @@ describe("desktop callouts", () => {
     ).not.toBeDisplayed();
   });
 
-  it("chooses a new callout's dialect through nested Insert menus", async () => {
-    const active = "[data-testid=active-document-host]";
-
-    for (const [dialect, label, type] of [
-      ["github", null, "Caution"],
-      ["docusaurus", "Docusaurus", "Danger"],
-      ["vitepress", "VitePress", "Danger"],
-      ["mkdocs", "MkDocs", "Bug"],
-    ] as const) {
+  for (const [dialect, label, type] of [
+    ["github", null, "Caution"],
+    ["docusaurus", "Docusaurus", "Danger"],
+    ["vitepress", "VitePress", "Danger"],
+    ["mkdocs", "MkDocs", "Bug"],
+  ] as const) {
+    it(`inserts a ${label ?? "GitHub alert"} callout through the Insert menu`, async () => {
+      const active = "[data-testid=active-document-host]";
       await selectFileMenuItem("New");
       await openMenu("Insert");
       await (await findMenuItem((text) => text === "Callout")).click();
@@ -189,7 +188,17 @@ describe("desktop callouts", () => {
           }),
         { timeoutMsg: "Choosing a callout dialect did not return focus to its body." },
       );
-    }
+    });
+  }
+
+  it("inserts another dialect from the context popup and lists GitHub types first afterward", async () => {
+    const active = "[data-testid=active-document-host]";
+
+    await selectFileMenuItem("New");
+    await openMenu("Insert");
+    await (await findMenuItem((text) => text === "Callout")).click();
+    await (await findMenuItem((text) => text === "MkDocs")).click();
+    await (await findMenuItem((text) => text === "Bug")).click();
 
     // The embedded driver drops Shift from F10, so raise the chord on the focused editor.
     await $(`${active} .ProseMirror`).execute((editor) => {

@@ -39,6 +39,8 @@ import {
   remarkPreserveEmptyLinePlugin,
   strongKeymap,
   syncHeadingIdPlugin,
+  wrapInBulletListInputRule,
+  wrapInOrderedListInputRule,
 } from "@milkdown/kit/preset/commonmark";
 import {
   extendListItemSchemaForTask,
@@ -161,6 +163,10 @@ import {
   type LeafdownLinkPreviewPluginOptions,
 } from "../plugins/linkPreview";
 import { createLeafdownListFormPlugin } from "../plugins/listForm";
+import {
+  createLeafdownBulletListInputRule,
+  createLeafdownOrderedListInputRule,
+} from "../plugins/listInputRules";
 import { createLeafdownLogicalLinkSerializerPlugin } from "../plugins/logicalLinkSerializer";
 import { createLeafdownMarkerPresentationPlugin } from "../plugins/markerPresentation";
 import { createLeafdownMarkNestingPlugin } from "../plugins/markNesting";
@@ -333,7 +339,12 @@ const LINK_MARK_PRIORITY = 75;
 // its text, which restyles every block a heading rule can match. Nothing in Leafdown reads them:
 // export writes its own anchors, and the outline, wiki links, and folding find headings in the
 // document by position and text.
-const COMMONMARK_PLUGINS = commonmark.filter((plugin) => plugin !== syncHeadingIdPlugin);
+const COMMONMARK_PLUGINS = commonmark.filter(
+  (plugin) =>
+    plugin !== syncHeadingIdPlugin &&
+    plugin !== wrapInBulletListInputRule &&
+    plugin !== wrapInOrderedListInputRule,
+);
 const DISABLED_TEXT_ASSISTANCE_ATTRIBUTES = {
   spellcheck: "false",
   writingsuggestions: "false",
@@ -407,6 +418,8 @@ export const createMilkdownEditor = async ({
     .use(createLeafdownHardBreakFormPlugin())
     .use(createLeafdownHeadingFormPlugin())
     .use(createLeafdownListFormPlugin())
+    .use(createLeafdownBulletListInputRule())
+    .use(createLeafdownOrderedListInputRule())
     .use(createLeafdownContinuationFormPlugin())
     .use(createLeafdownTableFormPlugin())
     .use(createLeafdownTableShapePlugin())

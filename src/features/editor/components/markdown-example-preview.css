@@ -1,0 +1,25 @@
+@reference "../../../app.css";
+
+.leafdown-editor.leafdown-example-preview {
+  @apply min-h-16 p-0;
+
+  .ProseMirror {
+    @apply min-h-0 max-w-none px-0;
+
+    > p:last-child:has(> br:only-child) {
+      @apply hidden;
+    }
+
+    pre,
+    pre[data-mermaid-mode] .leafdown-code-mermaid-panel:not([hidden]),
+    pre .leafdown-code-math-preview:not([hidden]) {
+      @apply overflow-visible;
+    }
+  }
+
+  button,
+  .leafdown-code-controls,
+  .leafdown-block-gutter-layer {
+    @apply hidden;
+  }
+}

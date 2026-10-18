@@ -1,6 +1,14 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLinkIcon } from "lucide-react";
-import { createContext, useContext, type ComponentProps, type ReactNode, type Ref } from "react";
+import {
+  createContext,
+  lazy,
+  Suspense,
+  useContext,
+  type ComponentProps,
+  type ReactNode,
+  type Ref,
+} from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 
 import { ShortcutKeys } from "@/components/ui/shortcut-keys";
@@ -34,11 +42,122 @@ interface TextNode {
   children?: TextNode[];
 }
 
+interface ExampleNode extends TextNode {
+  children?: ExampleNode[];
+  meta?: string | null;
+  data?: { hProperties?: Record<string, string> };
+}
+
 const nodeText = (node: TextNode | undefined): string =>
   node?.type === "text" ? (node.value ?? "") : (node?.children ?? []).map(nodeText).join("");
 
 const HelpPageLinkContext = createContext<((page: HelpPageId) => void) | null>(null);
 const CodeBlockContext = createContext(false);
+const MarkdownExamplePreview = lazy(async () => ({
+  default: (await import("@/features/editor")).MarkdownExamplePreview,
+}));
+
+const HELP_ILLUSTRATIONS = import.meta.glob<string>("../../../../docs/help/illustrations/*.svg", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+
+const remarkExamples = () => (tree: ExampleNode) => {
+  const visit = (node: ExampleNode) => {
+    if (node.type === "code") {
+      const kind = /^example=(commonmark|gfm|leafdown)$/u.exec(node.meta ?? "")?.[1];
+      if (kind) node.data = { hProperties: { "data-example": kind } };
+    }
+    node.children?.forEach(visit);
+  };
+  visit(tree);
+};
+
+function HelpList({ node, ...props }: MarkdownProps<"ul">) {
+  const items = node?.children.filter((child) => child.type === "element");
+  const cards =
+    items?.length &&
+    items.every((item) => {
+      const first = item.children.find((child) => child.type === "element");
+      const link = first?.type === "element" && first.tagName === "p" ? first.children[0] : first;
+      return (
+        link?.type === "element" &&
+        link.tagName === "a" &&
+        typeof link.properties.href === "string" &&
+        getHelpLinkTarget(link.properties.href)?.kind === "internal"
+      );
+    });
+  return (
+    <ul
+      className={
+        cards
+          ? "my-5 grid gap-3 @xl/help-article:grid-cols-2 [&>li]:rounded-lg [&>li]:border [&>li]:p-4"
+          : "my-3 list-disc space-y-2 pl-5 marker:text-muted-foreground"
+      }
+      {...props}
+    />
+  );
+}
+
+function HelpImage({ src, alt }: MarkdownProps<"img">) {
+  const illustration =
+    typeof src === "string" && /^illustrations\/[a-z-]+\.svg$/u.test(src)
+      ? HELP_ILLUSTRATIONS[`../../../../docs/help/${src}`]
+      : undefined;
+  return illustration ? (
+    <span
+      role={alt ? "img" : undefined}
+      aria-label={alt || undefined}
+      aria-hidden={alt ? undefined : true}
+      className="my-5 block rounded-xl bg-art-tint p-5 [&>svg]:mx-auto [&>svg]:h-auto [&>svg]:max-w-full"
+      dangerouslySetInnerHTML={{ __html: illustration }}
+    />
+  ) : (
+    <span>{alt}</span>
+  );
+}
+
+function HelpPre({ node, children, ...props }: MarkdownProps<"pre">) {
+  const { t } = useLocalization();
+  const code = node?.children[0];
+  const kind = code?.type === "element" ? code.properties["data-example"] : undefined;
+  const source = nodeText(node).replace(/\n$/u, "");
+  const sample = (
+    <pre
+      className="my-5 overflow-x-auto rounded-lg border bg-muted/40 px-4 py-3 font-mono text-[0.8125rem] leading-relaxed [&>code]:rounded-none [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-[1em]"
+      {...props}
+    >
+      <CodeBlockContext.Provider value={true}>{children}</CodeBlockContext.Provider>
+    </pre>
+  );
+  if (!kind) return sample;
+  return (
+    <figure className="my-5 overflow-hidden rounded-xl border" data-help-example={kind}>
+      <figcaption className="border-b bg-muted/40 px-4 py-2 text-xs font-medium">
+        {kind === "commonmark"
+          ? "CommonMark"
+          : kind === "gfm"
+            ? "GFM"
+            : t("help.example.extension")}
+      </figcaption>
+      <div className="grid @xl/help-article:grid-cols-2">
+        <div className="min-w-0 p-4 [&>pre]:mb-0 [&>pre]:border-0 [&>pre]:p-0">
+          <p className="text-xs font-medium text-muted-foreground">{t("help.example.source")}</p>
+          {sample}
+        </div>
+        <div className="min-w-0 overflow-x-auto border-t p-4 @xl/help-article:border-t-0 @xl/help-article:border-l">
+          <p className="mb-3 text-xs font-medium text-muted-foreground">
+            {t("help.example.result")}
+          </p>
+          <Suspense fallback={<div inert aria-hidden className="min-h-16" />}>
+            <MarkdownExamplePreview source={source} />
+          </Suspense>
+        </div>
+      </div>
+    </figure>
+  );
+}
 
 function HelpCode({ node: _node, className, children, ...props }: MarkdownProps<"code">) {
   const block = useContext(CodeBlockContext);
@@ -101,7 +220,7 @@ function HelpLink({ href, children }: MarkdownProps<"a">) {
 
 const HELP_MARKDOWN_COMPONENTS = {
   a: HelpLink,
-  img: ({ alt }: MarkdownProps<"img">) => <span>{alt}</span>,
+  img: HelpImage,
   h1: () => null,
   h2: ({ node, ...props }: MarkdownProps<"h2">) => (
     <h3
@@ -118,9 +237,7 @@ const HELP_MARKDOWN_COMPONENTS = {
     <h5 className="mt-5 mb-1.5 font-semibold first:mt-0" {...props} />
   ),
   p: ({ node: _node, ...props }: MarkdownProps<"p">) => <p className="my-3" {...props} />,
-  ul: ({ node: _node, ...props }: MarkdownProps<"ul">) => (
-    <ul className="my-3 list-disc space-y-2 pl-5 marker:text-muted-foreground" {...props} />
-  ),
+  ul: HelpList,
   ol: ({ node: _node, ...props }: MarkdownProps<"ol">) => (
     <ol className="my-3 list-decimal space-y-2 pl-5 marker:text-muted-foreground" {...props} />
   ),
@@ -131,14 +248,7 @@ const HELP_MARKDOWN_COMPONENTS = {
     <blockquote className="my-4 border-l-2 pl-4 text-muted-foreground" {...props} />
   ),
   code: HelpCode,
-  pre: ({ node: _node, children, ...props }: MarkdownProps<"pre">) => (
-    <pre
-      className="my-5 overflow-x-auto rounded-lg border bg-muted/40 px-4 py-3 font-mono text-[0.8125rem] leading-relaxed [&>code]:rounded-none [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-[1em]"
-      {...props}
-    >
-      <CodeBlockContext.Provider value={true}>{children}</CodeBlockContext.Provider>
-    </pre>
-  ),
+  pre: HelpPre,
 } satisfies Components;
 
 const INLINE_COMPONENTS = {
@@ -154,7 +264,11 @@ export function HelpMarkdownFragment({
   inline?: boolean;
 }) {
   return (
-    <ReactMarkdown skipHtml components={inline ? INLINE_COMPONENTS : HELP_MARKDOWN_COMPONENTS}>
+    <ReactMarkdown
+      skipHtml
+      remarkPlugins={[remarkExamples]}
+      components={inline ? INLINE_COMPONENTS : HELP_MARKDOWN_COMPONENTS}
+    >
       {source}
     </ReactMarkdown>
   );

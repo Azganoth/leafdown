@@ -1,4 +1,4 @@
-import { $, browser, expect } from "@wdio/globals";
+import { $, $$, browser, expect } from "@wdio/globals";
 import { Key } from "webdriverio";
 
 import { waitForDiagnosticRecord } from "../support/diagnostics.js";
@@ -77,12 +77,13 @@ describe("desktop Help pages", () => {
       throw new Error(`Help did not scroll: ${JSON.stringify(scrolling)}`);
     }
 
-    await $("article button").click();
+    await $("article").$("button=Markdown reference").click();
     await expect($("[data-slot='dialog-title']")).toHaveText("Markdown reference");
     await expect($("article pre")).toBeDisplayed();
     expect(await browser.getUrl()).not.toContain("github.com");
 
-    await $("article button").click();
+    await $("article").$("button=Specification").scrollIntoView();
+    await $("article").$("button=Specification").click();
     await waitForDiagnosticRecord(
       (record) =>
         record.event === "desktopE2eOpenerSuppressed" &&
@@ -109,5 +110,66 @@ describe("desktop Help pages", () => {
     expect(selectionAfterHelp).toEqual(selectionBeforeHelp);
     await browser.keys([Key.Ctrl, "z", Key.NULL]);
     await expect(editor).not.toHaveText(expect.stringContaining("Help draft"));
+  });
+
+  it("keeps illustrations and example pairs within the page in both appearances and widths", async () => {
+    const originallyDark = await browser.execute(() =>
+      document.documentElement.classList.contains("dark"),
+    );
+    try {
+      for (const dark of [false, true]) {
+        await browser.execute(
+          (enabled) => document.documentElement.classList.toggle("dark", enabled),
+          dark,
+        );
+        for (const width of [640, 1280]) {
+          await browser.setWindowSize(width, 800);
+          for (const page of [
+            "Getting started",
+            "Markdown reference",
+            "File and folder workflows",
+            "Settings reference",
+          ]) {
+            await openMenu("Help");
+            await $(`aria/${page}`).click();
+            for await (const example of $$("article [data-help-example]")) {
+              await example.scrollIntoView();
+              await expect(example.$('[data-ready="true"]')).toExist();
+              await expect(example.$('[contenteditable="true"]')).not.toExist();
+              const diagram = example.$(".leafdown-code-mermaid-image");
+              if (await diagram.isExisting()) await expect(diagram).toBeDisplayed();
+              const dimensions = await browser.execute((element) => {
+                const card = element.getBoundingClientRect();
+                const article = element.closest("article")!.getBoundingClientRect();
+                const panels = element.querySelectorAll(":scope > div > div");
+                return {
+                  left: card.left,
+                  right: card.right,
+                  articleLeft: article.left,
+                  articleRight: article.right,
+                  sourceTop: panels[0].getBoundingClientRect().top,
+                  resultTop: panels[1].getBoundingClientRect().top,
+                };
+              }, example);
+              expect(dimensions.left).toBeGreaterThanOrEqual(dimensions.articleLeft);
+              expect(dimensions.right).toBeLessThanOrEqual(dimensions.articleRight + 1);
+              if (width === 640) expect(dimensions.resultTop).toBeGreaterThan(dimensions.sourceTop);
+              else expect(dimensions.resultTop).toEqual(dimensions.sourceTop);
+            }
+            const overflow = await browser.execute(() => {
+              const article = document.querySelector("article")!;
+              return article.scrollWidth - article.clientWidth;
+            });
+            expect(overflow).toBeLessThanOrEqual(1);
+            await browser.keys("Escape");
+          }
+        }
+      }
+    } finally {
+      await browser.execute(
+        (enabled) => document.documentElement.classList.toggle("dark", enabled),
+        originallyDark,
+      );
+    }
   });
 });

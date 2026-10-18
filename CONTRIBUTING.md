@@ -22,6 +22,16 @@ A release's section may name a few highlights, which What's new shows first, eac
 
 If a proposed implementation would change product direction, architecture, or release scope, reach agreement in an issue before substantial implementation. Update the owning documentation as part of the accepted change.
 
+### Bundled Help Authoring
+
+Keep user guides as Markdown under `docs/help/`. Lead with a task, explain the result of each action, and write menu paths in bold with shortcuts in inline code. Use `Mod` for the platform's primary modifier. A command without a default shortcut should not acquire an invented one. Link to another guide with its filename, or to a section on the current page with its GitHub heading fragment.
+
+For a source/result card, use a `text` code fence with exactly `example=commonmark`, `example=gfm`, or `example=leafdown` after the language. Use a longer outer fence when the example contains fences. The `text` language keeps formatters from rewriting extension syntax as standard Markdown. GitHub shows ordinary source; the app adds a syntax-family badge and a read-only rendering using the document editor. Put a description of the result and any menu path or shortcut in surrounding prose. Results are visual illustrations, with inert controls, no document or folder context, and no remote image loading. The source and explanation remain available to assistive technology. Keep examples small; do not rely on an actual local file, interactive control, or network resource for their meaning.
+
+Put line drawings in `docs/help/illustrations/` and embed them as `![Description](illustrations/name.svg)`. Only these bundled SVGs render as images in Help; other image destinations show their alt text without loading. Use the empty-state drawing style and `--art-*`, `--primary`, `--primary-foreground`, `--card`, or `--foreground` colors with light-theme fallbacks. SVGs are trusted repository assets: do not include scripts, external references, or event handlers. Give informative drawings alt text and explain numbered areas in the prose; use empty alt text for purely decorative drawings.
+
+Use an ordinary blockquote beginning with **Tip:** for advice. A list whose items each start with a link to a bundled guide becomes navigation cards in the app and remains a readable list on GitHub. Preview changes in light and dark appearances at narrow and wide sizes.
+
 ### AI-Assisted Contributions
 
 AI assistance is allowed, but the human author remains responsible for understanding, reviewing, verifying, and explaining the contribution and for addressing review feedback. Do not submit generated changes that you cannot evaluate or maintain.

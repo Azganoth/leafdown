@@ -32,6 +32,8 @@ Application composition lives under `src/components/` in `layout/` and `screens/
 
 The `release-notes` feature owns the changelog bundled into the frontend, the highlight illustrations bundled with it, current-version selection, and persisted launch and seen-version history. It renders notes with the `help` feature's bundled-page Markdown renderer, so both Help surfaces share one link policy, and it does not access document or session state.
 
+The `help` feature bundles guide Markdown and trusted SVG illustrations. Example code fences request the `editor` feature's read-only Markdown preview, created when the example enters view and destroyed when it leaves the page. Each preview has an isolated editor with no document path, folder context, or session bridge; its controls are inert and subsequent content and selection transactions are rejected. The authored source and surrounding explanation provide the accessible equivalent of the visual result. Only illustrations imported from `docs/help/illustrations/` are inserted as SVG; arbitrary Markdown image destinations remain text and cannot trigger a fetch.
+
 The `session` feature owns the window's open documents and their relationship to the folder context, plus workflows spanning multiple features. Dependencies flow left to right:
 
 `application components -> commands -> session -> domain features -> shared UI/lib`

@@ -1,43 +1,79 @@
 # Settings reference
 
-Open **File > Preferences** to change the settings below. Changes persist across launches. **Restore defaults** returns them to their defaults. The Preferences dialog groups settings as General, Files, Editor, and Appearance.
+Make Leafdown comfortable to read and choose how it opens, saves, and restores your work. Open **File > Preferences...** (`Mod+,`). Changes persist across launches and are shared by your windows. **Restore defaults** returns settings to their defaults.
+
+![Preferences has a section list on the left and controls on the right, with a document preview beneath typography choices.](illustrations/preferences.svg)
+
+Choose **General**, **Files**, **Editor**, or **Appearance** on the left, then change a control on the right. Switches turn a behavior on or off; choice controls select one value. The drawing is a guide to the controls, not a second Preferences dialog.
 
 ## General
 
-- **Language:** Use the operating system language or a language Leafdown ships. English is currently available.
-- **Record recent files and folders:** Keep separate recent lists, with up to 10 items each. Turning this off stops new entries from being recorded.
-- **Sidebar visibility:** Show or hide the article navigator when a folder is open.
-- **Status bar visibility:** Show or hide document status when a document is open.
-- **Article sort order:** Sort the navigator by name, modified date, or type.
-- **Show all files:** List files Leafdown cannot open, dimmed, in the navigator alongside articles. Off by default; **View > Show all files** switches it too.
+### Arrange your workspace
 
-**View > Always on top** is another persistent window setting; it keeps every Leafdown window above other windows until switched off.
+- **Sidebar visibility:** Show or hide the article navigator while a folder is open. **View > Toggle sidebar** (`Mod+Shift+E`) does the same.
+- **Status bar visibility:** Show or hide document status, counts, encoding, and line ending. Also available as **View > Toggle status bar**.
+- **Article sort order:** Choose name, modified date, or type. **View > Sort articles by** offers the same choices.
+- **Show all files:** Include dimmed rows for files Leafdown cannot open. Off by default; **View > Show all files** switches it too.
 
-The **H1 to H6** control at the top of the document outline is also remembered across launches. It chooses how deep the outline lists headings, H1–H3 by default.
+Two related settings live in the workspace itself: **View > Always on top** keeps Leafdown windows above other windows, and the outline's **H1 to H6** control chooses the deepest heading level listed (H1–H3 by default). Both choices are remembered.
+
+### Choose language and recent history
+
+**Language** uses the operating system language or a shipped language. English is currently available.
+
+**Record recent files and folders** keeps up to 10 entries in each list. Turning it off stops recording new entries; use the welcome screen to remove an existing entry or **File > Open recent > Clear recent items** to clear both lists. Your files are untouched.
 
 ## Files
 
-- **Default extension for new documents:** Choose `.md` or `.markdown`.
-- **Default line ending for new documents:** Choose LF or CRLF. The default follows your operating system.
-- **Insert final newline on save:** End the last line of saved text with a newline when enabled. Blank lines at the end of a document are saved either way.
-- **Restore session:** Reopen your windows, tabs, and unsaved changes the next time Leafdown starts, so quitting does not ask about them. On by default. Turn it off to have quitting ask about unsaved changes and start with the welcome screen.
-- **When dropping a folder / Markdown file:** Open the item or insert a link into the active document. Each item type has its own choice.
-- **Index file names:** Set the ordered names Leafdown tries when opening a folder. The defaults are `readme` and `index`.
-- **Ignored directories:** Set directory names to skip during folder scans. The defaults include version-control and build directories.
+### Return to unfinished work
+
+Leave **Restore session** on to reopen windows, tabs, and unsaved text after quitting. It is on by default. Turn it off to have quitting ask about unsaved changes and the next launch start at the welcome screen.
+
+> **Tip:** Restoring a session does not save your Markdown files. Use **File > Save** (`Mod+S`) when you want the file on disk to contain your changes.
+
+### Set defaults for new notes
+
+- **Default extension for new documents:** `.md` (default) or `.markdown`. Existing `.mdown` and `.mkd` files work too.
+- **Default line ending for new documents:** LF or CRLF. The default follows the operating system: CRLF on Windows, LF on macOS/Linux. To change the current note, use **Edit > Line ending** or its status-bar control.
+- **Insert final newline on save:** End the last content line with a newline. On by default; trailing blank lines are preserved either way. Also available under **Edit > Line ending**.
+
+### Choose what a folder opens
+
+**Index file names** is an ordered list of base names. The defaults are `readme`, then `index`: Leafdown tries them when opening a folder, so put your preferred landing page first. Use names without their Markdown extension.
+
+**Ignored directories** skips named directories and their contents during scans. Defaults include `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, and `.cache`. Matching ignores case on Windows and respects it on Unix-like systems. An ignored directory's notes do not appear in the navigator or folder search.
+
+### Choose what a drop does
+
+**When dropping a folder** and **When dropping a Markdown file** each choose between opening the item and inserting a link into the active document. Both default to opening. The drag preview shows the configured action before you drop.
 
 ## Editor
 
-- **Auto pair brackets and quotes:** Insert the matching closing character while typing when enabled.
-- **Display line numbers for code blocks:** Show visual line numbers that never enter saved text or copied content.
-- **Soft wrap for code blocks:** Wrap long code lines visually without changing the Markdown.
+### Reduce typing
+
+**Auto pair brackets and quotes** inserts a matching closing character while you type. It is on by default. Turn it off if you prefer to type both sides yourself.
+
+### Read code more easily
+
+**Display line numbers for code blocks** numbers lines beside code. Numbers never become saved or copied text. A wrapped line still has only one number.
+
+**Soft wrap for code blocks** wraps long lines visually instead of requiring horizontal scrolling. It does not insert newlines into your code. Both settings are off by default and can also be changed with the controls on a code block.
 
 ## Appearance
 
-- **Accent color:** Choose Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia.
-- **Appearance theme:** Follow the system or choose Light or Dark.
-- **File icons:** Keep the navigator's file and folder icons gray, or choose Colored to give folders and each type of file a color of their own.
-- **Document font:** Choose Inter, IBM Plex Sans, Atkinson Hyperlegible Next, Literata, or the system font. Code keeps its monospace face.
-- **Text size:** Choose 14, 16, 18, or 20 px for document text.
-- **Line spacing:** Choose Compact, Default, or Relaxed for document paragraphs, lists, and quotes.
+### Choose colors
 
-Document typography settings affect the document surface and its preview, leaving the interface font and the file's Markdown alone. For the complete command and settings inventory, see the [repository Reference](https://github.com/Azganoth/leafdown/blob/main/docs/reference.md).
+**Appearance theme** follows System or selects Light or Dark. **View > Appearance** offers the same choices. **Accent color** selects Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia.
+
+**File icons** chooses Neutral gray icons or Colored icons with amber folders and a color for each file type. This is separate from the accent color.
+
+### Tune document reading
+
+1. Choose a **Document font**: Inter, IBM Plex Sans, Atkinson Hyperlegible Next, Literata, or System. All except System are bundled for offline use; code keeps its monospace font.
+2. Choose **Text size**: 14, 16, 18, or 20 px. Headings and other document elements scale with it.
+3. Choose **Line spacing**: Compact, Default, or Relaxed. It changes paragraphs, lists, and quotes; headings and code keep their own line height.
+4. Read the sample beneath those controls to compare your choices before returning to the document.
+
+These choices affect document typography, not the interface font or saved Markdown. To enlarge the whole interface instead, use **View > Zoom in** (`Mod+=`), **Zoom out** (`Mod+-`), or **Reset zoom** (`Mod+0`).
+
+Continue with [Getting started](getting-started.md) or [File and folder workflows](file-and-folder-workflows.md). The [repository Reference](https://github.com/Azganoth/leafdown/blob/main/docs/reference.md) contains the complete settings and command inventory.

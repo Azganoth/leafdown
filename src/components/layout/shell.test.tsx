@@ -185,7 +185,12 @@ describe("Shell", () => {
     expect(screen.queryByRole("heading", { name: "Recent files" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Recent folders" })).not.toBeInTheDocument();
     expect(screen.getByTestId("menu-bar-host")).toBeInTheDocument();
-    expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
+    expect(screen.getByTestId("document-workspace-host")).toHaveClass(
+      "px-3",
+      "pt-1",
+      "pb-3",
+      "welcome-glow",
+    );
     expect(screen.getByTestId("document-surface-host")).toBeInTheDocument();
     expect(screen.getByTestId("modal-layer-host")).toBeInTheDocument();
     expect(screen.queryByTestId("active-document-host")).not.toBeInTheDocument();
@@ -427,6 +432,19 @@ describe("Shell", () => {
     render(<Shell />);
 
     expect(screen.getByTestId("document-workspace-host")).toHaveClass("px-3", "pt-1", "pb-3");
+    expect(screen.getByTestId("document-workspace-host")).not.toHaveClass("welcome-glow");
+  });
+
+  it("hides the welcome glow while a folder loads beside the welcome screen", () => {
+    setDefaultSession({ folderContextLoad: { id: 1, path: "C:/Notes" } });
+    setDefaultSettings({ sidebarVisible: true });
+
+    render(<Shell />);
+
+    expect(screen.getByRole("region", { name: "Leafdown" })).toBeInTheDocument();
+    expect(screen.getByTestId("article-navigator-host")).toBeInTheDocument();
+    expect(screen.getByTestId("document-workspace-host")).not.toHaveClass("welcome-glow");
+    expect(screen.getByTestId("document-surface-host")).toHaveClass("bg-background");
   });
 
   it("shows the status bar beneath the workspace while a document is open", () => {

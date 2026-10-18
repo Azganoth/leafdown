@@ -86,7 +86,7 @@ import {
 import { EmptyFolderArt, NoMatchesArt, NoVisibleEntriesArt } from "./article-navigator-art";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
-const ARTICLE_NAVIGATOR_ROW_HEIGHT = 30;
+const ARTICLE_NAVIGATOR_ROW_HEIGHT = 32;
 const ROW_PATH_ATTRIBUTE = "data-navigator-path";
 const ROW_MENU_KEYBOARD_OFFSET_X = 16;
 
@@ -366,14 +366,14 @@ export function ArticleNavigator({
           <InputGroup className="h-7 border-transparent bg-muted/50 shadow-none dark:bg-muted/50">
             <InputGroupInput
               aria-label={t("articleNavigator.filter.label")}
-              className="text-xs md:text-xs"
+              className="text-[0.8125rem]/5 md:text-[0.8125rem]/5"
               onChange={(event) => setFilterQuery(event.target.value)}
               placeholder={t("articleNavigator.filter.placeholder")}
               type="text"
               value={filterQuery}
             />
             <InputGroupAddon align="inline-start">
-              <SearchIcon className="size-3.5" />
+              <SearchIcon className="size-4" />
             </InputGroupAddon>
             {filterQuery && (
               <InputGroupAddon align="inline-end">
@@ -503,7 +503,7 @@ interface NavigatorNoticeProps {
 
 function NavigatorNotice({ children, icon: Icon, tone = "info" }: NavigatorNoticeProps) {
   return (
-    <div className="mx-1 flex shrink-0 gap-2 rounded-md bg-muted/60 px-2 py-1.5 text-xs leading-5 text-muted-foreground">
+    <div className="mx-1 flex shrink-0 gap-2 rounded-md bg-muted/60 px-2 py-1.5 text-[0.8125rem]/5 text-muted-foreground">
       <span
         className={cn(
           "flex size-5 shrink-0 items-center justify-center rounded-md",
@@ -878,7 +878,7 @@ function ArticleNavigatorTreeItem({
           aria-setsize={row.setSize}
           className={cn(
             buttonVariants({ variant: "ghost" }),
-            "active-item-marker h-[30px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
+            "active-item-marker h-8 w-full justify-start gap-1 rounded-md pr-2 text-[0.8125rem]/5 font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
             isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
           )}
           data-active={row.kind === "file" ? row.isActive : undefined}
@@ -888,7 +888,7 @@ function ArticleNavigatorTreeItem({
           onFocus={onFocus}
           ref={registerElement}
           role="treeitem"
-          style={{ paddingLeft: `${row.depth * 14 + (isFileRow ? 23 : 6)}px` }}
+          style={{ paddingLeft: `${row.depth * 16 + (isFileRow ? 25 : 6)}px` }}
           tabIndex={isTabStop ? 0 : -1}
           virtualRow={virtualRow}
         />
@@ -918,11 +918,11 @@ function DirectoryRowContent({
   return (
     <>
       {row.hasChildren ? (
-        <DisclosureIcon className="size-3 text-muted-foreground" />
+        <DisclosureIcon className="size-3.5 text-muted-foreground" />
       ) : (
-        <span className="size-3 shrink-0" />
+        <span className="size-3.5 shrink-0" />
       )}
-      <DirectoryIcon className="size-3.5 text-muted-foreground" />
+      <DirectoryIcon className="size-4 text-muted-foreground" />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
     </>
   );
@@ -939,7 +939,7 @@ function FileRowContent({
 
   return (
     <>
-      <Icon className="size-3.5 text-muted-foreground" />
+      <Icon className="size-4 text-muted-foreground" />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
     </>
   );
@@ -956,8 +956,8 @@ function DraftRowContent({
 
   return (
     <>
-      {entryKind === "directory" && <span className="size-3 shrink-0" />}
-      <Icon className="size-3.5 text-muted-foreground" />
+      {entryKind === "directory" && <span className="size-3.5 shrink-0" />}
+      <Icon className="size-4 text-muted-foreground" />
       {nameEditor}
     </>
   );
@@ -1031,7 +1031,7 @@ function EntryNameEditor({
   return (
     <Input
       aria-label={t("articleNavigator.nameEditor.label", { entryKind })}
-      className="h-6 flex-1 px-1.5 text-xs md:text-xs"
+      className="h-7 flex-1 px-1.5 text-[0.8125rem]/5 md:text-[0.8125rem]/5"
       onBlur={() => {
         // Switching to another window blurs the field too, but the edit is still in progress
         // and resumes when the window returns.

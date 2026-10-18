@@ -6,6 +6,7 @@ const findByText = async (
   selector: string,
   predicate: (text: string) => boolean,
   timeoutMsg: string,
+  onMiss?: () => Promise<unknown>,
 ) => {
   const result: { item?: WebdriverIO.Element } = {};
 
@@ -18,6 +19,7 @@ const findByText = async (
         }
       }
 
+      await onMiss?.();
       return false;
     },
     { timeoutMsg },
@@ -33,8 +35,27 @@ export const openMenu = async (label: string) => {
 export const findMenuItem = (predicate: (text: string) => boolean) =>
   findByText(MENU_ITEM_SELECTOR, predicate, "Expected menu item did not appear.");
 
+// Trees render only the rows near their viewport, so a row further down appears only once the
+// tree scrolls to it. Each miss moves half a viewport, returning to the top after the end.
+const scrollTreesForward = () =>
+  browser.execute(() => {
+    for (const tree of document.querySelectorAll('[role="tree"]')) {
+      const viewport = tree.closest<HTMLElement>('[data-slot="scroll-area-viewport"]');
+
+      if (viewport) {
+        const isAtEnd = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 1;
+        viewport.scrollTop = isAtEnd ? 0 : viewport.scrollTop + viewport.clientHeight / 2;
+      }
+    }
+  });
+
 export const findTreeItem = (label: string) =>
-  findByText('[role="treeitem"]', (text) => text === label, `Tree item ${label} did not appear.`);
+  findByText(
+    '[role="treeitem"]',
+    (text) => text === label,
+    `Tree item ${label} did not appear.`,
+    scrollTreesForward,
+  );
 
 export const openRecentPath = async (path: string) => {
   await openMenu("File");

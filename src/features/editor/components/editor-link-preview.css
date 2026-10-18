@@ -1,0 +1,48 @@
+@reference "../../../app.css";
+
+/* A sheet with its top-end corner folded down. The edge and the paper are cut along parallel
+   diagonals, the paper's inset by the outline's width, so the outline follows the cut. A box shadow
+   would be clipped with them, so the popup casts a drop shadow of the cut shape instead. */
+.leafdown-link-preview {
+  --leafdown-link-preview-fold: 1.125rem;
+  --leafdown-link-preview-shadow: rgb(0 0 0 / 13%);
+  filter: drop-shadow(0 8px 14px var(--leafdown-link-preview-shadow));
+
+  &:is(.dark *) {
+    --leafdown-link-preview-shadow: rgb(0 0 0 / 60%);
+  }
+}
+
+.leafdown-link-preview-edge {
+  @apply rounded-[10px] bg-foreground/12 p-px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--leafdown-link-preview-fold)) 0,
+    100% var(--leafdown-link-preview-fold),
+    100% 100%,
+    0 100%
+  );
+}
+
+.leafdown-link-preview-sheet {
+  @apply relative flex flex-col items-start rounded-[9px] bg-popover p-3 text-popover-foreground;
+  /* Moving a 45° cut 1px inward shortens each leg by 2px - √2. */
+  --leafdown-link-preview-paper-fold: calc(var(--leafdown-link-preview-fold) - 2px + 1.4142px);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--leafdown-link-preview-paper-fold)) 0,
+    100% var(--leafdown-link-preview-paper-fold),
+    100% 100%,
+    0 100%
+  );
+}
+
+.leafdown-link-preview-flap {
+  @apply absolute top-0 right-0 rounded-bl-[3px] border-b border-l border-foreground/12 bg-linear-45 from-muted from-50% to-transparent to-50%;
+  width: var(--leafdown-link-preview-paper-fold);
+  height: var(--leafdown-link-preview-paper-fold);
+}
+
+.leafdown-link-preview-excerpt[data-truncated] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 1lh), rgb(0 0 0 / 25%));
+}

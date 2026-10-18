@@ -58,16 +58,6 @@ Global settings persist across application launches unless specified otherwise.
 - **Soft wrap for code blocks:** On or Off. Default: Off.
 - Both code block settings can also be toggled from the controls on any code block, which change the setting itself. [Blocks](./specification.md#blocks) describes the controls.
 
-### Output
-
-- **Unordered list marker:** `-`, `*`, or `+`. Default: `-`. (Deferred)
-- **Ordered list marker:** `.` or `)`. Default: `.`. (Deferred)
-- **Ordered list numbering:** Sequential or Repeated. Default: Sequential. (Deferred)
-- **Strong marker:** `**` or `__`. Default: `**`. (Deferred)
-- **Emphasis marker:** `*` or `_`. Default: `*`. (Deferred)
-- **Code block fence:** Triple backticks or Triple tildes. Default: Triple backticks. (Deferred)
-- **Horizontal rule marker:** `---`, `***`, or `___`. Default: `---`. (Deferred)
-
 ### Appearance
 
 - **Accent color:** Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia. Default: Neutral.

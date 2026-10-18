@@ -9,10 +9,12 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Changed
 
 - Enlarge the text of the article navigator, Find in folder, document tabs, and status bar from 12 px to 13 px, with taller rows and larger file, folder, and chevron icons to match. Document tabs grow too: a taller strip with more space between tabs, a larger close mark and new-document button, and room for longer names before they are cut short. Zoom still scales the whole interface, and Text size still sets document text only.
+- Show only the folder's name in the article navigator's header, without the article count beside it. Find in folder still reports how many articles it searched.
 
 ### Fixed
 
 - Show the whole name of a preview tab. Its name is slanted, and the tab cut off the part of the last letter that leaned past the end of the name.
+- Fade out a toast as it closes. A toast that timed out or was closed slid up at full opacity and stopped with its lower part still showing at the top of the window, cut off at the border, until it disappeared. Closing and swiped-away toasts now fade as they move away and leave nothing behind.
 
 ## [0.1.0-alpha.4] - 2026-10-17
 

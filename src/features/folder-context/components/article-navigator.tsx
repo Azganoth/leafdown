@@ -22,7 +22,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -68,7 +67,6 @@ import {
   filterArticleTreeToArticles,
   getArticleAncestorDirectoryPaths,
   getArticleDirectoryPaths,
-  getArticleFileCount,
   getArticleNavigatorRowIndexes,
   type ArticleNavigatorDirectoryRow,
   type ArticleNavigatorDraft,
@@ -139,7 +137,7 @@ export function ArticleNavigator({
   onOpenArticle,
   showAllFiles = false,
 }: ArticleNavigatorProps) {
-  const { formatNumber, t } = useLocalization();
+  const { t } = useLocalization();
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
   const expandDirectories = useArticleNavigatorStore((state) => state.expandDirectories);
   const requestFocus = useArticleNavigatorStore((state) => state.requestFocus);
@@ -160,8 +158,6 @@ export function ArticleNavigator({
   const expandedPaths = isFiltering
     ? getArticleDirectoryPaths(filteredTree)
     : expandedDirectoryPaths;
-  const articleCount = getArticleFileCount(folderContext.tree);
-  const articleCountLabel = t("articleNavigator.articleCount", { count: articleCount });
   const activeFileAncestorDirectoryPaths = activeArticlePath
     ? getArticleAncestorDirectoryPaths(folderContext.tree, activeArticlePath)
     : null;
@@ -362,9 +358,6 @@ export function ArticleNavigator({
             </TooltipTrigger>
             <TooltipContent side="bottom">{folderContext.path}</TooltipContent>
           </Tooltip>
-          <Badge aria-label={articleCountLabel} className="tabular-nums" variant="secondary">
-            {formatNumber(articleCount)}
-          </Badge>
         </CardTitle>
       </CardHeader>
 

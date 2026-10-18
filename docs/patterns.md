@@ -198,14 +198,14 @@ React Compiler caches a module-level call on its arguments, so a component that 
 Example:
 
 ```tsx
-const { formatNumber, t } = useLocalization();
+const { t } = useLocalization();
 
-<Badge aria-label={t("articleNavigator.articleCount", { count })}>{formatNumber(count)}</Badge>;
+<span>{t("editor.search.results", { count })}</span>;
 ```
 
 ```json
 {
-  "articleNavigator.articleCount": "{count, plural, one {# article} other {# articles}}"
+  "editor.search.results": "{count, plural, one {# result} other {# results}}"
 }
 ```
 

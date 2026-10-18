@@ -342,7 +342,8 @@ describe("linked document preview surface", () => {
 
     const tooltip = await screen.findByRole("tooltip");
 
-    expect(tooltip).toHaveTextContent("setup.md › Installing");
+    expect(tooltip).toHaveTextContent("setup.md");
+    expect(tooltip).toHaveTextContent("Installing");
     expect(tooltip).toHaveTextContent("Download the installer and run it.");
     expect(tooltip.querySelectorAll("a, button, input, [tabindex]")).toHaveLength(0);
   });
@@ -353,7 +354,7 @@ describe("linked document preview surface", () => {
     const tooltip = await screen.findByRole("tooltip");
 
     expect(tooltip).toHaveTextContent("Installing");
-    expect(tooltip).not.toHaveTextContent("›");
+    expect(tooltip).not.toHaveTextContent("setup.md");
   });
 
   it.each([

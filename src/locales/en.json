@@ -752,7 +752,6 @@
   "editor.blockInsertion.horizontalRule": "Horizontal rule",
   "editor.blockInsertion.listItem": "List item",
   "editor.footnotePreview.missingDefinition": "No footnote definition for this label.",
-  "editor.linkPreview.documentHeading": "{document} › {heading}",
   "editor.linkPreview.emptyDocument": "This document is empty.",
   "editor.linkPreview.emptySection": "Nothing follows this heading.",
   "editor.linkPreview.missingDocument": "No document at this link.",

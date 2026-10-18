@@ -20,6 +20,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- Keep the marker typed to start a list: `-`, `+`, or `*` for a bullet list, and `.` or `)` for an ordered one. Typing `1) ` now starts an ordered list. Lists created by commands still use the document's prevailing marker or the default, and adjacent lists still use different markers where saving them with the same one would join them.
 - Show the whole name of a preview tab. Its name is slanted, and the tab cut off the part of the last letter that leaned past the end of the name.
 - Fade out a toast as it closes. A toast that timed out or was closed slid up at full opacity and stopped with its lower part still showing at the top of the window, cut off at the border, until it disappeared. Closing and swiped-away toasts now fade as they move away and leave nothing behind.
 - Reopen each restored tab once. A launch could reopen every kept tab twice, and a document with unsaved changes then appeared in two tabs that each held its text. A window now never restores a document that one of its tabs already holds, and a session already kept with a document twice reopens it in one tab.

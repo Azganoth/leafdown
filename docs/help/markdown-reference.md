@@ -6,6 +6,8 @@ Leafdown opens `.md` and `.markdown` files and saves ordinary Markdown. Type the
 
 Use headings, paragraphs, emphasis, strong text, links, images, blockquotes, lists, thematic breaks, inline code, and fenced or indented code blocks. Leafdown also supports GFM tables, task lists, strikethrough, autolinks, and footnotes.
 
+Start a bullet list by typing `- `, `+ `, or `* `, and an ordered list by typing `1. ` or `1) `. Saving keeps the marker you typed, except where two adjacent lists need different markers to stay separate. Lists created through Format use the marker your document's lists agree on, or the default where they disagree or there are none.
+
 ```text
 # A heading
 

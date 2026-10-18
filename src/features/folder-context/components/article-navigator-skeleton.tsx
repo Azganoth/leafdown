@@ -41,8 +41,8 @@ export function ArticleNavigatorSkeleton({ folderPath }: ArticleNavigatorSkeleto
           <div
             key={index}
             aria-hidden="true"
-            className="flex h-[30px] items-center"
-            style={{ paddingLeft: `${row.depth * 14 + 6}px` }}
+            className="flex h-8 items-center"
+            style={{ paddingLeft: `${row.depth * 16 + 6}px` }}
           >
             <Skeleton className="h-3.5" style={{ width: row.width }} />
           </div>

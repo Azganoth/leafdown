@@ -87,10 +87,10 @@ export function DocumentTabs({ newDocumentLabel, onNewDocument }: DocumentTabsPr
       onValueChange={(tabId: string) => activateDocumentTab(tabId)}
       value={activeTabId}
     >
-      <div className="flex h-8 shrink-0 items-center gap-1 pb-1">
+      <div className="flex h-9 shrink-0 items-center gap-1.5 pb-1">
         <Tabs.List
           aria-label={t("shell.documentTabs")}
-          className="flex h-full min-w-0 [scrollbar-width:none] items-stretch gap-1 overflow-x-auto"
+          className="flex h-full min-w-0 [scrollbar-width:none] items-stretch gap-1.5 overflow-x-auto"
           data-testid="document-tab-list"
           onWheel={(event) => {
             if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
@@ -110,13 +110,13 @@ export function DocumentTabs({ newDocumentLabel, onNewDocument }: DocumentTabsPr
         </Tabs.List>
         <Button
           aria-label={newDocumentLabel}
-          className="shrink-0 text-muted-foreground"
+          className="size-7 shrink-0 text-muted-foreground"
           onClick={onNewDocument}
           size="icon-xs"
           type="button"
           variant="ghost"
         >
-          <PlusIcon className="size-3.5" data-icon="inline-start" />
+          <PlusIcon className="size-4" data-icon="inline-start" />
         </Button>
       </div>
       {tabs.map((tab) => (
@@ -161,7 +161,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
               preview: tab.preview ? "true" : "false",
             })}
             className={cn(
-              "group/tab active-item-marker flex max-w-56 min-w-24 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-2.5 text-xs text-muted-foreground outline-none select-none",
+              "group/tab active-item-marker flex max-w-64 min-w-28 shrink items-center gap-1.5 rounded-md py-0 pr-1 pl-3 text-[0.8125rem]/5 text-muted-foreground outline-none select-none",
               "hover:bg-muted/70 hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
               tab.preview && "italic",
             )}
@@ -198,7 +198,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
         </span>
         <span
           aria-hidden
-          className="grid size-5 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="grid size-6 shrink-0 place-items-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
           data-testid="document-tab-close"
           data-unsaved={document.isDirty || undefined}
           onClick={(event) => {
@@ -213,7 +213,7 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
           )}
           <XIcon
             className={cn(
-              "size-3.5",
+              "size-4",
               document.isDirty
                 ? "hidden group-hover/tab:block"
                 : "invisible group-hover/tab:visible group-data-active/tab:visible",

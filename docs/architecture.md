@@ -231,6 +231,8 @@ The listener is registered before the first take, so a document routed during st
 
 A window's frontend starts after its persisted stores -> With `Restore session` on, it takes its kept state from the backend, the first window opening the other kept windows -> Session claims each saved document, reads clean ones through the open path and builds dirty ones from their snapshots and kept file version, adds the tabs, checks each dirty document's file as the External Change workflow does, and loads the folder context -> The window then reports its state every 5 seconds after a change, reading each edited dirty document's settled Markdown as HTML export does -> Launch documents open after the restored tabs. With `Restore session` off, the first window clears the kept session instead.
 
+Each report rewrites the session record from the process's own windows and removes the snapshots they no longer refer to, so the record assumes one process. Development runs therefore keep their session in a directory of their own: they share the installed application's identifier and can run beside it, since they leave out the single-instance plugin.
+
 ### Drop Workflow
 
 Tauri reports native paths -> Backend classifies one dropped path -> Session reads the matching persisted preference -> Session opens through the existing file or folder workflow, or inserts a path link through the active editor bridge.

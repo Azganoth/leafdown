@@ -14,6 +14,7 @@ use crate::{
 };
 
 const SESSION_DIRECTORY: &str = "session";
+const DEV_SESSION_DIRECTORY: &str = "session.dev";
 const SESSION_RECORD_FILE: &str = "session.json";
 const SNAPSHOTS_DIRECTORY: &str = "snapshots";
 const SNAPSHOT_EXTENSION: &str = "md";
@@ -392,9 +393,19 @@ pub(crate) fn load_kept_session<R: Runtime>(app: &AppHandle<R>) {
     match app.path().app_data_dir() {
         Ok(directory) => app
             .state::<KeptSession>()
-            .load(directory.join(SESSION_DIRECTORY)),
+            .load(session_directory(directory.as_path(), tauri::is_dev())),
         Err(error) => log::error!("cannot keep the session: {error}"),
     }
+}
+
+/// Development runs share an installed Leafdown's identifier and can run beside it, so they keep
+/// their own session.
+fn session_directory(app_data_directory: &Path, is_dev: bool) -> PathBuf {
+    app_data_directory.join(if is_dev {
+        DEV_SESSION_DIRECTORY
+    } else {
+        SESSION_DIRECTORY
+    })
 }
 
 /// A window closing while the application quits, or as the last window, keeps its part of the
@@ -509,13 +520,13 @@ fn open_restored_windows<R: Runtime>(app: &AppHandle<R>, first: &Window<R>, labe
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, fs};
+    use std::{collections::HashMap, fs, path::Path};
 
     use serde_json::json;
 
     use super::{
         KeptSession, KeptSessionError, KeptWindow, RestoredWindow, SESSION_RECORD_FILE,
-        SNAPSHOTS_DIRECTORY, SnapshotText,
+        SNAPSHOTS_DIRECTORY, SnapshotText, session_directory,
     };
     use crate::test_utils::TestDirectory;
 
@@ -801,6 +812,17 @@ mod tests {
         assert_eq!(
             loaded(&directory).take("main", labels_from(2)),
             (None, Vec::new())
+        );
+    }
+
+    #[test]
+    fn development_runs_keep_their_session_apart_from_installed_runs() {
+        let app_data = Path::new("app-data");
+
+        assert_eq!(session_directory(app_data, false), app_data.join("session"));
+        assert_eq!(
+            session_directory(app_data, true),
+            app_data.join("session.dev")
         );
     }
 

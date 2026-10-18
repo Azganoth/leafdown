@@ -1,11 +1,15 @@
-import { FilePlusIcon, FileTextIcon, FolderOpenIcon, XIcon, type LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FilePlusIcon, XIcon } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { COMMAND_DEFINITIONS, getShortcutKeyLabels, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
-import { getOpenFolderContextErrorMessage } from "@/features/folder-context";
+import {
+  FileEntryIcon,
+  FolderEntryIcon,
+  getOpenFolderContextErrorMessage,
+} from "@/features/folder-context";
 import { useRecentItemsStore, type RecentItem } from "@/features/preferences";
 import {
   createNewMarkdownDocument,
@@ -125,20 +129,20 @@ export function WelcomeScreen() {
           <div className="mt-8 flex flex-col gap-1">
             <WelcomeAction
               commandId="file.new"
-              icon={FilePlusIcon}
+              icon={<FilePlusIcon />}
               label={t("welcome.newDocument")}
               onClick={handleNewDocument}
               primary
             />
             <WelcomeAction
               commandId="file.open"
-              icon={FileTextIcon}
+              icon={<FileEntryIcon kind="article" />}
               label={t("welcome.openFile")}
               onClick={handleOpenFile}
             />
             <WelcomeAction
               commandId="file.openFolder"
-              icon={FolderOpenIcon}
+              icon={<FolderEntryIcon open />}
               label={t("welcome.openFolder")}
               onClick={handleOpenFolder}
             />
@@ -150,7 +154,6 @@ export function WelcomeScreen() {
             <RecentItemsSection
               kind="files"
               titleId="recent-files-title"
-              icon={FileTextIcon}
               items={recentFiles}
               now={now}
               onOpenItem={handleOpenRecentFile}
@@ -159,7 +162,6 @@ export function WelcomeScreen() {
             <RecentItemsSection
               kind="folders"
               titleId="recent-folders-title"
-              icon={FolderOpenIcon}
               items={recentFolders}
               now={now}
               onOpenItem={handleOpenRecentFolder}
@@ -205,13 +207,13 @@ function useNow() {
 
 interface WelcomeActionProps {
   commandId: AppCommandId;
-  icon: LucideIcon;
+  icon: ReactNode;
   label: string;
   onClick: () => void;
   primary?: boolean;
 }
 
-function WelcomeAction({ commandId, icon: Icon, label, onClick, primary }: WelcomeActionProps) {
+function WelcomeAction({ commandId, icon, label, onClick, primary }: WelcomeActionProps) {
   const shortcut = COMMAND_DEFINITIONS[commandId].shortcuts?.[0];
 
   return (
@@ -228,7 +230,7 @@ function WelcomeAction({ commandId, icon: Icon, label, onClick, primary }: Welco
           primary ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
         )}
       >
-        <Icon />
+        {icon}
       </span>
       {label}
       {shortcut && (
@@ -248,7 +250,6 @@ function WelcomeAction({ commandId, icon: Icon, label, onClick, primary }: Welco
 }
 
 interface RecentItemsSectionProps {
-  icon: LucideIcon;
   items: RecentItem[];
   kind: RecentItemsKind;
   now: number;
@@ -258,7 +259,6 @@ interface RecentItemsSectionProps {
 }
 
 function RecentItemsSection({
-  icon: Icon,
   items,
   kind,
   now,
@@ -280,7 +280,6 @@ function RecentItemsSection({
         <ul className="-mx-1 flex flex-col">
           {items.map((item) => (
             <RecentItemRow
-              icon={Icon}
               item={item}
               key={item.path}
               kind={kind}
@@ -296,7 +295,6 @@ function RecentItemsSection({
 }
 
 interface RecentItemRowProps {
-  icon: LucideIcon;
   item: RecentItem;
   kind: RecentItemsKind;
   now: number;
@@ -305,7 +303,6 @@ interface RecentItemRowProps {
 }
 
 function RecentItemRow({
-  icon: Icon,
   item: { openedAt, path },
   kind,
   now,
@@ -330,7 +327,6 @@ function RecentItemRow({
             />
           }
         >
-          <Icon className="text-muted-foreground" />
           <span className="flex min-w-0 flex-1 flex-col items-start text-left">
             <span className="w-full truncate">{name}</span>
             <span className="w-full truncate text-xs font-normal text-muted-foreground">

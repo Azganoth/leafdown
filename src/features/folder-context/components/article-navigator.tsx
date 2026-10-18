@@ -1,10 +1,6 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
-  FileIcon,
-  FileTextIcon,
-  FolderIcon,
-  FolderOpenIcon,
   InfoIcon,
   LeafIcon,
   SearchIcon,
@@ -83,7 +79,9 @@ import {
   isArticleNavigatorTraversalKey,
   isArticleNavigatorTypeaheadKey,
 } from "../utils/articleNavigatorTraversal";
+import { getFileIconKind, type FileIconStyle } from "../utils/fileIcons";
 import { EmptyFolderArt, NoMatchesArt, NoVisibleEntriesArt } from "./article-navigator-art";
+import { FileEntryIcon, FolderEntryIcon } from "./entry-icons";
 
 const PATH_SIGNATURE_SEPARATOR = "\u0000";
 const ARTICLE_NAVIGATOR_ROW_HEIGHT = 32;
@@ -112,6 +110,7 @@ export interface ArticleNavigatorEntryActions {
 interface ArticleNavigatorProps {
   actions?: ArticleNavigatorEntryActions;
   activeArticlePath: string | null;
+  fileIconStyle?: FileIconStyle;
   folderContext: FolderContextState;
   /** Double-clicking an article asks for it to stay open rather than be previewed. */
   onKeepArticle?: (path: string) => void;
@@ -132,6 +131,7 @@ type ArticleNavigatorEdit =
 export function ArticleNavigator({
   actions,
   activeArticlePath,
+  fileIconStyle = "neutral",
   folderContext,
   onKeepArticle,
   onOpenArticle,
@@ -331,6 +331,7 @@ export function ArticleNavigator({
       {hasRows && (
         <ArticleNavigatorRows
           edit={isEditing ? edit : null}
+          fileIconStyle={fileIconStyle}
           onCancelEdit={() => finishEdit({ outcome: "cancelled" })}
           onCommitEdit={commitEdit}
           onFinishEdit={finishEdit}
@@ -519,6 +520,7 @@ function NavigatorNotice({ children, icon: Icon, tone = "info" }: NavigatorNotic
 
 interface ArticleNavigatorRowsProps {
   edit: ArticleNavigatorEdit | null;
+  fileIconStyle: FileIconStyle;
   onCancelEdit: () => void;
   onCommitEdit: (name: string) => Promise<ArticleNavigatorEntryActionResult>;
   onFinishEdit: (result: ArticleNavigatorEntryActionResult) => void;
@@ -535,6 +537,7 @@ interface ArticleNavigatorFocus {
 
 function ArticleNavigatorRows({
   edit,
+  fileIconStyle,
   onCancelEdit,
   onCommitEdit,
   onFinishEdit,
@@ -740,6 +743,7 @@ function ArticleNavigatorRows({
             {(row, virtualRow, index) => (
               <ArticleNavigatorTreeItem
                 key={row.path}
+                fileIconStyle={fileIconStyle}
                 isTabStop={index === focusedIndex}
                 nameEditor={
                   index === editRowIndex && edit ? (
@@ -823,6 +827,7 @@ const registerRowElement = (
 };
 
 interface ArticleNavigatorTreeItemProps {
+  fileIconStyle: FileIconStyle;
   isTabStop: boolean;
   nameEditor: ReactNode;
   onActivate: () => void;
@@ -835,6 +840,7 @@ interface ArticleNavigatorTreeItemProps {
 }
 
 function ArticleNavigatorTreeItem({
+  fileIconStyle,
   isTabStop,
   nameEditor,
   onActivate,
@@ -895,25 +901,30 @@ function ArticleNavigatorTreeItem({
       }
     >
       {row.kind === "directory" ? (
-        <DirectoryRowContent nameEditor={nameEditor} row={row} />
+        <DirectoryRowContent fileIconStyle={fileIconStyle} nameEditor={nameEditor} row={row} />
       ) : row.kind === "draft" ? (
-        <DraftRowContent entryKind={row.entryKind} nameEditor={nameEditor} />
+        <DraftRowContent
+          entryKind={row.entryKind}
+          fileIconStyle={fileIconStyle}
+          nameEditor={nameEditor}
+        />
       ) : (
-        <FileRowContent nameEditor={nameEditor} row={row} />
+        <FileRowContent fileIconStyle={fileIconStyle} nameEditor={nameEditor} row={row} />
       )}
     </TooltipTrigger>
   );
 }
 
 function DirectoryRowContent({
+  fileIconStyle,
   nameEditor,
   row,
 }: {
+  fileIconStyle: FileIconStyle;
   nameEditor: ReactNode;
   row: ArticleNavigatorDirectoryRow;
 }) {
   const DisclosureIcon = row.isExpanded ? ChevronDownIcon : ChevronRightIcon;
-  const DirectoryIcon = row.isExpanded ? FolderOpenIcon : FolderIcon;
 
   return (
     <>
@@ -922,24 +933,27 @@ function DirectoryRowContent({
       ) : (
         <span className="size-3.5 shrink-0" />
       )}
-      <DirectoryIcon className="size-4 text-muted-foreground" />
+      <FolderEntryIcon appearance={fileIconStyle} open={row.isExpanded} />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
     </>
   );
 }
 
 function FileRowContent({
+  fileIconStyle,
   nameEditor,
   row,
 }: {
+  fileIconStyle: FileIconStyle;
   nameEditor: ReactNode;
   row: ArticleNavigatorFileRow | ArticleNavigatorUnsupportedFileRow;
 }) {
-  const Icon = row.kind === "file" ? FileTextIcon : FileIcon;
-
   return (
     <>
-      <Icon className="size-4 text-muted-foreground" />
+      <FileEntryIcon
+        appearance={fileIconStyle}
+        kind={row.kind === "file" ? "article" : getFileIconKind(row.name)}
+      />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
     </>
   );
@@ -947,17 +961,21 @@ function FileRowContent({
 
 function DraftRowContent({
   entryKind,
+  fileIconStyle,
   nameEditor,
 }: {
   entryKind: ArticleNavigatorEntryKind;
+  fileIconStyle: FileIconStyle;
   nameEditor: ReactNode;
 }) {
-  const Icon = entryKind === "file" ? FileTextIcon : FolderIcon;
-
   return (
     <>
       {entryKind === "directory" && <span className="size-3.5 shrink-0" />}
-      <Icon className="size-4 text-muted-foreground" />
+      {entryKind === "file" ? (
+        <FileEntryIcon appearance={fileIconStyle} kind="article" />
+      ) : (
+        <FolderEntryIcon appearance={fileIconStyle} />
+      )}
       {nameEditor}
     </>
   );

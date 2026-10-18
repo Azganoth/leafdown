@@ -293,7 +293,7 @@
 }
 
 :root {
-  --status-bar-height: 1.75rem;
+  --status-bar-height: 1.875rem;
 }
 
 @utility welcome-glow {

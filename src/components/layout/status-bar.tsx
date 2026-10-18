@@ -148,7 +148,7 @@ export function StatusBar({
       aria-label={t("statusBar.label")}
       data-status-bar
       data-testid="status-bar"
-      className="flex h-(--status-bar-height) min-w-0 shrink-0 items-center gap-4 px-4 text-xs text-muted-foreground"
+      className="flex h-(--status-bar-height) min-w-0 shrink-0 items-center gap-4 px-4 text-[0.8125rem]/5 text-muted-foreground"
     >
       <div className="flex min-w-0 flex-1 items-center">
         {status?.blockPath && status.blockPath.length > 0 && (

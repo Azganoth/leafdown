@@ -62,7 +62,7 @@ import {
 } from "../utils/folderSearchRows";
 import { NoResultsArt } from "./folder-search-art";
 
-const ROW_HEIGHT = 26;
+const ROW_HEIGHT = 28;
 const SKIPPED_FILES_SHOWN = 100;
 
 export interface FolderSearchPanelProps {
@@ -229,12 +229,12 @@ export function FolderSearchPanel({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <InputGroup className="h-7 shrink-0">
               <InputGroupAddon align="inline-start">
-                <SearchIcon className="size-3.5" />
+                <SearchIcon className="size-4" />
               </InputGroupAddon>
               <InputGroupInput
                 aria-label={t("folderSearch.query")}
                 autoComplete="off"
-                className="text-xs md:text-xs"
+                className="text-[0.8125rem]/5 md:text-[0.8125rem]/5"
                 onChange={(event) => setQuery(event.target.value)}
                 onKeyDown={handleQueryKeyDown}
                 placeholder={t("folderSearch.placeholder")}
@@ -263,12 +263,12 @@ export function FolderSearchPanel({
             {replaceOpen && (
               <InputGroup className="h-7 shrink-0">
                 <InputGroupAddon align="inline-start">
-                  <ReplaceIcon className="size-3.5" />
+                  <ReplaceIcon className="size-4" />
                 </InputGroupAddon>
                 <InputGroupInput
                   aria-label={t("folderSearch.replacement")}
                   autoComplete="off"
-                  className="text-xs md:text-xs"
+                  className="text-[0.8125rem]/5 md:text-[0.8125rem]/5"
                   onChange={(event) => setReplacement(event.target.value)}
                   onKeyDown={handleReplacementKeyDown}
                   placeholder={t("folderSearch.replacementPlaceholder")}
@@ -394,7 +394,7 @@ function FolderSearchStatus({
 
   if (apply.status === "applying") {
     return (
-      <div className="shrink-0 px-1 text-xs leading-5 text-muted-foreground">
+      <div className="shrink-0 px-1 text-[0.8125rem]/5 text-muted-foreground">
         <p data-testid="folder-search-status">
           {t("folderSearch.applying", {
             phase: apply.phase,
@@ -411,7 +411,7 @@ function FolderSearchStatus({
 
   if (query === "" || !results) {
     return (
-      <p className="shrink-0 px-1 text-xs leading-5 text-muted-foreground">
+      <p className="shrink-0 px-1 text-[0.8125rem]/5 text-muted-foreground">
         {t(replaceOpen ? "folderSearch.replaceHint" : "folderSearch.hint")}
       </p>
     );
@@ -426,7 +426,7 @@ function FolderSearchStatus({
       className={
         noResults
           ? "sidebar-empty-state"
-          : "flex shrink-0 items-start gap-2 px-1 text-xs leading-5 text-muted-foreground"
+          : "flex shrink-0 items-start gap-2 px-1 text-[0.8125rem]/5 text-muted-foreground"
       }
     >
       {noResults && <NoResultsArt />}
@@ -440,7 +440,7 @@ function FolderSearchStatus({
       </div>
       {results.status === "searching" && (
         <Button
-          className="h-5 px-1.5 text-xs"
+          className="h-5 px-1.5 text-[0.8125rem]/5"
           onClick={onCancel}
           size="xs"
           type="button"
@@ -451,7 +451,7 @@ function FolderSearchStatus({
       )}
       {results.status === "limited" && (
         <Button
-          className="h-5 px-1.5 text-xs"
+          className="h-5 px-1.5 text-[0.8125rem]/5"
           onClick={onSearchFurther}
           size="xs"
           type="button"
@@ -466,7 +466,7 @@ function FolderSearchStatus({
         (canApply || results.status === "searching") && (
           <Button
             aria-disabled={canApply ? undefined : true}
-            className="h-5 px-1.5 text-xs aria-disabled:opacity-50"
+            className="h-5 px-1.5 text-[0.8125rem]/5 aria-disabled:opacity-50"
             onClick={() => {
               if (canApply) {
                 onApply();
@@ -500,7 +500,7 @@ function FolderReplaceReportView({
 
   return (
     <div
-      className="flex shrink-0 items-start gap-2 rounded-md bg-muted/60 px-2 py-1 text-xs leading-5"
+      className="flex shrink-0 items-start gap-2 rounded-md bg-muted/60 px-2 py-1 text-[0.8125rem]/5"
       data-testid="folder-replace-report"
     >
       <div className="min-w-0 flex-1">
@@ -564,7 +564,7 @@ function ReportList({
   return (
     <Collapsible defaultOpen>
       <CollapsibleTrigger className="group flex items-center gap-1 rounded-sm text-muted-foreground hover:text-foreground">
-        <ChevronRightIcon className="size-3 transition-transform group-data-panel-open:rotate-90" />
+        <ChevronRightIcon className="size-3.5 transition-transform group-data-panel-open:rotate-90" />
         {label}
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -604,9 +604,9 @@ function SkippedFiles({
   const hiddenCount = results.skipped.length - shown.length;
 
   return (
-    <Collapsible className="shrink-0 px-1 text-xs leading-5 text-muted-foreground">
+    <Collapsible className="shrink-0 px-1 text-[0.8125rem]/5 text-muted-foreground">
       <CollapsibleTrigger className="group flex items-center gap-1 rounded-sm hover:text-foreground">
-        <ChevronRightIcon className="size-3 transition-transform group-data-panel-open:rotate-90" />
+        <ChevronRightIcon className="size-3.5 transition-transform group-data-panel-open:rotate-90" />
         {t("folderSearch.skipped", { count: results.skipped.length })}
       </CollapsibleTrigger>
       <CollapsibleContent>
@@ -844,7 +844,7 @@ function FolderSearchTreeItem({
           aria-setsize={row.setSize}
           className={cn(
             buttonVariants({ variant: "ghost" }),
-            "h-[26px] w-full justify-start gap-1 rounded-md pr-2 text-xs font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
+            "h-7 w-full justify-start gap-1 rounded-md pr-2 text-[0.8125rem]/5 font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
             "aria-selected:bg-accent/80 aria-selected:text-foreground aria-selected:hover:bg-accent",
             "aria-disabled:text-muted-foreground aria-disabled:line-through aria-disabled:opacity-70",
           )}
@@ -853,7 +853,7 @@ function FolderSearchTreeItem({
           onFocus={onFocus}
           ref={registerElement}
           role="treeitem"
-          style={{ paddingLeft: isFile ? "6px" : "28px" }}
+          style={{ paddingLeft: isFile ? "6px" : "30px" }}
           tabIndex={isTabStop ? 0 : -1}
           virtualRow={virtualRow}
         />
@@ -879,7 +879,7 @@ function FileRowContent({
     <>
       <ChevronRightIcon
         className={cn(
-          "size-3 shrink-0 text-muted-foreground transition-transform",
+          "size-3.5 shrink-0 text-muted-foreground transition-transform",
           row.expanded && "rotate-90",
         )}
       />
@@ -927,7 +927,7 @@ function RewritesOtherTextMarker() {
           />
         }
       >
-        <TriangleAlertIcon aria-hidden="true" className="size-3" />
+        <TriangleAlertIcon aria-hidden="true" className="size-3.5" />
       </TooltipTrigger>
       <TooltipContent side="right">{label}</TooltipContent>
     </Tooltip>

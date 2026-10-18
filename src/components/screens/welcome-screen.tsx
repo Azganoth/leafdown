@@ -1,8 +1,9 @@
 import { FilePlusIcon, XIcon } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
-import { COMMAND_DEFINITIONS, getShortcutKeyLabels, type AppCommandId } from "@/commands";
+import { COMMAND_DEFINITIONS, getShortcutKeys, type AppCommandId } from "@/commands";
 import { Button } from "@/components/ui/button";
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getOpenMarkdownFileErrorMessage } from "@/features/document";
 import {
@@ -215,10 +216,13 @@ interface WelcomeActionProps {
 
 function WelcomeAction({ commandId, icon, label, onClick, primary }: WelcomeActionProps) {
   const shortcut = COMMAND_DEFINITIONS[commandId].shortcuts?.[0];
+  const shortcutId = useId();
 
   return (
     <Button
       type="button"
+      aria-label={label}
+      aria-describedby={shortcut ? shortcutId : undefined}
       variant="ghost"
       size="lg"
       onClick={onClick}
@@ -234,16 +238,7 @@ function WelcomeAction({ commandId, icon, label, onClick, primary }: WelcomeActi
       </span>
       {label}
       {shortcut && (
-        <span aria-hidden="true" className="ml-auto flex gap-0.5">
-          {getShortcutKeyLabels(shortcut).map((keyLabel) => (
-            <kbd
-              key={keyLabel}
-              className="rounded border border-border bg-muted px-1.5 py-px font-sans text-[0.6875rem] leading-4 font-normal text-muted-foreground"
-            >
-              {keyLabel}
-            </kbd>
-          ))}
-        </span>
+        <ShortcutKeys className="ml-auto" id={shortcutId} keys={getShortcutKeys(shortcut)} />
       )}
     </Button>
   );

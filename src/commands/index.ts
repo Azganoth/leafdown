@@ -10,6 +10,7 @@ export {
   getCommandLabelId,
   getCommandMenuLabelId,
   getShortcutKeyLabels,
+  getShortcutKeys,
 } from "./metadata";
 export type { CommandDefinition, CommandMenuId, CommandShortcut } from "./metadata";
 export { getCommandState } from "./state";

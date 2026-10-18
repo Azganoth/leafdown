@@ -3,8 +3,10 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
+import * as bundledChangelog from "../services/bundledChangelog";
 import {
   getBundledChangelog,
   getBundledReleaseNotesPages,
@@ -30,6 +32,31 @@ afterEach(() => {
 });
 
 describe("ReleaseNotesDialog", () => {
+  it.each([
+    ["changelog", withWindowsUserAgent, "Ctrl+Tab", ["Ctrl", "Tab"]],
+    ["whatsNew", withMacUserAgent, "Command+Tab", ["⌘", "Tab"]],
+  ] as const)(
+    "renders key notation and preserves ordinary code in %s",
+    async (surface, platform, name, labels) => {
+      const notes = "### Changed\n\n- Use `Mod+Tab` or `Enter`; keep `example.ts` as code.";
+      const pages = [{ version: "0.1.0-alpha.1", date: null, highlights: [], notes }];
+      vi.spyOn(bundledChangelog, "getBundledChangelog").mockReturnValue(
+        `# Changelog\n\n## [0.1.0-alpha.1]\n\n${notes}`,
+      );
+      vi.spyOn(bundledChangelog, "getBundledReleaseNotesPages").mockReturnValue(pages);
+      vi.spyOn(bundledChangelog, "getBundledChangelogPages").mockReturnValue(pages);
+      await platform(() => {
+        useReleaseNotesStore.setState({ surface, currentVersion: "0.1.0-alpha.1" });
+        renderWithUser(<ReleaseNotesDialog />);
+        const article = screen.getByRole("article");
+        const shortcut = within(article).getByText(name).closest("kbd")!;
+        expect([...shortcut.querySelectorAll("kbd")].map((key) => key.textContent)).toEqual(labels);
+        expect(article.querySelectorAll('[data-slot="shortcut-keys"]')).toHaveLength(2);
+        expect(within(article).getByText("example.ts", { selector: "code" })).toBeInTheDocument();
+      });
+    },
+  );
+
   it("shows the running version's bundled notes in the Help renderer and closes by keyboard", async () => {
     const { user } = openWhatsNew("0.1.0-alpha.1", false);
 

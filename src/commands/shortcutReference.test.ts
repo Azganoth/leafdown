@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { t } from "@/lib/i18n";
+import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 
 import { COMMAND_DEFINITIONS } from "./metadata";
 import {
@@ -15,6 +16,29 @@ const entryIds = (groups: ReturnType<typeof getShortcutReferenceGroups>) =>
   groups.flatMap((group) => group.entries.map((entry) => entry.id));
 
 describe("shortcut reference", () => {
+  it("finds shortcuts by their displayed platform symbols and shortened key names", async () => {
+    const groups = getShortcutReferenceGroups();
+    await withWindowsUserAgent(() => {
+      expect(entryIds(filterShortcutReferenceGroups(groups, "Ctrl PgUp", t))).toEqual([
+        "view.previousTab",
+      ]);
+      expect(entryIds(filterShortcutReferenceGroups(groups, "Ctrl Page Up", t))).toEqual([
+        "view.previousTab",
+      ]);
+      expect(entryIds(filterShortcutReferenceGroups(groups, "Alt ↑", t))).toEqual([
+        "edit.moveBlockUp",
+      ]);
+    });
+    await withMacUserAgent(() => {
+      expect(entryIds(filterShortcutReferenceGroups(groups, "⌘ ⇧ F", t))).toEqual([
+        "edit.findInFolder",
+      ]);
+      expect(entryIds(filterShortcutReferenceGroups(groups, "⌘ PgUp", t))).toEqual([
+        "view.previousTab",
+      ]);
+    });
+  });
+
   it("groups implemented shortcut commands and editor-owned interactions by menu", () => {
     const groups = getShortcutReferenceGroups();
 

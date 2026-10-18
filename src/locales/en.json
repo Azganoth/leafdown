@@ -249,7 +249,6 @@
   "help.onThisPage": "On this page",
   "shortcuts.description": "Leafdown keyboard shortcuts, grouped by menu. Shortcuts may be unavailable until their command is available.",
   "shortcuts.alternative": "or",
-  "shortcuts.modLegend": "Mod means Ctrl on Windows and Linux, or Command on macOS.",
   "shortcuts.searchLabel": "Search shortcuts",
   "shortcuts.searchPlaceholder": "Search by command, menu, or key",
   "shortcuts.recordKeys": "Record keys",

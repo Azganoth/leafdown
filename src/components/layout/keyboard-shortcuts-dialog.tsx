@@ -5,7 +5,7 @@ import {
   filterShortcutReferenceGroups,
   filterShortcutReferenceGroupsByEvent,
   formatShortcut,
-  getShortcutKeyLabels,
+  getShortcutKeys,
   getShortcutQueryTerms,
   getShortcutReferenceGroups,
   type CommandShortcut,
@@ -17,6 +17,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { HelpPageBody, HelpPageContent, HelpPageHeader } from "@/features/help";
 import { useLocalization } from "@/lib/i18n";
 import { isPrimaryModifierEvent } from "@/lib/input";
@@ -36,23 +37,6 @@ const eventShortcut = (event: KeyboardEvent): CommandShortcut => ({
   alt: event.altKey,
   shift: event.shiftKey,
 });
-
-function ShortcutKeys({ shortcut }: { shortcut: CommandShortcut }) {
-  return (
-    <kbd className="inline-flex items-center gap-1 font-sans">
-      <span className="sr-only">{formatShortcut(shortcut)}</span>
-      {getShortcutKeyLabels(shortcut).map((label) => (
-        <kbd
-          aria-hidden
-          className="inline-flex h-5 min-w-5 items-center justify-center rounded border bg-muted px-1.5 text-[0.6875rem] leading-none font-medium text-foreground/80 shadow-[0_1px_0_var(--border)]"
-          key={label}
-        >
-          {label}
-        </kbd>
-      ))}
-    </kbd>
-  );
-}
 
 function MatchedLabel({ text, terms }: { text: string; terms: readonly string[] }) {
   if (!terms.length) {
@@ -215,7 +199,7 @@ function ShortcutsContent() {
                                 {t("shortcuts.alternative")}
                               </span>
                             )}
-                            <ShortcutKeys shortcut={shortcut} />
+                            <ShortcutKeys keys={getShortcutKeys(shortcut)} />
                           </Fragment>
                         ))}
                       </span>
@@ -226,7 +210,6 @@ function ShortcutsContent() {
             ))}
           </div>
         )}
-        <p className="text-xs text-muted-foreground">{t("shortcuts.modLegend")}</p>
       </HelpPageBody>
     </HelpPageContent>
   );

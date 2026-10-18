@@ -8,6 +8,7 @@ import {
   AutocompleteList,
 } from "@/components/ui/autocomplete";
 import { Popover, PopoverContent } from "@/components/ui/popover";
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { useLocalization } from "@/lib/i18n";
 
 import { normalizeCodeBlockLanguage } from "../commands/formatting/codeBlockLanguage";
@@ -201,11 +202,7 @@ function CodeBlockLanguagePicker({
               {typed === null
                 ? t("editor.codeBlockLanguage.invalid")
                 : formatRich("editor.codeBlockLanguage.setHint", {
-                    key: (
-                      <kbd className="font-sans" key="key">
-                        Enter
-                      </kbd>
-                    ),
+                    key: <ShortcutKeys keys={["Enter"]} size="sm" key="key" />,
                     language: (
                       <span className="font-mono text-foreground" key="language">
                         {typed}

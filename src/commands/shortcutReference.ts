@@ -5,8 +5,10 @@ import { formatKeyboardKey, normalizeKeyboardKey } from "@/lib/input";
 import { APP_COMMAND_IDS } from "./dispatch";
 import {
   COMMAND_DEFINITIONS,
+  formatShortcut,
   getCommandLabelId,
   getCommandMenuLabelId,
+  getShortcutKeyLabels,
   matchesShortcut,
   type CommandMenuId,
   type CommandShortcut,
@@ -49,13 +51,18 @@ const MODIFIER_TERMS = {
   shift: ["shift"],
 } as const;
 
-const getShortcutTerms = ({ alt, key, mod, shift }: CommandShortcut) => [
-  ...(mod ? MODIFIER_TERMS.mod : []),
-  ...(alt ? MODIFIER_TERMS.alt : []),
-  ...(shift ? MODIFIER_TERMS.shift : []),
-  normalizeKeyboardKey(key),
-  normalizeKeyboardKey(formatKeyboardKey(key)),
-];
+const getShortcutTerms = (shortcut: CommandShortcut) => {
+  const { alt, key, mod, shift } = shortcut;
+  return [
+    ...(mod ? MODIFIER_TERMS.mod : []),
+    ...(alt ? MODIFIER_TERMS.alt : []),
+    ...(shift ? MODIFIER_TERMS.shift : []),
+    normalizeKeyboardKey(key),
+    normalizeKeyboardKey(formatKeyboardKey(key)),
+    ...getShortcutKeyLabels(shortcut).map(normalizeKeyboardKey),
+    ...getShortcutQueryTerms(formatShortcut(shortcut)),
+  ];
+};
 
 export const getShortcutQueryTerms = (query: string) =>
   query

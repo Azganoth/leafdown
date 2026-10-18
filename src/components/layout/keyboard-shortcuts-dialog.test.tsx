@@ -2,12 +2,26 @@
 
 import { describe, expect, it, vi } from "vitest";
 
+import { withMacUserAgent } from "@/test/utils/platform";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 
 describe("KeyboardShortcutsDialog", () => {
-  it("shows grouped read-only shortcuts, alternate bindings, and the Mod legend", () => {
+  it("shows macOS symbols with full names for assistive technology", async () => {
+    await withMacUserAgent(() => {
+      renderWithUser(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
+      const binding = screen.getByText("Shift+Command+Z").closest("kbd")!;
+      expect([...binding.querySelectorAll("kbd")].map((key) => key.textContent)).toEqual([
+        "⇧",
+        "⌘",
+        "Z",
+      ]);
+      expect(screen.getByRole("dialog")).not.toHaveTextContent("Mod");
+    });
+  });
+
+  it("shows grouped read-only shortcuts, alternate bindings, without a modifier legend", () => {
     renderWithUser(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
@@ -15,12 +29,10 @@ describe("KeyboardShortcutsDialog", () => {
     const redo = within(edit).getByText("Redo").closest("li");
 
     expect(redo).not.toBeNull();
-    expect(within(redo!).getByText("Mod+Y")).toBeInTheDocument();
-    expect(within(redo!).getByText("Mod+Shift+Z")).toBeInTheDocument();
+    expect(within(redo!).getByText("Ctrl+Y")).toBeInTheDocument();
+    expect(within(redo!).getByText("Ctrl+Shift+Z")).toBeInTheDocument();
     expect(within(redo!).getByText("or")).toBeInTheDocument();
-    expect(
-      within(dialog).getByText("Mod means Ctrl on Windows and Linux, or Command on macOS."),
-    ).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent(/Mod/u);
     expect(within(dialog).queryByText("About")).not.toBeInTheDocument();
     expect(within(dialog).queryByText("Print...")).not.toBeInTheDocument();
     const contextMenu = within(edit).getByText("Open editor context menu").closest("li");
@@ -35,10 +47,10 @@ describe("KeyboardShortcutsDialog", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
     const redo = within(dialog).getByText("Redo").closest("li")!;
-    const binding = within(redo).getByText("Mod+Shift+Z").closest("kbd")!;
+    const binding = within(redo).getByText("Ctrl+Shift+Z").closest("kbd")!;
 
     expect([...binding.querySelectorAll("kbd")].map((key) => key.textContent)).toEqual([
-      "Mod",
+      "Ctrl",
       "Shift",
       "Z",
     ]);
@@ -99,7 +111,7 @@ describe("KeyboardShortcutsDialog", () => {
     expect(recorder).toHaveFocus();
 
     await user.keyboard("{Control>}{Shift>}F{/Shift}{/Control}");
-    expect(recorder).toHaveValue("Mod+Shift+F");
+    expect(recorder).toHaveValue("Ctrl+Shift+F");
     expect(
       within(dialog)
         .getAllByRole("listitem")

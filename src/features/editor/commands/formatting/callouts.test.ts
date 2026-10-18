@@ -7,7 +7,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
-import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
+import {
+  mountMilkdownEditor,
+  setupMilkdownEditorMount,
+  type MountedMilkdownEditor,
+} from "@/test/utils/milkdown";
 import { getEditorTextPosition, setTextSelection, typeText } from "@/test/utils/prosemirror";
 
 import { getEditorCommandState } from "..";
@@ -552,10 +556,14 @@ describe("callout operations on the admonition corpus", () => {
   };
 
   const expectReopensAs = async (mounted: MountedMilkdownEditor, written: string) => {
-    const reopened = await mountEditor(written);
+    const reopened = await mountMilkdownEditor(written);
 
-    expect(reopened.getMarkdown()).toBe(written);
-    expect(calloutAttrs(reopened)).toEqual(calloutAttrs(mounted));
+    try {
+      expect(reopened.getMarkdown()).toBe(written);
+      expect(calloutAttrs(reopened)).toEqual(calloutAttrs(mounted));
+    } finally {
+      await reopened.destroy();
+    }
   };
 
   it("opens every dialect the operations below cover", async () => {
@@ -569,14 +577,13 @@ describe("callout operations on the admonition corpus", () => {
   });
 
   it("changes each callout's type in its authored form alone", async () => {
-    const count = findCallouts((await mountEditor(source)).view.state.doc).length;
+    const requests: CalloutTypeRequest[] = [];
+    const mounted = await mountEditor(source, {
+      onCalloutTypeRequested: (request) => requests.push(request),
+    });
+    const opened = mounted.view.state.doc;
 
-    for (let index = 0; index < count; index += 1) {
-      const requests: CalloutTypeRequest[] = [];
-      const mounted = await mountEditor(source, {
-        onCalloutTypeRequested: (request) => requests.push(request),
-      });
-      const { node, pos } = findCallouts(mounted.view.state.doc)[index];
+    for (const { node, pos } of findCallouts(opened)) {
       const types: readonly string[] = CALLOUT_TYPES[node.attrs.dialect as CalloutDialect];
       const token = node.attrs.token as string;
       const next = types[(types.indexOf(token) + 1) % types.length];
@@ -593,6 +600,7 @@ describe("callout operations on the admonition corpus", () => {
       await expectReopensAs(mounted, written);
 
       expect(undo(mounted.view)).toBe(true);
+      expect(mounted.view.state.doc.eq(opened)).toBe(true);
       expect(mounted.getMarkdown()).toBe(source);
     }
   });

@@ -138,7 +138,7 @@ describe("desktop Help pages", () => {
                 () =>
                   browser.execute((element) => {
                     const diagram = element.querySelector<HTMLImageElement>(
-                      ".leafdown-code-mermaid-image",
+                      '[data-language="mermaid"] .leafdown-code-mermaid-image',
                     );
                     return (
                       Boolean(element.querySelector('[data-ready="true"]')) &&

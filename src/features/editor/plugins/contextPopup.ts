@@ -235,6 +235,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
           mousedown: (_view, event) => {
             if (event instanceof MouseEvent && event.button === 0) {
               pointerSelecting = true;
+              suppressPointerRelease = false;
             }
 
             return false;
@@ -266,6 +267,7 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
           }
 
           dismissed = true;
+          suppressPointerRelease = true;
           event.preventDefault();
 
           return true;

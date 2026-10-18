@@ -10,6 +10,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 - Enlarge the text of the article navigator, Find in folder, document tabs, and status bar from 12 px to 13 px, with taller rows and larger file, folder, and chevron icons to match. Document tabs grow too: a taller strip with more space between tabs, a larger close mark and new-document button, and room for longer names before they are cut short. Zoom still scales the whole interface, and Text size still sets document text only.
 
+### Fixed
+
+- Show the whole name of a preview tab. Its name is slanted, and the tab cut off the part of the last letter that leaned past the end of the name.
+
 ## [0.1.0-alpha.4] - 2026-10-17
 
 ### Highlights

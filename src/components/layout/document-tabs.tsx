@@ -184,12 +184,14 @@ function DocumentTabItem({ label, onClose, tab }: DocumentTabItemProps) {
           />
         }
       >
-        {/* Only the hidden medium-weight copy sizes the tab, so activating it moves no tab. */}
+        {/* Only the hidden medium-weight copy sizes the tab, so activating it moves no tab.
+            The padding, cancelled by negative margins, lets a slanted preview name's
+            letters overhang their advance width without being clipped or resizing the tab. */}
         <span
-          className="relative min-w-0 flex-1 overflow-hidden whitespace-nowrap after:invisible after:font-medium after:content-[attr(data-label)]"
+          className="relative -mx-[0.2em] min-w-0 flex-1 overflow-hidden px-[0.2em] whitespace-nowrap after:invisible after:font-medium after:content-[attr(data-label)]"
           data-label={label.folder ? `${label.name} ${label.folder}` : label.name}
         >
-          <span className="absolute inset-0 truncate">
+          <span className="absolute inset-0 truncate px-[0.2em]">
             {label.name}
             {label.folder && <span className="text-muted-foreground"> {label.folder}</span>}
           </span>

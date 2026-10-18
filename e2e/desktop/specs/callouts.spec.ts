@@ -191,7 +191,17 @@ describe("desktop callouts", () => {
       );
     }
 
-    await browser.keys([Key.Shift, Key.F10]);
+    // The embedded driver drops Shift from F10, so raise the chord on the focused editor.
+    await $(`${active} .ProseMirror`).execute((editor) => {
+      editor.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "F10",
+          shiftKey: true,
+        }),
+      );
+    });
     const popup = $("[data-testid=editor-context-popup]");
     await expect(popup).toBeDisplayed();
     await popup.$("aria/Insert").click();

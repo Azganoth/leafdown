@@ -105,6 +105,8 @@ export function Shell() {
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
   const sidebarShown = sidebarAvailable && sidebarVisible;
+  const articleNavigatorShown = Boolean(folderContext || folderContextLoadPath) && sidebarVisible;
+  const welcomeGlowShown = sessionMode === "welcome" && !articleNavigatorShown;
   const statusBarShown = activeDocument !== null && statusBarVisible;
   const windowTitle = activeDocument
     ? t("shell.windowTitle", { name: getDocumentName(activeDocument, t) })
@@ -188,10 +190,14 @@ export function Shell() {
         <UnexpectedErrorBoundary>
           <div
             data-testid="document-workspace-host"
-            className={cn("flex min-h-0 flex-1 px-3 pt-1", statusBarShown ? "pb-0" : "pb-3")}
+            className={cn(
+              "flex min-h-0 flex-1 px-3 pt-1",
+              statusBarShown ? "pb-0" : "pb-3",
+              welcomeGlowShown && "welcome-glow",
+            )}
           >
             <ResizablePanelGroup className="min-h-0 flex-1" orientation="horizontal">
-              {(folderContext || folderContextLoadPath) && sidebarVisible && (
+              {articleNavigatorShown && (
                 <>
                   <ResizablePanel
                     defaultSize={256}
@@ -242,7 +248,7 @@ export function Shell() {
                 <main
                   aria-label={t("shell.documentSurface")}
                   data-testid="document-surface-host"
-                  className="size-full min-w-0 bg-background"
+                  className={cn("size-full min-w-0", !welcomeGlowShown && "bg-background")}
                 >
                   {sessionMode === "welcome" && <WelcomeScreen />}
                   {sessionMode === "folder-only" && folderContext?.isEmpty && <EmptyFolderScreen />}

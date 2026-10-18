@@ -104,9 +104,8 @@ export function WelcomeScreen() {
   return (
     <section
       aria-labelledby="welcome-title"
-      className="@container relative isolate flex min-h-full items-center justify-center overflow-hidden px-8 py-10"
+      className="@container flex min-h-full items-center justify-center px-8 py-10"
     >
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 welcome-glow" />
       <div
         className={cn(
           "grid w-full gap-x-16 gap-y-12",

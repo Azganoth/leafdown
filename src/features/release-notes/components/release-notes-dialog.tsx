@@ -2,13 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -17,23 +11,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HelpMarkdown } from "@/features/help";
+import {
+  HelpMarkdownFragment,
+  HelpPageBody,
+  HelpPageContent,
+  HelpPageHeader,
+} from "@/features/help";
 import { useLocalization } from "@/lib/i18n";
-import { cn } from "@/lib/utils";
 
 import {
   getBundledChangelog,
+  getBundledChangelogPages,
   getBundledReleaseNotesPages,
   getCurrentReleaseNotesPage,
   UNRELEASED_VERSION,
   type ReleaseNotesPage,
 } from "../services/bundledChangelog";
 import { useReleaseNotesStore, type ReleaseNotesSurface } from "../stores/releaseNotes";
+import { ReleaseChangeEntry, ReleaseChangeList, ReleaseChanges } from "./release-changes";
 import { ReleaseHighlights } from "./release-highlights";
 
 type WhatsNewPage = ReleaseNotesPage | { version: string; date: null; highlights: []; notes: null };
-
-const DIALOG_HEIGHT = "h-[min(40rem,calc(100dvh-2rem))]";
 
 const toDateTime = (date: Date) =>
   [
@@ -41,6 +39,8 @@ const toDateTime = (date: Date) =>
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0"),
   ].join("-");
+
+const releaseSectionId = (version: string) => `release-${version.replace(/[^\w.-]+/gu, "-")}`;
 
 export function ReleaseNotesDialog() {
   const currentVersion = useReleaseNotesStore((state) => state.currentVersion);
@@ -69,17 +69,71 @@ export function ReleaseNotesDialog() {
   );
 }
 
+function ReleaseDate({ date }: { date: Date }) {
+  const { t } = useLocalization();
+  return <time dateTime={toDateTime(date)}>{t("releaseNotes.releaseDate", { date })}</time>;
+}
+
 function ChangelogContent() {
   const { t } = useLocalization();
+  const pages = getBundledChangelogPages();
+  const source = getBundledChangelog();
+  const intro = source.slice(source.search(/\r?\n/u) + 1, source.search(/^## /mu)).trim();
+  const label = (page: ReleaseNotesPage) =>
+    page.version === UNRELEASED_VERSION ? t("releaseNotes.unreleased") : page.version;
 
   return (
-    <DialogContent className={cn("flex min-h-0 flex-col gap-4 sm:max-w-2xl", DIALOG_HEIGHT)}>
-      <DialogHeader className="shrink-0 pr-10">
-        <DialogTitle>{t("releaseNotes.changelogTitle")}</DialogTitle>
-        <DialogDescription>{t("releaseNotes.changelogDescription")}</DialogDescription>
-      </DialogHeader>
-      <HelpMarkdown source={getBundledChangelog()} />
-    </DialogContent>
+    <HelpPageContent kind="guide">
+      <HelpPageHeader
+        title={t("releaseNotes.changelogTitle")}
+        description={t("releaseNotes.changelogDescription")}
+      />
+      <HelpPageBody
+        kind="guide"
+        sections={pages.map((page) => ({ id: releaseSectionId(page.version), label: label(page) }))}
+      >
+        <HelpMarkdownFragment source={intro} />
+        {pages.map((page) => (
+          <section
+            key={page.version}
+            aria-labelledby={releaseSectionId(page.version)}
+            className="mt-14 first-of-type:mt-10"
+          >
+            <div className="mb-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h3
+                id={releaseSectionId(page.version)}
+                tabIndex={-1}
+                className="scroll-mt-6 text-xl font-semibold tracking-tight outline-none"
+              >
+                {label(page)}
+              </h3>
+              {page.date && (
+                <span className="text-sm text-muted-foreground">
+                  <ReleaseDate date={page.date} />
+                </span>
+              )}
+            </div>
+            <div className="space-y-8">
+              {page.highlights.length > 0 && (
+                <section aria-label={t("releaseNotes.highlights")}>
+                  <h4 className="border-b pb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {t("releaseNotes.highlights")}
+                  </h4>
+                  <ReleaseChangeList>
+                    {page.highlights.map((highlight) => (
+                      <li key={highlight.title} className="py-3">
+                        <ReleaseChangeEntry entry={`${highlight.title}. ${highlight.body}`} />
+                      </li>
+                    ))}
+                  </ReleaseChangeList>
+                </section>
+              )}
+              <ReleaseChanges notes={page.notes} />
+            </div>
+          </section>
+        ))}
+      </HelpPageBody>
+    </HelpPageContent>
   );
 }
 
@@ -106,50 +160,52 @@ function WhatsNewContent({ version }: { version: string }) {
   }));
 
   return (
-    <DialogContent
-      className={cn(
-        "flex min-h-0 flex-col gap-4 sm:max-w-2xl",
-        pages.some((candidate) => candidate.notes !== null) && DIALOG_HEIGHT,
-      )}
+    <HelpPageContent
+      kind="release"
+      fitContent={pages.every((candidate) => candidate.notes === null)}
     >
-      <DialogHeader className="shrink-0 pr-10">
-        <DialogTitle>{t("releaseNotes.whatsNewTitle")}</DialogTitle>
-        <DialogDescription className="flex flex-wrap gap-x-2">
-          {page.version === UNRELEASED_VERSION ? (
-            <span>{t("releaseNotes.unreleasedDescription")}</span>
-          ) : (
-            <span>{t("releaseNotes.whatsNewDescription", { version: page.version })}</span>
-          )}
-          {page.date && (
-            <>
-              <span aria-hidden>·</span>
-              <time dateTime={toDateTime(page.date)}>
-                {t("releaseNotes.releaseDate", { date: page.date })}
-              </time>
-            </>
-          )}
-        </DialogDescription>
-      </DialogHeader>
+      <HelpPageHeader
+        title={t("releaseNotes.whatsNewTitle")}
+        descriptionClassName="flex flex-wrap gap-x-2"
+        description={
+          <>
+            {page.version === UNRELEASED_VERSION ? (
+              <span>{t("releaseNotes.unreleasedDescription")}</span>
+            ) : (
+              <span>{t("releaseNotes.whatsNewDescription", { version: page.version })}</span>
+            )}
+            {page.date && (
+              <>
+                <span aria-hidden>·</span>
+                <ReleaseDate date={page.date} />
+              </>
+            )}
+          </>
+        }
+      />
       {page.notes === null ? (
-        <p className="min-h-0 flex-1 text-sm text-muted-foreground">{t("releaseNotes.noNotes")}</p>
+        <p className="min-h-0 flex-1 px-5 py-6 text-sm text-muted-foreground sm:px-8">
+          {t("releaseNotes.noNotes")}
+        </p>
       ) : (
-        <HelpMarkdown key={page.version} source={page.notes}>
+        <HelpPageBody key={page.version} kind="release">
           {page.highlights.length > 0 && (
             <>
               <ReleaseHighlights highlights={page.highlights} />
               {page.notes && (
-                <h3 className="mt-8 mb-3 border-b pb-2 text-base font-semibold tracking-tight">
+                <h3 className="mt-12 mb-5 text-lg font-semibold tracking-tight">
                   {t("releaseNotes.allChanges")}
                 </h3>
               )}
             </>
           )}
-        </HelpMarkdown>
+          <ReleaseChanges notes={page.notes} collapseFixed />
+        </HelpPageBody>
       )}
       {pages.length > 1 && (
         <nav
           aria-label={t("releaseNotes.releaseNavigation")}
-          className="-mx-6 -mb-6 flex shrink-0 items-center justify-between gap-2 rounded-b-xl border-t bg-muted/50 px-4 py-3"
+          className="flex shrink-0 items-center justify-between gap-2 border-t bg-muted/50 px-4 py-2.5"
         >
           <Button
             type="button"
@@ -205,6 +261,6 @@ function WhatsNewContent({ version }: { version: string }) {
           </Button>
         </nav>
       )}
-    </DialogContent>
+    </HelpPageContent>
   );
 }

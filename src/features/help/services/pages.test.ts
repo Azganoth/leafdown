@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getHelpLinkTarget, HELP_PAGES } from "./pages";
+import { getHelpLinkTarget, getHelpPageSections, HELP_PAGES } from "./pages";
 
 describe("bundled Help pages", () => {
   it("ships a nonempty document for every page", () => {
@@ -46,5 +46,34 @@ describe("bundled Help pages", () => {
     ]) {
       expect(getHelpLinkTarget(href)).toBeNull();
     }
+  });
+
+  it("routes a fragment to the section heading it names", () => {
+    expect(getHelpLinkTarget("#work-in-more-than-one-window")).toEqual({
+      kind: "section",
+      id: "help-work-in-more-than-one-window",
+    });
+  });
+
+  it("lists a page's sections, skipping headings inside fenced code", () => {
+    const source = [
+      "# Page",
+      "",
+      "## First `step`",
+      "",
+      "````text",
+      "## Not a section",
+      "```",
+      "````",
+      "",
+      "## Second",
+    ].join("\n");
+    expect(getHelpPageSections(source)).toEqual([
+      { id: "help-first-step", label: "First step" },
+      { id: "help-second", label: "Second" },
+    ]);
+    expect(
+      getHelpPageSections(HELP_PAGES["file-and-folder-workflows"]).map(({ id }) => id),
+    ).toContain("help-work-in-more-than-one-window");
   });
 });

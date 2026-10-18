@@ -75,6 +75,27 @@ describe("ReleaseNotesDialog", () => {
     expect(article.firstElementChild).toHaveTextContent("Added");
   });
 
+  it("leads each change with its first sentence and keeps the fixes folded until opened", async () => {
+    const { user } = openWhatsNew("0.1.0-alpha.3", false);
+    const article = screen.getByRole("article");
+    const added = within(article).getByRole("region", { name: "Added" });
+
+    expect(within(added).getAllByRole("listitem")).toHaveLength(5);
+    expect(within(added).getByText("Open several documents in one window as tabs.")).toHaveClass(
+      "font-semibold",
+    );
+
+    const fixed = within(article).getByRole("button", { name: "Fixed" });
+    const fixes = document.getElementById(fixed.getAttribute("aria-controls")!)!;
+    expect(fixed).toHaveAttribute("aria-expanded", "false");
+    expect(fixes).not.toBeVisible();
+
+    await user.click(fixed);
+    expect(fixed).toHaveAttribute("aria-expanded", "true");
+    expect(fixes).toBeVisible();
+    expect(within(fixes).getAllByRole("listitem").length).toBeGreaterThan(0);
+  });
+
   it("lists every bundled release with notes, newest first, without Unreleased in release builds", async () => {
     const { user } = openWhatsNew("0.1.0-alpha.1", false);
 
@@ -179,7 +200,19 @@ describe("ReleaseNotesDialog", () => {
     expect(article).toHaveTextContent("Initial internal alpha release.");
     expect(article).toHaveTextContent("0.1.0-alpha.3");
     expect(within(article).queryByRole("heading", { level: 1 })).toBeNull();
-    expect(screen.queryByRole("navigation")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Releases" })).toBeNull();
+    const sections = screen.getByRole("navigation", { name: "On this page" });
+    expect(
+      within(sections)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(
+      getReleaseNotesPages(getBundledChangelog(), true).map((page) =>
+        page.version === "Unreleased" ? "Unreleased" : page.version,
+      ),
+    );
+    await user.click(within(sections).getByRole("button", { name: "0.1.0-alpha.1" }));
+    expect(within(article).getByRole("heading", { level: 3, name: "0.1.0-alpha.1" })).toHaveFocus();
     await user.click(within(article).getByRole("button", { name: "Keep a Changelog" }));
     expect(openUrl).toHaveBeenCalledWith("https://keepachangelog.com/en/1.1.0/");
   });

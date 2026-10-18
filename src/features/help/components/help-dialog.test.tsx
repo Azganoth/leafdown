@@ -61,4 +61,25 @@ describe("Help dialog", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open Help" })).toHaveFocus();
   });
+
+  it("lists a page's sections and moves to one, as a link to a section does", async () => {
+    const { user } = renderWithUser(<TestHelpDialog initialPage="file-and-folder-workflows" />);
+    const sections = screen.getByRole("navigation", { name: "On this page" });
+    const article = screen.getByRole("article");
+
+    expect(within(sections).getAllByRole("button")[0]).toHaveTextContent("Open and revisit");
+    await user.click(within(sections).getByRole("button", { name: "Search the folder" }));
+    expect(
+      within(article).getByRole("heading", { level: 3, name: "Search the folder" }),
+    ).toHaveFocus();
+    expect(within(sections).getByRole("button", { name: "Search the folder" })).toHaveAttribute(
+      "aria-current",
+      "location",
+    );
+
+    await user.click(within(article).getByRole("button", { name: "Work in more than one window" }));
+    expect(
+      within(article).getByRole("heading", { level: 3, name: "Work in more than one window" }),
+    ).toHaveFocus();
+  });
 });

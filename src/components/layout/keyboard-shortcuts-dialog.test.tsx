@@ -45,13 +45,84 @@ describe("KeyboardShortcutsDialog", () => {
     expect(dialog.querySelector('[data-slot="scroll-area-viewport"]')).toContainElement(redo);
   });
 
-  it("focuses the shortcut list when it opens", async () => {
+  it("focuses the search field when it opens", async () => {
     renderWithUser(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
 
-    const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
-    const viewport = dialog.querySelector('[data-slot="scroll-area-viewport"]');
+    await waitFor(() =>
+      expect(screen.getByRole("searchbox", { name: "Search shortcuts" })).toHaveFocus(),
+    );
+  });
 
-    await waitFor(() => expect(document.activeElement).toBe(viewport));
+  it("narrows the list to commands, menus, or keys matching the search", async () => {
+    const { user } = renderWithUser(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
+    const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
+    const search = screen.getByRole("searchbox", { name: "Search shortcuts" });
+
+    await user.type(search, "heading");
+    expect(
+      within(dialog)
+        .getAllByRole("region")
+        .map((group) => group.getAttribute("aria-label")),
+    ).toEqual(["Format"]);
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(dialog).getByRole("status")).toHaveTextContent("6 shortcuts");
+    expect(within(dialog).getAllByText("Heading", { selector: "mark" })).toHaveLength(6);
+
+    await user.clear(search);
+    await user.type(search, "ctrl shift f");
+    expect(
+      within(dialog)
+        .getAllByRole("listitem")
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringContaining("Find in folder")]);
+
+    await user.type(search, "zzz");
+    expect(within(dialog).getByText("No shortcuts match")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Clear search" }));
+    expect(search).toHaveValue("");
+    expect(search).toHaveFocus();
+    expect(within(dialog).getByRole("region", { name: "File" })).toBeInTheDocument();
+  });
+
+  it("finds the shortcut a recorded key press runs and leaves recording on Escape", async () => {
+    const onOpenChange = vi.fn();
+    const { user } = renderWithUser(<KeyboardShortcutsDialog open onOpenChange={onOpenChange} />);
+    const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
+
+    await user.click(within(dialog).getByRole("button", { name: "Record keys" }));
+    expect(within(dialog).getByRole("button", { name: "Record keys" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const recorder = screen.getByRole("searchbox", { name: "Press a shortcut to find it" });
+    expect(recorder).toHaveFocus();
+
+    await user.keyboard("{Control>}{Shift>}F{/Shift}{/Control}");
+    expect(recorder).toHaveValue("Mod+Shift+F");
+    expect(
+      within(dialog)
+        .getAllByRole("listitem")
+        .map((row) => row.textContent),
+    ).toEqual([expect.stringContaining("Find in folder")]);
+
+    await user.keyboard("{Escape}");
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("searchbox", { name: "Search shortcuts" })).toHaveValue("");
+    expect(within(dialog).getByRole("region", { name: "File" })).toBeInTheDocument();
+  });
+
+  it("starts each opening with an empty search", async () => {
+    const { rerender, user } = renderWithUser(
+      <KeyboardShortcutsDialog open onOpenChange={vi.fn()} />,
+    );
+    await user.type(screen.getByRole("searchbox", { name: "Search shortcuts" }), "heading");
+
+    rerender(<KeyboardShortcutsDialog open={false} onOpenChange={vi.fn()} />);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    rerender(<KeyboardShortcutsDialog open onOpenChange={vi.fn()} />);
+
+    expect(await screen.findByRole("searchbox", { name: "Search shortcuts" })).toHaveValue("");
   });
 
   it("closes by keyboard without executing a row", async () => {

@@ -169,6 +169,12 @@ describe("EditorCodeBlockLanguagePicker", () => {
     expect(screen.getByText(expected, { selector: "span" }).closest("p")).toHaveTextContent(
       `Enter sets ${expected}`,
     );
+    expect(
+      screen
+        .getByText(expected, { selector: "span" })
+        .closest("p")
+        ?.querySelector('[data-slot="keycap"]'),
+    ).toHaveTextContent("Enter");
 
     await user.keyboard("{Enter}");
 

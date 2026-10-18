@@ -37,9 +37,26 @@ describe("desktop keyboard shortcuts reference", () => {
     await (await findMenuItem((text) => text.startsWith("Keyboard shortcuts"))).click();
 
     await expect(dialog()).toBeDisplayed();
-    expect(await dialog().getText()).toContain(
-      "Mod means Ctrl on Windows and Linux, or Command on macOS.",
+    expect(await dialog().getText()).not.toContain("Mod");
+    expect(await dialog().getText()).toContain("Ctrl");
+    const keycaps = await browser.execute(() => {
+      const popup = document.querySelector('[data-slot="dialog-content"][data-open]');
+      const keys = [...(popup?.querySelectorAll<HTMLElement>('[data-slot="keycap"]') ?? [])];
+      return {
+        labels: keys.map((key) => key.textContent),
+        bordered: keys.every((key) => getComputedStyle(key).borderTopStyle === "solid"),
+        raised: keys.every((key) => getComputedStyle(key).boxShadow !== "none"),
+        hiddenFromAssistiveTechnology: keys.every(
+          (key) => key.getAttribute("aria-hidden") === "true",
+        ),
+      };
+    });
+    expect(keycaps.labels).toEqual(
+      expect.arrayContaining(["Ctrl", "Shift", "↑", "↓", "PgUp", "PgDn", "Esc"]),
     );
+    expect(keycaps.bordered).toBe(true);
+    expect(keycaps.raised).toBe(true);
+    expect(keycaps.hiddenFromAssistiveTechnology).toBe(true);
     await browser.keys("Escape");
     await expect(dialog()).not.toExist();
     await browser.waitUntil(

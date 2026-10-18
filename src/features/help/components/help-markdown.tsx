@@ -3,8 +3,10 @@ import { ExternalLinkIcon } from "lucide-react";
 import { createContext, useContext, type ComponentProps, type ReactNode, type Ref } from "react";
 import ReactMarkdown, { type Components, type ExtraProps } from "react-markdown";
 
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { notifyOperationFailure } from "@/lib/errors";
 import { useLocalization } from "@/lib/i18n";
+import { parseKeyboardKeys } from "@/lib/keyboardShortcut";
 import { cn } from "@/lib/utils";
 
 import {
@@ -36,6 +38,27 @@ const nodeText = (node: TextNode | undefined): string =>
   node?.type === "text" ? (node.value ?? "") : (node?.children ?? []).map(nodeText).join("");
 
 const HelpPageLinkContext = createContext<((page: HelpPageId) => void) | null>(null);
+const CodeBlockContext = createContext(false);
+
+function HelpCode({ node: _node, className, children, ...props }: MarkdownProps<"code">) {
+  const block = useContext(CodeBlockContext);
+  const text = !block && typeof children === "string" ? children : "";
+  const action = /\+(click|arrows)$/u.exec(text);
+  const keys = parseKeyboardKeys(action ? text.slice(0, action.index) : text);
+  return keys ? (
+    <>
+      <ShortcutKeys keys={keys} />
+      {action && `+${action[1]}`}
+    </>
+  ) : (
+    <code
+      className={cn("rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]", className)}
+      {...props}
+    >
+      {children}
+    </code>
+  );
+}
 
 function HelpLink({ href, children }: MarkdownProps<"a">) {
   const onPageLink = useContext(HelpPageLinkContext);
@@ -107,17 +130,14 @@ const HELP_MARKDOWN_COMPONENTS = {
   blockquote: ({ node: _node, ...props }: MarkdownProps<"blockquote">) => (
     <blockquote className="my-4 border-l-2 pl-4 text-muted-foreground" {...props} />
   ),
-  code: ({ node: _node, className, ...props }: MarkdownProps<"code">) => (
-    <code
-      className={cn("rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]", className)}
-      {...props}
-    />
-  ),
-  pre: ({ node: _node, ...props }: MarkdownProps<"pre">) => (
+  code: HelpCode,
+  pre: ({ node: _node, children, ...props }: MarkdownProps<"pre">) => (
     <pre
       className="my-5 overflow-x-auto rounded-lg border bg-muted/40 px-4 py-3 font-mono text-[0.8125rem] leading-relaxed [&>code]:rounded-none [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-[1em]"
       {...props}
-    />
+    >
+      <CodeBlockContext.Provider value={true}>{children}</CodeBlockContext.Provider>
+    </pre>
   ),
 } satisfies Components;
 

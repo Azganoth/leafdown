@@ -11,6 +11,7 @@ import {
 import type { CalloutTypeChoice } from "@/features/editor";
 import type { RecentItem } from "@/features/preferences";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
+import { withMacUserAgent, withWindowsUserAgent } from "@/test/utils/platform";
 import { renderWithUser, screen, within } from "@/test/utils/react";
 
 import { CommandMenubar } from "./command-menubar";
@@ -93,6 +94,21 @@ const appendEditor = () => {
 };
 
 describe("CommandMenubar", () => {
+  it.each([
+    ["Windows", withWindowsUserAgent, "Ctrl+Shift+N", ["Ctrl", "Shift", "N"]],
+    ["macOS", withMacUserAgent, "Shift+Command+N", ["⇧", "⌘", "N"]],
+  ] as const)("shows compact platform keycaps on %s", async (_, platform, name, labels) => {
+    await platform(async () => {
+      const { user } = renderCommandMenuBar();
+      await user.click(screen.getByRole("menuitem", { name: "File" }));
+      const item = menuItem("New window");
+      expect(item).toHaveAccessibleName(`New window ${name}`);
+      expect(
+        [...item.querySelectorAll('[data-slot="keycap"]')].map((key) => key.textContent),
+      ).toEqual(labels);
+    });
+  });
+
   it("renders MVP menus and keeps unavailable file commands disabled", async () => {
     const { user } = renderCommandMenuBar({
       commandState: (commandId) => {

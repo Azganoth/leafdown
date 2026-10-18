@@ -1,9 +1,13 @@
 import {
-  formatKeyboardKey,
   hasNonPrimaryModifierEvent,
   isPrimaryModifierEvent,
   normalizeKeyboardKey,
 } from "@/lib/input";
+import {
+  getShortcutKeys,
+  presentKeyboardKeys,
+  type KeyboardShortcut,
+} from "@/lib/keyboardShortcut";
 import { isTruthy } from "@/lib/predicates";
 
 import { APPLICATION_COMMAND_IDS } from "./application";
@@ -11,12 +15,8 @@ import type { AppCommandId } from "./dispatch";
 
 export type CommandMenuId = "file" | "edit" | "insert" | "format" | "view" | "help";
 
-export interface CommandShortcut {
-  key: string;
-  alt?: boolean;
-  mod?: boolean;
-  shift?: boolean;
-}
+export type CommandShortcut = KeyboardShortcut;
+export { getShortcutKeys } from "@/lib/keyboardShortcut";
 
 export interface CommandDefinition {
   shortcuts?: CommandShortcut[];
@@ -250,11 +250,13 @@ export const WINDOW_SHORTCUT_COMMAND_IDS: readonly AppCommandId[] = [
   ...DOCUMENT_SEARCH_COMMAND_IDS,
 ];
 
-export const getShortcutKeyLabels = ({ alt, key, mod, shift }: CommandShortcut) =>
-  [mod && "Mod", alt && "Alt", shift && "Shift", formatKeyboardKey(key)].filter(isTruthy);
+export const getShortcutKeyLabels = (shortcut: CommandShortcut) =>
+  presentKeyboardKeys(getShortcutKeys(shortcut)).map((key) => key.label);
 
 export const formatShortcut = (shortcut: CommandShortcut) =>
-  getShortcutKeyLabels(shortcut).join("+");
+  presentKeyboardKeys(getShortcutKeys(shortcut))
+    .map((key) => key.accessible)
+    .join("+");
 
 export const getShortcutSignature = ({ alt, key, mod, shift }: CommandShortcut) =>
   [mod && "mod", alt && "alt", shift && "shift", normalizeKeyboardKey(key)]

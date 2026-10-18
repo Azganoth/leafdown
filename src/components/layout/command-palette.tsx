@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 
 import {
   COMMAND_DEFINITIONS,
-  formatShortcut,
+  getShortcutKeys,
   getCommandLabelId,
   getCommandMenuPathIds,
   getCommandPaletteOpener,
@@ -25,6 +25,7 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization } from "@/lib/i18n";
 
@@ -156,7 +157,11 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
                             </Tooltip>
                           )}
                         </span>
-                        {shortcut && <CommandShortcut>{formatShortcut(shortcut)}</CommandShortcut>}
+                        {shortcut && (
+                          <CommandShortcut>
+                            <ShortcutKeys keys={getShortcutKeys(shortcut)} size="sm" />
+                          </CommandShortcut>
+                        )}
                       </CommandItem>
                     );
                   })}
@@ -175,9 +180,7 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
           type="button"
         >
           {t("commandPalette.run")}
-          <kbd className="rounded-sm border border-primary-foreground/40 px-1 text-[0.625rem] leading-4">
-            Enter
-          </kbd>
+          <ShortcutKeys keys={["Enter"]} size="sm" variant="primary" />
         </Button>
       </DialogFooter>
     </DialogContent>

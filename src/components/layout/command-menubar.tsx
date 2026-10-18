@@ -2,7 +2,7 @@ import { createContext, useContext, useId } from "react";
 
 import {
   COMMAND_DEFINITIONS,
-  formatShortcut,
+  getShortcutKeys,
   getCommandLabelId,
   getCommandMenuLabelId,
   type AppCommandId,
@@ -29,6 +29,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { ENCODING_CHOICES, type TextEncodingName } from "@/features/document";
 import type { RecentItem } from "@/features/preferences";
 import { invariant } from "@/lib/errors";
@@ -441,7 +442,11 @@ function CommandMenuItem({ commandId, inset }: CommandItemProps) {
   return (
     <MenubarItem disabled={!state.enabled} inset={inset} onClick={() => onExecute(commandId)}>
       {t(getCommandLabelId(commandId))}
-      {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
+      {primaryShortcut && (
+        <MenubarShortcut>
+          <ShortcutKeys keys={getShortcutKeys(primaryShortcut)} size="sm" />
+        </MenubarShortcut>
+      )}
     </MenubarItem>
   );
 }
@@ -460,7 +465,11 @@ function CommandCheckboxItem({ commandId }: CommandItemProps) {
       onClick={() => onExecute(commandId)}
     >
       {t(getCommandLabelId(commandId))}
-      {primaryShortcut && <MenubarShortcut>{formatShortcut(primaryShortcut)}</MenubarShortcut>}
+      {primaryShortcut && (
+        <MenubarShortcut>
+          <ShortcutKeys keys={getShortcutKeys(primaryShortcut)} size="sm" />
+        </MenubarShortcut>
+      )}
     </MenubarCheckboxItem>
   );
 }

@@ -9,6 +9,7 @@ import {
   APPLICATION_SHORTCUT_COMMAND_IDS,
   COMMAND_DEFINITIONS,
   formatShortcut,
+  getShortcutKeyLabels,
   getShortcutSignature,
   matchesShortcut,
   WINDOW_SHORTCUT_COMMAND_IDS,
@@ -85,9 +86,17 @@ describe("command metadata", () => {
     expect(duplicateShortcuts).toEqual([]);
   });
 
-  it("formats shortcuts for menu labels", () => {
-    expect(formatShortcut({ key: "s", mod: true, shift: true })).toBe("Mod+Shift+S");
-    expect(formatShortcut({ key: "F4", alt: true })).toBe("Alt+F4");
+  it("formats platform key labels and full shortcut names", async () => {
+    const shortcut = { key: "s", mod: true, shift: true };
+    await withWindowsUserAgent(() => {
+      expect(formatShortcut(shortcut)).toBe("Ctrl+Shift+S");
+      expect(getShortcutKeyLabels(shortcut)).toEqual(["Ctrl", "Shift", "S"]);
+      expect(formatShortcut({ key: "F4", alt: true })).toBe("Alt+F4");
+    });
+    await withMacUserAgent(() => {
+      expect(formatShortcut(shortcut)).toBe("Shift+Command+S");
+      expect(getShortcutKeyLabels(shortcut)).toEqual(["⇧", "⌘", "S"]);
+    });
   });
 
   it("matches Mod shortcuts against the platform primary modifier", async () => {

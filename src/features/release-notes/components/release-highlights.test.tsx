@@ -13,7 +13,7 @@ describe("ReleaseHighlights", () => {
         highlights={[
           {
             title: "Drawn",
-            body: "Press `Ctrl+T`.",
+            body: "Press `Ctrl+T`. Keep `sample.ts` as code.",
             illustration: '<svg viewBox="0 0 240 144"><circle r="4"></circle></svg>',
           },
           { title: "Missing", body: "Still **readable**.", illustration: null },
@@ -25,7 +25,12 @@ describe("ReleaseHighlights", () => {
       "listitem",
     );
     expect(drawn.querySelector("[aria-hidden='true'] > svg circle")).not.toBeNull();
-    expect(within(drawn).getByText("Ctrl+T").tagName).toBe("CODE");
+    const shortcut = within(drawn).getByText("Ctrl+T").closest("kbd")!;
+    expect([...shortcut.querySelectorAll("kbd")].map((key) => key.textContent)).toEqual([
+      "Ctrl",
+      "T",
+    ]);
+    expect(within(drawn).getByText("sample.ts").tagName).toBe("CODE");
     expect(missing.querySelector("svg")).toBeNull();
     expect(within(missing).getByRole("heading", { level: 3, name: "Missing" })).toBeInTheDocument();
     expect(missing).toHaveTextContent("Still readable.");

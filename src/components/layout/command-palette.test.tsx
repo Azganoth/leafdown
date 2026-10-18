@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCommandUIStore, type AppCommandId, type CommandState } from "@/commands";
 import { setDefaultUI } from "@/test/utils/appStores";
+import { withMacUserAgent } from "@/test/utils/platform";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 import { hoverTooltip } from "@/test/utils/tooltip";
 
@@ -36,6 +37,22 @@ function Harness({ commandState = () => ({ enabled: true }), onExecute = vi.fn()
 describe("CommandPalette", () => {
   beforeEach(() => setDefaultUI());
 
+  it("shows macOS keycaps and gives the Run button a single readable key hint", async () => {
+    await withMacUserAgent(async () => {
+      const { user } = renderWithUser(<Harness />);
+      await user.click(screen.getByRole("button", { name: "Open palette" }));
+      await user.type(screen.getByRole("combobox", { name: "Search commands" }), "save as");
+      const item = screen.getByRole("option", { name: /Save as/u });
+      expect(within(item).getByText("Shift+Command+S")).toBeInTheDocument();
+      expect(
+        [...item.querySelectorAll('[data-slot="keycap"]')].map((key) => key.textContent),
+      ).toEqual(["⇧", "⌘", "S"]);
+      expect(
+        screen.getByRole("button", { name: "Run Enter" }).querySelector('[data-slot="keycap"]'),
+      ).toHaveTextContent("Enter");
+    });
+  });
+
   it("focuses search, shows shared labels, paths and shortcuts, and returns focus on Escape", async () => {
     const { user } = renderWithUser(<Harness />);
     const opener = screen.getByRole("button", { name: "Open palette" });
@@ -47,7 +64,8 @@ describe("CommandPalette", () => {
 
     const result = screen.getByRole("option", { name: /Save as/u });
     expect(within(result).getByText("File › Save as...")).toBeInTheDocument();
-    expect(within(result).getByText("Mod+Shift+S")).toBeInTheDocument();
+    expect(within(result).getByText("Ctrl+Shift+S")).toBeInTheDocument();
+    expect(result.querySelectorAll('[data-slot="keycap"]')).toHaveLength(3);
     expect(screen.getByRole("listbox")).toHaveAttribute("tabindex", "-1");
     await user.tab();
     expect(screen.getByRole("button", { name: "Run Enter" })).toHaveFocus();

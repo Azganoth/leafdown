@@ -2,7 +2,13 @@
 
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { type AppCommandId, type CommandState, type ReopenWithEncodingControl } from "@/commands";
+import {
+  type AppCommandId,
+  type CalloutTypeControl,
+  type CommandState,
+  type ReopenWithEncodingControl,
+} from "@/commands";
+import type { CalloutTypeChoice } from "@/features/editor";
 import type { RecentItem } from "@/features/preferences";
 import { TEST_MARKDOWN_FILE_PATH, TEST_NOTES_FOLDER_PATH } from "@/test/fixtures/paths";
 import { renderWithUser, screen, within } from "@/test/utils/react";
@@ -16,6 +22,7 @@ const disabledState = {
 } satisfies CommandState;
 
 interface CommandMenuBarTestProps {
+  calloutTypes?: CalloutTypeControl;
   reopenWithEncoding?: ReopenWithEncodingControl;
   commandState?: (commandId: AppCommandId) => CommandState;
   fileEncodingLabel?: string | null;
@@ -27,6 +34,7 @@ interface CommandMenuBarTestProps {
 }
 
 const renderCommandMenuBar = ({
+  calloutTypes,
   commandState = () => enabledState,
   fileEncodingLabel = null,
   onExecute = vi.fn(),
@@ -38,6 +46,7 @@ const renderCommandMenuBar = ({
 }: CommandMenuBarTestProps = {}) => ({
   ...renderWithUser(
     <CommandMenubar
+      calloutTypes={calloutTypes}
       commandState={commandState}
       fileEncodingLabel={fileEncodingLabel}
       onExecute={onExecute}
@@ -506,6 +515,117 @@ describe("CommandMenubar", () => {
 
     expect(onExecute).toHaveBeenCalledWith("edit.selectSentence");
     expect(editor).toHaveFocus();
+  });
+
+  describe("callout types", () => {
+    const createCalloutTypes = () => ({
+      read: vi.fn((choice: CalloutTypeChoice) =>
+        choice === "change"
+          ? {
+              current: "warning",
+              options: [
+                { label: "Note", token: "note" },
+                { label: "Tip", token: "tip" },
+                { label: "Warning", token: "warning" },
+              ],
+            }
+          : {
+              current: null,
+              options: [
+                { label: "Note", token: "NOTE" },
+                { label: "Tip", token: "TIP" },
+              ],
+            },
+      ),
+      choose: vi.fn(),
+    });
+
+    it("inserts a callout of a chosen type from Insert's Callout submenu", async () => {
+      const calloutTypes = createCalloutTypes();
+      const { onExecute, user } = renderCommandMenuBar({ calloutTypes });
+      const insertTrigger = screen.getByRole("menuitem", { name: "Insert" });
+
+      await user.click(insertTrigger);
+
+      expect(screen.queryByRole("menuitem", { name: /^Callout\.\.\./u })).not.toBeInTheDocument();
+      expect(calloutTypes.read).not.toHaveBeenCalled();
+
+      await user.hover(menuItem(/^Callout$/u));
+      await user.keyboard("{ArrowRight}");
+
+      const items = await screen.findAllByRole("menuitem", { name: /^(Note|Tip)$/u });
+
+      expect(calloutTypes.read).toHaveBeenCalledWith("insert");
+      expect(items.map((item) => item.textContent)).toEqual(["Note", "Tip"]);
+      expect(items[0].querySelector("svg, [data-slot='callout-type-icon']")).toBeNull();
+
+      await user.keyboard("{ArrowDown}{Enter}");
+
+      expect(calloutTypes.choose).toHaveBeenCalledWith("insert", "TIP");
+      expect(onExecute).not.toHaveBeenCalled();
+      expect(insertTrigger).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("disables Insert's Callout submenu where no callout can be inserted", async () => {
+      const calloutTypes = createCalloutTypes();
+      const { user } = renderCommandMenuBar({
+        calloutTypes,
+        commandState: (commandId) =>
+          commandId === "insert.callout" ? disabledState : enabledState,
+      });
+
+      await user.click(screen.getByRole("menuitem", { name: "Insert" }));
+
+      const trigger = menuItem(/^Callout$/u);
+
+      expect(trigger).toHaveAttribute("data-disabled");
+
+      await user.hover(trigger);
+      await user.keyboard("{ArrowRight}");
+
+      expect(calloutTypes.read).not.toHaveBeenCalled();
+    });
+
+    it("changes the callout's type from Format's Callout submenu, above its expanded toggle", async () => {
+      const calloutTypes = createCalloutTypes();
+      const { user } = renderCommandMenuBar({ calloutTypes });
+
+      await user.click(screen.getByRole("menuitem", { name: "Format" }));
+      await user.hover(menuItem(/^Callout$/u));
+      await user.keyboard("{ArrowRight}");
+
+      const radios = await screen.findAllByRole("menuitemradio");
+      const submenu = radios[0].closest<HTMLElement>("[role='menu']")!;
+
+      expect(calloutTypes.read).toHaveBeenCalledWith("change");
+      expect(
+        [...submenu.querySelectorAll("[role^='menuitem']")].map((item) => item.textContent),
+      ).toEqual(["Note", "Tip", "Warning", "Callout opens expanded"]);
+      expect(radios.map((radio) => radio.getAttribute("aria-checked"))).toEqual([
+        "false",
+        "false",
+        "true",
+      ]);
+      expect(within(submenu).getByRole("separator")).toBeInTheDocument();
+
+      await user.keyboard("{Enter}");
+
+      expect(calloutTypes.choose).toHaveBeenCalledWith("change", "note");
+    });
+
+    it("leaves focus where choosing a type moved it", async () => {
+      const editor = appendEditor();
+      const calloutTypes = { ...createCalloutTypes(), choose: vi.fn(() => editor.focus()) };
+      const { user } = renderCommandMenuBar({ calloutTypes });
+
+      await user.click(screen.getByRole("menuitem", { name: "Insert" }));
+      await user.hover(menuItem(/^Callout$/u));
+      await user.keyboard("{ArrowRight}{Enter}");
+      await nextFrame();
+
+      expect(calloutTypes.choose).toHaveBeenCalledWith("insert", "NOTE");
+      expect(editor).toHaveFocus();
+    });
   });
 
   it("lets a command focus its own surface after the menu closes", async () => {

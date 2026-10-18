@@ -30,9 +30,11 @@ import {
   canInsertCallout,
   canToggleCalloutExpanded,
   changeCalloutType,
+  chooseCalloutType,
   closeCalloutType,
   insertCallout,
   isCalloutExpanded,
+  readCalloutTypeChoices,
   toggleCalloutExpanded,
 } from "./callouts";
 
@@ -395,6 +397,102 @@ describe("callout insertion", () => {
   });
 });
 
+describe("callout types chosen from a submenu", () => {
+  it("lists a GitHub alert's types by name, marking the type it has", async () => {
+    const mounted = await mountEditor(withProse("> [!WARNING]\n> Body text"));
+
+    placeCaret(mounted, "Body");
+
+    expect(readCalloutTypeChoices(mounted.view.state, "change")).toEqual({
+      current: "WARNING",
+      options: [
+        { label: "Note", token: "NOTE" },
+        { label: "Tip", token: "TIP" },
+        { label: "Important", token: "IMPORTANT" },
+        { label: "Warning", token: "WARNING" },
+        { label: "Caution", token: "CAUTION" },
+      ],
+    });
+  });
+
+  it.each([
+    ["mkdocs", "!!! bug\n    Body text", "bug"],
+    ["docusaurus", ":::danger\nBody text\n:::", "danger"],
+    ["vitepress", "::: details\nBody text\n:::", "details"],
+  ] as const)("lists only %s types for a callout written in it", async (dialect, block, token) => {
+    const mounted = await mountEditor(withProse(block));
+
+    placeCaret(mounted, "Body");
+
+    const choices = readCalloutTypeChoices(mounted.view.state, "change");
+
+    expect(choices?.current).toBe(token);
+    expect(choices?.options.map((option) => option.token)).toEqual(CALLOUT_TYPES[dialect]);
+  });
+
+  it("lists the types of the dialect a new callout is written in, with none current", async () => {
+    const mounted = await mountEditor("Intro\n\n??? tip\n    Old\n\nOutro\n");
+
+    placeCaret(mounted, "Outro");
+
+    expect(readCalloutTypeChoices(mounted.view.state, "change")).toBeNull();
+
+    const choices = readCalloutTypeChoices(mounted.view.state, "insert");
+
+    expect(choices?.current).toBeNull();
+    expect(choices?.options.map((option) => option.token)).toEqual(CALLOUT_TYPES.mkdocs);
+  });
+
+  it("changes the selected callout's type as one Undo step, without opening the picker", async () => {
+    const source = withProse('???+ note "Custom title"\n\n    Body text');
+    const { mounted, requests } = await mountWithRequests(source);
+
+    placeCaret(mounted, "Body");
+
+    expect(chooseCalloutType(mounted.view, "change", "bug")).toBe(true);
+    expect(requests).toEqual([]);
+    await expectRoundTrip(mounted, withProse('???+ bug "Custom title"\n\n    Body text'));
+
+    expect(undo(mounted.view)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(source);
+  });
+
+  it("leaves the document alone for the type the callout has or one from another dialect", async () => {
+    const mounted = await mountEditor(withProse("> [!NOTE]\n> Body text"));
+    const before = mounted.view.state.doc;
+
+    placeCaret(mounted, "Body");
+
+    expect(chooseCalloutType(mounted.view, "change", "NOTE")).toBe(true);
+    expect(chooseCalloutType(mounted.view, "change", "note")).toBe(false);
+    expect(mounted.view.state.doc).toBe(before);
+    expect(canUndo(mounted.view.state)).toBe(false);
+  });
+
+  it("inserts a callout of the type after the selection's block, with the caret in its body", async () => {
+    const source = "Intro\n\n:::tip\nOld\n:::\n\nOutro\n";
+    const { mounted, requests } = await mountWithRequests(source);
+
+    placeCaret(mounted, "Intro");
+
+    expect(chooseCalloutType(mounted.view, "insert", "warning")).toBe(true);
+    expect(requests).toEqual([]);
+    expect(mounted.view.state.selection.$from.node(1).type.name).toBe("callout");
+    typeText(mounted.view, "Body");
+    await expectRoundTrip(mounted, "Intro\n\n:::warning\nBody\n:::\n\n:::tip\nOld\n:::\n\nOutro\n");
+  });
+
+  it("inserts nothing for a type the new callout's dialect lacks", async () => {
+    const mounted = await mountEditor("Intro\n\nOutro\n");
+    const before = mounted.view.state.doc;
+
+    placeCaret(mounted, "Intro");
+
+    expect(chooseCalloutType(mounted.view, "insert", "warning")).toBe(false);
+    expect(mounted.view.state.doc).toBe(before);
+  });
+});
+
 describe("authored callout disclosure", () => {
   it.each([
     ["a collapsed MkDocs admonition", "??? note\n    Body text", true, false],
@@ -489,6 +587,29 @@ describe("callout operations beside an active source projection", () => {
     projectLink(mounted);
     expect(open(mounted.view)).toBe(true);
     expect(applyCalloutType(mounted.view, requests.at(-1)!, "TIP")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(expected);
+
+    expect(undo(mounted.view)).toBe(true);
+    expect(mounted.getMarkdown()).toBe(source);
+  });
+
+  it.each([
+    [
+      "changes the type chosen for the callout holding the projected link",
+      "change",
+      "Intro\n\n> [!TIP]\n> See [the guide](guide.md) here.\n\nOutro\n",
+    ],
+    [
+      "inserts a callout of the type chosen after the block holding the projected link",
+      "insert",
+      "Intro\n\n> [!NOTE]\n> See [the guide](guide.md) here.\n\n> [!TIP]\n\nOutro\n",
+    ],
+  ] as const)("%s as one Undo step", async (_, choice, expected) => {
+    const source = "Intro\n\n> [!NOTE]\n> See [the guide](guide.md) here.\n\nOutro\n";
+    const mounted = await mountEditor(source);
+
+    projectLink(mounted);
+    expect(chooseCalloutType(mounted.view, choice, "TIP")).toBe(true);
     expect(mounted.getMarkdown()).toBe(expected);
 
     expect(undo(mounted.view)).toBe(true);

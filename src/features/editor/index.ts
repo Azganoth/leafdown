@@ -8,6 +8,11 @@ export {
   type EditorCommandId,
   type EditorCommandState,
 } from "./commands";
+export type {
+  CalloutTypeChoice,
+  CalloutTypeChoices,
+  CalloutTypeOption,
+} from "./commands/formatting/callouts";
 export { DocumentTypographyPreview } from "./components/document-typography-preview";
 export { HeadingOutline } from "./components/heading-outline";
 export {

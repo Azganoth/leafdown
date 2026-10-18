@@ -4,7 +4,7 @@ import { $view } from "@milkdown/kit/utils";
 
 import { t } from "@/lib/i18n";
 
-import { calloutSchema } from "./callout";
+import { calloutSchema, formatCalloutTypeLabel } from "./callout";
 import { setCalloutTypeRequestMeta } from "./calloutType";
 
 const CALLOUT_TONES: Record<string, string> = {
@@ -142,9 +142,7 @@ class CalloutNodeView implements NodeView {
   private render() {
     const { dialect, token, title, marker } = this.node.attrs;
     const collapsible = isCollapsible(this.node);
-    const defaultTitle = String(token)
-      .toLowerCase()
-      .replace(/^./u, (character) => character.toUpperCase());
+    const defaultTitle = formatCalloutTypeLabel(String(token));
     this.dom.dataset.dialect = String(dialect);
     this.dom.dataset.token = String(token);
     this.dom.dataset.tone = calloutTone(String(token));

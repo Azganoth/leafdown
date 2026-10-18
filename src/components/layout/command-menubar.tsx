@@ -6,6 +6,7 @@ import {
   getCommandLabelId,
   getCommandMenuLabelId,
   type AppCommandId,
+  type CalloutTypeControl,
   type CommandState,
   type ReopenWithEncodingControl,
 } from "@/commands";
@@ -34,6 +35,7 @@ import { invariant } from "@/lib/errors";
 import { useLocalization, type MessageId } from "@/lib/i18n";
 
 interface CommandMenubarProps {
+  calloutTypes?: CalloutTypeControl;
   commandState: (commandId: AppCommandId) => CommandState;
   fileEncodingLabel?: string | null;
   onExecute: (commandId: AppCommandId) => void;
@@ -45,9 +47,15 @@ interface CommandMenubarProps {
 }
 
 interface CommandMenuContextValue {
+  calloutTypes: CalloutTypeControl;
   commandState: (commandId: AppCommandId) => CommandState;
   onExecute: (commandId: AppCommandId) => void;
 }
+
+const UNAVAILABLE_CALLOUT_TYPES: CalloutTypeControl = {
+  read: () => null,
+  choose: () => undefined,
+};
 
 const UNAVAILABLE_REOPEN_WITH_ENCODING: ReopenWithEncodingControl = {
   state: { enabled: false, reason: "No document is open." },
@@ -87,6 +95,7 @@ const useCommandMenu = () => {
 };
 
 export function CommandMenubar({
+  calloutTypes = UNAVAILABLE_CALLOUT_TYPES,
   commandState,
   fileEncodingLabel = null,
   onExecute,
@@ -103,8 +112,19 @@ export function CommandMenubar({
     keepFocusMovedByCommand();
   };
 
+  const chooseCalloutType: CalloutTypeControl["choose"] = (choice, token) => {
+    calloutTypes.choose(choice, token);
+    keepFocusMovedByCommand();
+  };
+
   return (
-    <CommandMenuContext.Provider value={{ commandState, onExecute: executeCommand }}>
+    <CommandMenuContext.Provider
+      value={{
+        calloutTypes: { read: calloutTypes.read, choose: chooseCalloutType },
+        commandState,
+        onExecute: executeCommand,
+      }}
+    >
       <Menubar className="border-0 bg-transparent p-0 text-muted-foreground shadow-none">
         <MenubarMenu>
           <MenubarTrigger className="aria-expanded:text-foreground">
@@ -223,7 +243,9 @@ export function CommandMenubar({
               labelId="menu.insert.frontmatter"
             />
             <MenubarSeparator />
-            <CommandItems commandIds={INSERT_COMMAND_IDS} />
+            <CommandItems commandIds={INSERT_COMMAND_IDS_BEFORE_CALLOUT} />
+            <InsertCalloutSubmenu />
+            <CommandItems commandIds={INSERT_COMMAND_IDS_AFTER_CALLOUT} />
           </MenubarContent>
         </MenubarMenu>
 
@@ -332,7 +354,7 @@ const FORMAT_HEADING_COMMAND_IDS = [
   "format.heading6",
 ] satisfies readonly AppCommandId[];
 
-const INSERT_COMMAND_IDS = [
+const INSERT_COMMAND_IDS_BEFORE_CALLOUT = [
   "insert.link",
   "insert.footnote",
   "insert.image",
@@ -340,7 +362,9 @@ const INSERT_COMMAND_IDS = [
   "insert.unorderedList",
   "insert.taskList",
   "insert.blockquote",
-  "insert.callout",
+] satisfies readonly AppCommandId[];
+
+const INSERT_COMMAND_IDS_AFTER_CALLOUT = [
   "insert.codeBlock",
   "insert.table",
   "insert.horizontalRule",
@@ -527,7 +551,33 @@ function CommandSubmenu({ commandIds, inset, labelId }: CommandSubmenuProps) {
   );
 }
 
-// The submenu keeps its checkbox's indicator column out of the Format menu itself.
+function InsertCalloutSubmenu() {
+  const { t } = useLocalization();
+  const { commandState } = useCommandMenu();
+
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger disabled={!commandState("insert.callout").enabled}>
+        {t("menu.callout")}
+      </MenubarSubTrigger>
+      <MenubarSubContent>
+        <InsertCalloutItems />
+      </MenubarSubContent>
+    </MenubarSub>
+  );
+}
+
+function InsertCalloutItems() {
+  const { calloutTypes } = useCommandMenu();
+
+  return calloutTypes.read("insert")?.options.map(({ label, token }) => (
+    <MenubarItem key={token} onClick={() => calloutTypes.choose("insert", token)}>
+      {label}
+    </MenubarItem>
+  ));
+}
+
+// The submenu keeps its indicator columns out of the Format menu itself.
 function CalloutSubmenu() {
   const { t } = useLocalization();
   const { commandState } = useCommandMenu();
@@ -535,13 +585,38 @@ function CalloutSubmenu() {
   return (
     <MenubarSub>
       <MenubarSubTrigger disabled={areAllDisabled(commandState, CALLOUT_COMMAND_IDS)}>
-        {t("menu.format.callout")}
+        {t("menu.callout")}
       </MenubarSubTrigger>
       <MenubarSubContent>
-        <CommandItems commandIds={["format.calloutType"]} inset />
+        <ChangeCalloutTypeItems />
         <CommandCheckboxItem commandId="format.calloutExpanded" />
       </MenubarSubContent>
     </MenubarSub>
+  );
+}
+
+function ChangeCalloutTypeItems() {
+  const { calloutTypes } = useCommandMenu();
+  const choices = calloutTypes.read("change");
+
+  if (!choices) {
+    return null;
+  }
+
+  return (
+    <>
+      <MenubarRadioGroup
+        value={choices.current}
+        onValueChange={(token: string) => calloutTypes.choose("change", token)}
+      >
+        {choices.options.map(({ label, token }) => (
+          <MenubarRadioItem key={token} value={token}>
+            {label}
+          </MenubarRadioItem>
+        ))}
+      </MenubarRadioGroup>
+      <MenubarSeparator />
+    </>
   );
 }
 

@@ -29,13 +29,19 @@ import {
   PilcrowIcon,
   ScissorsIcon,
   TableIcon,
-  TagIcon,
   TextQuoteIcon,
   Trash2Icon,
   UnfoldVerticalIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +49,11 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent } from "@/components/ui/popover";
@@ -51,9 +62,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useLocalization, type MessageId } from "@/lib/i18n";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
+import type { CalloutTypeChoice, CalloutTypeChoices } from "../commands/formatting/callouts";
 import { getEditorCommandLabelId } from "../commands/metadata";
 import type { ContextPopupRequest } from "../plugins/contextPopup";
 import { isDismissedFromOutside } from "../utils/popoverDismissal";
+import { CalloutTypeIcon } from "./callout-type-icon";
 import {
   AddColumnAfterIcon,
   AddColumnBeforeIcon,
@@ -72,6 +85,14 @@ interface ContextSubmenuCommand {
   commandId: EditorCommandId;
   icon?: LucideIcon;
 }
+
+/** A nested submenu listing the types a new callout can take. */
+interface ContextCalloutTypesEntry {
+  calloutTypes: "insert";
+  icon: LucideIcon;
+}
+
+type ContextSubmenuEntry = ContextSubmenuCommand | ContextCalloutTypesEntry;
 
 const QUICK_ACTION_COMMANDS = [
   { commandId: "edit.cut", icon: ScissorsIcon },
@@ -110,7 +131,6 @@ const CODE_BLOCK_COMMANDS = [
 ] satisfies readonly ContextButtonCommand[];
 
 const CALLOUT_COMMANDS = [
-  { commandId: "format.calloutType", icon: TagIcon },
   { commandId: "format.calloutExpanded", icon: UnfoldVerticalIcon },
 ] satisfies readonly ContextButtonCommand[];
 
@@ -160,14 +180,14 @@ const INSERT_COMMANDS = [
   { commandId: "insert.heading5", icon: Heading5Icon },
   { commandId: "insert.heading6", icon: Heading6Icon },
   { commandId: "insert.blockquote", icon: TextQuoteIcon },
-  { commandId: "insert.callout", icon: InfoIcon },
+  { calloutTypes: "insert", icon: InfoIcon },
   { commandId: "insert.orderedList", icon: ListOrderedIcon },
   { commandId: "insert.unorderedList", icon: ListIcon },
   { commandId: "insert.taskList", icon: ListTodoIcon },
   { commandId: "insert.codeBlock", icon: Code2Icon },
   { commandId: "insert.table", icon: TableIcon },
   { commandId: "insert.horizontalRule", icon: MinusIcon },
-] satisfies readonly ContextSubmenuCommand[];
+] satisfies readonly ContextSubmenuEntry[];
 
 const OBJECT_COMMAND_ROWS = [
   { id: "footnote", commands: FOOTNOTE_COMMANDS },
@@ -178,7 +198,8 @@ const OBJECT_COMMAND_ROWS = [
 
 type ContextRow =
   | { id: string; kind: "buttons"; commands: readonly ContextButtonCommand[] }
-  | { id: string; kind: "submenu"; commands: readonly ContextSubmenuCommand[]; labelId: MessageId };
+  | { id: string; kind: "submenu"; commands: readonly ContextSubmenuEntry[]; labelId: MessageId }
+  | { id: string; kind: "calloutTypes" };
 
 const buttonRow = (id: string, commands: readonly ContextButtonCommand[]): ContextRow => ({
   commands,
@@ -192,6 +213,8 @@ const BLOCK_TYPE_ROW: ContextRow = {
   kind: "submenu",
   labelId: "editor.contextPopup.blockType",
 };
+
+const CALLOUT_TYPE_ROW: ContextRow = { id: "calloutType", kind: "calloutTypes" };
 
 const INSERT_ROW: ContextRow = {
   commands: INSERT_COMMANDS,
@@ -241,6 +264,10 @@ const getContextRows = (
   // A table cell holds exactly one paragraph, which no block format or type can change.
   if (selectionKind !== "text" && container !== "table") {
     rows.push(buttonRow("blockFormatting", BLOCK_FORMATTING_COMMANDS));
+  }
+
+  if (canExecute("format.calloutType")) {
+    rows.push(CALLOUT_TYPE_ROW);
   }
 
   if (container !== "table") {
@@ -311,17 +338,24 @@ interface VirtualAnchor {
 
 interface EditorContextPopupProps {
   commandState: EditorCommandState;
+  onChooseCalloutType?: (choice: CalloutTypeChoice, token: string) => void;
   onClose: () => void;
   onExecute: (commandId: EditorCommandId) => void;
   onReturnFocus: () => void;
+  readCalloutTypes?: (choice: CalloutTypeChoice) => CalloutTypeChoices | null;
   request: ContextPopupRequest | null;
 }
 
+const readNoCalloutTypes = () => null;
+const ignoreCalloutType = () => undefined;
+
 export function EditorContextPopup({
   commandState,
+  onChooseCalloutType = ignoreCalloutType,
   onClose,
   onExecute,
   onReturnFocus,
+  readCalloutTypes = readNoCalloutTypes,
   request,
 }: EditorContextPopupProps) {
   const { t } = useLocalization();
@@ -531,27 +565,43 @@ export function EditorContextPopup({
         side="bottom"
         sideOffset={8}
       >
-        {getContextRows(request, canExecute).map((contextRow, row) =>
-          contextRow.kind === "buttons" ? (
-            <ContextCommandRow
-              commands={contextRow.commands}
-              key={contextRow.id}
-              onExecute={onExecute}
-              canExecute={canExecute}
-              isChecked={isChecked}
-              row={row}
-            />
-          ) : (
-            <ContextCommandSubmenu
-              commands={contextRow.commands}
-              key={contextRow.id}
-              labelId={contextRow.labelId}
-              onExecute={onExecute}
-              canExecute={canExecute}
-              row={row}
-            />
-          ),
-        )}
+        {getContextRows(request, canExecute).map((contextRow, row) => {
+          switch (contextRow.kind) {
+            case "buttons":
+              return (
+                <ContextCommandRow
+                  commands={contextRow.commands}
+                  key={contextRow.id}
+                  onExecute={onExecute}
+                  canExecute={canExecute}
+                  isChecked={isChecked}
+                  row={row}
+                />
+              );
+            case "submenu":
+              return (
+                <ContextCommandSubmenu
+                  commands={contextRow.commands}
+                  key={contextRow.id}
+                  labelId={contextRow.labelId}
+                  onChooseCalloutType={onChooseCalloutType}
+                  onExecute={onExecute}
+                  canExecute={canExecute}
+                  readCalloutTypes={readCalloutTypes}
+                  row={row}
+                />
+              );
+            case "calloutTypes":
+              return (
+                <ContextCalloutTypeSubmenu
+                  key={contextRow.id}
+                  onChooseCalloutType={onChooseCalloutType}
+                  readCalloutTypes={readCalloutTypes}
+                  row={row}
+                />
+              );
+          }
+        })}
       </PopoverContent>
     </Popover>
   );
@@ -614,24 +664,13 @@ function ContextCommandRow({
   );
 }
 
-interface ContextCommandSubmenuProps {
-  labelId: MessageId;
-  commands: readonly ContextSubmenuCommand[];
-  onExecute: (commandId: EditorCommandId) => void;
-  canExecute: (commandId: EditorCommandId) => boolean;
+interface ContextSubmenuProps {
+  children: ReactNode;
+  label: string;
   row: number;
 }
 
-function ContextCommandSubmenu({
-  labelId,
-  commands,
-  onExecute,
-  canExecute,
-  row,
-}: ContextCommandSubmenuProps) {
-  const { t } = useLocalization();
-  const label = t(labelId);
-
+function ContextSubmenu({ children, label, row }: ContextSubmenuProps) {
   return (
     <DropdownMenu>
       <ToolbarButton
@@ -652,26 +691,171 @@ function ContextCommandSubmenu({
         <ChevronRightIcon className="text-muted-foreground" />
       </ToolbarButton>
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
-        <DropdownMenuGroup aria-label={label}>
-          {commands.map(({ commandId, icon: CommandIcon }) => {
-            const commandLabel = t(getEditorCommandLabelId(commandId));
-            const enabled = canExecute(commandId);
-
-            return (
-              <DropdownMenuItem
-                closeOnClick={false}
-                disabled={!enabled}
-                inset={!CommandIcon}
-                key={commandId}
-                onClick={() => onExecute(commandId)}
-              >
-                {CommandIcon && <CommandIcon />}
-                {commandLabel}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuGroup>
+        {children}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+interface CalloutTypeChoiceProps {
+  onChooseCalloutType: (choice: CalloutTypeChoice, token: string) => void;
+  readCalloutTypes: (choice: CalloutTypeChoice) => CalloutTypeChoices | null;
+}
+
+interface ContextCommandSubmenuProps extends CalloutTypeChoiceProps {
+  labelId: MessageId;
+  commands: readonly ContextSubmenuEntry[];
+  onExecute: (commandId: EditorCommandId) => void;
+  canExecute: (commandId: EditorCommandId) => boolean;
+  row: number;
+}
+
+function ContextCommandSubmenu({
+  labelId,
+  commands,
+  onChooseCalloutType,
+  onExecute,
+  canExecute,
+  readCalloutTypes,
+  row,
+}: ContextCommandSubmenuProps) {
+  const { t } = useLocalization();
+  const label = t(labelId);
+
+  return (
+    <ContextSubmenu label={label} row={row}>
+      <DropdownMenuGroup aria-label={label}>
+        {commands.map((entry) => {
+          if ("calloutTypes" in entry) {
+            return (
+              <InsertCalloutSubmenu
+                enabled={canExecute("insert.callout")}
+                icon={entry.icon}
+                key="calloutTypes"
+                onChooseCalloutType={onChooseCalloutType}
+                readCalloutTypes={readCalloutTypes}
+              />
+            );
+          }
+
+          const { commandId, icon: CommandIcon } = entry;
+          const commandLabel = t(getEditorCommandLabelId(commandId));
+          const enabled = canExecute(commandId);
+
+          return (
+            <DropdownMenuItem
+              closeOnClick={false}
+              disabled={!enabled}
+              inset={!CommandIcon}
+              key={commandId}
+              onClick={() => onExecute(commandId)}
+            >
+              {CommandIcon && <CommandIcon />}
+              {commandLabel}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuGroup>
+    </ContextSubmenu>
+  );
+}
+
+interface InsertCalloutSubmenuProps extends CalloutTypeChoiceProps {
+  enabled: boolean;
+  icon: LucideIcon;
+}
+
+function InsertCalloutSubmenu({
+  enabled,
+  icon: Icon,
+  onChooseCalloutType,
+  readCalloutTypes,
+}: InsertCalloutSubmenuProps) {
+  const { t } = useLocalization();
+  const label = t("editor.contextPopup.callout");
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={!enabled}>
+        <Icon />
+        {label}
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="w-44">
+        <DropdownMenuGroup aria-label={label}>
+          <InsertCalloutItems
+            onChooseCalloutType={onChooseCalloutType}
+            readCalloutTypes={readCalloutTypes}
+          />
+        </DropdownMenuGroup>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+function InsertCalloutItems({ onChooseCalloutType, readCalloutTypes }: CalloutTypeChoiceProps) {
+  return readCalloutTypes("insert")?.options.map(({ label, token }) => (
+    <DropdownMenuItem
+      closeOnClick={false}
+      key={token}
+      onClick={() => onChooseCalloutType("insert", token)}
+    >
+      <CalloutTypeIcon token={token} />
+      {label}
+    </DropdownMenuItem>
+  ));
+}
+
+interface ContextCalloutTypeSubmenuProps extends CalloutTypeChoiceProps {
+  row: number;
+}
+
+function ContextCalloutTypeSubmenu({
+  onChooseCalloutType,
+  readCalloutTypes,
+  row,
+}: ContextCalloutTypeSubmenuProps) {
+  const { t } = useLocalization();
+  const label = t("editor.contextPopup.calloutType");
+
+  return (
+    <ContextSubmenu label={label} row={row}>
+      <ChangeCalloutTypeItems
+        label={label}
+        onChooseCalloutType={onChooseCalloutType}
+        readCalloutTypes={readCalloutTypes}
+      />
+    </ContextSubmenu>
+  );
+}
+
+interface ChangeCalloutTypeItemsProps extends CalloutTypeChoiceProps {
+  label: string;
+}
+
+function ChangeCalloutTypeItems({
+  label,
+  onChooseCalloutType,
+  readCalloutTypes,
+}: ChangeCalloutTypeItemsProps) {
+  const choices = readCalloutTypes("change");
+
+  if (!choices) {
+    return null;
+  }
+
+  return (
+    <DropdownMenuRadioGroup aria-label={label} value={choices.current}>
+      {choices.options.map(({ label: typeLabel, token }) => (
+        <DropdownMenuRadioItem
+          closeOnClick={false}
+          key={token}
+          onClick={() => onChooseCalloutType("change", token)}
+          value={token}
+        >
+          <CalloutTypeIcon token={token} />
+          {typeLabel}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
   );
 }

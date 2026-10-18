@@ -199,6 +199,25 @@ describe("document editor bridge", () => {
     expect(insertLink).toHaveBeenCalledTimes(1);
   });
 
+  it("reads and chooses callout types only through the document's editor bridge", () => {
+    const choices = { current: "NOTE", options: [{ label: "Note", token: "NOTE" }] };
+    const readCalloutTypes = vi.fn(() => choices);
+    const chooseCalloutType = vi.fn(() => true);
+
+    documentEditorBridge.set(
+      "doc:test",
+      createMilkdownEditorBridge({ chooseCalloutType, readCalloutTypes }),
+    );
+
+    expect(documentEditorBridge.readCalloutTypes("doc:test", "change")).toBe(choices);
+    expect(readCalloutTypes).toHaveBeenCalledWith("change");
+    expect(documentEditorBridge.chooseCalloutType("doc:test", "insert", "TIP")).toBe(true);
+    expect(chooseCalloutType).toHaveBeenCalledWith("insert", "TIP");
+    expect(documentEditorBridge.readCalloutTypes("doc:other", "change")).toBeNull();
+    expect(documentEditorBridge.chooseCalloutType("doc:other", "insert", "TIP")).toBe(false);
+    expect(chooseCalloutType).toHaveBeenCalledTimes(1);
+  });
+
   it("notifies a stable listener snapshot", () => {
     const secondListener = vi.fn();
     const secondListenerDisposable = documentEditorBridge.onDidChangeCommandState(secondListener);

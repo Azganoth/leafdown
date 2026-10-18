@@ -169,6 +169,7 @@ export function Shell() {
       >
         <div data-testid="menu-bar-host" className="flex h-full min-w-0 items-center">
           <CommandMenubar
+            calloutTypes={commands.calloutTypes}
             commandState={commands.commandState}
             fileEncodingLabel={
               activeDocument?.status === "saved"

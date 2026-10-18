@@ -81,6 +81,7 @@ export function MilkdownEditor({
     calloutTypeRequest,
     cancelCalloutType,
     cancelCodeBlockLanguage,
+    chooseContextCalloutType,
     closeBlockInsertion,
     codeBlockLanguageRequest,
     closeContextPopup,
@@ -92,6 +93,7 @@ export function MilkdownEditor({
     focusEditor,
     footnotePreviewRequest,
     linkPreviewRequest,
+    readContextCalloutTypes,
     rootRef,
     search,
   } = useMilkdownEditorInstance({
@@ -127,8 +129,10 @@ export function MilkdownEditor({
       <div ref={rootRef} className="min-h-full w-full" />
       <EditorContextPopup
         commandState={commandState}
+        onChooseCalloutType={chooseContextCalloutType}
         onClose={closeContextPopup}
         onExecute={executeContextCommand}
+        readCalloutTypes={readContextCalloutTypes}
         onReturnFocus={focusEditor}
         request={contextPopupRequest}
       />

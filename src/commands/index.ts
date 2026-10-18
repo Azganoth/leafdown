@@ -1,7 +1,7 @@
 export { ARTICLE_NAVIGATOR_ENTRY_ACTIONS } from "./actions/navigator";
 export { getCommandMenuPathIds, PALETTE_COMMAND_IDS } from "./catalog";
 export type { ApplicationCommandId } from "./application";
-export type { AppCommandContext, ReopenWithEncodingControl } from "./context";
+export type { AppCommandContext, CalloutTypeControl, ReopenWithEncodingControl } from "./context";
 export type { AppCommandId } from "./dispatch";
 export { useAppCommands } from "./hooks/useAppCommands";
 export {

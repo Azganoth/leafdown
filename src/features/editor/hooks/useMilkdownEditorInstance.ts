@@ -39,7 +39,11 @@ import {
 } from "../commands/editing/search";
 import {
   applyCalloutType as applyCalloutTypeToView,
+  chooseCalloutType as chooseCalloutTypeInView,
   closeCalloutType as closeCalloutTypeInView,
+  readCalloutTypeChoices,
+  type CalloutTypeChoice,
+  type CalloutTypeChoices,
 } from "../commands/formatting/callouts";
 import {
   applyCodeBlockLanguage as applyCodeBlockLanguageToView,
@@ -125,6 +129,8 @@ export interface MilkdownEditorBridge {
   navigateToHeading?: (heading: string) => void;
   navigateToOutlineHeading?: (position: number) => boolean;
   runCommand?: (commandId: EditorCommandId) => boolean | Promise<boolean>;
+  readCalloutTypes?: (choice: CalloutTypeChoice) => CalloutTypeChoices | null;
+  chooseCalloutType?: (choice: CalloutTypeChoice, token: string) => boolean;
   /** The document's matches, or `null` while the editor is not ready. */
   readSearchMatches?: (
     query: TextSearchQuery,
@@ -325,6 +331,21 @@ export const useMilkdownEditorInstance = ({
         }
 
         return runEditorCommand(editorRef.current, commandId);
+      },
+      readCalloutTypes: (choice) =>
+        editorRef.current?.ctx
+          ? readCalloutTypeChoices(editorRef.current.ctx.get(editorViewCtx).state, choice)
+          : null,
+      chooseCalloutType: (choice, token) => {
+        if (!editorRef.current?.ctx) {
+          return false;
+        }
+
+        const view = editorRef.current.ctx.get(editorViewCtx);
+
+        view.focus();
+
+        return chooseCalloutTypeInView(view, choice, token);
       },
       readSearchMatches: (query, options) => {
         if (!editorRef.current?.ctx) {
@@ -532,8 +553,8 @@ export const useMilkdownEditorInstance = ({
     liveOptionsRef.current.onDocumentStatusChanged?.();
   }, []);
 
-  const executeContextCommand = useCallback(
-    (commandId: EditorCommandId) => {
+  const runFromContextPopup = useCallback(
+    (run: (editor: MilkdownEditorInstance) => boolean | Promise<boolean>, operation: string) => {
       const editor = editorRef.current;
 
       if (!editor) {
@@ -541,9 +562,7 @@ export const useMilkdownEditorInstance = ({
       }
 
       closeContextPopup();
-      void Promise.resolve(runEditorCommand(editor, commandId)).catch((error) =>
-        handleUnexpectedError(error, "runEditorContextCommand"),
-      );
+      void Promise.resolve(run(editor)).catch((error) => handleUnexpectedError(error, operation));
       window.requestAnimationFrame(() => {
         if (
           editorRef.current === editor &&
@@ -557,6 +576,30 @@ export const useMilkdownEditorInstance = ({
       });
     },
     [closeContextPopup, focusEditor],
+  );
+
+  const executeContextCommand = useCallback(
+    (commandId: EditorCommandId) =>
+      runFromContextPopup(
+        (editor) => runEditorCommand(editor, commandId),
+        "runEditorContextCommand",
+      ),
+    [runFromContextPopup],
+  );
+
+  const readContextCalloutTypes = useCallback((choice: CalloutTypeChoice) => {
+    const editor = editorRef.current;
+
+    return editor?.ctx ? readCalloutTypeChoices(editor.ctx.get(editorViewCtx).state, choice) : null;
+  }, []);
+
+  const chooseContextCalloutType = useCallback(
+    (choice: CalloutTypeChoice, token: string) =>
+      runFromContextPopup(
+        (editor) => chooseCalloutTypeInView(editor.ctx.get(editorViewCtx), choice, token),
+        "chooseEditorContextCalloutType",
+      ),
+    [runFromContextPopup],
   );
 
   useEffect(() => {
@@ -787,6 +830,7 @@ export const useMilkdownEditorInstance = ({
     calloutTypeRequest,
     cancelCalloutType,
     cancelCodeBlockLanguage,
+    chooseContextCalloutType,
     closeBlockInsertion,
     codeBlockLanguageRequest,
     closeContextPopup,
@@ -798,6 +842,7 @@ export const useMilkdownEditorInstance = ({
     footnotePreviewRequest,
     linkPreviewRequest,
     controlTooltipRequest,
+    readContextCalloutTypes,
     rootRef,
     search,
   };

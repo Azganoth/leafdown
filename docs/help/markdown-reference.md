@@ -87,7 +87,7 @@ flowchart LR
 ```
 ````
 
-**Callouts** support GitHub alert blocks, Material for MkDocs admonitions, and Docusaurus or VitePress colon fences. Supported types and titles depend on the dialect. **Insert > Callout...** adds one in the dialect your document's callouts already use, or a GitHub alert, after you choose its type. Press the icon at the start of a callout's header to change its type, and use **Format > Callout > Callout opens expanded** to choose whether a collapsible MkDocs admonition opens expanded. For example:
+**Callouts** support GitHub alert blocks, Material for MkDocs admonitions, and Docusaurus or VitePress colon fences. Supported types and titles depend on the dialect. **Insert > Callout** adds one of the type you choose, in the dialect your document's callouts already use, or as a GitHub alert. Choose a type from **Format > Callout**, or press the icon at the start of a callout's header, to change its type, and use **Format > Callout > Callout opens expanded** to choose whether a collapsible MkDocs admonition opens expanded. For example:
 
 ```text
 > [!NOTE]

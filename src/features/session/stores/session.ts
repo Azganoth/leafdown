@@ -103,13 +103,14 @@ export interface SessionStore extends SessionState {
   abandonFolderContextLoad: (loadId: number) => boolean;
   /**
    * Adds the tabs a kept session restores after any open ones, activating the one at
-   * `activeIndex`, and starts loading the folder they were kept with when the window has none.
+   * `activeIndex`, and starts loading the folder they were kept with when the window has none. A
+   * document a tab already holds is not added again, and its `tabs` entry is `null`.
    */
   restoreTabs: (
     tabs: readonly RestoredTab[],
     activeIndex: number | null,
     folderPath: string | null,
-  ) => { tabs: DocumentTab[]; folderContextLoad: FolderContextLoad | null };
+  ) => { tabs: (DocumentTab | null)[]; folderContextLoad: FolderContextLoad | null };
   reset: () => void;
 }
 
@@ -370,10 +371,7 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
     return true;
   },
   restoreTabs: (restoredTabs, activeIndex, folderPath) => {
-    const tabs = restoredTabs.map(({ document, preview, viewState }) => ({
-      ...createTab(document, preview),
-      viewState,
-    }));
+    const tabs: (DocumentTab | null)[] = [];
     let folderContextLoad: FolderContextLoad | null = null;
 
     set((state) => {
@@ -382,10 +380,28 @@ export const useSessionStore = create<SessionStore>()((set, get) => ({
         folderContextLoad = { id: nextFolderContextLoadId, path: folderPath };
       }
 
-      const activeTab = (activeIndex === null ? undefined : tabs[activeIndex]) ?? tabs[0];
+      const nextTabs = [...state.tabs];
+      let activeTab: DocumentTab | null = null;
+
+      for (const [index, { document, preview, viewState }] of restoredTabs.entries()) {
+        const holder = findTabByDocumentKey({ tabs: nextTabs }, getActiveDocumentKey(document));
+        const tab = holder ? null : { ...createTab(document, preview), viewState };
+
+        if (tab) {
+          nextTabs.push(tab);
+        }
+
+        tabs.push(tab);
+
+        if (index === activeIndex) {
+          activeTab = holder ?? tab;
+        }
+      }
+
+      activeTab ??= tabs.find((tab) => tab !== null) ?? null;
 
       return {
-        ...withTabs([...state.tabs, ...tabs], activeTab?.id ?? state.activeTabId),
+        ...withTabs(nextTabs, activeTab?.id ?? state.activeTabId),
         ...(folderContextLoad && { folderContext: null, folderContextLoad }),
       };
     });

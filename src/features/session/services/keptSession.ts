@@ -297,13 +297,13 @@ export const restoreKeptWindowSession = async () => {
         tabs.flatMap((tab, index) => {
           const { snapshotId } = restoredTabs[index];
 
-          return snapshotId ? [[tab.id, snapshotId] as const] : [];
+          return tab && snapshotId ? [[tab.id, snapshotId] as const] : [];
         }),
       ),
     );
 
     for (const tab of tabs) {
-      if (tab.document.status === "saved" && tab.document.isDirty) {
+      if (tab?.document.status === "saved" && tab.document.isDirty) {
         void checkDocumentFile(tab.document.path);
       }
     }

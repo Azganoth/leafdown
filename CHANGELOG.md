@@ -6,7 +6,13 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Add a File icons setting to Preferences > Appearance. Colored draws folders in amber and gives articles and each other type of file a color of its own, the same under every accent color. Neutral, the default, keeps the icons gray.
+
 ### Changed
+
+- Redraw the article navigator's file and folder icons. Folders are filled and drawn open while expanded, articles show a darker page of lines, and other files show a page marked with their type, such as an image, code, a spreadsheet, an archive, or a PDF. The welcome screen's Open file and Open folder buttons and the drop overlay use the same icons, and recent files and folders are listed without one.
 
 - Enlarge the text of the article navigator, Find in folder, document tabs, and status bar from 12 px to 13 px, with taller rows and larger file, folder, and chevron icons to match. Document tabs grow too: a taller strip with more space between tabs, a larger close mark and new-document button, and room for longer names before they are cut short. Zoom still scales the whole interface, and Text size still sets document text only.
 - Show only the folder's name in the article navigator's header, without the article count beside it. Find in folder still reports how many articles it searched.

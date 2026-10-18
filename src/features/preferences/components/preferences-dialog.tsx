@@ -29,7 +29,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { LineEnding, NewDocumentExtension } from "@/features/document";
 import type { DocumentFont, DocumentLineSpacing, DocumentTypography } from "@/features/editor";
-import type { ArticleSortOrder } from "@/features/folder-context";
+import type { ArticleSortOrder, FileIconStyle } from "@/features/folder-context";
 import { notifyOperationFailure } from "@/lib/errors";
 import {
   getAvailableLocales,
@@ -66,6 +66,11 @@ const APPEARANCE_THEME_OPTIONS: LocalizedOption<AppearanceTheme>[] = [
   { labelId: "preferences.theme.system", value: "system" },
   { labelId: "preferences.theme.light", value: "light" },
   { labelId: "preferences.theme.dark", value: "dark" },
+];
+
+const FILE_ICON_STYLE_OPTIONS: LocalizedOption<FileIconStyle>[] = [
+  { labelId: "preferences.fileIconStyle.neutral", value: "neutral" },
+  { labelId: "preferences.fileIconStyle.colored", value: "colored" },
 ];
 
 const APPEARANCE_ACCENT_COLOR_OPTIONS: LocalizedOption<AppearanceAccentColor>[] = [
@@ -450,6 +455,7 @@ function AppearancePreferences({ renderTypographyPreview }: AppearancePreference
   const { t } = useLocalization();
   const accentColor = useSettingsStore((state) => state.accentColor);
   const theme = useSettingsStore((state) => state.theme);
+  const fileIconStyle = useSettingsStore((state) => state.fileIconStyle);
   const documentFont = useSettingsStore((state) => state.documentFont);
   const textSize = useSettingsStore((state) => state.textSize);
   const lineSpacing = useSettingsStore((state) => state.lineSpacing);
@@ -469,6 +475,16 @@ function AppearancePreferences({ renderTypographyPreview }: AppearancePreference
           value,
         }))}
         onValueChange={(value) => updateSetting("theme", value)}
+      />
+      <PreferenceChoice
+        label={t("preferences.fileIconStyle.label")}
+        description={t("preferences.fileIconStyle.description")}
+        value={fileIconStyle}
+        options={FILE_ICON_STYLE_OPTIONS.map(({ labelId, value }) => ({
+          label: t(labelId),
+          value,
+        }))}
+        onValueChange={(value) => updateSetting("fileIconStyle", value)}
       />
       <DocumentFontPreference
         documentFont={documentFont}

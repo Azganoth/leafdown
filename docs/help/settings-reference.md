@@ -35,6 +35,7 @@ The **H1 to H6** control at the top of the document outline is also remembered a
 
 - **Accent color:** Choose Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia.
 - **Appearance theme:** Follow the system or choose Light or Dark.
+- **File icons:** Keep the navigator's file and folder icons gray, or choose Colored to give folders and each type of file a color of their own.
 - **Document font:** Choose Inter, IBM Plex Sans, Atkinson Hyperlegible Next, Literata, or the system font. Code keeps its monospace face.
 - **Text size:** Choose 14, 16, 18, or 20 px for document text.
 - **Line spacing:** Choose Compact, Default, or Relaxed for document paragraphs, lists, and quotes.

@@ -33,7 +33,14 @@ const MVP_SETTINGS_BY_TAB = {
     "Display line numbers for code blocks",
     "Soft wrap for code blocks",
   ],
-  Appearance: ["Accent color", "Appearance theme", "Document font", "Text size", "Line spacing"],
+  Appearance: [
+    "Accent color",
+    "Appearance theme",
+    "File icons",
+    "Document font",
+    "Text size",
+    "Line spacing",
+  ],
 };
 
 const POST_MVP_SETTINGS = ["Render/editor theme", "Unordered list marker"];
@@ -78,7 +85,12 @@ describe("preferences-dialog", () => {
   });
 
   it("updates persisted settings", async () => {
-    setDefaultSettings({ accentColor: "neutral", sidebarVisible: true, theme: "system" });
+    setDefaultSettings({
+      accentColor: "neutral",
+      fileIconStyle: "neutral",
+      sidebarVisible: true,
+      theme: "system",
+    });
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
@@ -110,6 +122,11 @@ describe("preferences-dialog", () => {
     await user.click(accentColorSelect);
     await user.click(screen.getByRole("option", { name: "Violet" }));
     await user.click(screen.getByRole("button", { name: "Dark" }));
+    await user.click(
+      within(screen.getByRole("group", { name: "File icons" })).getByRole("button", {
+        name: "Colored",
+      }),
+    );
 
     expect(accentColorSelect).toHaveTextContent("Violet");
     expect(
@@ -123,6 +140,7 @@ describe("preferences-dialog", () => {
       displayCodeBlockLineNumbers: true,
       sidebarVisible: false,
       accentColor: "violet",
+      fileIconStyle: "colored",
       theme: "dark",
     });
   });

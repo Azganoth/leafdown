@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reopen each restored tab once. A launch could reopen every kept tab twice, and a document with unsaved changes then appeared in two tabs that each held its text. A window now never restores a document that one of its tabs already holds, and a session already kept with a document twice reopens it in one tab.
+
 ## [0.1.0-alpha.4] - 2026-10-17
 
 ### Highlights

@@ -276,6 +276,62 @@ describe("kept session", () => {
       });
     });
 
+    it("opens each kept tab once when the window restores again before the first finishes", async () => {
+      mockTauriApi({
+        restoreWindowSession: () =>
+          keptWindow(
+            {
+              activeTabIndex: 1,
+              tabs: [
+                keptSavedTab(),
+                keptUntitledTab({ id: "untitled:2", snapshotId: "draft", isDirty: true }),
+              ],
+            },
+            { draft: "Draft text" },
+          ),
+        openMarkdownFile: () => createOpenedMarkdownDocument(),
+      });
+
+      await Promise.all([restoreKeptWindowSession(), restoreKeptWindowSession()]);
+
+      const state = useSessionStore.getState();
+
+      expect(state.tabs.map((tab) => tab.document)).toMatchObject([
+        { status: "saved", path: TEST_MARKDOWN_FILE_PATH },
+        { status: "untitled", id: "untitled:2", content: "Draft text" },
+      ]);
+      expect(getActiveTab(state)?.id).toBe(state.tabs[1].id);
+    });
+
+    it("opens a document kept in more than one tab once, active when any of its tabs was", async () => {
+      mockTauriApi({
+        restoreWindowSession: () =>
+          keptWindow(
+            {
+              activeTabIndex: 2,
+              tabs: [
+                keptSavedTab(),
+                keptUntitledTab({ snapshotId: "draft", isDirty: true }),
+                keptSavedTab(),
+                keptUntitledTab({ snapshotId: "draft", isDirty: true }),
+              ],
+            },
+            { draft: "Draft text" },
+          ),
+        openMarkdownFile: () => createOpenedMarkdownDocument(),
+      });
+
+      await restoreKeptWindowSession();
+
+      const state = useSessionStore.getState();
+
+      expect(state.tabs.map((tab) => tab.document)).toMatchObject([
+        { status: "saved", path: TEST_MARKDOWN_FILE_PATH },
+        { status: "untitled", id: "untitled:1", content: "Draft text" },
+      ]);
+      expect(getActiveTab(state)?.id).toBe(state.tabs[0].id);
+    });
+
     it("leaves out a document another window already holds", async () => {
       mockTauriApi({
         restoreWindowSession: () => keptWindow({ tabs: [keptSavedTab()] }),

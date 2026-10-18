@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Changed
+
+- Show only the folder's name in the article navigator's header, without the article count beside it. Find in folder still reports how many articles it searched.
+
 ## [0.1.0-alpha.4] - 2026-10-17
 
 ### Highlights

@@ -184,3 +184,5 @@ export const getDocumentPreviewText = (doc: ProseMirrorNode, from = 0) => {
     ? `${text.slice(0, LINK_PREVIEW_CHARACTER_LIMIT).trimEnd()}${LINK_PREVIEW_ELLIPSIS}`
     : text;
 };
+
+export const isLinkPreviewTextTruncated = (text: string) => text.endsWith(LINK_PREVIEW_ELLIPSIS);

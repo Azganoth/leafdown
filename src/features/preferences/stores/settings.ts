@@ -12,7 +12,12 @@ import type {
   DocumentTextSize,
   OutlineDepth,
 } from "@/features/editor";
-import { ARTICLE_SORT_ORDERS, type ArticleSortOrder } from "@/features/folder-context";
+import {
+  ARTICLE_SORT_ORDERS,
+  FILE_ICON_STYLES,
+  type ArticleSortOrder,
+  type FileIconStyle,
+} from "@/features/folder-context";
 import { SYSTEM_LANGUAGE } from "@/lib/i18n";
 import { createPersistedTauriStore, definePersistedState } from "@/lib/persistedTauriStore";
 import { isWindowsPlatform } from "@/lib/platform";
@@ -76,6 +81,7 @@ export interface SettingsState {
   language: string;
   accentColor: AppearanceAccentColor;
   theme: AppearanceTheme;
+  fileIconStyle: FileIconStyle;
   documentFont: DocumentFont;
   textSize: DocumentTextSize;
   lineSpacing: DocumentLineSpacing;
@@ -112,6 +118,7 @@ export const createDefaultSettingsState = (): SettingsState => ({
   language: SYSTEM_LANGUAGE,
   accentColor: "neutral",
   theme: "system",
+  fileIconStyle: "neutral",
   documentFont: "inter",
   textSize: 16,
   lineSpacing: "default",
@@ -141,6 +148,7 @@ const SETTINGS_CONTRACT = definePersistedState({
   language: stringValue,
   accentColor: oneOf(APPEARANCE_ACCENT_COLORS),
   theme: oneOf(APPEARANCE_THEMES),
+  fileIconStyle: oneOf(FILE_ICON_STYLES),
   documentFont: oneOf(DOCUMENT_FONTS),
   textSize: oneOf(DOCUMENT_TEXT_SIZES),
   lineSpacing: oneOf(DOCUMENT_LINE_SPACINGS),

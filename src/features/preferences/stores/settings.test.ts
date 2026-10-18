@@ -20,6 +20,7 @@ describe("settings store", () => {
       language: "de",
       theme: "dark",
       accentColor: "violet",
+      fileIconStyle: "colored",
       documentFont: "system",
       textSize: 20,
       lineSpacing: "relaxed",
@@ -48,6 +49,7 @@ describe("settings store", () => {
       language: "system",
       theme: "system",
       accentColor: "neutral",
+      fileIconStyle: "neutral",
       documentFont: "inter",
       textSize: 16,
       lineSpacing: "default",
@@ -78,6 +80,7 @@ describe("settings store", () => {
     settings.updateSetting("language", "pt-BR");
     settings.updateSetting("theme", "dark");
     settings.updateSetting("accentColor", "fuchsia");
+    settings.updateSetting("fileIconStyle", "colored");
     settings.updateSetting("documentFont", "system");
     settings.updateSetting("textSize", 14);
     settings.updateSetting("lineSpacing", "compact");
@@ -102,6 +105,7 @@ describe("settings store", () => {
       language: "pt-BR",
       theme: "dark",
       accentColor: "fuchsia",
+      fileIconStyle: "colored",
       documentFont: "system",
       textSize: 14,
       lineSpacing: "compact",
@@ -138,6 +142,7 @@ describe("settings store", () => {
         language: "pt-BR",
         theme: "dark",
         accentColor: "violet",
+        fileIconStyle: "colored",
         documentFont: "system",
         textSize: 18,
         lineSpacing: "relaxed",
@@ -173,6 +178,7 @@ describe("settings store", () => {
         language: 42,
         theme: "midnight",
         accentColor: "teal",
+        fileIconStyle: "rainbow",
         documentFont: "Georgia",
         textSize: 17,
         lineSpacing: 2,

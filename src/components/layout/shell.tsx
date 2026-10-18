@@ -100,6 +100,7 @@ export function Shell() {
   const folderContextLoadPath = useSessionStore((state) => state.folderContextLoad?.path ?? null);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
   const showAllFiles = useSettingsStore((state) => state.showAllFiles);
+  const fileIconStyle = useSettingsStore((state) => state.fileIconStyle);
   const folderSearchOpen = useFolderSearchStore((state) => state.open);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
@@ -233,6 +234,7 @@ export function Shell() {
                         <ArticleNavigator
                           actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
                           activeArticlePath={activeArticlePath}
+                          fileIconStyle={fileIconStyle}
                           folderContext={folderContext}
                           onKeepArticle={handleKeepArticle}
                           onOpenArticle={handleOpenArticle}

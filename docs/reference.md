@@ -72,6 +72,8 @@ Global settings persist across application launches unless specified otherwise.
 
 - **Accent color:** Neutral, Red, Orange, Amber, Emerald, Cyan, Blue, Violet, or Fuchsia. Default: Neutral.
 - **Appearance theme:** System, Light, or Dark. Default: System.
+- **File icons:** Neutral or Colored. Default: Neutral.
+  - Sets the article navigator's file and folder icons. Colored draws folders in amber and gives articles and each other file type a color of their own, independent of the accent color. See [Interface Model](./specification.md#interface-model).
 - **Document font:** Inter, IBM Plex Sans, Atkinson Hyperlegible Next, Literata, or System. Default: Inter.
   - Every font but System ships with Leafdown, so it looks the same on every platform. System uses the platform's ordinary sans-serif text font. Code and Markdown source keep their monospace font.
   - Each option in the list is shown in its own font.

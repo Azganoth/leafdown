@@ -1,12 +1,7 @@
-import {
-  CircleSlash2Icon,
-  FileTextIcon,
-  FolderOpenIcon,
-  LinkIcon,
-  LoaderCircleIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { CircleSlash2Icon, LinkIcon, LoaderCircleIcon } from "lucide-react";
+import type { ComponentProps, ComponentType } from "react";
 
+import { FileEntryIcon, FolderEntryIcon } from "@/features/folder-context";
 import { useLocalization, type Translate } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
 import { cn } from "@/lib/utils";
@@ -19,7 +14,7 @@ interface DroppedPathOverlayProps {
 
 interface OverlayContent {
   description: string;
-  Icon: LucideIcon;
+  Icon: ComponentType<ComponentProps<"svg">>;
   title: string;
   unavailable?: boolean;
 }
@@ -115,7 +110,7 @@ const getOverlayContent = (
 
   return {
     description: getPathParts(indicator.droppedPath.path).name,
-    Icon: insertsLink ? LinkIcon : isFolder ? FolderOpenIcon : FileTextIcon,
+    Icon: insertsLink ? LinkIcon : isFolder ? DroppedFolderIcon : DroppedMarkdownFileIcon,
     title: t(
       insertsLink
         ? isFolder
@@ -127,3 +122,11 @@ const getOverlayContent = (
     ),
   };
 };
+
+function DroppedFolderIcon(props: ComponentProps<"svg">) {
+  return <FolderEntryIcon open {...props} />;
+}
+
+function DroppedMarkdownFileIcon(props: ComponentProps<"svg">) {
+  return <FileEntryIcon kind="article" {...props} />;
+}

@@ -1227,3 +1227,110 @@ describe("article-navigator entry actions", () => {
     expect(actions.createEntry).toHaveBeenCalledWith("C:/Notes", "file", "notes");
   });
 });
+
+describe("article-navigator icons", () => {
+  beforeEach(() => useArticleNavigatorStore.getState().reset());
+
+  const iconFolderContext = createFolderContext({
+    tree: createArticleTree({
+      children: [
+        {
+          kind: "directory",
+          name: "assets",
+          path: `${TEST_NOTES_FOLDER_PATH}/assets`,
+          children: [
+            {
+              kind: "unsupportedFile",
+              name: "cover.png",
+              path: `${TEST_NOTES_FOLDER_PATH}/assets/cover.png`,
+            },
+          ],
+        },
+        {
+          kind: "directory",
+          name: "archive",
+          path: `${TEST_NOTES_FOLDER_PATH}/archive`,
+          children: [
+            {
+              kind: "unsupportedFile",
+              name: "old.zip",
+              path: `${TEST_NOTES_FOLDER_PATH}/archive/old.zip`,
+            },
+          ],
+        },
+        { kind: "unsupportedFile", name: "LICENSE", path: `${TEST_NOTES_FOLDER_PATH}/LICENSE` },
+        {
+          kind: "unsupportedFile",
+          name: "MANUAL.PDF",
+          path: `${TEST_NOTES_FOLDER_PATH}/MANUAL.PDF`,
+        },
+        { kind: "file", name: "readme.md", path: TEST_MARKDOWN_FILE_PATH },
+      ],
+    }),
+  });
+
+  const getRowIcon = (name: string) =>
+    screen.getByRole("treeitem", { name }).querySelector<SVGElement>("svg[data-entry-icon]");
+
+  it("draws folders open or closed and each file with its type's icon", () => {
+    useArticleNavigatorStore.getState().expandDirectories([`${TEST_NOTES_FOLDER_PATH}/assets`]);
+
+    render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={iconFolderContext}
+        onOpenArticle={vi.fn()}
+        showAllFiles
+      />,
+    );
+
+    expect(
+      Object.fromEntries(
+        ["assets", "cover.png", "archive", "LICENSE", "MANUAL.PDF", "readme.md"].map((name) => [
+          name,
+          getRowIcon(name)?.dataset.entryIcon,
+        ]),
+      ),
+    ).toEqual({
+      assets: "open-folder",
+      "cover.png": "image",
+      archive: "folder",
+      LICENSE: "other",
+      "MANUAL.PDF": "pdf",
+      "readme.md": "article",
+    });
+    expect(getRowIcon("readme.md")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("gives file types colors of their own only in the colored style", () => {
+    const { rerender } = render(
+      <ArticleNavigator
+        activeArticlePath={null}
+        folderContext={iconFolderContext}
+        onOpenArticle={vi.fn()}
+        showAllFiles
+      />,
+    );
+
+    expect(getRowIcon("MANUAL.PDF")?.getAttribute("class")).toBe(
+      getRowIcon("LICENSE")?.getAttribute("class"),
+    );
+    expect(getRowIcon("readme.md")?.getAttribute("class")).not.toBe(
+      getRowIcon("LICENSE")?.getAttribute("class"),
+    );
+
+    rerender(
+      <ArticleNavigator
+        activeArticlePath={null}
+        fileIconStyle="colored"
+        folderContext={iconFolderContext}
+        onOpenArticle={vi.fn()}
+        showAllFiles
+      />,
+    );
+
+    expect(getRowIcon("MANUAL.PDF")?.getAttribute("class")).not.toBe(
+      getRowIcon("LICENSE")?.getAttribute("class"),
+    );
+  });
+});

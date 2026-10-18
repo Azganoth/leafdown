@@ -231,6 +231,21 @@ describe("Shell", () => {
     expect(screen.queryByRole("button", { name: "Clear recent items" })).not.toBeInTheDocument();
   });
 
+  it("lists recent items without an icon", () => {
+    setDefaultRecentItems({
+      recentFiles: [{ path: SPEC_MARKDOWN_PATH }],
+      recentFolders: [{ path: TEST_NESTED_DIRECTORY_PATH }],
+    });
+
+    render(<Shell />);
+
+    for (const path of [SPEC_MARKDOWN_PATH, TEST_NESTED_DIRECTORY_PATH]) {
+      const [openRecentItem] = within(getRecentItem(path)).getAllByRole("button");
+
+      expect(openRecentItem.querySelector("svg")).toBeNull();
+    }
+  });
+
   it("shows when a recent item was last opened, and nothing for one without a time", () => {
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
     setDefaultRecentItems({

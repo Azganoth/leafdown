@@ -22,6 +22,35 @@ describe("DroppedPathOverlay", () => {
     expect(screen.getByRole("status")).toHaveTextContent("guide.md");
   });
 
+  it("draws the folder or Markdown file it opens with the article navigator's icon", () => {
+    const { rerender } = render(
+      <DroppedPathOverlay
+        indicator={{
+          action: "openFolder",
+          droppedPath: { kind: "folder", path: "C:/Notes" },
+          status: "ready",
+        }}
+      />,
+    );
+
+    const getIcon = () => screen.getByRole("status").querySelector("svg[data-entry-icon]");
+
+    expect(getIcon()).toHaveAttribute("data-entry-icon", "open-folder");
+    expect(getIcon()).toHaveAttribute("aria-hidden", "true");
+
+    rerender(
+      <DroppedPathOverlay
+        indicator={{
+          action: "openMarkdownFile",
+          droppedPath: { kind: "markdownFile", path: "C:/Notes/guide.md" },
+          status: "ready",
+        }}
+      />,
+    );
+
+    expect(getIcon()).toHaveAttribute("data-entry-icon", "article");
+  });
+
   it("explains why a drop is unavailable", () => {
     render(
       <DroppedPathOverlay indicator={{ count: 3, reason: "multipleItems", status: "rejected" }} />,

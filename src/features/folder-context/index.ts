@@ -5,6 +5,7 @@ export {
   type ArticleNavigatorEntryKind,
 } from "./components/article-navigator";
 export { ArticleNavigatorSkeleton } from "./components/article-navigator-skeleton";
+export { FileEntryIcon, FolderEntryIcon } from "./components/entry-icons";
 export {
   openFolderContext,
   scanFolderContext,
@@ -39,6 +40,7 @@ export {
   getArticlePaths,
   getArticleTreeEntryPaths,
 } from "./utils/articleNavigatorRows";
+export { FILE_ICON_STYLES, type FileIconStyle } from "./utils/fileIcons";
 export {
   getFolderEntryErrorMessage,
   getOpenFolderContextErrorMessage,

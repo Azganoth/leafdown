@@ -1,7 +1,18 @@
+// @vitest-environment happy-dom
+
 import { describe, expect, it } from "vitest";
 
+import { t } from "@/lib/i18n";
+
 import { COMMAND_DEFINITIONS } from "./metadata";
-import { getShortcutReferenceGroups } from "./shortcutReference";
+import {
+  filterShortcutReferenceGroups,
+  filterShortcutReferenceGroupsByEvent,
+  getShortcutReferenceGroups,
+} from "./shortcutReference";
+
+const entryIds = (groups: ReturnType<typeof getShortcutReferenceGroups>) =>
+  groups.flatMap((group) => group.entries.map((entry) => entry.id));
 
 describe("shortcut reference", () => {
   it("groups implemented shortcut commands and editor-owned interactions by menu", () => {
@@ -73,5 +84,36 @@ describe("shortcut reference", () => {
     } finally {
       COMMAND_DEFINITIONS["view.resetZoom"].shortcuts = original;
     }
+  });
+
+  it("searches by command label, menu, and key names", () => {
+    const groups = getShortcutReferenceGroups();
+
+    expect(entryIds(filterShortcutReferenceGroups(groups, "heading", t))).toEqual([
+      "format.heading1",
+      "format.heading2",
+      "format.heading3",
+      "format.heading4",
+      "format.heading5",
+      "format.heading6",
+    ]);
+    expect(entryIds(filterShortcutReferenceGroups(groups, "ctrl+shift f", t))).toEqual([
+      "edit.findInFolder",
+    ]);
+    expect(entryIds(filterShortcutReferenceGroups(groups, "help", t))).toEqual([
+      "help.keyboardShortcuts",
+    ]);
+    expect(filterShortcutReferenceGroups(groups, "no such command", t)).toEqual([]);
+    expect(filterShortcutReferenceGroups(groups, "  ", t)).toEqual(groups);
+  });
+
+  it("finds the shortcuts a pressed combination runs", () => {
+    const groups = getShortcutReferenceGroups();
+    const press = (init: KeyboardEventInit) =>
+      entryIds(filterShortcutReferenceGroupsByEvent(groups, new KeyboardEvent("keydown", init)));
+
+    expect(press({ key: "F", ctrlKey: true, shiftKey: true })).toEqual(["edit.findInFolder"]);
+    expect(press({ key: "y", ctrlKey: true })).toEqual(["edit.redo"]);
+    expect(press({ key: "q", altKey: true })).toEqual([]);
   });
 });

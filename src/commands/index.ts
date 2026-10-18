@@ -13,7 +13,12 @@ export {
 } from "./metadata";
 export type { CommandDefinition, CommandMenuId, CommandShortcut } from "./metadata";
 export { getCommandState } from "./state";
-export { getShortcutReferenceGroups } from "./shortcutReference";
+export {
+  filterShortcutReferenceGroups,
+  filterShortcutReferenceGroupsByEvent,
+  getShortcutQueryTerms,
+  getShortcutReferenceGroups,
+} from "./shortcutReference";
 export type { CommandState } from "./statePrimitives";
 export { useCommandUIStore } from "./stores/commandUi";
 export { getCommandPaletteOpener } from "./stores/commandUi";

@@ -8,27 +8,28 @@ export function ReleaseHighlights({ highlights }: { highlights: readonly Release
   const { t } = useLocalization();
 
   return (
-    <ul aria-label={t("releaseNotes.highlights")} className="@container space-y-3">
-      {highlights.map((highlight) => (
+    <ul aria-label={t("releaseNotes.highlights")} className="space-y-7">
+      {highlights.map((highlight, index) => (
         <li
           key={highlight.title}
-          className="flex flex-col gap-3 rounded-xl border bg-card p-2.5 @md:flex-row @md:items-center @md:gap-4"
+          className={cn(
+            "grid items-center gap-4",
+            highlight.illustration && "@xl/help-article:grid-cols-2 @xl/help-article:gap-8",
+          )}
         >
           {highlight.illustration && (
             <div
               aria-hidden="true"
-              className="flex shrink-0 justify-center overflow-hidden rounded-lg bg-art-tint @md:w-44 [&>svg]:h-28 [&>svg]:w-auto @md:[&>svg]:h-auto @md:[&>svg]:w-full"
+              className={cn(
+                "flex justify-center rounded-xl bg-art-tint px-6 py-5 [&>svg]:h-auto [&>svg]:w-full [&>svg]:max-w-[17rem]",
+                index % 2 === 1 && "@xl/help-article:order-last",
+              )}
               dangerouslySetInnerHTML={{ __html: highlight.illustration }}
             />
           )}
-          <div
-            className={cn(
-              "min-w-0 px-2 pb-1 @md:py-1 @md:pr-3",
-              highlight.illustration && "@md:pl-0",
-            )}
-          >
-            <h3 className="text-[0.9375rem] font-semibold tracking-tight">{highlight.title}</h3>
-            <div className="mt-1 text-muted-foreground [&>p]:my-0 [&>p+p]:mt-2">
+          <div className="min-w-0">
+            <h3 className="text-lg leading-snug font-semibold tracking-tight">{highlight.title}</h3>
+            <div className="mt-1.5 leading-relaxed text-muted-foreground [&>p]:my-0 [&>p+p]:mt-2">
               <HelpMarkdownFragment source={highlight.body} />
             </div>
           </div>

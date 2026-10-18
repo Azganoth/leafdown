@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { useLocalization } from "@/lib/i18n";
 
-import { HELP_PAGES, type HelpPageId } from "../services/pages";
+import { getHelpPageSections, HELP_PAGES, type HelpPageId } from "../services/pages";
 import { HelpMarkdown } from "./help-markdown";
+import { HelpPageContent, HelpPageHeader } from "./help-page";
 
 interface HelpDialogProps {
   page: HelpPageId | null;
@@ -40,21 +41,20 @@ export function HelpDialog({ page, onPageChange }: HelpDialogProps) {
 
   return (
     <Dialog open={page !== null} onOpenChange={(open) => !open && onPageChange(null)}>
-      <DialogContent className="flex h-[min(40rem,calc(100dvh-2rem))] min-h-0 flex-col gap-4 sm:max-w-2xl">
+      <HelpPageContent kind="guide">
         {shownPage && (
           <>
-            <DialogHeader className="shrink-0 pr-10">
-              <DialogTitle>{t(HELP_PAGE_LABELS[shownPage])}</DialogTitle>
-            </DialogHeader>
+            <HelpPageHeader title={t(HELP_PAGE_LABELS[shownPage])} />
             <HelpMarkdown
               key={shownPage}
               ref={focusAfterPageLink}
               source={HELP_PAGES[shownPage]}
+              sections={getHelpPageSections(HELP_PAGES[shownPage])}
               onPageLink={followPageLink}
             />
           </>
         )}
-      </DialogContent>
+      </HelpPageContent>
     </Dialog>
   );
 }

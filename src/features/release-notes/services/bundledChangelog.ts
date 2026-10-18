@@ -118,3 +118,6 @@ export const getBundledReleaseNotesPages = () =>
 
 export const getCurrentReleaseNotes = (version: string) =>
   getCurrentReleaseNotesPage(getBundledReleaseNotesPages(), version);
+
+export const getBundledChangelogPages = () =>
+  getReleaseNotesPages(changelog, true, BUNDLED_ILLUSTRATIONS);

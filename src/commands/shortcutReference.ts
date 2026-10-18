@@ -1,11 +1,13 @@
 import { EDITOR_KEYBOARD_INTERACTIONS } from "@/features/editor";
 import type { MessageId } from "@/lib/i18n";
+import { formatKeyboardKey, normalizeKeyboardKey } from "@/lib/input";
 
 import { APP_COMMAND_IDS } from "./dispatch";
 import {
   COMMAND_DEFINITIONS,
   getCommandLabelId,
   getCommandMenuLabelId,
+  matchesShortcut,
   type CommandMenuId,
   type CommandShortcut,
 } from "./metadata";
@@ -40,3 +42,61 @@ export const getShortcutReferenceGroups = (): ShortcutReferenceGroup[] =>
       ...EDITOR_KEYBOARD_INTERACTIONS.filter((interaction) => interaction.menu === id),
     ],
   }));
+
+const MODIFIER_TERMS = {
+  mod: ["mod", "ctrl", "control", "cmd", "command"],
+  alt: ["alt", "option"],
+  shift: ["shift"],
+} as const;
+
+const getShortcutTerms = ({ alt, key, mod, shift }: CommandShortcut) => [
+  ...(mod ? MODIFIER_TERMS.mod : []),
+  ...(alt ? MODIFIER_TERMS.alt : []),
+  ...(shift ? MODIFIER_TERMS.shift : []),
+  normalizeKeyboardKey(key),
+  normalizeKeyboardKey(formatKeyboardKey(key)),
+];
+
+export const getShortcutQueryTerms = (query: string) =>
+  query
+    .toLocaleLowerCase()
+    .split(/[\s+]+/u)
+    .filter(Boolean);
+
+export const filterShortcutReferenceGroups = (
+  groups: readonly ShortcutReferenceGroup[],
+  query: string,
+  translate: (labelId: MessageId) => string,
+): ShortcutReferenceGroup[] => {
+  const terms = getShortcutQueryTerms(query);
+  if (!terms.length) {
+    return [...groups];
+  }
+
+  return groups
+    .map((group) => {
+      const groupLabel = translate(group.labelId).toLocaleLowerCase();
+      return {
+        ...group,
+        entries: group.entries.filter((entry) => {
+          const label = `${translate(entry.labelId).toLocaleLowerCase()} ${groupLabel}`;
+          const keys = new Set(entry.shortcuts.flatMap(getShortcutTerms));
+          return terms.every((term) => keys.has(term) || (term.length > 1 && label.includes(term)));
+        }),
+      };
+    })
+    .filter((group) => group.entries.length);
+};
+
+export const filterShortcutReferenceGroupsByEvent = (
+  groups: readonly ShortcutReferenceGroup[],
+  event: KeyboardEvent,
+): ShortcutReferenceGroup[] =>
+  groups
+    .map((group) => ({
+      ...group,
+      entries: group.entries.filter((entry) =>
+        entry.shortcuts.some((shortcut) => matchesShortcut(event, shortcut)),
+      ),
+    }))
+    .filter((group) => group.entries.length);

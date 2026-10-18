@@ -86,18 +86,20 @@ describe("desktop keyboard shortcuts reference", () => {
       await browser.waitUntil(
         () =>
           browser.execute(
-            () => document.activeElement?.getAttribute("data-slot") === "scroll-area-viewport",
+            () => document.activeElement?.getAttribute("aria-label") === "Search shortcuts",
           ),
-        { timeoutMsg: "The shortcuts list did not receive focus on open." },
+        { timeoutMsg: "The shortcut search did not receive focus on open." },
       );
       // The harness synthesizes keys in JavaScript, and untrusted keys never scroll natively.
-      const focusedScrollTop = await browser.execute(() => {
-        const focused = document.activeElement as HTMLElement | null;
-        if (!focused) return 0;
-        focused.scrollTop = focused.scrollHeight;
-        return focused.scrollTop;
+      const listScrollTop = await browser.execute(() => {
+        const viewport = document.querySelector<HTMLElement>(
+          '[data-slot="dialog-content"][data-open] [data-slot="scroll-area-viewport"]',
+        );
+        if (!viewport || viewport.tabIndex < 0) return 0;
+        viewport.scrollTop = viewport.scrollHeight;
+        return viewport.scrollTop;
       });
-      expect(focusedScrollTop).toBeGreaterThan(0);
+      expect(listScrollTop).toBeGreaterThan(0);
 
       await browser.keys("Escape");
       await expect(dialog()).not.toExist();

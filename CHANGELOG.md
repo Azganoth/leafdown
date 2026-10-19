@@ -6,6 +6,28 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-10-19
+
+### Highlights
+
+#### Keep each folder's work together
+
+![](src/features/release-notes/highlights/named-folders.svg)
+
+Keep named folders with their own tabs and unsaved drafts. Switch between them from the navigator, welcome screen, File menu, or command palette; each keeps your place without writing drafts to your files.
+
+#### Learn with illustrated guides
+
+![](src/features/release-notes/highlights/illustrated-help.svg)
+
+The bundled Help guides now pair task-by-task instructions with numbered window drawings and Markdown examples showing source beside its result. Everything works offline and follows your appearance settings.
+
+#### Find the shortcut you need
+
+![](src/features/release-notes/highlights/shortcut-search.svg)
+
+Search `Help > Keyboard shortcuts` by command, menu, or key name. Choose `Record keys` and press a combination to find what it does.
+
 ### Added
 
 - Keep named folders with their own tabs and unsaved drafts. Switch from the navigator, welcome, File menu, or command palette; an active context opens in its existing window. Named folders remain available when session restoration or recent history is off, and closing their windows parks their drafts without writing document files.

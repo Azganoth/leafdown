@@ -2,11 +2,17 @@ import { scanFolderContext, type ArticleSortOrder } from "@/features/folder-cont
 import { useSettingsStore } from "@/features/preferences";
 import { isSamePath } from "@/lib/path";
 
+import { useNamedFoldersStore } from "../stores/namedFolders";
 import { useSessionStore } from "../stores/session";
+import { getSessionFolderScanOptions } from "./folderContextOptions";
+import { activateNamedFolder } from "./namedFolderWorkflows";
 import { confirmDiscardAllDocumentChanges } from "./unsavedChanges";
 
 /** Closes the folder context together with every tab, returning the window to the welcome screen. */
 export const closeFolderContext = async () => {
+  if (useNamedFoldersStore.getState().activeId) {
+    return activateNamedFolder(null);
+  }
   if (!useSessionStore.getState().folderContext) {
     return false;
   }
@@ -68,21 +74,4 @@ export const refreshFolderContext = async () => {
   }
 };
 
-export const getSessionFolderScanOptions = () => {
-  const { articleSortOrder, ignoredDirectories } = useSettingsStore.getState();
-
-  return {
-    ignoredDirectories,
-    sortOrder: articleSortOrder,
-  };
-};
-
-export const getSessionFolderOpenOptions = () => {
-  const { articleSortOrder, ignoredDirectories, indexFileNames } = useSettingsStore.getState();
-
-  return {
-    ignoredDirectories,
-    indexFileNames,
-    sortOrder: articleSortOrder,
-  };
-};
+export { getSessionFolderScanOptions, getSessionFolderOpenOptions } from "./folderContextOptions";

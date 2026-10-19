@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Keep named folders with their own tabs and unsaved drafts. Switch from the navigator, welcome, File menu, or command palette; an active context opens in its existing window. Named folders remain available when session restoration or recent history is off, and closing their windows parks their drafts without writing document files.
 - Search the keyboard shortcuts. `Help > Keyboard shortcuts` opens on a search field that narrows the list by command, menu, or key name, such as `heading` or `ctrl shift f`, and `Record keys` finds what a combination does when you press it.
 - Add a File icons setting to Preferences > Appearance. Colored draws folders in amber and gives articles and each other type of file a color of its own, the same under every accent color. Neutral, the default, keeps the icons gray.
 

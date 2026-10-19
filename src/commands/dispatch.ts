@@ -1,6 +1,6 @@
 import { getActiveDocumentKey } from "@/features/document";
 import { EDITOR_COMMAND_IDS, isEditorCommandId } from "@/features/editor/commands/contract";
-import { documentEditorBridge } from "@/features/session";
+import { documentEditorBridge, useNamedFoldersStore } from "@/features/session";
 
 import {
   APPLICATION_COMMAND_IDS,
@@ -18,6 +18,9 @@ export const dispatchAppCommand = async (
   commandId: AppCommandId,
   context: AppCommandContext,
 ): AppCommandDispatchResult => {
+  if (useNamedFoldersStore.getState().transitioning) {
+    return false;
+  }
   if (isApplicationCommandId(commandId)) {
     await runApplicationCommand(context, commandId);
     return true;

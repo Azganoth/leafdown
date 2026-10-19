@@ -3,6 +3,7 @@ import { DisposableStore, toDisposable, type Disposable } from "@/lib/lifecycle"
 import { PathSet } from "@/lib/path";
 import { SignalSource } from "@/lib/signal";
 
+import { useNamedFoldersStore } from "../stores/namedFolders";
 import { useSessionStore, type SessionState } from "../stores/session";
 import { claimWindowDocument, setWindowDocuments, type WindowDocument } from "./windowDocumentsApi";
 
@@ -12,6 +13,15 @@ interface PendingClaim {
 
 const pendingClaims = new Set<PendingClaim>();
 const claimReleased = new SignalSource();
+
+export class DocumentOwnedByContext extends Error {
+  constructor(
+    readonly contextId: string,
+    readonly path: string,
+  ) {
+    super("Document belongs to another context.");
+  }
+}
 
 /**
  * Claims a saved document for this window before it opens or saves to it, so another window cannot
@@ -24,6 +34,13 @@ export const claimDocumentForWindow = async (
   { activate }: { activate: boolean },
 ): Promise<Disposable | null> => {
   const result = await claimWindowDocument(path, activate);
+
+  if (result.kind === "ownedByContext") {
+    if (activate) {
+      throw new DocumentOwnedByContext(result.contextId, path);
+    }
+    return null;
+  }
 
   if (result.kind === "openElsewhere") {
     return null;
@@ -78,6 +95,16 @@ export class WindowDocumentsSync implements Disposable {
 
   constructor() {
     this.subscriptions.add(
+      toDisposable(
+        useNamedFoldersStore.subscribe((state, previous) => {
+          if (!state.transitioning && previous.transitioning) {
+            this.resendRequested = true;
+            void this.send();
+          }
+        }),
+      ),
+    );
+    this.subscriptions.add(
       useSessionStore.subscribe((state, previous) => {
         if (state.tabs !== previous.tabs) {
           void this.send();
@@ -108,6 +135,9 @@ export class WindowDocumentsSync implements Disposable {
 
     try {
       while (!this.isDisposed) {
+        if (useNamedFoldersStore.getState().transitioning) {
+          return;
+        }
         const documents = collectWindowDocuments(useSessionStore.getState());
         const key = JSON.stringify(documents);
 

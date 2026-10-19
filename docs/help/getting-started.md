@@ -49,9 +49,11 @@ The tab's dot disappears when its changes have been saved. Session restoration k
 
 ## Leave and come back
 
-Close one tab with **File > Close document** (`Mod+W`). Leafdown asks before discarding that tab's unsaved changes. Closing a folder or a window while other Leafdown windows remain open also asks about unsaved work. Closing the last window keeps its session instead when restoration is on.
+Close one tab with **File > Close document** (`Mod+W`). Leafdown asks before discarding that tab's unsaved changes. A named folder parks its tabs and drafts when you leave it or close its window. An unnamed folder or a window closed while others remain asks about unsaved work. Closing the last window keeps its session instead when restoration is on.
 
 **File > Quit** (`Mod+Q`) keeps your windows, tabs, and unsaved edits for the next launch when **Preferences > Files > Restore session** is on, as it is by default. Turn it off to have quitting ask about unsaved changes instead.
+
+To keep distinct sets of tabs and drafts, use **File > Named folders…**. Named folders remain available with restoration off, and closing their windows parks them. See [File and folder workflows](file-and-folder-workflows.md).
 
 If another program changed a file, Leafdown warns before overwriting it. If the file went missing, Save offers Save as.
 

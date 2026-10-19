@@ -27,7 +27,7 @@ Two related settings live in the workspace itself: **View > Always on top** keep
 
 ### Return to unfinished work
 
-Leave **Restore session** on to reopen windows, tabs, and unsaved text after quitting. It is on by default. Turn it off to have quitting ask about unsaved changes and the next launch start at the welcome screen.
+Leave **Restore session** on to reopen the windows left open at quit or crash, with their assigned contexts, tabs, and unsaved text. It is on by default. Turning it off clears automatic restart state and unnamed sessions, so the next launch starts at welcome and unnamed windows ask about unsaved changes before closing. Named folders and their drafts remain available; their windows still park on close. Parked contexts stay parked until you select them.
 
 > **Tip:** Restoring a session does not save your Markdown files. Use **File > Save** (`Mod+S`) when you want the file on disk to contain your changes.
 

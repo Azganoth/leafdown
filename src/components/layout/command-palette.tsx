@@ -27,6 +27,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ShortcutKeys } from "@/components/ui/shortcut-keys";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  activateNamedFolder,
+  runNamedFolderAction,
+  useNamedFoldersStore,
+} from "@/features/session";
 import { useLocalization } from "@/lib/i18n";
 
 interface CommandPaletteProps {
@@ -67,26 +72,45 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
   const inputRef = useRef<HTMLInputElement>(null);
   const executingRef = useRef(false);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<AppCommandId | undefined>();
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const namedFolders = useNamedFoldersStore((state) => state.folders);
   const commands = PALETTE_COMMAND_IDS.map((id) => {
     const label = t(getCommandLabelId(id));
     const menuPath = [...getCommandMenuPathIds(id).map((pathId) => t(pathId)), label].join(" › ");
-    return { id, label, menuPath };
+    return { id, label, menuPath, kind: "command" as const, commandId: id };
   });
-  const results = searchPaletteCommands(commands, query);
+  const items = [
+    ...commands,
+    ...namedFolders.map((folder) => ({
+      id: `namedFolder:${folder.id}`,
+      label: folder.name,
+      menuPath: `${t("session.namedFolders.title")} › ${folder.name}`,
+      kind: "folder" as const,
+      folderId: folder.id,
+    })),
+  ];
+  const results = searchPaletteCommands(items, query);
   const activeCommand =
-    results.find(({ id }) => id === selectedId && commandState(id).enabled) ??
-    results.find(({ id }) => commandState(id).enabled);
+    results.find(
+      (item) =>
+        item.id === selectedId && (item.kind === "folder" || commandState(item.commandId).enabled),
+    ) ?? results.find((item) => item.kind === "folder" || commandState(item.commandId).enabled);
 
-  const execute = (commandId: AppCommandId) => {
-    if (!commandState(commandId).enabled) {
+  const execute = (item: (typeof items)[number]) => {
+    if (item.kind === "command" && !commandState(item.commandId).enabled) {
       return;
     }
 
     executingRef.current = true;
     flushSync(() => onOpenChange(false));
     returnFocusToOpener();
-    requestAnimationFrame(() => onExecute(commandId));
+    requestAnimationFrame(() => {
+      if (item.kind === "command") {
+        onExecute(item.commandId);
+      } else {
+        void runNamedFolderAction(() => activateNamedFolder(item.folderId));
+      }
+    });
   };
 
   return (
@@ -101,7 +125,7 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
         className="h-auto min-h-0 rounded-none bg-transparent"
         label={t("commandPalette.search")}
         loop
-        onValueChange={(value) => setSelectedId(value as AppCommandId)}
+        onValueChange={setSelectedId}
         shouldFilter={false}
         value={activeCommand?.id ?? ""}
       >
@@ -131,16 +155,21 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
               <CommandEmpty>{t("commandPalette.noResults")}</CommandEmpty>
               {results.length > 0 && (
                 <CommandGroup className="p-0" value="commands">
-                  {results.map(({ id, label, menuPath }) => {
-                    const state = commandState(id);
-                    const shortcut = COMMAND_DEFINITIONS[id].shortcuts?.[0];
+                  {results.map((item) => {
+                    const { id, label, menuPath } = item;
+                    const state: CommandState =
+                      item.kind === "command" ? commandState(item.commandId) : { enabled: true };
+                    const shortcut =
+                      item.kind === "command"
+                        ? COMMAND_DEFINITIONS[item.commandId].shortcuts?.[0]
+                        : undefined;
 
                     return (
                       <CommandItem
                         key={id}
                         className="h-16 snap-start gap-3 px-3"
                         disabled={!state.enabled}
-                        onSelect={() => execute(id)}
+                        onSelect={() => execute(item)}
                         value={id}
                       >
                         <span className="min-w-0 flex-1">
@@ -175,7 +204,7 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
       <DialogFooter className="h-12 shrink-0 flex-row items-center justify-end px-3 py-1.5">
         <Button
           disabled={!activeCommand}
-          onClick={() => activeCommand && execute(activeCommand.id)}
+          onClick={() => activeCommand && execute(activeCommand)}
           size="sm"
           type="button"
         >

@@ -40,6 +40,10 @@ import {
   useFolderSearchSession,
   useSessionStore,
   useWindowDocuments,
+  useNamedFolders,
+  useNamedFoldersStore,
+  NamedFolderSelector,
+  NamedFoldersDialog,
 } from "@/features/session";
 import { handleUnexpectedError } from "@/lib/errors";
 import { useLocalization } from "@/lib/i18n";
@@ -85,6 +89,8 @@ const handleApplyFolderReplacement = () => {
 };
 
 export function Shell() {
+  useNamedFolders();
+  const contextTransitioning = useNamedFoldersStore((state) => state.transitioning);
   useFolderContextWatcher();
   useDocumentWatchers();
   useWindowDocuments();
@@ -192,6 +198,7 @@ export function Shell() {
         <UnexpectedErrorBoundary>
           <div
             data-testid="document-workspace-host"
+            inert={contextTransitioning}
             className={cn(
               "flex min-h-0 flex-1 px-3 pt-1",
               statusBarShown ? "pb-0" : "pb-3",
@@ -213,8 +220,9 @@ export function Shell() {
                         folderSearchOpen ? "shell.folderSearch" : "shell.articleNavigator",
                       )}
                       data-testid="article-navigator-host"
-                      className="flex size-full min-h-0 min-w-0"
+                      className="flex size-full min-h-0 min-w-0 flex-col"
                     >
+                      <NamedFolderSelector />
                       {!folderContext ? (
                         folderContextLoadPath && (
                           <ArticleNavigatorSkeleton folderPath={folderContextLoadPath} />
@@ -309,6 +317,7 @@ export function Shell() {
           onOpenChange={commands.setKeyboardShortcutsOpen}
         />
         <ConfirmationDialog />
+        <NamedFoldersDialog />
       </div>
     </>
   );

@@ -19,6 +19,7 @@ import {
   openMarkdownFileAtPath,
   pickAndOpenFolderContext,
   pickAndOpenMarkdownFile,
+  NamedFoldersList,
 } from "@/features/session";
 import { notifyOperationFailure } from "@/lib/errors";
 import { localizer, useLocalization, type MessageId } from "@/lib/i18n";
@@ -147,6 +148,9 @@ export function WelcomeScreen() {
               label={t("welcome.openFolder")}
               onClick={handleOpenFolder}
             />
+          </div>
+          <div className="mt-6">
+            <NamedFoldersList />
           </div>
         </div>
 

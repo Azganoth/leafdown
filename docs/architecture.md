@@ -54,7 +54,8 @@ Session and editor workflows request yes/no decisions through the shared confirm
 - **Session:** the window's open documents, each in a tab with one of them active, plus an optional folder context.
 - **Tab:** one open document in a window, with the editor that holds it and that editor's state.
 - **Source projection:** a temporary editable source representation of a supported Markdown object while the editor retains its canonical document model.
-- **Workspace:** not an application domain term; Leafdown creates neither a workspace model nor workspace metadata.
+- **Named folder:** an optional application-managed context containing one ordinary root, a display name, ordered tabs, and document snapshots. It may be active in one window or parked, with no metadata in its root.
+- **Workspace:** not an application domain term; named folders require no workspace initialization or folder-local metadata.
 
 ## Runtime Model
 
@@ -231,9 +232,13 @@ The listener is registered before the first take, so a document routed during st
 
 ### Kept Session Workflow
 
-A window's frontend starts after its persisted stores -> With `Restore session` on, it takes its kept state from the backend, the first window opening the other kept windows -> Session claims each saved document, reads clean ones through the open path and builds dirty ones from their snapshots and kept file version, adds the tabs, checks each dirty document's file as the External Change workflow does, and loads the folder context -> The window then reports its state every 5 seconds after a change, reading each edited dirty document's settled Markdown as HTML export does -> Launch documents open after the restored tabs. With `Restore session` off, the first window clears the kept session instead.
+A window's frontend starts after its persisted stores -> With `Restore session` on, it takes its kept state from the backend, the first window opening the other kept windows -> Session claims each saved document, reads clean ones through the open path and builds dirty ones from their snapshots and kept file version, adds the tabs, checks each dirty document's file as the External Change workflow does, and loads the folder context -> The window then reports its state every 5 seconds after a change, reading each edited dirty document's settled Markdown as HTML export does -> Launch documents open after the restored tabs. With restoration off, the first window clears automatic restart state and unnamed snapshots while preserving named contexts. A new window explicitly assigned a named context restores it independently of that setting.
 
-Each report rewrites the session record from the process's own windows and removes the snapshots they no longer refer to, so the record assumes one process. Development runs therefore keep their session in a directory of their own: they share the installed application's identifier and can run beside it, since they leave out the single-instance plugin.
+Session owns named-folder orchestration, presentation, and its revision-ordered shared list. Rust's `kept_session` owns context claims, parked state, restart eligibility, and snapshot files under one lock. Its version-2 record stores each named context's document state once and references it for restart; version-1 unnamed windows and snapshots remain readable. A report carries its expected context ID, so a delayed report cannot overwrite a newly selected context. Snapshot revisions use new IDs, and atomic record replacement precedes removal of unreferenced snapshots. A failed record write rolls back the in-memory context change.
+
+Switching waits for pending saves, takes a final snapshot, claims the destination, and only then replaces the frontend tabs. Editing and application command dispatch pause during that transition. The backend checks and reserves the destination's saved paths while holding the context lock; document claims consult parked named contexts before the active-window registry. The lock order is kept-session state followed by window-document state. Low-level document open, folder options, and session task queues remain separate from context orchestration to preserve dependency direction. A context restored in the same window shares the existing kept-tab recovery path and never runs ordinary folder index opening.
+
+Each report rewrites the session record from the process's active and parked contexts and removes snapshots they no longer refer to, so the record assumes one process. Development runs therefore keep their session in a directory of their own: they share the installed application's identifier and can run beside it, since they leave out the single-instance plugin.
 
 ### Drop Workflow
 

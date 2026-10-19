@@ -3,6 +3,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useCommandUIStore, type AppCommandId, type CommandState } from "@/commands";
+import * as namedFolderWorkflows from "@/features/session/services/namedFolderWorkflows";
+import { useNamedFoldersStore } from "@/features/session/stores/namedFolders";
 import { setDefaultUI } from "@/test/utils/appStores";
 import { withMacUserAgent } from "@/test/utils/platform";
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
@@ -36,6 +38,32 @@ function Harness({ commandState = () => ({ enabled: true }), onExecute = vi.fn()
 
 describe("CommandPalette", () => {
   beforeEach(() => setDefaultUI());
+
+  it("finds and selects a named folder directly from the keyboard", async () => {
+    const activate = vi.spyOn(namedFolderWorkflows, "activateNamedFolder").mockResolvedValue(true);
+    const onExecute = vi.fn();
+    useNamedFoldersStore.setState({
+      folders: [
+        {
+          id: "personal",
+          name: "Personal notes",
+          path: "C:/Notes",
+          windowLabel: null,
+          hasUnsavedDrafts: true,
+        },
+      ],
+    });
+    const { user } = renderWithUser(<Harness onExecute={onExecute} />);
+    await user.click(screen.getByRole("button", { name: "Open palette" }));
+    await user.type(screen.getByRole("combobox", { name: "Search commands" }), "personal notes");
+    expect(screen.getByRole("option", { name: /Personal notes/u })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("personal"));
+    expect(onExecute).not.toHaveBeenCalled();
+  });
 
   it("shows macOS keycaps and gives the Run button a single readable key hint", async () => {
     await withMacUserAgent(async () => {

@@ -13,12 +13,14 @@ use crate::{
     window::{self, MAIN_WINDOW_LABEL, QuitSequence, WindowNumbering},
 };
 
+pub(crate) mod named_folders;
+
 const SESSION_DIRECTORY: &str = "session";
 const DEV_SESSION_DIRECTORY: &str = "session.dev";
 const SESSION_RECORD_FILE: &str = "session.json";
 const SNAPSHOTS_DIRECTORY: &str = "snapshots";
 const SNAPSHOT_EXTENSION: &str = "md";
-const SESSION_RECORD_VERSION: u32 = 1;
+const SESSION_RECORD_VERSION: u32 = 2;
 const MAX_SNAPSHOT_ID_LENGTH: usize = 64;
 
 /// One window as the session keeps it. The frontend owns the shape of `state`; the backend only
@@ -35,6 +37,8 @@ pub(crate) struct KeptWindow {
 struct SessionRecord {
     version: u32,
     windows: Vec<KeptWindow>,
+    #[serde(default)]
+    named_folders: Vec<named_folders::StoredNamedFolder>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +52,8 @@ pub(crate) struct SnapshotText {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RestoredWindow {
     state: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    context_id: Option<String>,
     /// The text of each snapshot that could be read, by id.
     snapshots: HashMap<String, String>,
 }
@@ -62,6 +68,9 @@ pub(crate) enum KeptSessionError {
     Unavailable,
     InvalidSnapshotId { id: String },
     WriteFailed { message: String },
+    InvalidContext,
+    ContextBusy,
+    UnsavedDrafts,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,12 +80,14 @@ enum Owner {
     Window(String),
     /// Its window closed in a way that keeps it for the next launch.
     Closed,
+    Parked,
 }
 
 #[derive(Debug, Clone)]
 struct Entry {
     owner: Owner,
     window: KeptWindow,
+    named: Option<named_folders::NamedFolder>,
 }
 
 /// The windows, tabs, and unsaved text kept for the next launch, and the files in the application
@@ -87,36 +98,48 @@ pub(crate) struct KeptSession {
     inner: Mutex<Inner>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Inner {
     directory: Option<PathBuf>,
     entries: Vec<Entry>,
     /// Windows already closed in this run. A report one sent before closing can arrive after it
     /// closed, and must not bring it back; labels are never reused within a run.
     closed_windows: HashSet<String>,
+    revision: u64,
+    restore_session: bool,
 }
 
 impl KeptSession {
     fn load(&self, directory: PathBuf) {
         let mut inner = self.inner();
 
-        inner.entries = read_session_record(directory.as_path())
-            .into_iter()
-            .map(|window| Entry {
-                owner: Owner::Loaded,
-                window,
-            })
-            .collect();
+        inner.entries = read_session_record(directory.as_path());
+        inner.restore_session = true;
         inner.directory = Some(directory);
     }
 
     /// Records the window's current state after writing the snapshots it refers to that changed.
+    #[cfg(test)]
     fn report(
         &self,
         window_label: &str,
         window: KeptWindow,
         snapshots: Vec<SnapshotText>,
     ) -> Result<(), KeptSessionError> {
+        self.report_context(window_label, None, true, window, snapshots)
+    }
+
+    fn report_context(
+        &self,
+        window_label: &str,
+        context_id: Option<&str>,
+        restore_session: bool,
+        window: KeptWindow,
+        snapshots: Vec<SnapshotText>,
+    ) -> Result<(), KeptSessionError> {
+        if !window.state.is_object() {
+            return Err(KeptSessionError::InvalidContext);
+        }
         for id in window
             .snapshot_ids
             .iter()
@@ -130,6 +153,13 @@ impl KeptSession {
         if inner.closed_windows.contains(window_label) {
             return Ok(());
         }
+        if inner.context_id(window_label) != context_id {
+            return Err(KeptSessionError::InvalidContext);
+        }
+        if context_id.is_none() && !inner.restore_session && restore_session {
+            return Ok(());
+        }
+        let previous = inner.clone();
 
         let snapshots_directory = inner.directory()?.join(SNAPSHOTS_DIRECTORY);
 
@@ -146,25 +176,48 @@ impl KeptSession {
         let owner = Owner::Window(window_label.to_owned());
 
         match inner.entries.iter_mut().find(|entry| entry.owner == owner) {
-            Some(entry) => entry.window = window,
-            None => inner.entries.push(Entry { owner, window }),
+            Some(entry) => {
+                entry.window = window;
+                if let Some(named) = &entry.named {
+                    entry.window.state["folderPath"] = named.path.clone().into();
+                }
+            }
+            None => inner.entries.push(Entry {
+                owner,
+                window,
+                named: None,
+            }),
         }
 
-        inner.persist()
+        inner.commit(previous)
     }
 
     /// Hands the window its part of the kept session. The first window takes the first window kept
     /// from the previous run, and each of the others is given to a new window, whose labels are
     /// returned for the caller to open; each takes its own when it starts.
+    #[cfg(test)]
     fn take(
         &self,
         window_label: &str,
+        next_label: impl FnMut() -> String,
+    ) -> (Option<RestoredWindow>, Vec<String>) {
+        self.take_with_documents(window_label, next_label, None)
+    }
+
+    fn take_with_documents(
+        &self,
+        window_label: &str,
         mut next_label: impl FnMut() -> String,
+        documents: Option<&crate::window_documents::WindowDocuments>,
     ) -> (Option<RestoredWindow>, Vec<String>) {
         let mut inner = self.inner();
         let mut new_window_labels = Vec::new();
 
         if window_label == MAIN_WINDOW_LABEL {
+            let had_loaded = inner
+                .entries
+                .iter()
+                .any(|entry| entry.owner == Owner::Loaded);
             let mut main_has_entry = inner.owns_entry(window_label);
 
             for entry in inner
@@ -173,15 +226,26 @@ impl KeptSession {
                 .filter(|entry| entry.owner == Owner::Loaded)
             {
                 let label = if main_has_entry {
-                    let label = next_label();
-                    new_window_labels.push(label.clone());
-                    label
+                    next_label()
                 } else {
-                    main_has_entry = true;
                     window_label.to_owned()
                 };
-
+                if let Some(documents) = documents {
+                    let paths = named_folders::saved_paths(&entry.window);
+                    if !documents.can_assign(&label, &paths) {
+                        entry.owner = Owner::Parked;
+                        continue;
+                    }
+                    documents.assign_context(&label, paths);
+                }
+                if main_has_entry {
+                    new_window_labels.push(label.clone());
+                }
+                main_has_entry = true;
                 entry.owner = Owner::Window(label);
+            }
+            if had_loaded {
+                inner.revision += 1;
             }
         }
 
@@ -193,6 +257,7 @@ impl KeptSession {
                 .find(|entry| entry.owner == owner)
                 .map(|entry| RestoredWindow {
                     state: entry.window.state.clone(),
+                    context_id: entry.named.as_ref().map(|named| named.id.clone()),
                     snapshots: read_snapshots(directory, entry.window.snapshot_ids.as_slice()),
                 })
         });
@@ -207,6 +272,21 @@ impl KeptSession {
         let owner = Owner::Window(window_label.to_owned());
 
         inner.closed_windows.insert(window_label.to_owned());
+
+        let restore_session = inner.restore_session;
+        if let Some(entry) = inner
+            .entries
+            .iter_mut()
+            .find(|entry| entry.owner == owner && entry.named.is_some())
+        {
+            entry.owner = if keep && restore_session {
+                Owner::Closed
+            } else {
+                Owner::Parked
+            };
+            inner.revision += 1;
+            return inner.persist();
+        }
 
         if keep {
             for entry in inner
@@ -233,13 +313,25 @@ impl KeptSession {
 
     fn clear(&self) -> Result<(), KeptSessionError> {
         let mut inner = self.inner();
+        let previous = inner.clone();
 
-        inner.entries.clear();
-
-        match fs::remove_dir_all(inner.directory()?) {
-            Err(error) if error.kind() != io::ErrorKind::NotFound => Err(write_failed(error)),
-            _ => Ok(()),
+        inner.restore_session = false;
+        inner.entries.retain(|entry| entry.named.is_some());
+        for entry in &mut inner.entries {
+            if matches!(entry.owner, Owner::Loaded | Owner::Closed) {
+                entry.owner = Owner::Parked;
+            }
         }
+        if inner.entries.is_empty() {
+            if let Err(error) = fs::remove_dir_all(inner.directory()?)
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                *inner = previous;
+                return Err(write_failed(error));
+            }
+            return Ok(());
+        }
+        inner.commit(previous)
     }
 
     // Each change leaves whole entries behind, so a poisoned lock still holds a usable session.
@@ -267,7 +359,22 @@ impl Inner {
             windows: self
                 .entries
                 .iter()
+                .filter(|entry| entry.named.is_none() && self.restore_session)
                 .map(|entry| entry.window.clone())
+                .collect(),
+            named_folders: self
+                .entries
+                .iter()
+                .filter_map(|entry| {
+                    entry
+                        .named
+                        .as_ref()
+                        .map(|named| named_folders::StoredNamedFolder {
+                            folder: named.clone(),
+                            session: entry.window.clone(),
+                            reopen: self.restore_session && entry.owner != Owner::Parked,
+                        })
+                })
                 .collect(),
         };
         let bytes = serde_json::to_vec(&record).map_err(|error| KeptSessionError::WriteFailed {
@@ -290,7 +397,7 @@ impl Inner {
     }
 }
 
-fn read_session_record(directory: &Path) -> Vec<KeptWindow> {
+fn read_session_record(directory: &Path) -> Vec<Entry> {
     let bytes = match fs::read(directory.join(SESSION_RECORD_FILE)) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Vec::new(),
@@ -301,7 +408,27 @@ fn read_session_record(directory: &Path) -> Vec<KeptWindow> {
     };
 
     match serde_json::from_slice::<SessionRecord>(&bytes) {
-        Ok(record) if record.version == SESSION_RECORD_VERSION => record.windows,
+        Ok(record) if record.version == 1 || record.version == SESSION_RECORD_VERSION => {
+            let mut entries: Vec<Entry> = record
+                .windows
+                .into_iter()
+                .map(|window| Entry {
+                    owner: Owner::Loaded,
+                    window,
+                    named: None,
+                })
+                .collect();
+            entries.extend(record.named_folders.into_iter().map(|stored| Entry {
+                owner: if stored.reopen {
+                    Owner::Loaded
+                } else {
+                    Owner::Parked
+                },
+                window: stored.session,
+                named: Some(stored.folder),
+            }));
+            entries
+        }
         Ok(record) => {
             log::warn!(
                 "ignored a kept session of unknown version {}",
@@ -423,10 +550,17 @@ pub(crate) fn forget_window_session<R: Runtime>(window: &Window<R>, keep: bool) 
     let app = window.app_handle().clone();
     let label = window.label().to_owned();
 
-    if keep {
-        let _ = app
+    let named = KeptSession::inner(&app.state::<KeptSession>())
+        .context_id(&label)
+        .is_some();
+    if keep || named {
+        if let Err(error) = app
             .state::<KeptSession>()
-            .window_closed(label.as_str(), true);
+            .window_closed(label.as_str(), keep)
+        {
+            log::error!("failed to keep closed window {label}: {error:?}");
+        }
+        named_folders::publish(&app);
         return;
     }
 
@@ -437,6 +571,7 @@ pub(crate) fn forget_window_session<R: Runtime>(window: &Window<R>, keep: bool) 
         {
             log::error!("failed to drop window {label} from the kept session: {error:?}");
         }
+        named_folders::publish(&app);
     });
 }
 
@@ -446,12 +581,19 @@ pub(crate) async fn report_window_session(
     window: Window,
     session: KeptWindow,
     snapshots: Vec<SnapshotText>,
+    context_id: Option<String>,
+    restore_session: bool,
 ) -> Result<(), KeptSessionError> {
     let label = window.label().to_owned();
 
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<KeptSession>()
-            .report(label.as_str(), session, snapshots)
+        app.state::<KeptSession>().report_context(
+            label.as_str(),
+            context_id.as_deref(),
+            restore_session,
+            session,
+            snapshots,
+        )
     })
     .await
     .unwrap_or_else(|error| Err(join_failed(error)))
@@ -469,14 +611,17 @@ pub(crate) async fn restore_window_session(
     let (restored, new_window_labels) = tauri::async_runtime::spawn_blocking(move || {
         let numbering = blocking_app.state::<WindowNumbering>();
 
-        blocking_app
-            .state::<KeptSession>()
-            .take(label.as_str(), || numbering.next_label())
+        blocking_app.state::<KeptSession>().take_with_documents(
+            label.as_str(),
+            || numbering.next_label(),
+            Some(&blocking_app.state::<crate::window_documents::WindowDocuments>()),
+        )
     })
     .await
     .map_err(join_failed)?;
 
     open_restored_windows(&app, &window, new_window_labels);
+    named_folders::publish(&app);
 
     Ok(restored)
 }
@@ -486,6 +631,19 @@ pub(crate) async fn clear_kept_session(app: AppHandle) -> Result<(), KeptSession
     tauri::async_runtime::spawn_blocking(move || app.state::<KeptSession>().clear())
         .await
         .unwrap_or_else(|error| Err(join_failed(error)))
+}
+
+#[tauri::command]
+pub(crate) async fn enable_kept_session(app: AppHandle) -> Result<(), KeptSessionError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<KeptSession>();
+        let mut inner = KeptSession::inner(&state);
+        let previous = inner.clone();
+        inner.restore_session = true;
+        inner.commit(previous)
+    })
+    .await
+    .map_err(join_failed)?
 }
 
 /// Opens the restored windows one after another, each placed as `New window` would place it from
@@ -593,6 +751,7 @@ mod tests {
             restored,
             Some(RestoredWindow {
                 state: json!({ "name": "main" }),
+                context_id: None,
                 snapshots: HashMap::from([("a".to_owned(), "# Draft\n".to_owned())]),
             })
         );

@@ -18,6 +18,7 @@ void test("runs every scenario when no focused target is requested", () => {
       ["find-and-replace"],
       ["keyboard-shortcuts"],
       ["multiple-windows"],
+      ["named-folders-switch", "named-folders-restore"],
       ["heading-outline"],
       ["folder-watcher"],
       ["folder-actions"],

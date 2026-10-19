@@ -16,8 +16,8 @@ import { notifySuccess, notifyWarning } from "@/lib/toast";
 
 import { findCurrentTab, findTabByPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
+import { notifyOpenMarkdownFileError } from "./documentOpenWorkflows";
 import { runAfterPendingSaves } from "./documentWorkflows";
-import { notifyOpenMarkdownFileError } from "./openSession";
 
 type ExternalVersion = Extract<ExternalFileChange, { kind: "modified" }>;
 

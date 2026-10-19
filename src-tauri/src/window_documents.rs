@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, Window};
 
-use crate::{path_utils::path_identity_key, window};
+use crate::{kept_session::KeptSession, path_utils::path_identity_key, window};
 
 const WINDOW_DOCUMENTS_CHANGED_EVENT: &str = "leafdown://window-documents-changed";
 const ACTIVATE_DOCUMENT_EVENT: &str = "leafdown://activate-document";
@@ -50,10 +50,15 @@ struct DocumentsMovedPayload {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub(crate) enum ClaimWindowDocumentResult {
     Claimed,
     OpenElsewhere,
+    OwnedByContext { context_id: String },
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
@@ -86,6 +91,24 @@ enum Claim {
 }
 
 impl WindowDocuments {
+    pub(crate) fn can_assign(&self, label: &str, paths: &[(String, bool)]) -> bool {
+        let registry = self.registry();
+        paths.iter().all(|(path, _)| {
+            registry
+                .holder(path)
+                .is_none_or(|(holder, _)| holder == label)
+        })
+    }
+
+    pub(crate) fn assign_context(&self, label: &str, paths: Vec<(String, bool)>) {
+        self.set_documents(
+            label,
+            paths
+                .into_iter()
+                .map(|(path, unsaved)| WindowDocument { path, unsaved })
+                .collect(),
+        );
+    }
     /// Replaces a window's documents, returning the snapshot to publish when they changed.
     fn set_documents(
         &self,
@@ -246,12 +269,19 @@ pub(crate) fn set_window_documents(
     window: Window,
     state: State<'_, WindowDocuments>,
     documents: Vec<WindowDocument>,
+    context_id: Option<String>,
 ) -> Result<(), WindowDocumentsError> {
     for document in &documents {
         validate_path(document.path.as_str())?;
     }
 
-    publish(&app, state.set_documents(window.label(), documents));
+    let snapshot = app
+        .state::<KeptSession>()
+        .with_current_context(window.label(), context_id.as_deref(), || {
+            state.set_documents(window.label(), documents)
+        })
+        .flatten();
+    publish(&app, snapshot);
 
     Ok(())
 }
@@ -268,7 +298,21 @@ pub(crate) fn claim_window_document(
 ) -> Result<ClaimWindowDocumentResult, WindowDocumentsError> {
     validate_path(path.as_str())?;
 
-    let (claim, snapshot) = state.claim(window.label(), path.as_str());
+    let result = app
+        .state::<KeptSession>()
+        .with_document_owner(window.label(), &path, |owner| {
+            owner.map_or_else(|| Ok(state.claim(window.label(), path.as_str())), Err)
+        });
+    let (claim, snapshot) = match result {
+        Ok(result) => result,
+        Err(context_id) => {
+            return Ok(if activate {
+                ClaimWindowDocumentResult::OwnedByContext { context_id }
+            } else {
+                ClaimWindowDocumentResult::OpenElsewhere
+            });
+        }
+    };
 
     publish(&app, snapshot);
 
@@ -341,6 +385,10 @@ pub(crate) fn forget_window_documents<R: Runtime>(window: &Window<R>) {
         .forget_window(window.label());
 
     publish(window.app_handle(), snapshot);
+}
+
+pub(crate) fn abandon_context<R: Runtime>(app: &AppHandle<R>, label: &str) {
+    publish(app, app.state::<WindowDocuments>().forget_window(label));
 }
 
 #[cfg(test)]

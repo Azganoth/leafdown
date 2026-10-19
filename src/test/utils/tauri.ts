@@ -73,6 +73,8 @@ export const getWindowDragDropHandler = () => {
 // kept for the next launch, so a test of one window finds it the only window, with no session kept
 // before it, unless it replaces these.
 const ONLY_WINDOW_HANDLERS: Record<string, InvokeCommandHandler> = {
+  list_named_folders: () => ({ revision: 0, folders: [] }),
+  enable_kept_session: () => undefined,
   [SET_WINDOW_DOCUMENTS_COMMAND]: () => undefined,
   [CLAIM_WINDOW_DOCUMENT_COMMAND]: () => ({ kind: "claimed" }),
   [NOTIFY_DOCUMENTS_MOVED_COMMAND]: () => undefined,

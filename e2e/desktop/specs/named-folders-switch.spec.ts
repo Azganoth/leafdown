@@ -67,8 +67,8 @@ describe("desktop named folder switching", () => {
     const secondWindow = (await browser.getWindowHandles()).find(
       (handle) => !before.includes(handle),
     )!;
-    await closeNamedFolders();
     await browser.switchToWindow(firstWindow);
+    await closeNamedFolders();
     await openRecentPath(callouts.path);
     await browser.switchToWindow(secondWindow);
     await expect($(ACTIVE_EDITOR)).toHaveText(

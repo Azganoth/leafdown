@@ -107,18 +107,6 @@ const createIcon = (doc: Document, draw: (svg: SVGSVGElement) => void) => {
   return svg;
 };
 
-const drawGripDots = (axis: TableAxis) => (svg: SVGSVGElement) => {
-  for (const along of [5, 12, 19]) {
-    for (const across of [9, 15]) {
-      const dot = svg.ownerDocument.createElementNS(SVG_NAMESPACE, "circle");
-      dot.setAttribute("cx", String(axis === "row" ? across : along));
-      dot.setAttribute("cy", String(axis === "row" ? along : across));
-      dot.setAttribute("r", "1.5");
-      svg.append(dot);
-    }
-  }
-};
-
 const drawPlus = (svg: SVGSVGElement) => {
   const path = svg.ownerDocument.createElementNS(SVG_NAMESPACE, "path");
   path.setAttribute("d", "M12 5v14m-7-7h14");
@@ -200,7 +188,6 @@ class TableControlsView {
 
     for (const grip of [this.rowGrip, this.columnGrip]) {
       grip.dataset.leafdownTableGrip = "";
-      grip.append(createIcon(doc, drawGripDots(grip.dataset.axis as TableAxis)));
       grip.addEventListener("mousedown", this.handleGripMouseDown);
       grip.addEventListener("mouseup", this.handleGripMouseUp);
     }
@@ -236,7 +223,7 @@ class TableControlsView {
   update(view: EditorView, previousState: EditorView["state"]) {
     this.view = view;
 
-    if (view.state.doc !== previousState.doc) {
+    if (view.state.doc !== previousState.doc || !view.state.selection.eq(previousState.selection)) {
       this.scheduleRefresh();
     }
   }
@@ -445,6 +432,18 @@ class TableControlsView {
     const row = geometry.rows.at(hovered.row);
     const column = geometry.columns.at(hovered.col);
     const columnCenter = column ? column.left + column.width / 2 : NaN;
+    const tablePos = getTablePos(this.view, hovered.table);
+    for (const [axis, grip, index] of [
+      ["row", this.rowGrip, hovered.row],
+      ["column", this.columnGrip, hovered.col],
+    ] as const) {
+      const range =
+        tablePos === null ? null : getSelectedTableAxis(this.view.state, tablePos, axis);
+      grip.toggleAttribute(
+        "data-selected",
+        range !== null && index >= range.from && index < range.to,
+      );
+    }
 
     this.place(
       this.rowGrip,

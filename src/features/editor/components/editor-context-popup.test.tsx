@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { CellSelection } from "@milkdown/kit/prose/tables";
 import { StrictMode, useState } from "react";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
@@ -7,7 +8,11 @@ import { createActiveEditorCommandState, createEditorCommandState } from "@/test
 import { EXTENDED_TABLE_MARKDOWN } from "@/test/fixtures/editorMarkdown";
 import { dispatchDOMEvent } from "@/test/utils/events";
 import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
-import { selectTableCellRange, setSelectionInTableCell } from "@/test/utils/prosemirror";
+import {
+  runKeyDownHandlers,
+  selectTableCellRange,
+  setSelectionInTableCell,
+} from "@/test/utils/prosemirror";
 import { act, render, renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import { getEditorCommandState, type EditorCommandId, type EditorCommandState } from "../commands";
@@ -137,6 +142,7 @@ const TABLE_COLUMN_LABELS = [
   "Delete column",
 ];
 const TABLE_LABELS = [...TABLE_ROW_LABELS, ...TABLE_COLUMN_LABELS, "Delete table"];
+const TABLE_BAR_LABELS = ["Row 1", "Column 1", "Delete table", ...TABLE_ROW_LABELS];
 
 const mountEditor = setupMilkdownEditorMount();
 
@@ -209,12 +215,12 @@ describe("editor-context-popup", () => {
     [
       "a caret in a table",
       { container: "table", selectionKind: "caret" },
-      ["Paste", ...TABLE_LABELS, "Insert"],
+      ["Paste", ...TABLE_BAR_LABELS, "Insert"],
     ],
     [
       "a text or cell selection in a table",
       { container: "table", selectionKind: "text" },
-      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS, ...TABLE_LABELS],
+      [...QUICK_ACTION_LABELS, ...INLINE_ACTION_LABELS, ...TABLE_BAR_LABELS],
     ],
   ])("offers %s its own actions", (_label, context, labels) => {
     render(
@@ -331,6 +337,49 @@ describe("editor-context-popup", () => {
   });
 
   describe("table commands", () => {
+    it("keeps keyboard focus in the live popup while changing its table selection", async () => {
+      let request: ContextPopupRequest | null = null;
+      let refresh = noop;
+      const mounted = await mountEditor(EXTENDED_TABLE_MARKDOWN, {
+        getContextPopupOpen: () => request !== null,
+        onContextPopupRequested: (next) => {
+          request = next;
+          refresh();
+        },
+      });
+      vi.spyOn(mounted.view, "coordsAtPos").mockReturnValue({
+        top: 60,
+        bottom: 80,
+        left: 40,
+        right: 50,
+      });
+      setSelectionInTableCell(mounted, 2, 1);
+      runKeyDownHandlers(mounted.view, "ContextMenu");
+      const popup = () => (
+        <EditorContextPopup
+          request={request}
+          commandState={getEditorCommandState(mounted.view)}
+          onClose={() => {
+            request = null;
+            refresh();
+          }}
+          onExecute={noop}
+          onReturnFocus={() => mounted.view.focus()}
+        />
+      );
+      const host = renderWithUser(popup());
+      refresh = () => host.rerender(popup());
+      await waitFor(() => expect(screen.getByLabelText("Paste")).toHaveFocus());
+      await host.user.keyboard("{ArrowDown}{ArrowRight}{Enter}");
+      expect(screen.getByRole("button", { name: "Column 2" })).toHaveFocus();
+      expect((mounted.view.state.selection as CellSelection).isColSelection()).toBe(true);
+      await host.user.keyboard("{ArrowLeft}{Enter}");
+      expect(screen.getByRole("button", { name: "Row 2" })).toHaveFocus();
+      expect((mounted.view.state.selection as CellSelection).isRowSelection()).toBe(true);
+      await host.user.keyboard("{Escape}");
+      await waitFor(() => expect(mounted.view.dom).toHaveFocus());
+    });
+
     const renderForEditor = async (
       selectionKind: ContextPopupRequest["selectionKind"],
       select: (mounted: Awaited<ReturnType<typeof mountEditor>>) => void,
@@ -352,8 +401,75 @@ describe("editor-context-popup", () => {
       return onExecute;
     };
 
-    const enabledTableLabels = () =>
-      TABLE_LABELS.filter((label) => !screen.getByLabelText<HTMLButtonElement>(label).disabled);
+    const enabledTableLabels = () => {
+      const enabled = (labels: string[]) =>
+        labels.filter((label) => !screen.getByLabelText<HTMLButtonElement>(label).disabled);
+      const rows = enabled(TABLE_ROW_LABELS);
+      act(() => screen.getByRole("button", { name: "Column 1" }).click());
+      const columns = enabled(TABLE_COLUMN_LABELS);
+      act(() => screen.getByRole("button", { name: "Row 1" }).click());
+      return [...rows, ...columns, ...enabled(["Delete table"])];
+    };
+
+    it("shows the selected axis and switches actions without adding visible command captions", async () => {
+      const selectAxis = vi.fn();
+      const request: ContextPopupRequest = {
+        ...POINTER_REQUEST,
+        container: "table",
+        table: {
+          axis: "column",
+          row: { from: 2, to: 3 },
+          column: { from: 1, to: 2 },
+          selectAxis,
+        },
+      };
+      const { user } = renderWithUser(
+        <EditorContextPopup
+          request={request}
+          commandState={withEnabledCommands(
+            "format.table.addColumnBefore",
+            "format.table.addRowAbove",
+          )}
+          onClose={noop}
+          onExecute={noop}
+          onReturnFocus={noop}
+        />,
+      );
+      expect(screen.getByRole("button", { name: "Column 2" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(screen.getByLabelText("Add column before")).toHaveTextContent("");
+      expect(screen.queryByLabelText("Add row above")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Row 2" }));
+      expect(selectAxis).toHaveBeenCalledWith("row");
+      expect(screen.getByRole("button", { name: "Row 2" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByLabelText("Add row above")).toHaveTextContent("");
+      expect(screen.queryByLabelText("Add column before")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      [{ from: 0, to: 1 }, { from: 0, to: 1 }, "Header row", "Column 1"],
+      [{ from: 0, to: 3 }, { from: 1, to: 3 }, "Header to row 2", "Columns 2–3"],
+      [{ from: 1, to: 3 }, { from: 0, to: 2 }, "Rows 1–2", "Columns 1–2"],
+    ] as const)("names the table's row and column ranges", (row, column, rowLabel, columnLabel) => {
+      render(
+        <EditorContextPopup
+          request={{
+            ...POINTER_REQUEST,
+            container: "table",
+            table: { axis: "row", row, column, selectAxis: noop },
+          }}
+          commandState={enabledPopupCommandState}
+          onClose={noop}
+          onExecute={noop}
+          onReturnFocus={noop}
+        />,
+      );
+      expect(screen.getByRole("button", { name: rowLabel })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: columnLabel })).toBeInTheDocument();
+    });
 
     it("keeps the header row's protected row commands visible but disabled for a caret", async () => {
       await renderForEditor("caret", (mounted) => {
@@ -1113,15 +1229,21 @@ describe("editor-context-popup", () => {
       expect(screen.getByLabelText("Blockquote")).toHaveFocus();
     });
 
-    it("walks the table rows by column and clamps onto Delete table", async () => {
+    it("reaches every table command by switching the axis from the keyboard", async () => {
       const { user } = renderToolbar(
         { ...KEYBOARD_REQUEST, container: "table", selectionKind: "caret" },
         {
           commandState: withEnabledCommands(
             "format.table.addRowAbove",
+            "format.table.addRowBelow",
+            "format.table.moveRowUp",
             "format.table.moveRowDown",
+            "format.table.deleteRow",
             "format.table.addColumnBefore",
+            "format.table.addColumnAfter",
+            "format.table.moveColumnLeft",
             "format.table.moveColumnRight",
+            "format.table.deleteColumn",
             "format.table.delete",
           ),
         },
@@ -1132,22 +1254,33 @@ describe("editor-context-popup", () => {
       });
 
       await user.keyboard("{ArrowDown}");
+      expect(screen.getByRole("button", { name: "Row 1" })).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
       expect(screen.getByLabelText("Add row above")).toHaveFocus();
 
-      await user.keyboard("{ArrowRight}");
-      expect(screen.getByLabelText("Move row down")).toHaveFocus();
+      for (const label of TABLE_ROW_LABELS.slice(1)) {
+        await user.keyboard("{ArrowRight}");
+        expect(screen.getByLabelText(label)).toHaveFocus();
+      }
 
-      await user.keyboard("{ArrowDown}");
-      expect(screen.getByLabelText("Move column right")).toHaveFocus();
-
-      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{ArrowUp}");
       expect(screen.getByLabelText("Delete table")).toHaveFocus();
 
-      await user.keyboard("{ArrowDown}");
-      expect(screen.getByRole("button", { name: "Insert" })).toHaveFocus();
+      await user.keyboard("{ArrowLeft}{Enter}");
+      expect(screen.getByRole("button", { name: "Column 1" })).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Column 1" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
 
-      await user.keyboard("{ArrowUp}{ArrowUp}");
+      await user.keyboard("{ArrowLeft}{ArrowDown}");
       expect(screen.getByLabelText("Add column before")).toHaveFocus();
+
+      for (const label of TABLE_COLUMN_LABELS.slice(1)) {
+        await user.keyboard("{ArrowRight}");
+        expect(screen.getByLabelText(label)).toHaveFocus();
+      }
     });
 
     it("moves through an object's row to the selection's own rows", async () => {

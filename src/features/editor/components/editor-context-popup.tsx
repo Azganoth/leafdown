@@ -1,9 +1,13 @@
 import {
   ArrowDownIcon,
+  ArrowDownFromLineIcon,
   ArrowDownToLineIcon,
   ArrowLeftIcon,
+  ArrowLeftFromLineIcon,
   ArrowRightIcon,
+  ArrowRightFromLineIcon,
   ArrowUpIcon,
+  ArrowUpFromLineIcon,
   BoldIcon,
   CheckIcon,
   ChevronRightIcon,
@@ -12,7 +16,7 @@ import {
   CopyIcon,
   CornerDownRightIcon,
   FileCodeIcon,
-  Grid2x2XIcon,
+  Columns3Icon,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
@@ -32,6 +36,8 @@ import {
   PilcrowIcon,
   PlusIcon,
   ScissorsIcon,
+  Rows3Icon,
+  Table2Icon,
   TableIcon,
   TextQuoteIcon,
   Trash2Icon,
@@ -44,6 +50,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
@@ -72,21 +79,15 @@ import { cn } from "@/lib/utils";
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import type { CalloutTypeChoice, CalloutTypeChoices } from "../commands/formatting/callouts";
 import { getEditorCommandLabelId } from "../commands/metadata";
-import type { ContextPopupRequest } from "../plugins/contextPopup";
+import type { ContextPopupRequest, ContextPopupTable } from "../plugins/contextPopup";
 import { isDismissedFromOutside } from "../utils/popoverDismissal";
+import type { TableAxis } from "../utils/tables";
 import { CalloutTypeIcon } from "./callout-type-icon";
-import {
-  AddColumnAfterIcon,
-  AddColumnBeforeIcon,
-  AddRowAboveIcon,
-  AddRowBelowIcon,
-  DeleteColumnIcon,
-  DeleteRowIcon,
-} from "./table-command-icons";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
   icon: LucideIcon;
+  destructive?: boolean;
 }
 
 interface ContextSubmenuCommand {
@@ -143,23 +144,23 @@ const CALLOUT_COMMANDS = [
 ] satisfies readonly ContextButtonCommand[];
 
 const TABLE_ROW_COMMANDS = [
-  { commandId: "format.table.addRowAbove", icon: AddRowAboveIcon },
-  { commandId: "format.table.addRowBelow", icon: AddRowBelowIcon },
+  { commandId: "format.table.addRowAbove", icon: ArrowUpFromLineIcon },
+  { commandId: "format.table.addRowBelow", icon: ArrowDownFromLineIcon },
   { commandId: "format.table.moveRowUp", icon: ArrowUpIcon },
   { commandId: "format.table.moveRowDown", icon: ArrowDownIcon },
-  { commandId: "format.table.deleteRow", icon: DeleteRowIcon },
+  { commandId: "format.table.deleteRow", icon: Trash2Icon, destructive: true },
 ] satisfies readonly ContextButtonCommand[];
 
 const TABLE_COLUMN_COMMANDS = [
-  { commandId: "format.table.addColumnBefore", icon: AddColumnBeforeIcon },
-  { commandId: "format.table.addColumnAfter", icon: AddColumnAfterIcon },
+  { commandId: "format.table.addColumnBefore", icon: ArrowLeftFromLineIcon },
+  { commandId: "format.table.addColumnAfter", icon: ArrowRightFromLineIcon },
   { commandId: "format.table.moveColumnLeft", icon: ArrowLeftIcon },
   { commandId: "format.table.moveColumnRight", icon: ArrowRightIcon },
-  { commandId: "format.table.deleteColumn", icon: DeleteColumnIcon },
+  { commandId: "format.table.deleteColumn", icon: Trash2Icon, destructive: true },
 ] satisfies readonly ContextButtonCommand[];
 
 const TABLE_COMMANDS = [
-  { commandId: "format.table.delete", icon: Grid2x2XIcon },
+  { commandId: "format.table.delete", icon: Table2Icon, destructive: true },
 ] satisfies readonly ContextButtonCommand[];
 
 const BLOCK_FORMATTING_COMMANDS = [
@@ -216,7 +217,8 @@ const FITTED_COMMAND_LABELS: Partial<Record<EditorCommandId, MessageId>> = {
 type ContextRow =
   | { id: string; kind: "buttons"; commands: readonly ContextButtonCommand[] }
   | { id: string; kind: "submenu"; commands: readonly ContextSubmenuEntry[]; labelId: MessageId }
-  | { id: string; kind: "calloutTypes" };
+  | { id: string; kind: "calloutTypes" }
+  | { id: string; kind: "tableScope" | "tableActions" };
 
 const buttonRow = (id: string, commands: readonly ContextButtonCommand[]): ContextRow => ({
   commands,
@@ -272,9 +274,8 @@ const getContextRows = (
 
   if (container === "table") {
     rows.push(
-      buttonRow("tableRows", TABLE_ROW_COMMANDS),
-      buttonRow("tableColumns", TABLE_COLUMN_COMMANDS),
-      buttonRow("table", TABLE_COMMANDS),
+      { id: "tableScope", kind: "tableScope" },
+      { id: "tableActions", kind: "tableActions" },
     );
   }
 
@@ -379,6 +380,14 @@ export function EditorContextPopup({
   const isOpen = request !== null;
   const source = request?.source;
   const contentRef = useRef<HTMLDivElement>(null);
+  const [tableChoice, setTableChoice] = useState<{
+    request: ContextPopupRequest;
+    axis: TableAxis;
+  } | null>(null);
+  const tableAxis =
+    tableChoice && tableChoice.request === request
+      ? tableChoice.axis
+      : (request?.table?.axis ?? "row");
   // Sticky for one open popup, so that focus moving into a portalled submenu does not clear it.
   const hasHeldFocusRef = useRef(false);
   const pinnedRectRef = useRef<DOMRect | null>(null);
@@ -595,6 +604,34 @@ export function EditorContextPopup({
               (contextRow.kind === "buttons" || rows[row - 1]?.kind === "buttons") && (
                 <Separator className="my-1" />
               )}
+            {contextRow.kind === "tableScope" && (
+              <ContextTableScope
+                axis={tableAxis}
+                table={request.table}
+                onSelectAxis={(axis) => {
+                  setTableChoice({ request, axis });
+                  request.table?.selectAxis(axis);
+                }}
+                onExecute={onExecute}
+                canExecute={canExecute}
+                isChecked={isChecked}
+                row={row}
+              />
+            )}
+            {contextRow.kind === "tableActions" && (
+              <div className="flex flex-col gap-1">
+                <Separator />
+                <ContextCommandRow
+                  commands={tableAxis === "row" ? TABLE_ROW_COMMANDS : TABLE_COLUMN_COMMANDS}
+                  fitted={false}
+                  onExecute={onExecute}
+                  canExecute={canExecute}
+                  isChecked={isChecked}
+                  row={row}
+                  spread
+                />
+              </div>
+            )}
             {contextRow.kind === "buttons" && (
               <ContextCommandRow
                 commands={contextRow.commands}
@@ -639,6 +676,8 @@ interface ContextCommandRowProps {
   canExecute: (commandId: EditorCommandId) => boolean;
   isChecked: (commandId: EditorCommandId) => boolean | undefined;
   row: number;
+  columnOffset?: number;
+  spread?: boolean;
 }
 
 function ContextCommandRow({
@@ -648,17 +687,20 @@ function ContextCommandRow({
   canExecute,
   isChecked,
   row,
+  columnOffset = 0,
+  spread = false,
 }: ContextCommandRowProps) {
   const { t } = useLocalization();
   const showLabels = fitted && commands.length < 4;
 
   return (
     <div
-      className={
-        fitted ? "grid auto-cols-fr grid-flow-col items-center gap-0.5" : "flex items-center gap-1"
-      }
+      className={cn(
+        fitted ? "grid auto-cols-fr grid-flow-col items-center gap-0.5" : "flex items-center gap-1",
+        spread && "justify-between",
+      )}
     >
-      {commands.map(({ commandId, icon: Icon }, column) => {
+      {commands.map(({ commandId, icon: Icon, destructive }, column) => {
         const label = t(getEditorCommandLabelId(commandId));
         const enabled = canExecute(commandId);
         const checked = isChecked(commandId);
@@ -689,12 +731,13 @@ function ContextCommandRow({
           <ToolbarButton
             disabled={!enabled}
             render={showTooltip ? <TooltipTrigger render={button} /> : button}
-            {...toolbarPosition(row, column)}
+            {...toolbarPosition(row, column + columnOffset)}
           >
             <CommandIcon
-              className={
-                fitted ? (commandId === "edit.delete" ? "text-destructive" : undefined) : "size-5"
-              }
+              className={cn(
+                !fitted && !commandId.startsWith("format.table.") && "size-5",
+                (destructive || (fitted && commandId === "edit.delete")) && "text-destructive",
+              )}
             />
             {showLabels && (
               <span className="min-w-0 text-xs wrap-anywhere">
@@ -722,6 +765,89 @@ function ContextCommandRow({
           <Fragment key={commandId}>{control}</Fragment>
         );
       })}
+    </div>
+  );
+}
+
+interface ContextTableScopeProps {
+  axis: TableAxis;
+  table: ContextPopupTable | undefined;
+  onSelectAxis: (axis: TableAxis) => void;
+  onExecute: ContextCommandRowProps["onExecute"];
+  canExecute: ContextCommandRowProps["canExecute"];
+  isChecked: ContextCommandRowProps["isChecked"];
+  row: number;
+}
+
+function ContextTableScope({
+  axis,
+  table,
+  onSelectAxis,
+  onExecute,
+  canExecute,
+  isChecked,
+  row,
+}: ContextTableScopeProps) {
+  const { t } = useLocalization();
+  const rows = table?.row ?? { from: 1, to: 2 };
+  const columns = table?.column ?? { from: 0, to: 1 };
+  const rowLabel =
+    rows.from === 0
+      ? rows.to === 1
+        ? t("editor.contextPopup.table.header")
+        : t("editor.contextPopup.table.headerRows", { row: rows.to - 1 })
+      : rows.to - rows.from === 1
+        ? t("editor.contextPopup.table.row", { row: rows.from })
+        : t("editor.contextPopup.table.rows", { from: rows.from, to: rows.to - 1 });
+  const columnLabel =
+    columns.to - columns.from === 1
+      ? t("editor.contextPopup.table.column", { column: columns.from + 1 })
+      : t("editor.contextPopup.table.columns", { from: columns.from + 1, to: columns.to });
+  const choices = [
+    { axis: "row", icon: Rows3Icon, label: rowLabel },
+    { axis: "column", icon: Columns3Icon, label: columnLabel },
+  ] as const;
+
+  return (
+    <div className="flex min-w-64 items-center gap-2">
+      {choices.map(({ axis: choice, icon: Icon, label }, column) => (
+        <Tooltip key={choice}>
+          <ToolbarButton
+            render={
+              <TooltipTrigger
+                whenCutShort
+                render={
+                  <Button
+                    aria-pressed={axis === choice}
+                    className="min-w-0 flex-1 rounded-sm aria-pressed:bg-muted"
+                    onClick={() => onSelectAxis(choice)}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              />
+            }
+            {...toolbarPosition(row, column)}
+          >
+            <Icon data-icon="inline-start" />
+            <span className="truncate">{label}</span>
+          </ToolbarButton>
+          <TooltipContent side="bottom" sideOffset={8}>
+            {label}
+          </TooltipContent>
+        </Tooltip>
+      ))}
+      <Separator orientation="vertical" className="h-5 data-vertical:self-center" />
+      <ContextCommandRow
+        commands={TABLE_COMMANDS}
+        fitted={false}
+        onExecute={onExecute}
+        canExecute={canExecute}
+        isChecked={isChecked}
+        row={row}
+        columnOffset={2}
+      />
     </div>
   );
 }

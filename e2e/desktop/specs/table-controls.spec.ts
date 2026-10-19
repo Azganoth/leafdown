@@ -125,6 +125,26 @@ describe("desktop table controls", () => {
     await expect(
       $("[data-testid='editor-context-popup'] [aria-label='Delete row']"),
     ).toBeDisplayed();
+    const popup = $("[data-testid='editor-context-popup']");
+    await expect(popup.$("button=Row 1")).toHaveAttribute("aria-pressed", "true");
+    await expect(popup.$("[aria-label='Add row below']")).toHaveText("");
+    const dividerGap = await browser.execute(() => {
+      const button = document.querySelector(
+        "[data-testid='editor-context-popup'] [aria-label='Delete table']",
+      );
+      const divider =
+        button?.parentElement?.parentElement?.querySelector("[data-slot='separator']");
+      if (!button || !divider)
+        throw new Error("The table delete control or its divider was not found.");
+      return button.getBoundingClientRect().left - divider.getBoundingClientRect().right;
+    });
+    expect(dividerGap).toBeGreaterThanOrEqual(8);
+    await popup.$("button=Columns 1–2").click();
+    await expect(popup.$("[aria-label='Delete column']")).toBeDisplayed();
+    await expect(popup.$("[aria-label='Delete row']")).not.toExist();
+    await popup.$("button=Row 1").click();
+    await expect(popup.$("[aria-label='Delete row']")).toBeDisplayed();
+    expect(await tableRect()).toEqual(before);
     expect(
       await browser.execute(
         (selector) => document.querySelector(selector)?.querySelectorAll(".selectedCell").length,

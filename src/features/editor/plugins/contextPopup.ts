@@ -7,6 +7,14 @@ import {
   createContextPopupAnchor,
   type ContextPopupAnchor,
 } from "../utils/contextPopupAnchor";
+import {
+  getSelectedTableAxis,
+  getSelectedTableRect,
+  getTablePosition,
+  setTableAxisSelection,
+  type TableAxis,
+  type TableAxisRange,
+} from "../utils/tables";
 import { isStructuralBlockSelection } from "./blockSelectionKeyboard";
 import { TABLE_DRAGGING_ATTRIBUTE, TABLE_GRIP_SELECTOR } from "./tableControls";
 
@@ -18,11 +26,19 @@ export type ContextPopupSelectionKind = "block" | "caret" | "text";
 
 export type ContextPopupContainer = "code" | "table";
 
+export interface ContextPopupTable {
+  axis: TableAxis;
+  row: TableAxisRange;
+  column: TableAxisRange;
+  selectAxis: (axis: TableAxis) => void;
+}
+
 export interface ContextPopupRequest {
   anchor: ContextPopupAnchor;
   container: ContextPopupContainer | null;
   selectionKind: ContextPopupSelectionKind;
   source: ContextPopupSource;
+  table?: ContextPopupTable;
 }
 
 export interface LeafdownContextPopupPluginOptions {
@@ -85,6 +101,77 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
     // The pointer path opens on release, so the selection a drag builds must not open the popup.
     let pointerSelecting = false;
     let suppressPointerRelease = false;
+    let pressedTableAxis: TableAxis | null = null;
+    let tableScope:
+      | (Omit<ContextPopupTable, "selectAxis"> & {
+          table: EditorState["doc"];
+          position: number;
+          selection: EditorState["selection"];
+        })
+      | null = null;
+
+    const readTable = (view: EditorView): ContextPopupTable | undefined => {
+      const rect = getSelectedTableRect(view.state);
+
+      if (!rect) return undefined;
+
+      const position = getTablePosition(rect);
+      if (
+        !tableScope ||
+        tableScope.table !== rect.table ||
+        tableScope.position !== position ||
+        !tableScope.selection.eq(view.state.selection)
+      ) {
+        tableScope = {
+          axis:
+            pressedTableAxis ??
+            (getSelectedTableAxis(view.state, position, "column") &&
+            !getSelectedTableAxis(view.state, position, "row")
+              ? "column"
+              : "row"),
+          row: { from: rect.top, to: rect.bottom },
+          column: { from: rect.left, to: rect.right },
+          position,
+          selection: view.state.selection,
+          table: rect.table,
+        };
+      }
+
+      if (pressedTableAxis) tableScope = { ...tableScope, axis: pressedTableAxis };
+      pressedTableAxis = null;
+      const scope = tableScope;
+      return {
+        axis: scope.axis,
+        row: scope.row,
+        column: scope.column,
+        selectAxis: (axis) => {
+          if (view.isDestroyed) return;
+          const current = getSelectedTableRect(view.state);
+          if (
+            !current ||
+            current.table !== scope.table ||
+            getTablePosition(current) !== position ||
+            !scope.selection.eq(view.state.selection)
+          )
+            return;
+
+          const range = scope[axis];
+          const tr = view.state.tr;
+          setTableAxisSelection(
+            tr,
+            current.tableStart,
+            current.table,
+            axis,
+            range.from,
+            range.to - 1,
+          );
+          const changed = !tr.selection.eq(view.state.selection);
+          tableScope = { ...scope, axis, selection: tr.selection };
+          view.dispatch(tr);
+          if (!changed) requestSelectionPopup(view, openSource);
+        },
+      };
+    };
 
     const requestSelectionPopup = (view: EditorView, source: ContextPopupSource) => {
       if (!canMeasureSelection(view)) {
@@ -94,11 +181,14 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       anchor ??= createContextPopupAnchor(view);
       openSource = source;
       dismissed = false;
+      const container = getContainer(view.state);
+      if (container !== "table") tableScope = null;
       options.onRequest?.({
         anchor,
-        container: getContainer(view.state),
+        container,
         selectionKind: getSelectionKind(view.state),
         source,
+        ...(container === "table" ? { table: readTable(view) } : {}),
       });
 
       return true;
@@ -148,6 +238,8 @@ export const createLeafdownContextPopupPlugin = (options: LeafdownContextPopupPl
       ) {
         pointerSelecting = true;
         suppressPointerRelease = false;
+        const axis = event.target.closest(TABLE_GRIP_SELECTOR)?.getAttribute("data-axis");
+        pressedTableAxis = axis === "row" || axis === "column" ? axis : null;
       }
     };
 

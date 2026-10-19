@@ -188,8 +188,13 @@ describe("table controls", () => {
     dispatchMouseEvent(rowGrip, "mouseup", { button: 0 });
     await waitFor(() => {
       expect(onContextPopupRequested).toHaveBeenCalledWith(
-        expect.objectContaining({ container: "table", source: "pointer" }),
+        expect.objectContaining({
+          container: "table",
+          source: "pointer",
+          table: expect.objectContaining({ axis: "row" }),
+        }),
       );
+      expect(rowGrip).toHaveAttribute("data-selected");
     });
 
     hover(cellCenter(1, 0));
@@ -199,6 +204,13 @@ describe("table controls", () => {
     selection = mounted.view.state.selection;
     expect((selection as CellSelection).isColSelection()).toBe(true);
     expect(selectedRect(mounted.view.state)).toMatchObject({ left: 0, right: 1, top: 0 });
+    await waitFor(() => {
+      expect(columnGrip).toHaveAttribute("data-selected");
+      expect(rowGrip).not.toHaveAttribute("data-selected");
+      expect(onContextPopupRequested).toHaveBeenLastCalledWith(
+        expect.objectContaining({ table: expect.objectContaining({ axis: "column" }) }),
+      );
+    });
   });
 
   it("drags a row to the boundary under the pointer as one undoable change", async () => {

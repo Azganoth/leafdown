@@ -1,9 +1,14 @@
 // @vitest-environment happy-dom
 
+import { CellSelection } from "@milkdown/kit/prose/tables";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ContextPopupRequest, ContextPopupSource } from "@/features/editor";
-import { BASIC_TABLE_MARKDOWN, HELLO_WORLD_TEXT } from "@/test/fixtures/editorMarkdown";
+import {
+  BASIC_TABLE_MARKDOWN,
+  EXTENDED_TABLE_MARKDOWN,
+  HELLO_WORLD_TEXT,
+} from "@/test/fixtures/editorMarkdown";
 import {
   dispatchContextMenu,
   dispatchMouseDown,
@@ -25,6 +30,7 @@ import {
 } from "@/test/utils/prosemirror";
 import { waitFor } from "@/test/utils/react";
 
+import { getSelectedTableRect } from "../utils/tables";
 import { createHierarchicalBlockSelection, getSelectableBlockTargets } from "./blockSelection";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -620,6 +626,65 @@ describe("context popup plugin", () => {
           selectTableCellRange(mounted, { col: 0, row: 0 }, { col: 1, row: 1 });
         }),
       ).toEqual({ container: "table", selectionKind: "text" });
+    });
+
+    it("switches table axes while retaining the original targets and keyboard source", async () => {
+      const { onContextPopupRequested, lastRequest } = collectRequests();
+      const mounted = await mountEditor(EXTENDED_TABLE_MARKDOWN, {
+        onContextPopupRequested,
+        getContextPopupOpen: () => true,
+      });
+      mockCoordinates(mounted);
+      setSelectionInTableCell(mounted, 2, 1);
+      runKeyDownHandlers(mounted.view, "ContextMenu");
+      const doc = mounted.view.state.doc;
+      expect(lastRequest().table).toMatchObject({
+        axis: "row",
+        row: { from: 2, to: 3 },
+        column: { from: 1, to: 2 },
+      });
+
+      lastRequest().table!.selectAxis("row");
+      expect((mounted.view.state.selection as CellSelection).isRowSelection()).toBe(true);
+      lastRequest().table!.selectAxis("column");
+      expect((mounted.view.state.selection as CellSelection).isColSelection()).toBe(true);
+      expect(getSelectedTableRect(mounted.view.state)).toMatchObject({ left: 1, right: 2 });
+      expect(lastRequest().table).toMatchObject({
+        axis: "column",
+        row: { from: 2, to: 3 },
+        column: { from: 1, to: 2 },
+      });
+      lastRequest().table!.selectAxis("row");
+      expect(getSelectedTableRect(mounted.view.state)).toMatchObject({ top: 2, bottom: 3 });
+      expect(lastRequest().source).toBe("keyboard");
+      expect(mounted.view.state.doc).toBe(doc);
+
+      const stale = lastRequest().table!;
+      setSelectionInTableCell(mounted, 1, 0);
+      const selection = mounted.view.state.selection;
+      stale.selectAxis("column");
+      expect(mounted.view.state.selection).toBe(selection);
+      runKeyDownHandlers(mounted.view, "ContextMenu");
+      expect(lastRequest().table).toMatchObject({
+        row: { from: 1, to: 2 },
+        column: { from: 0, to: 1 },
+      });
+    });
+
+    it("preserves multiple row and column targets when switching a cell range", async () => {
+      const { onContextPopupRequested, lastRequest } = collectRequests();
+      const mounted = await mountEditor(EXTENDED_TABLE_MARKDOWN, {
+        onContextPopupRequested,
+        getContextPopupOpen: () => true,
+      });
+      mockCoordinates(mounted);
+      selectTableCellRange(mounted, { row: 2, col: 1 }, { row: 1, col: 0 });
+      runKeyDownHandlers(mounted.view, "ContextMenu");
+      lastRequest().table!.selectAxis("row");
+      lastRequest().table!.selectAxis("column");
+      expect(getSelectedTableRect(mounted.view.state)).toMatchObject({ left: 0, right: 2 });
+      lastRequest().table!.selectAxis("row");
+      expect(getSelectedTableRect(mounted.view.state)).toMatchObject({ top: 1, bottom: 3 });
     });
 
     it("reports no container for a selection reaching out of one", async () => {

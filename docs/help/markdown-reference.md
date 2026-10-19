@@ -129,6 +129,8 @@ Use pipes between cells and a separator row after the header. Colons in that sep
 
 **Try it:** **Insert > Table** creates a table. **Format > Table** adds, moves, or deletes rows and columns. In the document, table controls provide those actions beside the table too.
 
+Right-click in a table, or press `Shift+F10`, to open its commands. Choose the row or column selector above the action icons to select that scope and show its actions. The selectors name the current row or column, or the selected range; the header is named **Header row**, and body rows start at one. Hover an action to read its name. **Delete table** stays beside the selectors, after a divider. The slim grips on the table's edges select or drag rows and columns, and the `+` buttons insert at a boundary.
+
 ## Code blocks
 
 Wrap code in three backticks or tildes. An optional language name enables highlighting when Leafdown knows it. Four leading spaces also make an indented code block, without a language badge.

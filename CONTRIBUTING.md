@@ -185,6 +185,12 @@ Verify changes locally before merging. Use `pnpm check:frontend` for frontend-on
 
 Frontend checks enforce a coverage floor. It is a ratchet set just below the measured numbers rather than a target: a change that falls below it needs tests, not a lower floor, and the floor is raised when the measured numbers move up.
 
+### CI Enforcement
+
+The `CI Gate` job in [the CI workflow](./.github/workflows/ci.yml) waits for `Frontend Checks`, `Backend Checks`, and `Desktop E2E`. It runs even when a prerequisite fails or is skipped, and passes only when every prerequisite succeeds.
+
+To change the required validation, update `ci-gate.needs` with the relevant job IDs. If a job becomes conditional, update the gate's result policy in the same pull request so intentional skips are explicit and unexpected skips still fail. Keep the `CI Gate` display name stable because GitHub branch protection uses it. When migrating branch protection, retain the existing required checks until the gate passes on a pull request and is merged, then require `CI Gate` from GitHub Actions.
+
 ## Maintainer Project Management
 
 Maintainers own issue classification, scheduling, and project state. Contributors only need to provide the information requested by the relevant issue template; maintainers triage contributor-reported issues after they are opened.

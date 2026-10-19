@@ -151,3 +151,27 @@ jobs:
             $listeners | Format-Table -AutoSize LocalAddress, LocalPort, OwningProcess
             throw "Desktop E2E left an orphaned process or a listener on port 4445."
           }
+
+  ci-gate:
+    name: CI Gate
+    if: ${{ always() }}
+    needs: [check-frontend, check-backend, test-e2e-desktop]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify required check results
+        env:
+          NEEDS_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node --input-type=module <<'NODE'
+          const jobs = JSON.parse(process.env.NEEDS_RESULTS);
+          if (Object.keys(jobs).length === 0) throw new Error("No prerequisite results were provided.");
+
+          let failed = false;
+          for (const [name, { result }] of Object.entries(jobs)) {
+            console.log(`${name}: ${result} (expected success)`);
+            if (result !== "success") failed = true;
+          }
+          process.exit(failed ? 1 : 0);
+          NODE

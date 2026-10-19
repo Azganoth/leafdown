@@ -21,26 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup
         with:
-          node-version-file: package.json
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Setup Rust
-        run: rustup toolchain install
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "./src-tauri -> target"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+          rust-workspace: "./src-tauri -> target"
 
       - name: Run checks
         run: pnpm check

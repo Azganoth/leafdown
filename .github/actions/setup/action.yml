@@ -1,0 +1,33 @@
+name: Setup
+description: Install frozen JavaScript dependencies and optionally the pinned Rust toolchain and cache.
+
+inputs:
+  rust-workspace:
+    description: Rust cache workspace mapping; leave empty to skip Rust setup.
+    required: false
+    default: ""
+  save-rust-cache:
+    description: Whether to save the Rust cache after a successful job.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm, Node.js, and frozen dependencies
+      uses: pnpm/setup@v3
+      with:
+        cache: true
+        require-lockfile: true
+
+    - name: Setup Rust
+      if: ${{ inputs.rust-workspace != '' }}
+      shell: bash
+      run: rustup toolchain install
+
+    - name: Cache Rust
+      if: ${{ inputs.rust-workspace != '' }}
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ${{ inputs.rust-workspace }}
+        save-if: ${{ inputs.save-rust-cache }}

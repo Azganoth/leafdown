@@ -315,6 +315,8 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 
 The popup offers the actions of the context it opens in, one row or submenu per group, in this order. A command unavailable within its context stays visible but disabled.
 
+Outside tables, rows with one or two actions show text: `Up` and `Down` for block movement, `Rename` and `Go to` for footnotes, `Language...` for a code block's language, and `Opens expanded` for a callout's authored disclosure. Paste and Replace image keep their command labels. The full command name remains the accessible name.
+
 - **Caret:** Paste; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
 - **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.

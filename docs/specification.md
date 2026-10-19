@@ -174,6 +174,8 @@ A named folder is one ordinary root folder with an editable display name, ordere
 - **Open from right-click:** commands act on the editor selection established by the right-click.
 - **Open from keyboard:** commands act on the caret or selection the request was made from, and the popup holds focus.
 
+Outside tables, the popup is compact and separates command groups with horizontal rules. Icon controls share each row's full width. Rows with one or two actions show short labels, wrapping longer translations within the popup. Accessible names retain the full command name, and a tooltip supplies it where the visible label is shortened. Submenu rows show their icon and label together.
+
 ## Editor Model
 
 The editor is a unified hybrid Markdown surface. Behavior is governed by rendering rules, contextual marker visibility, command transformations, and serialization.

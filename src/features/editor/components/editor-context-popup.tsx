@@ -5,10 +5,12 @@ import {
   ArrowRightIcon,
   ArrowUpIcon,
   BoldIcon,
+  CheckIcon,
   ChevronRightIcon,
   ClipboardPasteIcon,
   Code2Icon,
   CopyIcon,
+  CornerDownRightIcon,
   FileCodeIcon,
   Grid2x2XIcon,
   Heading1Icon,
@@ -21,12 +23,14 @@ import {
   InfoIcon,
   ItalicIcon,
   Link2Icon,
+  LightbulbIcon,
   ListIcon,
   ListOrderedIcon,
   ListTodoIcon,
   MinusIcon,
   PencilLineIcon,
   PilcrowIcon,
+  PlusIcon,
   ScissorsIcon,
   TableIcon,
   TextQuoteIcon,
@@ -35,6 +39,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  Fragment,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -58,9 +63,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { Toolbar, ToolbarButton } from "@/components/ui/toolbar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useLocalization, type MessageId } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 import type { EditorCommandId, EditorCommandState } from "../commands";
 import type { CalloutTypeChoice, CalloutTypeChoices } from "../commands/formatting/callouts";
@@ -196,6 +203,15 @@ const OBJECT_COMMAND_ROWS = [
   { id: "codeBlock", commands: CODE_BLOCK_COMMANDS },
   { id: "callout", commands: CALLOUT_COMMANDS },
 ] as const;
+
+const FITTED_COMMAND_LABELS: Partial<Record<EditorCommandId, MessageId>> = {
+  "edit.moveBlockUp": "editor.contextPopup.moveUp",
+  "edit.moveBlockDown": "editor.contextPopup.moveDown",
+  "edit.renameFootnote": "editor.contextPopup.renameFootnote",
+  "edit.jumpToFootnoteDefinition": "editor.contextPopup.goToFootnote",
+  "format.codeBlockLanguage": "editor.contextPopup.codeBlockLanguage",
+  "format.calloutExpanded": "editor.contextPopup.calloutExpanded",
+};
 
 type ContextRow =
   | { id: string; kind: "buttons"; commands: readonly ContextButtonCommand[] }
@@ -518,6 +534,9 @@ export function EditorContextPopup({
     return null;
   }
 
+  const fitted = request.container !== "table";
+  const rows = getContextRows(request, canExecute);
+
   return (
     <Popover
       open={isOpen}
@@ -536,7 +555,10 @@ export function EditorContextPopup({
       <PopoverContent
         align="center"
         anchor={virtualAnchor}
-        className="leafdown-context-popup w-auto gap-1 rounded-md p-1"
+        className={cn(
+          "leafdown-context-popup rounded-md p-1",
+          fitted ? "w-42 gap-0" : "w-auto gap-1",
+        )}
         data-testid="editor-context-popup"
         finalFocus={() => {
           if (hasHeldFocusRef.current) {
@@ -566,43 +588,45 @@ export function EditorContextPopup({
         side="bottom"
         sideOffset={8}
       >
-        {getContextRows(request, canExecute).map((contextRow, row) => {
-          switch (contextRow.kind) {
-            case "buttons":
-              return (
-                <ContextCommandRow
-                  commands={contextRow.commands}
-                  key={contextRow.id}
-                  onExecute={onExecute}
-                  canExecute={canExecute}
-                  isChecked={isChecked}
-                  row={row}
-                />
-              );
-            case "submenu":
-              return (
-                <ContextCommandSubmenu
-                  commands={contextRow.commands}
-                  key={contextRow.id}
-                  labelId={contextRow.labelId}
-                  onChooseCalloutType={onChooseCalloutType}
-                  onExecute={onExecute}
-                  canExecute={canExecute}
-                  readCalloutTypes={readCalloutTypes}
-                  row={row}
-                />
-              );
-            case "calloutTypes":
-              return (
-                <ContextCalloutTypeSubmenu
-                  key={contextRow.id}
-                  onChooseCalloutType={onChooseCalloutType}
-                  readCalloutTypes={readCalloutTypes}
-                  row={row}
-                />
-              );
-          }
-        })}
+        {rows.map((contextRow, row) => (
+          <Fragment key={contextRow.id}>
+            {fitted &&
+              row > 0 &&
+              (contextRow.kind === "buttons" || rows[row - 1]?.kind === "buttons") && (
+                <Separator className="my-1" />
+              )}
+            {contextRow.kind === "buttons" && (
+              <ContextCommandRow
+                commands={contextRow.commands}
+                fitted={fitted}
+                onExecute={onExecute}
+                canExecute={canExecute}
+                isChecked={isChecked}
+                row={row}
+              />
+            )}
+            {contextRow.kind === "submenu" && (
+              <ContextCommandSubmenu
+                commands={contextRow.commands}
+                fitted={fitted}
+                labelId={contextRow.labelId}
+                onChooseCalloutType={onChooseCalloutType}
+                onExecute={onExecute}
+                canExecute={canExecute}
+                readCalloutTypes={readCalloutTypes}
+                row={row}
+              />
+            )}
+            {contextRow.kind === "calloutTypes" && (
+              <ContextCalloutTypeSubmenu
+                fitted={fitted}
+                onChooseCalloutType={onChooseCalloutType}
+                readCalloutTypes={readCalloutTypes}
+                row={row}
+              />
+            )}
+          </Fragment>
+        ))}
       </PopoverContent>
     </Popover>
   );
@@ -610,6 +634,7 @@ export function EditorContextPopup({
 
 interface ContextCommandRowProps {
   commands: readonly ContextButtonCommand[];
+  fitted: boolean;
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
   isChecked: (commandId: EditorCommandId) => boolean | undefined;
@@ -618,47 +643,83 @@ interface ContextCommandRowProps {
 
 function ContextCommandRow({
   commands,
+  fitted,
   onExecute,
   canExecute,
   isChecked,
   row,
 }: ContextCommandRowProps) {
   const { t } = useLocalization();
+  const showLabels = fitted && commands.length < 4;
 
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className={
+        fitted ? "grid auto-cols-fr grid-flow-col items-center gap-0.5" : "flex items-center gap-1"
+      }
+    >
       {commands.map(({ commandId, icon: Icon }, column) => {
         const label = t(getEditorCommandLabelId(commandId));
         const enabled = canExecute(commandId);
-
-        return (
-          <Tooltip key={commandId}>
-            <ToolbarButton
-              disabled={!enabled}
-              render={
-                <TooltipTrigger
-                  render={
-                    <Button
-                      aria-label={label}
-                      aria-pressed={isChecked(commandId)}
-                      className="size-8 rounded-sm aria-pressed:bg-muted"
-                      disabled={!enabled}
-                      onClick={() => onExecute(commandId)}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                />
+        const checked = isChecked(commandId);
+        const shortLabelId = showLabels ? FITTED_COMMAND_LABELS[commandId] : undefined;
+        const showTooltip = !showLabels || shortLabelId !== undefined;
+        const CommandIcon =
+          fitted && commandId === "edit.jumpToFootnoteDefinition" ? CornerDownRightIcon : Icon;
+        const button = (
+          <Button
+            aria-label={label}
+            aria-pressed={checked}
+            className={cn(
+              "rounded-sm",
+              fitted
+                ? "h-auto min-h-8 w-full gap-1.5 px-1.5 py-1 whitespace-normal aria-pressed:bg-primary/10 aria-pressed:text-primary"
+                : "size-8 aria-pressed:bg-muted",
+              showLabels && commands.length === 1 && "justify-start",
+              showLabels && commands.length === 2 && "gap-1 px-1",
+            )}
+            disabled={!enabled}
+            onClick={() => onExecute(commandId)}
+            size={fitted ? "sm" : "icon"}
+            type="button"
+            variant="ghost"
+          />
+        );
+        const control = (
+          <ToolbarButton
+            disabled={!enabled}
+            render={showTooltip ? <TooltipTrigger render={button} /> : button}
+            {...toolbarPosition(row, column)}
+          >
+            <CommandIcon
+              className={
+                fitted ? (commandId === "edit.delete" ? "text-destructive" : undefined) : "size-5"
               }
-              {...toolbarPosition(row, column)}
-            >
-              <Icon className="size-5" />
-            </ToolbarButton>
+            />
+            {showLabels && (
+              <span className="min-w-0 text-xs wrap-anywhere">
+                {shortLabelId ? t(shortLabelId) : label}
+              </span>
+            )}
+            {fitted &&
+              commandId === "format.calloutExpanded" &&
+              (checked ? (
+                <CheckIcon className="ml-auto" />
+              ) : (
+                <MinusIcon className="ml-auto text-muted-foreground" />
+              ))}
+          </ToolbarButton>
+        );
+
+        return showTooltip ? (
+          <Tooltip key={commandId}>
+            {control}
             <TooltipContent side="right" sideOffset={8}>
               {label}
             </TooltipContent>
           </Tooltip>
+        ) : (
+          <Fragment key={commandId}>{control}</Fragment>
         );
       })}
     </div>
@@ -667,11 +728,12 @@ function ContextCommandRow({
 
 interface ContextSubmenuProps {
   children: ReactNode;
+  icon?: LucideIcon;
   label: string;
   row: number;
 }
 
-function ContextSubmenu({ children, label, row }: ContextSubmenuProps) {
+function ContextSubmenu({ children, icon: Icon, label, row }: ContextSubmenuProps) {
   return (
     <DropdownMenu>
       <ToolbarButton
@@ -679,7 +741,10 @@ function ContextSubmenu({ children, label, row }: ContextSubmenuProps) {
           <DropdownMenuTrigger
             render={
               <Button
-                className="h-8 w-full justify-start gap-2 rounded-sm px-2"
+                className={cn(
+                  "w-full justify-start gap-2 rounded-sm px-2",
+                  Icon ? "h-auto min-h-8 whitespace-normal" : "h-8",
+                )}
                 type="button"
                 variant="ghost"
               />
@@ -688,7 +753,12 @@ function ContextSubmenu({ children, label, row }: ContextSubmenuProps) {
         }
         {...toolbarPosition(row, 0)}
       >
-        <span className="min-w-24 flex-1 text-left">{label}</span>
+        {Icon && <Icon data-icon="inline-start" />}
+        <span
+          className={cn("flex-1 text-left", Icon ? "min-w-0 text-xs wrap-anywhere" : "min-w-24")}
+        >
+          {label}
+        </span>
         <ChevronRightIcon className="text-muted-foreground" />
       </ToolbarButton>
       <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
@@ -704,6 +774,7 @@ interface CalloutTypeChoiceProps {
 }
 
 interface ContextCommandSubmenuProps extends CalloutTypeChoiceProps {
+  fitted: boolean;
   labelId: MessageId;
   commands: readonly ContextSubmenuEntry[];
   onExecute: (commandId: EditorCommandId) => void;
@@ -712,6 +783,7 @@ interface ContextCommandSubmenuProps extends CalloutTypeChoiceProps {
 }
 
 function ContextCommandSubmenu({
+  fitted,
   labelId,
   commands,
   onChooseCalloutType,
@@ -724,7 +796,13 @@ function ContextCommandSubmenu({
   const label = t(labelId);
 
   return (
-    <ContextSubmenu label={label} row={row}>
+    <ContextSubmenu
+      icon={
+        fitted ? (labelId === "editor.contextPopup.insert" ? PlusIcon : PilcrowIcon) : undefined
+      }
+      label={label}
+      row={row}
+    >
       <DropdownMenuGroup aria-label={label}>
         {commands.map((entry) => {
           if ("calloutTypes" in entry) {
@@ -844,10 +922,12 @@ function InsertCalloutItems({ onChooseCalloutType, readCalloutTypes }: CalloutTy
 }
 
 interface ContextCalloutTypeSubmenuProps extends CalloutTypeChoiceProps {
+  fitted: boolean;
   row: number;
 }
 
 function ContextCalloutTypeSubmenu({
+  fitted,
   onChooseCalloutType,
   readCalloutTypes,
   row,
@@ -856,7 +936,7 @@ function ContextCalloutTypeSubmenu({
   const label = t("editor.contextPopup.calloutType");
 
   return (
-    <ContextSubmenu label={label} row={row}>
+    <ContextSubmenu icon={fitted ? LightbulbIcon : undefined} label={label} row={row}>
       <ChangeCalloutTypeItems
         label={label}
         onChooseCalloutType={onChooseCalloutType}

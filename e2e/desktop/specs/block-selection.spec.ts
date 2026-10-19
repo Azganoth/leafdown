@@ -755,6 +755,33 @@ describe("desktop block selection", () => {
 
     await dispatchHandleGesture(first);
     await expect($("[data-testid='editor-context-popup']")).toBeDisplayed();
+    const popupRows = await browser.execute(() => {
+      const popup = document.querySelector<HTMLElement>("[data-testid='editor-context-popup']")!;
+      const bounds = popup.getBoundingClientRect();
+      const groups = new Map<string, DOMRect[]>();
+
+      for (const control of popup.querySelectorAll<HTMLElement>("[data-toolbar-row]")) {
+        const key = control.dataset.toolbarRow!;
+        const row = groups.get(key) ?? [];
+        row.push(control.getBoundingClientRect());
+        groups.set(key, row);
+      }
+
+      return [...groups.values()].map((row) => ({
+        count: row.length,
+        leadingSpace: row[0].left - bounds.left,
+        trailingSpace: bounds.right - row.at(-1)!.right,
+        widths: row.map((control) => control.width),
+      }));
+    });
+    expect(popupRows.some(({ count }) => count === 2)).toBe(true);
+    for (const row of popupRows) {
+      expect(row.leadingSpace).toBeGreaterThanOrEqual(0);
+      expect(row.trailingSpace).toBeGreaterThanOrEqual(0);
+      expect(row.leadingSpace).toBeLessThanOrEqual(8);
+      expect(row.trailingSpace).toBeLessThanOrEqual(8);
+      expect(Math.max(...row.widths) - Math.min(...row.widths)).toBeLessThan(1);
+    }
     const selectedFirstGeometry = await getGeometryForText("Nested first");
     expect(Math.abs(selectedFirstGeometry.blockLeft - firstGeometry.blockLeft)).toBeLessThan(0.5);
     await expect($("aria/Bold")).not.toExist();

@@ -16,6 +16,7 @@ jobs:
   release-windows:
     name: Build Windows installers
     runs-on: windows-2025-vs2026
+    timeout-minutes: 45
 
     steps:
       - name: Checkout

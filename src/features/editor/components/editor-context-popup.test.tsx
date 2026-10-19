@@ -230,6 +230,71 @@ describe("editor-context-popup", () => {
     expect(controlLabels()).toEqual(labels);
   });
 
+  it("labels sparse rows while keeping the full command names and actions", async () => {
+    const onExecute = vi.fn();
+    const { rerender, user } = renderWithUser(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands("edit.renameFootnote", "edit.jumpToFootnoteDefinition")}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Paste" })).toHaveTextContent("Paste");
+    expect(screen.getByRole("button", { name: "Rename footnote" })).toHaveTextContent("Rename");
+    expect(screen.getByRole("button", { name: "Jump to footnote definition" })).toHaveTextContent(
+      "Go to",
+    );
+    await user.click(screen.getByRole("button", { name: "Jump to footnote definition" }));
+    expect(onExecute).toHaveBeenCalledWith("edit.jumpToFootnoteDefinition");
+
+    rerender(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "block" }}
+        commandState={withEnabledCommands(
+          "edit.moveBlockUp",
+          "edit.moveBlockDown",
+          "format.codeBlockLanguage",
+        )}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Move block up" })).toHaveTextContent("Up");
+    expect(screen.getByRole("button", { name: "Move block down" })).toHaveTextContent("Down");
+    expect(screen.getByRole("button", { name: "Code block language..." })).toHaveTextContent(
+      "Language...",
+    );
+    expect(screen.getByRole("button", { name: "Copy" }).textContent).toBe("");
+    await user.click(screen.getByRole("button", { name: "Move block down" }));
+    expect(onExecute).toHaveBeenCalledWith("edit.moveBlockDown");
+  });
+
+  it("keeps sparse table-context rows as icon controls", () => {
+    render(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, container: "table", selectionKind: "caret" }}
+        commandState={withEnabledCommands("edit.renameFootnote", "edit.jumpToFootnoteDefinition")}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    for (const name of [
+      "Paste",
+      "Rename footnote",
+      "Jump to footnote definition",
+      "Delete table",
+    ]) {
+      expect(screen.getByRole("button", { name }).textContent).toBe("");
+    }
+  });
+
   it("places an object's actions directly under the quick actions", () => {
     const { rerender } = render(
       <EditorContextPopup
@@ -492,6 +557,7 @@ describe("editor-context-popup", () => {
 
     expect(controlLabels().slice(0, 2)).toEqual(["Paste", "Callout opens expanded"]);
     expect(screen.getByLabelText("Callout opens expanded")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Callout opens expanded")).toHaveTextContent("Opens expanded");
 
     await user.click(screen.getByLabelText("Callout opens expanded"));
 

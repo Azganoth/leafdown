@@ -1,12 +1,15 @@
 import type { AppCommandId } from "./dispatch";
 
-export interface PaletteCommand {
-  id: AppCommandId;
+export interface PaletteCommand<TId extends string = AppCommandId> {
+  id: TId;
   label: string;
   menuPath: string;
 }
 
-export const searchPaletteCommands = (commands: PaletteCommand[], query: string) => {
+export const searchPaletteCommands = <T extends PaletteCommand<string>>(
+  commands: T[],
+  query: string,
+) => {
   const normalizedQuery = query.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
   if (!normalizedQuery) {
     return commands;

@@ -9,6 +9,10 @@ const math = (value: string) =>
   $(`[data-type="math"][data-value="${value.replaceAll("\\", "\\\\")}"]`);
 const preview = () => $(".leafdown-math-preview");
 
+type MathTimingWindow = Window & {
+  mathFontTiming: { observer: PerformanceObserver; requests: string[] };
+};
+
 // Projected math source is split into pieces by its marker and command styling, so its text, the
 // caret's offset in it, and its bounds are read across every piece.
 const readProjection = () =>
@@ -55,6 +59,22 @@ const pressMath = (element: ReturnType<typeof math>) =>
   );
 
 describe("desktop rendered math", () => {
+  before(async () => {
+    await browser.execute(() => {
+      const requests: string[] = [];
+      const observer = new PerformanceObserver((entries) => {
+        requests.push(
+          ...entries
+            .getEntries()
+            .map(({ name }) => name)
+            .filter((name) => name.includes("KaTeX_")),
+        );
+      });
+      observer.observe({ type: "resource", buffered: true });
+      (window as unknown as MathTimingWindow).mathFontTiming = { observer, requests };
+    });
+  });
+
   it("edits and writes the math corpus byte for byte", async () => {
     const { mathCorpus } = await getDesktopE2ERunContext();
     const original = await readFile(mathCorpus.path, "utf8");
@@ -151,14 +171,13 @@ describe("desktop rendered math", () => {
       await browser.execute(async () => {
         await document.fonts.ready;
         const variable = document.querySelector<HTMLElement>('[data-type="math"] .mathnormal')!;
+        const { observer, requests } = (window as unknown as MathTimingWindow).mathFontTiming;
         return {
           family: getComputedStyle(variable).fontFamily,
           loaded: [...document.fonts].some(
             (font) => font.family.includes("KaTeX_Math") && font.status === "loaded",
           ),
-          requests: performance
-            .getEntriesByType("resource")
-            .map(({ name }) => name)
+          requests: [...requests, ...observer.takeRecords().map(({ name }) => name)]
             .filter((name) => name.includes("KaTeX_"))
             .map((name) => ({
               sameOrigin: name.startsWith(location.origin),

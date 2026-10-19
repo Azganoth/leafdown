@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
+import { useNamedFoldersStore } from "../stores/namedFolders";
+
 export const SET_WINDOW_DOCUMENTS_COMMAND = "set_window_documents";
 export const CLAIM_WINDOW_DOCUMENT_COMMAND = "claim_window_document";
 export const NOTIFY_DOCUMENTS_MOVED_COMMAND = "notify_documents_moved";
@@ -20,10 +22,14 @@ export interface WindowDocumentsSnapshot {
   windows: { windowLabel: string; documents: WindowDocument[] }[];
 }
 
-export type ClaimWindowDocumentResult = { kind: "claimed" } | { kind: "openElsewhere" };
+export type ClaimWindowDocumentResult =
+  | { kind: "claimed" }
+  | { kind: "openElsewhere" }
+  | { kind: "ownedByContext"; contextId: string };
 
 export interface SetWindowDocumentsArgs {
   documents: WindowDocument[];
+  contextId?: string | null;
 }
 
 export interface ClaimWindowDocumentArgs {
@@ -43,6 +49,9 @@ export interface DocumentPathPayload {
 export const setWindowDocuments = (documents: WindowDocument[]) =>
   invoke<void>(SET_WINDOW_DOCUMENTS_COMMAND, {
     documents,
+    ...(useNamedFoldersStore.getState().activeId && {
+      contextId: useNamedFoldersStore.getState().activeId,
+    }),
   } satisfies SetWindowDocumentsArgs);
 
 export const claimWindowDocument = (path: string, activate: boolean) =>

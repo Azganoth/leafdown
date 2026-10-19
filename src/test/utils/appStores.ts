@@ -17,6 +17,7 @@ import {
   type SettingsPersistedState,
 } from "@/features/preferences";
 import { RELEASE_NOTES_STATE_VERSION, useReleaseNotesStore } from "@/features/release-notes";
+import { useNamedFoldersStore } from "@/features/session/stores/namedFolders";
 import { useOtherWindowDocumentsStore } from "@/features/session/stores/otherWindowDocuments";
 // Deep import by design: `@/features/session` re-exports `documentEditorBridge`, and the
 // beforeEach in ../setup/common.ts loads this module for every test file.
@@ -131,6 +132,7 @@ export const setDefaultUI = (ui: Partial<CommandUIState> = {}) => {
 };
 
 export const resetAppStores = () => {
+  useNamedFoldersStore.setState(useNamedFoldersStore.getInitialState());
   setDefaultSettings();
   setDefaultRecentItems();
   setDefaultSession();

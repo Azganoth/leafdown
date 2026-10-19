@@ -26,7 +26,12 @@ import {
   pickAndOpenMarkdownFile,
   saveActiveMarkdownDocument,
   saveActiveMarkdownDocumentAs,
+  showNamedFolders,
 } from "@/features/session";
+
+export const openNamedFolders = () => {
+  showNamedFolders();
+};
 import { notifyOperationFailure } from "@/lib/errors";
 import { t, type MessageId } from "@/lib/i18n";
 import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";

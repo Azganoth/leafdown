@@ -44,7 +44,7 @@ Global settings persist across application launches unless specified otherwise.
 - **Ignored directories for folder scans:** directory name list. Default: `.git`, `.hg`, `.svn`, `node_modules`, `target`, `dist`, `build`, `.cache`.
   - Directory name matching is case-sensitive on Unix-like systems and case-insensitive on Windows. Matching directories and their contents are recursively skipped.
 - **Restore session:** On or Off. Default: On.
-  - Keeps each window's folder context and tabs, and the unsaved text of the documents in them, for the next launch, so quitting does not ask about unsaved changes. See [Kept Session](./specification.md#kept-session).
+  - Automatically reopens windows left at quit or crash, including their assigned named contexts. Turning it off clears automatic restart state and unnamed sessions; named folders and their unsaved drafts remain available. See [Kept Session](./specification.md#kept-session).
 - **When dropping a folder:** Open or Insert folder link. Default: Open.
 - **When dropping a Markdown file:** Open or Insert file link. Default: Open.
 
@@ -88,6 +88,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **New window** (`Mod+Shift+N`)
 - **Open...** (`Mod+O`)
 - **Open folder...** (`Mod+Shift+O`)
+- **Named folders…**: select, keep, rename, park, locate, or remove a named folder, or open it in a new window. Also available above the navigator and on welcome; individual named folders appear in the command palette. No default shortcut.
 - **Open recent**
   - **Open last closed** (Deferred)
   - **Recent files**
@@ -390,7 +391,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 
 - `Open file location` requires an active saved document path. If the native file reveal fails because the path is missing or inaccessible, Leafdown shows an error.
 - `Reveal in sidebar` requires a folder context and an active saved article in the article navigator.
-- `Close folder` requires a folder context.
+- `Close folder` requires a folder context. In a named context it parks that context, retaining its tabs and drafts.
 - `Open last closed` requires a last-closed item.
 - `Clear recent items` requires at least one recent file or folder.
 - `Toggle sidebar`, `Sort articles by`, `Show all files`, `Collapse all folders`, and `Expand all folders` require a folder context and an available article navigator.

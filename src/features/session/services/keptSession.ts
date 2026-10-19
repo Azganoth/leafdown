@@ -16,6 +16,7 @@ import { DisposableStore, toDisposable, type Disposable } from "@/lib/lifecycle"
 import { getPathParts } from "@/lib/path";
 import { notifyError, notifyWarning } from "@/lib/toast";
 
+import { useNamedFoldersStore } from "../stores/namedFolders";
 import {
   getTabDocumentKey,
   useSessionStore,
@@ -32,9 +33,10 @@ import {
 } from "../utils/keptWindowState";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { checkDocumentFile } from "./externalChanges";
-import { getSessionFolderScanOptions } from "./folderContextWorkflows";
+import { getSessionFolderScanOptions } from "./folderContextOptions";
 import {
   clearKeptSession,
+  enableKeptSession,
   reportWindowSession,
   restoreWindowSession,
   type SnapshotText,
@@ -119,11 +121,14 @@ class KeptSessionReporter {
   flush() {
     this.changed = true;
 
-    return this.report();
+    return this.report(true);
   }
 
-  private report() {
+  private report(force = false) {
     return this.queue.run(async () => {
+      if (!force && useNamedFoldersStore.getState().transitioning) {
+        return this.running !== null;
+      }
       if (!this.running || !this.changed) {
         return this.running !== null;
       }
@@ -132,6 +137,7 @@ class KeptSessionReporter {
 
       const snapshots: SnapshotText[] = [];
       const snapshotTabIds: string[] = [];
+      const contextId = useNamedFoldersStore.getState().activeId;
       const session = useSessionStore.getState();
       const openTabIds = new Set(session.tabs.map((tab) => tab.id));
 
@@ -157,7 +163,7 @@ class KeptSessionReporter {
           let snapshotId = this.snapshotIds.get(tab.id);
 
           if (!snapshotId || this.edited.has(tab.id)) {
-            snapshotId ??= crypto.randomUUID();
+            snapshotId = crypto.randomUUID();
             snapshotTabIds.push(tab.id);
             this.snapshotIds.set(tab.id, snapshotId);
             this.edited.delete(tab.id);
@@ -170,6 +176,8 @@ class KeptSessionReporter {
         await reportWindowSession({
           session: { state, snapshotIds: getKeptSnapshotIds(state) },
           snapshots,
+          contextId,
+          restoreSession: useSettingsStore.getState().restoreSession,
         });
       } catch (error) {
         this.changed = true;
@@ -209,33 +217,55 @@ const reporter = new KeptSessionReporter();
 const readUnsavedText = (tab: DocumentTab) =>
   documentEditorBridge.getSettledMarkdown(getTabDocumentKey(tab)) ?? tab.document.content;
 
-const applyRestoreSessionSetting = (restoreSession: boolean) => {
-  if (restoreSession) {
+const applyRestoreSessionSetting = (restoreSession: boolean, clearStored = true) => {
+  if (restoreSession || useNamedFoldersStore.getState().activeId) {
     reporter.start();
-    return;
-  }
-
-  if (reporter.isRunning) {
+  } else {
     reporter.stop();
+  }
+  if (!restoreSession && clearStored) {
     clearKeptSession().catch((error) => handleUnexpectedError(error, "clearKeptSession"));
   }
 };
 
 /**
- * Keeps the window's tabs and unsaved text while `Restore session` is on, and lets the kept session
- * go when it is turned off.
+ * Named contexts keep reporting independently of automatic restart; disabling restart clears
+ * only automatic assignments and unnamed snapshots.
  */
 export const followKeptSession = (): Disposable => {
-  applyRestoreSessionSetting(useSettingsStore.getState().restoreSession);
+  let disposed = false;
+  applyRestoreSessionSetting(useSettingsStore.getState().restoreSession, false);
 
   const unsubscribe = useSettingsStore.subscribe((state, previous) => {
     if (state.restoreSession !== previous.restoreSession) {
-      applyRestoreSessionSetting(state.restoreSession);
+      if (state.restoreSession) {
+        void enableKeptSession()
+          .then(() => {
+            if (!disposed && useSettingsStore.getState().restoreSession) {
+              reporter.start();
+              void reporter.flush();
+            }
+          })
+          .catch((error) => handleUnexpectedError(error, "enableKeptSession"));
+      } else {
+        applyRestoreSessionSetting(false);
+      }
+    }
+  });
+  const unsubscribeContext = useNamedFoldersStore.subscribe((state, previous) => {
+    if (state.activeId !== previous.activeId) {
+      if (state.activeId || useSettingsStore.getState().restoreSession) {
+        reporter.start();
+      } else {
+        reporter.stop();
+      }
     }
   });
 
   return toDisposable(() => {
+    disposed = true;
     unsubscribe();
+    unsubscribeContext();
     reporter.stop();
   });
 };
@@ -245,9 +275,21 @@ export const followKeptSession = (): Disposable => {
  * asked about. Resolves `false` when nothing could be kept, and the window asks as usual.
  */
 export const keepWindowSession = () =>
-  useSettingsStore.getState().restoreSession && reporter.isRunning
+  (useSettingsStore.getState().restoreSession || useNamedFoldersStore.getState().activeId) &&
+  reporter.isRunning
     ? reporter.flush()
     : Promise.resolve(false);
+
+export const flushContextSession = () => {
+  reporter.start();
+  return reporter.flush();
+};
+export const forgetContextSnapshots = () => {
+  reporter.stop();
+  if (useSettingsStore.getState().restoreSession || useNamedFoldersStore.getState().activeId) {
+    reporter.start();
+  }
+};
 
 /**
  * Reopens the tabs this window held when the session was last kept. With `Restore session` off,
@@ -257,37 +299,48 @@ export const restoreKeptWindowSession = async () => {
   if (!useSettingsStore.getState().restoreSession) {
     if (getCurrentWindow().label === MAIN_WINDOW_LABEL) {
       await clearKeptSession();
+      return;
     }
-
-    return;
   }
 
   const restored = await restoreWindowSession();
+  if (!useSettingsStore.getState().restoreSession && !restored?.contextId) {
+    return;
+  }
+  if (restored) {
+    await restoreContextSession(restored);
+  }
+};
+
+export const restoreContextSession = async (
+  restored: import("./keptSessionApi").RestoredWindowSession,
+) => {
   const state = restored && parseKeptWindowState(restored.state);
 
   if (!restored || !state) {
     return;
   }
+  useNamedFoldersStore.setState({ activeId: restored.contextId ?? null });
 
   const restoredTabs: (RestoredTab & { snapshotId: string | null; claim: Disposable | null })[] =
     [];
   let activeIndex: number | null = null;
 
-  for (const [index, tab] of state.tabs.entries()) {
-    const restoredTab = await restoreTab(tab, restored.snapshots);
-
-    if (!restoredTab) {
-      continue;
-    }
-
-    if (index === state.activeTabIndex) {
-      activeIndex = restoredTabs.length;
-    }
-
-    restoredTabs.push(restoredTab);
-  }
-
   try {
+    for (const [index, tab] of state.tabs.entries()) {
+      const restoredTab = await restoreTab(tab, restored.snapshots, Boolean(restored.contextId));
+
+      if (!restoredTab) {
+        continue;
+      }
+
+      if (index === state.activeTabIndex) {
+        activeIndex = restoredTabs.length;
+      }
+
+      restoredTabs.push(restoredTab);
+    }
+
     const { tabs, folderContextLoad } = useSessionStore
       .getState()
       .restoreTabs(restoredTabs, activeIndex, state.folderPath);
@@ -318,7 +371,11 @@ export const restoreKeptWindowSession = async () => {
   }
 };
 
-const restoreTab = async (tab: KeptTab, snapshots: Readonly<Record<string, string>>) => {
+const restoreTab = async (
+  tab: KeptTab,
+  snapshots: Readonly<Record<string, string>>,
+  reservedContext = false,
+) => {
   const text = tab.snapshotId === null ? undefined : snapshots[tab.snapshotId];
 
   if (tab.kind === "untitled") {
@@ -341,9 +398,11 @@ const restoreTab = async (tab: KeptTab, snapshots: Readonly<Record<string, strin
     };
   }
 
-  const claim = await claimDocumentForWindow(tab.path, { activate: false });
+  const claim = reservedContext
+    ? null
+    : await claimDocumentForWindow(tab.path, { activate: false });
 
-  if (!claim) {
+  if (!reservedContext && !claim) {
     return null;
   }
 
@@ -353,7 +412,7 @@ const restoreTab = async (tab: KeptTab, snapshots: Readonly<Record<string, strin
       : await reopenSavedDocument(tab, tab.isDirty);
 
   if (!document) {
-    claim.dispose();
+    claim?.dispose();
 
     return null;
   }

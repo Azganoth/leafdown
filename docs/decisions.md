@@ -90,7 +90,7 @@
 
 ### No vault or workspace model
 
-**Decision:** Opening a folder does not create a vault, workspace, import process, database, or metadata files in that folder.
+**Decision:** Opening a folder does not create a vault, workspace, import process, database, or metadata files in that folder. A writer may optionally keep one ordinary folder as a named working context, with its display name, tabs, and unsaved drafts stored entirely in application data.
 
 **Rationale:** Leafdown is designed as a document-centric editor rather than a personal knowledge management system with custom workspace setups.
 
@@ -99,6 +99,7 @@
 - Existing folder structures remain unmodified.
 - Application metadata is stored externally from the opened folders.
 - Folder workflows execute without initialization steps.
+- Named folders remain separate from recent history. A context can be active in one window, and a saved file has one owner across active and parked contexts. Switching parks the current named context before restoring another; a failed park retains the current work.
 
 ### Wiki links use document-relative paths
 
@@ -137,7 +138,7 @@
 
 ### Keep the session and its unsaved text across restarts
 
-**Decision:** While `Restore session` is on, Leafdown keeps each window's folder context and tabs, and the unsaved text of every document they hold, from one run to the next. It snapshots each document whose unsaved text changed, untitled documents included, into its application data every few seconds. Quitting takes a final snapshot instead of asking about unsaved changes, and the next launch reopens the windows with that text still unsaved. Only Save writes a document's file. The model follows the session snapshot and periodic backup of Notepad++.
+**Decision:** Leafdown snapshots each named folder's tabs and unsaved text in application data independently of `Restore session`. That setting controls automatic reopening of windows left at quit or crash and keeps the existing unnamed-window session behavior. Switching or closing a named context takes a final snapshot and parks it; failed persistence stops the transition. Restart assignments reference the same context state and snapshots rather than a second copy. Only Save writes a document's file. The snapshot and periodic backup model follows Notepad++.
 
 **Rationale:** Asking on quit treats an unsaved document as something to be disposed of, when the author usually means to return to it. Keeping it lets quitting, restarting for an update, or a crash cost at most a few seconds of typing, and it covers untitled documents, which have no file to write. Saving to the file automatically was the alternative ([issue #730](https://github.com/Azganoth/leafdown/issues/730)). It would write half-finished text into files that version control, sync, and other tools read, and it still could not keep an untitled document. Snapshots outside the file keep each file as the author last chose to write it, as [Markdown files remain the source of truth](#markdown-files-remain-the-source-of-truth) requires.
 
@@ -147,7 +148,7 @@
 - Snapshots and the session record live in Leafdown's application data, never in opened folders. A snapshot holds only unsaved text: saving or discarding a document deletes it. Snapshots are not revisions and are not kept as history.
 - Closing a tab, the folder, or a window while Leafdown keeps running still asks, since what it closes leaves the session.
 - A file that changed or went missing between runs restores its snapshot as an unsaved document with that change recorded, so Save warns before overwriting.
-- Turning `Restore session` off deletes stored snapshots and the session record, and quitting asks as before.
+- Turning `Restore session` off clears automatic restart state and unnamed snapshots, while named contexts and their drafts remain available. Unnamed windows then ask about unsaved changes before closing; named windows still park.
 - Recovery after a crash reaches back only to the last snapshot.
 
 ### Use one hybrid document surface

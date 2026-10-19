@@ -11,6 +11,7 @@ const scenarioTargets = {
   "find-and-replace": ["find-and-replace"],
   "keyboard-shortcuts": ["keyboard-shortcuts"],
   "multiple-windows": ["multiple-windows"],
+  "named-folders": ["named-folders-switch", "named-folders-restore"],
   "heading-outline": ["heading-outline"],
   "folder-watcher": ["folder-watcher"],
   "folder-actions": ["folder-actions"],

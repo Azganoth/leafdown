@@ -9,6 +9,25 @@ use crate::{
 };
 
 #[test]
+fn named_folder_boundary_uses_camel_case_payloads_and_stable_error_tags() {
+    use crate::kept_session::{KeptSessionError, named_folders::NamedFolderChanges};
+
+    let changes = serde_json::from_value::<NamedFolderChanges>(serde_json::json!({
+        "name": "Studies", "path": "C:/Moved", "remove": false,
+        "discardUnsaved": true, "expectedRevision": 7
+    }));
+    assert!(changes.is_ok());
+    assert_eq!(
+        serde_json::to_value(KeptSessionError::ContextBusy).unwrap(),
+        serde_json::json!({ "kind": "contextBusy" })
+    );
+    assert_eq!(
+        serde_json::to_value(KeptSessionError::UnsavedDrafts).unwrap(),
+        serde_json::json!({ "kind": "unsavedDrafts" })
+    );
+}
+
+#[test]
 fn saves_scans_and_opens_markdown_documents_through_command_functions() {
     let root = TestDirectory::new("command-contract-flow");
     root.create_directory("docs");

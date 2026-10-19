@@ -25,6 +25,7 @@ export const APPLICATION_COMMANDS = {
   "file.newWindow": appCommand(file.openNewWindow),
   "file.open": appCommand(file.openMarkdownFile),
   "file.openFolder": appCommand(file.openFolderContext),
+  "file.namedFolders": appCommand(file.openNamedFolders),
   "file.clearRecentItems": appCommand(file.clearRecentItems, file.getClearRecentItemsState),
   "file.save": appCommand(file.saveDocument, file.getSaveDocumentState),
   "file.saveAs": appCommand(file.saveDocumentAs, file.getSaveDocumentAsState),

@@ -411,7 +411,8 @@ describe("kept session", () => {
       documentEditorBridge.fireContentChanged(TEST_MARKDOWN_FILE_PATH);
       await keepWindowSession();
 
-      expect(reports[2].snapshots).toEqual([{ id: reports[0].snapshots[0].id, text: "Second" }]);
+      expect(reports[2].snapshots).toEqual([{ id: expect.any(String), text: "Second" }]);
+      expect(reports[2].snapshots[0].id).not.toBe(reports[0].snapshots[0].id);
       expect(getMarkdown).not.toHaveBeenCalled();
     });
 
@@ -423,6 +424,8 @@ describe("kept session", () => {
 
       await vi.waitFor(() => expect(reports).toHaveLength(1));
       expect(reports[0]).toEqual({
+        contextId: null,
+        restoreSession: true,
         session: {
           state: expect.objectContaining({
             tabs: [

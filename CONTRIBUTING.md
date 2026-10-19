@@ -98,7 +98,7 @@ This suite is separate from `pnpm check` and runs as its own CI job on pull requ
 pnpm test:e2e:desktop:run -- --workers 2
 ```
 
-The runner accepts one to four workers on consecutive ports starting at 4445. Each worker gets its own application identity, persisted data, WebView2 root, fixtures, and artifacts. Independent scenarios can overlap; the `persistence` scenario keeps its write and restart sequence ordered on one worker.
+The runner accepts one to four workers on consecutive ports starting at 4445. Each worker gets its own application identity, persisted data, WebView2 root, fixtures, and artifacts. Independent scenarios can overlap; the `persistence` and `named-folders` scenarios keep their write and restart sequences ordered on one worker.
 
 To run one scenario against an already built binary:
 

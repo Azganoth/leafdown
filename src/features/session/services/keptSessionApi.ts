@@ -17,10 +17,13 @@ export interface SnapshotText {
 export interface ReportWindowSessionArgs {
   session: KeptWindowPayload;
   snapshots: SnapshotText[];
+  contextId: string | null;
+  restoreSession: boolean;
 }
 
 export interface RestoredWindowSession {
   state: unknown;
+  contextId?: string;
   /** The text of each snapshot that could be read, by id. */
   snapshots: Record<string, string>;
 }
@@ -37,3 +40,4 @@ export const restoreWindowSession = () =>
   invoke<RestoredWindowSession | null>(RESTORE_WINDOW_SESSION_COMMAND);
 
 export const clearKeptSession = () => invoke<void>(CLEAR_KEPT_SESSION_COMMAND);
+export const enableKeptSession = () => invoke<void>("enable_kept_session");

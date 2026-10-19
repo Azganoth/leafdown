@@ -23,7 +23,9 @@ import {
 } from "@/features/document";
 import { scanFolderContext } from "@/features/folder-context";
 import { useSettingsStore } from "@/features/preferences";
-import { SequentialTaskQueue } from "@/lib/async";
+
+import { saveTaskQueue } from "./sessionTasks";
+export { runAfterPendingSaves } from "./sessionTasks";
 import { requestConfirmation } from "@/lib/confirmation";
 import { t } from "@/lib/i18n";
 import { getPathParts, isSameOrParentPath, isSamePath } from "@/lib/path";
@@ -45,7 +47,7 @@ import {
   toUntitledDocumentId,
 } from "../utils/documentNames";
 import { documentEditorBridge } from "./documentEditorBridge";
-import { getSessionFolderScanOptions } from "./folderContextWorkflows";
+import { getSessionFolderScanOptions } from "./folderContextOptions";
 import { confirmDiscardTabChanges } from "./unsavedChanges";
 import { claimDocumentForWindow } from "./windowDocumentClaims";
 
@@ -60,8 +62,6 @@ interface TabVersion {
   tabId: string;
   generation: number;
 }
-
-const saveTaskQueue = new SequentialTaskQueue();
 
 const toTabVersion = ({ generation, id }: DocumentTab): TabVersion => ({
   tabId: id,
@@ -115,8 +115,6 @@ export const closeActiveMarkdownDocument = async () => {
 
   return activeTabId ? closeDocumentTab(activeTabId) : false;
 };
-
-export const runAfterPendingSaves = <T>(task: () => Promise<T>) => saveTaskQueue.run(task);
 
 export const saveDocumentTab = (tabId: string) =>
   saveTaskQueue.run(async () => {

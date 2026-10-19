@@ -290,6 +290,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "launch-document", launchArguments: [launchDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
+    { name: "named-folders-switch", recentFiles: [calloutsPath, citationsPath] },
+    { name: "named-folders-restore", continues: "named-folders-switch" },
     { name: "kept-session-quit", recentFiles: [citationsPath] },
     { name: "kept-session-restore", continues: "kept-session-quit" },
     { name: "release-notes-first-install" },

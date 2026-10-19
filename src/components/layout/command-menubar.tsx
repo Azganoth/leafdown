@@ -134,7 +134,7 @@ export function CommandMenubar({
           <MenubarContent>
             <CommandItems commandIds={["file.new", "file.newWindow"]} />
             <MenubarSeparator />
-            <CommandItems commandIds={["file.open", "file.openFolder"]} />
+            <CommandItems commandIds={["file.open", "file.openFolder", "file.namedFolders"]} />
             <RecentItemsSubmenu
               onOpenRecentFile={onOpenRecentFile}
               onOpenRecentFolder={onOpenRecentFolder}

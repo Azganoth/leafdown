@@ -1,4 +1,16 @@
 export { DroppedPathOverlay } from "./components/dropped-path-overlay";
+export {
+  NamedFolderSelector,
+  NamedFoldersDialog,
+  NamedFoldersList,
+} from "./components/named-folders";
+export { useNamedFolders } from "./hooks/useNamedFolders";
+export { useNamedFoldersStore } from "./stores/namedFolders";
+export {
+  showNamedFolders,
+  activateNamedFolder,
+  runNamedFolderAction,
+} from "./services/namedFolderWorkflows";
 export { useDocumentWatchers } from "./hooks/useDocumentWatchers";
 export { useFolderContextWatcher } from "./hooks/useFolderContextWatcher";
 export { useFolderSearchSession } from "./hooks/useFolderSearchSession";

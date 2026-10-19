@@ -2,6 +2,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import { handleUnexpectedError } from "@/lib/errors";
 
+import { useNamedFoldersStore } from "../stores/namedFolders";
 import { useSessionStore } from "../stores/session";
 import { keepWindowSession } from "./keptSession";
 import { confirmDiscardAllDocumentChanges } from "./unsavedChanges";
@@ -17,6 +18,12 @@ export interface WindowCloseRequest {
  * so a window with something to ask comes forward first; the others close unseen.
  */
 export const confirmWindowClose = async ({ keepsSession }: WindowCloseRequest) => {
+  if (useNamedFoldersStore.getState().transitioning) {
+    return false;
+  }
+  if (useNamedFoldersStore.getState().activeId) {
+    return keepWindowSession();
+  }
   if (keepsSession && (await keepWindowSession())) {
     return true;
   }

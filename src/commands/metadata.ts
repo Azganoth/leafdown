@@ -34,6 +34,7 @@ export const COMMAND_DEFINITIONS: Record<AppCommandId, CommandDefinition> = {
   "file.newWindow": commandDef({ key: "n", mod: true, shift: true }),
   "file.open": commandDef({ key: "o", mod: true }),
   "file.openFolder": commandDef({ key: "o", mod: true, shift: true }),
+  "file.namedFolders": commandDef(),
   "file.clearRecentItems": commandDef(),
   "file.save": commandDef({ key: "s", mod: true }),
   "file.saveAs": commandDef({ key: "s", mod: true, shift: true }),

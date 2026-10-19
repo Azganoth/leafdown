@@ -20,9 +20,22 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  lint-workflows:
+    name: Workflow Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check workflow files
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
   check-frontend:
     name: Frontend Checks
+    needs: lint-workflows
     runs-on: windows-2025-vs2026
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -35,7 +48,9 @@ jobs:
 
   check-backend:
     name: Backend Checks
+    needs: lint-workflows
     runs-on: windows-2025-vs2026
+    timeout-minutes: 20
     env:
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_PROFILE_TEST_DEBUG: 0
@@ -62,6 +77,7 @@ jobs:
 
   test-e2e-desktop:
     name: Desktop E2E
+    needs: lint-workflows
     runs-on: windows-2025-vs2026
     timeout-minutes: 20
     env:
@@ -110,7 +126,7 @@ jobs:
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [check-frontend, check-backend, test-e2e-desktop]
+    needs: [lint-workflows, check-frontend, check-backend, test-e2e-desktop]
     runs-on: ubuntu-latest
     timeout-minutes: 5
 

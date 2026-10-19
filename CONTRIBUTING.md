@@ -189,7 +189,9 @@ Frontend checks enforce a coverage floor. It is a ratchet set just below the mea
 
 CI and release jobs share [the setup action](./.github/actions/setup/action.yml), which uses `pnpm/setup` to install manifest-selected pnpm and Node.js, cache the package store, and require a frozen lockfile. Rust jobs provide a cache workspace mapping to also install the pinned toolchain and restore the appropriate target directory; CI saves Rust caches only on `main`.
 
-The `CI Gate` job in [the CI workflow](./.github/workflows/ci.yml) waits for `Frontend Checks`, `Backend Checks`, and `Desktop E2E`. It runs even when a prerequisite fails or is skipped, and passes only when every prerequisite succeeds.
+`Workflow Checks` runs pinned actionlint, including ShellCheck, before the application jobs. It checks all workflow files, including the release workflow. CI jobs have explicit time limits: five minutes for workflow linting and the gate, twenty minutes for each application job, and forty-five minutes for the release build.
+
+The `CI Gate` job in [the CI workflow](./.github/workflows/ci.yml) waits for `Workflow Checks`, `Frontend Checks`, `Backend Checks`, and `Desktop E2E`. It runs even when a prerequisite fails or is skipped, and passes only when every prerequisite succeeds.
 
 To change the required validation, update `ci-gate.needs` with the relevant job IDs. If a job becomes conditional, update the gate's result policy in the same pull request so intentional skips are explicit and unexpected skips still fail. Keep the `CI Gate` display name stable because GitHub branch protection uses it. When migrating branch protection, retain the existing required checks until the gate passes on a pull request and is merged, then require `CI Gate` from GitHub Actions.
 

@@ -1,4 +1,4 @@
-import { $, expect } from "@wdio/globals";
+import { $, browser, expect } from "@wdio/globals";
 
 import { selectFileMenuItem } from "./ui.js";
 
@@ -33,7 +33,21 @@ export const chooseNamedFolder = async (name: string) => {
 };
 
 export const appendToNamedDraft = async (text: string) => {
-  await $(ACTIVE_EDITOR).click();
+  await browser.execute((selector) => {
+    const editor = document.querySelector<HTMLElement>(selector)!;
+    const paragraph = [...editor.querySelectorAll<HTMLElement>("p")].find(
+      (element) =>
+        element.getClientRects().length > 0 && !element.closest('[contenteditable="false"]'),
+    );
+    if (!paragraph) throw new Error("No visible editable paragraph is available for the draft.");
+    const range = document.createRange();
+    range.selectNodeContents(paragraph);
+    range.collapse(false);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editor.focus();
+  }, ACTIVE_EDITOR);
   await $(ACTIVE_EDITOR).addValue(text);
   await expect($(ACTIVE_EDITOR)).toHaveText(expect.stringContaining(text));
 };

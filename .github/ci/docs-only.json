@@ -1,0 +1,16 @@
+{
+  "files": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "SECURITY.md",
+    ".github/pull_request_template.md"
+  ],
+  "markdownDirectories": [
+    "docs/",
+    ".github/ISSUE_TEMPLATE/",
+    ".github/maintainer-issue-templates/"
+  ],
+  "excludedDirectories": ["docs/help/"]
+}

@@ -20,6 +20,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    name: Change classification and documentation checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs-only: ${{ steps.classify.outputs.docs-only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          install: false
+          cache: true
+          save-cache: false
+      - name: Verify change classification and gate rules
+        run: node --test .github/ci/changes-checks.ts .github/ci/gate-checks.ts
+      - name: Classify the complete change
+        id: classify
+        run: node .github/ci/changes.ts classify
+        env:
+          DOCS_CHANGED_FILE: ${{ runner.temp }}/ci-docs.json
+      - name: Check changed maintenance documentation
+        if: ${{ steps.classify.outputs.docs-only == 'true' && steps.classify.outputs.format-docs == 'true' }}
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          node .github/ci/changes.ts format
+        env:
+          DOCS_CHANGED_FILE: ${{ runner.temp }}/ci-docs.json
+
   lint-workflows:
     name: Workflow Checks
     runs-on: ubuntu-latest
@@ -33,7 +64,10 @@ jobs:
 
   check-frontend:
     name: Frontend Checks
-    needs: lint-workflows
+    if: ${{ needs.changes.outputs.docs-only == 'false' }}
+    needs:
+      - changes
+      - lint-workflows
     runs-on: windows-2025-vs2026
     timeout-minutes: 20
 
@@ -42,13 +76,18 @@ jobs:
         uses: actions/checkout@v7
 
       - uses: ./.github/actions/setup
+      - name: Verify CI tooling types
+        run: pnpm exec tsc --project .github/ci/tsconfig.json
 
       - name: Run frontend checks
         run: pnpm check:frontend
 
   check-backend:
     name: Backend Checks
-    needs: lint-workflows
+    if: ${{ needs.changes.outputs.docs-only == 'false' }}
+    needs:
+      - changes
+      - lint-workflows
     runs-on: windows-2025-vs2026
     timeout-minutes: 20
     env:
@@ -77,7 +116,10 @@ jobs:
 
   test-e2e-desktop:
     name: Desktop E2E
-    needs: lint-workflows
+    if: ${{ needs.changes.outputs.docs-only == 'false' }}
+    needs:
+      - changes
+      - lint-workflows
     runs-on: windows-2025-vs2026
     timeout-minutes: 20
     env:
@@ -126,23 +168,24 @@ jobs:
   ci-gate:
     name: CI Gate
     if: ${{ always() }}
-    needs: [lint-workflows, check-frontend, check-backend, test-e2e-desktop]
+    needs:
+      - changes
+      - lint-workflows
+      - check-frontend
+      - check-backend
+      - test-e2e-desktop
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v3
+        with:
+          runtime: node@24
+          install: false
+          cache: true
+          save-cache: false
       - name: Verify required check results
         env:
           NEEDS_RESULTS: ${{ toJSON(needs) }}
-        run: |
-          node --input-type=module <<'NODE'
-          const jobs = JSON.parse(process.env.NEEDS_RESULTS);
-          if (Object.keys(jobs).length === 0) throw new Error("No prerequisite results were provided.");
-
-          let failed = false;
-          for (const [name, { result }] of Object.entries(jobs)) {
-            console.log(`${name}: ${result} (expected success)`);
-            if (result !== "success") failed = true;
-          }
-          process.exit(failed ? 1 : 0);
-          NODE
+        run: node .github/ci/gate.ts check-frontend check-backend test-e2e-desktop

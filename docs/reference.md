@@ -176,6 +176,8 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
 
 #### Insert Menu
 
+Separators distinguish text and metadata; Link, Image, and Footnote; lists and containers; and code, tables, and rules.
+
 - **Paragraph**
 - **Heading**
   - **Heading 1**
@@ -189,8 +191,8 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
   - **TOML**
   - **JSON**
 - **Link** (`Mod+K`)
-- **Footnote**: Inserts a reference with a new generated label at the caret or after the selected text, appends its empty definition to the document, and moves the caret into the definition.
 - **Image**
+- **Footnote**: Inserts a reference with a new generated label at the caret or after the selected text, appends its empty definition to the document, and moves the caret into the definition.
 - **Ordered list**
 - **Unordered list**
 - **Task list**
@@ -320,13 +322,13 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 
 The popup offers the actions of the context it opens in, one row or submenu per group, in this order. A command unavailable within its context stays visible but disabled.
 
-Outside tables, rows with one or two actions show text: `Up` and `Down` for block movement, `Rename` and `Go to` for footnotes, `Language...` for a code block's language, and `Opens expanded` for a callout's authored disclosure. Paste, Replace image, and a link's actions keep their command labels, and each link action takes a row of its own. The full command name remains the accessible name.
+Outside tables, block movement uses separate full-width rows labeled `Move block up` and `Move block down`. Other rows with one or two actions show text: `Rename` and `Go to` for footnotes, `Language...` for a code block's language, and `Opens expanded` for a callout's authored disclosure. Paste, Replace image, and a link's actions keep their command labels, and each link action takes a row of its own. The full command name remains the accessible name.
 
-- **Caret:** Paste; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
+- **Caret:** Paste; Block type; Lists & quote; Insert.
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
-- **Structural block selection:** Cut, Copy, Paste, Delete; Move block up, Move block down; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
+- **Structural block selection:** Cut, Copy, Paste, Delete; Move block up; Move block down; Block type; Lists & quote; Insert.
 
-`Block type` holds Paragraph and Heading 1 through Heading 6. `Insert` holds Paragraph, Heading 1 through Heading 6, Blockquote, Callout, Ordered list, Unordered list, Task list, Code block, Table, and Horizontal rule. Its `Callout` has the same structure as the menu bar's `Insert > Callout`: the inferred dialect's types, a separator, and submenus for the other dialects, each type with the icon a callout of that type shows.
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Lists & quote` holds Blockquote, Ordered list, Unordered list, and Task list. `Insert` groups Paragraph under Text, a compact H1 through H6 picker under Heading, Blockquote, Callout, Ordered list, Unordered list, and Task list under Lists & containers, and Code block, Table, and Horizontal rule under Objects. Every heading choice retains its full accessible name. Its `Callout` has the same structure as the menu bar's `Insert > Callout`: the inferred dialect's types, a separator, and submenus for the other dialects, each type with the icon a callout of that type shows.
 
 The construct holding the whole caret or selection narrows its context:
 
@@ -347,8 +349,8 @@ A callout in context also adds a `Callout type` submenu before Block type. It li
 
 The article navigator's context menu opens on right-click, or with `Shift+F10` or the `Menu` key on the focused row. Its actions are not application commands and have no shortcuts; [Specification](./specification.md#article-navigator-actions) defines their behavior.
 
-- **Markdown file row:** Open; New file, New folder; Rename, Delete; Open file location, Copy path, Copy relative path.
-- **Directory row:** New file, New folder; Rename, Delete; Open folder location, Copy path, Copy relative path.
+- **Markdown file row:** Open; New file, New folder; Rename; Open file location, Copy path, Copy relative path; Delete.
+- **Directory row:** New file, New folder; Rename; Open folder location, Copy path, Copy relative path; Delete.
 - **Unsupported file row**, listed while `Show all files` is on: New file, New folder; Open file location, Copy path, Copy relative path.
 - **Empty navigator space (folder context root):** New file, New folder; Open folder location, Copy path, Copy relative path.
 

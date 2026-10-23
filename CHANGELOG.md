@@ -11,6 +11,11 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Act on the link in context from the context popup, `Edit > Link`, or the command palette. `Copy destination` copies where it points, `Remove link` keeps its label as text, and `Choose file...` points an inline link at a file you pick.
 - Change a table column's alignment from `Format > Table > Column alignment`, the table popup's column actions, or the command palette. Default, Left, Center, and Right apply to every column the caret or selection touches and save as ordinary GFM delimiter rows.
 
+### Changed
+
+- Unify menu and context-popup surfaces, align checkmarks and shortcuts, and separate navigator Delete from ordinary actions. Keep the menu bar text-based, group Insert with Footnote after Image, and use a faint neutral workspace background in the light appearance.
+- Give block context actions labeled movement rows and a Lists & quote submenu. Group the popup's Insert choices with a compact heading picker while retaining text-selection and table controls.
+
 ### Fixed
 
 - Keep a table column without an alignment that way when it is copied and pasted, instead of left-aligning it.

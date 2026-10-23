@@ -65,7 +65,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.967 0.001 286.375);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -329,4 +329,8 @@
   & > svg {
     @apply size-12 shrink-0;
   }
+}
+
+@utility command-menu-surface {
+  @apply rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10;
 }

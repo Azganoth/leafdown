@@ -248,8 +248,11 @@ export function CommandMenubar({
               labelId="menu.insert.frontmatter"
             />
             <MenubarSeparator />
+            <CommandItems commandIds={["insert.link", "insert.image", "insert.footnote"]} />
+            <MenubarSeparator />
             <CommandItems commandIds={INSERT_COMMAND_IDS_BEFORE_CALLOUT} />
             <InsertCalloutSubmenu />
+            <MenubarSeparator />
             <CommandItems commandIds={INSERT_COMMAND_IDS_AFTER_CALLOUT} />
           </MenubarContent>
         </MenubarMenu>
@@ -360,9 +363,6 @@ const FORMAT_HEADING_COMMAND_IDS = [
 ] satisfies readonly AppCommandId[];
 
 const INSERT_COMMAND_IDS_BEFORE_CALLOUT = [
-  "insert.link",
-  "insert.footnote",
-  "insert.image",
   "insert.orderedList",
   "insert.unorderedList",
   "insert.taskList",

@@ -66,6 +66,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -224,23 +225,39 @@ const BLOCK_TYPE_COMMANDS = [
   { commandId: "format.heading6", icon: Heading6Icon },
 ] satisfies readonly ContextSubmenuCommand[];
 
-const INSERT_COMMANDS = [
+const INSERT_TEXT_COMMANDS = [
   { commandId: "insert.paragraph", icon: PilcrowIcon },
+] satisfies readonly ContextSubmenuEntry[];
+
+const INSERT_HEADING_COMMANDS = [
   { commandId: "insert.heading1", icon: Heading1Icon },
   { commandId: "insert.heading2", icon: Heading2Icon },
   { commandId: "insert.heading3", icon: Heading3Icon },
   { commandId: "insert.heading4", icon: Heading4Icon },
   { commandId: "insert.heading5", icon: Heading5Icon },
   { commandId: "insert.heading6", icon: Heading6Icon },
+] satisfies readonly ContextSubmenuEntry[];
+
+const INSERT_CONTAINER_COMMANDS = [
   { commandId: "insert.blockquote", icon: TextQuoteIcon },
   { calloutTypes: "insert", icon: InfoIcon },
   { commandId: "insert.orderedList", icon: ListOrderedIcon },
   { commandId: "insert.unorderedList", icon: ListIcon },
   { commandId: "insert.taskList", icon: ListTodoIcon },
+] satisfies readonly ContextSubmenuEntry[];
+
+const INSERT_OBJECT_COMMANDS = [
   { commandId: "insert.codeBlock", icon: Code2Icon },
   { commandId: "insert.table", icon: TableIcon },
   { commandId: "insert.horizontalRule", icon: MinusIcon },
 ] satisfies readonly ContextSubmenuEntry[];
+
+const INSERT_COMMANDS = [
+  ...INSERT_TEXT_COMMANDS,
+  ...INSERT_HEADING_COMMANDS,
+  ...INSERT_CONTAINER_COMMANDS,
+  ...INSERT_OBJECT_COMMANDS,
+];
 
 const OBJECT_COMMAND_ROWS = [
   { id: "footnote", commands: FOOTNOTE_COMMANDS },
@@ -251,8 +268,6 @@ const OBJECT_COMMAND_ROWS = [
 ] as const;
 
 const FITTED_COMMAND_LABELS: Partial<Record<EditorCommandId, MessageId>> = {
-  "edit.moveBlockUp": "editor.contextPopup.moveUp",
-  "edit.moveBlockDown": "editor.contextPopup.moveDown",
   "edit.renameFootnote": "editor.contextPopup.renameFootnote",
   "edit.jumpToFootnoteDefinition": "editor.contextPopup.goToFootnote",
   "format.codeBlockLanguage": "editor.contextPopup.codeBlockLanguage",
@@ -326,7 +341,14 @@ const getContextRows = (
   }
 
   if (selectionKind === "block") {
-    rows.push(buttonRow("blockMovement", BLOCK_MOVEMENT_COMMANDS));
+    rows.push(
+      ...BLOCK_MOVEMENT_COMMANDS.map((command, index): ContextRow => ({
+        kind: "buttons",
+        id: command.commandId,
+        commands: [command],
+        joinsPrevious: index > 0,
+      })),
+    );
   }
 
   // Code holds no marks.
@@ -341,17 +363,20 @@ const getContextRows = (
     );
   }
 
-  // A table cell holds exactly one paragraph, which no block format or type can change.
-  if (selectionKind !== "text" && container !== "table") {
-    rows.push(buttonRow("blockFormatting", BLOCK_FORMATTING_COMMANDS));
-  }
-
   if (canExecute("format.calloutType")) {
     rows.push(CALLOUT_TYPE_ROW);
   }
 
   if (container !== "table") {
     rows.push(BLOCK_TYPE_ROW);
+    if (selectionKind !== "text") {
+      rows.push({
+        id: "blockFormatting",
+        kind: "submenu",
+        commands: BLOCK_FORMATTING_COMMANDS,
+        labelId: "editor.contextPopup.listsAndQuote",
+      });
+    }
   }
 
   if (selectionKind !== "text") {
@@ -627,8 +652,12 @@ export function EditorContextPopup({
         align="center"
         anchor={virtualAnchor}
         className={cn(
-          "leafdown-context-popup rounded-md p-1",
-          fitted ? "w-42 gap-0" : "w-auto gap-1",
+          "leafdown-context-popup",
+          fitted
+            ? request.selectionKind === "text"
+              ? "w-42 gap-0"
+              : "w-56 gap-0"
+            : "w-auto gap-1",
         )}
         data-testid="editor-context-popup"
         finalFocus={() => {
@@ -818,7 +847,7 @@ function ContextCommandRow({
               )}
             />
             {showLabels && (
-              <span className="min-w-0 text-xs wrap-anywhere">
+              <span className="min-w-0 text-sm wrap-anywhere">
                 {shortLabelId ? t(shortLabelId) : label}
               </span>
             )}
@@ -959,13 +988,13 @@ function ContextSubmenu({ children, icon: Icon, label, row }: ContextSubmenuProp
       >
         {Icon && <Icon data-icon="inline-start" />}
         <span
-          className={cn("flex-1 text-left", Icon ? "min-w-0 text-xs wrap-anywhere" : "min-w-24")}
+          className={cn("flex-1 text-left", Icon ? "min-w-0 text-sm wrap-anywhere" : "min-w-24")}
         >
           {label}
         </span>
         <ChevronRightIcon className="text-muted-foreground" />
       </ToolbarButton>
-      <DropdownMenuContent align="start" className="w-44" side="right" sideOffset={8}>
+      <DropdownMenuContent align="start" className="w-56" side="right" sideOffset={8}>
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -999,46 +1028,90 @@ function ContextCommandSubmenu({
   const { t } = useLocalization();
   const label = t(labelId);
 
+  const renderEntry = (entry: ContextSubmenuEntry) => {
+    if ("calloutTypes" in entry) {
+      return (
+        <InsertCalloutSubmenu
+          enabled={canExecute("insert.callout")}
+          icon={entry.icon}
+          key="calloutTypes"
+          onChooseCalloutType={onChooseCalloutType}
+          readCalloutTypes={readCalloutTypes}
+        />
+      );
+    }
+
+    const { commandId, icon: CommandIcon } = entry;
+    const commandLabel = t(getEditorCommandLabelId(commandId));
+    const enabled = canExecute(commandId);
+
+    return (
+      <DropdownMenuItem
+        closeOnClick={false}
+        disabled={!enabled}
+        inset={!CommandIcon}
+        key={commandId}
+        onClick={() => onExecute(commandId)}
+      >
+        {CommandIcon && <CommandIcon />}
+        {commandLabel}
+      </DropdownMenuItem>
+    );
+  };
+
   return (
     <ContextSubmenu
       icon={
-        fitted ? (labelId === "editor.contextPopup.insert" ? PlusIcon : PilcrowIcon) : undefined
+        fitted
+          ? labelId === "editor.contextPopup.insert"
+            ? PlusIcon
+            : labelId === "editor.contextPopup.listsAndQuote"
+              ? ListIcon
+              : PilcrowIcon
+          : undefined
       }
       label={label}
       row={row}
     >
-      <DropdownMenuGroup aria-label={label}>
-        {commands.map((entry) => {
-          if ("calloutTypes" in entry) {
-            return (
-              <InsertCalloutSubmenu
-                enabled={canExecute("insert.callout")}
-                icon={entry.icon}
-                key="calloutTypes"
-                onChooseCalloutType={onChooseCalloutType}
-                readCalloutTypes={readCalloutTypes}
-              />
-            );
-          }
-
-          const { commandId, icon: CommandIcon } = entry;
-          const commandLabel = t(getEditorCommandLabelId(commandId));
-          const enabled = canExecute(commandId);
-
-          return (
-            <DropdownMenuItem
-              closeOnClick={false}
-              disabled={!enabled}
-              inset={!CommandIcon}
-              key={commandId}
-              onClick={() => onExecute(commandId)}
-            >
-              {CommandIcon && <CommandIcon />}
-              {commandLabel}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuGroup>
+      {labelId === "editor.contextPopup.insert" ? (
+        <>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t("editor.contextPopup.text")}</DropdownMenuLabel>
+            {INSERT_TEXT_COMMANDS.map(renderEntry)}
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t("editor.contextPopup.heading")}</DropdownMenuLabel>
+            <div className="grid grid-cols-6 gap-0.5 px-1 pb-1">
+              {INSERT_HEADING_COMMANDS.map((entry, index) => {
+                return (
+                  <DropdownMenuItem
+                    aria-label={t(getEditorCommandLabelId(entry.commandId))}
+                    className="justify-center px-0 text-xs ring-1 ring-border"
+                    closeOnClick={false}
+                    disabled={!canExecute(entry.commandId)}
+                    key={entry.commandId}
+                    onClick={() => onExecute(entry.commandId)}
+                  >
+                    <span aria-hidden="true">H{index + 1}</span>
+                  </DropdownMenuItem>
+                );
+              })}
+            </div>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t("editor.contextPopup.containers")}</DropdownMenuLabel>
+            {INSERT_CONTAINER_COMMANDS.map(renderEntry)}
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>{t("editor.contextPopup.objects")}</DropdownMenuLabel>
+            {INSERT_OBJECT_COMMANDS.map(renderEntry)}
+          </DropdownMenuGroup>
+        </>
+      ) : (
+        <DropdownMenuGroup aria-label={label}>{commands.map(renderEntry)}</DropdownMenuGroup>
+      )}
     </ContextSubmenu>
   );
 }

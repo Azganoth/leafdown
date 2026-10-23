@@ -930,10 +930,10 @@ describe("article-navigator entry actions", () => {
       "New file",
       "New folder",
       "Rename",
-      "Delete",
       "Open file location",
       "Copy path",
       "Copy relative path",
+      "Delete",
     ]);
   });
 
@@ -950,10 +950,10 @@ describe("article-navigator entry actions", () => {
       "New file",
       "New folder",
       "Rename",
-      "Delete",
       "Open folder location",
       "Copy path",
       "Copy relative path",
+      "Delete",
     ]);
   });
 

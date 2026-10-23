@@ -774,7 +774,8 @@ describe("desktop block selection", () => {
         widths: row.map((control) => control.width),
       }));
     });
-    expect(popupRows.some(({ count }) => count === 2)).toBe(true);
+    expect(popupRows.some(({ count }) => count === 4)).toBe(true);
+    expect(popupRows.filter(({ count }) => count === 1).length).toBeGreaterThanOrEqual(5);
     for (const row of popupRows) {
       expect(row.leadingSpace).toBeGreaterThanOrEqual(0);
       expect(row.trailingSpace).toBeGreaterThanOrEqual(0);

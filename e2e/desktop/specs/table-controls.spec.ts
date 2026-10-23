@@ -12,6 +12,7 @@ import {
 } from "../support/ui.js";
 
 const TABLE_SELECTOR = "[data-testid=active-document-host] .ProseMirror table";
+const POPUP_SELECTOR = "[data-testid='editor-context-popup']";
 const ROW_GRIP_SELECTOR = '[data-leafdown-table-grip][data-axis="row"]';
 const COLUMN_GRIP_SELECTOR = '[data-leafdown-table-grip][data-axis="column"]';
 const ROW_INSERT_SELECTOR = '[data-leafdown-table-insert][data-axis="row"]';
@@ -96,6 +97,10 @@ const dispatchPointerSequence = (steps: { type: string; point: Point; buttons: n
       );
     }
   }, steps);
+
+// Each command closes the popup, and an element found once keeps pointing at the closed one.
+const contextPopup = () => $(POPUP_SELECTOR);
+const popupControl = (label: string) => $(`${POPUP_SELECTOR} [aria-label='${label}']`);
 
 const columnAlignments = () =>
   browser.execute(
@@ -263,14 +268,12 @@ describe("desktop table controls", () => {
       ["Basil", "2", "Sunny"],
     ]);
 
-    const popup = $("[data-testid='editor-context-popup']");
-
     // A whole row intersects every column, and row scope offers no alignment of its own.
     await clickGrip(await cellPoint(1, 0), ROW_GRIP_SELECTOR);
-    await expect(popup.$("[aria-label='Delete row']")).toBeDisplayed();
-    await expect(popup.$("[aria-label='Align center']")).not.toExist();
+    await expect(popupControl("Delete row")).toBeDisplayed();
+    await expect(popupControl("Align center")).not.toExist();
     await browser.keys(Key.Escape);
-    await expect(popup).not.toExist();
+    await expect(contextPopup()).not.toExist();
     await runPaletteCommand("column alignment center", "Center");
     await waitForColumnAlignments(
       ["center", "center", "center"],
@@ -278,10 +281,10 @@ describe("desktop table controls", () => {
     );
 
     await clickGrip(await cellPoint(1, 1), COLUMN_GRIP_SELECTOR);
-    await expect(popup.$("[aria-label='Align center']")).toHaveAttribute("aria-pressed", "true");
-    await expect(popup.$("[aria-label='Align right']")).toHaveAttribute("aria-pressed", "false");
-    await popup.$("[aria-label='Align right']").click();
-    await expect(popup).not.toExist();
+    await expect(popupControl("Align center")).toHaveAttribute("aria-pressed", "true");
+    await expect(popupControl("Align right")).toHaveAttribute("aria-pressed", "false");
+    await popupControl("Align right").click();
+    await expect(contextPopup()).not.toExist();
     await waitForColumnAlignments(
       ["center", "right", "center"],
       "Align right did not align the column the grip selected.",
@@ -289,9 +292,9 @@ describe("desktop table controls", () => {
 
     // Pressing the checked alignment again returns the column to the default.
     await clickGrip(await cellPoint(1, 1), COLUMN_GRIP_SELECTOR);
-    await expect(popup.$("[aria-label='Align right']")).toHaveAttribute("aria-pressed", "true");
-    await popup.$("[aria-label='Align right']").click();
-    await expect(popup).not.toExist();
+    await expect(popupControl("Align right")).toHaveAttribute("aria-pressed", "true");
+    await popupControl("Align right").click();
+    await expect(contextPopup()).not.toExist();
     await waitForColumnAlignments(
       ["center", "left", "center"],
       "Pressing the checked alignment did not return the column to the default.",

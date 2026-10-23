@@ -142,6 +142,10 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
   - **Jump to line start** (`Home`)
   - **Jump to line end** (`End`)
   - **Jump to footnote definition**
+- **Link**
+  - **Copy destination**: Copies the destination of the link in context.
+  - **Remove link**: Leaves the link in context as its label's text.
+  - **Choose file...**: Picks a local file and points the inline link in context at it.
 - **Rename footnote**: Selects the complete label of the footnote definition in context for replacement, moving to the definition first when invoked from a reference.
 - **Replace image...**: Picks a local image file and points the standalone image in context at it.
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
@@ -316,7 +320,7 @@ The context popup is a contextual menu triggered by a pointer or keyboard select
 
 The popup offers the actions of the context it opens in, one row or submenu per group, in this order. A command unavailable within its context stays visible but disabled.
 
-Outside tables, rows with one or two actions show text: `Up` and `Down` for block movement, `Rename` and `Go to` for footnotes, `Language...` for a code block's language, and `Opens expanded` for a callout's authored disclosure. Paste and Replace image keep their command labels. The full command name remains the accessible name.
+Outside tables, rows with one or two actions show text: `Up` and `Down` for block movement, `Rename` and `Go to` for footnotes, `Language...` for a code block's language, and `Opens expanded` for a callout's authored disclosure. Paste, Replace image, and a link's actions keep their command labels, and each link action takes a row of its own. The full command name remains the accessible name.
 
 - **Caret:** Paste; Blockquote, Ordered list, Unordered list, Task list; Block type; Insert.
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
@@ -333,6 +337,7 @@ An object's actions follow the first row, each shown only while it is available:
 
 - **Footnote:** Rename footnote, Jump to footnote definition.
 - **Image:** Replace image...
+- **Link:** Copy destination, Remove link, Choose file... In a table, they share one row of icon buttons.
 - **Fenced code block:** Code block language...
 - **Callout:** Callout opens expanded, which shows as pressed while the admonition is written `???+`.
 
@@ -373,6 +378,7 @@ A submenu trigger carries the same state as the commands behind it: it is disabl
 - `Insert > Frontmatter` is available only when an active document has no frontmatter block. It has no default shortcut.
 - `Rename footnote` requires the caret or selection within a footnote definition label, or a footnote reference at the caret whose label exactly one definition in the document answers to.
 - `Replace image...` requires a standalone inline image whose source is projected, a selection of exactly that image, or a structural block selection of one paragraph holding only that image. An image inside a link label and a reference image do not offer it.
+- `Copy destination`, `Remove link`, and `Choose file...` require one link holding the caret or the whole selection, including a link whose projected source still spells one complete link. `Copy destination` requires a destination, `Remove link` is not offered for an autolink, and `Choose file...` requires an inline Markdown link rather than a reference link, autolink, or wiki link.
 - `Delete block` requires an active block.
 - `Move block up` and `Move block down` require a structural block selection with an adjacent valid sibling in that direction.
 - `Delete word backward`, `Delete word forward`, and `Select word` require a word at or adjacent to the caret.

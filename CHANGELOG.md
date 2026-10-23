@@ -8,6 +8,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Added
 
+- Act on the link in context from the context popup, `Edit > Link`, or the command palette. `Copy destination` copies where it points, `Remove link` keeps its label as text, and `Choose file...` points an inline link at a file you pick.
 - Change a table column's alignment from `Format > Table > Column alignment`, the table popup's column actions, or the command palette. Default, Left, Center, and Right apply to every column the caret or selection touches and save as ordinary GFM delimiter rows.
 
 ### Fixed

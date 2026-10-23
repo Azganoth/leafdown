@@ -1,4 +1,4 @@
-import type { Mark } from "@milkdown/kit/prose/model";
+import type { Mark, Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
 import { TextSelection } from "@milkdown/kit/prose/state";
 
@@ -28,12 +28,12 @@ export const getCandidateMarksAtSelection = (state: EditorState): Mark[] => {
   return [...(state.storedMarks ?? []), ...getCandidateMarksAtPosition(state, selection.from)];
 };
 
-export const getMarkRangeAtPosition = (
-  state: EditorState,
+export const getMarkRangeInDocument = (
+  doc: ProseMirrorNode,
   position: number,
   mark: Mark,
 ): ActiveMarkRange | null => {
-  const $position = state.doc.resolve(position);
+  const $position = doc.resolve(position);
   const cursorOffset = $position.parentOffset;
   const markedRanges: TextRange[] = [];
 
@@ -85,6 +85,12 @@ export const getMarkRangeAtPosition = (
     to: $position.start() + to,
   };
 };
+
+export const getMarkRangeAtPosition = (
+  state: EditorState,
+  position: number,
+  mark: Mark,
+): ActiveMarkRange | null => getMarkRangeInDocument(state.doc, position, mark);
 
 export const getMarkRangeAtSelection = (state: EditorState, mark: Mark): ActiveMarkRange | null => {
   const { selection } = state;

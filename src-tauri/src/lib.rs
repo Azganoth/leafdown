@@ -57,13 +57,16 @@ pub fn run() {
     let builder = builder.plugin(diagnostics::build_log_plugin(diagnostics_run_id));
 
     #[cfg(not(feature = "desktop-e2e"))]
-    let builder = builder.plugin(tauri_plugin_opener::init());
+    let builder = builder
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init());
 
     #[cfg(feature = "desktop-e2e")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
         .plugin(tauri_plugin_wdio_webdriver::init())
-        .plugin(desktop_e2e::build_opener_plugin());
+        .plugin(desktop_e2e::build_opener_plugin())
+        .plugin(desktop_e2e::build_dialog_plugin());
 
     let context = tauri::generate_context!();
 
@@ -87,7 +90,6 @@ pub fn run() {
                 .build(),
         )
         .plugin(navigation::build_navigation_guard_plugin())
-        .plugin(tauri_plugin_dialog::init())
         .plugin(
             FramePluginBuilder::new()
                 .titlebar_height(TITLEBAR_HEIGHT)

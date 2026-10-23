@@ -100,6 +100,8 @@ The sample image has no file behind it here, so it shows a placeholder. In your 
 
 **Try it:** **Insert > Link** (`Mod+K`) or **Insert > Image**. **Edit > Replace image...** changes the standalone image in context.
 
+With the caret in a link, **Edit > Link** and the context popup offer **Copy destination**, which copies where the link points; **Remove link**, which keeps its label as ordinary text; and, for an inline link, **Choose file...**, which points it at a file you pick, relative to the saved document.
+
 Reference links share a destination through a definition. A CommonMark autolink uses angle brackets; GFM also recognizes bare web addresses.
 
 ```text example=commonmark
@@ -180,6 +182,8 @@ Wiki links target Markdown files relative to the saved document. Add a heading f
 ```
 
 **Try it:** Type `[[` to start a wiki link. These examples have no folder context, so their destinations remain unresolved here.
+
+**Edit > Link > Copy destination** copies a wiki link's target and heading without its label, and **Remove link** leaves the label as text.
 
 ## Math
 

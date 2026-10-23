@@ -205,6 +205,10 @@ export function CommandMenubar({
               ]}
               labelId="menu.edit.jump"
             />
+            <CommandSubmenu
+              commandIds={["edit.copyLinkDestination", "edit.removeLink", "edit.chooseLinkFile"]}
+              labelId="menu.edit.link"
+            />
             <CommandItems commandIds={["edit.renameFootnote", "edit.replaceImage"]} />
             <CommandItems commandIds={["edit.moveBlockUp", "edit.moveBlockDown"]} />
             <MenubarSeparator />

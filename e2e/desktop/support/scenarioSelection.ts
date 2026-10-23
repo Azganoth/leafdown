@@ -24,6 +24,7 @@ const scenarioTargets = {
   "rendered-mermaid": ["rendered-mermaid"],
   "separator-presentation": ["separator-presentation"],
   "code-collapse": ["code-collapse"],
+  "link-actions": ["link-actions"],
   "table-controls": ["table-controls"],
   "support-links": ["support-links"],
   "missing-document-error": ["missing-document-error"],

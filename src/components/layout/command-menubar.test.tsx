@@ -352,6 +352,24 @@ describe("CommandMenubar", () => {
     expect(menuItem(/^Delete table/u)).toHaveAttribute("data-disabled");
   });
 
+  it("offers the link actions from Edit's Link submenu", async () => {
+    const { onExecute, user } = renderCommandMenuBar({
+      commandState: (commandId) =>
+        commandId === "edit.chooseLinkFile" ? disabledState : enabledState,
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "Edit" }));
+    await user.hover(menuItem("Link"));
+    await user.keyboard("{ArrowRight}");
+
+    expect(menuItem("Copy destination")).not.toHaveAttribute("data-disabled");
+    expect(menuItem("Choose file...")).toHaveAttribute("data-disabled");
+
+    await user.keyboard("{ArrowDown}{Enter}");
+
+    expect(onExecute).toHaveBeenCalledWith("edit.removeLink");
+  });
+
   it("chooses a table column alignment from the Table submenu's last item", async () => {
     const { onExecute, user } = renderCommandMenuBar({
       commandState: (commandId) =>

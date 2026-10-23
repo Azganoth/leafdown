@@ -8,16 +8,17 @@ import {
   EXTENDED_TABLE_MARKDOWN,
   HEADER_ONLY_TABLE_MARKDOWN,
 } from "@/test/fixtures/editorMarkdown";
-import { setupMilkdownEditorMount } from "@/test/utils/milkdown";
+import { setupMilkdownEditorMount, type MountedMilkdownEditor } from "@/test/utils/milkdown";
 import {
   getEditorDomElement,
   getTableCellTexts,
   setSelectionAtElementTextEnd,
   setSelectionInTableCell,
   selectTableCellRange,
+  setTextSelection,
 } from "@/test/utils/prosemirror";
 
-import { runEditorCommand } from "..";
+import { getEditorCommandState, runEditorCommand } from "..";
 import {
   addColumnAfter,
   addRowAbove,
@@ -33,6 +34,7 @@ import {
   deleteColumns,
   deleteRows,
   deleteTable,
+  getTableColumnAlignment,
   insertTableColumnAt,
   insertTableRowAt,
   moveColumnLeft,
@@ -41,6 +43,7 @@ import {
   moveRowUp,
   moveTableColumnsTo,
   moveTableRowsTo,
+  setTableColumnAlignment,
 } from "./tables";
 
 const mountEditor = setupMilkdownEditorMount();
@@ -261,5 +264,185 @@ describe("editor table formatting commands", () => {
     expect(moveTableRowsTo(mounted.view, 0, { from: 2, to: 3 }, 0)).toBe(false);
     expect(moveTableColumnsTo(mounted.view, 0, { from: 1, to: 2 }, 2)).toBe(false);
     expect(mounted.getMarkdown()).toBe(original);
+  });
+});
+
+describe("editor table column alignment", () => {
+  const ALIGNED_TABLE_MARKDOWN =
+    "| A | B | C |\n| - | :-: | -: |\n| **1** | 2 | 3 |\n| 4 | 5 | 6 |";
+
+  const getColumnAlignments = (mounted: MountedMilkdownEditor) =>
+    Array.from(mounted.view.dom.querySelectorAll("tr")).map((row) =>
+      Array.from(row.querySelectorAll<HTMLElement>("th, td")).map((cell) => cell.style.textAlign),
+    );
+
+  const getWrittenAlignments = (mounted: MountedMilkdownEditor) =>
+    mounted
+      .getMarkdown()
+      .split("\n")[1]
+      ?.split("|")
+      .slice(1, -1)
+      .map((cell) => {
+        const delimiter = cell.trim();
+
+        if (delimiter.startsWith(":")) {
+          return delimiter.endsWith(":") ? "center" : "left";
+        }
+
+        return delimiter.endsWith(":") ? "right" : null;
+      });
+
+  const getCheckedAlignments = (mounted: MountedMilkdownEditor) =>
+    Object.entries(getEditorCommandState(mounted.view).checkedCommands)
+      .filter(
+        ([commandId, checked]) => commandId.startsWith("format.table.columnAlignment") && checked,
+      )
+      .map(([commandId]) => commandId);
+
+  it("aligns the whole column holding the caret or a text selection", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    setSelectionInTableCell(mounted, 2, 0);
+
+    expect(getTableColumnAlignment(mounted.view.state)).toBeNull();
+    expect(setTableColumnAlignment(mounted.view, "right")).toBe(true);
+    expect(getColumnAlignments(mounted).map((row) => row[0])).toEqual(["right", "right", "right"]);
+
+    const cellText = getEditorDomElement(mounted, "strong");
+    setSelectionAtElementTextEnd(mounted.view, cellText);
+    const end = mounted.view.state.selection.from;
+    setTextSelection(mounted.view, end - 1, end);
+
+    expect(setTableColumnAlignment(mounted.view, "center")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(
+      "|   A   |  B  |  C |\n| :---: | :-: | -: |\n| **1** |  2  |  3 |\n|   4   |  5  |  6 |\n",
+    );
+  });
+
+  it("aligns every column a cell selection intersects", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    selectTableCellRange(mounted, { row: 1, col: 1 }, { row: 2, col: 2 });
+
+    expect(getTableColumnAlignment(mounted.view.state)).toBeUndefined();
+    expect(setTableColumnAlignment(mounted.view, "left")).toBe(true);
+    expect(getColumnAlignments(mounted)).toEqual([
+      ["", "left", "left"],
+      ["", "left", "left"],
+      ["", "left", "left"],
+    ]);
+    expect(getWrittenAlignments(mounted)).toEqual([null, "left", "left"]);
+  });
+
+  it("aligns every column for a whole-row selection and one column for a whole-column one", async () => {
+    const rowEditor = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    selectTableCellRange(rowEditor, { row: 1, col: 0 }, { row: 1, col: 2 });
+    expect(setTableColumnAlignment(rowEditor.view, "center")).toBe(true);
+    expect(getWrittenAlignments(rowEditor)).toEqual(["center", "center", "center"]);
+
+    const columnEditor = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    selectTableCellRange(columnEditor, { row: 0, col: 2 }, { row: 2, col: 2 });
+    expect(setTableColumnAlignment(columnEditor.view, null)).toBe(true);
+    expect(getWrittenAlignments(columnEditor)).toEqual([null, "center", null]);
+  });
+
+  it.each([
+    ["default", 2, null, [null, "center", null]],
+    ["left", 0, "left", ["left", "center", "right"]],
+    ["center", 0, "center", ["center", "center", "right"]],
+    ["right", 1, "right", [null, "right", "right"]],
+  ] as const)(
+    "writes %s alignment in the delimiter row",
+    async (choice, col, alignment, written) => {
+      const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+      setSelectionInTableCell(mounted, 1, col);
+
+      expect(await runEditorCommand(mounted.editor, `format.table.columnAlignment.${choice}`)).toBe(
+        true,
+      );
+      expect(getTableColumnAlignment(mounted.view.state)).toBe(alignment);
+      expect(getCheckedAlignments(mounted)).toEqual([`format.table.columnAlignment.${choice}`]);
+      expect(getWrittenAlignments(mounted)).toEqual(written);
+    },
+  );
+
+  it("checks the shared alignment and none for mixed columns", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    setSelectionInTableCell(mounted, 1, 2);
+    expect(getCheckedAlignments(mounted)).toEqual(["format.table.columnAlignment.right"]);
+
+    setSelectionInTableCell(mounted, 1, 0);
+    expect(getCheckedAlignments(mounted)).toEqual(["format.table.columnAlignment.default"]);
+
+    selectTableCellRange(mounted, { row: 1, col: 1 }, { row: 1, col: 2 });
+    expect(getCheckedAlignments(mounted)).toEqual([]);
+  });
+
+  it("changes nothing when every target column already has the alignment", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    setSelectionInTableCell(mounted, 1, 1);
+    const stateBefore = mounted.view.state;
+
+    expect(setTableColumnAlignment(mounted.view, "center")).toBe(true);
+    expect(mounted.view.state.doc).toBe(stateBefore.doc);
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(false);
+  });
+
+  it("keeps content and selection and undoes and redoes as one step", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+    const original = mounted.getMarkdown();
+
+    selectTableCellRange(mounted, { row: 0, col: 0 }, { row: 2, col: 1 });
+    const selectionBefore = mounted.view.state.selection;
+
+    expect(setTableColumnAlignment(mounted.view, "right")).toBe(true);
+    expect(mounted.view.state.selection.eq(selectionBefore)).toBe(true);
+    expect(getTableCellTexts(mounted)).toEqual([
+      ["A", "B", "C"],
+      ["1", "2", "3"],
+      ["4", "5", "6"],
+    ]);
+    expect(mounted.view.dom.querySelector("td strong")).toHaveTextContent("1");
+
+    const aligned = mounted.getMarkdown();
+
+    expect(getWrittenAlignments(mounted)).toEqual(["right", "right", "right"]);
+    expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(original);
+    expect(await runEditorCommand(mounted.editor, "edit.redo")).toBe(true);
+    expect(mounted.getMarkdown()).toBe(aligned);
+  });
+
+  it("reads saved alignment back when the Markdown is reopened", async () => {
+    const mounted = await mountEditor(ALIGNED_TABLE_MARKDOWN);
+
+    selectTableCellRange(mounted, { row: 0, col: 0 }, { row: 0, col: 1 });
+    expect(setTableColumnAlignment(mounted.view, "left")).toBe(true);
+
+    const reopened = await mountEditor(mounted.getMarkdown());
+
+    expect(getColumnAlignments(reopened)[2]).toEqual(["left", "left", "right"]);
+    expect(reopened.getMarkdown()).toBe(mounted.getMarkdown());
+  });
+
+  it("is unavailable outside a table", async () => {
+    const mounted = await mountEditor(`Before\n\n${ALIGNED_TABLE_MARKDOWN}`);
+
+    setSelectionAtElementTextEnd(mounted.view, getEditorDomElement(mounted, "p"));
+
+    expect(canUseTable(mounted.view.state)).toBe(false);
+    expect(getEditorCommandState(mounted.view).enabledCommands).toMatchObject({
+      "format.table.columnAlignment.default": false,
+      "format.table.columnAlignment.left": false,
+      "format.table.columnAlignment.center": false,
+      "format.table.columnAlignment.right": false,
+    });
+    expect(getCheckedAlignments(mounted)).toEqual([]);
+    expect(setTableColumnAlignment(mounted.view, "left")).toBe(false);
   });
 });

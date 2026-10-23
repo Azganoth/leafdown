@@ -39,6 +39,9 @@ import {
   Rows3Icon,
   Table2Icon,
   TableIcon,
+  TextAlignCenterIcon,
+  TextAlignEndIcon,
+  TextAlignStartIcon,
   TextQuoteIcon,
   Trash2Icon,
   UnfoldVerticalIcon,
@@ -88,6 +91,9 @@ interface ContextButtonCommand {
   commandId: EditorCommandId;
   icon: LucideIcon;
   destructive?: boolean;
+  labelId?: MessageId;
+  // Runs in place of the command while it is checked, so the button toggles.
+  uncheckCommandId?: EditorCommandId;
 }
 
 interface ContextSubmenuCommand {
@@ -156,8 +162,37 @@ const TABLE_COLUMN_COMMANDS = [
   { commandId: "format.table.addColumnAfter", icon: ArrowRightFromLineIcon },
   { commandId: "format.table.moveColumnLeft", icon: ArrowLeftIcon },
   { commandId: "format.table.moveColumnRight", icon: ArrowRightIcon },
+] satisfies readonly ContextButtonCommand[];
+
+const TABLE_COLUMN_ALIGNMENT_COMMANDS = [
+  {
+    commandId: "format.table.columnAlignment.left",
+    icon: TextAlignStartIcon,
+    labelId: "editor.contextPopup.table.alignLeft",
+    uncheckCommandId: "format.table.columnAlignment.default",
+  },
+  {
+    commandId: "format.table.columnAlignment.center",
+    icon: TextAlignCenterIcon,
+    labelId: "editor.contextPopup.table.alignCenter",
+    uncheckCommandId: "format.table.columnAlignment.default",
+  },
+  {
+    commandId: "format.table.columnAlignment.right",
+    icon: TextAlignEndIcon,
+    labelId: "editor.contextPopup.table.alignRight",
+    uncheckCommandId: "format.table.columnAlignment.default",
+  },
+] satisfies readonly ContextButtonCommand[];
+
+const TABLE_COLUMN_DELETE_COMMANDS = [
   { commandId: "format.table.deleteColumn", icon: Trash2Icon, destructive: true },
 ] satisfies readonly ContextButtonCommand[];
+
+const TABLE_ACTION_GROUPS: Record<TableAxis, readonly (readonly ContextButtonCommand[])[]> = {
+  row: [TABLE_ROW_COMMANDS],
+  column: [TABLE_COLUMN_COMMANDS, TABLE_COLUMN_ALIGNMENT_COMMANDS, TABLE_COLUMN_DELETE_COMMANDS],
+};
 
 const TABLE_COMMANDS = [
   { commandId: "format.table.delete", icon: Table2Icon, destructive: true },
@@ -621,15 +656,30 @@ export function EditorContextPopup({
             {contextRow.kind === "tableActions" && (
               <div className="flex flex-col gap-1">
                 <Separator />
-                <ContextCommandRow
-                  commands={tableAxis === "row" ? TABLE_ROW_COMMANDS : TABLE_COLUMN_COMMANDS}
-                  fitted={false}
-                  onExecute={onExecute}
-                  canExecute={canExecute}
-                  isChecked={isChecked}
-                  row={row}
-                  spread
-                />
+                <div className="flex items-center justify-between gap-1">
+                  {TABLE_ACTION_GROUPS[tableAxis].map((commands, group, groups) => (
+                    <Fragment key={commands[0]?.commandId}>
+                      {group > 0 && (
+                        <Separator
+                          orientation="vertical"
+                          className="h-5 data-vertical:self-center"
+                        />
+                      )}
+                      <ContextCommandRow
+                        commands={commands}
+                        fitted={false}
+                        onExecute={onExecute}
+                        canExecute={canExecute}
+                        isChecked={isChecked}
+                        row={row}
+                        columnOffset={groups
+                          .slice(0, group)
+                          .reduce((offset, previous) => offset + previous.length, 0)}
+                        spread={groups.length === 1}
+                      />
+                    </Fragment>
+                  ))}
+                </div>
               </div>
             )}
             {contextRow.kind === "buttons" && (
@@ -697,11 +747,11 @@ function ContextCommandRow({
     <div
       className={cn(
         fitted ? "grid auto-cols-fr grid-flow-col items-center gap-0.5" : "flex items-center gap-1",
-        spread && "justify-between",
+        spread && "flex-1 justify-between",
       )}
     >
-      {commands.map(({ commandId, icon: Icon, destructive }, column) => {
-        const label = t(getEditorCommandLabelId(commandId));
+      {commands.map(({ commandId, icon: Icon, destructive, labelId, uncheckCommandId }, column) => {
+        const label = t(labelId ?? getEditorCommandLabelId(commandId));
         const enabled = canExecute(commandId);
         const checked = isChecked(commandId);
         const shortLabelId = showLabels ? FITTED_COMMAND_LABELS[commandId] : undefined;
@@ -721,7 +771,7 @@ function ContextCommandRow({
               showLabels && commands.length === 2 && "gap-1 px-1",
             )}
             disabled={!enabled}
-            onClick={() => onExecute(commandId)}
+            onClick={() => onExecute(checked && uncheckCommandId ? uncheckCommandId : commandId)}
             size={fitted ? "sm" : "icon"}
             type="button"
             variant="ghost"
@@ -809,7 +859,7 @@ function ContextTableScope({
   ] as const;
 
   return (
-    <div className="flex min-w-64 items-center gap-2">
+    <div className="flex min-w-74 items-center gap-2">
       {choices.map(({ axis: choice, icon: Icon, label }, column) => (
         <Tooltip key={choice}>
           <ToolbarButton

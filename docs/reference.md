@@ -237,6 +237,7 @@ In the folder search view, `Enter` in the query field searches at once and `Arro
   - **Move column right**
   - **Delete row**
   - **Delete column**
+  - **Column alignment**: Lists Default, Left, Center, and Right and marks the alignment every column in context shares. Choosing one aligns those whole columns; Default removes the alignment marker.
   - **Copy table** (Deferred)
 - **Clear block formatting**
 
@@ -326,7 +327,7 @@ Outside tables, rows with one or two actions show text: `Up` and `Down` for bloc
 The construct holding the whole caret or selection narrows its context:
 
 - **Code block or frontmatter:** Leaves out Strong, Emphasis, Inline code, and Link.
-- **Table:** Leaves out Blockquote, Ordered list, Unordered list, Task list, and Block type. Adds a two-row table bar before Insert, or last where Insert is left out. The first row holds row and column scope selectors and Delete table. The second holds Add row above, Add row below, Move row up, Move row down, and Delete row in row scope, or Add column before, Add column after, Move column left, Move column right, and Delete column in column scope. These actions use icon buttons with accessible names and tooltips.
+- **Table:** Leaves out Blockquote, Ordered list, Unordered list, Task list, and Block type. Adds a two-row table bar before Insert, or last where Insert is left out. The first row holds row and column scope selectors and Delete table. The second holds Add row above, Add row below, Move row up, Move row down, and Delete row in row scope, or Add column before, Add column after, Move column left, Move column right, Align left, Align center, Align right, and Delete column in column scope. These actions use icon buttons with accessible names and tooltips. An alignment button is pressed while every column in context has that alignment, and choosing a pressed one returns the columns to the default.
 
 An object's actions follow the first row, each shown only while it is available:
 

@@ -10,6 +10,7 @@ export interface DesktopE2ERunContext {
   definitionList: { path: string };
   separator: { path: string };
   codeCollapse: { path: string };
+  tableAlignment: { path: string };
   html: { path: string };
   math: { path: string };
   mathCorpus: { path: string };

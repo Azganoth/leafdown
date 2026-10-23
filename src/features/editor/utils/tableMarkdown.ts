@@ -140,6 +140,45 @@ export const serializeTable: NonNullable<RemarkStringifyHandlers["table"]> = (
   });
 };
 
+// The preset renders a cell with no alignment as `text-align: left` and reads a cell without
+// `text-align` as left-aligned, so a column without an alignment marker would gain `:-` on its way
+// through the clipboard.
+export const withUnmarkedCellAlignment = (schema: NodeSchema): NodeSchema => {
+  const { toDOM } = schema;
+
+  return {
+    ...schema,
+    parseDOM: schema.parseDOM?.map((rule) =>
+      rule.tag === undefined
+        ? rule
+        : {
+            ...rule,
+            getAttrs: (dom) => {
+              const attrs = rule.getAttrs ? rule.getAttrs(dom) : null;
+
+              return attrs === false ? false : { ...attrs, alignment: dom.style.textAlign || null };
+            },
+          },
+    ),
+    toDOM:
+      toDOM &&
+      ((node) => {
+        const output = toDOM(node);
+
+        if (node.attrs.alignment || !Array.isArray(output) || !isDomAttributes(output[1])) {
+          return output;
+        }
+
+        const { style: _style, ...attributes } = output[1];
+
+        return [output[0], attributes, ...output.slice(2)];
+      }),
+  };
+};
+
+const isDomAttributes = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value) && !("nodeType" in value);
+
 // The preset's own runners carry the alignment down to the cells and mark the header row, and both
 // are replaced rather than wrapped because the form has to reach the node the runner opens.
 export const withTableOuterPipes = (schema: NodeSchema): NodeSchema => ({

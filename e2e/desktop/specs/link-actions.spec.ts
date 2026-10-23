@@ -127,9 +127,20 @@ describe("desktop link actions", () => {
 
     await answerFileDialog(linkActions.chosenPath);
     await chooseLinkFileFromEditMenu();
-    await browser.waitUntil(() => !existsSync(dialogResponsePath), {
-      timeoutMsg: "Choose file did not ask for the second file.",
-    });
+    // The answer file is gone before the picker's reply reaches the page, and moving the caret
+    // before the choice lands changes the document the choice was made for.
+    await browser.waitUntil(
+      () =>
+        browser.execute((selector) => {
+          const editor = document.querySelector(selector)!;
+
+          return (
+            editor.textContent.includes("](code-collapse.md") ||
+            editor.querySelector('a[href="code-collapse.md"]') !== null
+          );
+        }, EDITOR),
+      { timeoutMsg: "Choose file did not point the link at the chosen file." },
+    );
 
     await placeCaretIn("shared notes");
     await openContextPopupFromKeyboard();
@@ -163,8 +174,10 @@ describe("desktop link actions", () => {
       "",
     ].join("\n");
 
-    await browser.waitUntil(async () => (await readFile(linkActions.path, "utf8")) === expected, {
-      timeoutMsg: "The repointed link and the two removed links were not saved.",
-    });
+    // A timeout falls through to the assertion, which shows what was saved instead.
+    await browser
+      .waitUntil(async () => (await readFile(linkActions.path, "utf8")) === expected)
+      .catch(() => undefined);
+    expect(await readFile(linkActions.path, "utf8")).toBe(expected);
   });
 });

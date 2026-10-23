@@ -1,10 +1,18 @@
 import { $, browser, expect } from "@wdio/globals";
+import { readFile } from "node:fs/promises";
 import { Key } from "webdriverio";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { dismissToasts, openRecentPath } from "../support/ui.js";
+import {
+  closeAllDocuments,
+  dismissToasts,
+  getSaveMenuItem,
+  openRecentPath,
+  selectFileMenuItem,
+} from "../support/ui.js";
 
 const TABLE_SELECTOR = "[data-testid=active-document-host] .ProseMirror table";
+const POPUP_SELECTOR = "[data-testid='editor-context-popup']";
 const ROW_GRIP_SELECTOR = '[data-leafdown-table-grip][data-axis="row"]';
 const COLUMN_GRIP_SELECTOR = '[data-leafdown-table-grip][data-axis="column"]';
 const ROW_INSERT_SELECTOR = '[data-leafdown-table-insert][data-axis="row"]';
@@ -89,6 +97,62 @@ const dispatchPointerSequence = (steps: { type: string; point: Point; buttons: n
       );
     }
   }, steps);
+
+// Each command closes the popup, and an element found once keeps pointing at the closed one.
+const contextPopup = () => $(POPUP_SELECTOR);
+const popupControl = (label: string) => $(`${POPUP_SELECTOR} [aria-label='${label}']`);
+
+const columnAlignments = () =>
+  browser.execute(
+    (selector) =>
+      Array.from(document.querySelector(selector)?.querySelectorAll("tr") ?? [], (row) =>
+        Array.from(row.querySelectorAll("th, td"), (cell) => getComputedStyle(cell).textAlign),
+      ),
+    TABLE_SELECTOR,
+  );
+
+const waitForColumnAlignments = (expected: string[], timeoutMsg: string) =>
+  browser.waitUntil(
+    async () =>
+      (await columnAlignments()).every((row) => row.every((value, col) => value === expected[col])),
+    { timeoutMsg },
+  );
+
+const pressKey = (key: string, init: KeyboardEventInit = {}) =>
+  browser.execute(
+    (eventKey, eventInit) => {
+      const target = document.activeElement ?? document.body;
+      const event = new KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: eventKey,
+        ...eventInit,
+      });
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    },
+    key,
+    init,
+  );
+
+const runPaletteCommand = async (query: string, label: string) => {
+  const input = $('input[aria-label="Search commands"]');
+  expect(await pressKey("p", { ctrlKey: true, shiftKey: true })).toBe(true);
+  await expect(input).toBeFocused();
+  await input.setValue(query);
+  await expect($('[role="option"]')).toHaveText(expect.stringContaining(label));
+  await pressKey("Enter");
+  await expect(input).not.toExist();
+};
+
+const clickGrip = async (cell: Point, selector: string) => {
+  await hover(cell);
+  const grip = await waitForControl(selector);
+  await dispatchPointerSequence([
+    { type: "mousedown", point: grip, buttons: 1 },
+    { type: "mouseup", point: grip, buttons: 0 },
+  ]);
+};
 
 describe("desktop table controls", () => {
   it("selects from a grip, reorders by dragging one, and inserts at a boundary", async () => {
@@ -191,5 +255,87 @@ describe("desktop table controls", () => {
       ["D", "C"],
       ["", ""],
     ]);
+  });
+
+  it("aligns columns from the popup and the command palette and saves the delimiter row", async () => {
+    const { tableAlignment } = await getDesktopE2ERunContext();
+    await closeAllDocuments();
+    await openRecentPath(tableAlignment.path);
+    await expect($(TABLE_SELECTOR)).toBeDisplayed();
+    await dismissToasts();
+    expect(await cellTexts()).toEqual([
+      ["Plant", "Pots", "Notes"],
+      ["Basil", "2", "Sunny"],
+    ]);
+
+    // A whole row intersects every column, and row scope offers no alignment of its own.
+    await clickGrip(await cellPoint(1, 0), ROW_GRIP_SELECTOR);
+    await expect(popupControl("Delete row")).toBeDisplayed();
+    await expect(popupControl("Align center")).not.toExist();
+    await browser.keys(Key.Escape);
+    await expect(contextPopup()).not.toExist();
+    await runPaletteCommand("column alignment center", "Center");
+    await waitForColumnAlignments(
+      ["center", "center", "center"],
+      "Center from the palette did not align every column of the selected row.",
+    );
+
+    await clickGrip(await cellPoint(1, 1), COLUMN_GRIP_SELECTOR);
+    await expect(popupControl("Align center")).toHaveAttribute("aria-pressed", "true");
+    await expect(popupControl("Align right")).toHaveAttribute("aria-pressed", "false");
+    await popupControl("Align right").click();
+    await expect(contextPopup()).not.toExist();
+    await waitForColumnAlignments(
+      ["center", "right", "center"],
+      "Align right did not align the column the grip selected.",
+    );
+
+    // Pressing the checked alignment again returns the column to the default.
+    await clickGrip(await cellPoint(1, 1), COLUMN_GRIP_SELECTOR);
+    await expect(popupControl("Align right")).toHaveAttribute("aria-pressed", "true");
+    await popupControl("Align right").click();
+    await expect(contextPopup()).not.toExist();
+    await waitForColumnAlignments(
+      ["center", "left", "center"],
+      "Pressing the checked alignment did not return the column to the default.",
+    );
+
+    await browser.execute((selector) => {
+      const cell = document.querySelector(selector)?.querySelectorAll("tr")[1]?.children[2];
+      const editor = document.querySelector<HTMLElement>(
+        "[data-testid=active-document-host] .ProseMirror",
+      );
+      if (!cell || !editor) throw new Error("The last body cell was not found.");
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      range.collapse(false);
+      const selection = document.getSelection()!;
+      selection.removeAllRanges();
+      selection.addRange(range);
+      editor.focus();
+    }, TABLE_SELECTOR);
+    await runPaletteCommand("column alignment right", "Right");
+    await waitForColumnAlignments(
+      ["center", "left", "right"],
+      "Right from the palette did not align the column holding the caret.",
+    );
+
+    const delimiterRow = /^\| :-+: \| -+ \| -+: \|$/mu;
+    await (await getSaveMenuItem()).click();
+    await browser.waitUntil(
+      async () => delimiterRow.test(await readFile(tableAlignment.path, "utf8")),
+      { timeoutMsg: "The saved delimiter row did not hold the chosen alignments." },
+    );
+    const saved = await readFile(tableAlignment.path, "utf8");
+    expect(saved).toContain("Basil");
+    expect(saved).toContain("Sunny");
+
+    await selectFileMenuItem("Close document");
+    await openRecentPath(tableAlignment.path);
+    await expect($(TABLE_SELECTOR)).toBeDisplayed();
+    await waitForColumnAlignments(
+      ["center", "left", "right"],
+      "The reopened table did not show the saved alignments.",
+    );
   });
 });

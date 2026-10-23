@@ -48,6 +48,8 @@ import {
   gfm,
   strikethroughInputRule,
   strikethroughKeymap,
+  tableCellSchema,
+  tableHeaderSchema,
   tableSchema,
 } from "@milkdown/kit/preset/gfm";
 import type { EditorState } from "@milkdown/kit/prose/state";
@@ -288,7 +290,7 @@ import {
   serializeRawHtml,
 } from "./rawHtmlMarkdown";
 import { withImageReferenceForm, withLinkReferenceForm } from "./referenceLinkMarkdown";
-import { serializeTable, withTableOuterPipes } from "./tableMarkdown";
+import { serializeTable, withTableOuterPipes, withUnmarkedCellAlignment } from "./tableMarkdown";
 import { serializeThematicBreak, withThematicBreakMarker } from "./thematicBreakMarkdown";
 import { WIKI_LINK_MARKDOWN_TYPE, serializeWikiLink } from "./wikiLinkMarkdown";
 
@@ -636,6 +638,14 @@ export const createMilkdownEditor = async ({
         ...withTableOuterPipes(getSchema(schemaCtx)),
         content: "table_header_row table_row*",
       }));
+      ctx.update(
+        tableHeaderSchema.key,
+        (getSchema) => (schemaCtx) => withUnmarkedCellAlignment(getSchema(schemaCtx)),
+      );
+      ctx.update(
+        tableCellSchema.key,
+        (getSchema) => (schemaCtx) => withUnmarkedCellAlignment(getSchema(schemaCtx)),
+      );
       // `extendSchema` registers a new slice, so an override on `listItemSchema` never reaches the
       // schema the editor holds.
       ctx.update(

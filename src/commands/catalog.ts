@@ -46,6 +46,8 @@ export const getCommandMenuPathIds = (commandId: AppCommandId): MessageId[] => {
     path.push("menu.insert.frontmatter");
   } else if (commandId.startsWith("format.callout")) {
     path.push("menu.callout");
+  } else if (commandId.startsWith("format.table.columnAlignment")) {
+    path.push("menu.format.table", "menu.format.table.columnAlignment");
   } else if (commandId.startsWith("format.table")) {
     path.push("menu.format.table");
   } else if (commandId.startsWith("view.appearance")) {

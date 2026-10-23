@@ -43,6 +43,11 @@ describe("palette command catalog", () => {
       "menu.format",
       "menu.format.table",
     ]);
+    expect(getCommandMenuPathIds("format.table.columnAlignment.center")).toEqual([
+      "menu.format",
+      "menu.format.table",
+      "menu.format.table.columnAlignment",
+    ]);
   });
 });
 

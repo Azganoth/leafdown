@@ -246,18 +246,19 @@ describe("typed link source", () => {
       );
     const escapedCellRow = "| \\[test link](./test.html) tail | c |";
 
-    it.each(["format.table.moveRowDown", "format.table.moveColumnRight"] as const)(
-      "keeps it literal through %s from the cell",
-      async (commandId) => {
-        const mounted = await mountTableEditor();
+    it.each([
+      "format.table.moveRowDown",
+      "format.table.moveColumnRight",
+      "format.table.columnAlignment.center",
+    ] as const)("keeps it literal through %s from the cell", async (commandId) => {
+      const mounted = await mountTableEditor();
 
-        setTextSelection(mounted.view, 20);
-        await runEditorCommand(mounted.editor, commandId);
-        setSelectionAtDocumentEnd(mounted.view);
+      setTextSelection(mounted.view, 20);
+      await runEditorCommand(mounted.editor, commandId);
+      setSelectionAtDocumentEnd(mounted.view);
 
-        expect(getLinkTargets(mounted)).toEqual([]);
-      },
-    );
+      expect(getLinkTargets(mounted)).toEqual([]);
+    });
 
     it("keeps it literal when the caret returns to the cell later", async () => {
       const mounted = await mountTableEditor();

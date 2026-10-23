@@ -551,6 +551,79 @@ export const moveTableColumnsTo = (
     : false;
 };
 
+// `null` writes no alignment marker, so the column takes the renderer's default.
+export type TableColumnAlignment = "left" | "center" | "right" | null;
+
+const getColumnCellPositions = ({ left, right, map, tableStart }: TableRect) =>
+  Array.from({ length: right - left }, (_, offset) => left + offset).flatMap((col) =>
+    Array.from({ length: map.height }, (_, row) => tableStart + map.map[row * map.width + col]),
+  );
+
+const readCellAlignment = (cell: ProseMirrorNode | null | undefined): TableColumnAlignment => {
+  const alignment: unknown = cell?.attrs.alignment;
+
+  return alignment === "left" || alignment === "center" || alignment === "right" ? alignment : null;
+};
+
+// The header cell carries the alignment the delimiter row is written from.
+export const getTableColumnAlignment = (state: EditorState): TableColumnAlignment | undefined => {
+  const rect = getSelectedTableRect(state);
+
+  if (!rect) {
+    return undefined;
+  }
+
+  const headerRow = rect.table.firstChild;
+  const alignments = new Set(
+    Array.from({ length: rect.right - rect.left }, (_, offset) =>
+      readCellAlignment(headerRow?.maybeChild(rect.left + offset)),
+    ),
+  );
+
+  return alignments.size === 1 ? alignments.values().next().value : undefined;
+};
+
+const hasColumnAlignment = (state: EditorState, alignment: TableColumnAlignment) => {
+  const rect = getSelectedTableRect(state);
+
+  return (
+    rect !== null &&
+    getColumnCellPositions(rect).every(
+      (pos) => readCellAlignment(state.doc.nodeAt(pos)) === alignment,
+    )
+  );
+};
+
+export const setTableColumnAlignment = (view: EditorView, alignment: TableColumnAlignment) => {
+  if (!getSelectedTableRect(view.state)) {
+    return false;
+  }
+
+  if (hasColumnAlignment(view.state, alignment)) {
+    return true;
+  }
+
+  finalizeSourceProjection(view);
+
+  const rect = getSelectedTableRect(view.state);
+
+  if (!rect) {
+    return false;
+  }
+
+  const tr = view.state.tr;
+
+  for (const pos of getColumnCellPositions(rect)) {
+    if (readCellAlignment(tr.doc.nodeAt(pos)) !== alignment) {
+      tr.setNodeAttribute(pos, "alignment", alignment);
+    }
+  }
+
+  view.focus();
+  view.dispatch(tr);
+  return true;
+};
+
 export const canUseTable = (state: EditorState) => getSelectedTableRect(state) !== null;
 
 export const canAddRowAbove = (state: EditorState) => {

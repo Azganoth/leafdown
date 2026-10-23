@@ -12,6 +12,7 @@ export interface DesktopE2ERunContext {
   codeCollapse: { path: string };
   dialogResponsePath: string;
   linkActions: { chosenPath: string; path: string };
+  tableAlignment: { path: string };
   html: { path: string };
   math: { path: string };
   mathCorpus: { path: string };

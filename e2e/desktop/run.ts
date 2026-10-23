@@ -156,6 +156,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
   const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
   const linkActionsPath = path.join(imagesFolderPath, "link-actions.md");
+  const tableAlignmentPath = path.join(imagesFolderPath, "table-alignment.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
@@ -199,6 +200,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     codeCollapse: { path: codeCollapsePath },
     dialogResponsePath: path.join(temporaryRoot, "dialog-response.json"),
     linkActions: { chosenPath: codeCollapsePath, path: linkActionsPath },
+    tableAlignment: { path: tableAlignmentPath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -287,7 +289,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "code-collapse", recentFiles: [codeCollapsePath] },
     { name: "link-actions", recentFiles: [linkActionsPath] },
-    { name: "table-controls", recentFiles: [blocksPath] },
+    { name: "table-controls", recentFiles: [blocksPath, tableAlignmentPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
@@ -384,6 +386,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "link-actions.md"),
         linkActionsPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "table-alignment.md"),
+        tableAlignmentPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),

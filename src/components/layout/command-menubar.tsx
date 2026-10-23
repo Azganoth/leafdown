@@ -263,7 +263,7 @@ export function CommandMenubar({
             <MenubarSeparator />
             <CommandItems commandIds={BLOCK_FORMAT_COMMAND_IDS} />
             <CalloutSubmenu />
-            <CommandSubmenu commandIds={TABLE_COMMAND_IDS} labelId="menu.format.table" />
+            <TableSubmenu />
             <CommandItems commandIds={["format.clearBlock"]} />
           </MenubarContent>
         </MenubarMenu>
@@ -408,6 +408,13 @@ const TABLE_COMMAND_IDS = [
   "format.table.moveColumnRight",
   "format.table.deleteRow",
   "format.table.deleteColumn",
+] satisfies readonly AppCommandId[];
+
+const TABLE_COLUMN_ALIGNMENT_COMMAND_IDS = [
+  "format.table.columnAlignment.default",
+  "format.table.columnAlignment.left",
+  "format.table.columnAlignment.center",
+  "format.table.columnAlignment.right",
 ] satisfies readonly AppCommandId[];
 
 interface CommandItemsProps {
@@ -662,6 +669,32 @@ function ChangeCalloutTypeItems() {
       </MenubarRadioGroup>
       <MenubarSeparator />
     </>
+  );
+}
+
+function TableSubmenu() {
+  const { t } = useLocalization();
+  const { commandState } = useCommandMenu();
+
+  return (
+    <MenubarSub>
+      <MenubarSubTrigger
+        disabled={areAllDisabled(commandState, [
+          ...TABLE_COMMAND_IDS,
+          ...TABLE_COLUMN_ALIGNMENT_COMMAND_IDS,
+        ])}
+      >
+        {t("menu.format.table")}
+      </MenubarSubTrigger>
+      <MenubarSubContent>
+        <CommandItems commandIds={TABLE_COMMAND_IDS} />
+        <MenubarSeparator />
+        <RadioSubmenu
+          commandIds={TABLE_COLUMN_ALIGNMENT_COMMAND_IDS}
+          labelId="menu.format.table.columnAlignment"
+        />
+      </MenubarSubContent>
+    </MenubarSub>
   );
 }
 

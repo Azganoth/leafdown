@@ -6,6 +6,14 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Change a table column's alignment from `Format > Table > Column alignment`, the table popup's column actions, or the command palette. Default, Left, Center, and Right apply to every column the caret or selection touches and save as ordinary GFM delimiter rows.
+
+### Fixed
+
+- Keep a table column without an alignment that way when it is copied and pasted, instead of left-aligning it.
+
 ## [0.1.0-alpha.5] - 2026-10-19
 
 ### Highlights

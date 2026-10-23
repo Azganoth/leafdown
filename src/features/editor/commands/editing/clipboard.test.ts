@@ -13,6 +13,7 @@ import {
   getEditorTextPosition,
   setSelectionAtDocumentEnd,
   setSelectionAtElementTextEnd,
+  setSelectionInTableCell,
   setTextSelection,
 } from "@/test/utils/prosemirror";
 
@@ -284,6 +285,41 @@ describe("editor clipboard commands", () => {
     expect(mounted.view.state).toBe(stateBefore);
     expect(mounted.getMarkdown()).toBe("__Strong text__ plain\n");
   });
+
+  it.each(["default", "markdown"] as const)(
+    "keeps changed table column alignment through a %s copy and paste",
+    async (format) => {
+      const copied = await mountEditor("| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |");
+
+      setSelectionInTableCell(copied, 1, 1);
+      expect(await runEditorCommand(copied.editor, "format.table.columnAlignment.center")).toBe(
+        true,
+      );
+      setSelectionInTableCell(copied, 1, 2);
+      expect(await runEditorCommand(copied.editor, "format.table.columnAlignment.right")).toBe(
+        true,
+      );
+      expect(selectAll(copied.view)).toBe(true);
+
+      await expect(copySelection(copied.view, format)).resolves.toBe(true);
+
+      const pasted = await mountEditor("");
+
+      if (format === "default") {
+        clipboard.read.mockResolvedValue([
+          createClipboardItem(TEXT_HTML_MIME_TYPE, await getClipboardHtmlWritten()),
+        ]);
+      } else {
+        clipboard.read.mockResolvedValue([]);
+        clipboard.readText.mockResolvedValue(clipboard.writeText.mock.lastCall?.[0] ?? "");
+      }
+
+      await expect(paste(pasted.editor, "default")).resolves.toBe(true);
+
+      expect(copied.getMarkdown()).toContain("| - | :-: | -: |");
+      expect(pasted.getMarkdown()).toContain(copied.getMarkdown());
+    },
+  );
 
   it("recreates projected formatting when its semantic HTML is pasted", async () => {
     const source = "**Bold**";

@@ -155,6 +155,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
   // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
   const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
+  const tableAlignmentPath = path.join(imagesFolderPath, "table-alignment.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
@@ -196,6 +197,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     definitionList: { path: definitionListPath },
     separator: { path: separatorPath },
     codeCollapse: { path: codeCollapsePath },
+    tableAlignment: { path: tableAlignmentPath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -283,7 +285,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "code-collapse", recentFiles: [codeCollapsePath] },
-    { name: "table-controls", recentFiles: [blocksPath] },
+    { name: "table-controls", recentFiles: [blocksPath, tableAlignmentPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
     { name: "legacy-encoding", recentFiles: [legacyEncodingPath] },
@@ -376,6 +378,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "code-collapse.md"),
         codeCollapsePath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "table-alignment.md"),
+        tableAlignmentPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),

@@ -352,6 +352,58 @@ describe("CommandMenubar", () => {
     expect(menuItem(/^Delete table/u)).toHaveAttribute("data-disabled");
   });
 
+  it("chooses a table column alignment from the Table submenu's last item", async () => {
+    const { onExecute, user } = renderCommandMenuBar({
+      commandState: (commandId) =>
+        commandId === "format.table.columnAlignment.right"
+          ? { ...enabledState, checked: true }
+          : commandId.startsWith("format.table.columnAlignment.")
+            ? { ...enabledState, checked: false }
+            : disabledState,
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: "Format" }));
+
+    const tableTrigger = menuItem("Table");
+
+    expect(tableTrigger).not.toHaveAttribute("data-disabled");
+
+    await user.hover(tableTrigger);
+    await user.keyboard("{ArrowRight}");
+
+    const alignmentTrigger = menuItem("Column alignment");
+    const tableMenu = alignmentTrigger.closest<HTMLElement>("[role='menu']")!;
+
+    expect(
+      [...tableMenu.querySelectorAll("[role^='menuitem'], [role='separator']")]
+        .slice(-2)
+        .map((item) => item.getAttribute("role")),
+    ).toEqual(["separator", "menuitem"]);
+
+    await user.keyboard("{End}");
+    expect(alignmentTrigger).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+
+    const radios = await screen.findAllByRole("menuitemradio");
+
+    expect(radios.map((radio) => radio.textContent)).toEqual([
+      "Default",
+      "Left",
+      "Center",
+      "Right",
+    ]);
+    expect(radios.map((radio) => radio.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "false",
+      "false",
+      "true",
+    ]);
+
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+
+    expect(onExecute).toHaveBeenCalledWith("format.table.columnAlignment.center");
+  });
+
   it("disables the sort submenu trigger when no sort order is available", async () => {
     const { user } = renderCommandMenuBar({
       commandState: (commandId) =>

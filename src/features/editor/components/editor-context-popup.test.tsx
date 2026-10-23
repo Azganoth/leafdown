@@ -139,6 +139,9 @@ const TABLE_COLUMN_LABELS = [
   "Add column after",
   "Move column left",
   "Move column right",
+  "Align left",
+  "Align center",
+  "Align right",
   "Delete column",
 ];
 const TABLE_LABELS = [...TABLE_ROW_LABELS, ...TABLE_COLUMN_LABELS, "Delete table"];
@@ -449,6 +452,66 @@ describe("editor-context-popup", () => {
       expect(screen.queryByLabelText("Add column before")).not.toBeInTheDocument();
     });
 
+    it("toggles column alignment, returning a checked alignment to the default", async () => {
+      const onExecute = vi.fn();
+      const commandState = withEnabledCommands(
+        "format.table.columnAlignment.default",
+        "format.table.columnAlignment.left",
+        "format.table.columnAlignment.center",
+        "format.table.columnAlignment.right",
+      );
+      const { user } = renderWithUser(
+        <EditorContextPopup
+          request={{
+            ...POINTER_REQUEST,
+            container: "table",
+            table: {
+              axis: "column",
+              row: { from: 1, to: 2 },
+              column: { from: 0, to: 1 },
+              selectAxis: noop,
+            },
+          }}
+          commandState={{
+            ...commandState,
+            checkedCommands: {
+              "format.table.columnAlignment.default": false,
+              "format.table.columnAlignment.left": false,
+              "format.table.columnAlignment.center": false,
+              "format.table.columnAlignment.right": true,
+            },
+          }}
+          onClose={noop}
+          onExecute={onExecute}
+          onReturnFocus={noop}
+        />,
+      );
+
+      expect(screen.getByLabelText("Align left")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByLabelText("Align center")).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByLabelText("Align right")).toHaveAttribute("aria-pressed", "true");
+
+      await user.click(screen.getByLabelText("Align center"));
+      expect(onExecute).toHaveBeenLastCalledWith("format.table.columnAlignment.center");
+
+      await user.click(screen.getByLabelText("Align right"));
+      expect(onExecute).toHaveBeenLastCalledWith("format.table.columnAlignment.default");
+    });
+
+    it("presses no alignment for mixed columns and offers none in row scope", async () => {
+      await renderForEditor("text", (mounted) => {
+        selectTableCellRange(mounted, { col: 0, row: 1 }, { col: 1, row: 1 });
+      });
+
+      expect(screen.queryByLabelText("Align left")).not.toBeInTheDocument();
+
+      act(() => screen.getByRole("button", { name: "Column 1" }).click());
+
+      for (const label of ["Align left", "Align center", "Align right"]) {
+        expect(screen.getByLabelText(label)).toHaveAttribute("aria-pressed", "false");
+      }
+    });
+
     it.each([
       [{ from: 0, to: 1 }, { from: 0, to: 1 }, "Header row", "Column 1"],
       [{ from: 0, to: 3 }, { from: 1, to: 3 }, "Header to row 2", "Columns 2–3"],
@@ -492,6 +555,9 @@ describe("editor-context-popup", () => {
         "Add row below",
         "Add column before",
         "Add column after",
+        "Align left",
+        "Align center",
+        "Align right",
         "Delete column",
         "Delete table",
       ]);
@@ -1243,6 +1309,9 @@ describe("editor-context-popup", () => {
             "format.table.addColumnAfter",
             "format.table.moveColumnLeft",
             "format.table.moveColumnRight",
+            "format.table.columnAlignment.left",
+            "format.table.columnAlignment.center",
+            "format.table.columnAlignment.right",
             "format.table.deleteColumn",
             "format.table.delete",
           ),

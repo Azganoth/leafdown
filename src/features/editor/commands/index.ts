@@ -59,6 +59,11 @@ const formatHeadingCommand = (level: HeadingLevel) =>
 const insertHeadingCommand = (level: HeadingLevel) =>
   viewCommand((view) => blockInsertion.insertHeading(view, level));
 
+const tableColumnAlignmentCommand = (alignment: tables.TableColumnAlignment): EditorCommand => ({
+  ...viewCommand((view) => tables.setTableColumnAlignment(view, alignment), tables.canUseTable),
+  isChecked: (state) => tables.getTableColumnAlignment(state) === alignment,
+});
+
 export const EDITOR_COMMANDS = {
   "edit.undo": viewCommand(history.undo, history.canUndo),
   "edit.redo": viewCommand(history.redo, history.canRedo),
@@ -191,6 +196,10 @@ export const EDITOR_COMMANDS = {
   ),
   "format.table.deleteRow": viewCommand(tables.deleteRows, tables.canDeleteRows),
   "format.table.deleteColumn": viewCommand(tables.deleteColumns, tables.canUseTable),
+  "format.table.columnAlignment.default": tableColumnAlignmentCommand(null),
+  "format.table.columnAlignment.left": tableColumnAlignmentCommand("left"),
+  "format.table.columnAlignment.center": tableColumnAlignmentCommand("center"),
+  "format.table.columnAlignment.right": tableColumnAlignmentCommand("right"),
 
   "insert.paragraph": viewCommand(blockInsertion.insertParagraph),
   "insert.heading1": insertHeadingCommand(1),

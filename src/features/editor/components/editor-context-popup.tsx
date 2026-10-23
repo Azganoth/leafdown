@@ -11,11 +11,13 @@ import {
   BoldIcon,
   CheckIcon,
   ChevronRightIcon,
+  ClipboardCopyIcon,
   ClipboardPasteIcon,
   Code2Icon,
   CopyIcon,
   CornerDownRightIcon,
   FileCodeIcon,
+  FolderOpenIcon,
   Columns3Icon,
   Heading1Icon,
   Heading2Icon,
@@ -42,6 +44,7 @@ import {
   TextQuoteIcon,
   Trash2Icon,
   UnfoldVerticalIcon,
+  UnlinkIcon,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -135,6 +138,12 @@ const IMAGE_COMMANDS = [
   { commandId: "edit.replaceImage", icon: ImageIcon },
 ] satisfies readonly ContextButtonCommand[];
 
+const LINK_COMMANDS = [
+  { commandId: "edit.copyLinkDestination", icon: ClipboardCopyIcon },
+  { commandId: "edit.removeLink", icon: UnlinkIcon },
+  { commandId: "edit.chooseLinkFile", icon: FolderOpenIcon },
+] satisfies readonly ContextButtonCommand[];
+
 const CODE_BLOCK_COMMANDS = [
   { commandId: "format.codeBlockLanguage", icon: FileCodeIcon },
 ] satisfies readonly ContextButtonCommand[];
@@ -201,6 +210,7 @@ const INSERT_COMMANDS = [
 const OBJECT_COMMAND_ROWS = [
   { id: "footnote", commands: FOOTNOTE_COMMANDS },
   { id: "image", commands: IMAGE_COMMANDS },
+  { id: "link", commands: LINK_COMMANDS, stacked: true },
   { id: "codeBlock", commands: CODE_BLOCK_COMMANDS },
   { id: "callout", commands: CALLOUT_COMMANDS },
 ] as const;
@@ -215,7 +225,13 @@ const FITTED_COMMAND_LABELS: Partial<Record<EditorCommandId, MessageId>> = {
 };
 
 type ContextRow =
-  | { id: string; kind: "buttons"; commands: readonly ContextButtonCommand[] }
+  | {
+      id: string;
+      kind: "buttons";
+      commands: readonly ContextButtonCommand[];
+      /** Continues the group the previous row began, with no separator between them. */
+      joinsPrevious?: boolean;
+    }
   | { id: string; kind: "submenu"; commands: readonly ContextSubmenuEntry[]; labelId: MessageId }
   | { id: string; kind: "calloutTypes" }
   | { id: string; kind: "tableScope" | "tableActions" };
@@ -255,11 +271,22 @@ const getContextRows = (
 
   // Unlike the other rows, an object's row leaves out what is unavailable, which is what keeps it
   // out of every context its object is not in.
-  for (const { id, commands } of OBJECT_COMMAND_ROWS) {
-    const available = commands.filter(({ commandId }) => canExecute(commandId));
+  for (const row of OBJECT_COMMAND_ROWS) {
+    const available = row.commands.filter(({ commandId }) => canExecute(commandId));
 
-    if (available.length > 0) {
-      rows.push(buttonRow(id, available));
+    // A row of its own for each keeps every label whole and each action one arrow key apart. A
+    // table's popup labels no buttons, so there they share one row like any other object's.
+    if ("stacked" in row && container !== "table") {
+      rows.push(
+        ...available.map((command, index): ContextRow => ({
+          commands: [command],
+          id: `${row.id}.${command.commandId}`,
+          joinsPrevious: index > 0,
+          kind: "buttons",
+        })),
+      );
+    } else if (available.length > 0) {
+      rows.push(buttonRow(row.id, available));
     }
   }
 
@@ -601,6 +628,7 @@ export function EditorContextPopup({
           <Fragment key={contextRow.id}>
             {fitted &&
               row > 0 &&
+              !(contextRow.kind === "buttons" && contextRow.joinsPrevious) &&
               (contextRow.kind === "buttons" || rows[row - 1]?.kind === "buttons") && (
                 <Separator className="my-1" />
               )}

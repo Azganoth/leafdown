@@ -127,6 +127,7 @@ const withEnabledCommands = (...commandIds: EditorCommandId[]) => ({
 const QUICK_ACTION_LABELS = ["Cut", "Copy", "Paste", "Delete"];
 const INLINE_ACTION_LABELS = ["Strong", "Emphasis", "Inline code", "Link"];
 const BLOCK_FORMATTING_LABELS = ["Blockquote", "Ordered list", "Unordered list", "Task list"];
+const LINK_ACTION_LABELS = ["Copy destination", "Remove link", "Choose file..."];
 const TABLE_ROW_LABELS = [
   "Add row above",
   "Add row below",
@@ -896,6 +897,74 @@ describe("editor-context-popup", () => {
     expect(onExecute).toHaveBeenCalledWith("edit.replaceImage");
   });
 
+  it("gives each link action a labelled row of its own, joined in one group", async () => {
+    const onExecute = vi.fn();
+    const { rerender, user } = renderWithUser(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands(
+          "edit.copyLinkDestination",
+          "edit.removeLink",
+          "edit.chooseLinkFile",
+        )}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(controlLabels().slice(0, 5)).toEqual(["Paste", ...LINK_ACTION_LABELS, "Blockquote"]);
+
+    const rows = LINK_ACTION_LABELS.map((name) => {
+      const button = screen.getByRole("button", { name });
+
+      expect(button).toHaveTextContent(name);
+
+      return button.parentElement;
+    });
+
+    expect(rows[0]?.nextElementSibling).toBe(rows[1]);
+    expect(rows[1]?.nextElementSibling).toBe(rows[2]);
+
+    await user.click(screen.getByRole("button", { name: "Remove link" }));
+    expect(onExecute).toHaveBeenCalledWith("edit.removeLink");
+
+    rerender(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands("edit.copyLinkDestination")}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Copy destination" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove link" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Choose file..." })).not.toBeInTheDocument();
+  });
+
+  it("keeps a table's link actions on one row of icon controls", () => {
+    render(
+      <EditorContextPopup
+        request={{ ...POINTER_REQUEST, container: "table", selectionKind: "caret" }}
+        commandState={withEnabledCommands(
+          "edit.copyLinkDestination",
+          "edit.removeLink",
+          "edit.chooseLinkFile",
+        )}
+        onClose={vi.fn()}
+        onExecute={vi.fn()}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+
+    const buttons = LINK_ACTION_LABELS.map((name) => screen.getByRole("button", { name }));
+
+    expect(buttons.map((button) => button.textContent)).toEqual(["", "", ""]);
+    expect(new Set(buttons.map((button) => button.parentElement)).size).toBe(1);
+  });
+
   it("disables commands while editor command state is inactive", async () => {
     const onExecute = vi.fn();
 
@@ -1301,6 +1370,31 @@ describe("editor-context-popup", () => {
 
       await user.keyboard("{ArrowDown}");
       expect(screen.getByLabelText("Ordered list")).toHaveFocus();
+    });
+
+    it("steps through the link actions one row at a time", async () => {
+      const { user } = renderToolbar(
+        { ...KEYBOARD_REQUEST, selectionKind: "caret" },
+        {
+          commandState: withEnabledCommands(
+            "edit.copyLinkDestination",
+            "edit.removeLink",
+            "edit.chooseLinkFile",
+          ),
+        },
+      );
+
+      await waitFor(() => {
+        expect(screen.getByLabelText("Paste")).toHaveFocus();
+      });
+
+      for (const label of [...LINK_ACTION_LABELS, "Blockquote"]) {
+        await user.keyboard("{ArrowDown}");
+        expect(screen.getByLabelText(label)).toHaveFocus();
+      }
+
+      await user.keyboard("{ArrowUp}{ArrowUp}");
+      expect(screen.getByLabelText("Remove link")).toHaveFocus();
     });
 
     it("opens a submenu with ArrowDown instead of leaving its row", async () => {

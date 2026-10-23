@@ -10,6 +10,8 @@ export interface DesktopE2ERunContext {
   definitionList: { path: string };
   separator: { path: string };
   codeCollapse: { path: string };
+  dialogResponsePath: string;
+  linkActions: { chosenPath: string; path: string };
   html: { path: string };
   math: { path: string };
   mathCorpus: { path: string };

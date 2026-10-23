@@ -6,6 +6,10 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## [Unreleased]
 
+### Added
+
+- Act on the link in context from the context popup, `Edit > Link`, or the command palette. `Copy destination` copies where it points, `Remove link` keeps its label as text, and `Choose file...` points an inline link at a file you pick.
+
 ## [0.1.0-alpha.5] - 2026-10-19
 
 ### Highlights

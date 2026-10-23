@@ -21,6 +21,10 @@ export const getCommandMenuPathIds = (commandId: AppCommandId): MessageId[] => {
     path.push("menu.edit.select");
   } else if (commandId.startsWith("edit.jump")) {
     path.push("menu.edit.jump");
+  } else if (
+    ["edit.copyLinkDestination", "edit.removeLink", "edit.chooseLinkFile"].includes(commandId)
+  ) {
+    path.push("menu.edit.link");
   } else if (commandId.startsWith("edit.lineEnding") || commandId === "edit.insertFinalNewline") {
     path.push("menu.edit.lineEnding");
   } else if (commandId.startsWith("edit.encoding")) {

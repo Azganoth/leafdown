@@ -11,6 +11,7 @@ import * as clipboard from "./editing/clipboard";
 import * as deletion from "./editing/deletion";
 import * as history from "./editing/history";
 import * as image from "./editing/image";
+import * as link from "./editing/link";
 import * as search from "./editing/search";
 import * as selection from "./editing/selection";
 import type { HeadingLevel } from "./formatting/blocks";
@@ -115,6 +116,9 @@ export const EDITOR_COMMANDS = {
     selection.canJumpToFootnoteDefinition,
   ),
   "edit.renameFootnote": viewCommand(selection.renameFootnote, selection.canRenameFootnote),
+  "edit.copyLinkDestination": viewCommand(link.copyLinkDestination, link.canCopyLinkDestination),
+  "edit.removeLink": viewCommand(link.removeLink, link.canRemoveLink),
+  "edit.chooseLinkFile": editorCommand(link.chooseLinkFile, link.canChooseLinkFile),
   "edit.replaceImage": editorCommand(image.replaceImage, image.canReplaceImage),
   "edit.find": viewCommand((view) => search.openSearch(view, "find")),
   "edit.findNext": viewCommand(search.findNext, search.canFindAdjacentMatch),

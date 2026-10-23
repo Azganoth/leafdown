@@ -155,6 +155,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
   // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
   const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
+  const linkActionsPath = path.join(imagesFolderPath, "link-actions.md");
   const remoteImagesPath = path.join(fixtureRoot, "remote-images.md");
   const htmlPath = path.join(fixtureRoot, "rendered-html.md");
   const mathPath = path.join(fixtureRoot, "rendered-math.md");
@@ -196,6 +197,8 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     definitionList: { path: definitionListPath },
     separator: { path: separatorPath },
     codeCollapse: { path: codeCollapsePath },
+    dialogResponsePath: path.join(temporaryRoot, "dialog-response.json"),
+    linkActions: { chosenPath: codeCollapsePath, path: linkActionsPath },
     document: {
       initialMarker: "Initial fixture marker.",
       path: documentPath,
@@ -283,6 +286,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "rendered-mermaid", recentFiles: [mermaidPath] },
     { name: "separator-presentation", recentFiles: [separatorPath] },
     { name: "code-collapse", recentFiles: [codeCollapsePath] },
+    { name: "link-actions", recentFiles: [linkActionsPath] },
     { name: "table-controls", recentFiles: [blocksPath] },
     { name: "support-links" },
     { name: "missing-document-error", recentFiles: [missingDocumentPath] },
@@ -376,6 +380,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "code-collapse.md"),
         codeCollapsePath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "link-actions.md"),
+        linkActionsPath,
       ),
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "rendered-html.md"),
@@ -527,6 +535,7 @@ const runWdio = (scenario: Scenario, worker: WorkerContext) =>
         LEAFDOWN_E2E_APP_IDENTIFIER: worker.context.appIdentifier,
         LEAFDOWN_E2E_ARTIFACT_RUN: RUN_LABEL,
         LEAFDOWN_E2E_CONTEXT_PATH: worker.contextPath,
+        LEAFDOWN_E2E_DIALOG_RESPONSE_PATH: worker.context.dialogResponsePath,
         LEAFDOWN_E2E_REMOTE_IMAGE_ADDRESS: "127.0.0.1",
         LEAFDOWN_E2E_REMOTE_IMAGE_CERTIFICATE: path.join(remoteImageFixtureRoot, "ca.pem"),
         LEAFDOWN_E2E_REMOTE_IMAGE_HOST: REMOTE_IMAGE_HOST,

@@ -31,6 +31,10 @@ describe("palette command catalog", () => {
   it("uses menu labels to describe nested commands", () => {
     expect(getCommandMenuPathIds("file.saveAs")).toEqual(["menu.file"]);
     expect(getCommandMenuPathIds("edit.copyAsMarkdown")).toEqual(["menu.edit", "menu.edit.copyAs"]);
+    expect(getCommandMenuPathIds("edit.copyLinkDestination")).toEqual([
+      "menu.edit",
+      "menu.edit.link",
+    ]);
     expect(getCommandMenuPathIds("insert.frontmatter.toml")).toEqual([
       "menu.insert",
       "menu.insert.frontmatter",

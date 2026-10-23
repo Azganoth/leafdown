@@ -434,10 +434,13 @@ export const getSourceProjectionCanonicalState = (
     session,
     semantic,
   );
+  // Content a projection keeps beside its source, such as a linked image, is part of what the
+  // source commits to.
+  const restoreRange = session.adapter.getRestoreRange?.(session) ?? session;
   const transaction = replaceProjectionRange(
     state.tr,
-    session.from,
-    session.to,
+    restoreRange.from,
+    restoreRange.to,
     semantic.replacement,
   );
 

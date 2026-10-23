@@ -94,6 +94,18 @@ const appendEditor = () => {
 };
 
 describe("CommandMenubar", () => {
+  it("groups links and images before footnotes in Insert", async () => {
+    const { user, onExecute } = renderCommandMenuBar();
+    await user.click(screen.getByRole("menuitem", { name: "Insert" }));
+    const items = screen.getAllByRole("menuitem");
+    const link = menuItem("Link");
+    const image = menuItem("Image");
+    const footnote = menuItem("Footnote");
+    expect(items.indexOf(image)).toBe(items.indexOf(link) + 1);
+    expect(items.indexOf(footnote)).toBe(items.indexOf(image) + 1);
+    await user.click(footnote);
+    expect(onExecute).toHaveBeenCalledWith("insert.footnote");
+  });
   it.each([
     ["Windows", withWindowsUserAgent, "Ctrl+Shift+N", ["Ctrl", "Shift", "N"]],
     ["macOS", withMacUserAgent, "Shift+Command+N", ["⇧", "⌘", "N"]],

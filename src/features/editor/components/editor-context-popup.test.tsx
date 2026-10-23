@@ -126,7 +126,6 @@ const withEnabledCommands = (...commandIds: EditorCommandId[]) => ({
 
 const QUICK_ACTION_LABELS = ["Cut", "Copy", "Paste", "Delete"];
 const INLINE_ACTION_LABELS = ["Strong", "Emphasis", "Inline code", "Link"];
-const BLOCK_FORMATTING_LABELS = ["Blockquote", "Ordered list", "Unordered list", "Task list"];
 const LINK_ACTION_LABELS = ["Copy destination", "Remove link", "Choose file..."];
 const TABLE_ROW_LABELS = [
   "Add row above",
@@ -156,6 +155,42 @@ const controlLabels = () =>
     .map((control) => control.getAttribute("aria-label") ?? control.textContent);
 
 describe("editor-context-popup", () => {
+  it("executes list formatting through its labeled submenu", async () => {
+    const onExecute = vi.fn();
+    const { user } = renderWithUser(
+      <EditorContextPopup
+        request={{ ...KEYBOARD_REQUEST, selectionKind: "block" }}
+        commandState={enabledPopupCommandState}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Lists & quote" }));
+    await user.click(screen.getByRole("menuitem", { name: "Ordered list" }));
+    expect(onExecute).toHaveBeenCalledWith("format.orderedList");
+  });
+
+  it("keeps all heading levels accessible in the compact Insert picker", async () => {
+    const onExecute = vi.fn();
+    const { user } = renderWithUser(
+      <EditorContextPopup
+        request={{ ...KEYBOARD_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands("insert.heading1", "insert.heading6")}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    for (let level = 1; level <= 6; level++) {
+      const item = screen.getByRole("menuitem", { name: `Heading ${level}` });
+      expect(item).toHaveTextContent(`H${level}`);
+      expect(item.hasAttribute("data-disabled")).toBe(level > 1 && level < 6);
+    }
+    await user.click(screen.getByRole("menuitem", { name: "Heading 6" }));
+    expect(onExecute).toHaveBeenCalledWith("insert.heading6");
+  });
   it("positions against the measured selection instead of a rendered anchor element", async () => {
     const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
 
@@ -184,11 +219,7 @@ describe("editor-context-popup", () => {
   });
 
   it.each<[string, Partial<ContextPopupRequest>, string[]]>([
-    [
-      "a caret",
-      { selectionKind: "caret" },
-      ["Paste", ...BLOCK_FORMATTING_LABELS, "Block type", "Insert"],
-    ],
+    ["a caret", { selectionKind: "caret" }, ["Paste", "Block type", "Lists & quote", "Insert"]],
     [
       "a text selection",
       { selectionKind: "text" },
@@ -201,15 +232,15 @@ describe("editor-context-popup", () => {
         ...QUICK_ACTION_LABELS,
         "Move block up",
         "Move block down",
-        ...BLOCK_FORMATTING_LABELS,
         "Block type",
+        "Lists & quote",
         "Insert",
       ],
     ],
     [
       "a caret in code",
       { container: "code", selectionKind: "caret" },
-      ["Paste", ...BLOCK_FORMATTING_LABELS, "Block type", "Insert"],
+      ["Paste", "Block type", "Lists & quote", "Insert"],
     ],
     [
       "a text selection in code",
@@ -274,8 +305,12 @@ describe("editor-context-popup", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Move block up" })).toHaveTextContent("Up");
-    expect(screen.getByRole("button", { name: "Move block down" })).toHaveTextContent("Down");
+    expect(screen.getByRole("button", { name: "Move block up" })).toHaveTextContent(
+      "Move block up",
+    );
+    expect(screen.getByRole("button", { name: "Move block down" })).toHaveTextContent(
+      "Move block down",
+    );
     expect(screen.getByRole("button", { name: "Code block language..." })).toHaveTextContent(
       "Language...",
     );
@@ -336,7 +371,7 @@ describe("editor-context-popup", () => {
       "Paste",
       "Rename footnote",
       "Jump to footnote definition",
-      "Blockquote",
+      "Block type",
     ]);
   });
 
@@ -725,9 +760,9 @@ describe("editor-context-popup", () => {
 
     expect(controlLabels()).toEqual([
       "Paste",
-      ...BLOCK_FORMATTING_LABELS,
       "Callout type",
       "Block type",
+      "Lists & quote",
       "Insert",
     ]);
 
@@ -828,7 +863,7 @@ describe("editor-context-popup", () => {
         expect(screen.getByLabelText("Paste")).toHaveFocus();
       });
 
-      await user.keyboard("{ArrowDown}{ArrowDown}");
+      await user.keyboard("{ArrowDown}");
 
       expect(screen.getByRole("button", { name: "Callout type" })).toHaveFocus();
 
@@ -979,7 +1014,7 @@ describe("editor-context-popup", () => {
       />,
     );
 
-    expect(controlLabels().slice(0, 5)).toEqual(["Paste", ...LINK_ACTION_LABELS, "Blockquote"]);
+    expect(controlLabels().slice(0, 5)).toEqual(["Paste", ...LINK_ACTION_LABELS, "Block type"]);
 
     const rows = LINK_ACTION_LABELS.map((name) => {
       const button = screen.getByRole("button", { name });
@@ -1352,16 +1387,16 @@ describe("editor-context-popup", () => {
       expect(screen.getByRole("button", { name: "Insert" })).toHaveFocus();
 
       await user.keyboard("{ArrowUp}");
-      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Lists & quote" })).toHaveFocus();
 
       await user.keyboard("{ArrowUp}");
-      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
 
       await user.keyboard("{ArrowUp}");
       expect(screen.getByLabelText("Paste")).toHaveFocus();
 
       await user.keyboard("{ArrowDown}");
-      expect(screen.getByLabelText("Blockquote")).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
     });
 
     it("reaches every table command by switching the axis from the keyboard", async () => {
@@ -1438,7 +1473,7 @@ describe("editor-context-popup", () => {
       expect(screen.getByLabelText("Move block down")).toHaveFocus();
 
       await user.keyboard("{ArrowDown}");
-      expect(screen.getByLabelText("Ordered list")).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Block type" })).toHaveFocus();
     });
 
     it("steps through the link actions one row at a time", async () => {
@@ -1457,9 +1492,9 @@ describe("editor-context-popup", () => {
         expect(screen.getByLabelText("Paste")).toHaveFocus();
       });
 
-      for (const label of [...LINK_ACTION_LABELS, "Blockquote"]) {
+      for (const label of [...LINK_ACTION_LABELS, "Block type"]) {
         await user.keyboard("{ArrowDown}");
-        expect(screen.getByLabelText(label)).toHaveFocus();
+        expect(screen.getByRole("button", { name: label })).toHaveFocus();
       }
 
       await user.keyboard("{ArrowUp}{ArrowUp}");

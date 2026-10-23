@@ -1,10 +1,17 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  CopyIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  FolderOpenIcon,
+  FolderPlusIcon,
   InfoIcon,
   LeafIcon,
+  PencilLineIcon,
   SearchIcon,
   TriangleAlertIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -407,13 +414,14 @@ export function ArticleNavigator({
             </ContextMenuTrigger>
             <ContextMenuContent
               aria-label={t("articleNavigator.menu.label", { kind: menuTargetLabelKind })}
-              className="min-w-48"
+              className="min-w-56"
               finalFocus={getMenuFinalFocus}
             >
               {menuTarget.kind === "file" && (
                 <>
                   <ContextMenuGroup>
                     <ContextMenuItem onClick={() => handleOpenArticle(menuTarget.path)}>
+                      <FileTextIcon />
                       {t("articleNavigator.menu.open")}
                     </ContextMenuItem>
                   </ContextMenuGroup>
@@ -422,9 +430,11 @@ export function ArticleNavigator({
               )}
               <ContextMenuGroup>
                 <ContextMenuItem onClick={() => startCreate("file")}>
+                  <FilePlusIcon />
                   {t("articleNavigator.menu.newFile")}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => startCreate("directory")}>
+                  <FolderPlusIcon />
                   {t("articleNavigator.menu.newFolder")}
                 </ContextMenuItem>
               </ContextMenuGroup>
@@ -433,12 +443,8 @@ export function ArticleNavigator({
                   <ContextMenuSeparator />
                   <ContextMenuGroup>
                     <ContextMenuItem onClick={startRename}>
+                      <PencilLineIcon />
                       {t("articleNavigator.menu.rename")}
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() => actions.deleteEntry(menuTarget.path, menuTarget.kind)}
-                    >
-                      {t("articleNavigator.menu.delete")}
                     </ContextMenuItem>
                   </ContextMenuGroup>
                 </>
@@ -446,15 +452,32 @@ export function ArticleNavigator({
               <ContextMenuSeparator />
               <ContextMenuGroup>
                 <ContextMenuItem onClick={() => actions.revealEntry(menuTarget.path)}>
+                  <FolderOpenIcon />
                   {t("articleNavigator.menu.openLocation", { kind: menuTargetLabelKind })}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => actions.copyPath(menuTarget.path)}>
+                  <CopyIcon />
                   {t("articleNavigator.menu.copyPath")}
                 </ContextMenuItem>
                 <ContextMenuItem onClick={() => copyRelativePath(menuTarget.path)}>
+                  <CopyIcon />
                   {t("articleNavigator.menu.copyRelativePath")}
                 </ContextMenuItem>
               </ContextMenuGroup>
+              {(menuTarget.kind === "file" || menuTarget.kind === "directory") && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuGroup>
+                    <ContextMenuItem
+                      variant="destructive"
+                      onClick={() => actions.deleteEntry(menuTarget.path, menuTarget.kind)}
+                    >
+                      <Trash2Icon />
+                      {t("articleNavigator.menu.delete")}
+                    </ContextMenuItem>
+                  </ContextMenuGroup>
+                </>
+              )}
             </ContextMenuContent>
           </ContextMenu>
         ) : (

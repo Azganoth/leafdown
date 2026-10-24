@@ -1,121 +1,109 @@
-import { useRef, type KeyboardEvent } from "react";
+import { ListPlusIcon } from "lucide-react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 
-import { Popover, PopoverContent } from "@/components/ui/popover";
-import { useLocalization, type MessageId } from "@/lib/i18n";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { useLocalization } from "@/lib/i18n";
 
+import type { CalloutTypeChoices, InsertCalloutChoice } from "../commands/formatting/callouts";
 import type { BoundaryInsertKind } from "../commands/inserting/blocks";
 import type { BlockInsertionRequest } from "../plugins/blockSelectionInteraction";
 import { isDismissedFromOutside } from "../utils/popoverDismissal";
+import { EditorInsertMenuItems } from "./editor-insert-menu";
 
-const LABEL_IDS = {
-  paragraph: "editor.blockInsertion.paragraph",
-  heading1: "editor.blockInsertion.heading1",
-  heading2: "editor.blockInsertion.heading2",
-  heading3: "editor.blockInsertion.heading3",
-  heading4: "editor.blockInsertion.heading4",
-  heading5: "editor.blockInsertion.heading5",
-  heading6: "editor.blockInsertion.heading6",
-  image: "editor.blockInsertion.image",
-  blockquote: "editor.blockInsertion.blockquote",
-  callout: "editor.blockInsertion.callout",
-  unorderedList: "editor.blockInsertion.unorderedList",
-  orderedList: "editor.blockInsertion.orderedList",
-  taskList: "editor.blockInsertion.taskList",
-  codeBlock: "editor.blockInsertion.codeBlock",
-  table: "editor.blockInsertion.table",
-  horizontalRule: "editor.blockInsertion.horizontalRule",
-  listItem: "editor.blockInsertion.listItem",
-} as const satisfies Record<BoundaryInsertKind, MessageId>;
+const ENABLED_ITEM_SELECTOR = "[role='menuitem']:not([data-disabled])";
 
 interface EditorBlockInsertionMenuProps {
   request: BlockInsertionRequest | null;
+  onChooseCalloutType: (choice: InsertCalloutChoice, token: string) => void;
   onClose: () => void;
   onExecute: (kind: BoundaryInsertKind) => void;
   onReturnFocus: () => void;
+  readCalloutTypes: () => CalloutTypeChoices | null;
 }
 
 export function EditorBlockInsertionMenu({
   request,
+  onChooseCalloutType,
   onClose,
   onExecute,
   onReturnFocus,
+  readCalloutTypes,
 }: EditorBlockInsertionMenuProps) {
   const { t } = useLocalization();
   const contentRef = useRef<HTMLDivElement>(null);
-  const returnFocusRef = useRef(true);
+
+  // A menu opened without a trigger keeps focus where it was, so its first choice takes it.
+  useEffect(() => {
+    if (!request) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      contentRef.current?.querySelector<HTMLElement>(ENABLED_ITEM_SELECTOR)?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [request]);
+
   if (!request) return null;
 
+  // Between list items nothing but another item fits, so the full menu would be all disabled.
+  const offersListItem = request.kinds.includes("listItem");
+
+  // A menu item takes focus back after its click handler has moved it into the document, and the
+  // menu then unmounts around it, so focus is restored once the item has had its turn.
+  const restoreFocusAfter = (choose: () => void) => {
+    choose();
+    window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active === document.body || active?.closest("[role='menu']")) onReturnFocus();
+    });
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
     if (event.key === "Tab") {
       event.preventDefault();
+      onReturnFocus();
       onClose();
-      return;
-    }
-    const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("[role='menuitem']")];
-    const index = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next =
-      event.key === "ArrowDown"
-        ? index + 1
-        : event.key === "ArrowUp"
-          ? index - 1
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? items.length - 1
-              : null;
-    if (next !== null && items.length > 0) {
-      event.preventDefault();
-      items[(next + items.length) % items.length].focus();
     }
   };
 
   return (
-    <Popover
+    <DropdownMenu
+      modal={false}
       open
       onOpenChange={(open, details) => {
-        if (!open) {
-          returnFocusRef.current = !isDismissedFromOutside(details);
-          onClose();
-        }
+        if (open) return;
+        if (!isDismissedFromOutside(details)) onReturnFocus();
+        onClose();
       }}
     >
-      <PopoverContent
+      <DropdownMenuContent
         anchor={request.anchor}
         aria-label={t("editor.blockInsertion.label")}
-        className="w-44 gap-0 border border-border/70 p-1 motion-reduce:animate-none motion-reduce:duration-0"
+        className="w-56"
         data-testid="editor-block-insertion-menu"
-        finalFocus={() => {
-          if (returnFocusRef.current) onReturnFocus();
-          returnFocusRef.current = true;
-          return false;
-        }}
-        initialFocus={() =>
-          contentRef.current?.querySelector<HTMLButtonElement>("[role='menuitem']") ?? false
-        }
+        finalFocus={false}
         onKeyDown={handleKeyDown}
         ref={contentRef}
-        role="menu"
         side="right"
         sideOffset={8}
       >
-        {request.kinds.map((kind) => (
-          <button
-            className="w-full rounded-sm px-2 py-1.5 text-left text-sm outline-hidden hover:bg-accent focus:bg-accent focus:text-accent-foreground"
-            key={kind}
-            onClick={() => onExecute(kind)}
-            role="menuitem"
-            tabIndex={-1}
-            type="button"
+        {offersListItem ? (
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={() => restoreFocusAfter(() => onExecute("listItem"))}
           >
-            {t(LABEL_IDS[kind])}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+            <ListPlusIcon />
+            {t("editor.blockInsertion.listItem")}
+          </DropdownMenuItem>
+        ) : (
+          <EditorInsertMenuItems
+            canInsert={(kind) => request.kinds.includes(kind)}
+            onChooseCalloutType={(choice, token) =>
+              restoreFocusAfter(() => onChooseCalloutType(choice, token))
+            }
+            onInsert={(kind) => restoreFocusAfter(() => onExecute(kind))}
+            readCalloutTypes={readCalloutTypes}
+          />
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

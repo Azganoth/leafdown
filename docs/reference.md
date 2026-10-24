@@ -151,7 +151,7 @@ Shortcuts use `Mod` as the primary platform modifier (`Ctrl` on Windows/Linux, `
 - **Move block up** (`Alt+Up`): Moves a selected sibling range within its parent.
 - **Move block down** (`Alt+Down`): Moves a selected sibling range within its parent.
 - **Preview footnote or linked document** (`Mod+Alt+P` in the focused editor): Previews the footnote definition or the linked Markdown document the caret is reading, without moving focus. See [Links](./specification.md#links).
-- **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the local insertion menu after the current eligible block. Its items depend on the parent schema; inside a list, it offers a sibling list item.
+- **Insert block at current boundary** (`Mod+Alt+I` in the focused editor): Opens the gutter's insertion menu after the current eligible block. It holds the context popup's Insert groups, with the blocks the parent does not accept disabled; between list items, it offers a sibling list item alone.
 - **Line ending**
   - **Windows line ending (CRLF)**
   - **Unix line ending (LF)**
@@ -328,7 +328,7 @@ Outside tables, block movement uses separate full-width rows labeled `Move block
 - **Text selection:** Cut, Copy, Paste, Delete; Strong, Emphasis, Inline code, Link; Block type.
 - **Structural block selection:** Cut, Copy, Paste, Delete; Move block up; Move block down; Block type; Lists & quote; Insert.
 
-`Block type` holds Paragraph and Heading 1 through Heading 6. `Lists & quote` holds Blockquote, Ordered list, Unordered list, and Task list. `Insert` groups Paragraph under Text, a compact H1 through H6 picker under Heading, Blockquote, Callout, Ordered list, Unordered list, and Task list under Lists & containers, and Code block, Table, and Horizontal rule under Objects. Every heading choice retains its full accessible name. Its `Callout` has the same structure as the menu bar's `Insert > Callout`: the inferred dialect's types, a separator, and submenus for the other dialects, each type with the icon a callout of that type shows.
+`Block type` holds Paragraph and Heading 1 through Heading 6. `Lists & quote` holds Blockquote, Ordered list, Unordered list, and Task list. `Insert` groups Paragraph under Text, a compact H1 through H6 picker under Heading, Blockquote, Callout, Ordered list, Unordered list, and Task list under Lists & containers, and Image, Code block, Table, and Horizontal rule under Objects. Every heading choice retains its full accessible name. Its `Callout` has the same structure as the menu bar's `Insert > Callout`: the inferred dialect's types, a separator, and submenus for the other dialects, each type with the icon a callout of that type shows.
 
 The construct holding the whole caret or selection narrows its context:
 

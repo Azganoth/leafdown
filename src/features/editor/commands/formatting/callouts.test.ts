@@ -23,7 +23,7 @@ import { CALLOUT_TYPES, type CalloutDialect } from "../../plugins/callout";
 import type { CalloutTypeRequest } from "../../plugins/calloutType";
 import { leafdownSourceProjectionPluginKey } from "../../plugins/sourceProjection";
 import { canRedo, canUndo, redo, undo } from "../editing/history";
-import { canInsertBlockAtBoundary, insertBlockAtBoundary } from "../inserting/blocks";
+import { canInsertBlockAtBoundary } from "../inserting/blocks";
 import {
   applyCalloutType,
   canChangeCalloutType,
@@ -33,8 +33,10 @@ import {
   chooseCalloutType,
   closeCalloutType,
   insertCallout,
+  insertCalloutTypeAt,
   isCalloutExpanded,
   readCalloutTypeChoices,
+  readCalloutTypeChoicesAt,
   toggleCalloutExpanded,
 } from "./callouts";
 
@@ -388,12 +390,17 @@ describe("callout insertion", () => {
 
     expect(canInsertBlockAtBoundary(mounted.view.state, betweenItems, "callout")).toBe(false);
     expect(canInsertBlockAtBoundary(mounted.view.state, afterList, "callout")).toBe(true);
-
-    const before = mounted.view.state.doc;
-
-    expect(insertBlockAtBoundary(mounted.view, afterList, "callout")).toBe(true);
-    expect(mounted.view.state.doc).toBe(before);
-    expect(requests.at(-1)).toMatchObject({ target: { type: "insert", boundary: afterList } });
+    expect(readCalloutTypeChoicesAt(mounted.view.state, betweenItems)).toBeNull();
+    expect(readCalloutTypeChoicesAt(mounted.view.state, afterList)?.options[0]?.token).toBe("NOTE");
+    expect(
+      insertCalloutTypeAt(mounted.view, betweenItems, { type: "insert", dialect: "mkdocs" }, "tip"),
+    ).toBe(false);
+    expect(
+      insertCalloutTypeAt(mounted.view, afterList, { type: "insert", dialect: "mkdocs" }, "tip"),
+    ).toBe(true);
+    expect(requests).toEqual([]);
+    typeText(mounted.view, "Body");
+    await expectRoundTrip(mounted, "- first\n- second\n\n!!! tip\n    Body\n\nOutro\n");
   });
 });
 

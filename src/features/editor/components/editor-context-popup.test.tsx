@@ -191,6 +191,33 @@ describe("editor-context-popup", () => {
     await user.click(screen.getByRole("menuitem", { name: "Heading 6" }));
     expect(onExecute).toHaveBeenCalledWith("insert.heading6");
   });
+
+  it("offers Image first among the Insert submenu's objects", async () => {
+    const onExecute = vi.fn();
+    const { user } = renderWithUser(
+      <EditorContextPopup
+        request={{ ...KEYBOARD_REQUEST, selectionKind: "caret" }}
+        commandState={withEnabledCommands("insert.image")}
+        onClose={vi.fn()}
+        onExecute={onExecute}
+        onReturnFocus={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    const objects = (await screen.findByText("Objects")).closest<HTMLElement>("[role='group']")!;
+
+    expect(
+      within(objects)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["Image", "Code block", "Table", "Horizontal rule"]);
+    expect(within(objects).getByRole("menuitem", { name: "Table" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await user.click(within(objects).getByRole("menuitem", { name: "Image" }));
+    expect(onExecute).toHaveBeenCalledWith("insert.image");
+  });
   it("positions against the measured selection instead of a rendered anchor element", async () => {
     const getRect = vi.fn((_mode: ContextPopupAnchorMode) => createAnchorRect());
 

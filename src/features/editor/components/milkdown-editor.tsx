@@ -81,6 +81,7 @@ export function MilkdownEditor({
     calloutTypeRequest,
     cancelCalloutType,
     cancelCodeBlockLanguage,
+    chooseBlockInsertionCalloutType,
     chooseContextCalloutType,
     closeBlockInsertion,
     codeBlockLanguageRequest,
@@ -93,6 +94,7 @@ export function MilkdownEditor({
     focusEditor,
     footnotePreviewRequest,
     linkPreviewRequest,
+    readBlockInsertionCalloutTypes,
     readContextCalloutTypes,
     rootRef,
     search,
@@ -138,9 +140,11 @@ export function MilkdownEditor({
       />
       <EditorBlockInsertionMenu
         request={blockInsertionRequest}
+        onChooseCalloutType={chooseBlockInsertionCalloutType}
         onClose={closeBlockInsertion}
         onExecute={executeBlockInsertion}
         onReturnFocus={focusEditor}
+        readCalloutTypes={readBlockInsertionCalloutTypes}
       />
       <EditorCodeBlockLanguagePicker
         request={codeBlockLanguageRequest}

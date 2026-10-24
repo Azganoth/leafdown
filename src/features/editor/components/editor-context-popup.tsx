@@ -26,7 +26,6 @@ import {
   Heading5Icon,
   Heading6Icon,
   ImageIcon,
-  InfoIcon,
   ItalicIcon,
   Link2Icon,
   LightbulbIcon,
@@ -40,7 +39,6 @@ import {
   ScissorsIcon,
   Rows3Icon,
   Table2Icon,
-  TableIcon,
   TextAlignCenterIcon,
   TextAlignEndIcon,
   TextAlignStartIcon,
@@ -66,14 +64,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent } from "@/components/ui/popover";
@@ -90,6 +83,7 @@ import type { ContextPopupRequest, ContextPopupTable } from "../plugins/contextP
 import { isDismissedFromOutside } from "../utils/popoverDismissal";
 import type { TableAxis } from "../utils/tables";
 import { CalloutTypeIcon } from "./callout-type-icon";
+import { EditorInsertMenuItems, INSERT_MENU_COMMAND_IDS } from "./editor-insert-menu";
 
 interface ContextButtonCommand {
   commandId: EditorCommandId;
@@ -104,14 +98,6 @@ interface ContextSubmenuCommand {
   commandId: EditorCommandId;
   icon?: LucideIcon;
 }
-
-/** A nested submenu listing the types a new callout can take. */
-interface ContextCalloutTypesEntry {
-  calloutTypes: "insert";
-  icon: LucideIcon;
-}
-
-type ContextSubmenuEntry = ContextSubmenuCommand | ContextCalloutTypesEntry;
 
 const QUICK_ACTION_COMMANDS = [
   { commandId: "edit.cut", icon: ScissorsIcon },
@@ -225,40 +211,6 @@ const BLOCK_TYPE_COMMANDS = [
   { commandId: "format.heading6", icon: Heading6Icon },
 ] satisfies readonly ContextSubmenuCommand[];
 
-const INSERT_TEXT_COMMANDS = [
-  { commandId: "insert.paragraph", icon: PilcrowIcon },
-] satisfies readonly ContextSubmenuEntry[];
-
-const INSERT_HEADING_COMMANDS = [
-  { commandId: "insert.heading1", icon: Heading1Icon },
-  { commandId: "insert.heading2", icon: Heading2Icon },
-  { commandId: "insert.heading3", icon: Heading3Icon },
-  { commandId: "insert.heading4", icon: Heading4Icon },
-  { commandId: "insert.heading5", icon: Heading5Icon },
-  { commandId: "insert.heading6", icon: Heading6Icon },
-] satisfies readonly ContextSubmenuEntry[];
-
-const INSERT_CONTAINER_COMMANDS = [
-  { commandId: "insert.blockquote", icon: TextQuoteIcon },
-  { calloutTypes: "insert", icon: InfoIcon },
-  { commandId: "insert.orderedList", icon: ListOrderedIcon },
-  { commandId: "insert.unorderedList", icon: ListIcon },
-  { commandId: "insert.taskList", icon: ListTodoIcon },
-] satisfies readonly ContextSubmenuEntry[];
-
-const INSERT_OBJECT_COMMANDS = [
-  { commandId: "insert.codeBlock", icon: Code2Icon },
-  { commandId: "insert.table", icon: TableIcon },
-  { commandId: "insert.horizontalRule", icon: MinusIcon },
-] satisfies readonly ContextSubmenuEntry[];
-
-const INSERT_COMMANDS = [
-  ...INSERT_TEXT_COMMANDS,
-  ...INSERT_HEADING_COMMANDS,
-  ...INSERT_CONTAINER_COMMANDS,
-  ...INSERT_OBJECT_COMMANDS,
-];
-
 const OBJECT_COMMAND_ROWS = [
   { id: "footnote", commands: FOOTNOTE_COMMANDS },
   { id: "image", commands: IMAGE_COMMANDS },
@@ -282,8 +234,8 @@ type ContextRow =
       /** Continues the group the previous row began, with no separator between them. */
       joinsPrevious?: boolean;
     }
-  | { id: string; kind: "submenu"; commands: readonly ContextSubmenuEntry[]; labelId: MessageId }
-  | { id: string; kind: "calloutTypes" }
+  | { id: string; kind: "submenu"; commands: readonly ContextSubmenuCommand[]; labelId: MessageId }
+  | { id: string; kind: "calloutTypes" | "insert" }
   | { id: string; kind: "tableScope" | "tableActions" };
 
 const buttonRow = (id: string, commands: readonly ContextButtonCommand[]): ContextRow => ({
@@ -301,12 +253,7 @@ const BLOCK_TYPE_ROW: ContextRow = {
 
 const CALLOUT_TYPE_ROW: ContextRow = { id: "calloutType", kind: "calloutTypes" };
 
-const INSERT_ROW: ContextRow = {
-  commands: INSERT_COMMANDS,
-  id: "insert",
-  kind: "submenu",
-  labelId: "editor.contextPopup.insert",
-};
+const INSERT_ROW: ContextRow = { id: "insert", kind: "insert" };
 
 const getContextRows = (
   { container, selectionKind }: ContextPopupRequest,
@@ -754,12 +701,24 @@ export function EditorContextPopup({
                 commands={contextRow.commands}
                 fitted={fitted}
                 labelId={contextRow.labelId}
-                onChooseCalloutType={onChooseCalloutType}
                 onExecute={onExecute}
                 canExecute={canExecute}
-                readCalloutTypes={readCalloutTypes}
                 row={row}
               />
+            )}
+            {contextRow.kind === "insert" && (
+              <ContextSubmenu
+                icon={fitted ? PlusIcon : undefined}
+                label={t("editor.contextPopup.insert")}
+                row={row}
+              >
+                <EditorInsertMenuItems
+                  canInsert={(kind) => canExecute(INSERT_MENU_COMMAND_IDS[kind])}
+                  onChooseCalloutType={onChooseCalloutType}
+                  onInsert={(kind) => onExecute(INSERT_MENU_COMMAND_IDS[kind])}
+                  readCalloutTypes={() => readCalloutTypes("insert")}
+                />
+              </ContextSubmenu>
             )}
             {contextRow.kind === "calloutTypes" && (
               <ContextCalloutTypeSubmenu
@@ -1006,10 +965,10 @@ interface CalloutTypeChoiceProps {
   readCalloutTypes: (choice: CalloutTypeChoice) => CalloutTypeChoices | null;
 }
 
-interface ContextCommandSubmenuProps extends CalloutTypeChoiceProps {
+interface ContextCommandSubmenuProps {
   fitted: boolean;
   labelId: MessageId;
-  commands: readonly ContextSubmenuEntry[];
+  commands: readonly ContextSubmenuCommand[];
   onExecute: (commandId: EditorCommandId) => void;
   canExecute: (commandId: EditorCommandId) => boolean;
   row: number;
@@ -1019,182 +978,40 @@ function ContextCommandSubmenu({
   fitted,
   labelId,
   commands,
-  onChooseCalloutType,
   onExecute,
   canExecute,
-  readCalloutTypes,
   row,
 }: ContextCommandSubmenuProps) {
   const { t } = useLocalization();
   const label = t(labelId);
 
-  const renderEntry = (entry: ContextSubmenuEntry) => {
-    if ("calloutTypes" in entry) {
-      return (
-        <InsertCalloutSubmenu
-          enabled={canExecute("insert.callout")}
-          icon={entry.icon}
-          key="calloutTypes"
-          onChooseCalloutType={onChooseCalloutType}
-          readCalloutTypes={readCalloutTypes}
-        />
-      );
-    }
-
-    const { commandId, icon: CommandIcon } = entry;
-    const commandLabel = t(getEditorCommandLabelId(commandId));
-    const enabled = canExecute(commandId);
-
-    return (
-      <DropdownMenuItem
-        closeOnClick={false}
-        disabled={!enabled}
-        inset={!CommandIcon}
-        key={commandId}
-        onClick={() => onExecute(commandId)}
-      >
-        {CommandIcon && <CommandIcon />}
-        {commandLabel}
-      </DropdownMenuItem>
-    );
-  };
-
   return (
     <ContextSubmenu
       icon={
         fitted
-          ? labelId === "editor.contextPopup.insert"
-            ? PlusIcon
-            : labelId === "editor.contextPopup.listsAndQuote"
-              ? ListIcon
-              : PilcrowIcon
+          ? labelId === "editor.contextPopup.listsAndQuote"
+            ? ListIcon
+            : PilcrowIcon
           : undefined
       }
       label={label}
       row={row}
     >
-      {labelId === "editor.contextPopup.insert" ? (
-        <>
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("editor.contextPopup.text")}</DropdownMenuLabel>
-            {INSERT_TEXT_COMMANDS.map(renderEntry)}
-          </DropdownMenuGroup>
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("editor.contextPopup.heading")}</DropdownMenuLabel>
-            <div className="grid grid-cols-6 gap-0.5 px-1 pb-1">
-              {INSERT_HEADING_COMMANDS.map((entry, index) => {
-                return (
-                  <DropdownMenuItem
-                    aria-label={t(getEditorCommandLabelId(entry.commandId))}
-                    className="justify-center px-0 text-xs ring-1 ring-border"
-                    closeOnClick={false}
-                    disabled={!canExecute(entry.commandId)}
-                    key={entry.commandId}
-                    onClick={() => onExecute(entry.commandId)}
-                  >
-                    <span aria-hidden="true">H{index + 1}</span>
-                  </DropdownMenuItem>
-                );
-              })}
-            </div>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("editor.contextPopup.containers")}</DropdownMenuLabel>
-            {INSERT_CONTAINER_COMMANDS.map(renderEntry)}
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("editor.contextPopup.objects")}</DropdownMenuLabel>
-            {INSERT_OBJECT_COMMANDS.map(renderEntry)}
-          </DropdownMenuGroup>
-        </>
-      ) : (
-        <DropdownMenuGroup aria-label={label}>{commands.map(renderEntry)}</DropdownMenuGroup>
-      )}
+      <DropdownMenuGroup aria-label={label}>
+        {commands.map(({ commandId, icon: CommandIcon }) => (
+          <DropdownMenuItem
+            closeOnClick={false}
+            disabled={!canExecute(commandId)}
+            inset={!CommandIcon}
+            key={commandId}
+            onClick={() => onExecute(commandId)}
+          >
+            {CommandIcon && <CommandIcon />}
+            {t(getEditorCommandLabelId(commandId))}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuGroup>
     </ContextSubmenu>
-  );
-}
-
-interface InsertCalloutSubmenuProps extends CalloutTypeChoiceProps {
-  enabled: boolean;
-  icon: LucideIcon;
-}
-
-function InsertCalloutSubmenu({
-  enabled,
-  icon: Icon,
-  onChooseCalloutType,
-  readCalloutTypes,
-}: InsertCalloutSubmenuProps) {
-  const { t } = useLocalization();
-  const label = t("editor.contextPopup.callout");
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger disabled={!enabled}>
-        <Icon />
-        {label}
-      </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className="w-44">
-        <DropdownMenuGroup aria-label={label}>
-          <InsertCalloutItems
-            onChooseCalloutType={onChooseCalloutType}
-            readCalloutTypes={readCalloutTypes}
-          />
-        </DropdownMenuGroup>
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
-}
-
-function InsertCalloutItems({ onChooseCalloutType, readCalloutTypes }: CalloutTypeChoiceProps) {
-  const { t } = useLocalization();
-  const choices = readCalloutTypes("insert");
-
-  if (!choices) {
-    return null;
-  }
-
-  return (
-    <>
-      {choices.options.map(({ label, token }) => (
-        <DropdownMenuItem
-          closeOnClick={false}
-          key={token}
-          onClick={() => onChooseCalloutType("insert", token)}
-        >
-          <CalloutTypeIcon token={token} />
-          {label}
-        </DropdownMenuItem>
-      ))}
-      {choices.otherDialects && (
-        <>
-          <DropdownMenuSeparator />
-          {choices.otherDialects.map(({ dialect, options }) => (
-            <DropdownMenuSub key={dialect}>
-              <DropdownMenuSubTrigger inset>
-                {t(`editor.calloutDialect.${dialect}`)}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-44">
-                <DropdownMenuGroup aria-label={t(`editor.calloutDialect.${dialect}`)}>
-                  {options.map(({ label, token }) => (
-                    <DropdownMenuItem
-                      closeOnClick={false}
-                      key={token}
-                      onClick={() => onChooseCalloutType({ type: "insert", dialect }, token)}
-                    >
-                      <CalloutTypeIcon token={token} />
-                      {label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-        </>
-      )}
-    </>
   );
 }
 

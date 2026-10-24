@@ -183,6 +183,9 @@ export const applyCalloutType = (view: EditorView, request: CalloutTypeRequest, 
 /** Whether a type is chosen for the callout in the selection or for one to insert after it. */
 export type CalloutTypeChoice = "change" | "insert" | { type: "insert"; dialect: CalloutDialect };
 
+/** A new callout's type, in the dialect the document infers or in the one named. */
+export type InsertCalloutChoice = Exclude<CalloutTypeChoice, "change">;
+
 export interface CalloutTypeOption {
   label: string;
   token: string;
@@ -210,26 +213,34 @@ const findSelectedCallout = (state: EditorState) => {
   return position !== null && node?.type.name === CALLOUT_NODE_NAME ? { node, position } : null;
 };
 
+const findChosenDialect = (doc: ProseMirrorNode, choice: InsertCalloutChoice) =>
+  choice === "insert" ? findNewCalloutDialect(doc) : choice.dialect;
+
+const listNewCalloutTypes = (
+  doc: ProseMirrorNode,
+  choice: InsertCalloutChoice,
+): CalloutTypeChoices => {
+  const dialect = findChosenDialect(doc, choice);
+
+  return {
+    current: null,
+    options: listCalloutTypes(dialect),
+    otherDialects: CALLOUT_DIALECTS.filter((other) => other !== dialect).map((other) => ({
+      dialect: other,
+      options: listCalloutTypes(other),
+    })),
+  };
+};
+
 /** The types a choice offers, or `null` when there is no callout to change or nowhere to insert one. */
 export const readCalloutTypeChoices = (
   state: EditorState,
   choice: CalloutTypeChoice,
 ): CalloutTypeChoices | null => {
   if (choice !== "change") {
-    if (findCalloutInsertionBoundary(state) === null) {
-      return null;
-    }
-
-    const dialect = choice === "insert" ? findNewCalloutDialect(state.doc) : choice.dialect;
-
-    return {
-      current: null,
-      options: listCalloutTypes(dialect),
-      otherDialects: CALLOUT_DIALECTS.filter((other) => other !== dialect).map((other) => ({
-        dialect: other,
-        options: listCalloutTypes(other),
-      })),
-    };
+    return findCalloutInsertionBoundary(state) === null
+      ? null
+      : listNewCalloutTypes(state.doc, choice);
   }
 
   const callout = findSelectedCallout(state);
@@ -242,17 +253,28 @@ export const readCalloutTypeChoices = (
     : null;
 };
 
+/** The types a callout inserted at `boundary` can take, or `null` when none can go there. */
+export const readCalloutTypeChoicesAt = (state: EditorState, boundary: number) =>
+  canInsertCalloutAt(state, boundary) ? listNewCalloutTypes(state.doc, "insert") : null;
+
+/** Inserts a callout of the type at `boundary`, with no picker between. */
+export const insertCalloutTypeAt = (
+  view: EditorView,
+  boundary: number,
+  choice: InsertCalloutChoice,
+  token: string,
+) => {
+  const dialect = findChosenDialect(view.state.doc, choice);
+
+  return isCalloutType(dialect, token) && writeCalloutAt(view, boundary, dialect, token);
+};
+
 /** Inserts a callout of the type, or changes the selected callout to it, with no picker between. */
 export const chooseCalloutType = (view: EditorView, choice: CalloutTypeChoice, token: string) => {
   if (choice !== "change") {
     const boundary = findCalloutInsertionBoundary(view.state);
-    const dialect = choice === "insert" ? findNewCalloutDialect(view.state.doc) : choice.dialect;
 
-    return (
-      boundary !== null &&
-      isCalloutType(dialect, token) &&
-      writeCalloutAt(view, boundary, dialect, token)
-    );
+    return boundary !== null && insertCalloutTypeAt(view, boundary, choice, token);
   }
 
   const callout = findSelectedCallout(view.state);

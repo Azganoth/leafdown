@@ -6,7 +6,6 @@ import { areNonNullish } from "@/lib/predicates";
 
 import { canInsertCalloutAt } from "../../plugins/calloutType";
 import { getNodeType, setSelectionNear } from "../../utils/milkdown";
-import { insertCalloutAt } from "../formatting/callouts";
 
 export const IMAGE_MARKER = "![]()";
 
@@ -222,8 +221,6 @@ export const insertBlockAtBoundary = (
   kind: BoundaryInsertKind,
 ) => {
   if (!canInsertBlockAtBoundary(view.state, boundary, kind)) return false;
-  // A callout's type is chosen before anything is written.
-  if (kind === "callout") return insertCalloutAt(view, boundary);
   const fragment = createBoundaryFragment(view.state, kind);
   if (!fragment) return false;
   const tr = view.state.tr.insert(boundary, fragment);

@@ -41,9 +41,12 @@ import {
   applyCalloutType as applyCalloutTypeToView,
   chooseCalloutType as chooseCalloutTypeInView,
   closeCalloutType as closeCalloutTypeInView,
+  insertCalloutTypeAt,
   readCalloutTypeChoices,
+  readCalloutTypeChoicesAt,
   type CalloutTypeChoice,
   type CalloutTypeChoices,
+  type InsertCalloutChoice,
 } from "../commands/formatting/callouts";
 import {
   applyCodeBlockLanguage as applyCodeBlockLanguageToView,
@@ -431,6 +434,30 @@ export const useMilkdownEditorInstance = ({
       const view = editor.ctx.get(editorViewCtx);
       if (view.state.doc === request.document) {
         insertBlockAtBoundary(view, request.boundary, kind);
+      }
+      view.focus();
+    },
+    [blockInsertionRequest, closeBlockInsertion],
+  );
+
+  const readBlockInsertionCalloutTypes = useCallback(() => {
+    const editor = editorRef.current;
+    if (!blockInsertionRequest || !editor?.ctx) return null;
+    const { state } = editor.ctx.get(editorViewCtx);
+    return state.doc === blockInsertionRequest.document
+      ? readCalloutTypeChoicesAt(state, blockInsertionRequest.boundary)
+      : null;
+  }, [blockInsertionRequest]);
+
+  const chooseBlockInsertionCalloutType = useCallback(
+    (choice: InsertCalloutChoice, token: string) => {
+      const request = blockInsertionRequest;
+      const editor = editorRef.current;
+      closeBlockInsertion();
+      if (!request || !editor?.ctx) return;
+      const view = editor.ctx.get(editorViewCtx);
+      if (view.state.doc === request.document) {
+        insertCalloutTypeAt(view, request.boundary, choice, token);
       }
       view.focus();
     },
@@ -830,6 +857,7 @@ export const useMilkdownEditorInstance = ({
     calloutTypeRequest,
     cancelCalloutType,
     cancelCodeBlockLanguage,
+    chooseBlockInsertionCalloutType,
     chooseContextCalloutType,
     closeBlockInsertion,
     codeBlockLanguageRequest,
@@ -842,6 +870,7 @@ export const useMilkdownEditorInstance = ({
     footnotePreviewRequest,
     linkPreviewRequest,
     controlTooltipRequest,
+    readBlockInsertionCalloutTypes,
     readContextCalloutTypes,
     rootRef,
     search,

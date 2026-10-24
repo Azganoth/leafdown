@@ -46,6 +46,16 @@ export function EditorBlockInsertionMenu({
   // Between list items nothing but another item fits, so the full menu would be all disabled.
   const offersListItem = request.kinds.includes("listItem");
 
+  // A menu item takes focus back after its click handler has moved it into the document, and the
+  // menu then unmounts around it, so focus is restored once the item has had its turn.
+  const restoreFocusAfter = (choose: () => void) => {
+    choose();
+    window.requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active === document.body || active?.closest("[role='menu']")) onReturnFocus();
+    });
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Tab") {
       event.preventDefault();
@@ -76,15 +86,20 @@ export function EditorBlockInsertionMenu({
         sideOffset={8}
       >
         {offersListItem ? (
-          <DropdownMenuItem closeOnClick={false} onClick={() => onExecute("listItem")}>
+          <DropdownMenuItem
+            closeOnClick={false}
+            onClick={() => restoreFocusAfter(() => onExecute("listItem"))}
+          >
             <ListPlusIcon />
             {t("editor.blockInsertion.listItem")}
           </DropdownMenuItem>
         ) : (
           <EditorInsertMenuItems
             canInsert={(kind) => request.kinds.includes(kind)}
-            onChooseCalloutType={onChooseCalloutType}
-            onInsert={onExecute}
+            onChooseCalloutType={(choice, token) =>
+              restoreFocusAfter(() => onChooseCalloutType(choice, token))
+            }
+            onInsert={(kind) => restoreFocusAfter(() => onExecute(kind))}
             readCalloutTypes={readCalloutTypes}
           />
         )}

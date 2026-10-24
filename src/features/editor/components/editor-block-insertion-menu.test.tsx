@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { Node as ProseMirrorNode } from "@milkdown/kit/prose/model";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
@@ -141,5 +142,50 @@ describe("EditorBlockInsertionMenu", () => {
 
     expect(onClose).toHaveBeenCalled();
     expect(onReturnFocus).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, readonly BoundaryInsertKind[], string, string]>([
+    ["a block", ["listItem"], "List item", "{Enter}"],
+    ["a callout type", ROOT_KINDS, "Callout", "{ArrowRight}{Enter}"],
+  ])("leaves focus in the document after inserting %s", async (_, kinds, item, keys) => {
+    const editor = document.createElement("textarea");
+    document.body.append(editor);
+    const request: BlockInsertionRequest = {
+      anchor: document.body,
+      boundary: 4,
+      document: {} as ProseMirrorNode,
+      kinds,
+      onDismiss: vi.fn(),
+      source: "keyboard",
+    };
+    const focusEditor = () => editor.focus();
+
+    function Host() {
+      const [open, setOpen] = useState(true);
+      const close = () => {
+        focusEditor();
+        setOpen(false);
+      };
+      return (
+        <EditorBlockInsertionMenu
+          request={open ? request : null}
+          onChooseCalloutType={close}
+          onClose={() => setOpen(false)}
+          onExecute={close}
+          onReturnFocus={focusEditor}
+          readCalloutTypes={() => CALLOUT_CHOICES}
+        />
+      );
+    }
+
+    const { user } = renderWithUser(<Host />);
+    await waitFor(() => expect(menu()).toContainElement(document.activeElement as HTMLElement));
+    screen.getByRole("menuitem", { name: item }).focus();
+    await user.keyboard(keys);
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("editor-block-insertion-menu")).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(editor).toHaveFocus());
   });
 });

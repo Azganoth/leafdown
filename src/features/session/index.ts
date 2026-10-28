@@ -79,3 +79,4 @@ export {
   type SessionStore,
 } from "./stores/session";
 export { getDocumentName } from "./utils/documentNames";
+export { useDocumentNotices } from "./hooks/useDocumentNotices";

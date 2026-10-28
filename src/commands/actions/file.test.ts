@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { useArticleNavigatorStore } from "@/features/folder-context";
 import { useRecentItemsStore, useSettingsStore } from "@/features/preferences";
 import { exportActiveMarkdownDocumentAsHtml } from "@/features/session";
-import { toastManager } from "@/lib/toast";
+import { toastManager, persistentToastManager } from "@/lib/toast";
 import { createAppCommandContext } from "@/test/factories/commands";
 import { createSavedDocument } from "@/test/factories/document";
 import { createFolderContextWithNestedReadme } from "@/test/factories/folderContext";
@@ -169,11 +169,12 @@ describe("file actions", () => {
 
       await exportDocumentAsHtml();
 
-      expect(toastManager.add).toHaveBeenCalledWith({
+      expect(persistentToastManager.add).toHaveBeenCalledWith({
         description:
           "Image not found: a.png. Remote image was not loaded: https://x.example/b.png. A diagram that could not be rendered is shown as source. 1 more.",
         title: "Document exported as HTML with 4 items left out.",
         type: "warning",
+        timeout: 0,
       });
     });
 

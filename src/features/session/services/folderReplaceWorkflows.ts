@@ -22,7 +22,7 @@ import { requestDecision } from "@/lib/confirmation";
 import { handleUnexpectedError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 import { getPathParts, getRelativePath, PathMap, PathSet } from "@/lib/path";
-import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";
+import { notifyError, notifySuccess, notifyPersistentWarning } from "@/lib/toast";
 
 import { isUnsavedInOtherWindow } from "../stores/otherWindowDocuments";
 import { findTabByPath, useSessionStore } from "../stores/session";
@@ -523,7 +523,7 @@ const notifyOutcome = ({ failed, notAttempted, stale, written }: FolderReplaceRe
     return;
   }
 
-  notifyWarning({
+  notifyPersistentWarning({
     title: t("session.folderReplace.applied", { files, matches }),
     description: t("session.folderReplace.unchanged", { count: unchanged }),
   });

@@ -90,11 +90,7 @@ describe("reopen with a chosen encoding", () => {
         fileEncoding: { name: "windows-1252", bom: false },
       },
     });
-    expect(toastManager.add).toHaveBeenCalledWith({
-      description: undefined,
-      title: "Document opened.",
-      type: "success",
-    });
+    expect(toastManager.add).not.toHaveBeenCalled();
   });
 
   it("keeps the dirty document when discarding its changes is declined", async () => {

@@ -86,8 +86,29 @@ describe("desktop active document watcher", () => {
 
     await writeFile(documentWatcher.path, "External edit.\n");
 
-    await expect(toast("warning")).toHaveText(expect.stringContaining("File changed on disk"));
+    await expect(toast("warning")).toHaveText(
+      expect.stringContaining("File changed outside Leafdown"),
+    );
     await expect(documentState()).toHaveText("Unsaved, changed on disk");
+    await waitForEditorText("Unsaved local edit.");
+    await toast("warning").$("button=Actions").click();
+    await $('[role="menuitem"]*=Reload ').click();
+    const reloadPrompt = $('[data-slot="dialog-content"][data-open]');
+    await expect(reloadPrompt).toBeDisplayed();
+    await reloadPrompt.$("button=Keep editing").click();
+    expect(
+      await browser.execute(() => {
+        const notice = document.querySelector('[data-persistent="true"]');
+        if (!notice) return false;
+        const bounds = notice.getBoundingClientRect();
+        return (
+          bounds.top >= 0 &&
+          bounds.bottom <= window.innerHeight &&
+          bounds.right <= window.innerWidth
+        );
+      }),
+    ).toBe(true);
+    await expect(toast("warning")).toBeDisplayed();
     await waitForEditorText("Unsaved local edit.");
     await dismissToasts();
 
@@ -111,7 +132,7 @@ describe("desktop active document watcher", () => {
 
     await rm(documentWatcher.path);
 
-    await expect(toast("warning")).toHaveText(expect.stringContaining("File missing"));
+    await expect(toast("warning")).toHaveText(expect.stringContaining("File no longer found"));
     await expect(documentState()).toHaveText("File missing");
     await waitForEditorText("Unsaved local edit.");
   });

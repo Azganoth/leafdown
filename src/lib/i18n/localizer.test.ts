@@ -63,7 +63,7 @@ describe("createLocalization", () => {
     const german = createLocalization("de", { "preferences.title": "Einstellungen" });
 
     expect(german.t("preferences.title")).toBe("Einstellungen");
-    expect(german.t("preferences.restoreDefaults")).toBe("Restore defaults");
+    expect(german.t("preferences.restoreDefaults")).toBe("Reset all settings…");
   });
 
   it("falls back to English once per message when a translation cannot format", () => {

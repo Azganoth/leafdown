@@ -101,10 +101,6 @@ describe("documents another window changed", () => {
       { ...dirtyDocument, externalChange: { kind: "missing" } },
       { path: TEST_MARKDOWN_FILE_PATH, externalChange: null },
     ]);
-    expect(toastManager.add).toHaveBeenCalledWith({
-      title: "File missing",
-      description: '"readme.md" was deleted in another Leafdown window. The document stays open.',
-      type: "warning",
-    });
+    expect(toastManager.add).not.toHaveBeenCalled();
   });
 });

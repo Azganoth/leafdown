@@ -12,7 +12,7 @@ import {
 import { CancellationToken, isCancellationError } from "@/lib/cancellation";
 import { t } from "@/lib/i18n";
 import { getPathParts } from "@/lib/path";
-import { notifySuccess, notifyWarning } from "@/lib/toast";
+import { notifySuccess } from "@/lib/toast";
 
 import { findCurrentTab, findTabByPath, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
@@ -20,9 +20,6 @@ import { notifyOpenMarkdownFileError } from "./documentOpenWorkflows";
 import { runAfterPendingSaves } from "./documentWorkflows";
 
 type ExternalVersion = Extract<ExternalFileChange, { kind: "modified" }>;
-
-/** Who removed a file whose document stays open, which the warning names. */
-type MissingFileCause = "outsideLeafdown" | "anotherWindow";
 
 interface CheckedDocument {
   tabId: string;
@@ -38,14 +35,9 @@ interface CheckedDocument {
 export const checkDocumentFile = (
   path: string,
   cancellationToken: CancellationToken = CancellationToken.None,
-  missingFileCause: MissingFileCause = "outsideLeafdown",
-) => runAfterPendingSaves(() => checkDocumentFileNow(path, cancellationToken, missingFileCause));
+) => runAfterPendingSaves(() => checkDocumentFileNow(path, cancellationToken));
 
-const checkDocumentFileNow = async (
-  path: string,
-  cancellationToken: CancellationToken,
-  missingFileCause: MissingFileCause,
-) => {
+const checkDocumentFileNow = async (path: string, cancellationToken: CancellationToken) => {
   const tab = findTabByPath(useSessionStore.getState(), path);
 
   if (cancellationToken.isCancellationRequested || tab?.document.status !== "saved") {
@@ -85,7 +77,7 @@ const checkDocumentFileNow = async (
       setFileState(document, fileState.metadata, null);
       return;
     case "missing":
-      recordMissingFile(document, missingFileCause);
+      recordMissingFile(document);
       return;
     case "contentChanged": {
       const version: ExternalVersion = {
@@ -209,30 +201,12 @@ const setFileState = (
 
 const recordExternalVersion = (document: SavedDocumentState, version: ExternalVersion) => {
   setFileState(document, document.metadata, version);
-  notifyWarning({
-    title: t("session.externalChange.modified.title"),
-    description: t("session.externalChange.modified.description", {
-      name: getPathParts(document.path).name,
-    }),
-  });
 };
 
-const recordMissingFile = (
-  document: SavedDocumentState,
-  cause: MissingFileCause = "outsideLeafdown",
-) => {
+const recordMissingFile = (document: SavedDocumentState) => {
   if (document.externalChange?.kind === "missing") {
     return;
   }
 
-  const name = getPathParts(document.path).name;
-
   setFileState(document, document.metadata, { kind: "missing" });
-  notifyWarning({
-    title: t("session.externalChange.missing.title"),
-    description:
-      cause === "anotherWindow"
-        ? t("session.externalChange.missing.deletedInAnotherWindow", { name })
-        : t("session.externalChange.missing.description", { name }),
-  });
 };

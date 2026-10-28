@@ -1,6 +1,6 @@
 # Settings reference
 
-Make Leafdown comfortable to read and choose how it opens, saves, and restores your work. Open **File > Preferences...** (`Mod+,`). Changes persist across launches and are shared by your windows. **Restore defaults** returns settings to their defaults.
+Make Leafdown comfortable to read and choose how it opens, saves, and restores your work. Open **File > Preferences...** (`Mod+,`). Changes persist across launches and are shared by your windows. **Reset all settings…** asks before restoring General, Files, Editor, and Appearance preferences across Leafdown. Choose **Cancel** to leave them as they are. Resetting does not change your documents.
 
 ![Preferences has a section list on the left and controls on the right, with a document preview beneath typography choices.](illustrations/preferences.svg)
 

@@ -59,19 +59,6 @@ const createReloadedDocument = (content = "# After\n") =>
     fingerprint: CHANGED_FINGERPRINT,
   });
 
-const modifiedWarning = {
-  title: "File changed on disk",
-  description:
-    '"readme.md" changed outside Leafdown. Your unsaved changes are kept, and saving asks before overwriting the file.',
-  type: "warning",
-};
-
-const missingWarning = {
-  title: "File missing",
-  description: '"readme.md" was moved or deleted outside Leafdown. The document stays open.',
-  type: "warning",
-};
-
 const getActiveTabVersion = () => {
   const tab = getActiveTab(useSessionStore.getState());
 
@@ -274,7 +261,7 @@ describe("external document changes", () => {
       });
       expect(getActiveTabVersion()).toEqual(before);
       expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
-      expect(toastManager.add).toHaveBeenCalledExactlyOnceWith(modifiedWarning);
+      expect(toastManager.add).not.toHaveBeenCalled();
 
       mockTauriApi({ inspectMarkdownFile: () => contentChanged({ metadata: LATER_METADATA }) });
 
@@ -284,7 +271,7 @@ describe("external document changes", () => {
         metadata: activeDocument.metadata,
         externalChange: { metadata: LATER_METADATA, fingerprint: CHANGED_FINGERPRINT },
       });
-      expect(toastManager.add).toHaveBeenCalledOnce();
+      expect(toastManager.add).not.toHaveBeenCalled();
 
       mockTauriApi({
         inspectMarkdownFile: () => contentChanged({ fingerprint: OTHER_FINGERPRINT }),
@@ -296,7 +283,7 @@ describe("external document changes", () => {
         content: "# Local edit\n",
         externalChange: { fingerprint: OTHER_FINGERPRINT },
       });
-      expect(toastManager.add).toHaveBeenCalledTimes(2);
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
 
     it("still asks before a later save overwrites the external version", async () => {
@@ -364,7 +351,7 @@ describe("external document changes", () => {
           ...activeDocument,
           externalChange: { kind: "missing" },
         });
-        expect(toastManager.add).toHaveBeenCalledExactlyOnceWith(missingWarning);
+        expect(toastManager.add).not.toHaveBeenCalled();
       },
     );
 
@@ -412,7 +399,7 @@ describe("external document changes", () => {
         ...activeDocument,
         externalChange: { kind: "missing" },
       });
-      expect(toastManager.add).toHaveBeenCalledExactlyOnceWith(missingWarning);
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
   });
 
@@ -526,7 +513,7 @@ describe("external document changes", () => {
           },
         },
       });
-      expect(toastManager.add).toHaveBeenCalledExactlyOnceWith(modifiedWarning);
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
 
     it("stops a cancelled check before it inspects the file", async () => {

@@ -263,6 +263,6 @@ describe("useDocumentWatchers", () => {
     expect(useSessionStore.getState().activeDocument).toMatchObject({
       externalChange: { kind: "missing" },
     });
-    expect(toastManager.add).toHaveBeenCalledOnce();
+    expect(toastManager.add).not.toHaveBeenCalled();
   });
 });

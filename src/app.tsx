@@ -122,6 +122,7 @@ export function App() {
           localizer.current.t("app.restoreSessionFailed"),
           error,
           "restoreKeptWindowSession",
+          { persistent: true },
         );
       } finally {
         disposables.add(followKeptSession());

@@ -1,6 +1,6 @@
 import { isCancellationError } from "./cancellation";
 import type { MessageData } from "./messages";
-import { notifyError } from "./toast";
+import { notifyError, notifyPersistentError } from "./toast";
 
 export interface UnexpectedErrorContext {
   componentStack?: string;
@@ -82,6 +82,7 @@ export const notifyOperationFailure = (
   titleOrMessage: MessageData | string,
   error: unknown,
   context?: UnexpectedErrorContextInput,
+  options?: { persistent?: boolean },
 ) => {
   if (isCancellationError(error)) {
     return;
@@ -90,11 +91,12 @@ export const notifyOperationFailure = (
   const normalizedError = toError(error);
   const description = normalizedError.message || undefined;
 
-  notifyError(
+  const message =
     typeof titleOrMessage === "string"
       ? { title: titleOrMessage, description }
-      : { ...titleOrMessage, description: titleOrMessage.description ?? description },
-  );
+      : { ...titleOrMessage, description: titleOrMessage.description ?? description };
+  if (options?.persistent) notifyPersistentError(message);
+  else notifyError(message);
   handleUnexpectedError(normalizedError, context);
 };
 

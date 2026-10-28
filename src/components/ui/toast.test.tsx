@@ -2,7 +2,13 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { notifyError, notifyErrorWithActionMenu, notifyPending, toastManager } from "@/lib/toast";
+import {
+  notifyError,
+  notifyErrorWithActionMenu,
+  notifyPending,
+  toastManager,
+  persistentToastManager,
+} from "@/lib/toast";
 import { act, renderWithUser, screen, waitFor } from "@/test/utils/react";
 import { hoverAndQueryTooltip } from "@/test/utils/tooltip";
 
@@ -11,6 +17,32 @@ import { Toaster } from "./toast";
 describe("Toaster", () => {
   beforeEach(() => {
     vi.mocked(toastManager.add).mockRestore();
+    vi.mocked(persistentToastManager.add).mockRestore();
+    vi.mocked(persistentToastManager.update).mockRestore();
+    vi.mocked(persistentToastManager.close).mockRestore();
+  });
+
+  it("keeps persistent action menus available alongside more than three temporary messages", async () => {
+    const save = vi.fn();
+    const { user } = renderWithUser(<Toaster timeout={0} />);
+    act(() => {
+      persistentToastManager.add({
+        title: "File missing",
+        timeout: 0,
+        data: {
+          actionMenu: {
+            label: "Actions",
+            kind: "actions",
+            items: [{ label: "Save as", run: save }],
+          },
+        },
+      });
+      for (let i = 0; i < 5; i++) notifyError(`Temporary ${i}`);
+    });
+    await user.click(await screen.findByRole("button", { name: "Actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Save as" }));
+    expect(save).toHaveBeenCalledOnce();
+    expect(screen.getByText("File missing")).toBeInTheDocument();
   });
 
   it("names its close button without a tooltip repeating the close mark", async () => {

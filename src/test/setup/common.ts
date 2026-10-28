@@ -1,6 +1,6 @@
 import { beforeEach, vi } from "vitest";
 
-import { toastManager } from "@/lib/toast";
+import { toastManager, persistentToastManager } from "@/lib/toast";
 
 import {
   createTauriAppMock,
@@ -28,6 +28,9 @@ vi.mock("@tauri-apps/plugin-opener", () => createTauriOpenerMock());
 
 beforeEach(() => {
   vi.spyOn(toastManager, "add").mockReturnValue("test-toast");
+  vi.spyOn(persistentToastManager, "add").mockReturnValue("persistent-test-toast");
+  vi.spyOn(persistentToastManager, "update").mockImplementation(() => undefined);
+  vi.spyOn(persistentToastManager, "close").mockImplementation(() => undefined);
 
   resetTauriMocks();
   resetAppStores();

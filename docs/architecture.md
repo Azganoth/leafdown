@@ -274,6 +274,8 @@ While the replace field shows, the same run plans a replacement: there is no res
 
 ### External Change Workflow
 
+Session follows the open tabs' external-change state and owns one grouped recovery notification. It identifies a notice by tab, generation, native path identity, and external version; dismissal acknowledges that version until it resolves or another version arrives. The shared toast layer supplies a separate persistent queue and an always-expanded, scrollable viewport, so temporary messages cannot displace recovery actions. Actions revalidate the tab and version before invoking the existing tab-specific Save as or reload workflow. Closing tabs, saving, and returning files retire resolved notices through the same state subscription.
+
 Backend reports an event naming an open document to the window watching it -> Session debounces each document's events into one check -> The check queues behind pending saves and renames, which replace the file and the document's version together -> Backend compares the file's metadata, then its fingerprint, with the document's version -> Session accepts a touch's metadata, reloads a clean document in its tab through the open path, records a newer version for a dirty document, or records a missing file -> A result for a document that was replaced, renamed, or closed in the meantime is discarded.
 
 A document watch starts for each saved document a tab opens or moves to, and stops when that path leaves every tab; it checks the file once it is in place, since the file can change between being read and being watched. A reload remounts the editor, as a reopen does, and carries the caret and focus into the new editor.

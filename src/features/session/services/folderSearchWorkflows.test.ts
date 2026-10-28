@@ -360,9 +360,7 @@ describe("folder search workflows", () => {
 
     expect(requestConfirmation).not.toHaveBeenCalled();
     expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
-    expect(toastManager.add).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "That match is no longer in beta.md." }),
-    );
+    expect(toastManager.add).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(summarize()).toEqual([[ALPHA, 1]]));
     expect(useFolderSearchStore.getState().results?.skipped).toEqual([
       { path: BETA, reason: "missingFile" },
@@ -401,9 +399,7 @@ describe("folder search workflows", () => {
     await opening;
 
     expect(useFolderSearchStore.getState().chosenMatch).toBeNull();
-    expect(toastManager.add).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "That match is no longer in beta.md." }),
-    );
+    expect(toastManager.add).not.toHaveBeenCalled();
     expect(summarize()).toEqual([[ALPHA, 1]]);
   });
 

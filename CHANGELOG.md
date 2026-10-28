@@ -13,6 +13,9 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
+- Keep unresolved file changes and missing files in one persistent notification with document-specific show, Save as, and reload actions. Keep session recovery failures, incomplete exports, and partial folder replacements visible until dismissed, and remove routine document lifecycle confirmations.
+- Rename Restore defaults to Reset all settings and ask before restoring preferences across all categories and windows.
+
 - Unify menu and context-popup surfaces, align checkmarks and shortcuts, and separate navigator Delete from ordinary actions. Keep the menu bar text-based, group Insert with Footnote after Image, and use a faint neutral workspace background in the light appearance.
 - Give block context actions labeled movement rows and a Lists & quote submenu. Group the popup's Insert choices with a compact heading picker while retaining text-selection and table controls.
 - Open the same Insert menu from the gutter's insert button as from the context popup, with blocks that cannot go there disabled and every callout dialect offered at the slot. The popup's Insert menu gains Image.

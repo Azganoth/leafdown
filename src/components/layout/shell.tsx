@@ -36,6 +36,7 @@ import {
   searchFolderFurther,
   submitFolderSearch,
   useDocumentWatchers,
+  useDocumentNotices,
   useFolderContextWatcher,
   useFolderSearchSession,
   useSessionStore,
@@ -93,6 +94,7 @@ export function Shell() {
   const contextTransitioning = useNamedFoldersStore((state) => state.transitioning);
   useFolderContextWatcher();
   useDocumentWatchers();
+  useDocumentNotices();
   useWindowDocuments();
   useFolderSearchSession();
 

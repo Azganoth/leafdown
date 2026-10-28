@@ -335,7 +335,7 @@ describe("desktop folder search", () => {
     // Leafdown's own writes are not taken for changes made outside it.
     await browser.pause(1_000);
     expect(await $("aria/Reloaded from disk").isExisting()).toBe(false);
-    expect(await $("aria/File changed on disk").isExisting()).toBe(false);
+    expect(await $("aria/File changed outside Leafdown").isExisting()).toBe(false);
 
     await mkdir(ARTIFACTS_DIR, { recursive: true });
     await browser.saveScreenshot(path.join(ARTIFACTS_DIR, "folder-replace-report.png"));

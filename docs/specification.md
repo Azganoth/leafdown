@@ -532,7 +532,7 @@ Arrow keys move through results, and `Home` and `End` select the first and last 
 
 ### Document Typography
 
-- **Document font**, **Text size**, and **Line spacing** set how document content is displayed. They are global, persist across launches, and apply to every open document as soon as they change. `Restore defaults` returns them to Inter, 16 px, and Default.
+- **Document font**, **Text size**, and **Line spacing** set how document content is displayed. They are global, persist across launches, and apply to every open document as soon as they change. `Reset all settings` returns them to Inter, 16 px, and Default.
 - Document font sets the family of document prose, headings included: Inter, IBM Plex Sans, Atkinson Hyperlegible Next, or Literata, each bundled with Leafdown, or the platform's System font. Code blocks, inline code, and projected Markdown source keep their monospace font.
 - Preferences shows a preview beneath the three settings: a heading, a paragraph, a list with emphasis, and a line of code, set in the document styles with the current choices and updated as they change. The preview is decorative, so assistive technology skips it, and it does not depend on a document being open.
 - Text size is the base size of document prose. Headings, code, tables, footnotes, list markers, and task checkboxes keep their proportion to it. Code keeps its size and line height relative to prose.
@@ -545,7 +545,7 @@ Arrow keys move through results, and `Home` and `End` select the first and last 
 - **Always on top** keeps every Leafdown window above windows that are not themselves on top. It is Off by default, global, and persists across launches. Every open window, and every window opened later, follows it; a window that refuses the change reports the failure.
 - Turning it on or off changes the window first and records the setting only once the window accepts the change. A change the window refuses is reported, and the setting and its checkmark stay as they were.
 - On launch, a setting left On is applied before the window is shown. If the window refuses it, Leafdown still opens, turns the setting Off, and reports the failure.
-- `Restore defaults` turns it Off and takes the window off the top. If the window refuses, the other settings are still restored, the setting stays On, and the failure is reported.
+- `Reset all settings` turns it Off and takes the window off the top. If the window refuses, the other settings are still restored, the setting stays On, and the failure is reported.
 - Entering or leaving `Full screen` leaves the setting unchanged. The operating system may let other windows cover a full-screen window, and leaving full screen returns the window to the requested behavior without toggling the setting again.
 
 ### Language
@@ -652,7 +652,7 @@ The article navigator's context menus act on the row or empty space they were op
 - `Rename` edits the row's name in place, with the name before a file's extension selected. `Enter` or moving focus elsewhere in Leafdown commits it, and `Escape` or an unchanged name cancels it. A file renamed without an extension keeps its current one. Renaming only the letter case of a name is allowed.
 - A name that is empty, `.` or `..`, holds a path separator or a character the platform cannot store in a name, ends in a period or space on Windows, or is a reserved Windows device name is refused. So is a name another entry in the folder already has. A refused name leaves the filesystem unchanged and explains why; after `Enter` the name stays open for correction, and after focus moves elsewhere in Leafdown the edit ends.
 - Renaming an open saved document, or a folder containing open documents, moves each of them to its new path in its own tab, in every window, and keeps its editor content and unsaved changes. Recent files and folders at or inside the renamed path move with it, and folders expanded inside it stay expanded. Links in other documents are not rewritten.
-- `Delete` asks for confirmation, then moves the entry to the system Recycle Bin or Trash; a folder goes with everything in it. Leafdown never deletes an entry permanently on its own: an entry the Recycle Bin or Trash cannot take is reported as an error, and on Windows the system may instead ask whether to delete it permanently. Deleting an open document, or a folder containing open documents, asks once about the unsaved changes of those in the window first and closes their tabs afterward. Declining either question changes nothing. Tabs in other windows that hold a deleted document stay open with their text and show the file missing, as [Filesystem Watching](#filesystem-watching) describes for a file deleted outside Leafdown, with a warning that another window deleted it.
+- `Delete` asks for confirmation, then moves the entry to the system Recycle Bin or Trash; a folder goes with everything in it. Leafdown never deletes an entry permanently on its own: an entry the Recycle Bin or Trash cannot take is reported as an error, and on Windows the system may instead ask whether to delete it permanently. Deleting an open document, or a folder containing open documents, asks once about the unsaved changes of those in the window first and closes their tabs afterward. Declining either question changes nothing. Tabs in other windows that hold a deleted document stay open with their text and show the file missing, as [Filesystem Watching](#filesystem-watching) describes for a file deleted outside Leafdown, with a persistent missing-file notification.
 - `Open file location` and `Open folder location` reveal the row's entry, or the folder context root from the empty space, in the system file manager.
 - `Copy path` copies the entry's absolute path. `Copy relative path` copies its path relative to the folder context root, using the platform's separator, and copies `.` for the root itself. Copying changes nothing else.
 - A completed action refreshes the article navigator at once and focuses the created or renamed row, or the row the action started from when it is cancelled. Missing entries, permission, collision, clipboard, trash, and other filesystem failures show an error and leave the navigator and session unchanged.
@@ -721,6 +721,14 @@ Confirmations, warnings, and security blocks affect editor rendering only; sourc
 For local-path resolution and asset-protocol handling, see [Architecture](./architecture.md#frontend-responsibilities).
 
 ## Saving, Limits, And Errors
+
+### Notifications
+
+- Routine creation, opening, closing, saving, and reopening with an encoding produce no success notification; the document and navigator show the result. Copy feedback, export destinations, bulk-replacement counts, explicit update-check results, and automatic external reloads retain feedback.
+- External changes to edited documents and missing files share one persistent notification per window. Its Actions menu names each affected document and offers Show, Save as, and, for a changed file, Reload from disk. Actions still target that document after switching tabs, and reload uses the existing unsaved-changes confirmation. Cancelled or failed actions leave the notice available.
+- A notice updates in place for new external versions. It disappears when the affected files resolve or close. Dismissal acknowledges the currently reported versions without clearing file state or save protections; the same version does not notify again, but a new version, or a missing file that returns and disappears again, can.
+- Persistent notifications have an expanded, scrollable region separate from temporary notifications, so temporary messages cannot displace recovery actions. Session preservation/restoration failures, lost recovery text, incomplete exports, and partial folder-replacement results stay until dismissed. A search result that has become unavailable uses its result-row state without another toast.
+- Reset all settings asks before restoring General, Files, Editor, and Appearance across windows. Cancelling or dismissing the confirmation leaves all settings unchanged. Confirming preserves documents and produces no routine success notification.
 
 File operations govern how Leafdown writes to disk and resolves conflicts or errors.
 

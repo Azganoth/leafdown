@@ -34,8 +34,6 @@ export const checkDocumentsRemovedElsewhere = async (path: string) => {
     );
 
   await Promise.all(
-    removedPaths.map((removedPath) =>
-      checkDocumentFile(removedPath, CancellationToken.None, "anotherWindow"),
-    ),
+    removedPaths.map((removedPath) => checkDocumentFile(removedPath, CancellationToken.None)),
   );
 };

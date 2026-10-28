@@ -11,6 +11,7 @@ export interface ToastActionMenuItem {
 export interface ToastActionMenu {
   label: string;
   items: readonly ToastActionMenuItem[];
+  kind?: "actions";
 }
 
 export interface ToastData {
@@ -18,6 +19,13 @@ export interface ToastData {
 }
 
 export const toastManager = Toast.createToastManager<ToastData>();
+export const persistentToastManager = Toast.createToastManager<ToastData>();
+
+export const notifyPersistentError = (message: MessageData) =>
+  persistentToastManager.add({ ...message, type: "error", timeout: 0 });
+
+export const notifyPersistentWarning = (message: MessageData) =>
+  persistentToastManager.add({ ...message, type: "warning", timeout: 0 });
 
 export function notifyError(message: MessageData): void;
 export function notifyError(title: string, description?: string): void;

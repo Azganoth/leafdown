@@ -122,6 +122,8 @@ Leafdown watches every open file, including those outside the pinned folder:
 - **Edited document changed on disk:** Your edits remain and a warning appears. Saving over the external change asks first.
 - **File removed:** The document remains available; Save offers Save as.
 
+If an open file changes outside Leafdown while you have unsaved edits, or its file is moved or deleted, a notification stays until you dismiss it or resolve the problem. **Actions** offers **Show**, **Save as…**, and, for a changed file, **Reload from disk…**. Reloading asks before discarding unsaved edits. Each action names its document and still applies to that document after you switch tabs. Multiple affected documents share one notification. Dismissing it leaves the file's status and save protections in place.
+
 Saving retains the file's trailing blank lines, though they are not displayed as empty document lines. Selecting everything and replacing or deleting it removes those lines too.
 
 Continue with [Settings reference](settings-reference.md) for restoration, folder scanning, and file defaults.

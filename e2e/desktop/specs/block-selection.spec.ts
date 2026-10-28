@@ -407,7 +407,10 @@ describe("desktop block selection", () => {
     const { definitionList } = await getDesktopE2ERunContext();
     await closeAllDocuments();
     await openRecentPath(definitionList.path);
-    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await expect($('[data-testid="document-tab"][data-active]')).toHaveText(
+      path.basename(definitionList.path),
+    );
+    await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
 
     const list = $(
@@ -441,7 +444,10 @@ describe("desktop block selection", () => {
     await closeAllDocuments();
     await openRecentPath(blocks.path);
     await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
-    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await expect($('[data-testid="document-tab"][data-active]')).toHaveText(
+      path.basename(blocks.path),
+    );
+    await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
     const target = await getGeometryForText("Nested first");
     const root = await getGeometryForText("Root paragraph with projected source.");
@@ -655,7 +661,10 @@ describe("desktop block selection", () => {
     await closeAllDocuments();
     await openRecentPath(blocks.path);
     await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
-    await expect($('[data-slot="toast"]')).toBeDisplayed();
+    await expect($('[data-testid="document-tab"][data-active]')).toHaveText(
+      path.basename(blocks.path),
+    );
+    await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
 
     await browser.action("pointer").move({ origin: "viewport", x: 1, y: 1 }).perform();

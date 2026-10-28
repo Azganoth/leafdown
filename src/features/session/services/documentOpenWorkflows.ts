@@ -16,7 +16,7 @@ import {
 } from "@/lib/cancellation";
 import { t } from "@/lib/i18n";
 import type { MessageData } from "@/lib/messages";
-import { notifyError, notifyErrorWithActionMenu, notifySuccess } from "@/lib/toast";
+import { notifyError, notifyErrorWithActionMenu } from "@/lib/toast";
 
 import {
   findTab,
@@ -222,10 +222,6 @@ export const reopenMarkdownFileWithChosenEncoding = async (
 ) => {
   try {
     const opened = await openMarkdownFileAtPath(path, { encoding, reload: true });
-
-    if (opened) {
-      notifySuccess(t("session.documentOpened"));
-    }
 
     return opened;
   } catch (error) {

@@ -14,6 +14,8 @@ import {
   DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -22,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLocalization } from "@/lib/i18n";
 import {
   toastManager,
+  persistentToastManager,
   type ToastActionMenu as ToastActionMenuData,
   type ToastData,
 } from "@/lib/toast";
@@ -203,28 +206,47 @@ function ToastActionMenu({ menu }: ToastActionMenuProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" className="w-auto overflow-hidden">
         <ScrollArea viewportClassName={DROPDOWN_MENU_SCROLL_VIEWPORT_CLASS}>
-          <DropdownMenuRadioGroup
-            value={checkedIndex === -1 ? "" : String(checkedIndex)}
-            onValueChange={(index: string) => menu.items[Number(index)]?.run()}
-          >
-            {menu.items.map((item, index) => (
-              <DropdownMenuRadioItem key={item.label} value={String(index)}>
-                {item.label}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
+          {menu.kind === "actions" ? (
+            <DropdownMenuGroup>
+              {menu.items.map((item, index) => (
+                <DropdownMenuItem
+                  key={index}
+                  onClick={item.run}
+                  className="break-all whitespace-normal"
+                >
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
+          ) : (
+            <DropdownMenuRadioGroup
+              value={checkedIndex === -1 ? "" : String(checkedIndex)}
+              onValueChange={(index: string) => menu.items[Number(index)]?.run()}
+            >
+              {menu.items.map((item, index) => (
+                <DropdownMenuRadioItem key={item.label} value={String(index)}>
+                  {item.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          )}
         </ScrollArea>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-function ToastList() {
+function ToastList({ persistent = false }: { persistent?: boolean }) {
   const { toasts } = ToastPrimitive.useToastManager<ToastData>();
 
   return toasts.map((toastItem) => (
-    <Toast key={toastItem.id} toast={toastItem}>
-      <ToastContent>
+    <Toast
+      key={toastItem.id}
+      toast={toastItem}
+      data-persistent={persistent || undefined}
+      className={persistent ? "relative h-auto! transform-none!" : undefined}
+    >
+      <ToastContent className={persistent ? "flex-wrap data-behind:opacity-100" : undefined}>
         <ToastIcon type={toastItem.type} />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <ToastTitle />
@@ -247,14 +269,23 @@ function Toaster({
   ...props
 }: ToastPrimitive.Provider.Props) {
   return (
-    <ToastProvider toastManager={manager} {...props}>
-      {children}
-      <ToastPortal>
-        <ToastViewport>
-          <ToastList />
-        </ToastViewport>
-      </ToastPortal>
-    </ToastProvider>
+    <>
+      <ToastProvider toastManager={manager} {...props}>
+        {children}
+        <ToastPortal>
+          <ToastViewport>
+            <ToastList />
+          </ToastViewport>
+        </ToastPortal>
+      </ToastProvider>
+      <ToastProvider toastManager={persistentToastManager} timeout={0} limit={Infinity}>
+        <ToastPortal>
+          <ToastViewport className="pointer-events-auto top-auto bottom-4 flex max-h-[calc(100dvh-4rem)] flex-col gap-3 overflow-y-auto p-1">
+            <ToastList persistent />
+          </ToastViewport>
+        </ToastPortal>
+      </ToastProvider>
+    </>
   );
 }
 

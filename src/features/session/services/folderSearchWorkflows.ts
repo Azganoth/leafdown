@@ -17,10 +17,8 @@ import {
   type FolderSearchState,
 } from "@/features/folder-search";
 import { useSettingsStore } from "@/features/preferences";
-import { t } from "@/lib/i18n";
 import { DisposableStore, toDisposable, type Disposable } from "@/lib/lifecycle";
-import { getPathParts, isSamePath, PathSet } from "@/lib/path";
-import { notifyWarning } from "@/lib/toast";
+import { isSamePath, PathSet } from "@/lib/path";
 
 import {
   isUnsavedInOtherWindow,
@@ -376,9 +374,6 @@ export const closeFolderSearch = () => {
 const reportMatchGone = (match: FolderSearchMatchKey) => {
   useFolderSearchStore.getState().markMatchUnavailable(match);
   activeSession?.refreshFile(match.path);
-  notifyWarning(
-    t("session.folderSearch.matchUnavailable", { name: getPathParts(match.path).name }),
-  );
 };
 
 /**

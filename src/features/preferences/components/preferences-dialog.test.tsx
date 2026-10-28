@@ -46,6 +46,19 @@ const MVP_SETTINGS_BY_TAB = {
 const POST_MVP_SETTINGS = ["Render/editor theme"];
 
 describe("preferences-dialog", () => {
+  it("cancels a reset without changing preferences or native window state", async () => {
+    setDefaultSettings({ theme: "dark", alwaysOnTop: true });
+    const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Reset all settings…" }));
+    expect(screen.getByRole("dialog", { name: "Reset all settings?" })).toHaveTextContent(
+      "General, Files, Editor, and Appearance",
+    );
+    expect(useSettingsStore.getState().theme).toBe("dark");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(useSettingsStore.getState()).toMatchObject({ theme: "dark", alwaysOnTop: true });
+    expect(getCurrentWindow().setAlwaysOnTop).not.toHaveBeenCalled();
+  });
+
   it("exposes MVP settings without Post-MVP settings", async () => {
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
@@ -281,7 +294,8 @@ describe("preferences-dialog", () => {
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Restore defaults" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings…" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings" }));
 
     expect(useSettingsStore.getState()).toMatchObject({
       displayCodeBlockLineNumbers: false,
@@ -299,7 +313,8 @@ describe("preferences-dialog", () => {
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Restore defaults" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings…" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings" }));
 
     await vi.waitFor(() => {
       expect(useSettingsStore.getState().alwaysOnTop).toBe(false);
@@ -316,7 +331,8 @@ describe("preferences-dialog", () => {
 
     const { user } = renderWithUser(<PreferencesDialog open onOpenChange={vi.fn()} />);
 
-    await user.click(screen.getByRole("button", { name: "Restore defaults" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings…" }));
+    await user.click(screen.getByRole("button", { name: "Reset all settings" }));
 
     await vi.waitFor(() => {
       expect(toastManager.add).toHaveBeenCalledWith({

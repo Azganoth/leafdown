@@ -14,7 +14,7 @@ import { handleUnexpectedError } from "@/lib/errors";
 import { t } from "@/lib/i18n";
 import { DisposableStore, toDisposable, type Disposable } from "@/lib/lifecycle";
 import { getPathParts } from "@/lib/path";
-import { notifyError, notifyWarning } from "@/lib/toast";
+import { notifyError, notifyPersistentError, notifyPersistentWarning } from "@/lib/toast";
 
 import { useNamedFoldersStore } from "../stores/namedFolders";
 import {
@@ -205,7 +205,7 @@ class KeptSessionReporter {
     }
 
     this.failureReported = true;
-    notifyWarning({
+    notifyPersistentWarning({
       title: t("session.keepSession.failed.title"),
       description: t("session.keepSession.failed.description"),
     });
@@ -446,7 +446,7 @@ const toUnsavedDocument = (tab: KeptSavedTab, text: string): ActiveDocumentState
  */
 const reopenSavedDocument = async (tab: KeptSavedTab, unsavedTextLost: boolean) => {
   if (unsavedTextLost) {
-    notifyError({
+    notifyPersistentError({
       title: t("session.keepSession.textLost.title"),
       description: t("session.keepSession.textLost.description", {
         name: getPathParts(tab.path).name,

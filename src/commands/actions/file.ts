@@ -33,8 +33,8 @@ export const openNamedFolders = () => {
   showNamedFolders();
 };
 import { notifyOperationFailure } from "@/lib/errors";
-import { t, type MessageId } from "@/lib/i18n";
-import { notifyError, notifySuccess, notifyWarning } from "@/lib/toast";
+import { t } from "@/lib/i18n";
+import { notifyError, notifySuccess, notifyPersistentWarning } from "@/lib/toast";
 
 import {
   getActiveArticleAncestorPaths,
@@ -49,10 +49,7 @@ export const QUIT_APPLICATION_COMMAND = "quit_application";
 
 const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
   try {
-    const saved = await saveFn();
-    if (saved) {
-      notifySuccess(t("commands.file.saved"));
-    }
+    await saveFn();
   } catch (error) {
     notifyError(getSaveMarkdownFileErrorMessage(error));
   }
@@ -60,13 +57,10 @@ const saveWithFeedback = async (saveFn: () => Promise<boolean>) => {
 
 const runBooleanCommand = async (
   operation: () => Promise<boolean>,
-  successMessageId: MessageId,
   handleError: (error: unknown) => void,
 ) => {
   try {
-    if (await operation()) {
-      notifySuccess(t(successMessageId));
-    }
+    await operation();
   } catch (error) {
     handleError(error);
   }
@@ -78,7 +72,6 @@ const documentOnly = (activeDocument: AppCommandContext["activeDocument"]) =>
 export const openRecentMarkdownFile = async (path: string) => {
   await runBooleanCommand(
     () => openMarkdownFileAtPath(path),
-    "commands.file.documentOpened",
     (error) =>
       notifyOpenMarkdownFileError(
         error,
@@ -92,7 +85,6 @@ export const openRecentMarkdownFile = async (path: string) => {
 export const openRecentFolderContext = async (path: string) => {
   await runBooleanCommand(
     () => openFolderContextAtPath(path),
-    "commands.file.folderOpened",
     (error) =>
       notifyError(
         getOpenFolderContextErrorMessage(error, {
@@ -103,7 +95,7 @@ export const openRecentFolderContext = async (path: string) => {
 };
 
 export const createUntitledDocument = async () => {
-  await runBooleanCommand(createNewMarkdownDocument, "commands.file.documentCreated", (error) =>
+  await runBooleanCommand(createNewMarkdownDocument, (error) =>
     notifyOperationFailure(
       t("commands.file.createDocumentFailed"),
       error,
@@ -113,13 +105,11 @@ export const createUntitledDocument = async () => {
 };
 
 export const openMarkdownFile = async () => {
-  await runBooleanCommand(pickAndOpenMarkdownFile, "commands.file.documentOpened", (error) =>
-    notifyOpenMarkdownFileError(error),
-  );
+  await runBooleanCommand(pickAndOpenMarkdownFile, (error) => notifyOpenMarkdownFileError(error));
 };
 
 export const openFolderContext = async () => {
-  await runBooleanCommand(pickAndOpenFolderContext, "commands.file.folderOpened", (error) =>
+  await runBooleanCommand(pickAndOpenFolderContext, (error) =>
     notifyError(getOpenFolderContextErrorMessage(error)),
   );
 };
@@ -167,13 +157,13 @@ export const exportDocumentAsHtml = async () => {
       .map(describeHtmlExportWarning);
     const unlisted = outcome.warnings.length - listed.length;
 
-    notifyWarning(
-      t("commands.file.exportedWithWarnings", { count: outcome.warnings.length }),
-      [
+    notifyPersistentWarning({
+      title: t("commands.file.exportedWithWarnings", { count: outcome.warnings.length }),
+      description: [
         ...listed,
         ...(unlisted > 0 ? [t("commands.file.exportWarning.more", { count: unlisted })] : []),
       ].join(" "),
-    );
+    });
   } catch (error) {
     if (isWriteHtmlExportError(error)) {
       notifyError(getWriteHtmlExportErrorMessage(error));
@@ -222,13 +212,13 @@ export const openPreferences = () => {
 };
 
 export const closeDocument = async () => {
-  await runBooleanCommand(closeActiveMarkdownDocument, "commands.file.documentClosed", (error) =>
+  await runBooleanCommand(closeActiveMarkdownDocument, (error) =>
     notifyOperationFailure(t("commands.file.closeDocumentFailed"), error, "closeDocument"),
   );
 };
 
 export const closeFolderContext = async () => {
-  await runBooleanCommand(closeFolderContextWorkflow, "commands.file.folderClosed", (error) =>
+  await runBooleanCommand(closeFolderContextWorkflow, (error) =>
     notifyOperationFailure(t("commands.file.closeFolderFailed"), error, "closeFolderContext"),
   );
 };

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MilkdownEditorBridge } from "@/features/editor";
 import { useSettingsStore } from "@/features/preferences";
 import type { Disposable } from "@/lib/lifecycle";
-import { toastManager } from "@/lib/toast";
+import { toastManager, persistentToastManager } from "@/lib/toast";
 import {
   createFileMetadata,
   createOpenedMarkdownDocument,
@@ -169,10 +169,7 @@ describe("kept session", () => {
           externalChange: { kind: "modified", fingerprint: "changed" },
         }),
       );
-      expect(toastManager.add).toHaveBeenCalledOnce();
-      expect(toastManager.add).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "File changed on disk" }),
-      );
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
 
     it("accepts a file touched between runs without warning", async () => {
@@ -210,9 +207,7 @@ describe("kept session", () => {
           externalChange: { kind: "missing" },
         }),
       );
-      expect(toastManager.add).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "File missing" }),
-      );
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
 
     it("leaves out a clean document whose file is gone and an untitled one whose text is lost", async () => {
@@ -250,8 +245,9 @@ describe("kept session", () => {
         content: "# On disk\n",
         isDirty: false,
       });
-      expect(toastManager.add).toHaveBeenCalledWith(
+      expect(persistentToastManager.add).toHaveBeenCalledWith(
         expect.objectContaining({
+          timeout: 0,
           title: "Unsaved changes lost",
           description: 'The unsaved changes kept for "readme.md" could not be read.',
         }),
@@ -479,9 +475,9 @@ describe("kept session", () => {
 
         await vi.waitFor(() => expect(countTauriApiCalls("reportWindowSession")).toBe(1));
         expect(await keepWindowSession()).toBe(false);
-        expect(toastManager.add).toHaveBeenCalledOnce();
-        expect(toastManager.add).toHaveBeenCalledWith(
-          expect.objectContaining({ title: "Unsaved changes not kept" }),
+        expect(persistentToastManager.add).toHaveBeenCalledOnce();
+        expect(persistentToastManager.add).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Unsaved changes not kept", timeout: 0 }),
         );
 
         fail = false;

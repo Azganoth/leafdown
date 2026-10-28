@@ -1,11 +1,12 @@
 import { FileTextIcon, PaletteIcon, PencilIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -167,8 +168,10 @@ export function PreferencesDialog({
   renderTypographyPreview,
 }: PreferencesDialogProps) {
   const { t } = useLocalization();
+  const [resetOpen, setResetOpen] = useState(false);
 
   const restoreDefaults = () => {
+    setResetOpen(false);
     void restoreDefaultSettings().catch((error) =>
       notifyOperationFailure(
         t("preferences.restoreDefaults.alwaysOnTopFailed"),
@@ -218,10 +221,24 @@ export function PreferencesDialog({
         </Tabs>
 
         <DialogFooter className="sm:justify-start">
-          <Button type="button" variant="ghost" onClick={restoreDefaults}>
+          <Button type="button" variant="ghost" onClick={() => setResetOpen(true)}>
             {t("preferences.restoreDefaults")}
           </Button>
         </DialogFooter>
+        <Dialog open={resetOpen} onOpenChange={setResetOpen}>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle>{t("preferences.reset.title")}</DialogTitle>
+              <DialogDescription>{t("preferences.reset.description")}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setResetOpen(false)} autoFocus>
+                {t("preferences.reset.cancel")}
+              </Button>
+              <Button onClick={restoreDefaults}>{t("preferences.reset.confirm")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

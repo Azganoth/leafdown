@@ -138,16 +138,15 @@ export const saveActiveMarkdownDocument = () => {
   return activeTab ? saveDocumentTab(activeTab.id) : Promise.resolve(false);
 };
 
+export const saveDocumentTabAs = (tabId: string) =>
+  saveTaskQueue.run(async () => {
+    const tab = findTab(useSessionStore.getState(), tabId);
+    return tab ? saveDocumentAsNow(toTabVersion(tab)) : false;
+  });
+
 export const saveActiveMarkdownDocumentAs = () => {
-  const activeTabId = useSessionStore.getState().activeTabId;
-
-  return activeTabId
-    ? saveTaskQueue.run(async () => {
-        const tab = findTab(useSessionStore.getState(), activeTabId);
-
-        return tab ? saveDocumentAsNow(toTabVersion(tab)) : false;
-      })
-    : Promise.resolve(false);
+  const { activeTabId } = useSessionStore.getState();
+  return activeTabId ? saveDocumentTabAs(activeTabId) : Promise.resolve(false);
 };
 
 const saveDocumentNow = async (version: TabVersion) => {

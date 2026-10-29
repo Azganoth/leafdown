@@ -95,32 +95,39 @@ describe("external change dialogs", () => {
     await vi.waitFor(() => expect(prompt()?.title).toBe("File changed on disk"));
   });
 
-  it("reloads an edited document with one confirmation and preserves its caret", async () => {
-    const document = modifiedDocument();
-    setDefaultSession({ documents: [document] });
-    const viewState = { anchor: 3, head: 3, focused: true };
-    documentEditorBridge.set(
-      document.path,
-      createMilkdownEditorBridge({ getViewState: () => viewState }),
-    );
-    mockTauriApi({
-      openMarkdownFile: () =>
-        createOpenedMarkdownDocument({ content: "New disk version\n", fingerprint: "changed" }),
-    });
-    dialogs = new ExternalChangeDialogs();
-    dialogs.setFocused(true);
-    answer("confirm");
-    await vi.waitFor(() =>
-      expect(useSessionStore.getState().activeDocument).toMatchObject({
-        content: "New disk version\n",
-        isDirty: false,
-        externalChange: null,
-      }),
-    );
-    expect(getActiveTab(useSessionStore.getState())?.viewState).toEqual(viewState);
-    expect(prompt()).toBeNull();
-    expect(countTauriApiCalls("openMarkdownFile")).toBe(1);
-  });
+  it.each([false, true])(
+    "reloads with one confirmation and restores the pre-dialog caret and focus (focused: %s)",
+    async (focused) => {
+      const document = modifiedDocument();
+      setDefaultSession({ documents: [document] });
+      const viewState = { anchor: 3, head: 3, focused };
+      let dialogOpen = false;
+      documentEditorBridge.set(
+        document.path,
+        createMilkdownEditorBridge({
+          getViewState: () => ({ ...viewState, focused: focused && !dialogOpen }),
+        }),
+      );
+      mockTauriApi({
+        openMarkdownFile: () =>
+          createOpenedMarkdownDocument({ content: "New disk version\n", fingerprint: "changed" }),
+      });
+      dialogs = new ExternalChangeDialogs();
+      dialogs.setFocused(true);
+      dialogOpen = true;
+      answer("confirm");
+      await vi.waitFor(() =>
+        expect(useSessionStore.getState().activeDocument).toMatchObject({
+          content: "New disk version\n",
+          isDirty: false,
+          externalChange: null,
+        }),
+      );
+      expect(getActiveTab(useSessionStore.getState())?.viewState).toEqual(viewState);
+      expect(prompt()).toBeNull();
+      expect(countTauriApiCalls("openMarkdownFile")).toBe(1);
+    },
+  );
 
   it("saves a copy of the affected document and retains a cancelled Save as conflict", async () => {
     const document = modifiedDocument();

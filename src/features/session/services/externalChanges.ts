@@ -1,4 +1,5 @@
 import {
+  getActiveDocumentKey,
   inspectMarkdownDocument,
   isInspectMarkdownFileError,
   isOpenMarkdownFileError,
@@ -9,6 +10,7 @@ import {
   type MarkdownFileState,
   type SavedDocumentState,
 } from "@/features/document";
+import type { EditorViewState } from "@/features/editor";
 import { CancellationToken, isCancellationError } from "@/lib/cancellation";
 import { getPathIdentityKey } from "@/lib/path";
 
@@ -106,10 +108,17 @@ const checkDocumentFileNow = async (path: string, cancellationToken: Cancellatio
   }
 };
 
-export const reloadExternalDocument = (tab: DocumentTab, expectedText: string) =>
-  runAfterPendingSaves(() => reloadExternalDocumentNow(tab, expectedText));
+export const reloadExternalDocument = (
+  tab: DocumentTab,
+  expectedText: string,
+  viewState = documentEditorBridge.getViewState(getActiveDocumentKey(tab.document)),
+) => runAfterPendingSaves(() => reloadExternalDocumentNow(tab, expectedText, viewState));
 
-const reloadExternalDocumentNow = async (tab: DocumentTab, expectedText: string) => {
+const reloadExternalDocumentNow = async (
+  tab: DocumentTab,
+  expectedText: string,
+  viewState: EditorViewState | null,
+) => {
   const { document } = tab;
   if (document.status !== "saved" || document.externalChange?.kind !== "modified") return false;
 
@@ -177,7 +186,7 @@ const reloadExternalDocumentNow = async (tab: DocumentTab, expectedText: string)
       metadata: reloaded.metadata,
       fingerprint: reloaded.fingerprint,
     }),
-    { reload: true, viewState: documentEditorBridge.getViewState(latestDocument.path) },
+    { reload: true, viewState },
   );
   return true;
 };

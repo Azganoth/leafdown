@@ -6,6 +6,7 @@ import { Key } from "webdriverio";
 import { getDesktopE2ERunContext } from "../support/runContext.js";
 import {
   closeAllDocuments,
+  confirmExternalReload,
   countDocumentTabs,
   findDocumentTab,
   findMenuItem,
@@ -249,6 +250,7 @@ describe("desktop document lifecycle", () => {
     expect(await countDocumentTabs()).toBe(3);
 
     await writeFile(fixture.scrollPath, `${original}\nReloaded viewport marker.\n`);
+    await confirmExternalReload();
     await browser.waitUntil(
       () =>
         browser.execute(

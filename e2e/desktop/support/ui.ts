@@ -107,6 +107,13 @@ export const dismissToasts = async () => {
   });
 };
 
+export const confirmExternalReload = async () => {
+  const dialog = $('[data-slot="dialog-content"][data-open]');
+  await dialog.waitForDisplayed();
+  await dialog.$("button=Reload from disk").click();
+  await dialog.waitForExist({ reverse: true });
+};
+
 export const getSaveMenuItem = async () => {
   await openMenu("File");
   return findMenuItem((text) => text.startsWith("Save") && !text.startsWith("Save as"));

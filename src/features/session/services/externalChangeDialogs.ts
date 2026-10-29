@@ -12,6 +12,7 @@ import { getPathParts } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 import { findTab, getActiveTab, useSessionStore, type DocumentTab } from "../stores/session";
+import { documentEditorBridge } from "./documentEditorBridge";
 import { saveDocumentTabAs } from "./documentWorkflows";
 import { getDocumentText, getExternalChangeKey, reloadExternalDocument } from "./externalChanges";
 
@@ -79,6 +80,7 @@ export class ExternalChangeDialogs {
     const { document } = tab;
     if (document.status !== "saved" || !document.externalChange) return;
     const text = getDocumentText(tab);
+    const viewState = documentEditorBridge.getViewState(document.path);
     const name = getPathParts(document.path).name;
     const options = {
       detail: document.path,
@@ -120,7 +122,7 @@ export class ExternalChangeDialogs {
       return;
     }
     if (decision === "confirm") {
-      await reloadExternalDocument(tab, text);
+      await reloadExternalDocument(tab, text, viewState);
     } else if (decision === "alternate") {
       await saveDocumentTabAs(tab.id).catch((error) =>
         notifyError(getSaveMarkdownFileErrorMessage(error)),

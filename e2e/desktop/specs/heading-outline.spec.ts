@@ -2,7 +2,12 @@ import { $, $$, browser, expect } from "@wdio/globals";
 import { readFile, writeFile } from "node:fs/promises";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { closeAllDocuments, openRecentPath, selectFileMenuItem } from "../support/ui.js";
+import {
+  closeAllDocuments,
+  confirmExternalReload,
+  openRecentPath,
+  selectFileMenuItem,
+} from "../support/ui.js";
 
 const OUTLINE = '[data-testid=active-document-host] [data-testid="heading-outline"]';
 const outlineRows = () => $$(`${OUTLINE} button[data-outline-position]`);
@@ -179,6 +184,7 @@ describe("desktop heading outline", () => {
 
       await focusOpeningHeading();
       await writeFile(outline.path, original.replace("# Same", "# Focused reload"));
+      await confirmExternalReload();
       await browser.waitUntil(
         async () =>
           (await $("[data-testid=active-document-host] .ProseMirror h1").getText()) ===
@@ -188,6 +194,7 @@ describe("desktop heading outline", () => {
 
       await blurEditor();
       await writeFile(outline.path, original.replace("# Same", "# Unfocused reload"));
+      await confirmExternalReload();
       await browser.waitUntil(
         async () =>
           (await $("[data-testid=active-document-host] .ProseMirror h1").getText()) ===
@@ -250,6 +257,7 @@ describe("desktop heading outline", () => {
     } finally {
       await writeFile(outline.path, original);
     }
+    await confirmExternalReload();
     await waitForHeadingText("Same");
   });
 

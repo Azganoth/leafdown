@@ -1,6 +1,6 @@
 # Mermaid diagrams
 
-Standard fenced diagram with source available through Edit source:
+Standard fenced diagram; click the diagram to edit its source with a preview below:
 
 ```mermaid
 flowchart LR
@@ -41,4 +41,23 @@ Unknown language remains an ordinary code block:
 ```mermaidish
 flowchart LR
   A --> B
+```
+
+## A rendered diagram stays fully visible
+
+This 12-line Mermaid source renders as one complete diagram. Click it to edit the source and leave it to restore the full diagram; the rendered image has no collapse controls.
+
+```mermaid
+flowchart TD
+  Bed1 --> Bed2
+  Bed2 --> Bed3
+  Bed3 --> Bed4
+  Bed4 --> Bed5
+  Bed5 --> Bed6
+  Bed6 --> Bed7
+  Bed7 --> Bed8
+  Bed8 --> Bed9
+  Bed9 --> Bed10
+  Bed10 --> Bed11
+  Bed11 --> Bed12
 ```

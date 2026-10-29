@@ -114,14 +114,14 @@ Paragraph text before a custom tag.
 
 Text with <span class="leaf">raw *inline* HTML</span> after it.
 
-An empty tag <br /> and a custom tag <garden-plot data-bed="north" /> remain raw.
+An empty tag <br /> renders a line break; a custom tag <garden-plot data-bed="north" /> remains raw.
 
-## Line break tags remain raw in every spelling
+## Attribute-free line break tags render while keeping their source spelling
 
 Spaced self-closing <br />, unspaced <br>, slash without space <br/>, space
 without slash <br >, and uppercase <BR>.
 
-## A line break tag alone in a paragraph remains raw
+## An attribute-free line break tag alone renders a break
 
 <br />
 

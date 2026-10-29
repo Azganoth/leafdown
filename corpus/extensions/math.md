@@ -64,3 +64,22 @@ Inline: `\(a^2 + b^2 = c^2\)`.
 Escaped \$x$ and code `$x$` remain distinct from $x$.
 
 Unclosed $x + y remains a boundary case.
+
+## Rendered math stays fully visible
+
+This 12-line math source renders as one complete display, without collapse controls over the preview. Clicking it enters code editing with the preview below. Leave the source to return to the full rendered display.
+
+```math
+\begin{aligned}
+x_{1} &= 1 \\
+x_{2} &= 2 \\
+x_{3} &= 3 \\
+x_{4} &= 4 \\
+x_{5} &= 5 \\
+x_{6} &= 6 \\
+x_{7} &= 7 \\
+x_{8} &= 8 \\
+x_{9} &= 9 \\
+x_{10} &= 10
+\end{aligned}
+```

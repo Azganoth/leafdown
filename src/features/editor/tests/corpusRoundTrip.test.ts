@@ -31,6 +31,9 @@ const byteIdenticalFiles = [
   "gfm/tagfilter.md",
   "gfm/task-lists.md",
   "extensions/admonitions.md",
+  "practical/outline-deep-headings.md",
+  "practical/extension-survey.md",
+  "practical/large-document.md",
   "isolated/end-of-file/blank-lines-only.md",
   "isolated/end-of-file/incomplete-html-comment.md",
   "isolated/end-of-file/trailing-blank-lines.md",
@@ -57,6 +60,11 @@ const convergingFiles = [
   "gfm/strikethrough.md",
   // Cell padding, a layout computed across a column no node owns.
   "gfm/tables.md",
+  "practical/round-trip.md",
+  "practical/field-report.md",
+  "interactions.md",
+  // The empty footnote definition gains a separator space after its colon.
+  "extensions/footnotes.md",
   // Whitespace a parse trims at a line edge, here on the blank lines the file ends with.
   "isolated/end-of-file/whitespace-blank-lines.md",
 ];

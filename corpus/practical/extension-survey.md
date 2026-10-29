@@ -10,7 +10,7 @@ tags:
 > [!NOTE]
 > The north-bed reading should be compared with the afternoon manual gauge.
 
-The historical record is kept in [[Community Garden Sensor Pilot]]. Research
+The historical record is kept in [[field-report|Community Garden Sensor Pilot]]. Research
 notes cite [@doe2026; @roe2024] while the bibliography is assembled.
 
 Calibration
@@ -29,5 +29,5 @@ graph TD
 ```
 
 :::note
-The team will keep this directive-style reminder in the draft for now.
+This Docusaurus note renders as a callout with an editable body.
 :::

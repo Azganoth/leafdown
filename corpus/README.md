@@ -98,11 +98,67 @@ The extension survey includes:
 
 ## Practical Documents
 
-- [Community garden field report](./practical/field-report.md)
+Syntax-family files pair recognition and source-form examples with relevant
+Leafdown presentation checks. Practical documents combine them into editing
+and navigation walkthroughs. For a visual
+pass, use light and dark appearances at narrow and wide window sizes. Work on a
+temporary copy for destructive edits; preserve the relative directory layout
+when a document uses local assets or links. Restore any global settings changed
+during the walkthrough.
+
+- [Community garden field report](./practical/field-report.md): heading navigation,
+  duplicate labels, skipped levels, container headings, and nested folding.
 - [Release review](./practical/release-review.md)
 - [Extension survey](./practical/extension-survey.md)
 - [Technical README](./practical/technical-readme.md)
 - [Multilingual field notes](./practical/multilingual-notes.md)
-- [Round-trip form walkthrough](./practical/round-trip.md)
+- [Round-trip form walkthrough](./practical/round-trip.md): serialization, adjacent
+  source projections, marked links and images, and clipboard boundaries.
+- [Deep headings only](./practical/outline-deep-headings.md): isolated H4 fallback
+  when the outline's configured limit is shallower than every heading.
+- [Large mixed document](./practical/large-document.md): a separate, bounded
+  workload with 24 long code blocks and 12 diagrams for scrolling and deferred
+  rendering and outline overflow. It is not a performance benchmark.
+
+Presentation cases stay with their syntax families:
+
+- [Code blocks](./commonmark/code.md#code-presentation-in-leafdown): 9/10-line
+  boundaries, a 25-line highlighted example, wrapped rows, and blank lines.
+- [Syntax interactions](./interactions.md#nested-blocks-collapse-independently):
+  independently collapsible code inside lists, quotes, and callouts.
+- [Math](./extensions/math.md#rendered-math-stays-fully-visible) and
+  [Mermaid](./extensions/mermaid.md#a-rendered-diagram-stays-fully-visible): long
+  sources whose rendered previews stay fully visible.
+- [Footnotes](./extensions/footnotes.md#preview-navigation-and-renaming-walkthrough):
+  repeated references, previews, navigation, renaming, and missing definitions.
+- [Tables](./gfm/tables.md#table-layout-and-controls-in-leafdown): long cells, an
+  unbroken token, mixed row heights, scrolling, and structural edits.
+
+## Automated and Manual Checks
+
+The suites cover different properties; passing one does not establish the others:
+
+- [Corpus round trips](../src/features/editor/tests/corpusRoundTrip.test.ts)
+  explicitly register files for either byte-identical serialization or stable
+  convergence, and check that reopening preserves the document. The lists cover
+  CommonMark, GFM, EOF cases, selected extensions, and the practical walkthroughs
+  named there. Adding a file does not register it automatically. Keep intentional
+  normalization, such as table padding, distinct from authored forms that must
+  survive exactly.
+- [Search text parity](../src/features/editor/tests/searchTextParity.test.ts) and
+  [replacement parity](../src/features/editor/tests/searchReplacementParity.test.ts)
+  recursively discover `.md` and `.markdown` files, ignoring extension case.
+  They compare folder search with the opened editor; they do not assert every
+  file's source identity, validate native decoding, or cover `.mdown` and `.mkd`.
+- [Escaped source projection](../src/features/editor/tests/sourceProjectionEscapeCorpus.test.ts)
+  checks its own explicit subset of CommonMark and GFM fixtures. Callout tests
+  also exercise the admonition corpus, and desktop math tests use the math file.
+- Rendering, fading, control placement, pointer and keyboard interaction, and
+  navigator behavior require the manual walkthroughs or relevant desktop E2E
+  scenarios. New manual inputs do not automatically extend E2E assertions.
+
+The corpus is excluded from automatic formatting because spaces, fence spelling,
+line counts, blank lines, and exact bytes can be the behavior under test. Check
+changed fixtures with the relevant suites rather than formatting their examples.
 
 ![Corpus leaf](./assets/leaf.svg)

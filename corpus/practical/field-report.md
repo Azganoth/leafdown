@@ -71,3 +71,63 @@ battery, the printed layout, and the notes from the [placement decision](../envi
 
 [^calibration]: The south-bed probe was checked against the manual gauge at
     08:30. The readings differed by less than two percentage points.
+
+## Navigation and folding walkthrough
+
+1. Hover the outline dots, then move over its titles. Use [the large mixed document](large-document.md) in a short window to check overflow: its edges fade where more headings lie beyond them; moving over the dots scrolls it, while the titles hold still for choosing.
+2. Tab into the outline. Use Up, Down, Home, End, Enter, and Escape. Choosing a heading puts the caret at that heading; Escape returns focus without editing.
+3. Choose each of the two `Calibration` headings. Each must reach its own numbered paragraph rather than the first matching label.
+4. Change the outline level limit to H6 and inspect the skipped levels and headings inside containers. Restore your preferred level afterward. List, quote, and callout headings identify their container in their tooltip and accessible name.
+5. Fold `Foldable parent` and choose `Hidden child` in the outline. Navigation unfolds the containing section. Fold the child and parent separately, then unfold the parent: check that the child's independent fold is retained.
+6. Scroll to the final screen and choose the final callout heading. The view stops at the document's end without losing the selected heading. Open Find and repeat navigation; headings should stay clear of the search panel.
+7. In a scratch copy, rename a heading, change its level, and Undo/Redo. The outline must follow the document. Return to the original to compare without saving edits.
+
+## Calibration
+
+Calibration destination one. This section describes the north bed. Selecting the first matching outline row should land here.
+
+## Calibration
+
+Calibration destination two. This section describes the south bed. Selecting the second matching outline row should land here.
+
+## Foldable parent
+
+The parent owns the following H3 section until the next heading at its own level.
+
+### Hidden child
+
+Fold the child independently before folding its parent. Choosing the child in the outline should reveal the section needed to reach its heading.
+
+#### Deeper observation
+
+This fourth-level heading remains associated with its enclosing section while it is excluded by the default outline level limit.
+
+## Skipped heading levels
+
+An H5 follows this H2 without intervening H3 or H4 headings.
+
+##### Deep measurement
+
+The hierarchy must use the authored levels rather than inventing missing headings.
+
+###### Deepest measurement
+
+This H6 remains reachable when all heading levels are listed.
+
+## A deliberately long heading describing the north garden calibration procedure and the measurements that must remain distinguishable in a narrow outline
+
+Inspect the long label at a narrow width. Its text must remain identifiable without displacing the editor's content.
+
+## Headings inside containers
+
+> ### Quoted observation
+>
+> The quoted heading has a container-qualified outline name.
+
+- ### Listed observation
+
+  The listed heading belongs to this item.
+
+> [!NOTE]
+> ### Callout observation
+> The callout heading has its own container-qualified outline name.

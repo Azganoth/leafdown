@@ -13,7 +13,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Changed
 
-- Keep unresolved file changes and missing files in one persistent notification with document-specific show, Save as, and reload actions. Keep session recovery failures, incomplete exports, and partial folder replacements visible until dismissed, and remove routine document lifecycle confirmations.
+- Ask how to handle changed or missing files when returning to their document, preserving the current text until a decision. Keep unresolved file changes in one notification with document-specific show, Save as, and reload actions. These notices, session recovery failures, incomplete exports, and partial folder replacements use the regular notification stack without a timeout. Remove routine document lifecycle confirmations.
 - Rename Restore defaults to Reset all settings and ask before restoring preferences across all categories and windows.
 
 - Unify menu and context-popup surfaces, align checkmarks and shortcuts, and separate navigator Delete from ordinary actions. Keep the menu bar text-based, group Insert with Footnote after Image, and use a faint neutral workspace background in the light appearance.

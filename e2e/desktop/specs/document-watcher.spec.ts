@@ -26,7 +26,8 @@ const waitForEditorText = (text: string) =>
 
 const documentState = () => $('[data-testid="status-bar-document-state"]');
 
-const toast = (type: "success" | "warning") => $(`[data-slot="toast"][data-type="${type}"]`);
+const toast = () => $('[data-slot="toast"][data-type="warning"]');
+const prompt = () => $('[data-slot="dialog-content"][data-open]');
 
 const replaceDocumentText = async (text: string) => {
   await editor().click();
@@ -65,17 +66,26 @@ describe("desktop active document watcher", () => {
 
     await writeFile(documentWatcher.path, "Rewritten in place.\n");
 
+    await expect(prompt()).toHaveText(expect.stringContaining("File changed on disk"));
+    await waitForEditorText("Watched fixture marker.");
+    await prompt().$("button=Reload from disk").click();
     await waitForEditorText("Rewritten in place.");
-    await expect(toast("success")).toHaveText(expect.stringContaining("Reloaded from disk"));
     const cleanSaveItem = await getSaveMenuItem();
     await expect(cleanSaveItem).toHaveAttribute("data-disabled");
     await browser.keys("Escape");
     await dismissToasts();
 
+    await browser.keys([Key.Ctrl, "n", Key.NULL]);
     await replaceFile(documentWatcher.path, "Replaced by rename.\n");
 
+    await expect(toast()).toHaveText(expect.stringContaining("File changed outside Leafdown"));
+    await expect(prompt()).not.toExist();
+    await browser.keys([Key.Ctrl, "w", Key.NULL]);
+    await expect(prompt()).toHaveText(expect.stringContaining("File changed on disk"));
+    await waitForEditorText("Rewritten in place.");
+    await prompt().$("button=Reload from disk").click();
+
     await waitForEditorText("Replaced by rename.");
-    await expect(toast("success")).toHaveText(expect.stringContaining("Reloaded from disk"));
     await dismissToasts();
 
     await expect(documentState()).not.toExist();
@@ -86,20 +96,27 @@ describe("desktop active document watcher", () => {
 
     await writeFile(documentWatcher.path, "External edit.\n");
 
-    await expect(toast("warning")).toHaveText(
-      expect.stringContaining("File changed outside Leafdown"),
-    );
+    await expect(prompt()).toHaveText(expect.stringContaining("discard your unsaved changes"));
+    expect(
+      await browser.execute(() => {
+        const dialog = document.querySelector('[data-slot="dialog-content"][data-open]');
+        return dialog?.contains(document.activeElement);
+      }),
+    ).toBe(true);
+    await prompt().$("button=Keep editing").click();
+    await expect(toast()).toHaveText(expect.stringContaining("File changed outside Leafdown"));
     await expect(documentState()).toHaveText("Unsaved, changed on disk");
     await waitForEditorText("Unsaved local edit.");
-    await toast("warning").$("button=Actions").click();
+    await toast().$("button=Actions").click();
     await $('[role="menuitem"]*=Reload ').click();
     const reloadPrompt = $('[data-slot="dialog-content"][data-open]');
     await expect(reloadPrompt).toBeDisplayed();
     await reloadPrompt.$("button=Keep editing").click();
     expect(
       await browser.execute(() => {
-        const notice = document.querySelector('[data-persistent="true"]');
-        if (!notice) return false;
+        const viewports = document.querySelectorAll('[data-slot="toast-viewport"]');
+        const notice = document.querySelector('[data-slot="toast"][data-type="warning"]');
+        if (viewports.length !== 1 || !notice) return false;
         const bounds = notice.getBoundingClientRect();
         return (
           bounds.top >= 0 &&
@@ -108,15 +125,14 @@ describe("desktop active document watcher", () => {
         );
       }),
     ).toBe(true);
-    await expect(toast("warning")).toBeDisplayed();
+    await expect(toast()).toBeDisplayed();
     await waitForEditorText("Unsaved local edit.");
     await dismissToasts();
 
     await save();
-    const prompt = $('[data-slot="dialog-content"][data-open]');
-    await expect(prompt).toHaveText(expect.stringContaining("File changed"));
-    await prompt.$("button=Cancel save").click();
-    await expect(prompt).not.toExist();
+    await expect(prompt()).toHaveText(expect.stringContaining("File changed"));
+    await prompt().$("button=Cancel save").click();
+    await expect(prompt()).not.toExist();
     expect(await readFile(documentWatcher.path, "utf8")).toBe("External edit.\n");
 
     await save();
@@ -132,7 +148,9 @@ describe("desktop active document watcher", () => {
 
     await rm(documentWatcher.path);
 
-    await expect(toast("warning")).toHaveText(expect.stringContaining("File no longer found"));
+    await expect(prompt()).toHaveText(expect.stringContaining("File missing"));
+    await prompt().$("button=Keep editing").click();
+    await expect(toast()).toHaveText(expect.stringContaining("File no longer found"));
     await expect(documentState()).toHaveText("File missing");
     await waitForEditorText("Unsaved local edit.");
   });

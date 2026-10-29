@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MilkdownEditorBridge } from "@/features/editor";
 import { useSettingsStore } from "@/features/preferences";
 import type { Disposable } from "@/lib/lifecycle";
-import { toastManager, persistentToastManager } from "@/lib/toast";
+import { toastManager } from "@/lib/toast";
 import {
   createFileMetadata,
   createOpenedMarkdownDocument,
@@ -245,7 +245,7 @@ describe("kept session", () => {
         content: "# On disk\n",
         isDirty: false,
       });
-      expect(persistentToastManager.add).toHaveBeenCalledWith(
+      expect(toastManager.add).toHaveBeenCalledWith(
         expect.objectContaining({
           timeout: 0,
           title: "Unsaved changes lost",
@@ -475,8 +475,8 @@ describe("kept session", () => {
 
         await vi.waitFor(() => expect(countTauriApiCalls("reportWindowSession")).toBe(1));
         expect(await keepWindowSession()).toBe(false);
-        expect(persistentToastManager.add).toHaveBeenCalledOnce();
-        expect(persistentToastManager.add).toHaveBeenCalledWith(
+        expect(toastManager.add).toHaveBeenCalledOnce();
+        expect(toastManager.add).toHaveBeenCalledWith(
           expect.objectContaining({ title: "Unsaved changes not kept", timeout: 0 }),
         );
 

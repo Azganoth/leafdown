@@ -1,4 +1,5 @@
 import {
+  getActiveDocumentKey,
   inspectMarkdownDocument,
   isInspectMarkdownFileError,
   isOpenMarkdownFileError,
@@ -9,23 +10,42 @@ import {
   type MarkdownFileState,
   type SavedDocumentState,
 } from "@/features/document";
+import type { EditorViewState } from "@/features/editor";
 import { CancellationToken, isCancellationError } from "@/lib/cancellation";
-import { t } from "@/lib/i18n";
-import { getPathParts } from "@/lib/path";
-import { notifySuccess } from "@/lib/toast";
+import { getPathIdentityKey } from "@/lib/path";
 
-import { findCurrentTab, findTabByPath, useSessionStore } from "../stores/session";
+import {
+  findCurrentTab,
+  findTabByPath,
+  useSessionStore,
+  type DocumentTab,
+} from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { notifyOpenMarkdownFileError } from "./documentOpenWorkflows";
 import { runAfterPendingSaves } from "./documentWorkflows";
-
-type ExternalVersion = Extract<ExternalFileChange, { kind: "modified" }>;
 
 interface CheckedDocument {
   tabId: string;
   generation: number;
   document: SavedDocumentState;
 }
+
+export const getExternalChangeKey = ({ id, generation, document }: DocumentTab) => {
+  if (document.status !== "saved" || !document.externalChange) return null;
+  const change = document.externalChange;
+  return JSON.stringify([
+    id,
+    generation,
+    getPathIdentityKey(document.path),
+    change.kind,
+    change.kind === "modified" ? change.fingerprint : null,
+  ]);
+};
+
+export const getDocumentText = ({ document }: DocumentTab) =>
+  document.status === "saved"
+    ? (documentEditorBridge.getMarkdown(document.path) ?? document.content)
+    : document.content;
 
 /**
  * Compares the file of an open document with the version the document holds. Saves, Save as, and
@@ -79,81 +99,85 @@ const checkDocumentFileNow = async (path: string, cancellationToken: Cancellatio
     case "missing":
       recordMissingFile(document);
       return;
-    case "contentChanged": {
-      const version: ExternalVersion = {
+    case "contentChanged":
+      setFileState(document, document.metadata, {
         kind: "modified",
         metadata: fileState.metadata,
         fingerprint: fileState.fingerprint,
-      };
-
-      if (isObservedVersion(document, version)) {
-        setFileState(document, document.metadata, version);
-        return;
-      }
-
-      if (document.isDirty) {
-        recordExternalVersion(document, version);
-        return;
-      }
-
-      await reloadCleanDocument(checked, version, cancellationToken);
-    }
+      });
   }
 };
 
-const reloadCleanDocument = async (
-  checked: CheckedDocument,
-  version: ExternalVersion,
-  cancellationToken: CancellationToken,
+export const reloadExternalDocument = (
+  tab: DocumentTab,
+  expectedText: string,
+  viewState = documentEditorBridge.getViewState(getActiveDocumentKey(tab.document)),
+) => runAfterPendingSaves(() => reloadExternalDocumentNow(tab, expectedText, viewState));
+
+const reloadExternalDocumentNow = async (
+  tab: DocumentTab,
+  expectedText: string,
+  viewState: EditorViewState | null,
 ) => {
-  const { document } = checked;
+  const { document } = tab;
+  if (document.status !== "saved" || document.externalChange?.kind !== "modified") return false;
+
+  const currentDocument = () => {
+    const current = findCurrentTab(useSessionStore.getState(), tab.id, tab.generation);
+    return current?.document.status === "saved" &&
+      getExternalChangeKey(current) === getExternalChangeKey(tab) &&
+      getDocumentText(current) === expectedText &&
+      current.document.isDirty === document.isDirty
+      ? current.document
+      : null;
+  };
+  if (!currentDocument()) return false;
   let reloaded;
 
   try {
     reloaded = await openMarkdownDocument(
       document.path,
-      cancellationToken,
+      CancellationToken.None,
       document.fileEncoding.name,
     );
   } catch (error) {
-    const latestDocument = getUnchangedBaseline(checked);
+    const latestDocument = currentDocument();
 
     if (isCancellationError(error) || !latestDocument) {
-      return;
+      return false;
     }
 
     if (isOpenMarkdownFileError(error) && error.kind === "missingFile") {
       recordMissingFile(latestDocument);
-      return;
+      return false;
     }
 
-    setFileState(latestDocument, latestDocument.metadata, version);
     notifyOpenMarkdownFileError(error);
-    return;
+    return false;
   }
 
-  const latestDocument = getUnchangedBaseline(checked);
+  const latestDocument = currentDocument();
 
   if (!latestDocument) {
-    return;
+    return false;
   }
 
   if (reloaded.fingerprint === latestDocument.fingerprint) {
     setFileState(latestDocument, reloaded.metadata, null);
-    return;
+    return true;
   }
 
-  if (latestDocument.isDirty) {
-    recordExternalVersion(latestDocument, {
+  if (reloaded.fingerprint !== document.externalChange.fingerprint) {
+    setFileState(latestDocument, latestDocument.metadata, {
       kind: "modified",
       metadata: reloaded.metadata,
       fingerprint: reloaded.fingerprint,
     });
-    return;
+    return false;
   }
 
   useSessionStore.getState().replaceTabDocument(
-    checked.tabId,
+    tab.id,
     toSavedDocument({
       path: latestDocument.path,
       content: reloaded.content,
@@ -162,14 +186,9 @@ const reloadCleanDocument = async (
       metadata: reloaded.metadata,
       fingerprint: reloaded.fingerprint,
     }),
-    { reload: true, viewState: documentEditorBridge.getViewState(latestDocument.path) },
+    { reload: true, viewState },
   );
-  notifySuccess({
-    title: t("session.externalChange.reloaded.title"),
-    description: t("session.externalChange.reloaded.description", {
-      name: getPathParts(latestDocument.path).name,
-    }),
-  });
+  return true;
 };
 
 /** Returns the tab's document only while it is still the version the check compared against. */
@@ -187,20 +206,12 @@ const getUnchangedBaseline = ({ document, generation, tabId }: CheckedDocument) 
   return latestDocument;
 };
 
-const isObservedVersion = (document: SavedDocumentState, version: ExternalVersion) =>
-  document.externalChange?.kind === "modified" &&
-  document.externalChange.fingerprint === version.fingerprint;
-
 const setFileState = (
   document: SavedDocumentState,
   metadata: FileMetadataSnapshot,
   externalChange: ExternalFileChange | null,
 ) => {
   useSessionStore.getState().setDocumentFileState(document.path, { metadata, externalChange });
-};
-
-const recordExternalVersion = (document: SavedDocumentState, version: ExternalVersion) => {
-  setFileState(document, document.metadata, version);
 };
 
 const recordMissingFile = (document: SavedDocumentState) => {

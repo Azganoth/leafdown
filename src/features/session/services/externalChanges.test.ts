@@ -30,7 +30,7 @@ import { countTauriApiCalls, getLastTauriApiArgs, mockTauriApi } from "@/test/ut
 import { getActiveTab, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { saveActiveMarkdownDocument } from "./documentWorkflows";
-import { checkDocumentFile } from "./externalChanges";
+import { checkDocumentFile, getDocumentText, reloadExternalDocument } from "./externalChanges";
 import { renameFolderEntry } from "./folderEntryWorkflows";
 
 vi.mock("@/lib/confirmation", () => ({ requestConfirmation: vi.fn(async () => false) }));
@@ -69,6 +69,11 @@ const getActiveTabVersion = () => {
   return { generation: tab.generation, loadId: tab.loadId, viewState: tab.viewState };
 };
 
+const reloadObservedDocument = () => {
+  const tab = getActiveTab(useSessionStore.getState())!;
+  return reloadExternalDocument(tab, getDocumentText(tab));
+};
+
 describe("external document changes", () => {
   beforeEach(() => {
     vi.mocked(requestConfirmation).mockReset().mockResolvedValue(false);
@@ -102,7 +107,7 @@ describe("external document changes", () => {
   });
 
   describe("clean documents", () => {
-    it("reloads a changed file into a new clean baseline", async () => {
+    it("keeps a changed file until reload is chosen, then installs a new clean baseline", async () => {
       setDefaultSession({
         folderContext,
         activeDocument: createSavedDocument({ content: "# Before\n", lineEnding: "lf" }),
@@ -129,6 +134,13 @@ describe("external document changes", () => {
 
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        content: "# Before\n",
+        externalChange: { fingerprint: CHANGED_FINGERPRINT },
+      });
+      expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
+      await reloadObservedDocument();
+
       expect(getActiveTabVersion()).toMatchObject({
         loadId: before.loadId + 1,
         viewState: { anchor: 4, head: 6, focused: true },
@@ -150,11 +162,7 @@ describe("external document changes", () => {
         },
       });
       expect(useRecentItemsStore.getState().recentFiles).toEqual([]);
-      expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
-        title: "Reloaded from disk",
-        description: '"readme.md" changed outside Leafdown.',
-        type: "success",
-      });
+      expect(toastManager.add).not.toHaveBeenCalled();
     });
 
     it("reads the reloaded file in the encoding the document was read in", async () => {
@@ -168,13 +176,15 @@ describe("external document changes", () => {
 
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
+      await reloadObservedDocument();
+
       expect(getLastTauriApiArgs("openMarkdownFile")).toEqual({
         path: TEST_MARKDOWN_FILE_PATH,
         encoding: "windows-1252",
       });
     });
 
-    it("reloads a document in an inactive tab without switching to it", async () => {
+    it("records a change in an inactive tab without reloading or switching to it", async () => {
       const otherDocument = createSavedDocument({ path: `${TEST_NOTES_FOLDER_PATH}/other.md` });
       setDefaultSession({
         documents: [createSavedDocument({ content: "# Before\n" }), otherDocument],
@@ -188,10 +198,16 @@ describe("external document changes", () => {
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().tabs.map(({ document }) => document)).toMatchObject([
-        { path: TEST_MARKDOWN_FILE_PATH, content: "# After\n", isDirty: false },
+        {
+          path: TEST_MARKDOWN_FILE_PATH,
+          content: "# Before\n",
+          isDirty: false,
+          externalChange: { fingerprint: CHANGED_FINGERPRINT },
+        },
         otherDocument,
       ]);
       expect(useSessionStore.getState().activeDocument).toEqual(otherDocument);
+      expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
     });
 
     it("accepts a touched file's metadata without reloading or warning", async () => {
@@ -222,6 +238,7 @@ describe("external document changes", () => {
       });
 
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      await reloadObservedDocument();
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toEqual({
@@ -367,7 +384,7 @@ describe("external document changes", () => {
       expect(toastManager.add).not.toHaveBeenCalled();
     });
 
-    it("reloads a clean document when a different file appears at its path", async () => {
+    it("records a change when a different file appears at a missing file's path", async () => {
       setDefaultSession({
         activeDocument: createSavedDocument({ externalChange: { kind: "missing" } }),
       });
@@ -379,9 +396,9 @@ describe("external document changes", () => {
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
 
       expect(useSessionStore.getState().activeDocument).toMatchObject({
-        content: "# Recreated\n",
-        externalChange: null,
+        externalChange: { kind: "modified", fingerprint: CHANGED_FINGERPRINT },
       });
+      expect(countTauriApiCalls("openMarkdownFile")).toBe(0);
     });
 
     it("records a file removed between inspecting and reloading it as missing", async () => {
@@ -394,6 +411,7 @@ describe("external document changes", () => {
       });
 
       await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      await reloadObservedDocument();
 
       expect(useSessionStore.getState().activeDocument).toEqual({
         ...activeDocument,
@@ -468,6 +486,93 @@ describe("external document changes", () => {
   });
 
   describe("stale results", () => {
+    it("records a newer disk version found during reload instead of discarding edits for it", async () => {
+      const document = createSavedDocument({ content: "Local text", isDirty: true });
+      setDefaultSession({ activeDocument: document });
+      mockTauriApi({
+        inspectMarkdownFile: () => contentChanged(),
+        openMarkdownFile: () =>
+          createOpenedMarkdownDocument({
+            content: "Newer disk text",
+            fingerprint: OTHER_FINGERPRINT,
+            metadata: LATER_METADATA,
+          }),
+      });
+      await checkDocumentFile(document.path);
+      await expect(reloadObservedDocument()).resolves.toBe(false);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        content: "Local text",
+        isDirty: true,
+        metadata: document.metadata,
+        externalChange: { fingerprint: OTHER_FINGERPRINT, metadata: LATER_METADATA },
+      });
+    });
+
+    it("preserves unsaved edits if the file returns to the baseline during reload", async () => {
+      const document = createSavedDocument({ content: "Local text", isDirty: true });
+      setDefaultSession({ activeDocument: document });
+      mockTauriApi({
+        inspectMarkdownFile: () => contentChanged(),
+        openMarkdownFile: () =>
+          createOpenedMarkdownDocument({
+            fingerprint: document.fingerprint,
+            metadata: LATER_METADATA,
+          }),
+      });
+      await checkDocumentFile(document.path);
+      await expect(reloadObservedDocument()).resolves.toBe(true);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        content: "Local text",
+        isDirty: true,
+        externalChange: null,
+        metadata: LATER_METADATA,
+      });
+    });
+
+    it("discards a reload after the same path is replaced with a different document version", async () => {
+      const document = createSavedDocument();
+      setDefaultSession({ activeDocument: document });
+      const read = Promise.withResolvers<OpenedMarkdownDocument>();
+      mockTauriApi({
+        inspectMarkdownFile: () => contentChanged(),
+        openMarkdownFile: () => read.promise,
+      });
+      await checkDocumentFile(document.path);
+      const reloading = reloadObservedDocument();
+      await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
+      const replacement = createSavedDocument({ content: "Replacement at the same path" });
+      replaceActiveDocument(replacement);
+      read.resolve(createReloadedDocument());
+      await expect(reloading).resolves.toBe(false);
+      expect(useSessionStore.getState().activeDocument).toEqual(replacement);
+    });
+
+    it("keeps further edits made while an already dirty document is reloading", async () => {
+      const document = createSavedDocument({ isDirty: true });
+      let text = "Unsaved text";
+      documentEditorBridge.set(
+        document.path,
+        createMilkdownEditorBridge({ getMarkdown: () => text }),
+      );
+      setDefaultSession({ activeDocument: document });
+      const read = Promise.withResolvers<OpenedMarkdownDocument>();
+      mockTauriApi({
+        inspectMarkdownFile: () => contentChanged(),
+        openMarkdownFile: () => read.promise,
+      });
+      await checkDocumentFile(document.path);
+      const reloading = reloadObservedDocument();
+      await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
+      text = "Further unsaved text";
+      read.resolve(createReloadedDocument());
+      await expect(reloading).resolves.toBe(false);
+      expect(documentEditorBridge.getMarkdown(document.path)).toBe(text);
+      expect(useSessionStore.getState().activeDocument).toMatchObject({
+        isDirty: true,
+        externalChange: { fingerprint: CHANGED_FINGERPRINT },
+      });
+    });
+
     it("discards an inspection that finishes after another document opened", async () => {
       setDefaultSession({ activeDocument: createSavedDocument() });
       const inspection = Promise.withResolvers<MarkdownFileState>();
@@ -494,7 +599,8 @@ describe("external document changes", () => {
       });
       const { loadId } = getActiveTabVersion();
 
-      const checking = checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      await checkDocumentFile(TEST_MARKDOWN_FILE_PATH);
+      const checking = reloadObservedDocument();
       await vi.waitFor(() => expect(countTauriApiCalls("openMarkdownFile")).toBe(1));
       useSessionStore.getState().markDocumentDirty(TEST_MARKDOWN_FILE_PATH);
       reload.resolve(createReloadedDocument());

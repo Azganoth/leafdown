@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { persistentToastManager } from "@/lib/toast";
+import { toastManager } from "@/lib/toast";
 import { createSavedDocument, createFileMetadata } from "@/test/factories/document";
 import { setDefaultSession } from "@/test/utils/appStores";
 
@@ -24,7 +24,7 @@ afterEach(() => {
   stop = undefined;
 });
 const missingDocument = () => createSavedDocument({ externalChange: { kind: "missing" } });
-const lastOptions = () => vi.mocked(persistentToastManager.add).mock.calls.at(-1)![0];
+const lastOptions = () => vi.mocked(toastManager.add).mock.calls.at(-1)![0];
 
 describe("document notices", () => {
   it("groups affected documents, updates in place and closes once resolved", () => {
@@ -41,16 +41,16 @@ describe("document notices", () => {
       externalChange: { kind: "missing" },
     });
     useSessionStore.getState().openTab(second);
-    expect(persistentToastManager.add).toHaveBeenCalledOnce();
-    expect(persistentToastManager.update).toHaveBeenCalledWith(
-      "persistent-test-toast",
+    expect(toastManager.add).toHaveBeenCalledOnce();
+    expect(toastManager.update).toHaveBeenCalledWith(
+      "test-toast",
       expect.objectContaining({ title: "2 documents need attention" }),
     );
     useSessionStore
       .getState()
       .setDocumentFileState(first.path, { metadata: first.metadata, externalChange: null });
     useSessionStore.getState().closeTabs([useSessionStore.getState().activeTabId!]);
-    expect(persistentToastManager.close).toHaveBeenCalledWith("persistent-test-toast");
+    expect(toastManager.close).toHaveBeenCalledWith("test-toast");
   });
 
   it("acknowledges dismissal until a different disk version arrives", () => {
@@ -69,7 +69,7 @@ describe("document notices", () => {
       metadata: document.metadata,
       externalChange: document.externalChange,
     });
-    expect(persistentToastManager.add).toHaveBeenCalledOnce();
+    expect(toastManager.add).toHaveBeenCalledOnce();
     useSessionStore.getState().setDocumentFileState(document.path, {
       metadata: document.metadata,
       externalChange: {
@@ -78,7 +78,7 @@ describe("document notices", () => {
         metadata: createFileMetadata(),
       },
     });
-    expect(persistentToastManager.add).toHaveBeenCalledTimes(2);
+    expect(toastManager.add).toHaveBeenCalledTimes(2);
   });
 
   it("targets the original tab after switching and keeps a cancelled save notice", async () => {
@@ -90,7 +90,7 @@ describe("document notices", () => {
     items[1].run();
     await Promise.resolve();
     expect(saveDocumentTabAs).toHaveBeenCalledWith(original);
-    expect(persistentToastManager.close).not.toHaveBeenCalled();
+    expect(toastManager.close).not.toHaveBeenCalled();
     items[0].run();
     expect(useSessionStore.getState().activeTabId).toBe(original);
     useSessionStore.getState().closeTabs([original]);
@@ -130,10 +130,10 @@ describe("document notices", () => {
       metadata: document.metadata,
       externalChange: { kind: "missing" },
     });
-    expect(persistentToastManager.add).toHaveBeenCalledTimes(2);
+    expect(toastManager.add).toHaveBeenCalledTimes(2);
     stop();
     stop = undefined;
     useSessionStore.getState().openTab(missingDocument());
-    expect(persistentToastManager.add).toHaveBeenCalledTimes(2);
+    expect(toastManager.add).toHaveBeenCalledTimes(2);
   });
 });

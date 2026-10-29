@@ -6,8 +6,8 @@ import {
   notifyError,
   notifyErrorWithActionMenu,
   notifyPending,
+  notifyPersistentWarning,
   toastManager,
-  persistentToastManager,
 } from "@/lib/toast";
 import { act, renderWithUser, screen, waitFor } from "@/test/utils/react";
 import { hoverAndQueryTooltip } from "@/test/utils/tooltip";
@@ -17,32 +17,23 @@ import { Toaster } from "./toast";
 describe("Toaster", () => {
   beforeEach(() => {
     vi.mocked(toastManager.add).mockRestore();
-    vi.mocked(persistentToastManager.add).mockRestore();
-    vi.mocked(persistentToastManager.update).mockRestore();
-    vi.mocked(persistentToastManager.close).mockRestore();
+    vi.mocked(toastManager.update).mockRestore();
+    vi.mocked(toastManager.close).mockRestore();
   });
 
-  it("keeps persistent action menus available alongside more than three temporary messages", async () => {
-    const save = vi.fn();
-    const { user } = renderWithUser(<Toaster timeout={0} />);
+  it("keeps recovery warnings in the regular stack after temporary messages expire", async () => {
+    const { user } = renderWithUser(<Toaster timeout={30} />);
     act(() => {
-      persistentToastManager.add({
-        title: "File missing",
-        timeout: 0,
-        data: {
-          actionMenu: {
-            label: "Actions",
-            kind: "actions",
-            items: [{ label: "Save as", run: save }],
-          },
-        },
-      });
-      for (let i = 0; i < 5; i++) notifyError(`Temporary ${i}`);
+      notifyError("Temporary message");
+      notifyPersistentWarning({ title: "Session could not be preserved" });
     });
-    await user.click(await screen.findByRole("button", { name: "Actions" }));
-    await user.click(screen.getByRole("menuitem", { name: "Save as" }));
-    expect(save).toHaveBeenCalledOnce();
-    expect(screen.getByText("File missing")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Temporary message")).not.toBeInTheDocument());
+    expect(screen.getByText("Session could not be preserved")).toBeInTheDocument();
+    expect(document.querySelectorAll('[data-slot="toast-viewport"]')).toHaveLength(1);
+    await user.click(document.querySelector('[data-slot="toast-close"]')!);
+    await waitFor(() =>
+      expect(screen.queryByText("Session could not be preserved")).not.toBeInTheDocument(),
+    );
   });
 
   it("names its close button without a tooltip repeating the close mark", async () => {

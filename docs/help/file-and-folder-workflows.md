@@ -118,11 +118,12 @@ Use **File > Save** (`Mod+S`) for the current file, or **File > Save as...** (`M
 
 Leafdown watches every open file, including those outside the pinned folder:
 
-- **Clean document changed on disk:** It reloads.
-- **Edited document changed on disk:** Your edits remain and a warning appears. Saving over the external change asks first.
-- **File removed:** The document remains available; Save offers Save as.
+- **File changed on disk:** Your document stays as it is. When you return to its tab or window, a dialog offers **Reload from disk**, **Save as**, and **Keep editing**. Reloading discards unsaved edits, as the dialog explains.
+- **File removed:** The document remains available. When you return to it, a dialog offers **Save as** or **Keep editing**.
 
-If an open file changes outside Leafdown while you have unsaved edits, or its file is moved or deleted, a notification stays until you dismiss it or resolve the problem. **Actions** offers **Show**, **Save as…**, and, for a changed file, **Reload from disk…**. Reloading asks before discarding unsaved edits. Each action names its document and still applies to that document after you switch tabs. Multiple affected documents share one notification. Dismissing it leaves the file's status and save protections in place.
+**Keep editing** and Escape leave your text and the file untouched. The same disk version does not ask again, but another external change does. Saving over an external change still asks first, and saving a missing file offers Save as. A changed background tab waits until you select it; a change to the document you are already editing opens the dialog immediately while Leafdown is focused.
+
+Changed and missing files also share a notification in the regular notification stack, with no timeout. **Actions** offers **Show**, **Save as…**, and, for a changed file, **Reload from disk…**. Reloading from this menu asks before discarding unsaved edits. Each action names its document and still applies to that document after you switch tabs. Dismissing the notification leaves the file's status, dialog decision, and save protections in place.
 
 Saving retains the file's trailing blank lines, though they are not displayed as empty document lines. Selecting everything and replacing or deleting it removes those lines too.
 

@@ -1,24 +1,13 @@
 import { getActiveDocumentKey, getSaveMarkdownFileErrorMessage } from "@/features/document";
 import { localizer, t } from "@/lib/i18n";
-import { getPathIdentityKey, getPathParts } from "@/lib/path";
-import { notifyError, persistentToastManager, type ToastActionMenuItem } from "@/lib/toast";
+import { getPathParts } from "@/lib/path";
+import { notifyError, toastManager, type ToastActionMenuItem } from "@/lib/toast";
 
-import { findTab, useSessionStore, type DocumentTab } from "../stores/session";
+import { findTab, useSessionStore } from "../stores/session";
 import { documentEditorBridge } from "./documentEditorBridge";
 import { notifyOpenMarkdownFileError, openMarkdownFileAtPath } from "./documentOpenWorkflows";
 import { saveDocumentTabAs } from "./documentWorkflows";
-
-const getNoticeKey = ({ id, generation, document }: DocumentTab) => {
-  if (document.status !== "saved" || !document.externalChange) return null;
-  const change = document.externalChange;
-  return JSON.stringify([
-    id,
-    generation,
-    getPathIdentityKey(document.path),
-    change.kind,
-    change.kind === "modified" ? change.fingerprint : null,
-  ]);
-};
+import { getExternalChangeKey } from "./externalChanges";
 
 export const followDocumentNotices = () => {
   const dismissed = new Map<string, string>();
@@ -28,20 +17,23 @@ export const followDocumentNotices = () => {
   const close = () => {
     const id = toastId;
     toastId = null;
-    if (id) persistentToastManager.close(id);
+    if (id) toastManager.close(id);
   };
 
   const refresh = () => {
     const { tabs } = useSessionStore.getState();
     for (const [id, key] of dismissed) {
       const tab = tabs.find((candidate) => candidate.id === id);
-      if (!tab || getNoticeKey(tab) !== key) dismissed.delete(id);
+      if (!tab || getExternalChangeKey(tab) !== key) dismissed.delete(id);
     }
     const affected = tabs.filter((tab) => {
-      const key = getNoticeKey(tab);
+      const key = getExternalChangeKey(tab);
       return key !== null && dismissed.get(tab.id) !== key;
     });
-    const nextSignature = JSON.stringify([localizer.current.locale, affected.map(getNoticeKey)]);
+    const nextSignature = JSON.stringify([
+      localizer.current.locale,
+      affected.map(getExternalChangeKey),
+    ]);
     if (signature === nextSignature) return;
     signature = nextSignature;
     if (affected.length === 0) {
@@ -57,7 +49,9 @@ export const followDocumentNotices = () => {
       const name = affected.length > 1 ? path : getPathParts(path).name;
       const stillAffected = () => {
         const current = findTab(useSessionStore.getState(), tab.id);
-        return current && getNoticeKey(current) === getNoticeKey(tab) ? current : null;
+        return current && getExternalChangeKey(current) === getExternalChangeKey(tab)
+          ? current
+          : null;
       };
       items.push(
         {
@@ -121,14 +115,14 @@ export const followDocumentNotices = () => {
       },
     };
     if (toastId) {
-      persistentToastManager.update(toastId, options);
+      toastManager.update(toastId, options);
     } else {
-      const id = persistentToastManager.add({
+      const id = toastManager.add({
         ...options,
         onClose: () => {
           if (toastId !== id) return;
           for (const tab of useSessionStore.getState().tabs) {
-            const key = getNoticeKey(tab);
+            const key = getExternalChangeKey(tab);
             if (key) dismissed.set(tab.id, key);
           }
           toastId = null;

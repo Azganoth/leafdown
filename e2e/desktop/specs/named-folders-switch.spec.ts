@@ -17,6 +17,7 @@ import { getDesktopE2ERunContext } from "../support/runContext.js";
 import {
   countDocumentTabs,
   dismissToasts,
+  dispatchContextMenu,
   findDocumentTab,
   openRecentPath,
   selectFileMenuItem,
@@ -86,8 +87,12 @@ describe("desktop named folder switching", () => {
 
     const before = await browser.getWindowHandles();
     await openNamedFolders();
-    await $(NAMED_FOLDERS_DIALOG).$("button=Personal notes").click({ button: "right" });
-    await $('[role="menuitem"]=Open in new window').click();
+    await dispatchContextMenu(
+      await $(NAMED_FOLDERS_DIALOG).$("button=Personal notes").getElement(),
+    );
+    const menu = $('[data-slot="context-menu-content"][data-open]');
+    await expect(menu).toBeDisplayed();
+    await menu.$('[role="menuitem"]=Open in new window').click();
     await browser.waitUntil(
       async () => (await browser.getWindowHandles()).length === before.length + 1,
     );

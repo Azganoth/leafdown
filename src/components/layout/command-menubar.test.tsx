@@ -149,7 +149,7 @@ describe("CommandMenubar", () => {
     expect(menuItem(/^New(?! window)/u)).toBeInTheDocument();
     expect(menuItem(/^New window/u)).not.toHaveAttribute("data-disabled");
     expect(menuItem(/^Quit/u)).not.toHaveAttribute("data-disabled");
-    expect(menuItem(/^Save(?! as)/u)).toHaveAttribute("data-disabled");
+    expect(menuItem(/^Save(?! as|d)/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Save as/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Reveal in sidebar/u)).toHaveAttribute("data-disabled");
     expect(menuItem(/^Close folder/u)).toHaveAttribute("data-disabled");

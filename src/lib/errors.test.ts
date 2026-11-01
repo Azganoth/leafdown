@@ -30,6 +30,14 @@ describe("error helpers", () => {
     });
   });
 
+  it("retains native error tags when the payload has no message", () => {
+    const payload = { kind: "contextBusy" };
+    expect(toError(payload)).toMatchObject({
+      message: "Operation failed (contextBusy).",
+      cause: payload,
+    });
+  });
+
   it("logs unexpected errors with context", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const error = new Error("failed");

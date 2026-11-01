@@ -66,6 +66,7 @@ const ROW_HEIGHT = 28;
 const SKIPPED_FILES_SHOWN = 100;
 
 export interface FolderSearchPanelProps {
+  folderSelector?: ReactNode;
   folderName: string;
   folderPath: string;
   onActivateMatch: (match: FolderSearchMatchKey) => void;
@@ -79,6 +80,7 @@ export interface FolderSearchPanelProps {
 const isComposing = (event: KeyboardEvent) => event.nativeEvent.isComposing;
 
 export function FolderSearchPanel({
+  folderSelector,
   folderName,
   folderPath,
   onActivateMatch,
@@ -204,12 +206,14 @@ export function FolderSearchPanel({
     >
       <CardHeader className="shrink-0">
         <CardTitle className="flex min-w-0 items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
-              {title}
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{folderPath}</TooltipContent>
-          </Tooltip>
+          {folderSelector ?? (
+            <Tooltip>
+              <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
+                {title}
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{folderPath}</TooltipContent>
+            </Tooltip>
+          )}
           <PanelButton label={t("folderSearch.close")} onClick={onClose} tooltip={false}>
             <XIcon />
           </PanelButton>

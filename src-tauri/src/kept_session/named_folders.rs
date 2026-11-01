@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime, Window};
 
 use super::{
-    Inner, KeptSession, KeptSessionError, KeptWindow, Owner, RestoredWindow, read_snapshots,
+    Entry, Inner, KeptSession, KeptSessionError, KeptWindow, Owner, RestoredWindow, read_snapshots,
     validate_snapshot_id,
 };
 use crate::{
@@ -39,6 +39,7 @@ pub(super) struct StoredNamedFolder {
 struct NamedFolderEntry {
     #[serde(flatten)]
     folder: NamedFolder,
+    context_id: String,
     window_label: Option<String>,
     has_unsaved_drafts: bool,
 }
@@ -48,6 +49,7 @@ struct NamedFolderEntry {
 pub(crate) struct NamedFoldersSnapshot {
     revision: u64,
     folders: Vec<NamedFolderEntry>,
+    sessions: Vec<NamedFolderEntry>,
 }
 
 #[derive(Debug, Serialize)]
@@ -68,31 +70,101 @@ pub(crate) struct NamedFolderChanges {
     path: Option<String>,
     #[serde(default)]
     remove: bool,
-    #[serde(default)]
-    discard_unsaved: bool,
     expected_revision: Option<u64>,
 }
 
 impl Inner {
     fn named_snapshot(&self) -> NamedFoldersSnapshot {
+        let sessions: Vec<_> = self
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                entry.named.as_ref().map(|folder| NamedFolderEntry {
+                    folder: folder.clone(),
+                    context_id: folder.id.clone(),
+                    window_label: match &entry.owner {
+                        Owner::Window(label) => Some(label.clone()),
+                        _ => None,
+                    },
+                    has_unsaved_drafts: entry.window.state["tabs"]
+                        .as_array()
+                        .is_some_and(|tabs| tabs.iter().any(|tab| tab["isDirty"] == true)),
+                })
+            })
+            .collect();
+        let folders = self
+            .bookmarks
+            .iter()
+            .filter_map(|bookmark| {
+                sessions
+                    .iter()
+                    .find(|session| {
+                        session.context_id == bookmark.id
+                            && path_identity_key(&session.folder.path)
+                                == path_identity_key(&bookmark.path)
+                    })
+                    .or_else(|| {
+                        sessions.iter().find(|session| {
+                            path_identity_key(&session.folder.path)
+                                == path_identity_key(&bookmark.path)
+                        })
+                    })
+                    .map(|session| NamedFolderEntry {
+                        folder: bookmark.clone(),
+                        context_id: session.context_id.clone(),
+                        window_label: session.window_label.clone(),
+                        has_unsaved_drafts: session.has_unsaved_drafts,
+                    })
+            })
+            .collect();
         NamedFoldersSnapshot {
             revision: self.revision,
-            folders: self
-                .entries
-                .iter()
-                .filter_map(|entry| {
-                    entry.named.as_ref().map(|folder| NamedFolderEntry {
-                        folder: folder.clone(),
-                        window_label: match &entry.owner {
-                            Owner::Window(label) => Some(label.clone()),
-                            _ => None,
-                        },
-                        has_unsaved_drafts: entry.window.state["tabs"]
-                            .as_array()
-                            .is_some_and(|tabs| tabs.iter().any(|tab| tab["isDirty"] == true)),
-                    })
-                })
-                .collect(),
+            folders,
+            sessions,
+        }
+    }
+
+    fn ensure_folder_session(&mut self, label: &str, id: &str, path: &str) {
+        let key = path_identity_key(path);
+        if self.entries.iter().any(|entry| {
+            entry
+                .named
+                .as_ref()
+                .is_some_and(|folder| path_identity_key(&folder.path) == key)
+        }) {
+            return;
+        }
+        let mut context_id = id.to_owned();
+        let mut suffix = self.entries.len();
+        while self.entries.iter().any(|entry| {
+            entry
+                .named
+                .as_ref()
+                .is_some_and(|folder| folder.id == context_id)
+        }) {
+            context_id = format!("folder-session-{suffix}");
+            suffix += 1;
+        }
+        let folder = NamedFolder {
+            id: context_id,
+            name: Path::new(path)
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.to_owned()),
+            path: path.to_owned(),
+        };
+        if let Some(entry) = self.entries.iter_mut().find(|entry| {
+            entry.owner == Owner::Window(label.to_owned())
+                && entry.named.is_none()
+                && entry.window.state["folderPath"]
+                    .as_str()
+                    .is_some_and(|root| path_identity_key(root) == key)
+        }) {
+            entry.named = Some(folder);
+        } else {
+            self.entries.push(Entry { owner: Owner::Parked, named: Some(folder), window: KeptWindow {
+                state: serde_json::json!({ "version": 1, "folderPath": path, "activeTabIndex": null, "tabs": [] }), snapshot_ids: vec![],
+            }});
         }
     }
 
@@ -164,32 +236,18 @@ impl KeptSession {
         validate_name(&name)?;
         validate_root(&path)?;
         let mut inner = self.inner();
-        if inner.context_id(label).is_some()
-            || inner
-                .entries
-                .iter()
-                .any(|entry| entry.named.as_ref().is_some_and(|folder| folder.id == id))
-        {
-            return Err(KeptSessionError::InvalidContext);
+        if inner.bookmarks.iter().any(|bookmark| {
+            bookmark.id == id || path_identity_key(&bookmark.path) == path_identity_key(&path)
+        }) {
+            return Err(KeptSessionError::DuplicateBookmark);
         }
         let previous = inner.clone();
-        let entry = inner
-            .entries
-            .iter_mut()
-            .find(|entry| entry.owner == Owner::Window(label.to_owned()))
-            .ok_or(KeptSessionError::InvalidContext)?;
-        if entry.window.state["folderPath"]
-            .as_str()
-            .is_none_or(|root| path_identity_key(root) != path_identity_key(&path))
-        {
-            return Err(KeptSessionError::InvalidContext);
-        }
-        entry.named = Some(NamedFolder {
+        inner.ensure_folder_session(label, &id, &path);
+        inner.bookmarks.push(NamedFolder {
             id,
             name: name.trim().to_owned(),
-            path: path.clone(),
+            path,
         });
-        entry.window.state["folderPath"] = path.into();
         inner.commit(previous)
     }
 
@@ -197,13 +255,12 @@ impl KeptSession {
         &self,
         id: &str,
         changes: NamedFolderChanges,
-        documents: &WindowDocuments,
+        _documents: &WindowDocuments,
     ) -> Result<(), KeptSessionError> {
         let NamedFolderChanges {
             name,
             path,
             remove,
-            discard_unsaved,
             expected_revision,
         } = changes;
         if let Some(name) = &name {
@@ -213,60 +270,31 @@ impl KeptSession {
             validate_root(path)?;
         }
         let mut inner = self.inner();
-        if remove && expected_revision.is_some_and(|revision| revision != inner.revision) {
+        if expected_revision.is_some_and(|revision| revision != inner.revision) {
             return Err(KeptSessionError::InvalidContext);
         }
-        let previous = inner.clone();
         let index = inner
-            .entries
+            .bookmarks
             .iter()
-            .position(|entry| entry.named.as_ref().is_some_and(|folder| folder.id == id))
+            .position(|bookmark| bookmark.id == id)
             .ok_or(KeptSessionError::InvalidContext)?;
-        if let Some(path) = &path {
-            let entry = &inner.entries[index];
-            let Some(folder) = &entry.named else {
-                return Err(KeptSessionError::InvalidContext);
-            };
-            let relocated = relocate_window(&entry.window, &folder.path, path);
-            let paths = saved_paths(&relocated);
-            if !documents.can_assign("", &paths)
-                || inner
-                    .entries
-                    .iter()
-                    .enumerate()
-                    .any(|(other_index, entry)| {
-                        other_index != index
-                            && saved_paths(&entry.window).iter().any(|(other_path, _)| {
-                                paths.iter().any(|(path, _)| {
-                                    path_identity_key(path) == path_identity_key(other_path)
-                                })
-                            })
-                    })
-            {
-                return Err(KeptSessionError::ContextBusy);
-            }
+        if let Some(path) = &path
+            && inner.bookmarks.iter().enumerate().any(|(other, bookmark)| {
+                other != index && path_identity_key(&bookmark.path) == path_identity_key(path)
+            })
+        {
+            return Err(KeptSessionError::DuplicateBookmark);
         }
-        let entry = &mut inner.entries[index];
-        if (remove || path.is_some()) && matches!(entry.owner, Owner::Window(_)) {
-            return Err(KeptSessionError::ContextBusy);
-        }
+        let previous = inner.clone();
         if remove {
-            if !discard_unsaved
-                && entry.window.state["tabs"]
-                    .as_array()
-                    .is_some_and(|tabs| tabs.iter().any(|tab| tab["isDirty"] == true))
-            {
-                return Err(KeptSessionError::UnsavedDrafts);
-            }
-            inner.entries.remove(index);
-        } else if let Some(folder) = &mut entry.named {
-            if let Some(name) = name {
-                folder.name = name.trim().to_owned();
-            }
+            inner.bookmarks.remove(index);
+        } else {
             if let Some(path) = path {
-                entry.window = relocate_window(&entry.window, &folder.path, &path);
-                folder.path.clone_from(&path);
-                entry.window.state["folderPath"] = path.into();
+                inner.ensure_folder_session("", id, &path);
+                inner.bookmarks[index].path = path;
+            }
+            if let Some(name) = name {
+                inner.bookmarks[index].name = name.trim().to_owned();
             }
         }
         inner.commit(previous)
@@ -329,31 +357,6 @@ impl KeptSession {
     }
 }
 
-fn relocate_window(window: &KeptWindow, old_root: &str, new_root: &str) -> KeptWindow {
-    let mut relocated = window.clone();
-    let root = old_root.replace('\\', "/");
-    let root = root.trim_end_matches('/');
-    let prefix = format!("{}/", path_identity_key(root));
-    if let Some(tabs) = relocated.state["tabs"].as_array_mut() {
-        for tab in tabs {
-            if let Some(path) = tab["path"].as_str()
-                && path_identity_key(path).starts_with(&prefix)
-            {
-                let normalized = path.replace('\\', "/");
-                let suffix = normalized
-                    .split('/')
-                    .skip(root.split('/').count())
-                    .collect::<Vec<_>>()
-                    .join("/");
-                tab["path"] =
-                    format!("{}/{}", new_root.trim_end_matches(['/', '\\']), suffix).into();
-            }
-        }
-    }
-    relocated.state["folderPath"] = new_root.into();
-    relocated
-}
-
 pub(super) fn saved_paths(window: &KeptWindow) -> Vec<(String, bool)> {
     window.state["tabs"]
         .as_array()
@@ -387,6 +390,21 @@ fn validate_root(path: &str) -> Result<(), KeptSessionError> {
     }
 }
 
+fn validate_bookmark_directory(path: &str) -> Result<(), KeptSessionError> {
+    if !Path::new(path).is_absolute() {
+        return Err(KeptSessionError::FolderUnavailable {
+            path: path.to_owned(),
+            message: "Choose an absolute folder path.".into(),
+        });
+    }
+    std::fs::read_dir(path)
+        .map(|_| ())
+        .map_err(|error| KeptSessionError::FolderUnavailable {
+            path: path.to_owned(),
+            message: error.to_string(),
+        })
+}
+
 pub(super) fn publish<R: Runtime>(app: &AppHandle<R>) {
     let snapshot = KeptSession::inner(&app.state::<KeptSession>()).named_snapshot();
     if let Err(error) = app.emit(NAMED_FOLDERS_CHANGED_EVENT, snapshot) {
@@ -406,17 +424,22 @@ pub(crate) async fn create_named_folder(
     id: String,
     name: String,
     path: String,
-) -> Result<(), KeptSessionError> {
+) -> Result<Option<String>, KeptSessionError> {
     let blocking = app.clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        blocking
-            .state::<KeptSession>()
-            .create_named(window.label(), id, name, path)
+    let context_id = tauri::async_runtime::spawn_blocking(move || {
+        validate_bookmark_directory(&path)?;
+        let state = blocking.state::<KeptSession>();
+        state.create_named(window.label(), id, name, path)?;
+        Ok::<_, KeptSessionError>(
+            KeptSession::inner(&state)
+                .context_id(window.label())
+                .map(str::to_owned),
+        )
     })
     .await
     .map_err(super::join_failed)??;
     publish(&app);
-    Ok(())
+    Ok(context_id)
 }
 
 #[tauri::command]
@@ -427,6 +450,9 @@ pub(crate) async fn edit_named_folder(
 ) -> Result<(), KeptSessionError> {
     let blocking = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
+        if let Some(path) = &changes.path {
+            validate_bookmark_directory(path)?;
+        }
         blocking.state::<KeptSession>().edit_named(
             &id,
             changes,

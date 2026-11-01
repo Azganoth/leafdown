@@ -145,6 +145,14 @@ const getThrownValueMessage = (value: unknown) => {
     return value.message || "Unknown thrown value.";
   }
 
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    typeof value.kind === "string"
+  ) {
+    return `Operation failed (${value.kind}).`;
+  }
   return "Unknown thrown value.";
 };
 

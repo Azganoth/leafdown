@@ -1,15 +1,15 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import { selectFolderContextPath } from "@/features/folder-context";
+import { scanFolderContext, selectFolderContextPath } from "@/features/folder-context";
 import { SequentialTaskQueue } from "@/lib/async";
-import { requestConfirmation } from "@/lib/confirmation";
-import { notifyOperationFailure } from "@/lib/errors";
-import { t } from "@/lib/i18n";
+import { isSamePath } from "@/lib/path";
 import { notifyError } from "@/lib/toast";
 
 import { useNamedFoldersStore } from "../stores/namedFolders";
 import { findTabByPath, getSessionFolderPath, useSessionStore } from "../stores/session";
+import { getBookmarkError } from "./bookmarkErrors";
 import { documentEditorBridge } from "./documentEditorBridge";
+import { getSessionFolderScanOptions } from "./folderContextOptions";
 import { flushContextSession, forgetContextSnapshots, restoreContextSession } from "./keptSession";
 import {
   createNamedFolder,
@@ -33,41 +33,23 @@ export const runNamedFolderAction = async (action: () => Promise<unknown>) => {
   try {
     await action();
   } catch (error) {
-    if (error && typeof error === "object" && "kind" in error) {
-      const kind = error.kind;
-      if (kind === "contextBusy" || kind === "unsavedDrafts" || kind === "invalidContext") {
-        notifyError({
-          title: t(
-            kind === "contextBusy"
-              ? "session.namedFolders.busy"
-              : kind === "unsavedDrafts"
-                ? "session.namedFolders.unsaved"
-                : "session.namedFolders.failed",
-          ),
-        });
-        return;
-      }
-    }
-    notifyOperationFailure(t("session.namedFolders.failed"), error, "namedFolderAction");
+    const failure = getBookmarkError(error);
+    notifyError({ title: failure.message });
   }
 };
 
-export const keepNamedFolder = (name: string) =>
+export const createBookmark = (name: string, path: string) =>
   transitions.run(async () => {
-    const path = getSessionFolderPath(useSessionStore.getState());
-    if (!path || useNamedFoldersStore.getState().activeId || !name.trim()) {
-      return false;
-    }
+    if (!name.trim() || !path.trim()) return false;
     useNamedFoldersStore.setState({ transitioning: true });
     cancelOpenSessionTransitions();
     try {
       return await runAfterPendingSaves(async () => {
-        if (!(await flushContextSession())) {
+        const currentPath = getSessionFolderPath(useSessionStore.getState());
+        if (currentPath && isSamePath(currentPath, path.trim()) && !(await flushContextSession()))
           return false;
-        }
-        const id = crypto.randomUUID();
-        await createNamedFolder(id, name.trim(), path);
-        useNamedFoldersStore.setState({ activeId: id });
+        const contextId = await createNamedFolder(crypto.randomUUID(), name.trim(), path.trim());
+        useNamedFoldersStore.setState({ activeId: contextId });
         await refreshNamedFolders();
         return true;
       });
@@ -76,14 +58,22 @@ export const keepNamedFolder = (name: string) =>
     }
   });
 
+export const keepNamedFolder = (name: string) => {
+  const path = getSessionFolderPath(useSessionStore.getState());
+  return path ? createBookmark(name, path) : Promise.resolve(false);
+};
+
 export const activateNamedFolder = (
   id: string | null,
   newWindow = false,
   documentPath?: string,
+  recoverDrafts = false,
 ): Promise<boolean> =>
   transitions.run(async () => {
     const state = useNamedFoldersStore.getState();
-    const target = state.folders.find((folder) => folder.id === id);
+    const target =
+      state.sessions.find((folder) => folder.id === id) ??
+      state.folders.find((folder) => folder.contextId === id);
     if (id === state.activeId && !newWindow) {
       activateOwnedTab(documentPath);
       return true;
@@ -101,6 +91,10 @@ export const activateNamedFolder = (
     cancelOpenSessionTransitions();
     try {
       return await runAfterPendingSaves(async () => {
+        const preparedFolder =
+          target && !elsewhere && !recoverDrafts
+            ? await scanFolderContext(target.path, getSessionFolderScanOptions())
+            : undefined;
         if (!newWindow && !elsewhere && !(await flushContextSession())) {
           return false;
         }
@@ -112,7 +106,7 @@ export const activateNamedFolder = (
         useNamedFoldersStore.setState({ activeId: id });
         useSessionStore.getState().reset();
         if (selected.session) {
-          await restoreContextSession(selected.session);
+          await restoreContextSession(selected.session, preparedFolder);
         }
         forgetContextSnapshots();
         activateOwnedTab(documentPath);
@@ -149,26 +143,8 @@ export const locateNamedFolder = async (id: string) => {
 };
 
 export const removeNamedFolder = async (folder: NamedFolder) => {
-  const expectedRevision = useNamedFoldersStore.getState().revision;
-  if (
-    !(await requestConfirmation({
-      title: t("session.namedFolders.removeTitle"),
-      message: t(
-        folder.hasUnsavedDrafts
-          ? "session.namedFolders.removeDrafts"
-          : "session.namedFolders.removeMessage",
-        { name: folder.name },
-      ),
-      confirmLabel: t("session.namedFolders.remove"),
-      cancelLabel: t("session.namedFolders.cancel"),
-    }))
-  ) {
-    return;
-  }
   await editNamedFolder(folder.id, {
     remove: true,
-    discardUnsaved: folder.hasUnsavedDrafts,
-    expectedRevision,
   });
   await refreshNamedFolders();
 };

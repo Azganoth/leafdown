@@ -19,6 +19,7 @@ import type { ReportWindowSessionArgs } from "./keptSessionApi";
 import type { NamedFolder } from "./namedFoldersApi";
 import {
   activateNamedFolder,
+  createBookmark,
   keepNamedFolder,
   locateNamedFolder,
   removeNamedFolder,
@@ -34,14 +35,15 @@ const folder: NamedFolder = {
   name: "Personal notes",
   path: TEST_NOTES_FOLDER_PATH,
   windowLabel: null,
+  contextId: "personal",
   hasUnsavedDrafts: true,
 };
 let following: Disposable | undefined;
 
 const mocks = (overrides: Record<string, (args: unknown) => unknown> = {}) =>
   mockInvokeCommands({
-    list_named_folders: () => ({ revision: 1, folders: [folder] }),
-    create_named_folder: () => undefined,
+    list_named_folders: () => ({ revision: 1, folders: [folder], sessions: [folder] }),
+    create_named_folder: () => folder.contextId,
     select_named_folder: () => ({ kind: "selected", session: null }),
     edit_named_folder: () => undefined,
     scan_markdown_folder: () => createFolderContext(),
@@ -264,16 +266,21 @@ describe("named folder workflows", () => {
     expect(countInvokeCalls("open_markdown_file")).toBe(0);
   });
 
-  it("requires confirmation to remove drafts and passes the confirmed revision", async () => {
-    useNamedFoldersStore.setState({ revision: 12 });
-    await removeNamedFolder(folder);
-    expect(countInvokeCalls("edit_named_folder")).toBe(0);
-    vi.mocked(requestConfirmation).mockResolvedValue(true);
+  it("removes only the bookmark without confirmation, selection, or resetting current work", async () => {
+    useNamedFoldersStore.setState({ revision: 12, activeId: folder.contextId });
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true, content: "Keep me" }),
+    });
+    const tabs = useSessionStore.getState().tabs;
     await removeNamedFolder(folder);
     expect(getLastInvokeArgs("edit_named_folder")).toEqual({
       id: folder.id,
-      changes: { remove: true, discardUnsaved: true, expectedRevision: 12 },
+      changes: { remove: true },
     });
+    expect(requestConfirmation).not.toHaveBeenCalled();
+    expect(countInvokeCalls("select_named_folder")).toBe(0);
+    expect(useSessionStore.getState().tabs).toBe(tabs);
+    expect(useNamedFoldersStore.getState().activeId).toBe(folder.contextId);
   });
 
   it("renames only the display label", async () => {
@@ -287,5 +294,67 @@ describe("named folder workflows", () => {
   it("locating a folder can be cancelled", async () => {
     await locateNamedFolder(folder.id);
     expect(countInvokeCalls("edit_named_folder")).toBe(0);
+  });
+  it("a failed Add leaves the active folder and drafts untouched", async () => {
+    setDefaultSession({
+      folderContext: createFolderContext(),
+      activeDocument: createUntitledDocument({ isDirty: true, content: "Keep" }),
+    });
+    useNamedFoldersStore.setState({ activeId: "personal" });
+    const tabs = useSessionStore.getState().tabs;
+    mocks({
+      create_named_folder: () => {
+        throw { kind: "folderUnavailable", message: "Missing" };
+      },
+    });
+    await expect(createBookmark("Missing", "C:/Missing")).rejects.toMatchObject({
+      kind: "folderUnavailable",
+    });
+    expect(useSessionStore.getState().tabs).toBe(tabs);
+    expect(useNamedFoldersStore.getState()).toMatchObject({
+      activeId: "personal",
+      transitioning: false,
+    });
+    expect(countInvokeCalls("select_named_folder")).toBe(0);
+    expect(countInvokeCalls("open_markdown_folder")).toBe(0);
+  });
+
+  it("a failed destination scan leaves the current folder selected", async () => {
+    setDefaultSession({
+      activeDocument: createUntitledDocument({ isDirty: true, content: "Keep" }),
+    });
+    useNamedFoldersStore.setState({ activeId: "other", sessions: [folder] });
+    const tabs = useSessionStore.getState().tabs;
+    mocks({
+      scan_markdown_folder: () => {
+        throw { kind: "missingFolder", path: folder.path };
+      },
+    });
+    await expect(activateNamedFolder(folder.contextId)).rejects.toMatchObject({
+      kind: "missingFolder",
+    });
+    expect(countInvokeCalls("select_named_folder")).toBe(0);
+    expect(useSessionStore.getState().tabs).toBe(tabs);
+    expect(useNamedFoldersStore.getState().activeId).toBe("other");
+  });
+
+  it("reopening an unbookmarked path selects its retained session", async () => {
+    useNamedFoldersStore.setState({ folders: [], sessions: [folder], activeId: "other" });
+    expect(await openFolderContextAtPath(folder.path)).toBe(true);
+    expect(getLastInvokeArgs("select_named_folder")).toMatchObject({ id: folder.id });
+    expect(countInvokeCalls("open_markdown_folder")).toBe(0);
+  });
+
+  it("draft recovery can claim a session without validating a missing root first", async () => {
+    useNamedFoldersStore.setState({ folders: [], sessions: [folder], activeId: "other" });
+    expect(await activateNamedFolder(folder.id, false, undefined, true)).toBe(true);
+    expect(countInvokeCalls("scan_markdown_folder")).toBe(0);
+    expect(getLastInvokeArgs("select_named_folder")).toMatchObject({ id: folder.id });
+  });
+
+  it("invalid empty bookmark fields do not call the backend", async () => {
+    expect(await createBookmark(" ", folder.path)).toBe(false);
+    expect(await createBookmark("Name", " ")).toBe(false);
+    expect(countInvokeCalls("create_named_folder")).toBe(0);
   });
 });

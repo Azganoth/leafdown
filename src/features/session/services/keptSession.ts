@@ -314,6 +314,7 @@ export const restoreKeptWindowSession = async () => {
 
 export const restoreContextSession = async (
   restored: import("./keptSessionApi").RestoredWindowSession,
+  preparedFolder?: Awaited<ReturnType<typeof scanFolderContext>>,
 ) => {
   const state = restored && parseKeptWindowState(restored.state);
 
@@ -362,7 +363,9 @@ export const restoreContextSession = async (
     }
 
     if (folderContextLoad) {
-      void loadRestoredFolderContext(folderContextLoad);
+      if (preparedFolder)
+        useSessionStore.getState().finishFolderContextLoad(folderContextLoad.id, preparedFolder);
+      else void loadRestoredFolderContext(folderContextLoad);
     }
   } finally {
     for (const { claim } of restoredTabs) {

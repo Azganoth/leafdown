@@ -11,17 +11,17 @@ Browse notes without losing your place, keep the documents you need, and search 
 
 On Windows, Leafdown is available in File Explorer's **Open with** menu and **Settings > Apps > Default apps** after installation. Installing does not change your default app. Opening an associated file starts Leafdown or brings it forward; starting Leafdown again without a file opens a new window.
 
-## Keep named folders
+## Bookmark folders
 
-Open **File > Named folders…**, enter a display name for the current folder, and choose **Keep this folder**. Use **Choose folder…** first if you want another folder. The folder remains ordinary: its name on disk and its files stay unchanged, and Leafdown keeps the entry and unsaved drafts in application data.
+Open **Bookmarks** in the navigator header, on welcome, or through **File > Bookmarks…**. Search by name or path; long lists scroll while the bottom actions remain visible. A left accent marker identifies the current folder. A filled bookmark means the folder is bookmarked.
 
-Choose a named folder above the navigator, on welcome, in **File > Named folders…**, or by searching its name in the command palette. Switching parks the current named folder and restores the selected folder's own tabs and drafts, including untitled notes and documents outside its root. Restoring starts a fresh undo history. If keeping the latest text fails, the current work stays open. Entering from an unnamed session asks about its unsaved changes before replacing its tabs.
+Choose the outline bookmark to **Bookmark folder**, or the filled bookmark to **Remove bookmark**. Removing a bookmark only removes the shortcut. Your folder stays open, and its tabs, drafts, and files remain intact, including in other windows.
 
-**Open in new window** opens a parked context separately; choosing one already active brings its window forward. Opening a document owned by another context brings that context forward too, so there is only one editable copy. **Park this folder**, **Close folder**, and opening an ordinary folder leave a named context's drafts available for later.
+**Add bookmark…** opens a form with **Name** and **Folder**. Type the path or use the folder-picker button, then choose **Add bookmark**. This saves the shortcut without opening the folder. Errors remain in the form so you can correct them. Right-click a row (or press `Shift+F10`) for **Edit**, **Remove**, and, below the separator, **Open in new window**. Editing a bookmark's destination changes only the shortcut; it never moves documents or changes the folder already open.
 
-Use **Rename** to change the display name. Park the context before using **Locate folder…** to find a moved root, or **Remove** to forget the entry. Locating updates document paths inside the old root and retains outside tabs. A missing or unreadable root still leaves its entry and recoverable drafts available. Removing an entry does not delete its directory or saved files, and disposing of its unsaved drafts requires confirmation.
+Choose a bookmark to open its folder session with its own tabs and drafts, including untitled notes and documents outside the root. Switching preserves the current retained session first; a failure leaves that work open. Restoring starts a fresh undo history. Entering from an unnamed session asks about its unsaved changes before replacing its tabs. A session already open elsewhere brings its window forward.
 
-Named folders are separate from recent history and survive clearing it. They also survive turning **Restore session** off: that setting controls which windows reopen automatically. Closing a named context's window parks it, even while other windows remain open or restoration is off. Only **Save** writes a Markdown file.
+Removing a bookmark keeps its session available when you reopen the folder path. **Recover drafts…**, below Add bookmark, lists closed sessions with unsaved text, even if they no longer have bookmarks or their folders are missing. Recovered documents remain unsaved until you save them. Bookmarks and retained drafts are independent of recent history. **Restore session** controls which windows reopen automatically at startup; turning it off does not discard retained folder drafts. Only **Save** writes a Markdown file.
 
 ## Work with tabs
 
@@ -52,7 +52,7 @@ A file is open in only one window at a time. Opening it again brings its existin
 
 Renaming a file or folder moves its open tabs in every window and preserves edits. Deleting closes its tabs in the deleting window; other windows keep their text and mark the file missing. Folder replacement skips a file with unsaved edits in another window and reports it.
 
-**File > Close window** (`Alt+F4`) closes one window. **File > Quit** (`Mod+Q`) closes them all. Named contexts always park their tabs and drafts; failed persistence keeps the window open. For unnamed sessions, **Restore session** keeps windows and unsaved edits at quit or when closing the last window, and closing a window while others remain asks as usual. With restoration off, unnamed unsaved changes prompt before closing. Canceling a quit stops there, leaving that window and those not yet asked open.
+**File > Close window** (`Alt+F4`) closes one window. **File > Quit** (`Mod+Q`) closes them all. Retained folder sessions always park their tabs and drafts; failed persistence keeps the window open. For unnamed sessions, **Restore session** keeps windows and unsaved edits at quit or when closing the last window, and closing a window while others remain asks as usual. With restoration off, unnamed unsaved changes prompt before closing. Canceling a quit stops there, leaving that window and those not yet asked open.
 
 ## Work in the article navigator
 

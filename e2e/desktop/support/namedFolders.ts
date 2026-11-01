@@ -21,8 +21,11 @@ export const keepCurrentFolder = async (name: string) => {
   await $(NAMED_FOLDERS_DIALOG).$("aria/Bookmark folder").click();
   const row = $(NAMED_FOLDERS_DIALOG).$('button[aria-current="true"]').$("..");
   await row.click({ button: "right" });
-  await $('[role="menuitem"]=Edit').click();
+  const menu = $('[data-slot="context-menu-content"][data-open]');
+  await expect(menu).toBeDisplayed();
+  await menu.$('[role="menuitem"]=Edit').click();
   const form = $('[data-slot="dialog-content"][data-open] form');
+  await expect(form).toBeDisplayed();
   await form.$("input").setValue(name);
   await form.$("button=Save").click();
   await closeNamedFolders();

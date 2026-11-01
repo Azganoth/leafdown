@@ -152,6 +152,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
   const searchPath = path.join(fixtureRoot, "find-and-replace.md");
   const outlinePath = path.join(fixtureRoot, "heading-outline.md");
   const imagesFolderPath = path.join(fixtureRoot, "rendered-images");
+  const bookmarkStudiesPath = path.join(imagesFolderPath, "bookmark-studies.md");
   const imagesPath = path.join(imagesFolderPath, "rendered-images.md");
   // A root entry would push document-lifecycle's tree item out of the virtualized navigator.
   const codeCollapsePath = path.join(imagesFolderPath, "code-collapse.md");
@@ -190,6 +191,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     modifierClick: { path: modifierClickPath },
     callouts: { path: calloutsPath },
     citations: { path: citationsPath },
+    bookmarks: { studiesPath: bookmarkStudiesPath },
     frontmatter: {
       yamlPath: frontmatterYamlPath,
       tomlPath: frontmatterTomlPath,
@@ -296,7 +298,7 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
     { name: "launch-document", launchArguments: [launchDocumentPath] },
     { name: "persistence-write", recentFolders: [folderPath] },
     { name: "persistence-restart", continues: "persistence-write" },
-    { name: "named-folders-switch", recentFiles: [calloutsPath, citationsPath] },
+    { name: "named-folders-switch", recentFiles: [calloutsPath, bookmarkStudiesPath] },
     { name: "named-folders-restore", continues: "named-folders-switch" },
     { name: "kept-session-quit", recentFiles: [citationsPath] },
     { name: "kept-session-restore", continues: "kept-session-quit" },
@@ -362,6 +364,10 @@ const createWorkerContext = async (workerIndex: number): Promise<WorkerContext> 
       copyFile(
         path.join(repositoryRoot, "e2e", "desktop", "fixtures", "citations.md"),
         citationsPath,
+      ),
+      copyFile(
+        path.join(repositoryRoot, "e2e", "desktop", "fixtures", "citations.md"),
+        bookmarkStudiesPath,
       ),
       copyFile(
         path.join(repositoryRoot, "corpus", "extensions", "frontmatter", "yaml.md"),

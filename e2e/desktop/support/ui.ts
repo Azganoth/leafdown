@@ -1,5 +1,22 @@
 import { $, $$, browser } from "@wdio/globals";
 
+// The WebDriver pointer raises no contextmenu event for the right button, so the event the
+// right-click would produce is dispatched at the same point.
+export const dispatchContextMenu = (element: WebdriverIO.Element, offsetFromBottom?: number) =>
+  element.execute((target, bottomOffset) => {
+    const { bottom, height, left, width } = target.getBoundingClientRect();
+
+    target.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        button: 2,
+        cancelable: true,
+        clientX: left + width / 2,
+        clientY: bottomOffset === undefined ? bottom - height / 2 : bottom - bottomOffset,
+      }),
+    );
+  }, offsetFromBottom);
+
 const MENU_ITEM_SELECTOR = '[role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"]';
 
 const findByText = async (

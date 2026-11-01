@@ -1,6 +1,7 @@
 import { selectMarkdownFilePath, toSavedDocument } from "@/features/document";
 import { openFolderContext, selectFolderContextPath } from "@/features/folder-context";
 import { throwIfCancelled } from "@/lib/cancellation";
+import { isSamePath } from "@/lib/path";
 
 import { useNamedFoldersStore } from "../stores/namedFolders";
 import { findTabByPath, useSessionStore } from "../stores/session";
@@ -82,15 +83,27 @@ export const openFolderContextAtPath = async (path: string) => {
   if (useNamedFoldersStore.getState().transitioning) {
     return false;
   }
-  if (useNamedFoldersStore.getState().activeId && !(await activateNamedFolder(null))) {
-    return false;
+  const retained = useNamedFoldersStore
+    .getState()
+    .sessions.find((session) => isSamePath(session.path, path));
+  if (retained) return activateNamedFolder(retained.id);
+  let prepared: Awaited<ReturnType<typeof openFolderContext>> | undefined;
+  const activeId = useNamedFoldersStore.getState().activeId;
+  if (activeId) {
+    if (
+      !(await runLatestOpenTransition(async (token) => {
+        prepared = await openFolderContext(path, getSessionFolderOpenOptions(), token);
+        throwIfCancelled(token);
+        return true;
+      }))
+    )
+      return false;
+    if (useNamedFoldersStore.getState().activeId !== activeId || !(await activateNamedFolder(null)))
+      return false;
   }
   return runLatestOpenTransition(async (cancellationToken) => {
-    const { folderContext, indexDocument, indexError } = await openFolderContext(
-      path,
-      getSessionFolderOpenOptions(),
-      cancellationToken,
-    );
+    const { folderContext, indexDocument, indexError } =
+      prepared ?? (await openFolderContext(path, getSessionFolderOpenOptions(), cancellationToken));
     const indexTab = indexDocument && findTabByPath(useSessionStore.getState(), indexDocument.path);
     const indexClaim =
       indexDocument && !indexTab

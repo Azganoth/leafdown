@@ -84,9 +84,9 @@ function PaletteContent({ commandState, onExecute, onOpenChange }: CommandPalett
     ...namedFolders.map((folder) => ({
       id: `namedFolder:${folder.id}`,
       label: folder.name,
-      menuPath: `${t("session.namedFolders.title")} › ${folder.name}`,
+      menuPath: `${t("session.bookmarks.title")} › ${folder.name}`,
       kind: "folder" as const,
-      folderId: folder.id,
+      folderId: folder.contextId,
     })),
   ];
   const results = searchPaletteCommands(items, query);

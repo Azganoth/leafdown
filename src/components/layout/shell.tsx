@@ -224,13 +224,13 @@ export function Shell() {
                       data-testid="article-navigator-host"
                       className="flex size-full min-h-0 min-w-0 flex-col"
                     >
-                      <NamedFolderSelector />
                       {!folderContext ? (
                         folderContextLoadPath && (
                           <ArticleNavigatorSkeleton folderPath={folderContextLoadPath} />
                         )
                       ) : folderSearchOpen ? (
                         <FolderSearchPanel
+                          folderSelector={<NamedFolderSelector />}
                           folderName={folderContext.tree.name}
                           folderPath={folderContext.path}
                           onActivateMatch={handleActivateFolderSearchMatch}
@@ -242,6 +242,7 @@ export function Shell() {
                         />
                       ) : (
                         <ArticleNavigator
+                          folderSelector={<NamedFolderSelector />}
                           actions={ARTICLE_NAVIGATOR_ENTRY_ACTIONS}
                           activeArticlePath={activeArticlePath}
                           fileIconStyle={fileIconStyle}

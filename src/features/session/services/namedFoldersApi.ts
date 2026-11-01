@@ -6,6 +6,7 @@ export const NAMED_FOLDERS_CHANGED_EVENT = "leafdown://named-folders-changed";
 
 export interface NamedFolder {
   id: string;
+  contextId: string;
   name: string;
   path: string;
   windowLabel: string | null;
@@ -15,18 +16,18 @@ export interface NamedFolder {
 export interface NamedFoldersSnapshot {
   revision: number;
   folders: NamedFolder[];
+  sessions: NamedFolder[];
 }
 
 export const listNamedFolders = () => invoke<NamedFoldersSnapshot>("list_named_folders");
 export const createNamedFolder = (id: string, name: string, path: string) =>
-  invoke<void>("create_named_folder", { id, name, path });
+  invoke<string | null>("create_named_folder", { id, name, path });
 export const editNamedFolder = (
   id: string,
   changes: {
     name?: string;
     path?: string;
     remove?: boolean;
-    discardUnsaved?: boolean;
     expectedRevision?: number;
   },
 ) =>

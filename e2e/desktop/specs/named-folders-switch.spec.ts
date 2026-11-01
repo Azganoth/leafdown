@@ -17,6 +17,7 @@ import { getDesktopE2ERunContext } from "../support/runContext.js";
 import {
   countDocumentTabs,
   dismissToasts,
+  dispatchContextMenu,
   findDocumentTab,
   openRecentPath,
   selectFileMenuItem,
@@ -24,7 +25,8 @@ import {
 
 describe("desktop named folder switching", () => {
   it("parks distinct tabs and drafts, activates an owner in another window, and parks a closed window", async () => {
-    const { callouts, citations } = await getDesktopE2ERunContext();
+    const { callouts, bookmarks } = await getDesktopE2ERunContext();
+    expect(path.dirname(bookmarks.studiesPath)).not.toBe(path.dirname(callouts.path));
     const onDisk = await readFile(callouts.path, "utf8");
     const diagnostics = await getDiagnosticsSummary();
     const processId = Number(diagnostics.runId.slice(diagnostics.runId.lastIndexOf("-") + 1));
@@ -35,12 +37,39 @@ describe("desktop named folder switching", () => {
     await selectFileMenuItem("New");
     await appendToNamedDraft("Personal untitled draft marker");
     await keepCurrentFolder("Personal notes");
+    await $('[data-testid="article-navigator-host"] [data-slot="popover-trigger"]').click();
+    const picker = $('[data-slot="popover-content"]');
+    await expect(picker.$("input")).toBeFocused();
+    await picker.$("input").setValue("Personal");
+    const current = picker.$('button[aria-current="true"]');
+    const row = current.$("..");
+    await row.moveTo();
+    await expect(row.$('button[aria-label="Remove bookmark"]')).toBeEnabled();
+    await browser.keys("ArrowDown");
+    await expect(current).toBeFocused();
+    await current.click();
+    await expect(picker).not.toBeDisplayed();
+
     await openNamedFolders();
-    await $(NAMED_FOLDERS_DIALOG).$("button=Park this folder").click();
+    await $(NAMED_FOLDERS_DIALOG).$("button=Add bookmark…").click();
+    const addForm = $('[data-slot="dialog-content"][data-open] form');
+    await addForm.$("aria/Name").setValue("Invalid folder");
+    await addForm.$("aria/Folder").setValue(callouts.path);
+    await addForm.$("button=Add bookmark").click();
+    await expect(addForm.$('[role="alert"]')).toBeDisplayed();
+    expect(await countDocumentTabs()).toBe(2);
+    await addForm.$("button=Cancel").click();
+    await $(NAMED_FOLDERS_DIALOG).$('button[aria-label="Remove bookmark"]').click();
+    await expect($(NAMED_FOLDERS_DIALOG).$('button[aria-current="true"]')).toBeDisplayed();
+    await expect($(NAMED_FOLDERS_DIALOG).$('button[aria-label="Bookmark folder"]')).toBeEnabled();
+    expect(await countDocumentTabs()).toBe(2);
     await closeNamedFolders();
+    await keepCurrentFolder("Personal notes");
+
+    await selectFileMenuItem("Close folder");
     expect(await countDocumentTabs()).toBe(0);
 
-    await openRecentPath(citations.path);
+    await openRecentPath(bookmarks.studiesPath);
     await dismissToasts();
     await appendToNamedDraft("Studies draft marker");
     await keepCurrentFolder("Studies");
@@ -59,8 +88,12 @@ describe("desktop named folder switching", () => {
 
     const before = await browser.getWindowHandles();
     await openNamedFolders();
-    const personal = $(NAMED_FOLDERS_DIALOG).$('section[aria-label="Personal notes"]');
-    await personal.$("button=Open in new window").click();
+    await dispatchContextMenu(
+      await $(NAMED_FOLDERS_DIALOG).$("button=Personal notes").getElement(),
+    );
+    const menu = $('[data-slot="context-menu-content"][data-open]');
+    await expect(menu).toBeDisplayed();
+    await menu.$('[role="menuitem"]=Open in new window').click();
     await browser.waitUntil(
       async () => (await browser.getWindowHandles()).length === before.length + 1,
     );

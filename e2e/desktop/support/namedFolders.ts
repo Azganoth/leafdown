@@ -1,12 +1,12 @@
 import { $, browser, expect } from "@wdio/globals";
 
-import { selectFileMenuItem } from "./ui.js";
+import { dispatchContextMenu, selectFileMenuItem } from "./ui.js";
 
 export const ACTIVE_EDITOR = "[data-testid=active-document-host] .ProseMirror";
 export const NAMED_FOLDERS_DIALOG = '[data-slot="dialog-content"][data-open]';
 
 export const openNamedFolders = async () => {
-  await selectFileMenuItem("Named folders");
+  await selectFileMenuItem("Bookmarks");
   await expect($(NAMED_FOLDERS_DIALOG)).toBeDisplayed();
 };
 
@@ -18,9 +18,16 @@ export const closeNamedFolders = async () => {
 
 export const keepCurrentFolder = async (name: string) => {
   await openNamedFolders();
-  await $(NAMED_FOLDERS_DIALOG).$("input").setValue(name);
-  await $(NAMED_FOLDERS_DIALOG).$("button=Keep this folder").click();
-  await expect($(NAMED_FOLDERS_DIALOG).$("button=Park this folder")).toBeDisplayed();
+  await $(NAMED_FOLDERS_DIALOG).$("aria/Bookmark folder").click();
+  const row = $(NAMED_FOLDERS_DIALOG).$('button[aria-current="true"]').$("..");
+  await dispatchContextMenu(await row.getElement());
+  const menu = $('[data-slot="context-menu-content"][data-open]');
+  await expect(menu).toBeDisplayed();
+  await menu.$('[role="menuitem"]=Edit').click();
+  const form = $('[data-slot="dialog-content"][data-open] form');
+  await expect(form).toBeDisplayed();
+  await form.$("input").setValue(name);
+  await form.$("button=Save").click();
   await closeNamedFolders();
 };
 

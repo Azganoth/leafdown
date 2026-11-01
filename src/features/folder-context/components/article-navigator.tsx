@@ -115,6 +115,7 @@ export interface ArticleNavigatorEntryActions {
 }
 
 interface ArticleNavigatorProps {
+  folderSelector?: ReactNode;
   actions?: ArticleNavigatorEntryActions;
   activeArticlePath: string | null;
   fileIconStyle?: FileIconStyle;
@@ -136,6 +137,7 @@ type ArticleNavigatorEdit =
   | { kind: "rename"; entryKind: ArticleNavigatorEntryKind; name: string; path: string };
 
 export function ArticleNavigator({
+  folderSelector,
   actions,
   activeArticlePath,
   fileIconStyle = "neutral",
@@ -360,12 +362,14 @@ export function ArticleNavigator({
     <Card size="sm" className="min-h-0 min-w-0 flex-1">
       <CardHeader className="shrink-0">
         <CardTitle className="flex min-w-0 items-center gap-2">
-          <Tooltip>
-            <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
-              {folderContext.tree.name || folderContext.path}
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{folderContext.path}</TooltipContent>
-          </Tooltip>
+          {folderSelector ?? (
+            <Tooltip>
+              <TooltipTrigger render={<span className="min-w-0 flex-1 truncate" />}>
+                {folderContext.tree.name || folderContext.path}
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{folderContext.path}</TooltipContent>
+            </Tooltip>
+          )}
         </CardTitle>
       </CardHeader>
 

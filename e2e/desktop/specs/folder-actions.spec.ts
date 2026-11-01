@@ -5,7 +5,13 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { getDesktopE2ERunContext } from "../support/runContext.js";
-import { countDocumentTabs, findMenuItem, findTreeItem, openRecentPath } from "../support/ui.js";
+import {
+  countDocumentTabs,
+  dispatchContextMenu,
+  findMenuItem,
+  findTreeItem,
+  openRecentPath,
+} from "../support/ui.js";
 
 const execFileAsync = promisify(execFile);
 const WATCHER_SETTLE_MS = 1_000;
@@ -52,23 +58,6 @@ const waitForPath = (filePath: string, present: boolean) =>
 
 const activeElementText = () =>
   browser.execute(() => globalThis.document.activeElement?.textContent?.trim() ?? "");
-
-// The WebDriver pointer raises no contextmenu event for the right button, so the event the
-// right-click would produce is dispatched at the same point.
-const dispatchContextMenu = (element: WebdriverIO.Element, offsetFromBottom?: number) =>
-  element.execute((target, bottomOffset) => {
-    const { bottom, height, left, width } = target.getBoundingClientRect();
-
-    target.dispatchEvent(
-      new MouseEvent("contextmenu", {
-        bubbles: true,
-        button: 2,
-        cancelable: true,
-        clientX: left + width / 2,
-        clientY: bottomOffset === undefined ? bottom - height / 2 : bottom - bottomOffset,
-      }),
-    );
-  }, offsetFromBottom);
 
 const openRowMenu = async (label: string) => {
   await dispatchContextMenu(await findTreeItem(label));

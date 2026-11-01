@@ -4,6 +4,7 @@ import type { NamedFolder, NamedFoldersSnapshot } from "../services/namedFolders
 
 interface NamedFoldersState {
   folders: NamedFolder[];
+  sessions: NamedFolder[];
   revision: number;
   activeId: string | null;
   transitioning: boolean;
@@ -13,6 +14,7 @@ interface NamedFoldersState {
 
 export const useNamedFoldersStore = create<NamedFoldersState>((set) => ({
   folders: [],
+  sessions: [],
   revision: -1,
   activeId: null,
   transitioning: false,
@@ -23,6 +25,7 @@ export const useNamedFoldersStore = create<NamedFoldersState>((set) => ({
         ? state
         : {
             folders: snapshot.folders,
+            sessions: snapshot.sessions,
             revision: snapshot.revision,
           },
     ),

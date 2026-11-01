@@ -6,6 +6,7 @@ export interface DesktopE2ERunContext {
   modifierClick: { path: string };
   callouts: { path: string };
   citations: { path: string };
+  bookmarks: { studiesPath: string };
   frontmatter: { yamlPath: string; tomlPath: string; jsonPath: string };
   definitionList: { path: string };
   separator: { path: string };

@@ -49,6 +49,7 @@ describe("CommandPalette", () => {
           name: "Personal notes",
           path: "C:/Notes",
           windowLabel: null,
+          contextId: "personal",
           hasUnsavedDrafts: true,
         },
       ],
@@ -149,7 +150,7 @@ describe("CommandPalette", () => {
   it("skips unavailable commands when running the keyboard selection", async () => {
     const onExecute = vi.fn();
     const commandState = (id: AppCommandId): CommandState =>
-      id === "file.save" ? { enabled: false } : { enabled: true };
+      id === "file.save" || id === "file.namedFolders" ? { enabled: false } : { enabled: true };
     const { user } = renderWithUser(<Harness commandState={commandState} onExecute={onExecute} />);
     await user.click(screen.getByRole("button", { name: "Open palette" }));
     await user.type(screen.getByRole("combobox", { name: "Search commands" }), "save");

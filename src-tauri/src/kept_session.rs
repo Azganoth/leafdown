@@ -20,7 +20,7 @@ const DEV_SESSION_DIRECTORY: &str = "session.dev";
 const SESSION_RECORD_FILE: &str = "session.json";
 const SNAPSHOTS_DIRECTORY: &str = "snapshots";
 const SNAPSHOT_EXTENSION: &str = "md";
-const SESSION_RECORD_VERSION: u32 = 2;
+const SESSION_RECORD_VERSION: u32 = 3;
 const MAX_SNAPSHOT_ID_LENGTH: usize = 64;
 
 /// One window as the session keeps it. The frontend owns the shape of `state`; the backend only
@@ -39,6 +39,8 @@ struct SessionRecord {
     windows: Vec<KeptWindow>,
     #[serde(default)]
     named_folders: Vec<named_folders::StoredNamedFolder>,
+    #[serde(default)]
+    bookmarks: Vec<named_folders::NamedFolder>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,7 +72,8 @@ pub(crate) enum KeptSessionError {
     WriteFailed { message: String },
     InvalidContext,
     ContextBusy,
-    UnsavedDrafts,
+    FolderUnavailable { path: String, message: String },
+    DuplicateBookmark,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +105,7 @@ pub(crate) struct KeptSession {
 struct Inner {
     directory: Option<PathBuf>,
     entries: Vec<Entry>,
+    bookmarks: Vec<named_folders::NamedFolder>,
     /// Windows already closed in this run. A report one sent before closing can arrive after it
     /// closed, and must not bring it back; labels are never reused within a run.
     closed_windows: HashSet<String>,
@@ -113,7 +117,9 @@ impl KeptSession {
     fn load(&self, directory: PathBuf) {
         let mut inner = self.inner();
 
-        inner.entries = read_session_record(directory.as_path());
+        let (entries, bookmarks) = read_session_record(directory.as_path());
+        inner.entries = entries;
+        inner.bookmarks = bookmarks;
         inner.restore_session = true;
         inner.directory = Some(directory);
     }
@@ -356,6 +362,7 @@ impl Inner {
         let directory = self.directory()?;
         let record = SessionRecord {
             version: SESSION_RECORD_VERSION,
+            bookmarks: self.bookmarks.clone(),
             windows: self
                 .entries
                 .iter()
@@ -397,18 +404,27 @@ impl Inner {
     }
 }
 
-fn read_session_record(directory: &Path) -> Vec<Entry> {
+fn read_session_record(directory: &Path) -> (Vec<Entry>, Vec<named_folders::NamedFolder>) {
     let bytes = match fs::read(directory.join(SESSION_RECORD_FILE)) {
         Ok(bytes) => bytes,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Vec::new(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Default::default(),
         Err(error) => {
             log::warn!("failed to read the kept session: {error}");
-            return Vec::new();
+            return Default::default();
         }
     };
 
     match serde_json::from_slice::<SessionRecord>(&bytes) {
-        Ok(record) if record.version == 1 || record.version == SESSION_RECORD_VERSION => {
+        Ok(record) if (1..=SESSION_RECORD_VERSION).contains(&record.version) => {
+            let bookmarks = if record.version < 3 {
+                record
+                    .named_folders
+                    .iter()
+                    .map(|stored| stored.folder.clone())
+                    .collect()
+            } else {
+                record.bookmarks
+            };
             let mut entries: Vec<Entry> = record
                 .windows
                 .into_iter()
@@ -427,18 +443,18 @@ fn read_session_record(directory: &Path) -> Vec<Entry> {
                 window: stored.session,
                 named: Some(stored.folder),
             }));
-            entries
+            (entries, bookmarks)
         }
         Ok(record) => {
             log::warn!(
                 "ignored a kept session of unknown version {}",
                 record.version
             );
-            Vec::new()
+            Default::default()
         }
         Err(error) => {
             log::warn!("ignored an unreadable kept session: {error}");
-            Vec::new()
+            Default::default()
         }
     }
 }

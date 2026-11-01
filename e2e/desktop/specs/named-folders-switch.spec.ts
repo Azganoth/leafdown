@@ -25,7 +25,8 @@ import {
 
 describe("desktop named folder switching", () => {
   it("parks distinct tabs and drafts, activates an owner in another window, and parks a closed window", async () => {
-    const { callouts, citations } = await getDesktopE2ERunContext();
+    const { callouts, bookmarks } = await getDesktopE2ERunContext();
+    expect(path.dirname(bookmarks.studiesPath)).not.toBe(path.dirname(callouts.path));
     const onDisk = await readFile(callouts.path, "utf8");
     const diagnostics = await getDiagnosticsSummary();
     const processId = Number(diagnostics.runId.slice(diagnostics.runId.lastIndexOf("-") + 1));
@@ -68,7 +69,7 @@ describe("desktop named folder switching", () => {
     await selectFileMenuItem("Close folder");
     expect(await countDocumentTabs()).toBe(0);
 
-    await openRecentPath(citations.path);
+    await openRecentPath(bookmarks.studiesPath);
     await dismissToasts();
     await appendToNamedDraft("Studies draft marker");
     await keepCurrentFolder("Studies");

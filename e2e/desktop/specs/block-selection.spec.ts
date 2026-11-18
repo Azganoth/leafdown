@@ -688,6 +688,25 @@ describe("desktop block selection", () => {
       .action("pointer")
       .move({ duration: 0, origin: "viewport", ...paddingPoint })
       .perform();
+    await browser.execute(({ x, y }) => {
+      const editor = document.querySelector("[data-testid=active-document-host] .ProseMirror")!;
+      for (const handle of document.querySelectorAll("[data-leafdown-block-handle]")) {
+        if (handle.matches(":hover")) {
+          throw new Error(
+            "The pointer stayed over a block handle after the move to empty padding.",
+          );
+        }
+        handle.dispatchEvent(
+          new MouseEvent("mouseout", {
+            bubbles: true,
+            clientX: x,
+            clientY: y,
+            relatedTarget: editor,
+          }),
+        );
+      }
+      editor.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: x, clientY: y }));
+    }, paddingPoint);
     await browser.waitUntil(
       async () => (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
       { timeoutMsg: "A block handle stayed visible after moving the pointer to empty padding." },

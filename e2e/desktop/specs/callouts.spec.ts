@@ -13,16 +13,24 @@ import {
 } from "../support/ui.js";
 
 const hoverSubmenu = async (trigger: WebdriverIO.Element) => {
-  const { x, y } = await trigger.execute(async (element) => {
+  const point = await trigger.execute(async (element) => {
     const popup = element.closest('[role="toolbar"], [role="menu"]');
     await Promise.allSettled(popup?.getAnimations().map((animation) => animation.finished) ?? []);
-    const rect = element.getBoundingClientRect();
-    return {
-      x: Math.round(rect.left + rect.width / 2),
-      y: Math.round(rect.top + rect.height / 2),
-    };
+    const { left, top, width, height } = element.getBoundingClientRect();
+    const x = Math.round(left + width / 2);
+    const y = Math.round(top + height / 2);
+    if (!element.contains(document.elementFromPoint(x, y))) {
+      throw new Error(`Submenu trigger is covered at its center: ${element.textContent}`);
+    }
+
+    // The embedded WebDriver sends mousemove without the mouseenter that starts hover tracking.
+    element.dispatchEvent(new MouseEvent("mouseenter", { clientX: x, clientY: y }));
+    return { x, y };
   });
-  await browser.action("pointer").move({ duration: 0, origin: "viewport", x, y }).perform();
+  await browser
+    .action("pointer")
+    .move({ duration: 0, origin: "viewport", ...point })
+    .perform();
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
 };
 

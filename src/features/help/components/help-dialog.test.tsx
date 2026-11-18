@@ -4,7 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { renderWithUser, screen, within } from "@/test/utils/react";
+import { renderWithUser, screen, waitFor, within } from "@/test/utils/react";
 
 import type { HelpPageId } from "../services/pages";
 import { HelpDialog } from "./help-dialog";
@@ -50,12 +50,12 @@ describe("Help dialog", () => {
     );
   });
 
-  it("focuses the dialog and returns focus when closed", async () => {
+  it("initially focuses the dialog itself and returns focus when closed", async () => {
     const { user } = renderWithUser(<TestHelpDialog initialPage={null} />);
     await user.click(screen.getByRole("button", { name: "Open Help" }));
-    expect(
-      screen.getByRole("dialog", { name: "Getting started" }).contains(document.activeElement),
-    ).toBe(true);
+    await waitFor(() =>
+      expect(screen.getByRole("dialog", { name: "Getting started" })).toHaveFocus(),
+    );
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

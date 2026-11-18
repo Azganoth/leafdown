@@ -1,4 +1,4 @@
-import { useState, type ComponentProps, type ReactNode, type Ref } from "react";
+import { useRef, useState, type ComponentProps, type ReactNode, type Ref } from "react";
 
 import {
   DialogContent,
@@ -36,13 +36,21 @@ export function HelpPageContent({
   kind,
   fitContent = false,
   className,
+  initialFocus,
   ...props
-}: ComponentProps<typeof DialogContent> & { kind: HelpPageKind; fitContent?: boolean }) {
+}: Omit<ComponentProps<typeof DialogContent>, "ref"> & {
+  kind: HelpPageKind;
+  fitContent?: boolean;
+}) {
+  const popupRef = useRef<HTMLDivElement>(null);
+
   return (
     <DialogContent
+      ref={popupRef}
+      initialFocus={initialFocus ?? popupRef}
       className={cn(
         // The window's titlebar stays above the dialog, so the dialog keeps its height clear of it.
-        "top-[calc(50%+0.75rem)] flex max-h-[calc(100dvh-4.5rem)] min-h-0 flex-col gap-0 overflow-hidden p-0",
+        "top-[calc(50%+0.75rem)] flex max-h-[calc(100dvh-4.5rem)] min-h-0 flex-col gap-0 overflow-hidden p-0 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1",
         !fitContent && "h-[min(55rem,calc(100dvh-4.5rem))]",
         DIALOG_WIDTHS[kind],
         className,

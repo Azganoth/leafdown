@@ -259,9 +259,7 @@ describe("ReleaseNotesDialog", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Open changelog" }));
-    expect(screen.getByRole("dialog", { name: "Changelog" }).contains(document.activeElement)).toBe(
-      true,
-    );
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Changelog" })).toHaveFocus());
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());

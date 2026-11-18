@@ -141,7 +141,8 @@ describe("table controls", () => {
     expect(indicator).toHaveAttribute("hidden");
 
     hover(cellCenter(0, 0));
-    expect(rowGrip).toHaveAttribute("hidden");
+    expect(rowGrip).not.toHaveAttribute("hidden");
+    expect(rowGrip.style.top).toBe(`${String(cellCenter(0, 0).clientY)}px`);
     expect(columnGrip.style.left).toBe(`${String(cellCenter(0, 0).clientX)}px`);
     expect(rowInsert.style.top).toBe(`${String(rowBoundaryY(1))}px`);
 
@@ -250,6 +251,33 @@ describe("table controls", () => {
 
     expect(await runEditorCommand(mounted.editor, "edit.undo")).toBe(true);
     expect(mounted.getMarkdown()).toBe(original);
+  });
+
+  it("selects the header with its grip and keeps a range containing it anchored", async () => {
+    const mounted = await mountEditor(THREE_BODY_ROWS);
+    layOutTable(mounted);
+    const { rowGrip, indicator } = getControls();
+    const before = mounted.getMarkdown();
+
+    hover(cellCenter(0, 0));
+    dispatchMouseEvent(rowGrip, "mousedown", { button: 0, buttons: 1 });
+    dispatchMouseEvent(rowGrip, "mouseup", { button: 0 });
+    expect(selectedRect(mounted.view.state)).toMatchObject({ top: 0, bottom: 1 });
+
+    hover(cellCenter(1, 0));
+    dispatchMouseEvent(rowGrip, "mousedown", { button: 0, buttons: 1, shiftKey: true });
+    dispatchMouseEvent(rowGrip, "mouseup", { button: 0 });
+    expect(selectedRect(mounted.view.state)).toMatchObject({ top: 0, bottom: 2 });
+
+    dragGrip(
+      rowGrip,
+      { clientX: TABLE_LEFT, clientY: cellCenter(1, 0).clientY },
+      { clientX: TABLE_LEFT, clientY: rowBoundaryY(4) },
+    );
+    expect(indicator).toHaveAttribute("hidden");
+    dispatchMouseEvent(document.body, "mouseup", { button: 0 });
+    expect(selectedRect(mounted.view.state)).toMatchObject({ top: 0, bottom: 2 });
+    expect(mounted.getMarkdown()).toBe(before);
   });
 
   it("lands nothing above the header row and changes nothing for a drop where the drag started", async () => {

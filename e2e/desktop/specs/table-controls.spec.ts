@@ -169,6 +169,17 @@ describe("desktop table controls", () => {
     ]);
 
     const before = await tableRect();
+    const popup = $("[data-testid='editor-context-popup']");
+    await hover(await cellPoint(0, 0));
+    const headerGrip = await waitForControl(ROW_GRIP_SELECTOR);
+    await dispatchPointerSequence([
+      { type: "mousedown", point: headerGrip, buttons: 1 },
+      { type: "mouseup", point: headerGrip, buttons: 0 },
+    ]);
+    await expect(popup.$("button=Header row")).toHaveAttribute("aria-pressed", "true");
+    await browser.keys(Key.Escape);
+    await expect(popup).not.toExist();
+
     await hover(await cellPoint(1, 0));
     const rowGrip = await waitForControl(ROW_GRIP_SELECTOR);
     await waitForControl(COLUMN_GRIP_SELECTOR);
@@ -189,7 +200,6 @@ describe("desktop table controls", () => {
     await expect(
       $("[data-testid='editor-context-popup'] [aria-label='Delete row']"),
     ).toBeDisplayed();
-    const popup = $("[data-testid='editor-context-popup']");
     await expect(popup.$("button=Row 1")).toHaveAttribute("aria-pressed", "true");
     await expect(popup.$("[aria-label='Add row below']")).toHaveText("");
     const dividerGap = await browser.execute(() => {

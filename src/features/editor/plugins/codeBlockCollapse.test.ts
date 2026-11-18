@@ -31,8 +31,8 @@ const preOf = (mounted: MountedMilkdownEditor) => mounted.view.dom.querySelector
 const expandButtonOf = (mounted: MountedMilkdownEditor) =>
   preOf(mounted).querySelector<HTMLButtonElement>(".leafdown-code-expand")!;
 
-const collapseButtonOf = (mounted: MountedMilkdownEditor) =>
-  preOf(mounted).querySelector<HTMLButtonElement>(".leafdown-code-collapse")!;
+const expandAllButtonOf = (mounted: MountedMilkdownEditor) =>
+  preOf(mounted).querySelector<HTMLButtonElement>('[aria-label="Expand all code blocks"]')!;
 
 const hiddenText = (mounted: MountedMilkdownEditor) =>
   [...preOf(mounted).querySelectorAll(".leafdown-code-collapsed-lines")]
@@ -62,7 +62,6 @@ describe("code block collapse", () => {
     expect(expandButtonOf(mounted)).toHaveTextContent("Show 4 more lines");
     expect(expandButtonOf(mounted)).toHaveAttribute("aria-expanded", "false");
     expect(expandButtonOf(mounted).tabIndex).toBe(-1);
-    expect(collapseButtonOf(mounted).hidden).toBe(true);
     expect(preOf(mounted).querySelector("code")).toHaveTextContent("row 12");
   });
 
@@ -72,7 +71,7 @@ describe("code block collapse", () => {
     expect(collapseOf(short)).toBeNull();
     expect(hiddenText(short)).toBe("");
     expect(expandButtonOf(short).hidden).toBe(true);
-    expect(collapseButtonOf(short).hidden).toBe(true);
+    expect(expandAllButtonOf(short).hidden).toBe(true);
 
     const long = await mountEditor(withCode(10));
 
@@ -92,11 +91,9 @@ describe("code block collapse", () => {
     expect(collapseOf(mounted)).toBe("expanded");
     expect(hiddenText(mounted)).toBe("");
     expect(expandButtonOf(mounted).hidden).toBe(true);
-    expect(collapseButtonOf(mounted).hidden).toBe(false);
-    expect(collapseButtonOf(mounted)).toHaveAccessibleName("Collapse code block");
-    expect(collapseButtonOf(mounted)).toHaveAttribute("aria-expanded", "true");
+    expect(preOf(mounted).querySelector(".leafdown-code-collapse")).toBeNull();
 
-    expect(press(collapseButtonOf(mounted)).defaultPrevented).toBe(true);
+    expect(press(expandAllButtonOf(mounted)).defaultPrevented).toBe(true);
 
     expect(collapseOf(mounted)).toBe("collapsed");
     expect(mounted.view.state.selection.from).toBe(caret);
@@ -187,7 +184,7 @@ describe("code block collapse", () => {
     const mounted = await mountEditor(withCode(12));
     setTextSelection(mounted.view, rowPosition(mounted, 11, 2));
 
-    press(collapseButtonOf(mounted));
+    press(expandAllButtonOf(mounted));
 
     expect(collapseOf(mounted)).toBe("collapsed");
     expect(mounted.view.state.selection.empty).toBe(true);

@@ -45,6 +45,7 @@ describe("article navigator rows", () => {
         activeArticlePath: "c:\\notes\\docs\\guide.md",
         expandedDirectoryPaths: ["c:\\notes\\docs\\"],
         tree: articleTree,
+        unsavedArticlePaths: ["c:\\notes\\readme.md"],
       }),
     ).toEqual([
       {
@@ -62,6 +63,7 @@ describe("article navigator rows", () => {
         kind: "file",
         depth: 1,
         isActive: true,
+        isDirty: false,
         name: "guide.md",
         parentIndex: 0,
         path: "C:/Notes/docs/guide.md",
@@ -83,6 +85,7 @@ describe("article navigator rows", () => {
         kind: "file",
         depth: 0,
         isActive: false,
+        isDirty: true,
         name: "readme.md",
         parentIndex: null,
         path: "C:/Notes/readme.md",

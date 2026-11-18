@@ -9,6 +9,7 @@ import {
   countDocumentTabs,
   dismissToasts,
   findDocumentTab,
+  findTreeItem,
   openRecentPath,
 } from "../support/ui.js";
 
@@ -72,11 +73,24 @@ describe("desktop document tabs", () => {
 
     await expect(await findDocumentTab(separatorName)).toHaveAttribute("aria-selected", "true");
     const tabGeometry = await getTabGeometry();
+    const separatorRow = await findTreeItem(separatorName);
+    const getFilenameGeometry = () =>
+      separatorRow.execute((row) => {
+        const range = document.createRange();
+        range.selectNodeContents(row.querySelector(".truncate")!);
+        const { x, width } = range.getBoundingClientRect();
+        return { x, width };
+      });
+    const filenameGeometry = await getFilenameGeometry();
     await appendToActiveEditor("Separator tab edit");
+    await expect(separatorRow).toHaveAttribute("aria-description", "Unsaved changes");
 
     await (await findDocumentTab(calloutsName)).click();
     await expect(await findDocumentTab(calloutsName)).toHaveAttribute("aria-selected", "true");
     expect(await getTabGeometry()).toEqual(tabGeometry);
+    await expect(separatorRow).toHaveAttribute("aria-selected", "false");
+    await expect(separatorRow).toHaveAttribute("aria-description", "Unsaved changes");
+    expect(await getFilenameGeometry()).toEqual(filenameGeometry);
     await expect($(ACTIVE_EDITOR)).not.toHaveText(expect.stringContaining("Separator tab edit"));
     await appendToActiveEditor("Callouts tab edit");
 

@@ -24,6 +24,9 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 ### Fixed
 
 - Keep a table column without an alignment that way when it is copied and pasted, instead of left-aligning it.
+- Keep article names steady when selected and mark articles with unsaved changes in the navigator.
+- Use the shared code-block toggle to collapse long blocks and add a selection grip to table headers.
+- Center the heading outline dots on the same axis and place notification actions below the message.
 
 ## [0.1.0-alpha.5] - 2026-10-19
 

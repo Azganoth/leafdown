@@ -13,7 +13,6 @@ import { readCodeFenced } from "../utils/codeMarkdown";
 import { describeMathError, renderMathTex } from "../utils/mathRender";
 import {
   collapseAllCodeBlocks,
-  collapseCodeBlock,
   countCollapsedCodeLines,
   expandAllCodeBlocks,
   expandCodeBlock,
@@ -95,7 +94,6 @@ class LeafdownCodeBlockNodeView implements NodeView {
   readonly dom = document.createElement("pre");
   readonly contentDOM = document.createElement("code");
   private readonly badge = document.createElement("button");
-  private readonly collapseButton = document.createElement("button");
   private readonly expandButton = document.createElement("button");
   private readonly expandLabel = document.createElement("span");
   private readonly header = document.createElement("span");
@@ -144,13 +142,11 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.badge.dataset.leafdownCodeLanguage = "";
     this.badge.addEventListener("mousedown", this.handleChromeMouseDown);
     this.badge.addEventListener("click", this.handleBadgeClick);
-    // Like the badge, the collapse controls cost no tab stop; `Fold or unfold section` reaches them.
-    for (const button of [this.collapseButton, this.expandButton]) {
-      button.type = "button";
-      button.contentEditable = "false";
-      button.tabIndex = -1;
-      button.addEventListener("mousedown", this.handleChromeMouseDown);
-    }
+    // Like the badge, the expand bar costs no tab stop; `Fold or unfold section` reaches it.
+    this.expandButton.type = "button";
+    this.expandButton.contentEditable = "false";
+    this.expandButton.tabIndex = -1;
+    this.expandButton.addEventListener("mousedown", this.handleChromeMouseDown);
     // The controls that act on every code block cost no tab stop either; Preferences holds both
     // settings, and `Fold or unfold section` expands a block from its caret.
     this.controls.className = "leafdown-code-controls";
@@ -168,10 +164,6 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.controls.append(button);
     }
     this.controlsChange = onCodeBlockControlsChange(view, () => this.renderControls());
-    this.collapseButton.className = "leafdown-code-collapse";
-    this.collapseButton.setAttribute("aria-expanded", "true");
-    this.collapseButton.append(createChevron());
-    this.collapseButton.addEventListener("click", this.handleCollapseClick);
     this.expandButton.className = "leafdown-code-expand";
     this.expandButton.setAttribute("aria-expanded", "false");
     this.expandButton.append(createChevron(), this.expandLabel);
@@ -198,7 +190,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
     );
     this.header.className = "leafdown-code-header";
     this.header.contentEditable = "false";
-    this.header.append(this.controls, this.collapseButton, this.badge);
+    this.header.append(this.controls, this.badge);
     this.dom.append(
       this.header,
       this.contentDOM,
@@ -264,8 +256,6 @@ class LeafdownCodeBlockNodeView implements NodeView {
     this.localizationChange.dispose();
     this.badge.removeEventListener("mousedown", this.handleChromeMouseDown);
     this.badge.removeEventListener("click", this.handleBadgeClick);
-    this.collapseButton.removeEventListener("mousedown", this.handleChromeMouseDown);
-    this.collapseButton.removeEventListener("click", this.handleCollapseClick);
     this.expandButton.removeEventListener("mousedown", this.handleChromeMouseDown);
     this.expandButton.removeEventListener("click", this.handleExpandClick);
     this.controlsChange();
@@ -311,9 +301,7 @@ class LeafdownCodeBlockNodeView implements NodeView {
       this.mathPreview.textContent = describeMathError(this.mathError);
     }
 
-    this.collapseButton.hidden = this.collapse !== "expanded";
     this.expandButton.hidden = this.collapse !== "collapsed";
-    this.collapseButton.setAttribute("aria-label", t("editor.codeBlock.collapse"));
     if (this.collapse === "collapsed") {
       this.expandLabel.textContent = t("editor.codeBlock.expand", {
         count: countCollapsedCodeLines(this.node),
@@ -506,11 +494,6 @@ ${source}`;
   // Leaves the editor's selection where it was rather than letting the press move it.
   private readonly handleChromeMouseDown = (event: MouseEvent) => {
     event.preventDefault();
-  };
-
-  private readonly handleCollapseClick = () => {
-    const position = this.getPos();
-    if (position !== undefined) collapseCodeBlock(this.view, position);
   };
 
   private readonly handleExpandClick = () => {

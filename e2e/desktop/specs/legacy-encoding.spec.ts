@@ -25,8 +25,30 @@ describe("desktop legacy encoding", () => {
 
     await openRecentPath(legacyEncoding.path);
 
-    const errorToast = $('[data-slot="toast"][data-type="error"]');
+    const errorToastSelector = '[data-slot="toast"][data-type="error"]';
+    const errorToast = $(errorToastSelector);
     await expect(errorToast).toHaveText(expect.stringContaining("Invalid Markdown file encoding."));
+    const layout = await browser.execute((selector) => {
+      const toast = document.querySelector(selector)!;
+      const bounds = toast.getBoundingClientRect();
+      const description = toast
+        .querySelector('[data-slot="toast-description"]')!
+        .getBoundingClientRect();
+      const action = toast.querySelector("button[aria-haspopup]")!.getBoundingClientRect();
+      const close = toast.querySelector('[data-slot="toast-close"]')!.getBoundingClientRect();
+      return {
+        messageWidthRatio: description.width / bounds.width,
+        actionBelowMessage: action.top >= description.bottom,
+        closeAboveAction: close.bottom <= action.top,
+        actionWithinToast: action.bottom <= bounds.bottom && action.right <= bounds.right,
+      };
+    }, errorToastSelector);
+    expect(layout.messageWidthRatio).toBeGreaterThan(0.65);
+    expect(layout).toMatchObject({
+      actionBelowMessage: true,
+      closeAboveAction: true,
+      actionWithinToast: true,
+    });
     await errorToast.$("button=Reopen with encoding").click();
     await (await findMenuItem((text) => text === "Western (Windows-1252, ISO-8859-1)")).click();
 

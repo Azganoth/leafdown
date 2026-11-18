@@ -21,6 +21,7 @@ export interface ArticleNavigatorDirectoryRow extends ArticleNavigatorRowBase {
 export interface ArticleNavigatorFileRow extends ArticleNavigatorRowBase {
   kind: "file";
   isActive: boolean;
+  isDirty: boolean;
 }
 
 export interface ArticleNavigatorUnsupportedFileRow extends ArticleNavigatorRowBase {
@@ -51,6 +52,7 @@ interface BuildArticleNavigatorRowsOptions {
   draft?: ArticleNavigatorDraft | null;
   expandedDirectoryPaths: string[];
   tree: ArticleTree;
+  unsavedArticlePaths?: readonly string[];
 }
 
 interface ArticleNavigatorDraftNode {
@@ -70,9 +72,11 @@ export const buildArticleNavigatorRows = ({
   draft = null,
   expandedDirectoryPaths,
   tree,
+  unsavedArticlePaths,
 }: BuildArticleNavigatorRowsOptions): ArticleNavigatorRow[] => {
   const expandedDirectoryPathSet = new PathSet(expandedDirectoryPaths);
   const activeArticlePaths = new PathSet(activeArticlePath ? [activeArticlePath] : []);
+  const unsavedPaths = new PathSet(unsavedArticlePaths);
   const roots: ArticleNavigatorNode[] = tree.children;
   const entries = flattenTree<ArticleNavigatorNode>({
     getChildren: (node) => getNavigatorNodeChildren(node, draft),
@@ -92,7 +96,12 @@ export const buildArticleNavigatorRows = ({
       case "draft":
         return { ...base, kind: "draft", entryKind: node.entryKind };
       case "file":
-        return { ...base, kind: "file", isActive: activeArticlePaths.has(node.path) };
+        return {
+          ...base,
+          kind: "file",
+          isActive: activeArticlePaths.has(node.path),
+          isDirty: unsavedPaths.has(node.path),
+        };
       case "unsupportedFile":
         return { ...base, kind: "unsupportedFile" };
       case "directory":

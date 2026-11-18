@@ -131,7 +131,7 @@ Use pipes between cells and a separator row after the header. Colons in that sep
 
 **Try it:** **Insert > Table** creates a table. **Format > Table** adds, moves, or deletes rows and columns, and **Format > Table > Column alignment** aligns the current or selected columns. In the document, table controls provide those actions beside the table too.
 
-Right-click in a table, or press `Shift+F10`, to open its commands. Choose the row or column selector above the action icons to select that scope and show its actions. The selectors name the current row or column, or the selected range; the header is named **Header row**, and body rows start at one. Hover an action to read its name. In column scope, **Align left**, **Align center**, and **Align right** set the columns' alignment; choose the highlighted one again to remove it. **Delete table** stays beside the selectors, after a divider. The slim grips on the table's edges select or drag rows and columns, and the `+` buttons insert at a boundary.
+Right-click in a table, or press `Shift+F10`, to open its commands. Choose the row or column selector above the action icons to select that scope and show its actions. The selectors name the current row or column, or the selected range; the header is named **Header row**, and body rows start at one. Hover an action to read its name. In column scope, **Align left**, **Align center**, and **Align right** set the columns' alignment; choose the highlighted one again to remove it. **Delete table** stays beside the selectors, after a divider. Click the slim grips on the table's edges to select any row or column. Drag a grip to move a column or body row. The header row stays at the top, and the `+` buttons insert at a boundary.
 
 ## Code blocks
 
@@ -146,6 +146,8 @@ const pots = 3;
 ````
 
 **Try it:** **Insert > Code block** or **Format > Code block** (`Mod+Alt+C`). Click a fenced block's language badge or use **Format > Code block language...** to change its language. Line numbers and soft wrap change presentation, never the saved code.
+
+For a collapsed code block, choose **Show more lines** below the preview. Use **Expand all code blocks** in a code block's toolbar to expand or collapse long blocks throughout the document, or press `Mod+.` with the caret in a long block to toggle that block.
 
 ## Footnotes and definitions
 

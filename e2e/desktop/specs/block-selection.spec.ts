@@ -673,7 +673,14 @@ describe("desktop block selection", () => {
       async () => (await findGeometryForText("Nested second"))?.handleOpacity === "1",
       { timeoutMsg: "Hovering the nested item did not reveal its block handle." },
     );
-    await $('[data-testid="status-bar"]').moveTo();
+    const statusBar = $('[data-testid="status-bar"]');
+    await statusBar.moveTo();
+    await browser.waitUntil(
+      async () => (await statusBar.execute((bar) => bar.matches(":hover"))) === true,
+      {
+        timeoutMsg: "The pointer did not enter the status bar.",
+      },
+    );
     await browser.waitUntil(
       async () => (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
       { timeoutMsg: "A block handle stayed visible after moving the pointer to the status bar." },

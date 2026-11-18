@@ -661,8 +661,9 @@ describe("desktop block selection", () => {
     await closeAllDocuments();
     await openRecentPath(blocks.path);
     await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
-    const activeTabSelector = '[data-testid="document-tab"][data-active]';
-    await expect($(activeTabSelector)).toHaveText(path.basename(blocks.path));
+    await expect($('[data-testid="document-tab"][data-active]')).toHaveText(
+      path.basename(blocks.path),
+    );
     await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
 
@@ -672,30 +673,24 @@ describe("desktop block selection", () => {
       async () => (await findGeometryForText("Nested second"))?.handleOpacity === "1",
       { timeoutMsg: "Hovering the nested item did not reveal its block handle." },
     );
-    const tabCenter = await browser.execute((selector) => {
-      const bounds = document.querySelector(selector)!.getBoundingClientRect();
-      return {
-        x: Math.round(bounds.left + bounds.width / 2),
-        y: Math.round(bounds.top + bounds.height / 2),
-      };
-    }, activeTabSelector);
+    const paddingPoint = await browser.execute(
+      (y) => {
+        const editor = document.querySelector("[data-testid=active-document-host] .ProseMirror")!;
+        const x = Math.round(editor.getBoundingClientRect().left + 8);
+        if (document.elementFromPoint(x, y) !== editor) {
+          throw new Error("The pointer target is outside the editor's empty padding.");
+        }
+        return { x, y };
+      },
+      Math.round(nestedItem.blockTop + nestedItem.blockHeight / 2),
+    );
     await browser
       .action("pointer")
-      .move({ duration: 0, origin: "viewport", ...tabCenter })
+      .move({ duration: 0, origin: "viewport", ...paddingPoint })
       .perform();
     await browser.waitUntil(
-      () =>
-        browser.execute(
-          (selector) => document.querySelector(selector)?.matches(":hover") ?? false,
-          activeTabSelector,
-        ),
-      {
-        timeoutMsg: "The pointer did not enter the active document tab.",
-      },
-    );
-    await browser.waitUntil(
       async () => (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
-      { timeoutMsg: "A block handle stayed visible after moving the pointer to the document tab." },
+      { timeoutMsg: "A block handle stayed visible after moving the pointer to empty padding." },
     );
 
     const wideGeometry = await handleGeometry();

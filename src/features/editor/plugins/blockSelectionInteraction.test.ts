@@ -563,14 +563,14 @@ describe("block selection interaction", () => {
     expect(getHandle(paragraphs[0].pos).parentElement).not.toHaveAttribute("data-hovered");
     expect(getHandle(paragraphs[1].pos).parentElement).toHaveAttribute("data-hovered");
 
-    dispatchMouseEvent(document.body, "mousemove");
+    dispatchMouseEvent(mounted.view.dom, "mouseleave");
     expect(document.querySelector(".leafdown-block-gutter[data-hovered]")).toBeNull();
 
     const firstHandle = getHandle(paragraphs[0].pos);
     dispatchMouseEvent(firstHandle, "mouseover");
     expect(firstHandle.parentElement).toHaveAttribute("data-handle-hovered");
 
-    dispatchMouseEvent(document.body, "mouseover");
+    dispatchMouseEvent(firstHandle, "mouseout", { relatedTarget: document.body });
     expect(firstHandle.parentElement).not.toHaveAttribute("data-handle-hovered");
   });
 

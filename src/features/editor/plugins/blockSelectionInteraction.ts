@@ -191,7 +191,6 @@ class BlockSelectionView {
   >();
   private animationFrame: number | null = null;
   private hoveredPos: number | null = null;
-  private hoveredHandleGutter: HTMLDivElement | null = null;
   private pendingCollapsePos: number | null = null;
   private pressedHandle: { x: number; y: number } | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -242,22 +241,22 @@ class BlockSelectionView {
     getOverlayOwner(view).append(this.overlay, this.status);
     this.overlay.addEventListener("mousedown", this.handleMouseDown);
     this.overlay.addEventListener("mouseup", this.handleMouseUp);
+    this.overlay.addEventListener("mouseover", this.handleHandleMouseOver);
+    this.overlay.addEventListener("mouseout", this.handleHandleMouseOut);
     this.insertionButton.addEventListener("mouseenter", this.showInsertionIndicator);
     this.insertionButton.addEventListener("mouseleave", this.hideInsertionIndicator);
     this.insertionButton.addEventListener("mousedown", this.preventInsertionMouseDown);
     this.insertionButton.addEventListener("click", this.openInsertionMenu);
     doc.addEventListener("mousemove", this.handleDragMove);
-    doc.addEventListener("mousemove", this.handleHoverPointer, true);
-    doc.addEventListener("mouseover", this.handleHoverPointer, true);
     doc.addEventListener("mousemove", this.handleInsertionPointer);
     doc.addEventListener("mouseover", this.handleInsertionPointer);
     doc.addEventListener("mouseup", this.handleDocumentMouseUp);
     doc.addEventListener("mouseleave", this.cancelPendingDrag);
-    doc.addEventListener("mouseleave", this.clearHover);
     doc.addEventListener("mouseleave", this.handleInsertionLeave);
     doc.defaultView?.addEventListener("blur", this.cancelPendingDrag);
-    doc.defaultView?.addEventListener("blur", this.clearHover);
     doc.defaultView?.addEventListener("blur", this.handleInsertionLeave);
+    view.dom.addEventListener("mousemove", this.handleEditorMouseMove);
+    view.dom.addEventListener("mouseleave", this.handleEditorMouseLeave);
     view.root.addEventListener("scroll", this.schedulePosition, true);
     view.dom.ownerDocument.defaultView?.addEventListener("resize", this.schedulePosition);
 
@@ -290,22 +289,22 @@ class BlockSelectionView {
     this.localizationChange.dispose();
     this.overlay.removeEventListener("mousedown", this.handleMouseDown);
     this.overlay.removeEventListener("mouseup", this.handleMouseUp);
+    this.overlay.removeEventListener("mouseover", this.handleHandleMouseOver);
+    this.overlay.removeEventListener("mouseout", this.handleHandleMouseOut);
     this.insertionButton.removeEventListener("mouseenter", this.showInsertionIndicator);
     this.insertionButton.removeEventListener("mouseleave", this.hideInsertionIndicator);
     this.insertionButton.removeEventListener("mousedown", this.preventInsertionMouseDown);
     this.insertionButton.removeEventListener("click", this.openInsertionMenu);
     this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleDragMove);
-    this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleHoverPointer, true);
-    this.view.dom.ownerDocument.removeEventListener("mouseover", this.handleHoverPointer, true);
     this.view.dom.ownerDocument.removeEventListener("mousemove", this.handleInsertionPointer);
     this.view.dom.ownerDocument.removeEventListener("mouseover", this.handleInsertionPointer);
     this.view.dom.ownerDocument.removeEventListener("mouseup", this.handleDocumentMouseUp);
     this.view.dom.ownerDocument.removeEventListener("mouseleave", this.cancelPendingDrag);
-    this.view.dom.ownerDocument.removeEventListener("mouseleave", this.clearHover);
     this.view.dom.ownerDocument.removeEventListener("mouseleave", this.handleInsertionLeave);
     this.view.dom.ownerDocument.defaultView?.removeEventListener("blur", this.cancelPendingDrag);
-    this.view.dom.ownerDocument.defaultView?.removeEventListener("blur", this.clearHover);
     this.view.dom.ownerDocument.defaultView?.removeEventListener("blur", this.handleInsertionLeave);
+    this.view.dom.removeEventListener("mousemove", this.handleEditorMouseMove);
+    this.view.dom.removeEventListener("mouseleave", this.handleEditorMouseLeave);
     this.view.root.removeEventListener("scroll", this.schedulePosition, true);
     this.view.dom.ownerDocument.defaultView?.removeEventListener("resize", this.schedulePosition);
     this.resizeObserver?.disconnect();
@@ -819,27 +818,33 @@ class BlockSelectionView {
     return null;
   }
 
-  private setHoveredHandleGutter(gutter: HTMLDivElement | null) {
-    if (gutter === this.hoveredHandleGutter) return;
-    this.hoveredHandleGutter?.removeAttribute("data-handle-hovered");
-    this.hoveredHandleGutter = gutter;
-    gutter?.setAttribute("data-handle-hovered", "");
-  }
-
-  private readonly handleHoverPointer = (event: MouseEvent) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return this.clearHover();
-
-    const block = this.view.dom.contains(target) ? this.getBlockAt(target) : null;
-    this.setHoveredPosition(block?.pos ?? null);
-    const handle = this.overlay.contains(target) ? getHandle(event) : null;
-    const pos = handle ? readHandlePosition(handle) : null;
-    this.setHoveredHandleGutter(pos === null ? null : (this.gutters.get(pos) ?? null));
+  private readonly handleEditorMouseMove = (event: MouseEvent) => {
+    this.setHoveredPosition(this.getBlockAt(event.target)?.pos ?? null);
   };
 
-  private readonly clearHover = () => {
+  private readonly handleEditorMouseLeave = () => {
     this.setHoveredPosition(null);
-    this.setHoveredHandleGutter(null);
+  };
+
+  private readonly handleHandleMouseOver = (event: MouseEvent) => {
+    const handle = getHandle(event);
+    const pos = handle ? readHandlePosition(handle) : null;
+
+    if (pos !== null) {
+      this.gutters.get(pos)?.setAttribute("data-handle-hovered", "");
+    }
+  };
+
+  private readonly handleHandleMouseOut = (event: MouseEvent) => {
+    const handle = getHandle(event);
+    const pos = handle ? readHandlePosition(handle) : null;
+
+    if (
+      pos !== null &&
+      !(event.relatedTarget instanceof Node && handle?.contains(event.relatedTarget))
+    ) {
+      this.gutters.get(pos)?.removeAttribute("data-handle-hovered");
+    }
   };
 
   private updateSelectionPresentation() {

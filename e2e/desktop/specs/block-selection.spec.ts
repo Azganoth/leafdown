@@ -661,9 +661,8 @@ describe("desktop block selection", () => {
     await closeAllDocuments();
     await openRecentPath(blocks.path);
     await expect($("[data-testid=active-document-host] .ProseMirror")).toBeDisplayed();
-    await expect($('[data-testid="document-tab"][data-active]')).toHaveText(
-      path.basename(blocks.path),
-    );
+    const activeTabSelector = '[data-testid="document-tab"][data-active]';
+    await expect($(activeTabSelector)).toHaveText(path.basename(blocks.path));
     await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
 
@@ -673,17 +672,30 @@ describe("desktop block selection", () => {
       async () => (await findGeometryForText("Nested second"))?.handleOpacity === "1",
       { timeoutMsg: "Hovering the nested item did not reveal its block handle." },
     );
-    const statusBar = $('[data-testid="status-bar"]');
-    await statusBar.moveTo();
+    const tabCenter = await browser.execute((selector) => {
+      const bounds = document.querySelector(selector)!.getBoundingClientRect();
+      return {
+        x: Math.round(bounds.left + bounds.width / 2),
+        y: Math.round(bounds.top + bounds.height / 2),
+      };
+    }, activeTabSelector);
+    await browser
+      .action("pointer")
+      .move({ duration: 0, origin: "viewport", ...tabCenter })
+      .perform();
     await browser.waitUntil(
-      async () => (await statusBar.execute((bar) => bar.matches(":hover"))) === true,
+      () =>
+        browser.execute(
+          (selector) => document.querySelector(selector)?.matches(":hover") ?? false,
+          activeTabSelector,
+        ),
       {
-        timeoutMsg: "The pointer did not enter the status bar.",
+        timeoutMsg: "The pointer did not enter the active document tab.",
       },
     );
     await browser.waitUntil(
       async () => (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
-      { timeoutMsg: "A block handle stayed visible after moving the pointer to the status bar." },
+      { timeoutMsg: "A block handle stayed visible after moving the pointer to the document tab." },
     );
 
     const wideGeometry = await handleGeometry();

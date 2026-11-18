@@ -28,6 +28,7 @@ Leafdown uses lightweight [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 - Use the shared code-block toggle to collapse long blocks and add a selection grip to table headers.
 - Center the heading outline dots on the same axis and place notification actions below the message.
 - Open Help guides, What's new, and Changelog at the top of their content.
+- Open editor context submenus on hover.
 
 ## [0.1.0-alpha.5] - 2026-10-19
 

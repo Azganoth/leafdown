@@ -155,6 +155,28 @@ const controlLabels = () =>
     .map((control) => control.getAttribute("aria-label") ?? control.textContent);
 
 describe("editor-context-popup", () => {
+  it("opens a submenu on hover while keeping focus in the editor", async () => {
+    const { user } = renderWithUser(
+      <>
+        <textarea aria-label="Document" />
+        <EditorContextPopup
+          request={{ ...POINTER_REQUEST, selectionKind: "block" }}
+          commandState={enabledPopupCommandState}
+          onClose={noop}
+          onExecute={noop}
+          onReturnFocus={noop}
+        />
+      </>,
+    );
+    const documentField = screen.getByRole("textbox", { name: "Document" });
+    await user.click(documentField);
+    await user.hover(screen.getByRole("button", { name: "Lists & quote" }));
+
+    expect(await screen.findByRole("menuitem", { name: "Ordered list" })).toBeInTheDocument();
+    await flushPlacement();
+    expect(documentField).toHaveFocus();
+  });
+
   it("executes list formatting through its labeled submenu", async () => {
     const onExecute = vi.fn();
     const { user } = renderWithUser(

@@ -191,7 +191,7 @@ describe("desktop callouts", () => {
     });
   }
 
-  it("inserts another dialect from the context popup and lists GitHub types first afterward", async () => {
+  it("inserts another dialect through hovered context submenus and lists GitHub types first afterward", async () => {
     const active = "[data-testid=active-document-host]";
 
     await selectFileMenuItem("New");
@@ -213,9 +213,9 @@ describe("desktop callouts", () => {
     });
     const popup = $("[data-testid=editor-context-popup]");
     await expect(popup).toBeDisplayed();
-    await popup.$("aria/Insert").click();
-    await (await findMenuItem((text) => text === "Callout")).click();
-    await (await findMenuItem((text) => text === "VitePress")).click();
+    await popup.$("aria/Insert").moveTo();
+    await (await findMenuItem((text) => text === "Callout")).moveTo();
+    await (await findMenuItem((text) => text === "VitePress")).moveTo();
     const details = await findMenuItem((text) => text === "Details");
     await expect(details.$("[data-slot=callout-type-icon]")).toBeDisplayed();
     await details.click();

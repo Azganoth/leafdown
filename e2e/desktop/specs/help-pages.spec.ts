@@ -141,7 +141,11 @@ describe("desktop Help pages", () => {
             await openMenu("Help");
             await $(`aria/${page}`).click();
             for await (const example of $$("article [data-help-example]")) {
-              await example.scrollIntoView();
+              await browser.execute((element) => {
+                element
+                  .querySelector(":scope > div > div:last-child")!
+                  .scrollIntoView({ block: "center" });
+              }, example);
               await browser.waitUntil(
                 () =>
                   browser.execute((element) => {

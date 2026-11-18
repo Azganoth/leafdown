@@ -316,7 +316,8 @@
   &[aria-selected="true"]:hover,
   &[data-active="true"],
   &[data-active="true"]:hover {
-    @apply bg-accent font-medium text-foreground;
+    @apply bg-accent text-foreground;
+    font-weight: var(--active-item-font-weight, var(--font-weight-medium));
   }
 
   &[aria-selected="true"]::before,

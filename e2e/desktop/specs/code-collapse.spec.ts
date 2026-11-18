@@ -36,7 +36,7 @@ const caretLine = () =>
   });
 
 describe("desktop code block collapse", () => {
-  it("shows eight lines, expands under the arrow keys, and collapses from its chevron", async () => {
+  it("shows eight lines, expands under the arrow keys, and collapses from the shared toggle", async () => {
     const { codeCollapse: fixture } = await getDesktopE2ERunContext();
     await openRecentPath(fixture.path);
     await expect(block()).toHaveAttribute("data-leafdown-code-collapse", "collapsed");
@@ -49,7 +49,7 @@ describe("desktop code block collapse", () => {
     })) as number;
     expect(Math.round(shownLines)).toBe(8);
     await expect($("pre .leafdown-code-expand")).toBeDisplayed();
-    await expect($("pre .leafdown-code-collapse")).not.toBeDisplayed();
+    await expect($("pre .leafdown-code-collapse")).not.toExist();
 
     await browser.execute(() => {
       const code = document.querySelector<HTMLElement>(
@@ -73,7 +73,7 @@ describe("desktop code block collapse", () => {
       timeoutMsg: "ArrowDown did not land on the first revealed line.",
     });
 
-    await click(await centerOf("pre .leafdown-code-collapse"));
+    await click(await centerOf(control("Expand all code blocks")));
 
     await expect(block()).toHaveAttribute("data-leafdown-code-collapse", "collapsed");
     await browser.waitUntil(async () => (await caretLine()) === 8, {

@@ -164,7 +164,6 @@ describe("editor control tooltips", () => {
           "[data-leafdown-table-insert]",
           "[data-leafdown-callout-type]",
           ".leafdown-callout-toggle",
-          ".leafdown-code-collapse",
           "[data-leafdown-block-insert]",
           ".leafdown-fold-indicator",
         ].join(", "),
@@ -172,7 +171,7 @@ describe("editor control tooltips", () => {
     ];
     useTooltipTime();
 
-    expect(controls.length).toBeGreaterThanOrEqual(9);
+    expect(controls.length).toBeGreaterThanOrEqual(8);
 
     for (const control of controls) {
       expect(control.getAttribute("aria-label")).toBeTruthy();

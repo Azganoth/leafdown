@@ -56,7 +56,7 @@ Renaming a file or folder moves its open tabs in every window and preserves edit
 
 ## Work in the article navigator
 
-Choose a Markdown row to preview it. Expand folders to reach nested notes. Keyboard focus moves with the arrow keys; `Enter` or `Space` opens the focused article. **View > Collapse all folders** and **Expand all folders** change the tree at once.
+Choose a Markdown row to preview it. A dot at the right edge marks any article with unsaved changes in this window. Expand folders to reach nested notes. Keyboard focus moves with the arrow keys; `Enter` or `Space` opens the focused article. **View > Collapse all folders** and **Expand all folders** change the tree at once.
 
 Right-click a row, or press `Shift+F10` on it, to open its context menu:
 

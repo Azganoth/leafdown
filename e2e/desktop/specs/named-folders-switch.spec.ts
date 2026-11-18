@@ -67,7 +67,9 @@ describe("desktop named folder switching", () => {
     await keepCurrentFolder("Personal notes");
 
     await selectFileMenuItem("Close folder");
-    expect(await countDocumentTabs()).toBe(0);
+    await browser.waitUntil(async () => (await countDocumentTabs()) === 0, {
+      timeoutMsg: "Closing the bookmarked folder did not clear its tabs.",
+    });
 
     await openRecentPath(bookmarks.studiesPath);
     await dismissToasts();

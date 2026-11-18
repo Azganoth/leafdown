@@ -259,7 +259,7 @@ const collapseCodeBlocks = (view: EditorView, blocks: readonly number[], scroll:
   view.dispatch(transaction);
 };
 
-export const collapseCodeBlock = (view: EditorView, position: number) => {
+const collapseCodeBlock = (view: EditorView, position: number) => {
   const { state } = view;
   const node = state.doc.nodeAt(position);
   if (!node || !isCollapsibleCodeBlock(node) || getCollapsedCodeBlocks(state).includes(position)) {

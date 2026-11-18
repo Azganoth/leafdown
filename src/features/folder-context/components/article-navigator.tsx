@@ -125,6 +125,7 @@ interface ArticleNavigatorProps {
   onOpenArticle: (path: string) => void;
   /** Lists the files Leafdown cannot open, and the directories holding only them, as well. */
   showAllFiles?: boolean;
+  unsavedArticlePaths?: readonly string[];
 }
 
 type ArticleNavigatorMenuTarget =
@@ -145,6 +146,7 @@ export function ArticleNavigator({
   onKeepArticle,
   onOpenArticle,
   showAllFiles = false,
+  unsavedArticlePaths,
 }: ArticleNavigatorProps) {
   const { t } = useLocalization();
   const expandedDirectoryPaths = useArticleNavigatorStore((state) => state.expandedDirectoryPaths);
@@ -184,6 +186,7 @@ export function ArticleNavigator({
     draft: edit?.kind === "create" ? edit : null,
     expandedDirectoryPaths: expandedPaths,
     tree: filteredTree,
+    unsavedArticlePaths,
   });
   const hasRows = rows.length > 0;
   const menuTargetLabelKind = menuTarget.kind === "unsupportedFile" ? "file" : menuTarget.kind;
@@ -898,7 +901,11 @@ function ArticleNavigatorTreeItem({
       whenCutShort={!isUnsupportedFile}
       render={
         <VirtualListItem
-          aria-description={unsupportedFileDescription}
+          aria-description={
+            row.kind === "file" && row.isDirty
+              ? t("articleNavigator.unsavedChanges")
+              : unsupportedFileDescription
+          }
           aria-expanded={row.kind === "directory" && row.hasChildren ? row.isExpanded : undefined}
           aria-label={
             row.kind === "draft"
@@ -911,7 +918,7 @@ function ArticleNavigatorTreeItem({
           aria-setsize={row.setSize}
           className={cn(
             buttonVariants({ variant: "ghost" }),
-            "active-item-marker h-8 w-full justify-start gap-1 rounded-md pr-2 text-[0.8125rem]/5 font-normal hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
+            "active-item-marker h-8 w-full justify-start gap-1 rounded-md pr-2 text-[0.8125rem]/5 font-normal [--active-item-font-weight:var(--font-weight-normal)] hover:bg-muted/70 aria-expanded:bg-transparent aria-expanded:text-inherit dark:aria-expanded:bg-transparent",
             isUnsupportedFile && "text-muted-foreground hover:text-muted-foreground",
           )}
           data-active={row.kind === "file" ? row.isActive : undefined}
@@ -982,6 +989,11 @@ function FileRowContent({
         kind={row.kind === "file" ? "article" : getFileIconKind(row.name)}
       />
       {nameEditor ?? <span className="min-w-0 truncate">{row.name}</span>}
+      {row.kind === "file" && nameEditor === null && (
+        <span aria-hidden className="ml-auto grid w-4 shrink-0 place-items-center">
+          {row.isDirty && <span className="size-2 rounded-full bg-muted-foreground" />}
+        </span>
+      )}
     </>
   );
 }

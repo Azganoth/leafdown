@@ -241,12 +241,13 @@ describe("article-navigator", () => {
     expect(emptyDirectory).not.toHaveAttribute("aria-disabled");
   });
 
-  it("marks the open document as the selected row", () => {
+  it("marks the active article and describes unsaved changes independently of selection", () => {
     render(
       <ArticleNavigator
         activeArticlePath="C:/Notes/readme.md"
         folderContext={nestedFolderContext}
         onOpenArticle={vi.fn()}
+        unsavedArticlePaths={["C:/Notes/draft.markdown"]}
       />,
     );
 
@@ -260,6 +261,10 @@ describe("article-navigator", () => {
       ["docs", "false"],
       ["empty", "false"],
     ]);
+    expect(screen.getByRole("treeitem", { name: "draft.markdown" })).toHaveAccessibleDescription(
+      "Unsaved changes",
+    );
+    expect(screen.getByRole("treeitem", { name: "readme.md" })).not.toHaveAccessibleDescription();
     expect(screen.queryByRole("treeitem", { current: "page" })).not.toBeInTheDocument();
   });
 

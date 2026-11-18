@@ -926,11 +926,22 @@ interface ContextSubmenuProps {
 }
 
 function ContextSubmenu({ children, icon: Icon, label, row }: ContextSubmenuProps) {
+  const openedByHover = useRef(false);
+  // Base UI's Menu.Popup honors initialFocus at runtime but omits it from its public types.
+  const submenuFocus = { initialFocus: () => (openedByHover.current ? false : null) };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu
+      onOpenChange={(open, { reason }) => {
+        if (open) {
+          openedByHover.current = reason === "trigger-hover";
+        }
+      }}
+    >
       <ToolbarButton
         render={
           <DropdownMenuTrigger
+            openOnHover
             render={
               <Button
                 className={cn(
@@ -953,7 +964,13 @@ function ContextSubmenu({ children, icon: Icon, label, row }: ContextSubmenuProp
         </span>
         <ChevronRightIcon className="text-muted-foreground" />
       </ToolbarButton>
-      <DropdownMenuContent align="start" className="w-56" side="right" sideOffset={8}>
+      <DropdownMenuContent
+        align="start"
+        className="w-56"
+        side="right"
+        sideOffset={8}
+        {...submenuFocus}
+      >
         {children}
       </DropdownMenuContent>
     </DropdownMenu>

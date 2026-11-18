@@ -667,7 +667,16 @@ describe("desktop block selection", () => {
     await expect($('[data-slot="toast"][data-type="success"]')).not.toExist();
     await dismissToasts();
 
-    await browser.action("pointer").move({ origin: "viewport", x: 1, y: 1 }).perform();
+    await moveToHandle($(await getHandleSelectorForText("Nested second")));
+    await browser.waitUntil(
+      async () => (await findGeometryForText("Nested second"))?.handleOpacity === "1",
+      { timeoutMsg: "Moving over the nested handle did not reveal it." },
+    );
+    await $('[data-testid="status-bar"]').moveTo();
+    await browser.waitUntil(
+      async () => (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
+      { timeoutMsg: "A block handle stayed visible after moving to the status bar." },
+    );
 
     const wideGeometry = await handleGeometry();
     expect(wideGeometry.length).toBeGreaterThanOrEqual(9);
@@ -698,10 +707,6 @@ describe("desktop block selection", () => {
     expect(wideGeometry.every(({ label, tabIndex }) => Boolean(label) && tabIndex === -1)).toBe(
       true,
     );
-    await browser.waitUntil(async () =>
-      (await handleGeometry()).every(({ handleOpacity }) => handleOpacity === "0"),
-    );
-
     const listItemLefts = new Set(
       wideGeometry.filter(({ blockTag }) => blockTag === "LI").map(({ blockLeft }) => blockLeft),
     );
@@ -749,9 +754,6 @@ describe("desktop block selection", () => {
 
     const first = $(await getHandleSelectorForText("Nested first"));
     await moveToHandle(first);
-    await first.execute((handle) =>
-      handle.dispatchEvent(new MouseEvent("mouseover", { bubbles: true })),
-    );
     await browser.waitUntil(async () => {
       const geometry = await handleGeometry();
       const hovered = geometry.find(({ pos }) => pos === firstGeometry.pos);

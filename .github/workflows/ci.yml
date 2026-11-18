@@ -121,7 +121,7 @@ jobs:
       - changes
       - lint-workflows
     runs-on: windows-2025-vs2026
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       CARGO_PROFILE_DEV_DEBUG: 0
 

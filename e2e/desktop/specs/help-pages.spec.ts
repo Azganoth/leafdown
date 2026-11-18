@@ -28,6 +28,13 @@ describe("desktop Help pages", () => {
     await expect($("[data-slot='dialog-title']")).toHaveText("Getting started");
     await browser.waitUntil(
       () =>
+        browser.execute(
+          () => document.activeElement?.matches('[data-slot="dialog-content"][data-open]') ?? false,
+        ),
+      { timeoutMsg: "Getting started did not focus the dialog on open." },
+    );
+    await browser.waitUntil(
+      () =>
         browser.execute(() => {
           const viewport = document
             .querySelector("[role='dialog'] article")
@@ -76,6 +83,7 @@ describe("desktop Help pages", () => {
     if (!scrolling || scrolling.after <= 0) {
       throw new Error(`Help did not scroll: ${JSON.stringify(scrolling)}`);
     }
+    expect(scrolling.before).toBe(0);
 
     await $("article").$("button=Markdown reference").click();
     await expect($("[data-slot='dialog-title']")).toHaveText("Markdown reference");
@@ -133,7 +141,11 @@ describe("desktop Help pages", () => {
             await openMenu("Help");
             await $(`aria/${page}`).click();
             for await (const example of $$("article [data-help-example]")) {
-              await example.scrollIntoView();
+              await browser.execute((element) => {
+                element
+                  .querySelector(":scope > div > div:last-child")!
+                  .scrollIntoView({ block: "center" });
+              }, example);
               await browser.waitUntil(
                 () =>
                   browser.execute((element) => {

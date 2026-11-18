@@ -296,6 +296,21 @@ describe("desktop heading outline", () => {
       await rows[3].getAttribute("data-outline-position"),
     );
     expect(await rows[0].getAttribute("aria-current")).toBe("location");
+    const marks = await browser.execute(
+      (selector) =>
+        [...document.querySelectorAll(`${selector} .leafdown-outline-mark`)].map((mark) => {
+          const { x, width } = mark.getBoundingClientRect();
+          return {
+            center: x + width / 2,
+            size: Number.parseFloat(getComputedStyle(mark, "::before").width),
+          };
+        }),
+      OUTLINE,
+    );
+    expect(marks[0].size).toBeGreaterThan(marks[1].size);
+    expect(marks.every(({ center, size }) => center === marks[0].center && size % 2 === 0)).toBe(
+      true,
+    );
 
     await hoverRow(await rows[3].getAttribute("data-outline-position"));
     await browser.waitUntil(isOutlineOpen, { timeoutMsg: "Hovering did not open the outline." });

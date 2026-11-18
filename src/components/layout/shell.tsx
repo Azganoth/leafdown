@@ -104,6 +104,7 @@ export function Shell() {
   const commands = useAppCommands();
   const sessionMode = useSessionStore(getSessionMode);
   const activeDocument = useSessionStore((state) => state.activeDocument);
+  const tabs = useSessionStore((state) => state.tabs);
   const folderContext = useSessionStore((state) => state.folderContext);
   const folderContextLoadPath = useSessionStore((state) => state.folderContextLoad?.path ?? null);
   const sidebarVisible = useSettingsStore((state) => state.sidebarVisible);
@@ -112,6 +113,9 @@ export function Shell() {
   const folderSearchOpen = useFolderSearchStore((state) => state.open);
   const statusBarVisible = useSettingsStore((state) => state.statusBarVisible);
   const activeArticlePath = activeDocument?.status === "saved" ? activeDocument.path : null;
+  const unsavedArticlePaths = tabs.flatMap(({ document }) =>
+    document.status === "saved" && document.isDirty ? [document.path] : [],
+  );
   const sidebarAvailable = commands.commandState("view.toggleSidebar").enabled;
   const sidebarShown = sidebarAvailable && sidebarVisible;
   const articleNavigatorShown = Boolean(folderContext || folderContextLoadPath) && sidebarVisible;
@@ -250,6 +254,7 @@ export function Shell() {
                           onKeepArticle={handleKeepArticle}
                           onOpenArticle={handleOpenArticle}
                           showAllFiles={showAllFiles}
+                          unsavedArticlePaths={unsavedArticlePaths}
                         />
                       )}
                     </aside>

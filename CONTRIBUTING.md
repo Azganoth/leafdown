@@ -189,7 +189,7 @@ Frontend checks enforce a coverage floor. It is a ratchet set just below the mea
 
 CI and release jobs share [the setup action](./.github/actions/setup/action.yml), which uses `pnpm/setup` to install manifest-selected pnpm and Node.js, cache the package store, and require a frozen lockfile. Rust jobs provide a cache workspace mapping to also install the pinned toolchain and restore the appropriate target directory; CI saves Rust caches only on `main`.
 
-`Workflow Checks` runs pinned actionlint, including ShellCheck, before the application jobs. It checks all workflow files, including the release workflow. CI jobs have explicit time limits: five minutes for workflow linting and the gate, twenty minutes for each application job, and forty-five minutes for the release build.
+`Workflow Checks` runs pinned actionlint, including ShellCheck, before the application jobs. It checks all workflow files, including the release workflow. Workflow linting and the gate have five minutes. Frontend and backend checks have twenty minutes each, Desktop E2E has twenty-five minutes including the Windows build and teardown, and the release build has forty-five minutes.
 
 `Change classification and documentation checks` compares the complete PR diff or pushed range. Only the maintenance prose named by [the documentation policy](./.github/ci/docs-only.json) can skip application jobs. Bundled `docs/help/`, `CHANGELOG.md`, fixtures, executable/configuration files, and unrecognized paths require full CI. Root maintenance docs, technical Markdown, and the named contribution templates use the lightweight route; images and other extensions are not implicitly exempt. Manual runs always use full CI.
 

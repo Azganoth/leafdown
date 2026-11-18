@@ -12,6 +12,28 @@ import {
   selectFileMenuItem,
 } from "../support/ui.js";
 
+const hoverSubmenu = async (trigger: WebdriverIO.Element) => {
+  const point = await trigger.execute(async (element) => {
+    const popup = element.closest('[role="toolbar"], [role="menu"]');
+    await Promise.allSettled(popup?.getAnimations().map((animation) => animation.finished) ?? []);
+    const { left, top, width, height } = element.getBoundingClientRect();
+    const x = Math.round(left + width / 2);
+    const y = Math.round(top + height / 2);
+    if (!element.contains(document.elementFromPoint(x, y))) {
+      throw new Error(`Submenu trigger is covered at its center: ${element.textContent}`);
+    }
+
+    // The embedded WebDriver sends mousemove without the mouseenter that starts hover tracking.
+    element.dispatchEvent(new MouseEvent("mouseenter", { clientX: x, clientY: y }));
+    return { x, y };
+  });
+  await browser
+    .action("pointer")
+    .move({ duration: 0, origin: "viewport", ...point })
+    .perform();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+};
+
 describe("desktop callouts", () => {
   it("renders, edits, folds, saves, and reopens each supported form", async () => {
     const { callouts } = await getDesktopE2ERunContext();
@@ -191,7 +213,7 @@ describe("desktop callouts", () => {
     });
   }
 
-  it("inserts another dialect from the context popup and lists GitHub types first afterward", async () => {
+  it("inserts another dialect through hovered context submenus and lists GitHub types first afterward", async () => {
     const active = "[data-testid=active-document-host]";
 
     await selectFileMenuItem("New");
@@ -213,9 +235,9 @@ describe("desktop callouts", () => {
     });
     const popup = $("[data-testid=editor-context-popup]");
     await expect(popup).toBeDisplayed();
-    await popup.$("aria/Insert").click();
-    await (await findMenuItem((text) => text === "Callout")).click();
-    await (await findMenuItem((text) => text === "VitePress")).click();
+    await hoverSubmenu(await popup.$("button=Insert").getElement());
+    await hoverSubmenu(await findMenuItem((text) => text === "Callout"));
+    await hoverSubmenu(await findMenuItem((text) => text === "VitePress"));
     const details = await findMenuItem((text) => text === "Details");
     await expect(details.$("[data-slot=callout-type-icon]")).toBeDisplayed();
     await details.click();

@@ -439,17 +439,18 @@ class TableControlsView {
     ] as const) {
       const range =
         tablePos === null ? null : getSelectedTableAxis(this.view.state, tablePos, axis);
-      grip.toggleAttribute(
-        "data-selected",
-        range !== null && index >= range.from && index < range.to,
-      );
+      const isSelected = range !== null && index >= range.from && index < range.to;
+      grip.toggleAttribute("data-selected", isSelected);
+      if (axis === "row") {
+        grip.toggleAttribute("data-fixed", index === 0 || (isSelected && range.from === 0));
+      }
     }
 
     this.place(
       this.rowGrip,
       geometry.rowControlsX,
       row ? row.top + row.height / 2 : NaN,
-      hovered.row >= 1 && row !== undefined,
+      row !== undefined,
     );
     this.place(
       this.columnGrip,
@@ -595,22 +596,15 @@ class TableControlsView {
 
     const axis: TableAxis = event.currentTarget === this.rowGrip ? "row" : "column";
     const index = axis === "row" ? hovered.row : hovered.col;
-    // The header row never moves, so a row range reaching it is not one a grip carries.
-    const first = axis === "row" ? 1 : 0;
     const selected = getSelectedTableAxis(this.view.state, tablePos, axis);
     let anchor = index;
     let range: TableAxisRange = { from: index, to: index + 1 };
     let collapseTo: number | null = null;
 
-    if (event.shiftKey && selected && selected.anchor >= first) {
+    if (event.shiftKey && selected) {
       anchor = selected.anchor;
       range = { from: Math.min(anchor, index), to: Math.max(anchor, index) + 1 };
-    } else if (
-      selected &&
-      selected.from >= first &&
-      selected.from <= index &&
-      index < selected.to
-    ) {
+    } else if (selected && selected.from <= index && index < selected.to) {
       range = selected;
       collapseTo = index;
     }

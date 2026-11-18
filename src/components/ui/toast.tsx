@@ -29,6 +29,8 @@ import {
 } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
+const TOAST_ACTION_CLASS_NAME = "mt-2 h-auto min-h-8 max-w-full self-start py-1 whitespace-normal";
+
 function ToastProvider({ ...props }: ToastPrimitive.Provider.Props) {
   return <ToastPrimitive.Provider {...props} />;
 }
@@ -87,7 +89,7 @@ function ToastContent({ className, ...props }: ToastPrimitive.Content.Props) {
     <ToastPrimitive.Content
       data-slot="toast-content"
       className={cn(
-        "flex h-full items-center gap-3 overflow-hidden p-4 transition-opacity duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] data-behind:opacity-0 data-expanded:opacity-100",
+        "flex h-full items-start gap-3 overflow-hidden p-4 transition-opacity duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] data-behind:opacity-0 data-expanded:opacity-100",
         className,
       )}
       {...props}
@@ -124,7 +126,7 @@ function ToastAction({
     <ToastPrimitive.Action
       data-slot="toast-action"
       render={render}
-      className={cn("shrink-0", className)}
+      className={cn(TOAST_ACTION_CLASS_NAME, className)}
       {...props}
     />
   );
@@ -144,7 +146,7 @@ function ToastClose({
       aria-label={t("ui.toast.close")}
       render={render}
       className={cn(
-        "relative shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
+        "relative -mt-1.5 -mr-1.5 shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
         className,
       )}
       {...props}
@@ -184,7 +186,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   return (
     <span
       data-slot="toast-icon"
-      className="shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+      className="mt-0.5 shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
     >
       {icon}
     </span>
@@ -200,7 +202,9 @@ function ToastActionMenu({ menu }: ToastActionMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="shrink-0" />}>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="sm" className={TOAST_ACTION_CLASS_NAME} />}
+      >
         {menu.label}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="bottom" className="w-auto overflow-hidden">
@@ -211,7 +215,7 @@ function ToastActionMenu({ menu }: ToastActionMenuProps) {
                 <DropdownMenuItem
                   key={index}
                   onClick={item.run}
-                  className="break-all whitespace-normal"
+                  className="wrap-anywhere whitespace-normal"
                 >
                   {item.label}
                 </DropdownMenuItem>
@@ -223,7 +227,11 @@ function ToastActionMenu({ menu }: ToastActionMenuProps) {
               onValueChange={(index: string) => menu.items[Number(index)]?.run()}
             >
               {menu.items.map((item, index) => (
-                <DropdownMenuRadioItem key={item.label} value={String(index)}>
+                <DropdownMenuRadioItem
+                  key={item.label}
+                  value={String(index)}
+                  className="wrap-anywhere whitespace-normal"
+                >
                   {item.label}
                 </DropdownMenuRadioItem>
               ))}
@@ -242,15 +250,15 @@ function ToastList() {
     <Toast key={toastItem.id} toast={toastItem}>
       <ToastContent>
         <ToastIcon type={toastItem.type} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1 wrap-anywhere">
           <ToastTitle />
           <ToastDescription />
+          {toastItem.data?.actionMenu ? (
+            <ToastActionMenu menu={toastItem.data.actionMenu} />
+          ) : (
+            <ToastAction />
+          )}
         </div>
-        {toastItem.data?.actionMenu ? (
-          <ToastActionMenu menu={toastItem.data.actionMenu} />
-        ) : (
-          <ToastAction />
-        )}
         <ToastClose />
       </ToastContent>
     </Toast>

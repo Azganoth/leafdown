@@ -177,7 +177,7 @@
   }
 
   [data-level="1"] > &::before {
-    @apply size-[7px];
+    @apply size-2;
   }
 
   [data-level="2"] > &::before {
@@ -187,7 +187,7 @@
   [data-level="4"] > &::before,
   [data-level="5"] > &::before,
   [data-level="6"] > &::before {
-    @apply size-[3px];
+    @apply bg-muted-foreground/30;
   }
 
   [data-preview] > &::before {

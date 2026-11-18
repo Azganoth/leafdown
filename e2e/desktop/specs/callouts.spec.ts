@@ -12,6 +12,20 @@ import {
   selectFileMenuItem,
 } from "../support/ui.js";
 
+const hoverSubmenu = async (trigger: WebdriverIO.Element) => {
+  const { x, y } = await trigger.execute(async (element) => {
+    const popup = element.closest('[role="toolbar"], [role="menu"]');
+    await Promise.allSettled(popup?.getAnimations().map((animation) => animation.finished) ?? []);
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left + rect.width / 2),
+      y: Math.round(rect.top + rect.height / 2),
+    };
+  });
+  await browser.action("pointer").move({ duration: 0, origin: "viewport", x, y }).perform();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+};
+
 describe("desktop callouts", () => {
   it("renders, edits, folds, saves, and reopens each supported form", async () => {
     const { callouts } = await getDesktopE2ERunContext();
@@ -213,9 +227,9 @@ describe("desktop callouts", () => {
     });
     const popup = $("[data-testid=editor-context-popup]");
     await expect(popup).toBeDisplayed();
-    await popup.$("aria/Insert").moveTo();
-    await (await findMenuItem((text) => text === "Callout")).moveTo();
-    await (await findMenuItem((text) => text === "VitePress")).moveTo();
+    await hoverSubmenu(await popup.$("button=Insert").getElement());
+    await hoverSubmenu(await findMenuItem((text) => text === "Callout"));
+    await hoverSubmenu(await findMenuItem((text) => text === "VitePress"));
     const details = await findMenuItem((text) => text === "Details");
     await expect(details.$("[data-slot=callout-type-icon]")).toBeDisplayed();
     await details.click();

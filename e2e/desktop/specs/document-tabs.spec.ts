@@ -54,6 +54,14 @@ const getTabGeometry = () =>
     }),
   );
 
+const getFilenameGeometry = (item: WebdriverIO.Element) =>
+  item.execute((row) => {
+    const range = document.createRange();
+    range.selectNodeContents(row.querySelector(".truncate")!);
+    const { x, width } = range.getBoundingClientRect();
+    return { x, width };
+  });
+
 describe("desktop document tabs", () => {
   it("keeps each tab's unsaved edits and closes the window through one unsaved-documents dialog", async () => {
     const diagnostics = await getDiagnosticsSummary();
@@ -73,24 +81,20 @@ describe("desktop document tabs", () => {
 
     await expect(await findDocumentTab(separatorName)).toHaveAttribute("aria-selected", "true");
     const tabGeometry = await getTabGeometry();
-    const separatorRow = await findTreeItem(separatorName);
-    const getFilenameGeometry = () =>
-      separatorRow.execute((row) => {
-        const range = document.createRange();
-        range.selectNodeContents(row.querySelector(".truncate")!);
-        const { x, width } = range.getBoundingClientRect();
-        return { x, width };
-      });
-    const filenameGeometry = await getFilenameGeometry();
+    const filenameGeometry = await getFilenameGeometry(await findTreeItem(separatorName));
     await appendToActiveEditor("Separator tab edit");
-    await expect(separatorRow).toHaveAttribute("aria-description", "Unsaved changes");
+    await expect(await findTreeItem(separatorName)).toHaveAttribute(
+      "aria-description",
+      "Unsaved changes",
+    );
 
     await (await findDocumentTab(calloutsName)).click();
     await expect(await findDocumentTab(calloutsName)).toHaveAttribute("aria-selected", "true");
     expect(await getTabGeometry()).toEqual(tabGeometry);
-    await expect(separatorRow).toHaveAttribute("aria-selected", "false");
-    await expect(separatorRow).toHaveAttribute("aria-description", "Unsaved changes");
-    expect(await getFilenameGeometry()).toEqual(filenameGeometry);
+    const inactiveSeparatorRow = await findTreeItem(separatorName);
+    await expect(inactiveSeparatorRow).toHaveAttribute("aria-selected", "false");
+    await expect(inactiveSeparatorRow).toHaveAttribute("aria-description", "Unsaved changes");
+    expect(await getFilenameGeometry(inactiveSeparatorRow)).toEqual(filenameGeometry);
     await expect($(ACTIVE_EDITOR)).not.toHaveText(expect.stringContaining("Separator tab edit"));
     await appendToActiveEditor("Callouts tab edit");
 

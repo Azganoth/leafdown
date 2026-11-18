@@ -1402,17 +1402,11 @@
   inset-block-start: calc(var(--leafdown-block-first-line) / 2 - 0.5rem);
 }
 
-.leafdown-block-gutter[data-hovered] .leafdown-block-handle {
+.leafdown-block-gutter:is([data-hovered], [data-handle-hovered]) .leafdown-block-handle {
   @apply opacity-100;
 }
 
-.leafdown-block-gutter[data-handle-hovered] .leafdown-block-handle,
-.leafdown-block-handle:hover {
-  @apply opacity-100;
-}
-
-.leafdown-block-gutter[data-handle-hovered] .leafdown-block-handle::before,
-.leafdown-block-handle:hover::before {
+.leafdown-block-gutter[data-handle-hovered] .leafdown-block-handle::before {
   @apply h-full bg-foreground/70;
   inset-block-start: 0;
 }
